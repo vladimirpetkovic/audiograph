@@ -69,7 +69,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .mbtn:hover{color:var(--tx2);border-color:var(--border-h)}
 .mbtn.on{color:var(--accent2);border-color:var(--accent2);background:var(--accent-g)}
 .mbtn.amber{border-color:var(--crop);color:var(--crop)}
-.mbtn.amber.on{color:#fbbf24;border-color:#fbbf24;background:rgba(251,191,36,0.08)}
+.mbtn.amber.on{color:#f87171;border-color:#f87171;background:rgba(248,113,113,0.12)}
 .mode-btns{display:flex;gap:3px;flex-wrap:wrap}
 /* COLOR PANEL INTERNALS */
 .cp-preview{height:16px;border-radius:3px;margin-bottom:8px;border:1px solid var(--border)}
@@ -142,8 +142,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow"><span class="prow-label">Appear.</span><input type="range" min="0" max="100" value="0" step="1" id="rAppear" oninput="upR()"><span class="prow-val" id="vrAppear">0%</span></div>
         <div class="prow"><span class="prow-label">Outline</span><input type="range" min="0" max="100" value="0" step="1" id="rOutline" oninput="upR()"><span class="prow-val" id="vrOutline">0%</span></div>
         <div class="prow"><span class="prow-label">Color</span><input type="range" min="0" max="100" value="0" step="1" id="rColor" oninput="upR()"><span class="prow-val" id="vrColor">0%</span></div>
-        <div class="prow"><span class="prow-label">Disorder</span><input type="range" min="0" max="100" value="0" step="1" id="rDisorder" oninput="upR()"><span class="prow-val" id="vrDisorder">0%</span></div>
-        <div class="prow"><button class="mbtn" onclick="regenSeed()" style="margin-left:auto">Re-roll</button><button class="mbtn" id="morphBtn" onclick="toggleMorph()" style="margin-left:4px">Morph</button><button class="mbtn" onclick="randomizeAll()" style="margin-left:4px">Random</button></div>
+        <div class="prow"><button class="mbtn" onclick="regenSeed()" style="margin-left:auto">Re-roll</button><button class="mbtn" id="morphBtn" onclick="toggleMorph()" style="margin-left:4px">Auto</button><button class="mbtn" onclick="randomizeAll()" style="margin-left:4px">Random</button></div>
       </div>
     </div>
     <!-- DISTRIBUTION -->
@@ -193,11 +192,12 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="panel" id="panelAppear">
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><span class="prow-label">Height</span><input type="range" min="20" max="100" value="80" step="5" id="pHeight" oninput="upP()"><span class="prow-val" id="vHeight">80%</span></div>
+        <div class="prow"><span class="prow-label">Height</span><input type="range" min="5" max="300" value="80" step="5" id="pHeight" oninput="upP()"><span class="prow-val" id="vHeight">80%</span></div>
         <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="15" value="1" step="0.25" id="pThick" oninput="upP()"><span class="prow-val" id="vThick">1px</span></div>
         <div class="prow"><span class="prow-label">Vary height</span><div class="mode-btns"><button class="mbtn on" onclick="setVH(true,this)">Yes</button><button class="mbtn" onclick="setVH(false,this)">No</button></div></div>
         <div class="prow"><span class="prow-label">Vary thick</span><div class="mode-btns"><button class="mbtn" onclick="setVT(true,this)">Yes</button><button class="mbtn on" onclick="setVT(false,this)">No</button></div></div>
         <div class="prow"><span class="prow-label">Zoom</span><input type="range" min="50" max="400" value="100" step="10" id="pZoom" oninput="upP()"><span class="prow-val" id="vZoom">100%</span></div>
+        <div class="prow"><span class="prow-label">Zoom→loud</span><div class="mode-btns"><button class="mbtn" onclick="setZoomLoud(true,this)">On</button><button class="mbtn on" onclick="setZoomLoud(false,this)">Off</button></div></div>
       </div>
     </div>
     <!-- LINE STYLE -->
@@ -237,6 +237,15 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
         <div class="prow"><span class="prow-label">Mirror</span><div class="mode-btns"><button class="mbtn" onclick="setMirror(true,this)">Yes</button><button class="mbtn on" onclick="setMirror(false,this)">No</button></div></div>
         <div class="prow"><span class="prow-label">Spin</span><input type="range" min="0" max="5" value="0" step="0.5" id="pSpin" oninput="upP()"><span class="prow-val" id="vSpin">0</span></div>
+        <div class="prow"><span class="prow-label">Speed</span><input type="range" min="0.1" max="5" value="1" step="0.1" id="pSpeed" oninput="upP()"><span class="prow-val" id="vSpeed">1×</span></div>
+        <div class="prow"><span class="prow-label">Disorder</span><input type="range" min="0" max="100" value="0" step="1" id="rDisorder" oninput="upP()"><span class="prow-val" id="vrDisorder">0%</span></div>
+        <div class="prow"><span class="prow-label">Drop</span><div class="mode-btns"><button class="mbtn" onclick="setDrop(true,this)">On</button><button class="mbtn on" onclick="setDrop(false,this)">Off</button></div></div>
+        <div id="dropParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="1" max="100" value="30" step="1" id="pDropSens" oninput="upP()"><span class="prow-val" id="vDropSens">30</span></div>
+          <div class="prow"><span class="prow-label">Intensity</span><div class="mode-btns"><button class="mbtn" onclick="setDropIntensity('subtle',this)">Subtle</button><button class="mbtn on" onclick="setDropIntensity('medium',this)">Medium</button><button class="mbtn" onclick="setDropIntensity('wild',this)">Wild</button></div></div>
+          <div class="prow"><span class="prow-label">Switch</span><div class="mode-btns"><button class="mbtn" onclick="setDropSwitch('layout',this)">Layout</button><button class="mbtn" onclick="setDropSwitch('colors',this)">Colors</button><button class="mbtn" onclick="setDropSwitch('style',this)">Style</button><button class="mbtn" onclick="setDropSwitch('distort',this)">Distort</button></div></div>
+          <div class="prow" style="justify-content:flex-end"><span id="dropIndicator" style="font-size:.5rem;color:var(--tx3)">waiting...</span></div>
+        </div>
         <div class="prow"><span class="prow-label">Twist</span><input type="range" min="-100" max="100" value="0" step="1" id="pTwist" oninput="upP()"><span class="prow-val" id="vTwist">0</span></div>
         <div class="prow"><span class="prow-label">Bulge</span><input type="range" min="-100" max="100" value="0" step="1" id="pBulge" oninput="upP()"><span class="prow-val" id="vBulge">0</span></div>
         <div class="prow"><span class="prow-label">Wave</span><input type="range" min="0" max="100" value="0" step="1" id="pWave" oninput="upP()"><span class="prow-val" id="vWave">0</span></div>
@@ -305,7 +314,7 @@ function togglePanel(id){document.getElementById(id).classList.toggle('closed')}
 
 // Params
 function P(){return{lines:+document.getElementById('pLines').value,contrast:+document.getElementById('pContrast').value/100,height:+document.getElementById('pHeight').value/100,thick:+document.getElementById('pThick').value}}
-function upP(){document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
+function upP(){document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
   document.getElementById('vCircleInner').textContent=document.getElementById('pCircleInner').value+'%';
   document.getElementById('vKalSegments').textContent=document.getElementById('pKalSegments').value;
   document.getElementById('vKalInner').textContent=document.getElementById('pKalInner').value+'%';
@@ -330,13 +339,14 @@ function setLayout(m,btn){layoutMode=m;btn.parentElement.querySelectorAll('.mbtn
 function setAspect(r,btn){aspectRatio=r;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
 
 // Effects
-var mirrorOn=false,spinAngle=0,playMode='continuous';
+var mirrorOn=false,spinAngle=0,playMode='continuous',zoomLoud=false;
 function setMirror(v,btn){mirrorOn=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
+function setZoomLoud(v,btn){zoomLoud=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
 function setPlayMode(m,btn){playMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
 
 // Reset all
 function resetAll(){
-  var defs={pLines:350,pContrast:75,pHeight:80,pThick:1,pZoom:100,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80};
+  var defs={pLines:350,pContrast:75,pHeight:80,pThick:1,pZoom:100,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80};
   for(var id in defs){var el=document.getElementById(id);if(el)el.value=defs[id]}
   colorMode='toneramp';varyHeight=true;varyThick=false;showOutline=false;outlineStyle='solid';mirrorOn=false;playMode='continuous';spinAngle=0;
   layoutMode='linear';document.getElementById('app').classList.remove('circle-mode');
@@ -363,8 +373,7 @@ function randomizeAll(){
   // Sliders
   var sets={pLines:ri(80,800),pContrast:ri(5,100),pHeight:ri(20,100),pThick:+(rr(0.5,10)).toFixed(2),
     pOutline:+(rr(0.5,8)).toFixed(2),pOutlineDist:ri(0,30),pOutlineCount:ri(1,6),pOutlineSpace:ri(1,20),
-    pSpin:+(rr(0,5)).toFixed(1),pAmplify:+(rr(0.5,3)).toFixed(1),pTwist:ri(-60,60),pBulge:ri(-50,50),pWave:ri(0,60),pWaveFreq:ri(1,15),pShear:ri(-50,50),
-    rGlobal:ri(0,60),rDist:ri(0,50),rAppear:ri(0,50),rOutline:ri(0,40),rColor:ri(0,60),rDisorder:ri(0,50),
+    pSpin:+(rr(0,5)).toFixed(1),pSpeed:+(rr(0.3,3)).toFixed(1),pAmplify:+(rr(0.5,3)).toFixed(1),pTwist:ri(-60,60),pBulge:ri(-50,50),pWave:ri(0,60),pWaveFreq:ri(1,15),pShear:ri(-50,50),rDisorder:ri(0,60),
     pCircleInner:ri(0,60),pKalSegments:ri(3,12),pKalInner:ri(0,40),
     pSpiralTurns:+(rr(1,15)).toFixed(1),pSpiralInner:ri(0,40),pSpiralSpread:ri(30,100),
     pFibDensity:ri(50,100),pFibInner:ri(0,30),pPhylDiv:ri(-40,40),pPhylDensity:ri(50,100),pPhylInner:ri(0,30),pSineWaves:+(rr(0.5,8)).toFixed(1),pSineAmp:ri(30,100)};
@@ -418,7 +427,7 @@ function randomizeAll(){
 // --- PRESETS ---
 function getState(){
   var sliders={};
-  ['pLines','pContrast','pHeight','pThick','pZoom','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp'].forEach(function(id){
+  ['pLines','pContrast','pHeight','pThick','pZoom','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp'].forEach(function(id){
     var el=document.getElementById(id);if(el)sliders[id]=parseFloat(el.value);
   });
   return{sliders:sliders,colorMode:colorMode,varyHeight:varyHeight,varyThick:varyThick,showOutline:showOutline,outlineStyle:outlineStyle,mirrorOn:mirrorOn,playMode:playMode,layoutMode:layoutMode,lineShape:lineShape,solidColor:solidColor,toneStops:toneStops.slice(),simpleStops:simpleStops.slice(),canvasBg:canvasBg,seeds:randSeeds.slice()};
@@ -507,16 +516,23 @@ var morphTargets=[
   {id:'rOutline',vid:'vrOutline',min:0,max:30,speed:0.19,phase:3.8},
   {id:'rColor',vid:'vrColor',min:0,max:50,speed:0.13,phase:5.1},
   {id:'pContrast',vid:'vContrast',min:30,max:100,speed:0.11,phase:0.7,suffix:'%'},
-  {id:'pHeight',vid:'vHeight',min:40,max:100,speed:0.09,phase:1.9,suffix:'%'},
+  {id:'pHeight',vid:'vHeight',min:40,max:200,speed:0.09,phase:1.9,suffix:'%'},
   {id:'pThick',vid:'vThick',min:0.5,max:6,speed:0.15,phase:3.3,suffix:'px'},
+  {id:'rDisorder',vid:'vrDisorder',min:0,max:60,speed:0.14,phase:6.2},
+  {id:'pTwist',vid:'vTwist',min:-40,max:40,speed:0.08,phase:0.3},
+  {id:'pBulge',vid:'vBulge',min:-30,max:30,speed:0.06,phase:2.1},
+  {id:'pWave',vid:'vWave',min:0,max:40,speed:0.1,phase:4.6},
+  {id:'pShear',vid:'vShear',min:-30,max:30,speed:0.07,phase:5.8},
+  {id:'pOutlineDist',vid:'vOutlineDist',min:0,max:15,speed:0.12,phase:1.5},
+  {id:'pOutlineSpace',vid:'vOutlineSpace',min:1,max:12,speed:0.1,phase:3.0},
 ];
 function toggleMorph(){morphing=!morphing;document.getElementById('morphBtn').classList.toggle('on',morphing);if(morphing){morphT=0;morphLoop()}else{if(morphRAF)cancelAnimationFrame(morphRAF);morphRAF=null}}
-function morphLoop(){if(!morphing){morphRAF=null;return}morphRAF=requestAnimationFrame(morphLoop);morphT+=0.016;
+function morphLoop(){if(!morphing){morphRAF=null;return}morphRAF=requestAnimationFrame(morphLoop);var speed=+document.getElementById('pSpeed').value;morphT+=0.016*speed;
   for(var i=0;i<morphTargets.length;i++){var mt=morphTargets[i];var v=mt.min+(mt.max-mt.min)*(.5+.5*Math.sin(morphT*mt.speed+mt.phase));var el=document.getElementById(mt.id);if(el){el.value=v;var vEl=document.getElementById(mt.vid);if(vEl)vEl.textContent=mt.suffix?Math.round(v)+mt.suffix:Math.round(v)+'%'}}
   // Slowly shift seed values
   for(var i=0;i<randSeeds.length;i++)randSeeds[i]=(randSeeds[i]+Math.sin(morphT*0.05+i*0.1)*0.001+1)%1;
   renderDensity()}
-function upR(){document.getElementById('vrGlobal').textContent=document.getElementById('rGlobal').value+'%';document.getElementById('vrDist').textContent=document.getElementById('rDist').value+'%';document.getElementById('vrAppear').textContent=document.getElementById('rAppear').value+'%';document.getElementById('vrOutline').textContent=document.getElementById('rOutline').value+'%';document.getElementById('vrColor').textContent=document.getElementById('rColor').value+'%';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';renderDensity()}
+function upR(){document.getElementById('vrGlobal').textContent=document.getElementById('rGlobal').value+'%';document.getElementById('vrDist').textContent=document.getElementById('rDist').value+'%';document.getElementById('vrAppear').textContent=document.getElementById('rAppear').value+'%';document.getElementById('vrOutline').textContent=document.getElementById('rOutline').value+'%';document.getElementById('vrColor').textContent=document.getElementById('rColor').value+'%';renderDensity()}
 function getRand(idx,group){var g=+document.getElementById('rGlobal').value/100;var gr=+document.getElementById(group).value/100;var r=group==='rColor'?gr:Math.max(g,gr);return(randSeeds[idx%randSeeds.length]-0.5)*2*r}
 function getDisorder(idx){var d=+document.getElementById('rDisorder').value/100;return(randSeeds[(idx*7+13)%randSeeds.length]-0.5)*2*d}
 
@@ -619,7 +635,8 @@ function liveAnimLoop(){
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
   var amp=+document.getElementById('pAmplify').value;
-  if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002;wavePhase+=0.05;
+  var speed=+document.getElementById('pSpeed').value;if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002*speed;wavePhase+=0.05*speed;
+  if(dropEnabled&&analyser){if(detectDrop(analyser))triggerDrop();applyDropDecay()}
   // Get live frequency data
   var fd=new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(fd);
@@ -629,6 +646,8 @@ function liveAnimLoop(){
     var sum=0;for(var j=0;j<binsPerLine;j++){var idx=i*binsPerLine+j;if(idx<fd.length)sum+=fd[idx]}
     modVals.push(Math.min(1,sum/(binsPerLine*255)*amp));
   }
+  // Zoom-to-loudness: modulate zoom by average energy
+  if(zoomLoud){var avgE=0;for(var i=0;i<modVals.length;i++)avgE+=modVals[i];avgE/=(modVals.length||1);zoom=zoom*(0.7+avgE*0.8)}
   // Render
   var drawW=sz.W*zoom,drawH=sz.H*zoom;
   var offCv=document.createElement('canvas');offCv.width=Math.round(drawW*sz.dpr);offCv.height=Math.round(drawH*sz.dpr);
@@ -781,6 +800,109 @@ function distortCircular(angle,radius,maxR,cx,cy,dist){
   return{angle:angle,radius:radius};
 }
 
+// --- DROP SWITCHER ---
+var dropEnabled=false,dropIntensity='medium',dropSwitches={layout:false,colors:false,style:false,distort:false};
+var dropHistory=[],dropCooldown=0,dropDecay={twist:0,bulge:0,wave:0};
+var dropEnergyHistory=[];
+var dropQuietFrames=0;
+function setDrop(v,btn){dropEnabled=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');document.getElementById('dropParams').style.display=v?'flex':'none';dropEnergyHistory=[];dropQuietFrames=0}
+function setDropIntensity(v,btn){dropIntensity=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
+function setDropSwitch(key,btn){dropSwitches[key]=!dropSwitches[key];btn.classList.toggle('on',dropSwitches[key])}
+function detectDrop(analyserNode){
+  if(!analyserNode||!dropEnabled)return false;
+  var td=new Uint8Array(analyserNode.frequencyBinCount);
+  analyserNode.getByteFrequencyData(td);
+  // Bass-weighted energy
+  var bassSum=0,bassBins=Math.min(40,td.length);
+  for(var i=0;i<bassBins;i++)bassSum+=td[i];
+  var energy=bassSum/(bassBins*255);
+  dropEnergyHistory.push(energy);
+  if(dropEnergyHistory.length>180)dropEnergyHistory.shift(); // ~3 seconds
+  if(dropCooldown>0){dropCooldown--;return false}
+  if(dropEnergyHistory.length<30)return false;
+  // Compute recent average (last ~0.5s) and background average (0.5s-2s ago)
+  var recentSum=0,recentN=0;
+  for(var i=Math.max(0,dropEnergyHistory.length-8);i<dropEnergyHistory.length;i++){recentSum+=dropEnergyHistory[i];recentN++}
+  var recentAvg=recentN>0?recentSum/recentN:0;
+  // Check: was it quiet before? Look at the period 10-60 frames ago
+  var quietSum=0,quietN=0;
+  var qStart=Math.max(0,dropEnergyHistory.length-60);
+  var qEnd=Math.max(0,dropEnergyHistory.length-10);
+  for(var i=qStart;i<qEnd;i++){quietSum+=dropEnergyHistory[i];quietN++}
+  var quietAvg=quietN>0?quietSum/quietN:0;
+  // Sensitivity: 1=very hard, 100=easy
+  var sensitivity=+document.getElementById('pDropSens').value;
+  // Sensitivity controls both what counts as "quiet" and how much spike is needed
+  // High sensitivity = higher quiet threshold (more things count as quiet) + lower spike ratio needed
+  var quietThreshold=0.1+sensitivity*0.004; // sens 1→0.104, sens 50→0.3, sens 100→0.5
+  var spikeRatio=5-sensitivity*0.038; // sens 1→4.96x, sens 50→3.1x, sens 100→1.2x
+  var minEnergy=0.3-sensitivity*0.002; // sens 1→0.298, sens 50→0.2, sens 100→0.1
+  if(quietAvg<quietThreshold&&recentAvg>Math.max(quietAvg*spikeRatio,quietAvg+0.1)&&recentAvg>minEnergy){
+    dropCooldown=60; // ~1 second cooldown
+    return true;
+  }
+  return false;
+}
+function triggerDrop(){
+  var ind=document.getElementById('dropIndicator');
+  ind.textContent='DROP!';ind.style.color='var(--crop)';
+  setTimeout(function(){ind.textContent='waiting...';ind.style.color='var(--tx3)'},500);
+  var mult=dropIntensity==='subtle'?0.5:dropIntensity==='wild'?1.5:1;
+  var doLayout=dropSwitches.layout===true;
+  var doColors=dropSwitches.colors===true;
+  var doStyle=dropSwitches.style===true;
+  var doDistort=dropSwitches.distort===true;
+  if(doLayout&&Math.random()<0.4*mult){
+    var layouts=['linear','circle','kaleidoscope','spiral','fibonacci','phyllotaxis','sine'];
+    var newL=layouts[Math.floor(Math.random()*layouts.length)];
+    if(newL!==layoutMode){
+      layoutMode=newL;
+      document.getElementById('app').classList.toggle('circle-mode',layoutMode!=='linear');
+      document.querySelectorAll('.layout-opts').forEach(function(el){el.style.display='none'});
+      var opts=document.getElementById('layoutOpts_'+layoutMode);if(opts){opts.style.display='flex';opts.style.flexDirection='column';opts.style.gap='8px'}
+      document.querySelectorAll('.mbtn.amber').forEach(function(b){b.classList.remove('on');var oc=b.getAttribute('onclick')||'';if(oc.indexOf("'"+layoutMode+"'")>-1)b.classList.add('on')});
+    }
+  }
+  if(doColors){
+    var hueShift=(Math.random()-0.5)*360*mult;
+    if(colorMode==='toneramp'){
+      for(var i=0;i<toneStops.length;i++){var rgb=hexToRgb(toneStops[i]);var shifted=shiftHue(rgb,hueShift);toneStops[i]=rgbToHex(shifted[0],shifted[1],shifted[2])}
+    }else if(colorMode==='simpleramp'){
+      for(var i=0;i<simpleStops.length;i++){var rgb=hexToRgb(simpleStops[i]);var shifted=shiftHue(rgb,hueShift);simpleStops[i]=rgbToHex(shifted[0],shifted[1],shifted[2])}
+    }else{
+      var rgb=hexToRgb(solidColor);var shifted=shiftHue(rgb,hueShift);solidColor=rgbToHex(shifted[0],shifted[1],shifted[2]);
+    }
+    buildColorPanel();
+  }
+  if(doStyle&&Math.random()<0.3*mult){
+    var shapes=['straight','dotted','dashed','pins','tapered','caps','cross'];
+    lineShape=shapes[Math.floor(Math.random()*shapes.length)];
+    document.querySelectorAll('#panelStyle .mbtn').forEach(function(b){b.classList.remove('on');var oc=b.getAttribute('onclick')||'';if(oc.indexOf("'"+lineShape+"'")>-1)b.classList.add('on')});
+  }
+  if(doDistort){
+    var punch=60*mult;
+    dropDecay.twist=(Math.random()-0.5)*punch*2;
+    dropDecay.bulge=(Math.random()-0.5)*punch;
+    dropDecay.wave=Math.random()*punch;
+  }
+}
+function applyDropDecay(){
+  if(!dropEnabled||!dropSwitches.distort)return;
+  var rate=0.92;
+  if(Math.abs(dropDecay.twist)>0.5){
+    document.getElementById('pTwist').value=Math.round(dropDecay.twist);
+    dropDecay.twist*=rate;
+  }else if(dropDecay.twist!==0){document.getElementById('pTwist').value=0;dropDecay.twist=0}
+  if(Math.abs(dropDecay.bulge)>0.5){
+    document.getElementById('pBulge').value=Math.round(dropDecay.bulge);
+    dropDecay.bulge*=rate;
+  }else if(dropDecay.bulge!==0){document.getElementById('pBulge').value=0;dropDecay.bulge=0}
+  if(dropDecay.wave>0.5){
+    document.getElementById('pWave').value=Math.round(dropDecay.wave);
+    dropDecay.wave*=rate;
+  }else if(dropDecay.wave!==0){document.getElementById('pWave').value=0;dropDecay.wave=0}
+}
+
 // --- DENSITY DRAW ---
 function drawDensity(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
@@ -794,7 +916,7 @@ function drawDensity(ctx,W,H,values,p,forExport){
   var spacings=[],total=0;for(var i=0;i<n;i++){var d=1+values[i]*p.contrast*6,sp=1/Math.max(d,.05);sp*=(1+getRand(i,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);total+=sp}
   var scale=W/total,mLH=H*p.height,lines=[],x=0;
   for(var i=0;i<n;i++){x+=spacings[i]*scale;var v=values[i];
-    var hRand=1+getRand(i+500,'rAppear')*.4;
+    var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;
     if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(H*.98,lh));
@@ -805,7 +927,7 @@ function drawDensity(ctx,W,H,values,p,forExport){
     var cd=getCamDisp(n>1?i/(n-1):0,i,n,+document.getElementById('camDisplace').value*.005*H);
     dx+=cd.dx;dy+=cd.dy;
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
-    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.25,tw);
+    tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var lx=x+dx,lly=ly+dy;
     // Apply distortions
     var dist=getDistortions();
@@ -821,7 +943,7 @@ function drawDensity(ctx,W,H,values,p,forExport){
 
 function drawCircle(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
-  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.45;
+  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.38;
   var innerPct=+document.getElementById('pCircleInner').value/100;
   var minR=maxR*innerPct,mLH=(maxR-minR)*p.height,lines=[];
   // Compute angular spacings based on contrast (same logic as linear)
@@ -830,16 +952,16 @@ function drawCircle(ctx,W,H,values,p,forExport){
   var angleScale=Math.PI*2/totalSp,angle=-Math.PI/2,cumSp=0;
   for(var i=0;i<n;i++){cumSp+=spacings[i];angle=-Math.PI/2+cumSp*angleScale;
     var v=values[i];
-    var hRand=1+getRand(i+500,'rAppear')*.4;
+    var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;
     if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
-    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.25,tw);
+    tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var r1=minR,r2=minR+lh;
-    angle+=getRand(i+1500,'rDist')*.02;
+    angle+=getRand(i+1500,'rDist')*.15;
     // Disorder: shift angle and radius
-    var dAngle=getDisorder(i)*.15;var dR=getDisorder(i+300)*maxR*.08;
+    var dAngle=getDisorder(i)*.3;var dR=getDisorder(i+300)*maxR*.15;
     // Webcam displacement (radius shift)
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(n>1?i/(n-1):0,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dAngle+=(cb-0.5)*2*camD*.003}
@@ -857,7 +979,7 @@ function drawCircle(ctx,W,H,values,p,forExport){
 
 function drawKaleidoscope(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
-  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.48;
+  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.38;
   var segments=+document.getElementById('pKalSegments').value;
   var innerPct=+document.getElementById('pKalInner').value/100;
   var wedgeAngle=Math.PI*2/segments;
@@ -874,11 +996,11 @@ function drawKaleidoscope(ctx,W,H,values,p,forExport){
     var vi=Math.floor(i/linesPerWedge*n);if(vi>=n)vi=n-1;
     var v=values[vi];
     var angle=wedgeAngle*(i/linesPerWedge);
-    var hRand=1+getRand(i+500,'rAppear')*.4;
+    var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
-    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.25,tw);
+    tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var r1=minR,r2=minR+lh;
     var pr=linesPerWedge>1?i/(linesPerWedge-1):0;
     var dA=0,dR=0;
@@ -935,7 +1057,7 @@ function drawKaleidoscope(ctx,W,H,values,p,forExport){
 
 function drawSpiral(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
-  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.46;
+  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.38;
   var mLH=maxR*.3*p.height;
   var turns=+document.getElementById('pSpiralTurns').value;
   var innerPct=+document.getElementById('pSpiralInner').value/100;
@@ -946,15 +1068,16 @@ function drawSpiral(ctx,W,H,values,p,forExport){
     var v=values[i];
     var angle=t*turns*Math.PI*2;
     var r=maxR*innerPct+t*maxR*spreadPct;
-    var hRand=1+getRand(i+500,'rAppear')*.4;
+    r*=(1+getRand(i,'rDist')*.3);
+    var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
     lh=Math.max(1,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
-    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.25,tw);
-    angle+=getRand(i+1500,'rDist')*.03;
+    tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
+    angle+=getRand(i+1500,'rDist')*.15;
     var r1=r,r2=r+lh;
     var pr=n>1?i/(n-1):0;
-    var dA=getDisorder(i)*.1;var dR=getDisorder(i+300)*maxR*.05;
+    var dA=getDisorder(i)*.25;var dR=getDisorder(i+300)*maxR*.12;
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
@@ -977,7 +1100,7 @@ function drawSpiral(ctx,W,H,values,p,forExport){
 
 function drawFibonacci(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
-  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.46;
+  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.38;
   var mLH=maxR*.25*p.height;
   var goldenAngle=Math.PI*(3-Math.sqrt(5));
   var densityPct=+document.getElementById('pFibDensity').value/100;
@@ -987,13 +1110,14 @@ function drawFibonacci(ctx,W,H,values,p,forExport){
     var v=values[i];
     var angle=i*goldenAngle;
     var r=maxR*innerPct+maxR*densityPct*Math.sqrt(i/n);
-    var hRand=1+getRand(i+500,'rAppear')*.4;
+    r*=(1+getRand(i,'rDist')*.3);angle+=getRand(i+1500,'rDist')*.15;
+    var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
     lh=Math.max(1,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
-    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.25,tw);
+    tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var r1=r,r2=r+lh;var pr=n>1?i/(n-1):0;
-    var dA=getDisorder(i)*.12;var dR=getDisorder(i+300)*maxR*.06;
+    var dA=getDisorder(i)*.25;var dR=getDisorder(i+300)*maxR*.12;
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
@@ -1015,7 +1139,7 @@ function drawFibonacci(ctx,W,H,values,p,forExport){
 
 function drawPhyllotaxis(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
-  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.46;
+  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.38;
   var mLH=maxR*.2*p.height;
   var goldenAngle=Math.PI*(3-Math.sqrt(5));
   var divOffset=+document.getElementById('pPhylDiv').value/100;
@@ -1027,13 +1151,14 @@ function drawPhyllotaxis(ctx,W,H,values,p,forExport){
     var v=values[i];
     var angle=i*divergence;
     var r=maxR*innerPct+maxR*densityPct*Math.sqrt(i/n);
-    var hRand=1+getRand(i+500,'rAppear')*.4;
+    r*=(1+getRand(i,'rDist')*.3);angle+=getRand(i+1500,'rDist')*.15;
+    var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
     lh=Math.max(1,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
-    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.25,tw);
+    tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var r1=r,r2=r+lh;var pr=n>1?i/(n-1):0;
-    var dA=getDisorder(i)*.1;var dR=getDisorder(i+300)*maxR*.05;
+    var dA=getDisorder(i)*.25;var dR=getDisorder(i+300)*maxR*.12;
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
@@ -1065,7 +1190,7 @@ function drawSine(ctx,W,H,values,p,forExport){
     var v=values[i];
     var x=t*W;
     var yBase=H/2+Math.sin(t*Math.PI*2*waves)*H*amp*.4;
-    var hRand=1+getRand(i+500,'rAppear')*.4;
+    var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(H*.48,lh));
     var ly=yBase-lh/2;
@@ -1078,7 +1203,7 @@ function drawSine(ctx,W,H,values,p,forExport){
       lx=(dTop.x+dBot.x)/2;lly=dTop.y;lh=Math.max(1,Math.abs(dBot.y-dTop.y));
     }
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
-    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.25,tw);
+    tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     lines.push({x:lx,ly:lly,lh:lh,v:v,tw:tw,pos:t});
   }
   lastFrameLines={lines:lines,W:W,H:H,p:p};
@@ -1103,7 +1228,7 @@ function drawCustom(ctx,W,H,values,p,forExport){
     var x,y;
     try{x=fnX(t,v,i,n,W,H,Math)}catch(e){x=t*W}
     try{y=fnY(t,v,i,n,W,H,Math)}catch(e){y=H/2}
-    var hRand=1+getRand(i+500,'rAppear')*.4;
+    var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(H*.48,lh));
     var ly=y-lh/2;
@@ -1116,7 +1241,7 @@ function drawCustom(ctx,W,H,values,p,forExport){
       lx=(dTop.x+dBot.x)/2;lly=dTop.y;lh=Math.max(1,Math.abs(dBot.y-dTop.y));
     }
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
-    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.25,tw);
+    tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     lines.push({x:lx,ly:lly,lh:lh,v:v,tw:tw,pos:t});
   }
   lastFrameLines={lines:lines,W:W,H:H,p:p};
@@ -1142,8 +1267,10 @@ function drawCircleOutline(ctx,lines,cx,cy,forExport){
   for(var oi=0;oi<count;oi++){var off=dist+oi*spacing;
     for(var ring=0;ring<2;ring++){
       // Draw per-segment for correct colors
-      for(var k=0;k<lines.length;k++){
-        var cur=lines[k],nxt=lines[(k+1)%lines.length];
+      for(var k=0;k<lines.length-1;k++){
+        var cur=lines[k],nxt=lines[k+1];
+        // Skip if angle gap is too large (prevents cross-cutting lines)
+        var gap=Math.abs(nxt.angle-cur.angle);if(gap>Math.PI*.5)continue;
         var rC=ring===0?(cur.r1-off):(cur.r2+off);var rN=ring===0?(nxt.r1-off):(nxt.r2+off);
         if(rC<0)rC=0;if(rN<0)rN=0;
         var x1=cx+Math.cos(cur.angle)*rC,y1=cy+Math.sin(cur.angle)*rC;
@@ -1232,7 +1359,8 @@ function animLoop(){if(!playing){rafId=null;return}
   var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.clearRect(0,0,sz.W,sz.H);
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
-  if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002;wavePhase+=0.05;
+  var speed=+document.getElementById('pSpeed').value;if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002*speed;wavePhase+=0.05*speed;
+  if(dropEnabled&&analyser){if(detectDrop(analyser))triggerDrop();applyDropDecay()}
 
   var modVals;
   var amp=+document.getElementById('pAmplify').value;
@@ -1257,6 +1385,8 @@ function animLoop(){if(!playing){rafId=null;return}
     var vals=getRangeRMS(r.s,r.e);
     modVals=vals.map(function(v){return Math.min(1,v*(.3+rtAmp*.7)*amp)});
   }
+  // Zoom-to-loudness: modulate zoom by average energy
+  if(zoomLoud&&modVals.length){var avgE=0;for(var i=0;i<modVals.length;i++)avgE+=modVals[i];avgE/=modVals.length;zoom=zoom*(0.7+avgE*0.8)}
 
   // Render with effects — always use offscreen for consistent mirror
   var drawW=sz.W*zoom;
