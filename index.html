@@ -100,6 +100,14 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 /* EXPORT */
 .export-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 10px}
 .export-info{font-size:.5rem;color:var(--tx3);margin-left:auto}
+.rec-badge{position:absolute;top:8px;left:10px;display:none;align-items:center;gap:5px;font-size:.55rem;letter-spacing:.06em;color:var(--hot);text-transform:uppercase;pointer-events:none;z-index:10}
+.rec-dot{width:8px;height:8px;border-radius:50%;background:var(--hot);animation:rec-pulse 1s ease-in-out infinite}
+@keyframes rec-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.btn.rec-btn{border-color:var(--hot);color:var(--hot);background:rgba(248,113,113,0.08)}
+.btn.rec-btn:hover{background:rgba(248,113,113,0.15)}
+.btn.rec-stop{border-color:var(--hot);color:#fff;background:var(--hot)}
+.btn.rec-stop:hover{background:#ef4444}
+.rec-timer{font-size:.55rem;color:var(--hot);font-variant-numeric:tabular-nums}
 @media(max-width:900px){.app{flex-direction:column}.controls-area{width:100%;max-height:none;border-right:none;order:1}}
 </style>
 </head>
@@ -111,6 +119,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 <div class="app" id="app">
   <div class="preview-area">
     <div class="frame-view" id="frameWrap"><canvas id="frameCv"></canvas><div id="three3d" style="position:absolute;inset:0;display:none"></div><div class="frame-badge" id="frameBadge"></div>
+      <div class="rec-badge" id="recBadge"><div class="rec-dot"></div><span>REC</span><span class="rec-timer" id="recTimer">0:00</span></div>
       <div class="idle-overlay" id="idle"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>drop audio file here<br>or click Load Audio</span></div>
       <div id="dropZone" style="display:none;position:absolute;inset:0;background:rgba(110,231,183,0.08);border:2px dashed var(--accent2);border-radius:8px;z-index:20;align-items:center;justify-content:center"><span style="color:var(--accent2);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase">drop to load</span></div>
     </div>
@@ -206,7 +215,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="panel" id="panelStyle">
       <div class="panel-head" onclick="togglePanel('panelStyle')"><span class="panel-title">Line Style</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><div class="mode-btns"><button class="mbtn on" onclick="setShape('straight',this)">Straight</button><button class="mbtn" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn" onclick="setShape('pins',this)">Pins</button><button class="mbtn" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn" onclick="setShape('caps',this)">Caps</button><button class="mbtn" onclick="setShape('cross',this)">Cross</button><button class="mbtn" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setShape('symbols',this)">Symbols</button></div></div>
+        <div class="prow"><div class="mode-btns"><button class="mbtn on" onclick="setShape('straight',this)">Straight</button><button class="mbtn" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn" onclick="setShape('pins',this)">Pins</button><button class="mbtn" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn" onclick="setShape('caps',this)">Caps</button><button class="mbtn" onclick="setShape('cross',this)">Cross</button><button class="mbtn" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setShape('words',this)">Words</button></div></div>
       </div>
     </div>
     <!-- COLOR -->
@@ -262,6 +271,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       <div class="panel-body">
         <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="set3D(true,this)">On</button><button class="mbtn on" onclick="set3D(false,this)">Off</button></div></div>
         <div id="threeParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow"><span class="prow-label">Shape</span><div class="mode-btns"><button class="mbtn amber on" onclick="set3DShape('cylinder',this)">Cylinder</button><button class="mbtn amber" onclick="set3DShape('box',this)">Box</button><button class="mbtn amber" onclick="set3DShape('sphere',this)">Sphere</button><button class="mbtn amber" onclick="set3DShape('cone',this)">Cone</button><button class="mbtn amber" onclick="set3DShape('diamond',this)">Diamond</button><button class="mbtn amber" onclick="set3DShape('flat',this)">Flat</button></div></div>
           <div class="prow"><span class="prow-label">Height</span><input type="range" min="1" max="30" value="8" step="0.5" id="p3DHeight" oninput="upP()"><span class="prow-val" id="v3DHeight">8</span></div>
           <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="10" value="1.5" step="0.25" id="p3DThick" oninput="upP()"><span class="prow-val" id="v3DThick">1.5</span></div>
           <div class="prow"><span class="prow-label">Spread</span><input type="range" min="2" max="20" value="8" step="0.5" id="p3DSpread" oninput="upP()"><span class="prow-val" id="v3DSpread">8</span></div>
@@ -301,6 +311,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       <div class="panel-head" onclick="togglePanel('panelExport')"><span class="panel-title">Export</span><span class="panel-arrow">▼</span></div>
       <div class="export-row">
         <button class="btn primary" onclick="doExport()">Download PNG</button>
+        <button class="btn rec-btn" id="recBtn" onclick="startRecording()"><svg viewBox="0 0 24 24" style="width:11px;height:11px"><circle cx="12" cy="12" r="7" fill="currentColor" stroke="none"/></svg>Record WebM</button>
+        <button class="btn rec-stop" id="recStopBtn" onclick="stopRecording()" style="display:none"><svg viewBox="0 0 24 24" style="width:11px;height:11px"><rect x="6" y="6" width="12" height="12" fill="currentColor" stroke="none"/></svg>Stop</button>
         <div class="mode-btns"><button class="mbtn" onclick="setExportBg(true,this)">With bg</button><button class="mbtn on" onclick="setExportBg(false,this)">Transparent</button></div>
       </div>
     </div>
@@ -368,7 +380,7 @@ function resetAll(){
   for(var id in defs){var el=document.getElementById(id);if(el)el.value=defs[id]}
   colorMode='toneramp';varyHeight=true;varyThick=false;showOutline=false;outlineStyle='solid';mirrorOn=false;playMode='continuous';spinAngle=0;
   layoutMode='linear';document.getElementById('app').classList.remove('circle-mode');
-  lineShape='straight';
+  lineShape='straight';threeShape='cylinder';
   solidColor='#dddde0';toneStops=['#1a1a2e','#e94560','#f5a623','#6ee7b7'];simpleStops=['#e94560','#f5a623','#6ee7b7'];
   setBg('#0f0f12');
   // Reset all button states
@@ -407,8 +419,11 @@ function randomizeAll(){
   document.querySelectorAll('.layout-opts').forEach(function(el){el.style.display='none'});
   var opts=document.getElementById('layoutOpts_'+layoutMode);if(opts){opts.style.display='flex';opts.style.flexDirection='column';opts.style.gap='8px'}
   // Line style
-  var shapes=['straight','dotted','dashed','pins','tapered','caps','cross','numbers','symbols'];
+  var shapes=['straight','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words'];
   lineShape=shapes[ri(0,shapes.length-1)];
+  // 3D shape
+  var shapes3D=['cylinder','box','sphere','cone','diamond','flat'];
+  threeShape=shapes3D[ri(0,shapes3D.length-1)];
   // Color mode
   var cmodes=['solid','toneramp','simpleramp'];
   colorMode=cmodes[ri(0,cmodes.length-1)];
@@ -434,6 +449,7 @@ function randomizeAll(){
     if(oc.indexOf("setMirror(true")>-1&&mirrorOn)b.classList.add('on');
     if(oc.indexOf("setMirror(false")>-1&&!mirrorOn)b.classList.add('on');
     if(oc.indexOf("setOutlineStyle('"+outlineStyle+"'")>-1)b.classList.add('on');
+    if(oc.indexOf("set3DShape('"+threeShape+"'")>-1)b.classList.add('on');
     if(oc.indexOf("setCamDispDir")>-1&&oc.indexOf("'radial'")>-1)b.classList.add('on');
     if(oc.indexOf("setCamColors(false")>-1)b.classList.add('on');
   });
@@ -448,11 +464,11 @@ function getState(){
   ['pLines','pContrast','pHeight','pThick','pZoom','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp'].forEach(function(id){
     var el=document.getElementById(id);if(el)sliders[id]=parseFloat(el.value);
   });
-  return{sliders:sliders,colorMode:colorMode,varyHeight:varyHeight,varyThick:varyThick,showOutline:showOutline,outlineStyle:outlineStyle,mirrorOn:mirrorOn,playMode:playMode,layoutMode:layoutMode,lineShape:lineShape,solidColor:solidColor,toneStops:toneStops.slice(),simpleStops:simpleStops.slice(),canvasBg:canvasBg,seeds:randSeeds.slice()};
+  return{sliders:sliders,colorMode:colorMode,varyHeight:varyHeight,varyThick:varyThick,showOutline:showOutline,outlineStyle:outlineStyle,mirrorOn:mirrorOn,playMode:playMode,layoutMode:layoutMode,lineShape:lineShape,threeShape:threeShape,solidColor:solidColor,toneStops:toneStops.slice(),simpleStops:simpleStops.slice(),canvasBg:canvasBg,seeds:randSeeds.slice()};
 }
 function applyState(st){
   for(var id in st.sliders){var el=document.getElementById(id);if(el)el.value=st.sliders[id]}
-  colorMode=st.colorMode||'toneramp';varyHeight=st.varyHeight!==false;varyThick=!!st.varyThick;showOutline=!!st.showOutline;outlineStyle=st.outlineStyle||'solid';mirrorOn=!!st.mirrorOn;playMode=st.playMode||'continuous';lineShape=st.lineShape||'straight';
+  colorMode=st.colorMode||'toneramp';varyHeight=st.varyHeight!==false;varyThick=!!st.varyThick;showOutline=!!st.showOutline;outlineStyle=st.outlineStyle||'solid';mirrorOn=!!st.mirrorOn;playMode=st.playMode||'continuous';lineShape=st.lineShape||'straight';threeShape=st.threeShape||'cylinder';
   layoutMode=st.layoutMode||'linear';document.getElementById('app').classList.toggle('circle-mode',layoutMode!=='linear');
   solidColor=st.solidColor||'#dddde0';toneStops=st.toneStops||['#1a1a2e','#e94560','#f5a623','#6ee7b7'];simpleStops=st.simpleStops||['#e94560','#f5a623','#6ee7b7'];
   if(st.canvasBg)setBg(st.canvasBg);
@@ -475,6 +491,7 @@ function applyState(st){
     if(oc.indexOf("setMirror(true")>-1&&mirrorOn)b.classList.add('on');
     if(oc.indexOf("setMirror(false")>-1&&!mirrorOn)b.classList.add('on');
     if(oc.indexOf("setOutlineStyle('"+outlineStyle+"'")>-1)b.classList.add('on');
+    if(oc.indexOf("set3DShape('"+threeShape+"'")>-1)b.classList.add('on');
   });
   upP();upR();buildColorPanel();renderDensity();
 }
@@ -593,6 +610,20 @@ function drawShapedLine(ctx,x,ly,lh,t,val){
     ctx.lineWidth=stemW;ctx.beginPath();ctx.moveTo(x,ly+fs*.7);ctx.lineTo(x,ly+lh-fs*.7);ctx.stroke();ctx.lineWidth=ow;
     ctx.font=fs+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(sym,x,ly+fs*.45);ctx.fillText(sym,x,ly+lh-fs*.45);
+  }
+  else if(lineShape==='words'){
+    var shortW=['go','hi','up','no','do','if','am','so','oh','um','be','we','me','is','it','at','on','to','or','of'];
+    var medW=['echo','wave','flow','beat','hum','tone','bass','drop','rise','fade','loop','riff','vibe','sync','buzz','boom','snap','tune','song','drum'];
+    var longW=['rhythm','melody','signal','pattern','tremolo','reverb','silence','whisper','thunder','voltage','density','octave','cadence','texture','waveform','decibel','speaker','amplify','voltage','vibrato'];
+    var xtraW=['frequency','resonance','amplitude','oscillate','harmonic','synthesize','crescendo','percussion','microphone','wavelength','audiograph','distortion','modulation','soundscape','reverberate'];
+    var pool,word;
+    if(val<0.2){pool=shortW}else if(val<0.45){pool=medW}else if(val<0.7){pool=longW}else{pool=xtraW}
+    var seedIdx=Math.floor(Math.abs(Math.sin(x*73.17+ly*91.31))*pool.length)%pool.length;
+    word=pool[seedIdx];
+    var fs=Math.max(6,Math.min(14,t*5));
+    ctx.font=fs+'px "JetBrains Mono",monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.save();ctx.translate(x,ly+lh/2);ctx.rotate(-Math.PI/2);
+    ctx.fillText(word,0,0);ctx.restore();
   }
   else{ctx.beginPath();ctx.moveTo(x,ly);ctx.lineTo(x,ly+lh);ctx.stroke()}}
 function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
@@ -910,7 +941,7 @@ function triggerDrop(){
     buildColorPanel();
   }
   if(doStyle&&Math.random()<0.3*mult){
-    var shapes=['straight','dotted','dashed','pins','tapered','caps','cross'];
+    var shapes=['straight','dotted','dashed','pins','tapered','caps','cross','words'];
     lineShape=shapes[Math.floor(Math.random()*shapes.length)];
     document.querySelectorAll('#panelStyle .mbtn').forEach(function(b){b.classList.remove('on');var oc=b.getAttribute('onclick')||'';if(oc.indexOf("'"+lineShape+"'")>-1)b.classList.add('on')});
   }
@@ -1409,7 +1440,7 @@ var rtData=new Uint8Array(2048);
 var freqData=new Uint8Array(2048);
 function animLoop(){if(!playing){rafId=null;return}
   var r=getPlayRange();
-  if(audio.currentTime>=r.e){safeSetTime(r.s);} // LOOP
+  if(audio.currentTime>=r.e){if(isRecording){/* don't loop during recording — auto-stop handles it */}else{safeSetTime(r.s);}} // LOOP
   rafId=requestAnimationFrame(animLoop);
   document.getElementById('tCur').textContent=fmt(audio.currentTime);
   document.getElementById('overviewHead').style.left=(audio.currentTime/safeDuration()*100)+'%';
@@ -1529,9 +1560,107 @@ function doExport(){
   }
 }
 
+// --- VIDEO RECORDING (WebM) ---
+var mediaRecorder=null,recordedChunks=[],recStartTime=0,recTimerRAF=null,recAudioDest=null;
+var isRecording=false;
+
+function startRecording(){
+  if(isRecording)return;
+  if(!audioBuffer&&!liveMode){alert('Load audio first');return}
+  // Check MediaRecorder support
+  if(typeof MediaRecorder==='undefined'){alert('Your browser does not support MediaRecorder');return}
+  // Determine canvas to capture
+  var captureCanvas;
+  if(mode3D&&threeRenderer){captureCanvas=threeRenderer.domElement}
+  else{captureCanvas=document.getElementById('frameCv')}
+  // Create video stream from canvas (30fps)
+  var videoStream;
+  try{videoStream=captureCanvas.captureStream(30)}catch(e){alert('Cannot capture canvas: '+e.message);return}
+  // Create combined stream
+  var tracks=videoStream.getVideoTracks().slice();
+  // Add audio track if playing from file (not mic)
+  if(audioCtx&&!liveMode){
+    recAudioDest=audioCtx.createMediaStreamDestination();
+    // Connect analyser output to the recording destination
+    try{analyser.connect(recAudioDest)}catch(e){}
+    var audioTracks=recAudioDest.stream.getAudioTracks();
+    audioTracks.forEach(function(t){tracks.push(t)});
+  }
+  var combinedStream=new MediaStream(tracks);
+  // Find supported MIME type
+  var mimeType='';
+  var candidates=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  for(var i=0;i<candidates.length;i++){if(MediaRecorder.isTypeSupported(candidates[i])){mimeType=candidates[i];break}}
+  if(!mimeType){alert('No supported video format found');return}
+  recordedChunks=[];
+  try{
+    mediaRecorder=new MediaRecorder(combinedStream,{mimeType:mimeType,videoBitsPerSecond:5000000});
+  }catch(e){alert('MediaRecorder error: '+e.message);return}
+  mediaRecorder.ondataavailable=function(e){if(e.data&&e.data.size>0)recordedChunks.push(e.data)};
+  mediaRecorder.onstop=function(){finalizeRecording()};
+  // Start playback if not already playing
+  if(!liveMode&&audio&&!playing){
+    var r=getPlayRange();
+    safeSetTime(r.s);
+    if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+    audio.play();playing=true;updatePlayBtn();animLoop();
+  }
+  // Start recording
+  isRecording=true;
+  mediaRecorder.start(100); // collect data every 100ms
+  recStartTime=performance.now();
+  // UI updates
+  document.getElementById('recBtn').style.display='none';
+  document.getElementById('recStopBtn').style.display='inline-flex';
+  document.getElementById('recBadge').style.display='flex';
+  updateRecTimer();
+  // For file playback: auto-stop after one pass through the range
+  if(!liveMode&&audio){
+    var range=getPlayRange();
+    var duration=(range.e-range.s)*1000; // ms
+    // Add small buffer for final frames
+    setTimeout(function(){if(isRecording)stopRecording()},duration+300);
+  }
+}
+
+function updateRecTimer(){
+  if(!isRecording){recTimerRAF=null;return}
+  recTimerRAF=requestAnimationFrame(updateRecTimer);
+  var elapsed=(performance.now()-recStartTime)/1000;
+  var m=Math.floor(elapsed/60);var s=Math.floor(elapsed%60);
+  document.getElementById('recTimer').textContent=m+':'+(s<10?'0':'')+s;
+}
+
+function stopRecording(){
+  if(!isRecording||!mediaRecorder)return;
+  isRecording=false;
+  try{mediaRecorder.stop()}catch(e){}
+  // Disconnect audio recording destination
+  if(recAudioDest&&analyser){try{analyser.disconnect(recAudioDest)}catch(e){}}
+  recAudioDest=null;
+  // UI updates
+  document.getElementById('recBtn').style.display='inline-flex';
+  document.getElementById('recStopBtn').style.display='none';
+  document.getElementById('recBadge').style.display='none';
+  if(recTimerRAF){cancelAnimationFrame(recTimerRAF);recTimerRAF=null}
+}
+
+function finalizeRecording(){
+  if(recordedChunks.length===0)return;
+  var blob=new Blob(recordedChunks,{type:recordedChunks[0].type||'video/webm'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='audiograph.webm';a.click();
+  URL.revokeObjectURL(url);
+  recordedChunks=[];
+}
+
 // --- 3D MODE (Three.js) ---
 var mode3D=false,threeScene=null,threeCamera=null,threeRenderer=null,threeLines=[],threeRAF=null;
+var threeShape='cylinder';
 var mouseDown3D=false,mouse3DX=0,mouse3DY=0,camTheta=0,camPhi=Math.PI/4,camDist=5;
+
+function set3DShape(s,btn){threeShape=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(mode3D)renderDensity()}
 
 function set3D(v,btn){
   mode3D=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');
@@ -1611,8 +1740,14 @@ function build3DLines(values,p){
     if(varyThick)tw*=(0.3+v*0.7);
     var col=lineCol(v,t,i,n);
     var color=new THREE.Color(col);
-    var geo=new THREE.CylinderGeometry(tw,tw,lh,4);
-    var mat=new THREE.MeshPhongMaterial({color:color,emissive:color,emissiveIntensity:glowAmt});
+    var geo;
+    if(threeShape==='box'){geo=new THREE.BoxGeometry(tw*2,lh,tw*2)}
+    else if(threeShape==='sphere'){var sr=Math.max(tw,lh*0.12);geo=new THREE.SphereGeometry(sr,6,6);geo.scale(1,lh/(sr*2),1)}
+    else if(threeShape==='cone'){geo=new THREE.ConeGeometry(tw*1.5,lh,5)}
+    else if(threeShape==='diamond'){geo=new THREE.OctahedronGeometry(tw*1.5);geo.scale(1,lh/(tw*3),1)}
+    else if(threeShape==='flat'){geo=new THREE.PlaneGeometry(tw*3,lh)}
+    else{geo=new THREE.CylinderGeometry(tw,tw,lh,4)}
+    var mat=new THREE.MeshPhongMaterial({color:color,emissive:color,emissiveIntensity:glowAmt,side:threeShape==='flat'?THREE.DoubleSide:THREE.FrontSide});
     var mesh=new THREE.Mesh(geo,mat);
     var x=0,y=lh/2,z=0;
     if(layoutMode==='linear'||layoutMode==='custom'){
@@ -1663,6 +1798,11 @@ function build3DLines(values,p){
     }
     var dx=getDisorder(i)*.3,dz=getDisorder(i+300)*.3;
     mesh.position.set(x+dx,y,z+dz);
+    // Flat planes: rotate to face outward from center (circular) or face camera (linear)
+    if(threeShape==='flat'){
+      if(layoutMode==='linear'||layoutMode==='custom'||layoutMode==='sine'){mesh.rotation.y=0}
+      else{var faceAngle=Math.atan2(z+dz,x+dx);mesh.rotation.y=faceAngle}
+    }
     mesh._lineX=x+dx;mesh._lineZ=z+dz;mesh._lineH=lh;
     threeLines.push(mesh);threeScene.add(mesh);
   }
@@ -1732,7 +1872,7 @@ function render3DLoop(){
     build3DLines(vals,p);
     var spin=+document.getElementById('pSpin').value;var speed=+document.getElementById('pSpeed').value;
     if(spin>0)camTheta+=spin*0.001*speed;
-    if(playing&&audio){var pr=getPlayRange();if(audio.currentTime>=pr.e)safeSetTime(pr.s);
+    if(playing&&audio){var pr=getPlayRange();if(audio.currentTime>=pr.e&&!isRecording)safeSetTime(pr.s);
       document.getElementById('tCur').textContent=fmt(audio.currentTime);document.getElementById('overviewHead').style.left=(audio.currentTime/safeDuration()*100)+'%'}
   }else if(audioBuffer&&threeLines.length===0){
     var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
