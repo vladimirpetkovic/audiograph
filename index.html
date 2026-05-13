@@ -179,20 +179,6 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         </div>
       </div>
     </div>
-    <!-- WEBCAM -->
-    <div class="panel" id="panelOutline">
-      <div class="panel-head" onclick="togglePanel('panelOutline')"><span class="panel-title">Outline</span><span class="panel-arrow">▼</span></div>
-      <div class="panel-body">
-        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setOutline(true,this)">Yes</button><button class="mbtn on" onclick="setOutline(false,this)">No</button></div></div>
-        <div id="outlineParams" style="display:none;flex-direction:column;gap:8px">
-          <div class="prow"><span class="prow-label">Weight</span><input type="range" min="0.5" max="8" value="2" step="0.25" id="pOutline" oninput="upP()"><span class="prow-val" id="vOutline">2px</span></div>
-          <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setOutlineStyle('solid',this)">Solid</button><button class="mbtn" onclick="setOutlineStyle('dotted',this)">Dotted</button><button class="mbtn" onclick="setOutlineStyle('dashed',this)">Dashed</button></div></div>
-          <div class="prow"><span class="prow-label">Gap</span><input type="range" min="0" max="30" value="0" step="1" id="pOutlineDist" oninput="upP()"><span class="prow-val" id="vOutlineDist">0</span></div>
-          <div class="prow"><span class="prow-label">Count</span><input type="range" min="1" max="10" value="1" step="1" id="pOutlineCount" oninput="upP()"><span class="prow-val" id="vOutlineCount">1</span></div>
-          <div class="prow"><span class="prow-label">Spacing</span><input type="range" min="1" max="20" value="4" step="1" id="pOutlineSpace" oninput="upP()"><span class="prow-val" id="vOutlineSpace">4</span></div>
-        </div>
-      </div>
-    </div>
     <!-- LAYERS (was Distribution) -->
     <div class="panel" id="panelDist">
       <div class="panel-head" onclick="togglePanel('panelDist')"><span class="panel-title">Layers</span><span class="panel-arrow">▼</span></div>
@@ -242,6 +228,20 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div id="layoutOpts_concentric" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Rings</span><input type="range" min="2" max="20" value="5" step="1" id="pConcRings" oninput="upP()"><span class="prow-val" id="vConcRings">5</span></div>
           <div class="prow"><span class="prow-label">Inner R</span><input type="range" min="0" max="50" value="10" step="1" id="pConcInner" oninput="upP()"><span class="prow-val" id="vConcInner">10%</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- OUTLINE (per layer) -->
+    <div class="panel" id="panelOutline">
+      <div class="panel-head" onclick="togglePanel('panelOutline')"><span class="panel-title">Outline</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-body">
+        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setOutline(true,this)">Yes</button><button class="mbtn on" onclick="setOutline(false,this)">No</button></div></div>
+        <div id="outlineParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow"><span class="prow-label">Weight</span><input type="range" min="0.5" max="8" value="2" step="0.25" id="pOutline" oninput="upP()"><span class="prow-val" id="vOutline">2px</span></div>
+          <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setOutlineStyle('solid',this)">Solid</button><button class="mbtn" onclick="setOutlineStyle('dotted',this)">Dotted</button><button class="mbtn" onclick="setOutlineStyle('dashed',this)">Dashed</button></div></div>
+          <div class="prow"><span class="prow-label">Gap</span><input type="range" min="0" max="30" value="0" step="1" id="pOutlineDist" oninput="upP()"><span class="prow-val" id="vOutlineDist">0</span></div>
+          <div class="prow"><span class="prow-label">Count</span><input type="range" min="1" max="10" value="1" step="1" id="pOutlineCount" oninput="upP()"><span class="prow-val" id="vOutlineCount">1</span></div>
+          <div class="prow"><span class="prow-label">Spacing</span><input type="range" min="1" max="20" value="4" step="1" id="pOutlineSpace" oninput="upP()"><span class="prow-val" id="vOutlineSpace">4</span></div>
         </div>
       </div>
     </div>
