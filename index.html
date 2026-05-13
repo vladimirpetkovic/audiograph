@@ -271,7 +271,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       <div class="panel-body">
         <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="set3D(true,this)">On</button><button class="mbtn on" onclick="set3D(false,this)">Off</button></div></div>
         <div id="threeParams" style="display:none;flex-direction:column;gap:8px">
-          <div class="prow"><span class="prow-label">Shape</span><div class="mode-btns"><button class="mbtn amber on" onclick="set3DShape('cylinder',this)">Cylinder</button><button class="mbtn amber" onclick="set3DShape('box',this)">Box</button><button class="mbtn amber" onclick="set3DShape('sphere',this)">Sphere</button><button class="mbtn amber" onclick="set3DShape('cone',this)">Cone</button><button class="mbtn amber" onclick="set3DShape('diamond',this)">Diamond</button><button class="mbtn amber" onclick="set3DShape('flat',this)">Flat</button></div></div>
+          <div class="prow"><span class="prow-label">Shape</span><div class="mode-btns"><button class="mbtn amber on" onclick="set3DShape('cylinder',this)">Cylinder</button><button class="mbtn amber" onclick="set3DShape('box',this)">Box</button><button class="mbtn amber" onclick="set3DShape('cone',this)">Cone</button><button class="mbtn amber" onclick="set3DShape('diamond',this)">Diamond</button><button class="mbtn amber" onclick="set3DShape('flat',this)">Flat</button></div></div>
+          <div class="prow"><span class="prow-label">Material</span><div class="mode-btns"><button class="mbtn on" onclick="set3DMat('standard',this)">Standard</button><button class="mbtn" onclick="set3DMat('metal',this)">Metal</button><button class="mbtn" onclick="set3DMat('plastic',this)">Plastic</button><button class="mbtn" onclick="set3DMat('matte',this)">Matte</button><button class="mbtn" onclick="set3DMat('glass',this)">Glass</button><button class="mbtn" onclick="set3DMat('neon',this)">Neon</button></div></div>
           <div class="prow"><span class="prow-label">Height</span><input type="range" min="1" max="30" value="8" step="0.5" id="p3DHeight" oninput="upP()"><span class="prow-val" id="v3DHeight">8</span></div>
           <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="10" value="1.5" step="0.25" id="p3DThick" oninput="upP()"><span class="prow-val" id="v3DThick">1.5</span></div>
           <div class="prow"><span class="prow-label">Spread</span><input type="range" min="2" max="20" value="8" step="0.5" id="p3DSpread" oninput="upP()"><span class="prow-val" id="v3DSpread">8</span></div>
@@ -380,7 +381,7 @@ function resetAll(){
   for(var id in defs){var el=document.getElementById(id);if(el)el.value=defs[id]}
   colorMode='toneramp';varyHeight=true;varyThick=false;showOutline=false;outlineStyle='solid';mirrorOn=false;playMode='continuous';spinAngle=0;
   layoutMode='linear';document.getElementById('app').classList.remove('circle-mode');
-  lineShape='straight';threeShape='cylinder';
+  lineShape='straight';threeShape='cylinder';threeMat='standard';
   solidColor='#dddde0';toneStops=['#1a1a2e','#e94560','#f5a623','#6ee7b7'];simpleStops=['#e94560','#f5a623','#6ee7b7'];
   setBg('#0f0f12');
   // Reset all button states
@@ -422,8 +423,11 @@ function randomizeAll(){
   var shapes=['straight','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words'];
   lineShape=shapes[ri(0,shapes.length-1)];
   // 3D shape
-  var shapes3D=['cylinder','box','sphere','cone','diamond','flat'];
+  var shapes3D=['cylinder','box','cone','diamond','flat'];
   threeShape=shapes3D[ri(0,shapes3D.length-1)];
+  // 3D material
+  var mats3D=['standard','metal','plastic','matte','glass','neon'];
+  threeMat=mats3D[ri(0,mats3D.length-1)];
   // Color mode
   var cmodes=['solid','toneramp','simpleramp'];
   colorMode=cmodes[ri(0,cmodes.length-1)];
@@ -450,6 +454,7 @@ function randomizeAll(){
     if(oc.indexOf("setMirror(false")>-1&&!mirrorOn)b.classList.add('on');
     if(oc.indexOf("setOutlineStyle('"+outlineStyle+"'")>-1)b.classList.add('on');
     if(oc.indexOf("set3DShape('"+threeShape+"'")>-1)b.classList.add('on');
+    if(oc.indexOf("set3DMat('"+threeMat+"'")>-1)b.classList.add('on');
     if(oc.indexOf("setCamDispDir")>-1&&oc.indexOf("'radial'")>-1)b.classList.add('on');
     if(oc.indexOf("setCamColors(false")>-1)b.classList.add('on');
   });
@@ -464,11 +469,11 @@ function getState(){
   ['pLines','pContrast','pHeight','pThick','pZoom','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp'].forEach(function(id){
     var el=document.getElementById(id);if(el)sliders[id]=parseFloat(el.value);
   });
-  return{sliders:sliders,colorMode:colorMode,varyHeight:varyHeight,varyThick:varyThick,showOutline:showOutline,outlineStyle:outlineStyle,mirrorOn:mirrorOn,playMode:playMode,layoutMode:layoutMode,lineShape:lineShape,threeShape:threeShape,solidColor:solidColor,toneStops:toneStops.slice(),simpleStops:simpleStops.slice(),canvasBg:canvasBg,seeds:randSeeds.slice()};
+  return{sliders:sliders,colorMode:colorMode,varyHeight:varyHeight,varyThick:varyThick,showOutline:showOutline,outlineStyle:outlineStyle,mirrorOn:mirrorOn,playMode:playMode,layoutMode:layoutMode,lineShape:lineShape,threeShape:threeShape,threeMat:threeMat,solidColor:solidColor,toneStops:toneStops.slice(),simpleStops:simpleStops.slice(),canvasBg:canvasBg,seeds:randSeeds.slice()};
 }
 function applyState(st){
   for(var id in st.sliders){var el=document.getElementById(id);if(el)el.value=st.sliders[id]}
-  colorMode=st.colorMode||'toneramp';varyHeight=st.varyHeight!==false;varyThick=!!st.varyThick;showOutline=!!st.showOutline;outlineStyle=st.outlineStyle||'solid';mirrorOn=!!st.mirrorOn;playMode=st.playMode||'continuous';lineShape=st.lineShape||'straight';threeShape=st.threeShape||'cylinder';
+  colorMode=st.colorMode||'toneramp';varyHeight=st.varyHeight!==false;varyThick=!!st.varyThick;showOutline=!!st.showOutline;outlineStyle=st.outlineStyle||'solid';mirrorOn=!!st.mirrorOn;playMode=st.playMode||'continuous';lineShape=st.lineShape||'straight';threeShape=st.threeShape||'cylinder';threeMat=st.threeMat||'standard';
   layoutMode=st.layoutMode||'linear';document.getElementById('app').classList.toggle('circle-mode',layoutMode!=='linear');
   solidColor=st.solidColor||'#dddde0';toneStops=st.toneStops||['#1a1a2e','#e94560','#f5a623','#6ee7b7'];simpleStops=st.simpleStops||['#e94560','#f5a623','#6ee7b7'];
   if(st.canvasBg)setBg(st.canvasBg);
@@ -492,6 +497,7 @@ function applyState(st){
     if(oc.indexOf("setMirror(false")>-1&&!mirrorOn)b.classList.add('on');
     if(oc.indexOf("setOutlineStyle('"+outlineStyle+"'")>-1)b.classList.add('on');
     if(oc.indexOf("set3DShape('"+threeShape+"'")>-1)b.classList.add('on');
+    if(oc.indexOf("set3DMat('"+threeMat+"'")>-1)b.classList.add('on');
   });
   upP();upR();buildColorPanel();renderDensity();
 }
@@ -1658,9 +1664,12 @@ function finalizeRecording(){
 // --- 3D MODE (Three.js) ---
 var mode3D=false,threeScene=null,threeCamera=null,threeRenderer=null,threeLines=[],threeRAF=null;
 var threeShape='cylinder';
+var threeMat='standard';
+var threeEnvMap=null;
 var mouseDown3D=false,mouse3DX=0,mouse3DY=0,camTheta=0,camPhi=Math.PI/4,camDist=5;
 
 function set3DShape(s,btn){threeShape=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(mode3D)renderDensity()}
+function set3DMat(m,btn){threeMat=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(mode3D)renderDensity()}
 
 function set3D(v,btn){
   mode3D=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');
@@ -1702,6 +1711,9 @@ function init3D(){
   threeRenderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
   threeRenderer.setSize(w,h);
   threeRenderer.setPixelRatio(window.devicePixelRatio);
+  threeRenderer.toneMapping=THREE.ACESFilmicToneMapping;
+  threeRenderer.toneMappingExposure=1.2;
+  threeEnvMap=null; // reset env map for fresh scene
   container.appendChild(threeRenderer.domElement);
   var ambient=new THREE.AmbientLight(0xffffff,0.5);threeScene.add(ambient);
   var dir=new THREE.DirectionalLight(0xffffff,0.7);dir.position.set(3,5,4);threeScene.add(dir);
@@ -1714,6 +1726,46 @@ function init3D(){
   // Build initial scene
   if(audioBuffer){var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}build3DLines(getRangeRMS(sT,eT),P())}
   render3DLoop();
+}
+
+function getEnvMap(){
+  if(threeEnvMap)return threeEnvMap;
+  // Generate a simple gradient cubemap for reflections
+  var size=64;
+  var faces=[];
+  for(var f=0;f<6;f++){
+    var cv=document.createElement('canvas');cv.width=size;cv.height=size;
+    var ctx=cv.getContext('2d');
+    var grd=ctx.createLinearGradient(0,0,0,size);
+    if(f===2){grd.addColorStop(0,'#334');grd.addColorStop(1,'#889')} // top
+    else if(f===3){grd.addColorStop(0,'#112');grd.addColorStop(1,'#223')} // bottom
+    else{grd.addColorStop(0,'#223');grd.addColorStop(0.5,'#445');grd.addColorStop(1,'#112')} // sides
+    ctx.fillStyle=grd;ctx.fillRect(0,0,size,size);
+    faces.push(cv);
+  }
+  threeEnvMap=new THREE.CubeTexture(faces);
+  threeEnvMap.needsUpdate=true;
+  return threeEnvMap;
+}
+
+function make3DMat(color,glowAmt){
+  if(threeMat==='metal'){
+    return new THREE.MeshStandardMaterial({color:color,metalness:0.9,roughness:0.15,envMap:getEnvMap(),envMapIntensity:1.2});
+  }
+  if(threeMat==='plastic'){
+    return new THREE.MeshPhongMaterial({color:color,specular:new THREE.Color(0xffffff),shininess:80,emissive:color,emissiveIntensity:glowAmt*0.2});
+  }
+  if(threeMat==='matte'){
+    return new THREE.MeshLambertMaterial({color:color,emissive:color,emissiveIntensity:glowAmt*0.15});
+  }
+  if(threeMat==='glass'){
+    return new THREE.MeshPhongMaterial({color:color,transparent:true,opacity:0.35,specular:new THREE.Color(0xffffff),shininess:120,emissive:color,emissiveIntensity:glowAmt*0.4,side:THREE.DoubleSide});
+  }
+  if(threeMat==='neon'){
+    return new THREE.MeshBasicMaterial({color:color});
+  }
+  // standard (default — original behavior)
+  return new THREE.MeshPhongMaterial({color:color,emissive:color,emissiveIntensity:glowAmt});
 }
 
 function build3DLines(values,p){
@@ -1742,12 +1794,12 @@ function build3DLines(values,p){
     var color=new THREE.Color(col);
     var geo;
     if(threeShape==='box'){geo=new THREE.BoxGeometry(tw*2,lh,tw*2)}
-    else if(threeShape==='sphere'){var sr=Math.max(tw,lh*0.12);geo=new THREE.SphereGeometry(sr,6,6);geo.scale(1,lh/(sr*2),1)}
     else if(threeShape==='cone'){geo=new THREE.ConeGeometry(tw*1.5,lh,5)}
     else if(threeShape==='diamond'){geo=new THREE.OctahedronGeometry(tw*1.5);geo.scale(1,lh/(tw*3),1)}
     else if(threeShape==='flat'){geo=new THREE.PlaneGeometry(tw*3,lh)}
     else{geo=new THREE.CylinderGeometry(tw,tw,lh,4)}
-    var mat=new THREE.MeshPhongMaterial({color:color,emissive:color,emissiveIntensity:glowAmt,side:threeShape==='flat'?THREE.DoubleSide:THREE.FrontSide});
+    var mat=make3DMat(color,glowAmt);
+    if(threeShape==='flat'||threeMat==='glass')mat.side=THREE.DoubleSide;
     var mesh=new THREE.Mesh(geo,mat);
     var x=0,y=lh/2,z=0;
     if(layoutMode==='linear'||layoutMode==='custom'){
@@ -1834,7 +1886,7 @@ function build3DLines(values,p){
           // Color from the line it connects to
           var t2=(k+1)/(lineCount-1||1),v2=values[Math.min(k+1,n-1)];
           var col=lineCol(v2,t2,k+1,lineCount);
-          var segMat=new THREE.MeshPhongMaterial({color:new THREE.Color(col),emissive:new THREE.Color(col),emissiveIntensity:glowAmt*0.5,transparent:true,opacity:0.7});
+          var segMat=make3DMat(new THREE.Color(col),glowAmt);
           var segMesh=new THREE.Mesh(segGeo,segMat);
           segMesh.position.copy(mid);
           // Orient cylinder along the direction between points
