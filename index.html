@@ -110,7 +110,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 <div class="app" id="app">
   <div class="preview-area">
     <div class="frame-view" id="frameWrap"><canvas id="frameCv"></canvas><div class="frame-badge" id="frameBadge"></div>
-      <div class="idle-overlay" id="idle"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>load audio, then<br>drag waveform to select</span></div>
+      <div class="idle-overlay" id="idle"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>drop audio file here<br>or click Load Audio</span></div>
+      <div id="dropZone" style="display:none;position:absolute;inset:0;background:rgba(110,231,183,0.08);border:2px dashed var(--accent2);border-radius:8px;z-index:20;align-items:center;justify-content:center"><span style="color:var(--accent2);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase">drop to load</span></div>
     </div>
     <div class="transport">
       <button class="btn" id="playBtn" onclick="togglePlay()"><svg viewBox="0 0 24 24" id="playIco"><polygon points="5 3 19 12 5 21 5 3"/></svg><span id="playLbl">Play</span></button>
@@ -220,7 +221,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       <div class="panel-head" onclick="togglePanel('panelOutline')"><span class="panel-title">Outline</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setOutline(true,this)">Yes</button><button class="mbtn on" onclick="setOutline(false,this)">No</button></div></div>
-        <div id="outlineParams" style="display:none">
+        <div id="outlineParams" style="display:none;flex-direction:column;gap:8px">
           <div class="prow"><span class="prow-label">Weight</span><input type="range" min="0.5" max="8" value="2" step="0.25" id="pOutline" oninput="upP()"><span class="prow-val" id="vOutline">2px</span></div>
           <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setOutlineStyle('solid',this)">Solid</button><button class="mbtn" onclick="setOutlineStyle('dotted',this)">Dotted</button><button class="mbtn" onclick="setOutlineStyle('dashed',this)">Dashed</button></div></div>
           <div class="prow"><span class="prow-label">Gap</span><input type="range" min="0" max="30" value="0" step="1" id="pOutlineDist" oninput="upP()"><span class="prow-val" id="vOutlineDist">0</span></div>
@@ -251,6 +252,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow"><span class="prow-label">Wave</span><input type="range" min="0" max="100" value="0" step="1" id="pWave" oninput="upP()"><span class="prow-val" id="vWave">0</span></div>
         <div class="prow"><span class="prow-label">Wave spd</span><input type="range" min="1" max="20" value="5" step="1" id="pWaveFreq" oninput="upP()"><span class="prow-val" id="vWaveFreq">5</span></div>
         <div class="prow"><span class="prow-label">Shear</span><input type="range" min="-100" max="100" value="0" step="1" id="pShear" oninput="upP()"><span class="prow-val" id="vShear">0</span></div>
+        <div class="prow"><span class="prow-label">Depth</span><input type="range" min="0" max="200" value="0" step="1" id="pDepth" oninput="upP()"><span class="prow-val" id="vDepth">0</span></div>
       </div>
     </div>
     <!-- WEBCAM -->
@@ -284,10 +286,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="panel" id="panelExport">
       <div class="panel-head" onclick="togglePanel('panelExport')"><span class="panel-title">Export</span><span class="panel-arrow">▼</span></div>
       <div class="export-row">
-        <button class="btn primary" onclick="doExport('svg')">SVG</button>
-        <button class="btn" onclick="doExport('png')">PNG</button>
-        <div class="mode-btns"><button class="mbtn on" onclick="setAspect('strip',this)">Strip</button><button class="mbtn" onclick="setAspect('16:9',this)">16:9</button><button class="mbtn" onclick="setAspect('4:3',this)">4:3</button><button class="mbtn" onclick="setAspect('1:1',this)">1:1</button></div>
-        <span class="export-info">SVG has bg · PNG transparent</span>
+        <button class="btn primary" onclick="doExport()">Download PNG</button>
+        <div class="mode-btns"><button class="mbtn" onclick="setExportBg(true,this)">With bg</button><button class="mbtn on" onclick="setExportBg(false,this)">Transparent</button></div>
       </div>
     </div>
   </div>
@@ -299,7 +299,7 @@ var colorMode='toneramp',varyHeight=true,lineShape='straight',varyThick=false,sh
 var canvasBg='#0f0f12',solidColor='#dddde0';
 var toneStops=['#1a1a2e','#e94560','#f5a623','#6ee7b7'],simpleStops=['#e94560','#f5a623','#6ee7b7'];
 var solidPresets=['#dddde0','#ffffff','#f87171','#fb923c','#fbbf24','#a3e635','#34d399','#22d3ee','#818cf8','#f472b6','#191950','#000000'];
-var tonePresets=[['#1a1a2e','#e94560','#f5a623'],['#0d1b2a','#1b4965','#62b6cb','#bee9e8'],['#2d1b69','#b721ff','#ff6b9d','#ffd93d'],['#0b132b','#1c2541','#3a506b','#5bc0be'],['#141e30','#f7971e','#ffd200'],['#1f1c2c','#928dab','#e8e8e8'],['#0f2027','#203a43','#2c5364','#6dd5ed'],['#232526','#e74c3c','#f39c12','#2ecc71'],['#1a1a2e','#16213e','#0f3460','#e94560'],['#0f0c29','#302b63','#24243e']];
+var tonePresets=[['#1a1a2e','#e94560','#f5a623','#6ee7b7'],['#0a0a1a','#ff2d55','#ff9500','#ffcc00'],['#0d0221','#6b0f8a','#e040fb','#e0f7fa'],['#0a1628','#1565c0','#42a5f5','#80deea'],['#1b0000','#b71c1c','#ff5722','#ffab40'],['#0a2e1a','#2e7d32','#66bb6a','#c6ff00'],['#1a0033','#7b1fa2','#e91e63','#ffd54f'],['#001f33','#00838f','#00e5ff','#f5f5f5'],['#2c1810','#bf360c','#ff6d00','#fdd835'],['#0d0d0d','#424242','#9e9e9e','#fafafa']];
 var simplePresets=[['#e94560','#f5a623','#6ee7b7'],['#ff6b6b','#ffd93d'],['#667eea','#764ba2'],['#f093fb','#f5576c'],['#4facfe','#00f2fe'],['#43e97b','#38f9d7'],['#fa709a','#fee140'],['#a18cd1','#fbc2eb'],['#ffecd2','#fcb69f'],['#ff9a9e','#fecfef','#fdfcfb']];
 var bgPresets=['#ffffff','#e8e8e8','#cccccc','#aaaaaa','#888888','#666666','#444444','#2a2a2a','#1a1a1a','#0a0a0a'];
 var selStart=null,selEnd=null,dragging=null,selEndCheckRAF=null,cropStart=0,cropEnd=0;
@@ -314,7 +314,7 @@ function togglePanel(id){document.getElementById(id).classList.toggle('closed')}
 
 // Params
 function P(){return{lines:+document.getElementById('pLines').value,contrast:+document.getElementById('pContrast').value/100,height:+document.getElementById('pHeight').value/100,thick:+document.getElementById('pThick').value}}
-function upP(){document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
+function upP(){document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
   document.getElementById('vCircleInner').textContent=document.getElementById('pCircleInner').value+'%';
   document.getElementById('vKalSegments').textContent=document.getElementById('pKalSegments').value;
   document.getElementById('vKalInner').textContent=document.getElementById('pKalInner').value+'%';
@@ -333,7 +333,7 @@ function setC(m,btn){colorMode=m;btn.parentElement.querySelectorAll('.mbtn').for
 function setVH(v,btn){varyHeight=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
 function setVT(v,btn){varyThick=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
 function setShape(s,btn){lineShape=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
-function setOutline(v,btn){showOutline=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');document.getElementById('outlineParams').style.display=v?'flex':'none';document.getElementById('outlineParams').style.flexDirection='column';document.getElementById('outlineParams').style.gap='8px';renderDensity()}
+function setOutline(v,btn){showOutline=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');document.getElementById('outlineParams').style.display=v?'flex':'none';renderDensity()}
 function setOutlineStyle(s,btn){outlineStyle=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
 function setLayout(m,btn){layoutMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');document.getElementById('app').classList.toggle('circle-mode',m!=='linear');document.querySelectorAll('.layout-opts').forEach(function(el){el.style.display='none'});var opts=document.getElementById('layoutOpts_'+m);if(opts)opts.style.display='flex';if(opts)opts.style.flexDirection='column';if(opts)opts.style.gap='8px';renderDensity()}
 function setAspect(r,btn){aspectRatio=r;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
@@ -346,7 +346,7 @@ function setPlayMode(m,btn){playMode=m;btn.parentElement.querySelectorAll('.mbtn
 
 // Reset all
 function resetAll(){
-  var defs={pLines:350,pContrast:75,pHeight:80,pThick:1,pZoom:100,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80};
+  var defs={pLines:350,pContrast:75,pHeight:80,pThick:1,pZoom:100,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80};
   for(var id in defs){var el=document.getElementById(id);if(el)el.value=defs[id]}
   colorMode='toneramp';varyHeight=true;varyThick=false;showOutline=false;outlineStyle='solid';mirrorOn=false;playMode='continuous';spinAngle=0;
   layoutMode='linear';document.getElementById('app').classList.remove('circle-mode');
@@ -373,7 +373,7 @@ function randomizeAll(){
   // Sliders
   var sets={pLines:ri(80,800),pContrast:ri(5,100),pHeight:ri(20,100),pThick:+(rr(0.5,10)).toFixed(2),
     pOutline:+(rr(0.5,8)).toFixed(2),pOutlineDist:ri(0,30),pOutlineCount:ri(1,6),pOutlineSpace:ri(1,20),
-    pSpin:+(rr(0,5)).toFixed(1),pSpeed:+(rr(0.3,3)).toFixed(1),pAmplify:+(rr(0.5,3)).toFixed(1),pTwist:ri(-60,60),pBulge:ri(-50,50),pWave:ri(0,60),pWaveFreq:ri(1,15),pShear:ri(-50,50),rDisorder:ri(0,60),
+    pSpin:+(rr(0,5)).toFixed(1),pSpeed:+(rr(0.3,3)).toFixed(1),pAmplify:+(rr(0.5,3)).toFixed(1),pTwist:ri(-60,60),pBulge:ri(-50,50),pWave:ri(0,60),pWaveFreq:ri(1,15),pShear:ri(-50,50),pDepth:ri(0,60),rDisorder:ri(0,60),
     pCircleInner:ri(0,60),pKalSegments:ri(3,12),pKalInner:ri(0,40),
     pSpiralTurns:+(rr(1,15)).toFixed(1),pSpiralInner:ri(0,40),pSpiralSpread:ri(30,100),
     pFibDensity:ri(50,100),pFibInner:ri(0,30),pPhylDiv:ri(-40,40),pPhylDensity:ri(50,100),pPhylInner:ri(0,30),pSineWaves:+(rr(0.5,8)).toFixed(1),pSineAmp:ri(30,100)};
@@ -427,7 +427,7 @@ function randomizeAll(){
 // --- PRESETS ---
 function getState(){
   var sliders={};
-  ['pLines','pContrast','pHeight','pThick','pZoom','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp'].forEach(function(id){
+  ['pLines','pContrast','pHeight','pThick','pZoom','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp'].forEach(function(id){
     var el=document.getElementById(id);if(el)sliders[id]=parseFloat(el.value);
   });
   return{sliders:sliders,colorMode:colorMode,varyHeight:varyHeight,varyThick:varyThick,showOutline:showOutline,outlineStyle:outlineStyle,mirrorOn:mirrorOn,playMode:playMode,layoutMode:layoutMode,lineShape:lineShape,solidColor:solidColor,toneStops:toneStops.slice(),simpleStops:simpleStops.slice(),canvasBg:canvasBg,seeds:randSeeds.slice()};
@@ -474,8 +474,22 @@ function loadPreset(){
   if(name&&presets[name])applyState(presets[name]);
 }
 function clearPresets(){localStorage.removeItem('audiograph_presets');refreshPresetList()}
+var builtinPresets={
+  'Neon Pulse':{sliders:{pLines:400,pContrast:85,pHeight:120,pThick:2,pZoom:130,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:2,pSpeed:1.5,pAmplify:2,pTwist:0,pBulge:0,pWave:20,pWaveFreq:6,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:15,rOutline:0,rColor:20,rDisorder:25,pCircleInner:20,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:true,showOutline:false,outlineStyle:'solid',mirrorOn:false,playMode:'equalizer',layoutMode:'circle',lineShape:'straight',solidColor:'#dddde0',toneStops:['#0a0a1a','#ff2d55','#ff9500','#ffcc00'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#050510'},
+  'Deep Ocean':{sliders:{pLines:500,pContrast:60,pHeight:90,pThick:1.5,pZoom:100,pOutline:1.5,pOutlineDist:8,pOutlineCount:3,pOutlineSpace:6,pSpin:0.5,pSpeed:0.8,pAmplify:1.5,pTwist:15,pBulge:0,pWave:10,pWaveFreq:3,pShear:0,pDepth:0,rGlobal:0,rDist:10,rAppear:10,rOutline:10,rColor:0,rDisorder:15,pCircleInner:15,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:false,showOutline:true,outlineStyle:'solid',mirrorOn:true,playMode:'continuous',layoutMode:'fibonacci',lineShape:'dotted',solidColor:'#dddde0',toneStops:['#0a1628','#1565c0','#42a5f5','#80deea'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#060d18'},
+  'Solar Flare':{sliders:{pLines:300,pContrast:90,pHeight:200,pThick:3,pZoom:120,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:1,pSpeed:1.2,pAmplify:2.5,pTwist:-25,pBulge:20,pWave:0,pWaveFreq:5,pShear:10,rGlobal:0,rDist:20,rAppear:25,rOutline:0,rColor:30,rDisorder:35,pCircleInner:10,pKalSegments:8,pKalInner:10,pSpiralTurns:7,pSpiralInner:5,pSpiralSpread:90,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:true,showOutline:false,outlineStyle:'solid',mirrorOn:false,playMode:'equalizer',layoutMode:'spiral',lineShape:'tapered',solidColor:'#dddde0',toneStops:['#1b0000','#b71c1c','#ff5722','#ffab40'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#0a0000'},
+  'Crystal Grid':{sliders:{pLines:200,pContrast:50,pHeight:80,pThick:1,pZoom:100,pOutline:1,pOutlineDist:5,pOutlineCount:5,pOutlineSpace:3,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:false,showOutline:true,outlineStyle:'dotted',mirrorOn:false,playMode:'continuous',layoutMode:'linear',lineShape:'pins',solidColor:'#dddde0',toneStops:['#0d0d0d','#424242','#9e9e9e','#fafafa'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#0a0a0a'},
+  'Kaleidoscope Dream':{sliders:{pLines:350,pContrast:70,pHeight:150,pThick:2,pZoom:110,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:1.5,pSpeed:1,pAmplify:2,pTwist:10,pBulge:-15,pWave:15,pWaveFreq:4,pShear:0,pDepth:0,rGlobal:0,rDist:15,rAppear:20,rOutline:0,rColor:40,rDisorder:20,pCircleInner:25,pKalSegments:10,pKalInner:10,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:true,showOutline:false,outlineStyle:'solid',mirrorOn:false,playMode:'equalizer',layoutMode:'kaleidoscope',lineShape:'straight',solidColor:'#dddde0',toneStops:['#1a0033','#7b1fa2','#e91e63','#ffd54f'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#080012'}
+};
 function refreshPresetList(){
   var el=document.getElementById('presetList');el.innerHTML='';
+  // Built-in presets first
+  Object.keys(builtinPresets).forEach(function(name){
+    var row=document.createElement('div');row.style.cssText='display:flex;gap:4px;align-items:center';
+    var btn=document.createElement('button');btn.className='mbtn';btn.textContent='★ '+name;btn.style.flex='1';btn.style.color='var(--tx2)';btn.addEventListener('click',function(){applyState(builtinPresets[name])});
+    row.appendChild(btn);el.appendChild(row);
+  });
+  // User presets
   var presets=JSON.parse(localStorage.getItem('audiograph_presets')||'{}');
   Object.keys(presets).forEach(function(name){
     var row=document.createElement('div');row.style.cssText='display:flex;gap:4px;align-items:center';
@@ -771,7 +785,7 @@ function getCamDisp(pos,lineIdx,totalLines,maxDisp){
 
 // --- DISTORTIONS ---
 var wavePhase=0;
-function getDistortions(){return{twist:+document.getElementById('pTwist').value/100,bulge:+document.getElementById('pBulge').value/100,wave:+document.getElementById('pWave').value/100,waveFreq:+document.getElementById('pWaveFreq').value,shear:+document.getElementById('pShear').value/100}}
+function getDistortions(){return{twist:+document.getElementById('pTwist').value/100,bulge:+document.getElementById('pBulge').value/100,wave:+document.getElementById('pWave').value/100,waveFreq:+document.getElementById('pWaveFreq').value,shear:+document.getElementById('pShear').value/100,depth:+document.getElementById('pDepth').value/100}}
 function distortLinear(x,y,W,H,dist){
   var cx=W/2,cy=H/2,nx=(x-cx)/cx,ny=(y-cy)/cy; // normalized -1 to 1
   var r=Math.sqrt(nx*nx+ny*ny),angle=Math.atan2(ny,nx);
@@ -783,6 +797,8 @@ function distortLinear(x,y,W,H,dist){
   if(dist.wave!==0){var wOff=Math.sin(ny*dist.waveFreq+wavePhase)*dist.wave*.3;nx+=wOff}
   // Shear: diagonal skew
   if(dist.shear!==0){nx+=ny*dist.shear*.5}
+  // Depth: perspective — pull toward center based on distance
+  if(dist.depth!==0){var scale=1-dist.depth*.6*(1-Math.exp(-r*2));nx*=scale;ny*=scale}
   // Apply twist+bulge via polar
   if(dist.twist!==0||dist.bulge!==0){nx=r*Math.cos(angle);ny=r*Math.sin(angle)}
   return{x:cx+nx*cx,y:cy+ny*cy};
@@ -797,6 +813,7 @@ function distortCircular(angle,radius,maxR,cx,cy,dist){
   if(dist.wave!==0){angle+=Math.sin(nR*dist.waveFreq*3+wavePhase)*dist.wave*.2}
   // Shear: offset angle based on radius
   if(dist.shear!==0){angle+=nR*dist.shear*.4}
+  if(dist.depth!==0){radius*=(1-dist.depth*.5*(1-nR))}
   return{angle:angle,radius:radius};
 }
 
@@ -918,7 +935,7 @@ function drawDensity(ctx,W,H,values,p,forExport){
   for(var i=0;i<n;i++){x+=spacings[i]*scale;var v=values[i];
     var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;
-    if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
+    if(varyHeight){lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(H*.98,lh));
     var ly=(H-lh)/2;
     // Disorder: shift position organically
@@ -931,13 +948,13 @@ function drawDensity(ctx,W,H,values,p,forExport){
     var lx=x+dx,lly=ly+dy;
     // Apply distortions
     var dist=getDistortions();
-    if(dist.twist||dist.bulge||dist.wave||dist.shear){
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
       var dTop=distortLinear(lx,lly,W,H,dist);var dBot=distortLinear(lx,lly+lh,W,H,dist);
       lx=(dTop.x+dBot.x)/2;lly=dTop.y;lh=Math.max(1,Math.abs(dBot.y-dTop.y));
     }
     lines.push({x:lx,ly:lly,lh:lh,v:v,tw:tw,pos:n>1?i/(n-1):0})}
   lastFrameLines={lines:lines,W:W,H:H,p:p};
-  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.globalAlpha=1;ctx.lineWidth=l.tw;drawShapedLine(ctx,l.x,l.ly,l.lh,l.tw,l.v)}
+  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.strokeStyle=col;ctx.fillStyle=col;var _da=getDistortions().depth;if(_da>0){var _dx=(l.x-W/2)/(W/2),_dy=(l.ly+l.lh/2-H/2)/(H/2),_dr=Math.sqrt(_dx*_dx+_dy*_dy),_ds=1-_da*.6*(1-Math.exp(-_dr*1.5));ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=l.tw*Math.max(.2,_ds)}else{ctx.globalAlpha=1;ctx.lineWidth=l.tw}drawShapedLine(ctx,l.x,l.ly,l.lh,ctx.lineWidth,l.v)}
   if(showOutline&&lines.length>2)drawLinearOutline(ctx,lines,forExport);
   ctx.globalAlpha=1;return lines}
 
@@ -954,7 +971,7 @@ function drawCircle(ctx,W,H,values,p,forExport){
     var v=values[i];
     var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;
-    if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
+    if(varyHeight){lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
     tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
@@ -967,13 +984,13 @@ function drawCircle(ctx,W,H,values,p,forExport){
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(n>1?i/(n-1):0,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dAngle+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dAngle,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
     var dist=getDistortions();
-    if(dist.twist||dist.bulge||dist.wave||dist.shear){
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
       var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
       fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
     }
     lines.push({v:v,tw:tw,pos:n>1?i/(n-1):0,angle:fAngle,r1:fR1,r2:fR2,lh:Math.abs(fR2-fR1)})}
   lastFrameLines={lines:lines,W:W,H:H,p:p,circle:true,cx:cx,cy:cy};
-  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.save();ctx.translate(cx,cy);ctx.rotate(l.angle+Math.PI/2);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.globalAlpha=1;ctx.lineWidth=l.tw;drawShapedLine(ctx,0,-l.r2,l.lh,l.tw,l.v);ctx.restore()}
+  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.save();ctx.translate(cx,cy);ctx.rotate(l.angle+Math.PI/2);ctx.strokeStyle=col;ctx.fillStyle=col;var _da=getDistortions().depth;if(_da>0){var _nR=l.r2/maxR,_ds=1-_da*.4*(1-_nR);ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=l.tw*Math.max(.2,_ds)}else{ctx.globalAlpha=1;ctx.lineWidth=l.tw}drawShapedLine(ctx,0,-l.r2,l.lh,ctx.lineWidth,l.v);ctx.restore()}
   if(showOutline&&lines.length>2)drawCircleOutline(ctx,lines,cx,cy,forExport);
   ctx.globalAlpha=1;return lines}
 
@@ -997,21 +1014,27 @@ function drawKaleidoscope(ctx,W,H,values,p,forExport){
     var v=values[vi];
     var angle=wedgeAngle*(i/linesPerWedge);
     var hRand=1+getRand(i+500,'rAppear')*.7;
-    var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
+    var lh;if(varyHeight){lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
     tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var r1=minR,r2=minR+lh;
     var pr=linesPerWedge>1?i/(linesPerWedge-1):0;
-    var dA=0,dR=0;
+    var dA=getDisorder(i)*.2,dR=getDisorder(i+300)*maxR*.1;
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,linesPerWedge);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     r2=Math.max(1,r2+dR);angle+=dA;
-    lines.push({v:v,tw:tw,pos:pr,angle:angle,r1:r1,r2:r2,lh:lh});
+    var fAngle=angle,fR1=r1,fR2=r2;
+    var dist=getDistortions();
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
+      var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
+      fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
+    }
+    lines.push({v:v,tw:tw,pos:pr,angle:fAngle,r1:fR1,r2:fR2,lh:Math.abs(fR2-fR1)});
     var col=forExport?lineColHex(v,pr,i,linesPerWedge):lineCol(v,pr,i,linesPerWedge);
-    wCtx.save();wCtx.translate(cx,cy);wCtx.rotate(angle-Math.PI/2);
+    wCtx.save();wCtx.translate(cx,cy);wCtx.rotate(fAngle-Math.PI/2);
     wCtx.strokeStyle=col;wCtx.fillStyle=col;wCtx.globalAlpha=1;wCtx.lineWidth=tw;
-    drawShapedLine(wCtx,0,-r2,lh,tw,v);
+    drawShapedLine(wCtx,0,-fR2,Math.abs(fR2-fR1),tw,v);
     wCtx.restore();
   }
   // Now composite the wedge multiple times with rotation and mirroring
@@ -1070,7 +1093,7 @@ function drawSpiral(ctx,W,H,values,p,forExport){
     var r=maxR*innerPct+t*maxR*spreadPct;
     r*=(1+getRand(i,'rDist')*.3);
     var hRand=1+getRand(i+500,'rAppear')*.7;
-    var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
+    var lh;if(varyHeight){lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand}else{lh=mLH}
     lh=Math.max(1,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
     tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
@@ -1082,7 +1105,7 @@ function drawSpiral(ctx,W,H,values,p,forExport){
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
     var dist=getDistortions();
-    if(dist.twist||dist.bulge||dist.wave||dist.shear){
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
       var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
       fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
     }
@@ -1112,7 +1135,7 @@ function drawFibonacci(ctx,W,H,values,p,forExport){
     var r=maxR*innerPct+maxR*densityPct*Math.sqrt(i/n);
     r*=(1+getRand(i,'rDist')*.3);angle+=getRand(i+1500,'rDist')*.15;
     var hRand=1+getRand(i+500,'rAppear')*.7;
-    var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
+    var lh;if(varyHeight){lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand}else{lh=mLH}
     lh=Math.max(1,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
     tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
@@ -1122,7 +1145,7 @@ function drawFibonacci(ctx,W,H,values,p,forExport){
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
     var dist=getDistortions();
-    if(dist.twist||dist.bulge||dist.wave||dist.shear){
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
       var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
       fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
     }
@@ -1153,7 +1176,7 @@ function drawPhyllotaxis(ctx,W,H,values,p,forExport){
     var r=maxR*innerPct+maxR*densityPct*Math.sqrt(i/n);
     r*=(1+getRand(i,'rDist')*.3);angle+=getRand(i+1500,'rDist')*.15;
     var hRand=1+getRand(i+500,'rAppear')*.7;
-    var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
+    var lh;if(varyHeight){lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand}else{lh=mLH}
     lh=Math.max(1,Math.min(mLH*1.3,lh));
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
     tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
@@ -1163,7 +1186,7 @@ function drawPhyllotaxis(ctx,W,H,values,p,forExport){
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
     var dist=getDistortions();
-    if(dist.twist||dist.bulge||dist.wave||dist.shear){
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
       var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
       fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
     }
@@ -1191,14 +1214,14 @@ function drawSine(ctx,W,H,values,p,forExport){
     var x=t*W;
     var yBase=H/2+Math.sin(t*Math.PI*2*waves)*H*amp*.4;
     var hRand=1+getRand(i+500,'rAppear')*.7;
-    var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
+    var lh;if(varyHeight){lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(H*.48,lh));
     var ly=yBase-lh/2;
     var dx=getDisorder(i)*W*.03;var dy=getDisorder(i+500)*H*.05;
     var cd=getCamDisp(t,i,n,+document.getElementById('camDisplace').value*.005*H);
     dx+=cd.dx;dy+=cd.dy;
     var lx=x+dx,lly=ly+dy;
-    if(dist.twist||dist.bulge||dist.wave||dist.shear){
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
       var dTop=distortLinear(lx,lly,W,H,dist);var dBot=distortLinear(lx,lly+lh,W,H,dist);
       lx=(dTop.x+dBot.x)/2;lly=dTop.y;lh=Math.max(1,Math.abs(dBot.y-dTop.y));
     }
@@ -1207,7 +1230,7 @@ function drawSine(ctx,W,H,values,p,forExport){
     lines.push({x:lx,ly:lly,lh:lh,v:v,tw:tw,pos:t});
   }
   lastFrameLines={lines:lines,W:W,H:H,p:p};
-  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.globalAlpha=1;ctx.lineWidth=l.tw;drawShapedLine(ctx,l.x,l.ly,l.lh,l.tw,l.v)}
+  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.strokeStyle=col;ctx.fillStyle=col;var _da=getDistortions().depth;if(_da>0){var _dx=(l.x-W/2)/(W/2),_dy=(l.ly+l.lh/2-H/2)/(H/2),_dr=Math.sqrt(_dx*_dx+_dy*_dy),_ds=1-_da*.6*(1-Math.exp(-_dr*1.5));ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=l.tw*Math.max(.2,_ds)}else{ctx.globalAlpha=1;ctx.lineWidth=l.tw}drawShapedLine(ctx,l.x,l.ly,l.lh,ctx.lineWidth,l.v)}
   if(showOutline&&lines.length>2)drawLinearOutline(ctx,lines,forExport);
   ctx.globalAlpha=1;return lines;
 }
@@ -1229,14 +1252,14 @@ function drawCustom(ctx,W,H,values,p,forExport){
     try{x=fnX(t,v,i,n,W,H,Math)}catch(e){x=t*W}
     try{y=fnY(t,v,i,n,W,H,Math)}catch(e){y=H/2}
     var hRand=1+getRand(i+500,'rAppear')*.7;
-    var lh;if(varyHeight){lh=mLH*(.15+v*.85)*hRand}else{lh=mLH}
+    var lh;if(varyHeight){lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand}else{lh=mLH}
     lh=Math.max(2,Math.min(H*.48,lh));
     var ly=y-lh/2;
     var dx=getDisorder(i)*W*.03;var dy=getDisorder(i+500)*H*.05;
     var cd=getCamDisp(t,i,n,+document.getElementById('camDisplace').value*.005*H);
     dx+=cd.dx;dy+=cd.dy;
     var lx=x+dx,lly=ly+dy;
-    if(dist.twist||dist.bulge||dist.wave||dist.shear){
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
       var dTop=distortLinear(lx,lly,W,H,dist);var dBot=distortLinear(lx,lly+lh,W,H,dist);
       lx=(dTop.x+dBot.x)/2;lly=dTop.y;lh=Math.max(1,Math.abs(dBot.y-dTop.y));
     }
@@ -1245,7 +1268,7 @@ function drawCustom(ctx,W,H,values,p,forExport){
     lines.push({x:lx,ly:lly,lh:lh,v:v,tw:tw,pos:t});
   }
   lastFrameLines={lines:lines,W:W,H:H,p:p};
-  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.globalAlpha=1;ctx.lineWidth=l.tw;drawShapedLine(ctx,l.x,l.ly,l.lh,l.tw,l.v)}
+  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.strokeStyle=col;ctx.fillStyle=col;var _da=getDistortions().depth;if(_da>0){var _dx=(l.x-W/2)/(W/2),_dy=(l.ly+l.lh/2-H/2)/(H/2),_dr=Math.sqrt(_dx*_dx+_dy*_dy),_ds=1-_da*.6*(1-Math.exp(-_dr*1.5));ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=l.tw*Math.max(.2,_ds)}else{ctx.globalAlpha=1;ctx.lineWidth=l.tw}drawShapedLine(ctx,l.x,l.ly,l.lh,ctx.lineWidth,l.v)}
   if(showOutline&&lines.length>2)drawLinearOutline(ctx,lines,forExport);
   ctx.globalAlpha=1;return lines;
 }
@@ -1336,7 +1359,18 @@ function resetCrop(){cropStart=0;cropEnd=safeDuration();selStart=null;selEnd=nul
 function clampSelToCrop(){if(selStart===null||selEnd===null)return;var s=Math.min(selStart,selEnd),e=Math.max(selStart,selEnd);s=Math.max(s,cropStart);e=Math.min(e,cropEnd);if(e-s<.001){selStart=null;selEnd=null}else{selStart=s;selEnd=e}}
 
 // File load
-document.getElementById('fileInput').addEventListener('change',async function(e){var file=e.target.files[0];if(!file)return;stopLive();initAudio();if(playing){audio.pause();playing=false;updatePlayBtn()}if(rafId){cancelAnimationFrame(rafId);rafId=null}if(source){try{source.disconnect()}catch(ex){}}audio=null;selStart=null;selEnd=null;var ab=await file.arrayBuffer();try{audioBuffer=await audioCtx.decodeAudioData(ab.slice(0))}catch(err){alert('Cannot decode');return}audio=new Audio();audio.src=URL.createObjectURL(file);await new Promise(function(r){audio.addEventListener('canplaythrough',r,{once:true});audio.load()}).catch(function(){});source=audioCtx.createMediaElementSource(audio);if(!analyser){analyser=audioCtx.createAnalyser();analyser.fftSize=4096}source.connect(analyser);analyser.connect(audioCtx.destination);document.getElementById('idle').style.display='none';document.getElementById('tDur').textContent=fmt(safeDuration());cropStart=0;cropEnd=safeDuration();audio.addEventListener('ended',function(){playing=false;updatePlayBtn();if(rafId){cancelAnimationFrame(rafId);rafId=null}});drawOverview();updateCropUI();updateSelUI();renderDensity()});
+async function loadAudioFile(file){
+  if(!file)return;stopLive();initAudio();if(playing){audio.pause();playing=false;updatePlayBtn()}if(rafId){cancelAnimationFrame(rafId);rafId=null}if(source){try{source.disconnect()}catch(ex){}}audio=null;selStart=null;selEnd=null;var ab=await file.arrayBuffer();try{audioBuffer=await audioCtx.decodeAudioData(ab.slice(0))}catch(err){alert('Cannot decode');return}audio=new Audio();audio.src=URL.createObjectURL(file);await new Promise(function(r){audio.addEventListener('canplaythrough',r,{once:true});audio.load()}).catch(function(){});source=audioCtx.createMediaElementSource(audio);if(!analyser){analyser=audioCtx.createAnalyser();analyser.fftSize=4096}source.connect(analyser);analyser.connect(audioCtx.destination);document.getElementById('idle').style.display='none';document.getElementById('tDur').textContent=fmt(safeDuration());cropStart=0;cropEnd=safeDuration();audio.addEventListener('ended',function(){playing=false;updatePlayBtn();if(rafId){cancelAnimationFrame(rafId);rafId=null}});drawOverview();updateCropUI();updateSelUI();renderDensity()
+}
+document.getElementById('fileInput').addEventListener('change',function(e){loadAudioFile(e.target.files[0])});
+
+// Drag and drop
+var dropZone=document.getElementById('dropZone'),frameWrap=document.getElementById('frameWrap');
+var dragCounter=0;
+document.addEventListener('dragenter',function(e){e.preventDefault();dragCounter++;dropZone.style.display='flex'});
+document.addEventListener('dragleave',function(e){e.preventDefault();dragCounter--;if(dragCounter<=0){dragCounter=0;dropZone.style.display='none'}});
+document.addEventListener('dragover',function(e){e.preventDefault()});
+document.addEventListener('drop',function(e){e.preventDefault();dragCounter=0;dropZone.style.display='none';var files=e.dataTransfer.files;if(files.length>0&&files[0].type.startsWith('audio/'))loadAudioFile(files[0])});
 
 // Transport
 function getPlayRange(){var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}return{s:sT,e:eT}}
@@ -1429,21 +1463,29 @@ window.addEventListener('mouseup',function(){if(!dragging)return;if(dragging==='
 
 
 // Export
-function doExport(type){if(!audioBuffer)return;var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}var vals=getRangeRMS(sT,eT);
-  var eW=1200,eH;if(layoutMode!=='linear'){eH=eW}else if(aspectRatio==='1:1'){eH=eW}else if(aspectRatio==='4:3'){eH=Math.round(eW*3/4)}else if(aspectRatio==='16:9'){eH=Math.round(eW*9/16)}else{eH=Math.round(eW*200/document.getElementById('frameCv').getBoundingClientRect().width)}
-  var cv=document.createElement('canvas');cv.width=eW;cv.height=eH;var ec=cv.getContext('2d');
-  drawDensity(ec,eW,eH,vals,P(),true);
-  renderDensity(); // restore preview
-  if(type==='svg'){
-    // Re-render to get lastFrameLines at export size, then build SVG
-    var tmpCv=document.createElement('canvas');tmpCv.width=eW;tmpCv.height=eH;var tc=tmpCv.getContext('2d');drawDensity(tc,eW,eH,vals,P(),true);
-    var lines=lastFrameLines.lines,isC=lastFrameLines.circle;
-    var svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+eW+' '+eH+'" width="'+eW+'" height="'+eH+'">\n<rect width="100%" height="100%" fill="'+canvasBg+'"/>\n';
-    if(isC){var ecx=eW/2,ecy=eH/2;for(var i=0;i<lines.length;i++){var l=lines[i];var col=lineColHex(l.v,l.pos,i,lines.length);var x1=ecx+Math.cos(l.angle)*l.r1,y1=ecy+Math.sin(l.angle)*l.r1,x2=ecx+Math.cos(l.angle)*l.r2,y2=ecy+Math.sin(l.angle)*l.r2;svg+='<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="'+col+'" stroke-width="'+l.tw.toFixed(2)+'"/>\n'}}
-    else{for(var i=0;i<lines.length;i++){var l=lines[i];var col=lineColHex(l.v,l.pos,i,lines.length);svg+='<line x1="'+l.x.toFixed(1)+'" y1="'+l.ly.toFixed(1)+'" x2="'+l.x.toFixed(1)+'" y2="'+(l.ly+l.lh).toFixed(1)+'" stroke="'+col+'" stroke-width="'+l.tw.toFixed(2)+'"/>\n'}}
-    svg+='</svg>';renderDensity();var b=new Blob([svg],{type:'image/svg+xml'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='audiograph.svg';a.click();URL.revokeObjectURL(u)
+var exportWithBg=false;
+function setExportBg(v,btn){exportWithBg=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
+function doExport(){
+  var cv=document.getElementById('frameCv');
+  if(exportWithBg){
+    // Copy canvas and add background behind it
+    var expCv=document.createElement('canvas');expCv.width=cv.width;expCv.height=cv.height;
+    var expCtx=expCv.getContext('2d');
+    expCtx.fillStyle=canvasBg;expCtx.fillRect(0,0,expCv.width,expCv.height);
+    expCtx.drawImage(cv,0,0);
+    expCv.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();URL.revokeObjectURL(u)},'image/png');
   }else{
-    renderDensity();cv.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();URL.revokeObjectURL(u)},'image/png')}}
+    // Re-render to a clean canvas without background
+    var sz=sizeCanvas(cv);
+    var expCv=document.createElement('canvas');expCv.width=cv.width;expCv.height=cv.height;
+    var expCtx=expCv.getContext('2d');expCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
+    // Draw density directly (no bg fill)
+    var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
+    var vals=audioBuffer?getRangeRMS(sT,eT):[];
+    if(vals.length)drawDensity(expCtx,sz.W,sz.H,vals,P(),false);
+    expCv.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();URL.revokeObjectURL(u)},'image/png');
+  }
+}
 
 window.addEventListener('resize',function(){if(audioBuffer){drawOverview();updateCropUI();renderDensity()}});
 </script>
