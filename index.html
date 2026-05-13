@@ -108,13 +108,21 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .btn.rec-stop{border-color:var(--hot);color:#fff;background:var(--hot)}
 .btn.rec-stop:hover{background:#ef4444}
 .rec-timer{font-size:.55rem;color:var(--hot);font-variant-numeric:tabular-nums}
+.mbtn.stack-on{border-color:var(--accent2);color:var(--accent2);background:rgba(110,231,183,0.12);border-style:solid}
+.layer-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:.5rem;color:var(--tx2)}
+.layer-row .layer-name{min-width:60px;text-transform:capitalize;color:var(--accent2)}
+.layer-row input[type=range]{flex:1;height:3px}
+.layer-row .layer-val{min-width:24px;text-align:right;font-size:.45rem;color:var(--tx3)}
+.layer-row .layer-rm{cursor:pointer;color:var(--tx3);font-size:.6rem;line-height:1;padding:0 2px}
+.layer-row .layer-rm:hover{color:var(--hot)}
+.layer-row.layer-active .layer-name{color:var(--accent);font-weight:600}
 @media(max-width:900px){.app{flex-direction:column}.controls-area{width:100%;max-height:none;border-right:none;order:1}}
 </style>
 </head>
 <body>
 <div class="top-bar">
   <div class="logo">Audiograph <a href="https://www.vladimirpetkovic.com" target="_blank">by Vladimir Petković</a></div>
-  <div class="top-actions"><button class="btn" onclick="resetAll()">Reset</button><label class="btn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button></div>
+  <div class="top-actions"><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()">Reset</button><label class="btn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button></div>
 </div>
 <div class="app" id="app">
   <div class="preview-area">
@@ -145,24 +153,58 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
   </div>
   <div class="controls-area" id="controlsArea">
     <!-- GLOBAL RANDOMNESS -->
-    <div class="panel" id="panelRandom">
-      <div class="panel-head" onclick="togglePanel('panelRandom')"><span class="panel-title">Randomness</span><span class="panel-arrow">▼</span></div>
+    <div class="panel" id="panelWebcam">
+      <div class="panel-head" onclick="togglePanel('panelWebcam')"><span class="panel-title">Webcam</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><span class="prow-label">Global</span><input type="range" min="0" max="100" value="0" step="1" id="rGlobal" oninput="upR()"><span class="prow-val" id="vrGlobal">0%</span></div>
-        <div class="prow"><span class="prow-label">Distrib.</span><input type="range" min="0" max="100" value="0" step="1" id="rDist" oninput="upR()"><span class="prow-val" id="vrDist">0%</span></div>
-        <div class="prow"><span class="prow-label">Appear.</span><input type="range" min="0" max="100" value="0" step="1" id="rAppear" oninput="upR()"><span class="prow-val" id="vrAppear">0%</span></div>
-        <div class="prow"><span class="prow-label">Outline</span><input type="range" min="0" max="100" value="0" step="1" id="rOutline" oninput="upR()"><span class="prow-val" id="vrOutline">0%</span></div>
-        <div class="prow"><span class="prow-label">Color</span><input type="range" min="0" max="100" value="0" step="1" id="rColor" oninput="upR()"><span class="prow-val" id="vrColor">0%</span></div>
-        <div class="prow"><button class="mbtn" onclick="regenSeed()" style="margin-left:auto">Re-roll</button><button class="mbtn" id="morphBtn" onclick="toggleMorph()" style="margin-left:4px">Auto</button><button class="mbtn" onclick="randomizeAll()" style="margin-left:4px">Random</button></div>
+        <div class="prow"><span class="prow-label">Camera</span><div class="mode-btns"><button class="mbtn" id="camToggle" onclick="toggleCam()">Start</button><button class="mbtn" id="camStopBtn" onclick="stopCam()" style="display:none">Stop</button></div></div>
+        <div class="prow"><span class="prow-label">Colors</span><div class="mode-btns"><button class="mbtn on" onclick="setCamColors(false,this)">Off</button><button class="mbtn" onclick="setCamColors(true,this)">On</button></div></div>
+        <div class="prow"><span class="prow-label">Displace</span><input type="range" min="0" max="100" value="0" step="1" id="camDisplace" oninput="upCam()"><span class="prow-val" id="vCamDisplace">0</span></div>
+        <div class="prow"><span class="prow-label">Disp. dir</span><div class="mode-btns"><button class="mbtn on" onclick="setCamDispDir('radial',this)">Radial</button><button class="mbtn" onclick="setCamDispDir('vertical',this)">Vertical</button><button class="mbtn" onclick="setCamDispDir('horizontal',this)">Horiz.</button></div></div>
+        <div class="prow"><span class="prow-label">Smoothing</span><input type="range" min="1" max="20" value="5" step="1" id="camSmooth" oninput="upCam()"><span class="prow-val" id="vCamSmooth">5</span></div>
+        <div id="camPreview" style="width:100%;border-radius:4px;overflow:hidden;border:1px solid var(--border);display:none"><canvas id="camPrevCv" style="width:100%;display:block"></canvas></div>
       </div>
     </div>
-    <!-- DISTRIBUTION -->
-    <div class="panel" id="panelDist">
-      <div class="panel-head" onclick="togglePanel('panelDist')"><span class="panel-title">Distribution</span><span class="panel-arrow">▼</span></div>
+    <!-- BACKGROUND -->
+    <div class="panel" id="panel3D">
+      <div class="panel-head" onclick="togglePanel('panel3D')"><span class="panel-title">3D</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
+        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="set3D(true,this)">On</button><button class="mbtn on" onclick="set3D(false,this)">Off</button></div></div>
+        <div id="threeParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow"><span class="prow-label">Shape</span><div class="mode-btns"><button class="mbtn amber on" onclick="set3DShape('cylinder',this)">Cylinder</button><button class="mbtn amber" onclick="set3DShape('box',this)">Box</button><button class="mbtn amber" onclick="set3DShape('cone',this)">Cone</button><button class="mbtn amber" onclick="set3DShape('diamond',this)">Diamond</button><button class="mbtn amber" onclick="set3DShape('flat',this)">Flat</button></div></div>
+          <div class="prow"><span class="prow-label">Material</span><div class="mode-btns"><button class="mbtn on" onclick="set3DMat('standard',this)">Standard</button><button class="mbtn" onclick="set3DMat('metal',this)">Metal</button><button class="mbtn" onclick="set3DMat('plastic',this)">Plastic</button><button class="mbtn" onclick="set3DMat('matte',this)">Matte</button><button class="mbtn" onclick="set3DMat('glass',this)">Glass</button><button class="mbtn" onclick="set3DMat('neon',this)">Neon</button></div></div>
+          <div class="prow"><span class="prow-label">Height</span><input type="range" min="1" max="30" value="8" step="0.5" id="p3DHeight" oninput="upP()"><span class="prow-val" id="v3DHeight">8</span></div>
+          <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="10" value="1.5" step="0.25" id="p3DThick" oninput="upP()"><span class="prow-val" id="v3DThick">1.5</span></div>
+          <div class="prow"><span class="prow-label">Spread</span><input type="range" min="2" max="20" value="8" step="0.5" id="p3DSpread" oninput="upP()"><span class="prow-val" id="v3DSpread">8</span></div>
+          <div class="prow"><span class="prow-label">Glow</span><input type="range" min="0" max="100" value="20" step="5" id="p3DGlow" oninput="upP()"><span class="prow-val" id="v3DGlow">20%</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- WEBCAM -->
+    <div class="panel" id="panelOutline">
+      <div class="panel-head" onclick="togglePanel('panelOutline')"><span class="panel-title">Outline</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-body">
+        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setOutline(true,this)">Yes</button><button class="mbtn on" onclick="setOutline(false,this)">No</button></div></div>
+        <div id="outlineParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow"><span class="prow-label">Weight</span><input type="range" min="0.5" max="8" value="2" step="0.25" id="pOutline" oninput="upP()"><span class="prow-val" id="vOutline">2px</span></div>
+          <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setOutlineStyle('solid',this)">Solid</button><button class="mbtn" onclick="setOutlineStyle('dotted',this)">Dotted</button><button class="mbtn" onclick="setOutlineStyle('dashed',this)">Dashed</button></div></div>
+          <div class="prow"><span class="prow-label">Gap</span><input type="range" min="0" max="30" value="0" step="1" id="pOutlineDist" oninput="upP()"><span class="prow-val" id="vOutlineDist">0</span></div>
+          <div class="prow"><span class="prow-label">Count</span><input type="range" min="1" max="10" value="1" step="1" id="pOutlineCount" oninput="upP()"><span class="prow-val" id="vOutlineCount">1</span></div>
+          <div class="prow"><span class="prow-label">Spacing</span><input type="range" min="1" max="20" value="4" step="1" id="pOutlineSpace" oninput="upP()"><span class="prow-val" id="vOutlineSpace">4</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- LAYERS (was Distribution) -->
+    <div class="panel" id="panelDist">
+      <div class="panel-head" onclick="togglePanel('panelDist')"><span class="panel-title">Layers</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-body">
+        <div id="layersUI" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;padding:6px;background:var(--elevated);border-radius:4px;border:1px solid var(--border)">
+          <div id="layersList"></div>
+          <button class="btn" onclick="addLayer()" style="font-size:.5rem;padding:2px 8px;align-self:flex-start">+ Add layer</button>
+        </div>
         <div class="prow"><span class="prow-label">Lines</span><input type="range" min="80" max="800" value="350" step="10" id="pLines" oninput="upP()"><span class="prow-val" id="vLines">350</span></div>
         <div class="prow"><span class="prow-label">Contrast</span><input type="range" min="5" max="100" value="75" step="1" id="pContrast" oninput="upP()"><span class="prow-val" id="vContrast">75%</span></div>
-        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleidoscope</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('fibonacci',this)">Fibonacci</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotaxis</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button></div></div>
+        <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="5" max="200" value="100" step="5" id="pSensitivity" oninput="upP()"><span class="prow-val" id="vSensitivity">100%</span></div>
+        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleidoscope</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('fibonacci',this)">Fibonacci</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotaxis</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button></div></div>
         <!-- Per-layout settings -->
         <div id="layoutOpts_sine" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Waves</span><input type="range" min="0.5" max="10" value="2" step="0.5" id="pSineWaves" oninput="upP()"><span class="prow-val" id="vSineWaves">2</span></div>
@@ -197,6 +239,10 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
           <div class="prow"><span class="prow-label">Density</span><input type="range" min="50" max="100" value="88" step="1" id="pPhylDensity" oninput="upP()"><span class="prow-val" id="vPhylDensity">88%</span></div>
           <div class="prow"><span class="prow-label">Inner R</span><input type="range" min="0" max="40" value="4" step="1" id="pPhylInner" oninput="upP()"><span class="prow-val" id="vPhylInner">4%</span></div>
         </div>
+        <div id="layoutOpts_concentric" class="layout-opts" style="display:none">
+          <div class="prow"><span class="prow-label">Rings</span><input type="range" min="2" max="20" value="5" step="1" id="pConcRings" oninput="upP()"><span class="prow-val" id="vConcRings">5</span></div>
+          <div class="prow"><span class="prow-label">Inner R</span><input type="range" min="0" max="50" value="10" step="1" id="pConcInner" oninput="upP()"><span class="prow-val" id="vConcInner">10%</span></div>
+        </div>
       </div>
     </div>
     <!-- APPEARANCE -->
@@ -207,15 +253,18 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="15" value="1" step="0.25" id="pThick" oninput="upP()"><span class="prow-val" id="vThick">1px</span></div>
         <div class="prow"><span class="prow-label">Vary height</span><div class="mode-btns"><button class="mbtn on" onclick="setVH(true,this)">Yes</button><button class="mbtn" onclick="setVH(false,this)">No</button></div></div>
         <div class="prow"><span class="prow-label">Vary thick</span><div class="mode-btns"><button class="mbtn" onclick="setVT(true,this)">Yes</button><button class="mbtn on" onclick="setVT(false,this)">No</button></div></div>
-        <div class="prow"><span class="prow-label">Zoom</span><input type="range" min="50" max="400" value="100" step="10" id="pZoom" oninput="upP()"><span class="prow-val" id="vZoom">100%</span></div>
-        <div class="prow"><span class="prow-label">Zoom→loud</span><div class="mode-btns"><button class="mbtn" onclick="setZoomLoud(true,this)">On</button><button class="mbtn on" onclick="setZoomLoud(false,this)">Off</button></div></div>
+        <div class="prow"><span class="prow-label">Scale</span><input type="range" min="50" max="400" value="100" step="10" id="pZoom" oninput="upP()"><span class="prow-val" id="vZoom">100%</span></div>
+        <div class="prow"><span class="prow-label">Offset X</span><input type="range" min="-100" max="100" value="0" step="1" id="pOffX" oninput="upP()"><span class="prow-val" id="vOffX">0</span></div>
+        <div class="prow"><span class="prow-label">Offset Y</span><input type="range" min="-100" max="100" value="0" step="1" id="pOffY" oninput="upP()"><span class="prow-val" id="vOffY">0</span></div>
+        <div class="prow"><span class="prow-label">Rotation</span><input type="range" min="-180" max="180" value="0" step="1" id="pRotation" oninput="upP()"><span class="prow-val" id="vRotation">0°</span></div>
+        <div class="prow"><span class="prow-label">Scale→loud</span><div class="mode-btns"><button class="mbtn" onclick="setZoomLoud(true,this)">On</button><button class="mbtn on" onclick="setZoomLoud(false,this)">Off</button></div></div>
       </div>
     </div>
     <!-- LINE STYLE -->
     <div class="panel" id="panelStyle">
       <div class="panel-head" onclick="togglePanel('panelStyle')"><span class="panel-title">Line Style</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><div class="mode-btns"><button class="mbtn on" onclick="setShape('straight',this)">Straight</button><button class="mbtn" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn" onclick="setShape('pins',this)">Pins</button><button class="mbtn" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn" onclick="setShape('caps',this)">Caps</button><button class="mbtn" onclick="setShape('cross',this)">Cross</button><button class="mbtn" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setShape('words',this)">Words</button></div></div>
+        <div class="prow"><div class="mode-btns"><button class="mbtn on" onclick="setShape('straight',this)">Straight</button><button class="mbtn" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn" onclick="setShape('pins',this)">Pins</button><button class="mbtn" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn" onclick="setShape('caps',this)">Caps</button><button class="mbtn" onclick="setShape('cross',this)">Cross</button><button class="mbtn" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setShape('words',this)">Words</button><button class="mbtn" onclick="setShape('cascade',this)">Cascade</button></div></div>
       </div>
     </div>
     <!-- COLOR -->
@@ -227,20 +276,13 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       </div>
     </div>
     <!-- OUTLINE -->
-    <div class="panel" id="panelOutline">
-      <div class="panel-head" onclick="togglePanel('panelOutline')"><span class="panel-title">Outline</span><span class="panel-arrow">▼</span></div>
+    <div class="panel" id="panelBg">
+      <div class="panel-head" onclick="togglePanel('panelBg')"><span class="panel-title">Background</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setOutline(true,this)">Yes</button><button class="mbtn on" onclick="setOutline(false,this)">No</button></div></div>
-        <div id="outlineParams" style="display:none;flex-direction:column;gap:8px">
-          <div class="prow"><span class="prow-label">Weight</span><input type="range" min="0.5" max="8" value="2" step="0.25" id="pOutline" oninput="upP()"><span class="prow-val" id="vOutline">2px</span></div>
-          <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setOutlineStyle('solid',this)">Solid</button><button class="mbtn" onclick="setOutlineStyle('dotted',this)">Dotted</button><button class="mbtn" onclick="setOutlineStyle('dashed',this)">Dashed</button></div></div>
-          <div class="prow"><span class="prow-label">Gap</span><input type="range" min="0" max="30" value="0" step="1" id="pOutlineDist" oninput="upP()"><span class="prow-val" id="vOutlineDist">0</span></div>
-          <div class="prow"><span class="prow-label">Count</span><input type="range" min="1" max="10" value="1" step="1" id="pOutlineCount" oninput="upP()"><span class="prow-val" id="vOutlineCount">1</span></div>
-          <div class="prow"><span class="prow-label">Spacing</span><input type="range" min="1" max="20" value="4" step="1" id="pOutlineSpace" oninput="upP()"><span class="prow-val" id="vOutlineSpace">4</span></div>
-        </div>
+        <div class="bg-row" id="bgRow"><input type="color" id="bgColor" value="#0f0f12"></div>
       </div>
     </div>
-    <!-- EFFECTS -->
+    <!-- PRESETS -->
     <div class="panel" id="panelFx">
       <div class="panel-head" onclick="togglePanel('panelFx')"><span class="panel-title">Effects</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body" id="fxBody">
@@ -266,40 +308,18 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       </div>
     </div>
     <!-- 3D -->
-    <div class="panel" id="panel3D">
-      <div class="panel-head" onclick="togglePanel('panel3D')"><span class="panel-title">3D</span><span class="panel-arrow">▼</span></div>
+    <div class="panel" id="panelRandom">
+      <div class="panel-head" onclick="togglePanel('panelRandom')"><span class="panel-title">Randomness</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="set3D(true,this)">On</button><button class="mbtn on" onclick="set3D(false,this)">Off</button></div></div>
-        <div id="threeParams" style="display:none;flex-direction:column;gap:8px">
-          <div class="prow"><span class="prow-label">Shape</span><div class="mode-btns"><button class="mbtn amber on" onclick="set3DShape('cylinder',this)">Cylinder</button><button class="mbtn amber" onclick="set3DShape('box',this)">Box</button><button class="mbtn amber" onclick="set3DShape('cone',this)">Cone</button><button class="mbtn amber" onclick="set3DShape('diamond',this)">Diamond</button><button class="mbtn amber" onclick="set3DShape('flat',this)">Flat</button></div></div>
-          <div class="prow"><span class="prow-label">Material</span><div class="mode-btns"><button class="mbtn on" onclick="set3DMat('standard',this)">Standard</button><button class="mbtn" onclick="set3DMat('metal',this)">Metal</button><button class="mbtn" onclick="set3DMat('plastic',this)">Plastic</button><button class="mbtn" onclick="set3DMat('matte',this)">Matte</button><button class="mbtn" onclick="set3DMat('glass',this)">Glass</button><button class="mbtn" onclick="set3DMat('neon',this)">Neon</button></div></div>
-          <div class="prow"><span class="prow-label">Height</span><input type="range" min="1" max="30" value="8" step="0.5" id="p3DHeight" oninput="upP()"><span class="prow-val" id="v3DHeight">8</span></div>
-          <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="10" value="1.5" step="0.25" id="p3DThick" oninput="upP()"><span class="prow-val" id="v3DThick">1.5</span></div>
-          <div class="prow"><span class="prow-label">Spread</span><input type="range" min="2" max="20" value="8" step="0.5" id="p3DSpread" oninput="upP()"><span class="prow-val" id="v3DSpread">8</span></div>
-          <div class="prow"><span class="prow-label">Glow</span><input type="range" min="0" max="100" value="20" step="5" id="p3DGlow" oninput="upP()"><span class="prow-val" id="v3DGlow">20%</span></div>
-        </div>
+        <div class="prow"><span class="prow-label">Global</span><input type="range" min="0" max="100" value="0" step="1" id="rGlobal" oninput="upR()"><span class="prow-val" id="vrGlobal">0%</span></div>
+        <div class="prow"><span class="prow-label">Distrib.</span><input type="range" min="0" max="100" value="0" step="1" id="rDist" oninput="upR()"><span class="prow-val" id="vrDist">0%</span></div>
+        <div class="prow"><span class="prow-label">Appear.</span><input type="range" min="0" max="100" value="0" step="1" id="rAppear" oninput="upR()"><span class="prow-val" id="vrAppear">0%</span></div>
+        <div class="prow"><span class="prow-label">Outline</span><input type="range" min="0" max="100" value="0" step="1" id="rOutline" oninput="upR()"><span class="prow-val" id="vrOutline">0%</span></div>
+        <div class="prow"><span class="prow-label">Color</span><input type="range" min="0" max="100" value="0" step="1" id="rColor" oninput="upR()"><span class="prow-val" id="vrColor">0%</span></div>
+        <div class="prow"><button class="mbtn" onclick="regenSeed()" style="margin-left:auto">Re-roll</button><button class="mbtn" id="morphBtn" onclick="toggleMorph()" style="margin-left:4px">Auto</button><button class="mbtn" onclick="randomizeAll()" style="margin-left:4px">Random</button></div>
       </div>
     </div>
-    <!-- WEBCAM -->
-    <div class="panel" id="panelWebcam">
-      <div class="panel-head" onclick="togglePanel('panelWebcam')"><span class="panel-title">Webcam</span><span class="panel-arrow">▼</span></div>
-      <div class="panel-body">
-        <div class="prow"><span class="prow-label">Camera</span><div class="mode-btns"><button class="mbtn" id="camToggle" onclick="toggleCam()">Start</button><button class="mbtn" id="camStopBtn" onclick="stopCam()" style="display:none">Stop</button></div></div>
-        <div class="prow"><span class="prow-label">Colors</span><div class="mode-btns"><button class="mbtn on" onclick="setCamColors(false,this)">Off</button><button class="mbtn" onclick="setCamColors(true,this)">On</button></div></div>
-        <div class="prow"><span class="prow-label">Displace</span><input type="range" min="0" max="100" value="0" step="1" id="camDisplace" oninput="upCam()"><span class="prow-val" id="vCamDisplace">0</span></div>
-        <div class="prow"><span class="prow-label">Disp. dir</span><div class="mode-btns"><button class="mbtn on" onclick="setCamDispDir('radial',this)">Radial</button><button class="mbtn" onclick="setCamDispDir('vertical',this)">Vertical</button><button class="mbtn" onclick="setCamDispDir('horizontal',this)">Horiz.</button></div></div>
-        <div class="prow"><span class="prow-label">Smoothing</span><input type="range" min="1" max="20" value="5" step="1" id="camSmooth" oninput="upCam()"><span class="prow-val" id="vCamSmooth">5</span></div>
-        <div id="camPreview" style="width:100%;border-radius:4px;overflow:hidden;border:1px solid var(--border);display:none"><canvas id="camPrevCv" style="width:100%;display:block"></canvas></div>
-      </div>
-    </div>
-    <!-- BACKGROUND -->
-    <div class="panel" id="panelBg">
-      <div class="panel-head" onclick="togglePanel('panelBg')"><span class="panel-title">Background</span><span class="panel-arrow">▼</span></div>
-      <div class="panel-body">
-        <div class="bg-row" id="bgRow"><input type="color" id="bgColor" value="#0f0f12"></div>
-      </div>
-    </div>
-    <!-- PRESETS -->
+    <!-- DISTRIBUTION -->
     <div class="panel" id="panelPresets">
       <div class="panel-head" onclick="togglePanel('panelPresets')"><span class="panel-title">Presets</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
@@ -312,7 +332,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       <div class="panel-head" onclick="togglePanel('panelExport')"><span class="panel-title">Export</span><span class="panel-arrow">▼</span></div>
       <div class="export-row">
         <button class="btn primary" onclick="doExport()">Download PNG</button>
-        <button class="btn rec-btn" id="recBtn" onclick="startRecording()"><svg viewBox="0 0 24 24" style="width:11px;height:11px"><circle cx="12" cy="12" r="7" fill="currentColor" stroke="none"/></svg>Record WebM</button>
+        <button class="btn rec-btn" id="recBtn" onclick="startRecording()"><svg viewBox="0 0 24 24" style="width:11px;height:11px"><circle cx="12" cy="12" r="7" fill="currentColor" stroke="none"/></svg>Record</button>
         <button class="btn rec-stop" id="recStopBtn" onclick="stopRecording()" style="display:none"><svg viewBox="0 0 24 24" style="width:11px;height:11px"><rect x="6" y="6" width="12" height="12" fill="currentColor" stroke="none"/></svg>Stop</button>
         <div class="mode-btns"><button class="mbtn" onclick="setExportBg(true,this)">With bg</button><button class="mbtn on" onclick="setExportBg(false,this)">Transparent</button></div>
       </div>
@@ -323,6 +343,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 var frameCv=document.getElementById('frameCv'),frameCtx=frameCv.getContext('2d'),overCv=document.getElementById('overviewCv'),overCtx=overCv.getContext('2d');
 var audioCtx,analyser,source,audio,playing=false,audioBuffer=null,rafId=null,lastFrameLines=null;
 var colorMode='toneramp',varyHeight=true,lineShape='straight',varyThick=false,showOutline=false,outlineStyle='solid',layoutMode='linear',aspectRatio='strip';
+var stackMode=true,stackLayouts=[],activeLayerIdx=0;
 var canvasBg='#0f0f12',solidColor='#dddde0';
 var toneStops=['#1a1a2e','#e94560','#f5a623','#6ee7b7'],simpleStops=['#e94560','#f5a623','#6ee7b7'];
 var solidPresets=['#dddde0','#ffffff','#f87171','#fb923c','#fbbf24','#a3e635','#34d399','#22d3ee','#818cf8','#f472b6','#191950','#000000'];
@@ -341,7 +362,7 @@ function togglePanel(id){document.getElementById(id).classList.toggle('closed')}
 
 // Params
 function P(){return{lines:+document.getElementById('pLines').value,contrast:+document.getElementById('pContrast').value/100,height:+document.getElementById('pHeight').value/100,thick:+document.getElementById('pThick').value}}
-function upP(){document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
+function upP(){document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
   document.getElementById('vCircleInner').textContent=document.getElementById('pCircleInner').value+'%';
   document.getElementById('vKalSegments').textContent=document.getElementById('pKalSegments').value;
   document.getElementById('vKalInner').textContent=document.getElementById('pKalInner').value+'%';
@@ -353,35 +374,214 @@ function upP(){document.getElementById('vLines').textContent=document.getElement
   document.getElementById('vPhylDiv').textContent=document.getElementById('pPhylDiv').value;
   document.getElementById('vPhylDensity').textContent=document.getElementById('pPhylDensity').value+'%';
   document.getElementById('vPhylInner').textContent=document.getElementById('pPhylInner').value+'%';
+  document.getElementById('vConcRings').textContent=document.getElementById('pConcRings').value;
+  document.getElementById('vConcInner').textContent=document.getElementById('pConcInner').value+'%';
   document.getElementById('vSineWaves').textContent=document.getElementById('pSineWaves').value;
   document.getElementById('vSineAmp').textContent=document.getElementById('pSineAmp').value+'%';
   if(document.getElementById('p3DHeight'))document.getElementById('v3DHeight').textContent=document.getElementById('p3DHeight').value;
   if(document.getElementById('p3DThick'))document.getElementById('v3DThick').textContent=document.getElementById('p3DThick').value;
   if(document.getElementById('p3DSpread'))document.getElementById('v3DSpread').textContent=document.getElementById('p3DSpread').value;
   if(document.getElementById('p3DGlow'))document.getElementById('v3DGlow').textContent=document.getElementById('p3DGlow').value+'%';
+  if(stackMode&&stackLayouts.length>0){var _ai=getActiveLayerIdx();if(_ai>=0&&_ai<stackLayouts.length){stackLayouts[_ai].params=getLayoutParams();stackLayouts[_ai].layout=layoutMode}}
   renderDensity()}
-function setC(m,btn){colorMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');buildColorPanel();renderDensity()}
-function setVH(v,btn){varyHeight=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
-function setVT(v,btn){varyThick=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
-function setShape(s,btn){lineShape=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
+function setC(m,btn){colorMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}buildColorPanel();renderDensity()}
+function setVH(v,btn){varyHeight=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
+function setVT(v,btn){varyThick=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
+function setShape(s,btn){lineShape=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function setOutline(v,btn){showOutline=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');document.getElementById('outlineParams').style.display=v?'flex':'none';renderDensity()}
 function setOutlineStyle(s,btn){outlineStyle=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
-function setLayout(m,btn){layoutMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');document.getElementById('app').classList.toggle('circle-mode',m!=='linear');document.querySelectorAll('.layout-opts').forEach(function(el){el.style.display='none'});var opts=document.getElementById('layoutOpts_'+m);if(opts)opts.style.display='flex';if(opts)opts.style.flexDirection='column';if(opts)opts.style.gap='8px';renderDensity()}
+function getLayoutParams(){
+  var p={};
+  document.querySelectorAll('.layout-opts input').forEach(function(inp){p[inp.id]=inp.type==='text'?inp.value:+inp.value});
+  p._lines=+document.getElementById('pLines').value;
+  p._contrast=+document.getElementById('pContrast').value;
+  p._sensitivity=+document.getElementById('pSensitivity').value;
+  p._height=+document.getElementById('pHeight').value;
+  p._thick=+document.getElementById('pThick').value;
+  p._zoom=+document.getElementById('pZoom').value;
+  p._offX=+document.getElementById('pOffX').value;
+  p._offY=+document.getElementById('pOffY').value;
+  p._rotation=+document.getElementById('pRotation').value;
+  p._varyHeight=varyHeight;p._varyThick=varyThick;
+  p._lineShape=lineShape;
+  p._colorMode=colorMode;p._solidColor=solidColor;
+  p._toneStops=JSON.parse(JSON.stringify(toneStops));
+  p._simpleStops=JSON.parse(JSON.stringify(simpleStops));
+  p._showOutline=showOutline;p._outlineStyle=outlineStyle;
+  p._outlineWeight=+document.getElementById('pOutline').value;
+  p._outlineDist=+document.getElementById('pOutlineDist').value;
+  p._outlineCount=+document.getElementById('pOutlineCount').value;
+  p._outlineSpace=+document.getElementById('pOutlineSpace').value;
+  return JSON.parse(JSON.stringify(p));
+}
+function setLayoutParams(p){
+  if(!p)return;
+  for(var id in p){if(id.charAt(0)==='_')continue;var el=document.getElementById(id);if(el){if(el.type==='text')el.value=p[id];else el.value=p[id]}}
+  if('_lines' in p)document.getElementById('pLines').value=p._lines;
+  if('_contrast' in p)document.getElementById('pContrast').value=p._contrast;
+  if('_sensitivity' in p)document.getElementById('pSensitivity').value=p._sensitivity;
+  if('_height' in p)document.getElementById('pHeight').value=p._height;
+  if('_thick' in p)document.getElementById('pThick').value=p._thick;
+  if('_zoom' in p)document.getElementById('pZoom').value=p._zoom;
+  if('_offX' in p)document.getElementById('pOffX').value=p._offX;
+  if('_offY' in p)document.getElementById('pOffY').value=p._offY;
+  if('_rotation' in p)document.getElementById('pRotation').value=p._rotation;
+  if('_varyHeight' in p)varyHeight=p._varyHeight;
+  if('_varyThick' in p)varyThick=p._varyThick;
+  if('_lineShape' in p)lineShape=p._lineShape;
+  if('_colorMode' in p)colorMode=p._colorMode;
+  if('_solidColor' in p)solidColor=p._solidColor;
+  if('_toneStops' in p)toneStops=p._toneStops.slice();
+  if('_simpleStops' in p)simpleStops=p._simpleStops.slice();
+  if('_showOutline' in p){showOutline=p._showOutline;document.getElementById('outlineParams').style.display=showOutline?'flex':'none'}
+  if('_outlineStyle' in p)outlineStyle=p._outlineStyle;
+  if('_outlineWeight' in p)document.getElementById('pOutline').value=p._outlineWeight;
+  if('_outlineDist' in p)document.getElementById('pOutlineDist').value=p._outlineDist;
+  if('_outlineCount' in p)document.getElementById('pOutlineCount').value=p._outlineCount;
+  if('_outlineSpace' in p)document.getElementById('pOutlineSpace').value=p._outlineSpace;
+}
+function initLayers(){
+  if(stackLayouts.length===0){
+    stackLayouts=[{layout:layoutMode,opacity:100,params:getLayoutParams()}];
+    activeLayerIdx=0;
+  }
+  buildLayersUI();
+}
+function getDefaultLayerParams(){
+  return JSON.parse(JSON.stringify({
+    pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,
+    pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,
+    pConcRings:5,pConcInner:10,
+    _lines:350,_contrast:75,_sensitivity:100,
+    _height:80,_thick:1,_zoom:100,_offX:0,_offY:0,_rotation:0,
+    _varyHeight:true,_varyThick:false,
+    _lineShape:'straight',
+    _colorMode:'toneramp',_solidColor:'#dddde0',
+    _toneStops:['#1a1a2e','#e94560','#f5a623','#6ee7b7'],
+    _simpleStops:['#e94560','#f5a623','#6ee7b7'],
+    _showOutline:false,_outlineStyle:'solid',
+    _outlineWeight:2,_outlineDist:0,_outlineCount:1,_outlineSpace:4
+  }));
+}
+function addLayer(){
+  // Save current active layer
+  if(activeLayerIdx>=0&&activeLayerIdx<stackLayouts.length){
+    stackLayouts[activeLayerIdx].params=getLayoutParams();
+    stackLayouts[activeLayerIdx].layout=layoutMode;
+  }
+  // New layer with defaults
+  stackLayouts.push({layout:'linear',opacity:100,params:getDefaultLayerParams()});
+  selectLayer(stackLayouts.length-1);
+}
+function getActiveLayerIdx(){
+  if(activeLayerIdx>=stackLayouts.length)activeLayerIdx=Math.max(0,stackLayouts.length-1);
+  return activeLayerIdx;
+}
+function removeLayer(idx){
+  if(stackLayouts.length<=1)return;
+  // Save current active layer before removing
+  if(activeLayerIdx<stackLayouts.length){
+    stackLayouts[activeLayerIdx].params=getLayoutParams();
+    stackLayouts[activeLayerIdx].layout=layoutMode;
+  }
+  stackLayouts.splice(idx,1);
+  // Adjust active index
+  if(activeLayerIdx>=stackLayouts.length)activeLayerIdx=stackLayouts.length-1;
+  if(activeLayerIdx===idx)activeLayerIdx=Math.min(idx,stackLayouts.length-1);
+  else if(idx<activeLayerIdx)activeLayerIdx--;
+  // Load the now-active layer
+  selectLayer(activeLayerIdx);
+}
+function setLayerOpacity(idx,val){
+  stackLayouts[idx].opacity=+val;
+  document.getElementById('layerVal_'+idx).textContent=val+'%';
+  renderDensity();
+}
+function selectLayer(idx){
+  // Save current active layer's params before switching
+  if(activeLayerIdx>=0&&activeLayerIdx<stackLayouts.length){
+    stackLayouts[activeLayerIdx].layout=layoutMode;
+    stackLayouts[activeLayerIdx].params=getLayoutParams();
+  }
+  // Update tracked index
+  activeLayerIdx=idx;
+  // Load selected layer's settings
+  var layer=stackLayouts[idx];
+  layoutMode=layer.layout;
+  setLayoutParams(layer.params);
+  // Update layout buttons
+  document.querySelectorAll('.mbtn.amber').forEach(function(b){b.classList.remove('on');var oc=b.getAttribute('onclick')||'';if(oc.indexOf("'"+layer.layout+"'")>-1)b.classList.add('on')});
+  document.querySelectorAll('.layout-opts').forEach(function(el){el.style.display='none'});
+  var opts=document.getElementById('layoutOpts_'+layer.layout);if(opts){opts.style.display='flex';opts.style.flexDirection='column';opts.style.gap='8px'}
+  // Update appearance toggle buttons for this layer
+  document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';
+    if(oc.indexOf('setVH(true')>-1){b.classList.toggle('on',varyHeight)}
+    if(oc.indexOf('setVH(false')>-1){b.classList.toggle('on',!varyHeight)}
+    if(oc.indexOf('setVT(true')>-1){b.classList.toggle('on',varyThick)}
+    if(oc.indexOf('setVT(false')>-1){b.classList.toggle('on',!varyThick)}
+    if(oc.indexOf("setShape('"+lineShape+"'")>-1){b.classList.add('on')}
+    else if(oc.indexOf("setShape(")>-1){b.classList.remove('on')}
+    if(oc.indexOf("setC('"+colorMode+"'")>-1){b.classList.add('on')}
+    else if(oc.indexOf("setC(")>-1){b.classList.remove('on')}
+    if(oc.indexOf("setOutline(true")>-1){b.classList.toggle('on',showOutline)}
+    if(oc.indexOf("setOutline(false")>-1){b.classList.toggle('on',!showOutline)}
+    if(oc.indexOf("setOutlineStyle('"+outlineStyle+"'")>-1){b.classList.add('on')}
+    else if(oc.indexOf("setOutlineStyle(")>-1){b.classList.remove('on')}
+  });
+  buildColorPanel();
+  // Rebuild layers UI and highlight active
+  buildLayersUI();
+  upP();
+}
+function buildLayersUI(){
+  var list=document.getElementById('layersList');
+  list.innerHTML='';
+  stackLayouts.forEach(function(layer,idx){
+    var row=document.createElement('div');
+    row.className='layer-row';row.id='layerRow_'+idx;
+    if(idx===activeLayerIdx)row.classList.add('layer-active');
+    row.innerHTML='<span class="layer-name" style="cursor:pointer" onclick="selectLayer('+idx+')">'+layer.layout+'</span>'+
+      '<input type="range" min="5" max="100" value="'+layer.opacity+'" step="5" oninput="setLayerOpacity('+idx+',this.value)">'+
+      '<span class="layer-val" id="layerVal_'+idx+'">'+layer.opacity+'%</span>'+
+      (stackLayouts.length>1?'<span class="layer-rm" onclick="removeLayer('+idx+')">✕</span>':'');
+    list.appendChild(row);
+  });
+}
+function setLayout(m,btn){
+  if(stackMode&&stackLayouts.length>0){
+    // Update the currently selected layer's layout
+    var activeIdx=getActiveLayerIdx();
+    stackLayouts[activeIdx].layout=m;
+    // Don't save params here — they'll be saved when we switch away from this layer
+  }
+  layoutMode=m;
+  if(!stackMode){
+    btn.parentElement.querySelectorAll('.mbtn.amber').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');
+  }else{
+    btn.parentElement.querySelectorAll('.mbtn.amber').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');
+    buildLayersUI();
+  }
+  document.getElementById('app').classList.toggle('circle-mode',m!=='linear');
+  document.querySelectorAll('.layout-opts').forEach(function(el){el.style.display='none'});
+  var opts=document.getElementById('layoutOpts_'+m);if(opts)opts.style.display='flex';if(opts)opts.style.flexDirection='column';if(opts)opts.style.gap='8px';
+  renderDensity();
+}
 function setAspect(r,btn){aspectRatio=r;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
 
 // Effects
 var mirrorOn=false,spinAngle=0,playMode='continuous',zoomLoud=false;
 function setMirror(v,btn){mirrorOn=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
 function setZoomLoud(v,btn){zoomLoud=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
-function setPlayMode(m,btn){playMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
+function setPlayMode(m,btn){playMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(m==='equalizer'){selStart=null;selEnd=null;updateSelUI()}}
 
 // Reset all
 function resetAll(){
-  var defs={pLines:350,pContrast:75,pHeight:80,pThick:1,pZoom:100,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80};
+  var defs={pLines:350,pContrast:75,pSensitivity:100,pHeight:80,pThick:1,pZoom:100,pOffX:0,pOffY:0,pRotation:0,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80};
   for(var id in defs){var el=document.getElementById(id);if(el)el.value=defs[id]}
   colorMode='toneramp';varyHeight=true;varyThick=false;showOutline=false;outlineStyle='solid';mirrorOn=false;playMode='continuous';spinAngle=0;
   layoutMode='linear';document.getElementById('app').classList.remove('circle-mode');
-  lineShape='straight';threeShape='cylinder';threeMat='standard';
+  lineShape='straight';threeShape='cylinder';threeMat='standard';stackMode=true;stackLayouts=[];activeLayerIdx=0;
+  initLayers();
   solidColor='#dddde0';toneStops=['#1a1a2e','#e94560','#f5a623','#6ee7b7'];simpleStops=['#e94560','#f5a623','#6ee7b7'];
   setBg('#0f0f12');
   // Reset all button states
@@ -401,40 +601,42 @@ function randomizeAll(){
   function rr(min,max){return min+Math.random()*(max-min)}
   function ri(min,max){return Math.round(rr(min,max))}
   function rHex(){return'#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0')}
-  // Sliders
-  var sets={pLines:ri(80,800),pContrast:ri(5,100),pHeight:ri(20,100),pThick:+(rr(0.5,10)).toFixed(2),
-    pOutline:+(rr(0.5,8)).toFixed(2),pOutlineDist:ri(0,30),pOutlineCount:ri(1,6),pOutlineSpace:ri(1,20),
-    pSpin:+(rr(0,5)).toFixed(1),pSpeed:+(rr(0.3,3)).toFixed(1),pAmplify:+(rr(0.5,3)).toFixed(1),pTwist:ri(-60,60),pBulge:ri(-50,50),pWave:ri(0,60),pWaveFreq:ri(1,15),pShear:ri(-50,50),pDepth:ri(0,60),rDisorder:ri(0,60),
-    pCircleInner:ri(0,60),pKalSegments:ri(3,12),pKalInner:ri(0,40),
-    pSpiralTurns:+(rr(1,15)).toFixed(1),pSpiralInner:ri(0,40),pSpiralSpread:ri(30,100),
-    pFibDensity:ri(50,100),pFibInner:ri(0,30),pPhylDiv:ri(-40,40),pPhylDensity:ri(50,100),pPhylInner:ri(0,30),pSineWaves:+(rr(0.5,8)).toFixed(1),pSineAmp:ri(30,100)};
-  for(var id in sets){var el=document.getElementById(id);if(el)el.value=sets[id]}
-  // Toggles
-  varyHeight=Math.random()>0.3;varyThick=Math.random()>0.5;
-  showOutline=Math.random()>0.6;outlineStyle=['solid','dotted','dashed'][ri(0,2)];
-  mirrorOn=Math.random()>0.7;
-  // Layout (exclude custom — user types those)
-  var layouts=['linear','circle','kaleidoscope','spiral','fibonacci','phyllotaxis','sine'];
-  layoutMode=layouts[ri(0,layouts.length-1)];
+  function randomLayerParams(){
+    var layouts=['linear','circle','kaleidoscope','spiral','fibonacci','phyllotaxis','sine','concentric'];
+    var shapes=['straight','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words','cascade'];
+    var cmodes=['solid','toneramp','simpleramp'];
+    var layout=layouts[ri(0,layouts.length-1)];
+    var p={
+      pCircleInner:ri(0,60),pKalSegments:ri(3,12),pKalInner:ri(0,40),
+      pSpiralTurns:+(rr(1,15)).toFixed(1),pSpiralInner:ri(0,40),pSpiralSpread:ri(30,100),
+      pFibDensity:ri(50,100),pFibInner:ri(0,30),pPhylDiv:ri(-40,40),pPhylDensity:ri(50,100),pPhylInner:ri(0,30),
+      pSineWaves:+(rr(0.5,8)).toFixed(1),pSineAmp:ri(30,100),pConcRings:ri(2,15),pConcInner:ri(0,40),
+      _height:ri(20,100),_thick:+(rr(0.5,10)).toFixed(2),_zoom:ri(50,200),_offX:ri(-30,30),_offY:ri(-30,30),_rotation:ri(-45,45),
+      _varyHeight:Math.random()>0.3,_varyThick:Math.random()>0.5,
+      _lineShape:shapes[ri(0,shapes.length-1)],
+      _colorMode:cmodes[ri(0,cmodes.length-1)],
+      _solidColor:rHex()
+    };
+    var nTone=ri(2,5);p._toneStops=[];for(var i=0;i<nTone;i++)p._toneStops.push(rHex());
+    var nSimple=ri(2,4);p._simpleStops=[];for(var i=0;i<nSimple;i++)p._simpleStops.push(rHex());
+    return{layout:layout,params:p};
+  }
+
+  // Randomize each layer independently
+  for(var li=0;li<stackLayouts.length;li++){
+    var rnd=randomLayerParams();
+    stackLayouts[li].layout=rnd.layout;
+    stackLayouts[li].params=rnd.params;
+  }
+  selectLayer(0);
   document.getElementById('app').classList.toggle('circle-mode',layoutMode!=='linear');
   document.querySelectorAll('.layout-opts').forEach(function(el){el.style.display='none'});
   var opts=document.getElementById('layoutOpts_'+layoutMode);if(opts){opts.style.display='flex';opts.style.flexDirection='column';opts.style.gap='8px'}
-  // Line style
-  var shapes=['straight','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words'];
-  lineShape=shapes[ri(0,shapes.length-1)];
-  // 3D shape
+  // 3D shape/material
   var shapes3D=['cylinder','box','cone','diamond','flat'];
   threeShape=shapes3D[ri(0,shapes3D.length-1)];
-  // 3D material
   var mats3D=['standard','metal','plastic','matte','glass','neon'];
   threeMat=mats3D[ri(0,mats3D.length-1)];
-  // Color mode
-  var cmodes=['solid','toneramp','simpleramp'];
-  colorMode=cmodes[ri(0,cmodes.length-1)];
-  // Random colors
-  solidColor=rHex();
-  var nTone=ri(2,5);toneStops=[];for(var i=0;i<nTone;i++)toneStops.push(rHex());
-  var nSimple=ri(2,4);simpleStops=[];for(var i=0;i<nSimple;i++)simpleStops.push(rHex());
   // Playback mode
   playMode=Math.random()>0.5?'equalizer':'continuous';
   // Update all button states
@@ -458,22 +660,50 @@ function randomizeAll(){
     if(oc.indexOf("setCamDispDir")>-1&&oc.indexOf("'radial'")>-1)b.classList.add('on');
     if(oc.indexOf("setCamColors(false")>-1)b.classList.add('on');
   });
+
   document.getElementById('outlineParams').style.display=showOutline?'flex':'none';
   if(showOutline){document.getElementById('outlineParams').style.flexDirection='column';document.getElementById('outlineParams').style.gap='8px'}
   regenSeed();upP();upR();buildColorPanel();renderDensity();
 }
 
 // --- PRESETS ---
+// --- UNDO ---
+var undoStack=[],undoMax=30,undoLast=0,undoSuppressed=false;
+function pushUndo(){
+  if(undoSuppressed)return;
+  var now=Date.now();
+  if(now-undoLast<500)return; // debounce
+  undoLast=now;
+  var st=getState();
+  undoStack.push(JSON.stringify(st));
+  if(undoStack.length>undoMax)undoStack.shift();
+  document.getElementById('undoBtn').disabled=false;
+}
+function undo(){
+  if(undoStack.length===0)return;
+  undoSuppressed=true;
+  var prev=JSON.parse(undoStack.pop());
+  applyState(prev);
+  undoSuppressed=false;
+  document.getElementById('undoBtn').disabled=undoStack.length===0;
+}
+// Push undo state on meaningful interactions
+var _origUpP=null;
+
 function getState(){
   var sliders={};
-  ['pLines','pContrast','pHeight','pThick','pZoom','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp'].forEach(function(id){
+  ['pLines','pContrast','pSensitivity','pHeight','pThick','pZoom','pOffX','pOffY','pRotation','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp'].forEach(function(id){
     var el=document.getElementById(id);if(el)sliders[id]=parseFloat(el.value);
   });
-  return{sliders:sliders,colorMode:colorMode,varyHeight:varyHeight,varyThick:varyThick,showOutline:showOutline,outlineStyle:outlineStyle,mirrorOn:mirrorOn,playMode:playMode,layoutMode:layoutMode,lineShape:lineShape,threeShape:threeShape,threeMat:threeMat,solidColor:solidColor,toneStops:toneStops.slice(),simpleStops:simpleStops.slice(),canvasBg:canvasBg,seeds:randSeeds.slice()};
+  return{sliders:sliders,colorMode:colorMode,varyHeight:varyHeight,varyThick:varyThick,showOutline:showOutline,outlineStyle:outlineStyle,mirrorOn:mirrorOn,playMode:playMode,layoutMode:layoutMode,stackMode:stackMode,stackLayouts:JSON.parse(JSON.stringify(stackLayouts)),lineShape:lineShape,threeShape:threeShape,threeMat:threeMat,solidColor:solidColor,toneStops:toneStops.slice(),simpleStops:simpleStops.slice(),canvasBg:canvasBg,seeds:randSeeds.slice()};
 }
 function applyState(st){
   for(var id in st.sliders){var el=document.getElementById(id);if(el)el.value=st.sliders[id]}
-  colorMode=st.colorMode||'toneramp';varyHeight=st.varyHeight!==false;varyThick=!!st.varyThick;showOutline=!!st.showOutline;outlineStyle=st.outlineStyle||'solid';mirrorOn=!!st.mirrorOn;playMode=st.playMode||'continuous';lineShape=st.lineShape||'straight';threeShape=st.threeShape||'cylinder';threeMat=st.threeMat||'standard';
+  colorMode=st.colorMode||'toneramp';varyHeight=st.varyHeight!==false;varyThick=!!st.varyThick;showOutline=!!st.showOutline;outlineStyle=st.outlineStyle||'solid';mirrorOn=!!st.mirrorOn;playMode=st.playMode||'continuous';lineShape=st.lineShape||'straight';threeShape=st.threeShape||'cylinder';threeMat=st.threeMat||'standard';stackMode=true;stackLayouts=st.stackLayouts||[];activeLayerIdx=0;
+  if(stackLayouts.length===0)stackLayouts=[{layout:layoutMode,opacity:100,params:getLayoutParams()}];
+
+  document.getElementById('layersUI').style.display=stackMode?'flex':'none';
+  if(stackMode&&stackLayouts.length>0){buildLayersUI();selectLayer(0)}
   layoutMode=st.layoutMode||'linear';document.getElementById('app').classList.toggle('circle-mode',layoutMode!=='linear');
   solidColor=st.solidColor||'#dddde0';toneStops=st.toneStops||['#1a1a2e','#e94560','#f5a623','#6ee7b7'];simpleStops=st.simpleStops||['#e94560','#f5a623','#6ee7b7'];
   if(st.canvasBg)setBg(st.canvasBg);
@@ -482,7 +712,8 @@ function applyState(st){
   // Update button states
   document.querySelectorAll('.mode-btns').forEach(function(g){g.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')})});
   document.querySelectorAll('.mbtn').forEach(function(b){var t=b.textContent.trim().toLowerCase(),oc=b.getAttribute('onclick')||'';
-    if(oc.indexOf("setLayout('"+layoutMode+"'")>-1)b.classList.add('on');
+    if(!stackMode&&oc.indexOf("setLayout('"+layoutMode+"'")>-1)b.classList.add('on');
+    if(stackMode&&oc.indexOf("setLayout(")>-1){var activeL=stackLayouts.length>0?stackLayouts[0].layout:layoutMode;if(oc.indexOf("'"+activeL+"'")>-1)b.classList.add('on')}
     if(oc.indexOf("setShape('"+lineShape+"'")>-1)b.classList.add('on');
     if(oc.indexOf("setC('"+colorMode+"'")>-1)b.classList.add('on');
     if(oc.indexOf("setPlayMode('"+playMode+"'")>-1)b.classList.add('on');
@@ -631,6 +862,24 @@ function drawShapedLine(ctx,x,ly,lh,t,val){
     ctx.save();ctx.translate(x,ly+lh/2);ctx.rotate(-Math.PI/2);
     ctx.fillText(word,0,0);ctx.restore();
   }
+  else if(lineShape==='cascade'){
+    // Stepped tower: 3-5 tiers of increasing width, connected by thin stems
+    var tiers=3+Math.floor(val*2); // 3 tiers quiet, up to 5 loud
+    var tierH=lh/tiers;
+    var maxW=t*3.5; // widest tier width scales with thickness
+    var stemW=Math.max(0.5,t*0.2);
+    for(var ti=0;ti<tiers;ti++){
+      var tierY=ly+ti*tierH;
+      // Width increases from top (narrow) to bottom (wide)
+      var frac=(ti+1)/tiers;
+      var tw=stemW+(maxW-stemW)*frac;
+      // Draw the block
+      var blockH=tierH*0.55;
+      ctx.fillRect(x-tw/2,tierY+tierH-blockH,tw,blockH);
+      // Draw the thin stem above each block
+      ctx.fillRect(x-stemW/2,tierY,stemW,tierH-blockH);
+    }
+  }
   else{ctx.beginPath();ctx.moveTo(x,ly);ctx.lineTo(x,ly+lh);ctx.stroke()}}
 function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
 function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(c){return Math.round(Math.max(0,Math.min(255,c))).toString(16).padStart(2,'0')}).join('')}
@@ -651,6 +900,15 @@ function lineColHex(v,pr,idx,total){
   if(colorMode==='toneramp'){var c=shiftHue(lerpColor(toneStops,v),hueShift);return rgbToHex(c[0],c[1],c[2])}
   if(colorMode==='simpleramp'){var c=shiftHue(lerpColor(simpleStops,pr),hueShift);return rgbToHex(c[0],c[1],c[2])}return solidColor}
 function fmt(s){if(!isFinite(s)||s<0)return'0:00.0';var m=Math.floor(s/60),sc=s%60;return m+':'+(sc<10?'0':'')+sc.toFixed(1)}
+function sensCurve(v,sens){
+  // Apply a power curve: sens<1 compresses (flattens), sens>1 expands (steepens)
+  // Map sensitivity 0.05-2.0 to gamma 0.25-3.5
+  var gamma=0.25+sens*1.625; // sens=0.05→0.33, sens=1→1.875, sens=2→3.5
+  // Adjusted: sens=1 should be close to linear (gamma≈1)
+  // Use exponential mapping: gamma = e^(k*(sens-1))
+  gamma=Math.exp(1.5*(sens-1)); // sens=0.05→0.24, sens=1→1.0, sens=2→4.48
+  return Math.pow(Math.min(1,Math.max(0,v)),gamma);
+}
 function safeDuration(){if(audio&&isFinite(audio.duration)&&audio.duration>0)return audio.duration;if(audioBuffer&&isFinite(audioBuffer.duration)&&audioBuffer.duration>0)return audioBuffer.duration;return 0}
 function safeSetTime(t){if(!audio)return;var d=safeDuration();if(d>0){var c=Math.max(0,Math.min(t,d));if(isFinite(c))audio.currentTime=c}}
 function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)()}
@@ -687,9 +945,10 @@ async function startMic(){
   catch(e){alert('Microphone access denied: '+e.message)}
 }
 async function startSystem(){
-  try{var stream=await navigator.mediaDevices.getDisplayMedia({audio:true,video:true});
+  try{var stream=await navigator.mediaDevices.getDisplayMedia({audio:{suppressLocalAudioPlayback:false},video:true,preferCurrentTab:false,systemAudio:'include'});
     // We only need audio; remove video track to save resources
     stream.getVideoTracks().forEach(function(t){t.stop()});
+    if(stream.getAudioTracks().length===0){alert('No audio track — make sure to check "Share system audio" in the dialog');return}
     await startLiveInput(stream);
     // If user stops sharing, clean up
     stream.getAudioTracks()[0].addEventListener('ended',function(){stopLive();document.getElementById('frameBadge').textContent=''});
@@ -704,6 +963,7 @@ function liveAnimLoop(){
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
   var amp=+document.getElementById('pAmplify').value;
+  var sens=+document.getElementById('pSensitivity').value/100;
   var speed=+document.getElementById('pSpeed').value;if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002*speed;wavePhase+=0.05*speed;
   if(dropEnabled&&analyser){if(detectDrop(analyser))triggerDrop();applyDropDecay()}
   // Get live frequency data
@@ -713,17 +973,56 @@ function liveAnimLoop(){
   var binsPerLine=Math.max(1,Math.floor(fd.length/nLines));
   for(var i=0;i<nLines;i++){
     var sum=0;for(var j=0;j<binsPerLine;j++){var idx=i*binsPerLine+j;if(idx<fd.length)sum+=fd[idx]}
-    modVals.push(Math.min(1,sum/(binsPerLine*255)*amp));
+    modVals.push(sensCurve(Math.min(1,sum/(binsPerLine*255)*amp),sens));
   }
   // Zoom-to-loudness: modulate zoom by average energy
   if(zoomLoud){var avgE=0;for(var i=0;i<modVals.length;i++)avgE+=modVals[i];avgE/=(modVals.length||1);zoom=zoom*(0.7+avgE*0.8)}
   // Render
+  if(stackMode&&stackLayouts.length>=1){
+    var maxZoomL=zoom;
+    for(var zi=0;zi<stackLayouts.length;zi++){if(stackLayouts[zi].params&&stackLayouts[zi].params._zoom){var lzL=stackLayouts[zi].params._zoom/100;if(lzL>maxZoomL)maxZoomL=lzL}}
+    zoom=maxZoomL;
+  }
   var drawW=sz.W*zoom,drawH=sz.H*zoom;
   var offCv=document.createElement('canvas');offCv.width=Math.round(drawW*sz.dpr);offCv.height=Math.round(drawH*sz.dpr);
   var offCtx=offCv.getContext('2d');offCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
-  if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
-  drawDensity(offCtx,drawW,drawH,modVals,p,false);
-  if(spin>0&&layoutMode!=='linear')offCtx.restore();
+  if(stackMode&&stackLayouts.length>=1){
+    var aIdxL=getActiveLayerIdx();
+    if(aIdxL>=0&&aIdxL<stackLayouts.length){stackLayouts[aIdxL].params=getLayoutParams();stackLayouts[aIdxL].layout=layoutMode}
+    var origLayoutL=layoutMode;
+    var origParamsL=getLayoutParams();
+    for(var si=0;si<stackLayouts.length;si++){
+      var layer=stackLayouts[si];
+      layoutMode=layer.layout;
+      setLayoutParams(layer.params);
+      var layerZoomL=(layer.params&&layer.params._zoom?layer.params._zoom:100)/100;
+      if(zoomLoud&&modVals.length){var avgEL=0;for(var ei=0;ei<modVals.length;ei++)avgEL+=modVals[ei];avgEL/=(modVals.length||1);layerZoomL=layerZoomL*(0.7+avgEL*0.8)}
+      var lDrawWL=sz.W*layerZoomL,lDrawHL=sz.H*layerZoomL;
+      var lp=P();
+      var liveModVals=[];
+      var bpl3=Math.max(1,Math.floor(fd.length/lp.lines));
+      for(var li=0;li<lp.lines;li++){var s3=0;for(var lj=0;lj<bpl3;lj++){var idx3=li*bpl3+lj;if(idx3<fd.length)s3+=fd[idx3]}liveModVals.push(sensCurve(Math.min(1,s3/(bpl3*255)*amp),sens))}
+      var lCv=document.createElement('canvas');lCv.width=Math.round(lDrawWL*sz.dpr);lCv.height=Math.round(lDrawHL*sz.dpr);
+      var lCtx=lCv.getContext('2d');lCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
+      var isCirc=layoutMode!=='linear'&&layoutMode!=='custom';
+      if(spin>0&&isCirc){lCtx.save();lCtx.translate(lDrawWL/2,lDrawHL/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawWL/2,-lDrawHL/2)}
+      drawDensity(lCtx,lDrawWL,lDrawHL,liveModVals,lp,false);
+      if(spin>0&&isCirc)lCtx.restore();
+      offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100;
+      var lOffX=(layer.params&&layer.params._offX||0)/100*offCv.width;
+      var lOffY=(layer.params&&layer.params._offY||0)/100*offCv.height;
+      var lRot=(layer.params&&layer.params._rotation||0)*Math.PI/180;
+      var oxL=Math.round((offCv.width-lCv.width)/2+lOffX),oyL=Math.round((offCv.height-lCv.height)/2+lOffY);
+      if(lRot){offCtx.translate(offCv.width/2+lOffX,offCv.height/2+lOffY);offCtx.rotate(lRot);offCtx.translate(-(offCv.width/2+lOffX),-(offCv.height/2+lOffY))}
+      offCtx.drawImage(lCv,oxL,oyL);offCtx.restore();
+    }
+    setLayoutParams(origParamsL);
+    layoutMode=origLayoutL;
+  }else{
+    if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
+    drawDensity(offCtx,drawW,drawH,modVals,p,false);
+    if(spin>0&&layoutMode!=='linear')offCtx.restore();
+  }
   frameCtx.setTransform(1,0,0,1,0,0);
   var srcX=Math.round((drawW-sz.W)/2*sz.dpr),srcY=Math.round((drawH-sz.H)/2*sz.dpr);
   if(srcX<0)srcX=0;if(srcY<0)srcY=0;
@@ -925,7 +1224,7 @@ function triggerDrop(){
   var doStyle=dropSwitches.style===true;
   var doDistort=dropSwitches.distort===true;
   if(doLayout&&Math.random()<0.4*mult){
-    var layouts=['linear','circle','kaleidoscope','spiral','fibonacci','phyllotaxis','sine'];
+    var layouts=['linear','circle','kaleidoscope','spiral','fibonacci','phyllotaxis','sine','concentric'];
     var newL=layouts[Math.floor(Math.random()*layouts.length)];
     if(newL!==layoutMode){
       layoutMode=newL;
@@ -983,6 +1282,7 @@ function drawDensity(ctx,W,H,values,p,forExport){
   if(layoutMode==='spiral')return drawSpiral(ctx,W,H,values,p,forExport);
   if(layoutMode==='fibonacci')return drawFibonacci(ctx,W,H,values,p,forExport);
   if(layoutMode==='phyllotaxis')return drawPhyllotaxis(ctx,W,H,values,p,forExport);
+  if(layoutMode==='concentric')return drawConcentric(ctx,W,H,values,p,forExport);
   if(layoutMode==='sine')return drawSine(ctx,W,H,values,p,forExport);
   if(layoutMode==='custom')return drawCustom(ctx,W,H,values,p,forExport);
   var spacings=[],total=0;for(var i=0;i<n;i++){var d=1+values[i]*p.contrast*6,sp=1/Math.max(d,.05);sp*=(1+getRand(i,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);total+=sp}
@@ -1256,6 +1556,76 @@ function drawPhyllotaxis(ctx,W,H,values,p,forExport){
   ctx.globalAlpha=1;return lines;
 }
 
+function drawConcentric(ctx,W,H,values,p,forExport){
+  var n=values.length;if(n===0)return[];
+  var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.42;
+  var rings=+document.getElementById('pConcRings').value;
+  var innerPct=+document.getElementById('pConcInner').value/100;
+  var minR=maxR*innerPct;
+  var ringGap=(maxR-minR)/rings;
+  var mLH=ringGap*0.8*p.height; // max line height fits within ring gap
+  var linesPerRing=Math.max(4,Math.round(n/rings));
+  var lines=[];
+  for(var ri=0;ri<rings;ri++){
+    var ringR=minR+(ri+0.5)*ringGap; // center radius of this ring
+    var startIdx=Math.round(ri*n/rings);
+    var endIdx=Math.round((ri+1)*n/rings);
+    var count=endIdx-startIdx;if(count<1)count=1;
+    // Distribute lines around the ring using density spacing
+    var spacings=[],totalSp=0;
+    for(var i=0;i<count;i++){
+      var vi=startIdx+i;if(vi>=n)vi=n-1;
+      var d=1+values[vi]*p.contrast*6,sp=1/Math.max(d,.05);
+      sp*=(1+getRand(vi,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);totalSp+=sp;
+    }
+    var angleScale=Math.PI*2/totalSp,cumSp=0;
+    // Offset each ring so they don't all start at the same angle
+    var ringOffset=ri*Math.PI*0.618; // golden angle offset per ring
+    for(var i=0;i<count;i++){
+      cumSp+=spacings[i];
+      var vi=startIdx+i;if(vi>=n)vi=n-1;
+      var v=values[vi];
+      var angle=ringOffset+cumSp*angleScale;
+      var hRand=1+getRand(vi+500,'rAppear')*.7;
+      var lh;
+      if(varyHeight){lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand}else{lh=mLH}
+      lh=Math.max(2,Math.min(mLH*1.3,lh));
+      var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
+      tw*=(1+getRand(vi+1000,'rAppear')*.5);tw=Math.max(.25,tw);
+      // Line extends outward from ringR
+      var r1=ringR-lh/2,r2=ringR+lh/2;
+      angle+=getRand(vi+1500,'rDist')*.15;
+      // Disorder
+      var dAngle=getDisorder(vi)*.3;var dR=getDisorder(vi+300)*maxR*.15;
+      // Webcam displacement
+      var camD=+document.getElementById('camDisplace').value;
+      if(camActive&&camD>0&&camColors){var cb=getCamBrightness(n>1?vi/(n-1):0,vi,n);dR+=(cb-0.5)*2*camD*.005*maxR;dAngle+=(cb-0.5)*2*camD*.003}
+      var fAngle=angle+dAngle,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
+      // Distortions
+      var dist=getDistortions();
+      if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
+        var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
+        fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
+      }
+      lines.push({v:v,tw:tw,pos:n>1?vi/(n-1):0,angle:fAngle,r1:fR1,r2:fR2,lh:Math.abs(fR2-fR1)});
+    }
+  }
+  lastFrameLines={lines:lines,W:W,H:H,p:p,circle:true,cx:cx,cy:cy};
+  for(var j=0;j<lines.length;j++){
+    var l=lines[j];
+    var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(l.angle+Math.PI/2);
+    ctx.strokeStyle=col;ctx.fillStyle=col;
+    var _da=getDistortions().depth;
+    if(_da>0){var _nR=l.r2/maxR,_ds=1-_da*.4*(1-_nR);ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=l.tw*Math.max(.2,_ds)}
+    else{ctx.globalAlpha=1;ctx.lineWidth=l.tw}
+    drawShapedLine(ctx,0,-l.r2,l.lh,ctx.lineWidth,l.v);
+    ctx.restore();
+  }
+  if(showOutline&&lines.length>2)drawCircleOutline(ctx,lines,cx,cy,forExport);
+  ctx.globalAlpha=1;return lines;
+}
+
 function drawSine(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
   var waves=+document.getElementById('pSineWaves').value;
@@ -1358,6 +1728,9 @@ function drawCircleOutline(ctx,lines,cx,cy,forExport){
   ctx.setLineDash([])}
 
 function renderDensity(){
+  pushUndo();
+  // Always save active layer's current state before rendering
+  if(stackMode&&stackLayouts.length>0){var _ri=getActiveLayerIdx();if(_ri>=0&&_ri<stackLayouts.length){stackLayouts[_ri].params=getLayoutParams();stackLayouts[_ri].layout=layoutMode}}
   if(mode3D){
     // In 3D mode, rebuild the 3D scene from current selection
     if(!audioBuffer)return;
@@ -1367,25 +1740,63 @@ function renderDensity(){
   }
   if(!audioBuffer)return;var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.clearRect(0,0,sz.W,sz.H);var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
   var vals;
-  if(playMode==='equalizer'&&audio&&!playing){
-    // Show a short window around current playhead position
-    var t=audio.currentTime||0;
-    var win=0.1; // 100ms window
-    var ws=Math.max(sT,t-win),we=Math.min(eT,t+win);
-    if(we-ws<0.02){ws=sT;we=eT} // fallback to full range if window too small
-    vals=getRangeRMS(ws,we);
-  }else{
-    vals=getRangeRMS(sT,eT);
-  }
+  var rmsStart=sT,rmsEnd=eT;
+  vals=getRangeRMS(sT,eT);
   var zoom=+document.getElementById('pZoom').value/100;
+  if(stackMode&&stackLayouts.length>=1){
+    // Find max zoom across layers for offscreen canvas size
+    var maxZoom=zoom;
+    for(var zi=0;zi<stackLayouts.length;zi++){if(stackLayouts[zi].params&&stackLayouts[zi].params._zoom){var lz=stackLayouts[zi].params._zoom/100;if(lz>maxZoom)maxZoom=lz}}
+    zoom=maxZoom;
+  }
   var drawW=sz.W*zoom;
   var drawH=sz.H*zoom;
   var offCv=document.createElement('canvas');offCv.width=Math.round(drawW*sz.dpr);offCv.height=Math.round(drawH*sz.dpr);
   var offCtx=offCv.getContext('2d');offCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
   var spin=+document.getElementById('pSpin').value;
-  if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
-  drawDensity(offCtx,drawW,drawH,vals,P(),false);
-  if(spin>0&&layoutMode!=='linear')offCtx.restore();
+  if(stackMode&&stackLayouts.length>=1){
+    // Save the active layer's current slider state before rendering all layers
+    var activeIdx=getActiveLayerIdx();
+    if(activeIdx>=0&&activeIdx<stackLayouts.length){
+      stackLayouts[activeIdx].params=getLayoutParams();
+      stackLayouts[activeIdx].layout=layoutMode;
+    }
+    // Layers mode: each layer draws to its own canvas, then composited with opacity
+    var origLayout=layoutMode;
+    var origParams=getLayoutParams();
+    for(var si=0;si<stackLayouts.length;si++){
+      var layer=stackLayouts[si];
+      layoutMode=layer.layout;
+      setLayoutParams(layer.params);
+      var layerZoom=(layer.params&&layer.params._zoom?layer.params._zoom:100)/100;
+      var lDrawW=sz.W*layerZoom,lDrawH=sz.H*layerZoom;
+      var layerVals=getRangeRMS(rmsStart,rmsEnd);
+      // Create a separate canvas for this layer at its own zoom
+      var lCv=document.createElement('canvas');lCv.width=Math.round(lDrawW*sz.dpr);lCv.height=Math.round(lDrawH*sz.dpr);
+      var lCtx=lCv.getContext('2d');lCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
+      var isCirc=layoutMode!=='linear'&&layoutMode!=='custom';
+      if(spin>0&&isCirc){lCtx.save();lCtx.translate(lDrawW/2,lDrawH/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawW/2,-lDrawH/2)}
+      drawDensity(lCtx,lDrawW,lDrawH,layerVals,P(),false);
+      if(spin>0&&isCirc)lCtx.restore();
+      // Composite: center layer canvas onto offscreen canvas with opacity
+      offCtx.save();
+      offCtx.setTransform(1,0,0,1,0,0);
+      offCtx.globalAlpha=layer.opacity/100;
+      var rOffX=(layer.params&&layer.params._offX||0)/100*offCv.width;
+      var rOffY=(layer.params&&layer.params._offY||0)/100*offCv.height;
+      var rRot=(layer.params&&layer.params._rotation||0)*Math.PI/180;
+      var ox=Math.round((offCv.width-lCv.width)/2+rOffX),oy=Math.round((offCv.height-lCv.height)/2+rOffY);
+      if(rRot){offCtx.translate(offCv.width/2+rOffX,offCv.height/2+rOffY);offCtx.rotate(rRot);offCtx.translate(-(offCv.width/2+rOffX),-(offCv.height/2+rOffY))}
+      offCtx.drawImage(lCv,ox,oy);
+      offCtx.restore();
+    }
+    setLayoutParams(origParams);
+    layoutMode=origLayout;
+  }else{
+    if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
+    drawDensity(offCtx,drawW,drawH,vals,P(),false);
+    if(spin>0&&layoutMode!=='linear')offCtx.restore();
+  }
   // Composite: crop center of zoomed content to fill the entire visible canvas
   frameCtx.setTransform(1,0,0,1,0,0);
   var srcX=Math.round((drawW-sz.W)/2*sz.dpr),srcY=Math.round((drawH-sz.H)/2*sz.dpr);
@@ -1461,6 +1872,7 @@ function animLoop(){if(!playing){rafId=null;return}
 
   var modVals;
   var amp=+document.getElementById('pAmplify').value;
+  var sens=+document.getElementById('pSensitivity').value/100;
   if(playMode==='equalizer'){
     if(analyser){
       if(freqData.length!==analyser.frequencyBinCount)freqData=new Uint8Array(analyser.frequencyBinCount);
@@ -1470,7 +1882,7 @@ function animLoop(){if(!playing){rafId=null;return}
     var binsPerLine=Math.max(1,Math.floor(freqData.length/nLines));
     for(var i=0;i<nLines;i++){
       var sum=0;for(var j=0;j<binsPerLine;j++){var idx=i*binsPerLine+j;if(idx<freqData.length)sum+=freqData[idx]}
-      modVals.push(Math.min(1,sum/(binsPerLine*255)*amp));
+      modVals.push(sensCurve(Math.min(1,sum/(binsPerLine*255)*amp),sens));
     }
   }else{
     if(analyser){
@@ -1480,19 +1892,65 @@ function animLoop(){if(!playing){rafId=null;return}
     var rtSum=0;for(var i=0;i<rtData.length;i++){var s=(rtData[i]-128)/128;rtSum+=s*s}
     var rtAmp=Math.min(1,Math.sqrt(rtSum/rtData.length)*3*amp);
     var vals=getRangeRMS(r.s,r.e);
-    modVals=vals.map(function(v){return Math.min(1,v*(.3+rtAmp*.7)*amp)});
+    modVals=vals.map(function(v){return sensCurve(Math.min(1,v*(.3+rtAmp*.7)*amp),sens)});
   }
   // Zoom-to-loudness: modulate zoom by average energy
   if(zoomLoud&&modVals.length){var avgE=0;for(var i=0;i<modVals.length;i++)avgE+=modVals[i];avgE/=modVals.length;zoom=zoom*(0.7+avgE*0.8)}
 
   // Render with effects — always use offscreen for consistent mirror
+  if(stackMode&&stackLayouts.length>=1){
+    var maxZoom2=zoom;
+    for(var zi=0;zi<stackLayouts.length;zi++){if(stackLayouts[zi].params&&stackLayouts[zi].params._zoom){var lz2=stackLayouts[zi].params._zoom/100;if(lz2>maxZoom2)maxZoom2=lz2}}
+    zoom=maxZoom2;
+  }
   var drawW=sz.W*zoom;
   var drawH=sz.H*zoom;
   var offCv=document.createElement('canvas');offCv.width=Math.round(drawW*sz.dpr);offCv.height=Math.round(drawH*sz.dpr);
   var offCtx=offCv.getContext('2d');offCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
-  if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
-  drawDensity(offCtx,drawW,drawH,modVals,p,false);
-  if(spin>0&&layoutMode!=='linear')offCtx.restore();
+  if(stackMode&&stackLayouts.length>=1){
+    var aIdx2=getActiveLayerIdx();
+    if(aIdx2>=0&&aIdx2<stackLayouts.length){stackLayouts[aIdx2].params=getLayoutParams();stackLayouts[aIdx2].layout=layoutMode}
+    var origLayout=layoutMode;
+    var origParams=getLayoutParams();
+    for(var si=0;si<stackLayouts.length;si++){
+      var layer=stackLayouts[si];
+      layoutMode=layer.layout;
+      setLayoutParams(layer.params);
+      var layerZoom2=(layer.params&&layer.params._zoom?layer.params._zoom:100)/100;
+      if(zoomLoud&&modVals.length){var avgE2=0;for(var ei=0;ei<modVals.length;ei++)avgE2+=modVals[ei];avgE2/=modVals.length;layerZoom2=layerZoom2*(0.7+avgE2*0.8)}
+      var lDrawW2=sz.W*layerZoom2,lDrawH2=sz.H*layerZoom2;
+      // Generate per-layer modVals with correct line count
+      var lp=P();var layerModVals;
+      if(playMode==='equalizer'){
+        layerModVals=[];var bpl2=Math.max(1,Math.floor(freqData.length/lp.lines));
+        for(var li=0;li<lp.lines;li++){var s2=0;for(var lj=0;lj<bpl2;lj++){var idx2=li*bpl2+lj;if(idx2<freqData.length)s2+=freqData[idx2]}layerModVals.push(sensCurve(Math.min(1,s2/(bpl2*255)*amp),sens))}
+      }else{
+        var lvals=getRangeRMS(r.s,r.e);
+        var rtSum2=0;for(var li=0;li<rtData.length;li++){var s2=(rtData[li]-128)/128;rtSum2+=s2*s2}
+        var rtAmp2=Math.min(1,Math.sqrt(rtSum2/rtData.length)*3*amp);
+        layerModVals=lvals.map(function(v){return Math.min(1,v*(.3+rtAmp2*.7)*amp)});
+      }
+      var lCv=document.createElement('canvas');lCv.width=Math.round(lDrawW2*sz.dpr);lCv.height=Math.round(lDrawH2*sz.dpr);
+      var lCtx=lCv.getContext('2d');lCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
+      var isCirc=layoutMode!=='linear'&&layoutMode!=='custom';
+      if(spin>0&&isCirc){lCtx.save();lCtx.translate(lDrawW2/2,lDrawH2/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawW2/2,-lDrawH2/2)}
+      drawDensity(lCtx,lDrawW2,lDrawH2,layerModVals,lp,false);
+      if(spin>0&&isCirc)lCtx.restore();
+      offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100;
+      var aOffX=(layer.params&&layer.params._offX||0)/100*offCv.width;
+      var aOffY=(layer.params&&layer.params._offY||0)/100*offCv.height;
+      var aRot=(layer.params&&layer.params._rotation||0)*Math.PI/180;
+      var ox2=Math.round((offCv.width-lCv.width)/2+aOffX),oy2=Math.round((offCv.height-lCv.height)/2+aOffY);
+      if(aRot){offCtx.translate(offCv.width/2+aOffX,offCv.height/2+aOffY);offCtx.rotate(aRot);offCtx.translate(-(offCv.width/2+aOffX),-(offCv.height/2+aOffY))}
+      offCtx.drawImage(lCv,ox2,oy2);offCtx.restore();
+    }
+    setLayoutParams(origParams);
+    layoutMode=origLayout;
+  }else{
+    if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
+    drawDensity(offCtx,drawW,drawH,modVals,p,false);
+    if(spin>0&&layoutMode!=='linear')offCtx.restore();
+  }
   frameCtx.setTransform(1,0,0,1,0,0);
   var srcX=Math.round((drawW-sz.W)/2*sz.dpr),srcY=Math.round((drawH-sz.H)/2*sz.dpr);
   if(srcX<0)srcX=0;if(srcY<0)srcY=0;
@@ -1518,11 +1976,9 @@ var overviewWrap=document.getElementById('overviewWrap'),selRegion=document.getE
 function pxToTime(cx){var r=overviewWrap.getBoundingClientRect();return Math.max(0,Math.min(1,(cx-r.left)/r.width))*(audioBuffer?audioBuffer.duration:0)}
 function timeToPct(t){var d=audioBuffer?audioBuffer.duration:0;return d===0?0:(t/d)*100}
 function updateSelUI(){if(selStart===null||selEnd===null){selRegion.style.display='none';document.getElementById('selInfo').style.display='none';document.getElementById('rangeTag').style.display='none';document.getElementById('playSelBtn').style.display='none';document.getElementById('resetSelBtn').style.display='none';return}var s=Math.min(selStart,selEnd),e=Math.max(selStart,selEnd);selRegion.style.display='block';selRegion.style.left=timeToPct(s)+'%';selRegion.style.width=(timeToPct(e)-timeToPct(s))+'%';document.getElementById('selInfo').style.display='inline';document.getElementById('selInfo').textContent=fmt(s)+' \u2192 '+fmt(e)+' ('+(e-s).toFixed(3)+'s)';document.getElementById('rangeTag').style.display='inline';document.getElementById('playSelBtn').style.display='inline-flex';document.getElementById('resetSelBtn').style.display='inline-flex'}
-overviewWrap.addEventListener('mousedown',function(e){if(!audioBuffer)return;if(e.target===cropLeftEl){dragging='crop-left';e.preventDefault();return}if(e.target===cropRightEl){dragging='crop-right';e.preventDefault();return}if(e.target===selLeftH){dragging='left';e.preventDefault();return}if(e.target===selRightH){dragging='right';e.preventDefault();return}var t=pxToTime(e.clientX);if(t<cropStart||t>cropEnd){e.preventDefault();return}dragging='new';selStart=t;selEnd=t;updateSelUI();e.preventDefault()});
-window.addEventListener('mousemove',function(e){if(!dragging||!audioBuffer)return;var t=pxToTime(e.clientX),d=safeDuration();if(dragging==='crop-left'){cropStart=Math.max(0,Math.min(t,cropEnd-.01));clampSelToCrop();updateCropUI();updateSelUI();renderDensity();return}if(dragging==='crop-right'){cropEnd=Math.min(d,Math.max(t,cropStart+.01));clampSelToCrop();updateCropUI();updateSelUI();renderDensity();return}t=Math.max(cropStart,Math.min(cropEnd,t));if(dragging==='new'){selEnd=t;updateSelUI();if(Math.abs(selEnd-selStart)>0.05)renderDensity()}else if(dragging==='left'){selStart=t;if(selStart>selEnd){var tmp=selStart;selStart=selEnd;selEnd=tmp;dragging='right'}updateSelUI();renderDensity()}else if(dragging==='right'){selEnd=t;if(selEnd<selStart){var tmp=selStart;selStart=selEnd;selEnd=tmp;dragging='left'}updateSelUI();renderDensity()}});
-window.addEventListener('mouseup',function(){if(!dragging)return;if(dragging==='new'&&selStart!==null&&selEnd!==null){var s=Math.min(selStart,selEnd),e=Math.max(selStart,selEnd);if(e-s<0.01){
-  safeSetTime(s);document.getElementById('tCur').textContent=fmt(s);document.getElementById('overviewHead').style.left=(s/safeDuration()*100)+'%';
-  selStart=null;selEnd=null;updateSelUI()}}dragging=null;renderDensity()});
+overviewWrap.addEventListener('mousedown',function(e){if(!audioBuffer)return;if(e.target===cropLeftEl){dragging='crop-left';e.preventDefault();return}if(e.target===cropRightEl){dragging='crop-right';e.preventDefault();return}if(playMode==='equalizer'){var t=pxToTime(e.clientX);if(t<cropStart||t>cropEnd){e.preventDefault();return}safeSetTime(t);document.getElementById('tCur').textContent=fmt(t);document.getElementById('overviewHead').style.left=(t/safeDuration()*100)+'%';e.preventDefault();return}if(e.target===selLeftH){dragging='left';e.preventDefault();return}if(e.target===selRightH){dragging='right';e.preventDefault();return}var t=pxToTime(e.clientX);if(t<cropStart||t>cropEnd){e.preventDefault();return}dragging='new';selStart=t;selEnd=t;updateSelUI();e.preventDefault()});
+window.addEventListener('mousemove',function(e){if(!dragging||!audioBuffer)return;if(playMode==='equalizer'&&dragging!=='crop-left'&&dragging!=='crop-right')return;var t=pxToTime(e.clientX),d=safeDuration();if(dragging==='crop-left'){cropStart=Math.max(0,Math.min(t,cropEnd-.01));clampSelToCrop();updateCropUI();updateSelUI();renderDensity();return}if(dragging==='crop-right'){cropEnd=Math.min(d,Math.max(t,cropStart+.01));clampSelToCrop();updateCropUI();updateSelUI();renderDensity();return}t=Math.max(cropStart,Math.min(cropEnd,t));if(dragging==='new'){selEnd=t;updateSelUI();if(Math.abs(selEnd-selStart)>0.05)renderDensity()}else if(dragging==='left'){selStart=t;if(selStart>selEnd){var tmp=selStart;selStart=selEnd;selEnd=tmp;dragging='right'}updateSelUI();renderDensity()}else if(dragging==='right'){selEnd=t;if(selEnd<selStart){var tmp=selStart;selStart=selEnd;selEnd=tmp;dragging='left'}updateSelUI();renderDensity()}});
+window.addEventListener('mouseup',function(){if(!dragging)return;if(dragging==='new'&&selStart!==null&&selEnd!==null){var s=Math.min(selStart,selEnd),e=Math.max(selStart,selEnd);if(e-s<0.01){safeSetTime(s);document.getElementById('tCur').textContent=fmt(s);document.getElementById('overviewHead').style.left=(s/safeDuration()*100)+'%';selStart=null;selEnd=null;updateSelUI();dragging=null;return}}dragging=null;renderDensity()});
 
 
 // Export
@@ -1561,13 +2017,32 @@ function doExport(){
     // Draw density directly (no bg fill)
     var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
     var vals=audioBuffer?getRangeRMS(sT,eT):[];
-    if(vals.length)drawDensity(expCtx,sz.W,sz.H,vals,P(),false);
+    if(vals.length){
+      if(stackMode&&stackLayouts.length>=1){
+        var origLayout=layoutMode;
+        var origParams=getLayoutParams();
+        for(var si=0;si<stackLayouts.length;si++){
+          var layer=stackLayouts[si];layoutMode=layer.layout;setLayoutParams(layer.params);
+          var lv=getRangeRMS(sT,eT);
+          var lCv2=document.createElement('canvas');lCv2.width=expCv.width;lCv2.height=expCv.height;
+          var lCtx2=lCv2.getContext('2d');lCtx2.setTransform(sz.dpr,0,0,sz.dpr,0,0);
+          drawDensity(lCtx2,sz.W,sz.H,lv,P(),false);
+          var eOffX=(layer.params&&layer.params._offX||0)/100*expCv.width;
+          var eOffY=(layer.params&&layer.params._offY||0)/100*expCv.height;
+          var eRot=(layer.params&&layer.params._rotation||0)*Math.PI/180;
+          expCtx.save();expCtx.setTransform(1,0,0,1,0,0);expCtx.globalAlpha=layer.opacity/100;
+          if(eRot){expCtx.translate(expCv.width/2+eOffX,expCv.height/2+eOffY);expCtx.rotate(eRot);expCtx.translate(-(expCv.width/2+eOffX),-(expCv.height/2+eOffY))}
+          expCtx.drawImage(lCv2,Math.round(eOffX),Math.round(eOffY));expCtx.restore();
+        }
+        setLayoutParams(origParams);layoutMode=origLayout;
+      }else{drawDensity(expCtx,sz.W,sz.H,vals,P(),false)}
+    }
     expCv.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();URL.revokeObjectURL(u)},'image/png');
   }
 }
 
 // --- VIDEO RECORDING (WebM) ---
-var mediaRecorder=null,recordedChunks=[],recStartTime=0,recTimerRAF=null,recAudioDest=null;
+var mediaRecorder=null,recordedChunks=[],recStartTime=0,recTimerRAF=null,recAudioDest=null,recMimeType='';
 var isRecording=false;
 
 function startRecording(){
@@ -1593,11 +2068,12 @@ function startRecording(){
     audioTracks.forEach(function(t){tracks.push(t)});
   }
   var combinedStream=new MediaStream(tracks);
-  // Find supported MIME type
+  // Find supported MIME type — prefer MP4, fall back to WebM
   var mimeType='';
-  var candidates=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  var candidates=['video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
   for(var i=0;i<candidates.length;i++){if(MediaRecorder.isTypeSupported(candidates[i])){mimeType=candidates[i];break}}
   if(!mimeType){alert('No supported video format found');return}
+  recMimeType=mimeType;
   recordedChunks=[];
   try{
     mediaRecorder=new MediaRecorder(combinedStream,{mimeType:mimeType,videoBitsPerSecond:5000000});
@@ -1653,10 +2129,12 @@ function stopRecording(){
 
 function finalizeRecording(){
   if(recordedChunks.length===0)return;
-  var blob=new Blob(recordedChunks,{type:recordedChunks[0].type||'video/webm'});
+  var type=recordedChunks[0].type||'video/webm';
+  var blob=new Blob(recordedChunks,{type:type});
+  var ext=type.indexOf('mp4')>-1?'mp4':'webm';
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
-  a.href=url;a.download='audiograph.webm';a.click();
+  a.href=url;a.download='audiograph.'+ext;a.click();
   URL.revokeObjectURL(url);
   recordedChunks=[];
 }
@@ -1837,6 +2315,17 @@ function build3DLines(values,p){
       var r=(phInner*0.3+phDens*Math.sqrt(i/n))*spreadScale*0.3;
       var angle=i*div;
       x=Math.cos(angle)*r;z=Math.sin(angle)*r;
+    }else if(layoutMode==='concentric'){
+      var cRings=+document.getElementById('pConcRings').value;
+      var cInner=+document.getElementById('pConcInner').value/100;
+      var ringIdx=Math.floor(i*cRings/n);
+      var posInRing=i-Math.round(ringIdx*n/cRings);
+      var countInRing=Math.round((ringIdx+1)*n/cRings)-Math.round(ringIdx*n/cRings);
+      if(countInRing<1)countInRing=1;
+      var ringR=(cInner*0.3+(ringIdx+0.5)/cRings*(1-cInner*0.3))*spreadScale*0.3;
+      var ringOff=ringIdx*Math.PI*0.618;
+      var angle=ringOff+posInRing/countInRing*Math.PI*2;
+      x=Math.cos(angle)*ringR;z=Math.sin(angle)*ringR;
     }else if(layoutMode==='kaleidoscope'){
       var segs=+document.getElementById('pKalSegments').value;
       var kInner=+document.getElementById('pKalInner').value/100;
@@ -1914,12 +2403,13 @@ function render3DLoop(){
     var fd=new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteFrequencyData(fd);
     var amp=+document.getElementById('pAmplify').value;
+    var sens=+document.getElementById('pSensitivity').value/100;
     var nLines=p.lines;
     var vals=[];
     var bpl=Math.max(1,Math.floor(fd.length/nLines));
     for(var i=0;i<nLines;i++){
       var s=0;for(var j=0;j<bpl;j++){var idx=i*bpl+j;if(idx<fd.length)s+=fd[idx]}
-      vals.push(Math.min(1,s/(bpl*255)*amp));
+      vals.push(sensCurve(Math.min(1,s/(bpl*255)*amp),sens));
     }
     build3DLines(vals,p);
     var spin=+document.getElementById('pSpin').value;var speed=+document.getElementById('pSpeed').value;
@@ -1939,6 +2429,9 @@ function render3DLoop(){
 }
 
 window.addEventListener('resize',function(){if(audioBuffer){drawOverview();updateCropUI();if(!mode3D)renderDensity()}});
+// Initialize layers on startup
+initLayers();
+window.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo()}});
 </script>
 </body>
 </html>
