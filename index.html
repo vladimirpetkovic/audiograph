@@ -959,7 +959,7 @@ function liveAnimLoop(){
   rafId=requestAnimationFrame(liveAnimLoop);
   if(!analyser)return;
   var p=P();
-  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.clearRect(0,0,sz.W,sz.H);
+  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
   var amp=+document.getElementById('pAmplify').value;
@@ -1738,7 +1738,7 @@ function renderDensity(){
     build3DLines(getRangeRMS(sT,eT),P());
     return;
   }
-  if(!audioBuffer)return;var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.clearRect(0,0,sz.W,sz.H);var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
+  if(!audioBuffer)return;var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
   var vals;
   var rmsStart=sT,rmsEnd=eT;
   vals=getRangeRMS(sT,eT);
@@ -1864,7 +1864,7 @@ function animLoop(){if(!playing){rafId=null;return}
   if(!realtimePreview)return;
 
   var p=P();
-  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.clearRect(0,0,sz.W,sz.H);
+  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
   var speed=+document.getElementById('pSpeed').value;if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002*speed;wavePhase+=0.05*speed;
@@ -2056,7 +2056,7 @@ function startRecording(){
   else{captureCanvas=document.getElementById('frameCv')}
   // Create video stream from canvas (30fps)
   var videoStream;
-  try{videoStream=captureCanvas.captureStream(30)}catch(e){alert('Cannot capture canvas: '+e.message);return}
+  try{videoStream=captureCanvas.captureStream(60)}catch(e){alert('Cannot capture canvas: '+e.message);return}
   // Create combined stream
   var tracks=videoStream.getVideoTracks().slice();
   // Add audio track if playing from file (not mic)
@@ -2070,13 +2070,13 @@ function startRecording(){
   var combinedStream=new MediaStream(tracks);
   // Find supported MIME type — prefer MP4, fall back to WebM
   var mimeType='';
-  var candidates=['video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  var candidates=['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1.4d0028,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
   for(var i=0;i<candidates.length;i++){if(MediaRecorder.isTypeSupported(candidates[i])){mimeType=candidates[i];break}}
   if(!mimeType){alert('No supported video format found');return}
   recMimeType=mimeType;
   recordedChunks=[];
   try{
-    mediaRecorder=new MediaRecorder(combinedStream,{mimeType:mimeType,videoBitsPerSecond:5000000});
+    mediaRecorder=new MediaRecorder(combinedStream,{mimeType:mimeType,videoBitsPerSecond:20000000});
   }catch(e){alert('MediaRecorder error: '+e.message);return}
   mediaRecorder.ondataavailable=function(e){if(e.data&&e.data.size>0)recordedChunks.push(e.data)};
   mediaRecorder.onstop=function(){finalizeRecording()};
