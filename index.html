@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Audiograph — by Vladimir Petković</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Instrument+Serif&display=swap');
 :root{--bg:#08080a;--surface:#0f0f12;--elevated:#17171c;--border:#252529;--border-h:#3a3a40;--tx:#dddde0;--tx2:#8a8a92;--tx3:#55555c;--accent:#c4f0dc;--accent2:#6ee7b7;--accent-d:#1c3d30;--accent-g:rgba(110,231,183,0.06);--hot:#f87171;--sel:rgba(110,231,183,0.12);--sel-border:rgba(110,231,183,0.35);--crop:#f59e0b;--crop-dim:rgba(0,0,0,0.55)}
@@ -109,7 +110,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 </div>
 <div class="app" id="app">
   <div class="preview-area">
-    <div class="frame-view" id="frameWrap"><canvas id="frameCv"></canvas><div class="frame-badge" id="frameBadge"></div>
+    <div class="frame-view" id="frameWrap"><canvas id="frameCv"></canvas><div id="three3d" style="position:absolute;inset:0;display:none"></div><div class="frame-badge" id="frameBadge"></div>
       <div class="idle-overlay" id="idle"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>drop audio file here<br>or click Load Audio</span></div>
       <div id="dropZone" style="display:none;position:absolute;inset:0;background:rgba(110,231,183,0.08);border:2px dashed var(--accent2);border-radius:8px;z-index:20;align-items:center;justify-content:center"><span style="color:var(--accent2);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase">drop to load</span></div>
     </div>
@@ -233,10 +234,10 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <!-- EFFECTS -->
     <div class="panel" id="panelFx">
       <div class="panel-head" onclick="togglePanel('panelFx')"><span class="panel-title">Effects</span><span class="panel-arrow">▼</span></div>
-      <div class="panel-body">
+      <div class="panel-body" id="fxBody">
         <div class="prow"><span class="prow-label">Playback</span><div class="mode-btns"><button class="mbtn on" onclick="setPlayMode('continuous',this)">Continuous</button><button class="mbtn" onclick="setPlayMode('equalizer',this)">Equalizer</button></div></div>
         <div class="prow"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
-        <div class="prow"><span class="prow-label">Mirror</span><div class="mode-btns"><button class="mbtn" onclick="setMirror(true,this)">Yes</button><button class="mbtn on" onclick="setMirror(false,this)">No</button></div></div>
+        <div class="prow" id="rowMirror"><span class="prow-label">Mirror</span><div class="mode-btns"><button class="mbtn" onclick="setMirror(true,this)">Yes</button><button class="mbtn on" onclick="setMirror(false,this)">No</button></div></div>
         <div class="prow"><span class="prow-label">Spin</span><input type="range" min="0" max="5" value="0" step="0.5" id="pSpin" oninput="upP()"><span class="prow-val" id="vSpin">0</span></div>
         <div class="prow"><span class="prow-label">Speed</span><input type="range" min="0.1" max="5" value="1" step="0.1" id="pSpeed" oninput="upP()"><span class="prow-val" id="vSpeed">1×</span></div>
         <div class="prow"><span class="prow-label">Disorder</span><input type="range" min="0" max="100" value="0" step="1" id="rDisorder" oninput="upP()"><span class="prow-val" id="vrDisorder">0%</span></div>
@@ -247,12 +248,25 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
           <div class="prow"><span class="prow-label">Switch</span><div class="mode-btns"><button class="mbtn" onclick="setDropSwitch('layout',this)">Layout</button><button class="mbtn" onclick="setDropSwitch('colors',this)">Colors</button><button class="mbtn" onclick="setDropSwitch('style',this)">Style</button><button class="mbtn" onclick="setDropSwitch('distort',this)">Distort</button></div></div>
           <div class="prow" style="justify-content:flex-end"><span id="dropIndicator" style="font-size:.5rem;color:var(--tx3)">waiting...</span></div>
         </div>
-        <div class="prow"><span class="prow-label">Twist</span><input type="range" min="-100" max="100" value="0" step="1" id="pTwist" oninput="upP()"><span class="prow-val" id="vTwist">0</span></div>
-        <div class="prow"><span class="prow-label">Bulge</span><input type="range" min="-100" max="100" value="0" step="1" id="pBulge" oninput="upP()"><span class="prow-val" id="vBulge">0</span></div>
-        <div class="prow"><span class="prow-label">Wave</span><input type="range" min="0" max="100" value="0" step="1" id="pWave" oninput="upP()"><span class="prow-val" id="vWave">0</span></div>
-        <div class="prow"><span class="prow-label">Wave spd</span><input type="range" min="1" max="20" value="5" step="1" id="pWaveFreq" oninput="upP()"><span class="prow-val" id="vWaveFreq">5</span></div>
-        <div class="prow"><span class="prow-label">Shear</span><input type="range" min="-100" max="100" value="0" step="1" id="pShear" oninput="upP()"><span class="prow-val" id="vShear">0</span></div>
-        <div class="prow"><span class="prow-label">Depth</span><input type="range" min="0" max="200" value="0" step="1" id="pDepth" oninput="upP()"><span class="prow-val" id="vDepth">0</span></div>
+        <div class="prow" id="rowTwist"><span class="prow-label">Twist</span><input type="range" min="-100" max="100" value="0" step="1" id="pTwist" oninput="upP()"><span class="prow-val" id="vTwist">0</span></div>
+        <div class="prow" id="rowBulge"><span class="prow-label">Bulge</span><input type="range" min="-100" max="100" value="0" step="1" id="pBulge" oninput="upP()"><span class="prow-val" id="vBulge">0</span></div>
+        <div class="prow" id="rowWave"><span class="prow-label">Wave</span><input type="range" min="0" max="100" value="0" step="1" id="pWave" oninput="upP()"><span class="prow-val" id="vWave">0</span></div>
+        <div class="prow" id="rowWaveFreq"><span class="prow-label">Wave spd</span><input type="range" min="1" max="20" value="5" step="1" id="pWaveFreq" oninput="upP()"><span class="prow-val" id="vWaveFreq">5</span></div>
+        <div class="prow" id="rowShear"><span class="prow-label">Shear</span><input type="range" min="-100" max="100" value="0" step="1" id="pShear" oninput="upP()"><span class="prow-val" id="vShear">0</span></div>
+        <div class="prow" id="rowDepth"><span class="prow-label">Depth</span><input type="range" min="0" max="200" value="0" step="1" id="pDepth" oninput="upP()"><span class="prow-val" id="vDepth">0</span></div>
+      </div>
+    </div>
+    <!-- 3D -->
+    <div class="panel" id="panel3D">
+      <div class="panel-head" onclick="togglePanel('panel3D')"><span class="panel-title">3D</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-body">
+        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="set3D(true,this)">On</button><button class="mbtn on" onclick="set3D(false,this)">Off</button></div></div>
+        <div id="threeParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow"><span class="prow-label">Height</span><input type="range" min="1" max="30" value="8" step="0.5" id="p3DHeight" oninput="upP()"><span class="prow-val" id="v3DHeight">8</span></div>
+          <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="10" value="1.5" step="0.25" id="p3DThick" oninput="upP()"><span class="prow-val" id="v3DThick">1.5</span></div>
+          <div class="prow"><span class="prow-label">Spread</span><input type="range" min="2" max="20" value="8" step="0.5" id="p3DSpread" oninput="upP()"><span class="prow-val" id="v3DSpread">8</span></div>
+          <div class="prow"><span class="prow-label">Glow</span><input type="range" min="0" max="100" value="20" step="5" id="p3DGlow" oninput="upP()"><span class="prow-val" id="v3DGlow">20%</span></div>
+        </div>
       </div>
     </div>
     <!-- WEBCAM -->
@@ -328,6 +342,10 @@ function upP(){document.getElementById('vLines').textContent=document.getElement
   document.getElementById('vPhylInner').textContent=document.getElementById('pPhylInner').value+'%';
   document.getElementById('vSineWaves').textContent=document.getElementById('pSineWaves').value;
   document.getElementById('vSineAmp').textContent=document.getElementById('pSineAmp').value+'%';
+  if(document.getElementById('p3DHeight'))document.getElementById('v3DHeight').textContent=document.getElementById('p3DHeight').value;
+  if(document.getElementById('p3DThick'))document.getElementById('v3DThick').textContent=document.getElementById('p3DThick').value;
+  if(document.getElementById('p3DSpread'))document.getElementById('v3DSpread').textContent=document.getElementById('p3DSpread').value;
+  if(document.getElementById('p3DGlow'))document.getElementById('v3DGlow').textContent=document.getElementById('p3DGlow').value+'%';
   renderDensity()}
 function setC(m,btn){colorMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');buildColorPanel();renderDensity()}
 function setVH(v,btn){varyHeight=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
@@ -1302,7 +1320,15 @@ function drawCircleOutline(ctx,lines,cx,cy,forExport){
         ctx.strokeStyle=col;ctx.globalAlpha=1;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}}}
   ctx.setLineDash([])}
 
-function renderDensity(){if(!audioBuffer)return;var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.clearRect(0,0,sz.W,sz.H);var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
+function renderDensity(){
+  if(mode3D){
+    // In 3D mode, rebuild the 3D scene from current selection
+    if(!audioBuffer)return;
+    var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
+    build3DLines(getRangeRMS(sT,eT),P());
+    return;
+  }
+  if(!audioBuffer)return;var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.clearRect(0,0,sz.W,sz.H);var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
   var vals;
   if(playMode==='equalizer'&&audio&&!playing){
     // Show a short window around current playhead position
@@ -1466,6 +1492,22 @@ window.addEventListener('mouseup',function(){if(!dragging)return;if(dragging==='
 var exportWithBg=false;
 function setExportBg(v,btn){exportWithBg=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
 function doExport(){
+  if(mode3D&&threeRenderer){
+    // 3D mode: capture from WebGL renderer
+    threeRenderer.render(threeScene,threeCamera); // ensure fresh render
+    var gl=threeRenderer.domElement;
+    if(exportWithBg){
+      gl.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();URL.revokeObjectURL(u)},'image/png');
+    }else{
+      // Transparent: render with no background
+      var origBg=threeScene.background;
+      threeScene.background=null;
+      threeRenderer.setClearColor(0x000000,0);
+      threeRenderer.render(threeScene,threeCamera);
+      gl.toBlob(function(blob){threeScene.background=origBg;threeRenderer.setClearColor(0x000000,1);var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();URL.revokeObjectURL(u)},'image/png');
+    }
+    return;
+  }
   var cv=document.getElementById('frameCv');
   if(exportWithBg){
     // Copy canvas and add background behind it
@@ -1487,7 +1529,224 @@ function doExport(){
   }
 }
 
-window.addEventListener('resize',function(){if(audioBuffer){drawOverview();updateCropUI();renderDensity()}});
+// --- 3D MODE (Three.js) ---
+var mode3D=false,threeScene=null,threeCamera=null,threeRenderer=null,threeLines=[],threeRAF=null;
+var mouseDown3D=false,mouse3DX=0,mouse3DY=0,camTheta=0,camPhi=Math.PI/4,camDist=5;
+
+function set3D(v,btn){
+  mode3D=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');
+  var container=document.getElementById('three3d');
+  var cv2d=document.getElementById('frameCv');
+  // Show/hide 3D-specific params
+  document.getElementById('threeParams').style.display=v?'flex':'none';
+  // Disable 2D-only rows in Effects panel
+  var disable2DRows=['rowMirror','rowTwist','rowBulge','rowWave','rowWaveFreq','rowShear','rowDepth'];
+  disable2DRows.forEach(function(id){var el=document.getElementById(id);if(el){el.style.opacity=v?'0.2':'1';el.style.pointerEvents=v?'none':'auto'}});
+  // Disable Appearance panel (3D has its own height/thickness)
+  var appearBody=document.querySelector('#panelAppear .panel-body');
+  if(appearBody){appearBody.style.opacity=v?'0.2':'1';appearBody.style.pointerEvents=v?'none':'auto'}
+  // Disable Line Style panel (3D uses cylinders)
+  var styleBody=document.querySelector('#panelStyle .panel-body');
+  if(styleBody){styleBody.style.opacity=v?'0.2':'1';styleBody.style.pointerEvents=v?'none':'auto'}
+  // Disable Webcam panel (not implemented in 3D)
+  var camBody=document.querySelector('#panelWebcam .panel-body');
+  if(camBody){camBody.style.opacity=v?'0.2':'1';camBody.style.pointerEvents=v?'none':'auto'}
+  if(v){
+    cv2d.style.display='none';container.style.display='block';
+    init3D();
+  }else{
+    cv2d.style.display='block';container.style.display='none';
+    if(threeRAF){cancelAnimationFrame(threeRAF);threeRAF=null}
+    if(threeRenderer){container.removeChild(threeRenderer.domElement);threeRenderer.dispose();threeRenderer=null}
+    threeScene=null;threeCamera=null;threeLines=[];
+    renderDensity();
+  }
+}
+
+function init3D(){
+  var container=document.getElementById('three3d');
+  var w=container.clientWidth,h=container.clientHeight;
+  threeScene=new THREE.Scene();
+  threeScene.background=new THREE.Color(canvasBg);
+  threeCamera=new THREE.PerspectiveCamera(60,w/h,0.1,100);
+  threeCamera.position.set(0,3,camDist);
+  threeRenderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+  threeRenderer.setSize(w,h);
+  threeRenderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(threeRenderer.domElement);
+  var ambient=new THREE.AmbientLight(0xffffff,0.5);threeScene.add(ambient);
+  var dir=new THREE.DirectionalLight(0xffffff,0.7);dir.position.set(3,5,4);threeScene.add(dir);
+  var dir2=new THREE.DirectionalLight(0x6688ff,0.3);dir2.position.set(-3,-2,-3);threeScene.add(dir2);
+  var el=threeRenderer.domElement;
+  el.addEventListener('mousedown',function(e){mouseDown3D=true;mouse3DX=e.clientX;mouse3DY=e.clientY;e.preventDefault()});
+  window.addEventListener('mousemove',function(e){if(!mouseDown3D)return;var dx=e.clientX-mouse3DX,dy=e.clientY-mouse3DY;camTheta-=dx*0.005;camPhi=Math.max(0.1,Math.min(Math.PI-.1,camPhi-dy*0.005));mouse3DX=e.clientX;mouse3DY=e.clientY});
+  window.addEventListener('mouseup',function(){mouseDown3D=false});
+  el.addEventListener('wheel',function(e){camDist=Math.max(1,Math.min(20,camDist+e.deltaY*0.005));e.preventDefault()},{passive:false});
+  // Build initial scene
+  if(audioBuffer){var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}build3DLines(getRangeRMS(sT,eT),P())}
+  render3DLoop();
+}
+
+function build3DLines(values,p){
+  if(!threeScene)return;
+  for(var i=threeLines.length-1;i>=0;i--){threeScene.remove(threeLines[i]);threeLines[i].geometry.dispose();threeLines[i].material.dispose()}
+  threeLines=[];
+  var n=values.length;if(n===0)return;
+  var heightScale=+document.getElementById('p3DHeight').value;
+  var thickScale=+document.getElementById('p3DThick').value*0.01;
+  var spreadScale=+document.getElementById('p3DSpread').value;
+  var glowAmt=+document.getElementById('p3DGlow').value/100;
+  // Find max value for normalization
+  var maxV=0;for(var i=0;i<n;i++){if(values[i]>maxV)maxV=values[i]}
+  if(maxV<0.01)maxV=1;
+  for(var i=0;i<n;i++){
+    var t=i/(n-1||1);
+    var v=values[i]/maxV; // normalize 0-1
+    var hRand=varyHeight?(1+getRand(i+500,'rAppear')*.5):1;
+    // Height: base + loudness-driven. Always responds to v.
+    var base=0.1; // minimum height so silent parts are visible
+    var lh=(base+v*v*(1-base))*heightScale*hRand;
+    lh=Math.max(0.08,lh);
+    var tw=Math.max(0.005,p.thick*thickScale);
+    if(varyThick)tw*=(0.3+v*0.7);
+    var col=lineCol(v,t,i,n);
+    var color=new THREE.Color(col);
+    var geo=new THREE.CylinderGeometry(tw,tw,lh,4);
+    var mat=new THREE.MeshPhongMaterial({color:color,emissive:color,emissiveIntensity:glowAmt});
+    var mesh=new THREE.Mesh(geo,mat);
+    var x=0,y=lh/2,z=0;
+    if(layoutMode==='linear'||layoutMode==='custom'){
+      x=(t-0.5)*spreadScale;
+    }else if(layoutMode==='sine'){
+      x=(t-0.5)*spreadScale;
+      var waves=+document.getElementById('pSineWaves').value;
+      var sAmp=+document.getElementById('pSineAmp').value/100;
+      z=Math.sin(t*Math.PI*2*waves)*sAmp*spreadScale*0.25;
+    }else if(layoutMode==='circle'){
+      var innerPct=+document.getElementById('pCircleInner').value/100;
+      var angle=t*Math.PI*2;
+      var r=(0.5+innerPct)*spreadScale*0.2;
+      x=Math.cos(angle)*r;z=Math.sin(angle)*r;
+    }else if(layoutMode==='spiral'){
+      var turns=+document.getElementById('pSpiralTurns').value;
+      var sInner=+document.getElementById('pSpiralInner').value/100;
+      var sSpread=+document.getElementById('pSpiralSpread').value/100;
+      var angle=t*turns*Math.PI*2;
+      var r=(sInner*0.5+t*sSpread)*spreadScale*0.3;
+      x=Math.cos(angle)*r;z=Math.sin(angle)*r;
+    }else if(layoutMode==='fibonacci'){
+      var ga=Math.PI*(3-Math.sqrt(5));
+      var fDens=+document.getElementById('pFibDensity').value/100;
+      var fInner=+document.getElementById('pFibInner').value/100;
+      var r=(fInner*0.3+fDens*Math.sqrt(i/n))*spreadScale*0.3;
+      var angle=i*ga;
+      x=Math.cos(angle)*r;z=Math.sin(angle)*r;
+    }else if(layoutMode==='phyllotaxis'){
+      var ga=Math.PI*(3-Math.sqrt(5));
+      var phDiv=+document.getElementById('pPhylDiv').value/100;
+      var phDens=+document.getElementById('pPhylDensity').value/100;
+      var phInner=+document.getElementById('pPhylInner').value/100;
+      var div=ga*(1+phDiv);
+      var r=(phInner*0.3+phDens*Math.sqrt(i/n))*spreadScale*0.3;
+      var angle=i*div;
+      x=Math.cos(angle)*r;z=Math.sin(angle)*r;
+    }else if(layoutMode==='kaleidoscope'){
+      var segs=+document.getElementById('pKalSegments').value;
+      var kInner=+document.getElementById('pKalInner').value/100;
+      var wedgeAngle=Math.PI*2/segs;
+      var linesPerSeg=Math.ceil(n/segs);
+      var segIdx=Math.floor(i/linesPerSeg);
+      var wedgePos=(i%linesPerSeg)/(linesPerSeg-1||1);
+      var angle=segIdx*wedgeAngle+wedgePos*wedgeAngle;
+      var r=(kInner*0.3+wedgePos)*spreadScale*0.25;
+      x=Math.cos(angle)*r;z=Math.sin(angle)*r;
+    }
+    var dx=getDisorder(i)*.3,dz=getDisorder(i+300)*.3;
+    mesh.position.set(x+dx,y,z+dz);
+    mesh._lineX=x+dx;mesh._lineZ=z+dz;mesh._lineH=lh;
+    threeLines.push(mesh);threeScene.add(mesh);
+  }
+  // 3D Outline — colored segments matching the lines
+  if(showOutline&&threeLines.length>2){
+    var ow=+document.getElementById('pOutline').value*0.01;
+    var dist3d=+document.getElementById('pOutlineDist').value*0.03;
+    var count=+document.getElementById('pOutlineCount').value;
+    var spacing=+document.getElementById('pOutlineSpace').value*0.02;
+    var isCircular=layoutMode!=='linear'&&layoutMode!=='sine'&&layoutMode!=='custom';
+    var lineCount=threeLines.length; // only the actual line meshes, not outlines
+    for(var oi=0;oi<count;oi++){
+      var off=dist3d+oi*spacing;
+      for(var ring=0;ring<2;ring++){
+        // Build segments between consecutive lines with matching colors
+        for(var k=0;k<lineCount-1;k++){
+          var m1=threeLines[k],m2=threeLines[k+1];
+          if(!m1._lineH||!m2._lineH)continue;
+          var ry1=ring===0?0-off:m1._lineH+off;
+          var ry2=ring===0?0-off:m2._lineH+off;
+          var p1=new THREE.Vector3(m1._lineX,Math.max(0,ry1),m1._lineZ);
+          var p2=new THREE.Vector3(m2._lineX,Math.max(0,ry2),m2._lineZ);
+          // Skip if too far apart (gap in circular modes)
+          if(p1.distanceTo(p2)>spreadScale*0.15)continue;
+          var mid=new THREE.Vector3().lerpVectors(p1,p2,0.5);
+          var dir=new THREE.Vector3().subVectors(p2,p1);
+          var len=dir.length();
+          var segGeo=new THREE.CylinderGeometry(ow,ow,len,3);
+          // Color from the line it connects to
+          var t2=(k+1)/(lineCount-1||1),v2=values[Math.min(k+1,n-1)];
+          var col=lineCol(v2,t2,k+1,lineCount);
+          var segMat=new THREE.MeshPhongMaterial({color:new THREE.Color(col),emissive:new THREE.Color(col),emissiveIntensity:glowAmt*0.5,transparent:true,opacity:0.7});
+          var segMesh=new THREE.Mesh(segGeo,segMat);
+          segMesh.position.copy(mid);
+          // Orient cylinder along the direction between points
+          var axis=new THREE.Vector3(0,1,0);
+          var quat=new THREE.Quaternion().setFromUnitVectors(axis,dir.normalize());
+          segMesh.quaternion.copy(quat);
+          threeLines.push(segMesh);threeScene.add(segMesh);
+        }
+      }
+    }
+  }
+}
+
+function render3DLoop(){
+  if(!mode3D||!threeRenderer){threeRAF=null;return}
+  threeRAF=requestAnimationFrame(render3DLoop);
+  threeCamera.position.x=camDist*Math.sin(camPhi)*Math.cos(camTheta);
+  threeCamera.position.y=camDist*Math.cos(camPhi);
+  threeCamera.position.z=camDist*Math.sin(camPhi)*Math.sin(camTheta);
+  threeCamera.lookAt(0,0.5,0);
+  if(threeScene)threeScene.background=new THREE.Color(canvasBg);
+  if((playing||liveMode)&&analyser){
+    var p=P();
+    // Always use FFT frequency data — gives per-line variation
+    var fd=new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(fd);
+    var amp=+document.getElementById('pAmplify').value;
+    var nLines=p.lines;
+    var vals=[];
+    var bpl=Math.max(1,Math.floor(fd.length/nLines));
+    for(var i=0;i<nLines;i++){
+      var s=0;for(var j=0;j<bpl;j++){var idx=i*bpl+j;if(idx<fd.length)s+=fd[idx]}
+      vals.push(Math.min(1,s/(bpl*255)*amp));
+    }
+    build3DLines(vals,p);
+    var spin=+document.getElementById('pSpin').value;var speed=+document.getElementById('pSpeed').value;
+    if(spin>0)camTheta+=spin*0.001*speed;
+    if(playing&&audio){var pr=getPlayRange();if(audio.currentTime>=pr.e)safeSetTime(pr.s);
+      document.getElementById('tCur').textContent=fmt(audio.currentTime);document.getElementById('overviewHead').style.left=(audio.currentTime/safeDuration()*100)+'%'}
+  }else if(audioBuffer&&threeLines.length===0){
+    var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
+    build3DLines(getRangeRMS(sT,eT),P());
+  }
+  var container=document.getElementById('three3d');
+  if(container.clientWidth>0&&threeRenderer.domElement.width/window.devicePixelRatio!==container.clientWidth){
+    threeRenderer.setSize(container.clientWidth,container.clientHeight);
+    threeCamera.aspect=container.clientWidth/container.clientHeight;threeCamera.updateProjectionMatrix();
+  }
+  threeRenderer.render(threeScene,threeCamera);
+}
+
+window.addEventListener('resize',function(){if(audioBuffer){drawOverview();updateCropUI();if(!mode3D)renderDensity()}});
 </script>
 </body>
 </html>
