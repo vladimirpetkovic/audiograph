@@ -71,7 +71,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .mbtn.on{color:var(--accent2);border-color:var(--accent2);background:var(--accent-g)}
 .mbtn.amber{border-color:var(--crop);color:var(--crop)}
 .mbtn.amber.on{color:#f87171;border-color:#f87171;background:rgba(248,113,113,0.12)}
-.mode-btns{display:flex;gap:3px;flex-wrap:wrap}
+.mode-btns{display:flex;gap:3px;flex-wrap:wrap;max-width:calc(100% - 70px)}
 /* COLOR PANEL INTERNALS */
 .cp-preview{height:16px;border-radius:3px;margin-bottom:8px;border:1px solid var(--border)}
 .cp-stops{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
@@ -190,7 +190,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow"><span class="prow-label">Lines</span><input type="range" min="80" max="800" value="350" step="10" id="pLines" oninput="upP()"><span class="prow-val" id="vLines">350</span></div>
         <div class="prow"><span class="prow-label">Contrast</span><input type="range" min="5" max="100" value="75" step="1" id="pContrast" oninput="upP()"><span class="prow-val" id="vContrast">75%</span></div>
         <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="5" max="200" value="100" step="5" id="pSensitivity" oninput="upP()"><span class="prow-val" id="vSensitivity">100%</span></div>
-        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleidoscope</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('fibonacci',this)">Fibonacci</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotaxis</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button></div></div>
+        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleidoscope</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotaxis</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button></div></div>
         <!-- Per-layout settings -->
         <div id="layoutOpts_sine" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Waves</span><input type="range" min="0.5" max="10" value="2" step="0.5" id="pSineWaves" oninput="upP()"><span class="prow-val" id="vSineWaves">2</span></div>
@@ -225,9 +225,20 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
           <div class="prow"><span class="prow-label">Density</span><input type="range" min="50" max="100" value="88" step="1" id="pPhylDensity" oninput="upP()"><span class="prow-val" id="vPhylDensity">88%</span></div>
           <div class="prow"><span class="prow-label">Inner R</span><input type="range" min="0" max="40" value="4" step="1" id="pPhylInner" oninput="upP()"><span class="prow-val" id="vPhylInner">4%</span></div>
         </div>
+        <div id="layoutOpts_wave" class="layout-opts" style="display:none">
+          <div class="prow"><span class="prow-label">Rows</span><input type="range" min="2" max="30" value="8" step="1" id="pWaveRows" oninput="upP()"><span class="prow-val" id="vWaveRows">8</span></div>
+          <div class="prow"><span class="prow-label">Amplitude</span><input type="range" min="10" max="100" value="50" step="1" id="pWaveAmp2" oninput="upP()"><span class="prow-val" id="vWaveAmp2">50%</span></div>
+        </div>
         <div id="layoutOpts_concentric" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Rings</span><input type="range" min="2" max="20" value="5" step="1" id="pConcRings" oninput="upP()"><span class="prow-val" id="vConcRings">5</span></div>
           <div class="prow"><span class="prow-label">Inner R</span><input type="range" min="0" max="50" value="10" step="1" id="pConcInner" oninput="upP()"><span class="prow-val" id="vConcInner">10%</span></div>
+        </div>
+        <div id="layoutOpts_image" class="layout-opts" style="display:none">
+          <div class="prow"><label class="btn" style="font-size:.5rem;padding:2px 8px"><svg viewBox="0 0 24 24" style="width:10px;height:10px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Load image<input type="file" accept="image/*" id="imgLayoutInput" onchange="loadLayoutImage(this)" style="display:none"></label><span id="imgLayoutName" style="font-size:.45rem;color:var(--tx3);margin-left:6px">No image</span></div>
+          <div class="prow"><span class="prow-label">Direction</span><div class="mode-btns"><button class="mbtn on" onclick="setImgDir('up',this)">Up</button><button class="mbtn" onclick="setImgDir('down',this)">Down</button><button class="mbtn" onclick="setImgDir('left',this)">Left</button><button class="mbtn" onclick="setImgDir('right',this)">Right</button></div></div>
+          <div class="prow"><span class="prow-label">Threshold</span><input type="range" min="0" max="100" value="15" step="1" id="pImgThreshold" oninput="upP()"><span class="prow-val" id="vImgThreshold">15%</span></div>
+          <div class="prow"><span class="prow-label">Resolution</span><input type="range" min="10" max="300" value="80" step="1" id="pImgCols" oninput="upP()"><span class="prow-val" id="vImgCols">80</span></div>
+          <div class="prow"><span class="prow-label">Invert</span><div class="mode-btns"><button class="mbtn" onclick="imgLayoutInvert=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on');renderDensity()">Yes</button><button class="mbtn on" onclick="imgLayoutInvert=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on');renderDensity()">No</button></div></div>
         </div>
       </div>
     </div>
@@ -253,6 +264,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="15" value="1" step="0.25" id="pThick" oninput="upP()"><span class="prow-val" id="vThick">1px</span></div>
         <div class="prow"><span class="prow-label">Vary height</span><div class="mode-btns"><button class="mbtn on" onclick="setVH(true,this)">Yes</button><button class="mbtn" onclick="setVH(false,this)">No</button></div></div>
         <div class="prow"><span class="prow-label">Vary thick</span><div class="mode-btns"><button class="mbtn" onclick="setVT(true,this)">Yes</button><button class="mbtn on" onclick="setVT(false,this)">No</button></div></div>
+        <div class="prow"><span class="prow-label">Fade edges</span><input type="range" min="0" max="100" value="0" step="5" id="pFadeEdge" oninput="upP()"><span class="prow-val" id="vFadeEdge">0%</span></div>
         <div class="prow"><span class="prow-label">Scale</span><input type="range" min="50" max="400" value="100" step="10" id="pZoom" oninput="upP()"><span class="prow-val" id="vZoom">100%</span></div>
         <div class="prow"><span class="prow-label">Offset X</span><input type="range" min="-100" max="100" value="0" step="1" id="pOffX" oninput="upP()"><span class="prow-val" id="vOffX">0</span></div>
         <div class="prow"><span class="prow-label">Offset Y</span><input type="range" min="-100" max="100" value="0" step="1" id="pOffY" oninput="upP()"><span class="prow-val" id="vOffY">0</span></div>
@@ -264,7 +276,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="panel" id="panelStyle">
       <div class="panel-head" onclick="togglePanel('panelStyle')"><span class="panel-title">Line Style</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><div class="mode-btns"><button class="mbtn on" onclick="setShape('straight',this)">Straight</button><button class="mbtn" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn" onclick="setShape('pins',this)">Pins</button><button class="mbtn" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn" onclick="setShape('caps',this)">Caps</button><button class="mbtn" onclick="setShape('cross',this)">Cross</button><button class="mbtn" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setShape('words',this)">Words</button><button class="mbtn" onclick="setShape('cascade',this)">Cascade</button></div></div>
+        <div class="prow"><div class="mode-btns"><button class="mbtn on" onclick="setShape('straight',this)">Straight</button><button class="mbtn" onclick="setShape('rounded',this)">Rounded</button><button class="mbtn" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn" onclick="setShape('pins',this)">Pins</button><button class="mbtn" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn" onclick="setShape('caps',this)">Caps</button><button class="mbtn" onclick="setShape('cross',this)">Cross</button><button class="mbtn" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setShape('words',this)">Words</button><button class="mbtn" onclick="setShape('cascade',this)">Cascade</button></div></div>
       </div>
     </div>
     <!-- COLOR -->
@@ -362,7 +374,7 @@ function togglePanel(id){document.getElementById(id).classList.toggle('closed')}
 
 // Params
 function P(){return{lines:+document.getElementById('pLines').value,contrast:+document.getElementById('pContrast').value/100,height:+document.getElementById('pHeight').value/100,thick:+document.getElementById('pThick').value}}
-function upP(){document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
+function upP(){document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vFadeEdge').textContent=document.getElementById('pFadeEdge').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
   document.getElementById('vCircleInner').textContent=document.getElementById('pCircleInner').value+'%';
   document.getElementById('vKalSegments').textContent=document.getElementById('pKalSegments').value;
   document.getElementById('vKalInner').textContent=document.getElementById('pKalInner').value+'%';
@@ -376,6 +388,10 @@ function upP(){document.getElementById('vLines').textContent=document.getElement
   document.getElementById('vPhylInner').textContent=document.getElementById('pPhylInner').value+'%';
   document.getElementById('vConcRings').textContent=document.getElementById('pConcRings').value;
   document.getElementById('vConcInner').textContent=document.getElementById('pConcInner').value+'%';
+  document.getElementById('vWaveRows').textContent=document.getElementById('pWaveRows').value;
+  document.getElementById('vWaveAmp2').textContent=document.getElementById('pWaveAmp2').value+'%';
+  document.getElementById('vImgThreshold').textContent=document.getElementById('pImgThreshold').value+'%';
+  document.getElementById('vImgCols').textContent=document.getElementById('pImgCols').value;
   document.getElementById('vSineWaves').textContent=document.getElementById('pSineWaves').value;
   document.getElementById('vSineAmp').textContent=document.getElementById('pSineAmp').value+'%';
   if(document.getElementById('p3DHeight'))document.getElementById('v3DHeight').textContent=document.getElementById('p3DHeight').value;
@@ -392,7 +408,7 @@ function setOutline(v,btn){showOutline=v;btn.parentElement.querySelectorAll('.mb
 function setOutlineStyle(s,btn){outlineStyle=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
 function getLayoutParams(){
   var p={};
-  document.querySelectorAll('.layout-opts input').forEach(function(inp){p[inp.id]=inp.type==='text'?inp.value:+inp.value});
+  document.querySelectorAll('.layout-opts input').forEach(function(inp){if(inp.type==='file')return;p[inp.id]=inp.type==='text'?inp.value:+inp.value});
   p._lines=+document.getElementById('pLines').value;
   p._contrast=+document.getElementById('pContrast').value;
   p._sensitivity=+document.getElementById('pSensitivity').value;
@@ -403,11 +419,13 @@ function getLayoutParams(){
   p._offY=+document.getElementById('pOffY').value;
   p._rotation=+document.getElementById('pRotation').value;
   p._varyHeight=varyHeight;p._varyThick=varyThick;
+  p._fadeEdge=+document.getElementById('pFadeEdge').value;
   p._lineShape=lineShape;
   p._colorMode=colorMode;p._solidColor=solidColor;
   p._toneStops=JSON.parse(JSON.stringify(toneStops));
   p._simpleStops=JSON.parse(JSON.stringify(simpleStops));
   p._showOutline=showOutline;p._outlineStyle=outlineStyle;
+  p._imgDir=imgLayoutDir;
   p._outlineWeight=+document.getElementById('pOutline').value;
   p._outlineDist=+document.getElementById('pOutlineDist').value;
   p._outlineCount=+document.getElementById('pOutlineCount').value;
@@ -416,7 +434,7 @@ function getLayoutParams(){
 }
 function setLayoutParams(p){
   if(!p)return;
-  for(var id in p){if(id.charAt(0)==='_')continue;var el=document.getElementById(id);if(el){if(el.type==='text')el.value=p[id];else el.value=p[id]}}
+  for(var id in p){if(id.charAt(0)==='_')continue;var el=document.getElementById(id);if(el){if(el.type==='file')continue;if(el.type==='text')el.value=p[id];else el.value=p[id]}}
   if('_lines' in p)document.getElementById('pLines').value=p._lines;
   if('_contrast' in p)document.getElementById('pContrast').value=p._contrast;
   if('_sensitivity' in p)document.getElementById('pSensitivity').value=p._sensitivity;
@@ -428,12 +446,14 @@ function setLayoutParams(p){
   if('_rotation' in p)document.getElementById('pRotation').value=p._rotation;
   if('_varyHeight' in p)varyHeight=p._varyHeight;
   if('_varyThick' in p)varyThick=p._varyThick;
+  if('_fadeEdge' in p)document.getElementById('pFadeEdge').value=p._fadeEdge;
   if('_lineShape' in p)lineShape=p._lineShape;
   if('_colorMode' in p)colorMode=p._colorMode;
   if('_solidColor' in p)solidColor=p._solidColor;
   if('_toneStops' in p)toneStops=p._toneStops.slice();
   if('_simpleStops' in p)simpleStops=p._simpleStops.slice();
   if('_showOutline' in p){showOutline=p._showOutline;document.getElementById('outlineParams').style.display=showOutline?'flex':'none'}
+  if('_imgDir' in p)imgLayoutDir=p._imgDir;
   if('_outlineStyle' in p)outlineStyle=p._outlineStyle;
   if('_outlineWeight' in p)document.getElementById('pOutline').value=p._outlineWeight;
   if('_outlineDist' in p)document.getElementById('pOutlineDist').value=p._outlineDist;
@@ -451,15 +471,15 @@ function getDefaultLayerParams(){
   return JSON.parse(JSON.stringify({
     pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,
     pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,
-    pConcRings:5,pConcInner:10,
+    pWaveRows:8,pWaveAmp2:50,pConcRings:5,pConcInner:10,pImgThreshold:15,pImgCols:80,
     _lines:350,_contrast:75,_sensitivity:100,
     _height:80,_thick:1,_zoom:100,_offX:0,_offY:0,_rotation:0,
-    _varyHeight:true,_varyThick:false,
+    _varyHeight:true,_varyThick:false,_fadeEdge:0,
     _lineShape:'straight',
     _colorMode:'toneramp',_solidColor:'#dddde0',
     _toneStops:['#1a1a2e','#e94560','#f5a623','#6ee7b7'],
     _simpleStops:['#e94560','#f5a623','#6ee7b7'],
-    _showOutline:false,_outlineStyle:'solid',
+    _showOutline:false,_outlineStyle:'solid',_imgDir:'up',
     _outlineWeight:2,_outlineDist:0,_outlineCount:1,_outlineSpace:4
   }));
 }
@@ -527,6 +547,8 @@ function selectLayer(idx){
     if(oc.indexOf("setOutline(false")>-1){b.classList.toggle('on',!showOutline)}
     if(oc.indexOf("setOutlineStyle('"+outlineStyle+"'")>-1){b.classList.add('on')}
     else if(oc.indexOf("setOutlineStyle(")>-1){b.classList.remove('on')}
+    if(oc.indexOf("setImgDir('"+imgLayoutDir+"'")>-1){b.classList.add('on')}
+    else if(oc.indexOf("setImgDir(")>-1){b.classList.remove('on')}
   });
   buildColorPanel();
   // Rebuild layers UI and highlight active
@@ -576,7 +598,7 @@ function setPlayMode(m,btn){playMode=m;btn.parentElement.querySelectorAll('.mbtn
 
 // Reset all
 function resetAll(){
-  var defs={pLines:350,pContrast:75,pSensitivity:100,pHeight:80,pThick:1,pZoom:100,pOffX:0,pOffY:0,pRotation:0,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80};
+  var defs={pLines:350,pContrast:75,pSensitivity:100,pHeight:80,pThick:1,pZoom:100,pOffX:0,pOffY:0,pRotation:0,pFadeEdge:0,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pWaveRows:8,pWaveAmp2:50,pConcRings:5,pConcInner:10,pImgThreshold:15,pImgCols:80};
   for(var id in defs){var el=document.getElementById(id);if(el)el.value=defs[id]}
   colorMode='toneramp';varyHeight=true;varyThick=false;showOutline=false;outlineStyle='solid';mirrorOn=false;playMode='continuous';spinAngle=0;
   layoutMode='linear';document.getElementById('app').classList.remove('circle-mode');
@@ -602,8 +624,8 @@ function randomizeAll(){
   function ri(min,max){return Math.round(rr(min,max))}
   function rHex(){return'#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0')}
   function randomLayerParams(){
-    var layouts=['linear','circle','kaleidoscope','spiral','fibonacci','phyllotaxis','sine','concentric'];
-    var shapes=['straight','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words','cascade'];
+    var layouts=['linear','circle','kaleidoscope','spiral','phyllotaxis','sine','concentric'];
+    var shapes=['straight','rounded','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words','cascade'];
     var cmodes=['solid','toneramp','simpleramp'];
     var layout=layouts[ri(0,layouts.length-1)];
     var p={
@@ -691,29 +713,55 @@ function undo(){
 var _origUpP=null;
 
 function getState(){
+  // Save active layer's current state before capturing
+  if(stackMode&&activeLayerIdx>=0&&activeLayerIdx<stackLayouts.length){
+    stackLayouts[activeLayerIdx].params=getLayoutParams();
+    stackLayouts[activeLayerIdx].layout=layoutMode;
+  }
   var sliders={};
-  ['pLines','pContrast','pSensitivity','pHeight','pThick','pZoom','pOffX','pOffY','pRotation','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp'].forEach(function(id){
+  ['pLines','pContrast','pSensitivity','pHeight','pThick','pZoom','pOffX','pOffY','pRotation','pFadeEdge','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp','pWaveRows','pWaveAmp2','pConcRings','pConcInner','pImgThreshold','pImgCols'].forEach(function(id){
     var el=document.getElementById(id);if(el)sliders[id]=parseFloat(el.value);
   });
-  return{sliders:sliders,colorMode:colorMode,varyHeight:varyHeight,varyThick:varyThick,showOutline:showOutline,outlineStyle:outlineStyle,mirrorOn:mirrorOn,playMode:playMode,layoutMode:layoutMode,stackMode:stackMode,stackLayouts:JSON.parse(JSON.stringify(stackLayouts)),lineShape:lineShape,threeShape:threeShape,threeMat:threeMat,solidColor:solidColor,toneStops:toneStops.slice(),simpleStops:simpleStops.slice(),canvasBg:canvasBg,seeds:randSeeds.slice()};
+  return{sliders:sliders,mirrorOn:mirrorOn,playMode:playMode,stackMode:true,stackLayouts:JSON.parse(JSON.stringify(stackLayouts)),activeLayerIdx:activeLayerIdx,threeShape:threeShape,threeMat:threeMat,canvasBg:canvasBg,seeds:randSeeds.slice()};
 }
 function applyState(st){
-  for(var id in st.sliders){var el=document.getElementById(id);if(el)el.value=st.sliders[id]}
-  colorMode=st.colorMode||'toneramp';varyHeight=st.varyHeight!==false;varyThick=!!st.varyThick;showOutline=!!st.showOutline;outlineStyle=st.outlineStyle||'solid';mirrorOn=!!st.mirrorOn;playMode=st.playMode||'continuous';lineShape=st.lineShape||'straight';threeShape=st.threeShape||'cylinder';threeMat=st.threeMat||'standard';stackMode=true;stackLayouts=st.stackLayouts||[];activeLayerIdx=0;
-  if(stackLayouts.length===0)stackLayouts=[{layout:layoutMode,opacity:100,params:getLayoutParams()}];
-
-  document.getElementById('layersUI').style.display=stackMode?'flex':'none';
-  if(stackMode&&stackLayouts.length>0){buildLayersUI();selectLayer(0)}
-  layoutMode=st.layoutMode||'linear';document.getElementById('app').classList.toggle('circle-mode',layoutMode!=='linear');
-  solidColor=st.solidColor||'#dddde0';toneStops=st.toneStops||['#1a1a2e','#e94560','#f5a623','#6ee7b7'];simpleStops=st.simpleStops||['#e94560','#f5a623','#6ee7b7'];
+  // Restore global-only sliders (effects, randomness, speed — not per-layer ones)
+  var globalSliders=['pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder'];
+  for(var id in st.sliders){if(globalSliders.indexOf(id)>-1){var el=document.getElementById(id);if(el)el.value=st.sliders[id]}}
+  mirrorOn=!!st.mirrorOn;playMode=st.playMode||'continuous';
+  threeShape=st.threeShape||'cylinder';threeMat=st.threeMat||'standard';
+  stackMode=true;stackLayouts=st.stackLayouts||[];activeLayerIdx=st.activeLayerIdx||0;
+  if(stackLayouts.length===0){
+    // Backward compat: create layer from old-style global state
+    var legacyParams=getDefaultLayerParams();
+    if(st.sliders){for(var id in st.sliders){if(id in legacyParams)legacyParams[id]=st.sliders[id]}}
+    if(st.colorMode)legacyParams._colorMode=st.colorMode;
+    if(st.lineShape)legacyParams._lineShape=st.lineShape;
+    if(st.solidColor)legacyParams._solidColor=st.solidColor;
+    if(st.toneStops)legacyParams._toneStops=st.toneStops;
+    if(st.simpleStops)legacyParams._simpleStops=st.simpleStops;
+    if(st.varyHeight!==undefined)legacyParams._varyHeight=st.varyHeight;
+    if(st.varyThick!==undefined)legacyParams._varyThick=st.varyThick;
+    if(st.showOutline!==undefined)legacyParams._showOutline=st.showOutline;
+    if(st.outlineStyle)legacyParams._outlineStyle=st.outlineStyle;
+    if(st.sliders&&st.sliders.pHeight)legacyParams._height=st.sliders.pHeight;
+    if(st.sliders&&st.sliders.pThick)legacyParams._thick=st.sliders.pThick;
+    if(st.sliders&&st.sliders.pZoom)legacyParams._zoom=st.sliders.pZoom;
+    if(st.sliders&&st.sliders.pLines)legacyParams._lines=st.sliders.pLines;
+    if(st.sliders&&st.sliders.pContrast)legacyParams._contrast=st.sliders.pContrast;
+    stackLayouts=[{layout:st.layoutMode||'linear',opacity:100,params:legacyParams}];
+  }
+  if(activeLayerIdx>=stackLayouts.length)activeLayerIdx=0;
   if(st.canvasBg)setBg(st.canvasBg);
   if(st.seeds&&st.seeds.length)randSeeds=st.seeds.slice();
+  // Build layers UI and select the saved active layer — this loads all per-layer state
+  buildLayersUI();
+  selectLayer(activeLayerIdx);
   document.getElementById('outlineParams').style.display=showOutline?'flex':'none';
-  // Update button states
+  // Update button states — selectLayer already set per-layer buttons, just sync global ones
   document.querySelectorAll('.mode-btns').forEach(function(g){g.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')})});
   document.querySelectorAll('.mbtn').forEach(function(b){var t=b.textContent.trim().toLowerCase(),oc=b.getAttribute('onclick')||'';
-    if(!stackMode&&oc.indexOf("setLayout('"+layoutMode+"'")>-1)b.classList.add('on');
-    if(stackMode&&oc.indexOf("setLayout(")>-1){var activeL=stackLayouts.length>0?stackLayouts[0].layout:layoutMode;if(oc.indexOf("'"+activeL+"'")>-1)b.classList.add('on')}
+    if(oc.indexOf("setLayout('"+layoutMode+"'")>-1)b.classList.add('on');
     if(oc.indexOf("setShape('"+lineShape+"'")>-1)b.classList.add('on');
     if(oc.indexOf("setC('"+colorMode+"'")>-1)b.classList.add('on');
     if(oc.indexOf("setPlayMode('"+playMode+"'")>-1)b.classList.add('on');
@@ -748,7 +796,7 @@ function loadPreset(){
 function clearPresets(){localStorage.removeItem('audiograph_presets');refreshPresetList()}
 var builtinPresets={
   'Neon Pulse':{sliders:{pLines:400,pContrast:85,pHeight:120,pThick:2,pZoom:130,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:2,pSpeed:1.5,pAmplify:2,pTwist:0,pBulge:0,pWave:20,pWaveFreq:6,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:15,rOutline:0,rColor:20,rDisorder:25,pCircleInner:20,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:true,showOutline:false,outlineStyle:'solid',mirrorOn:false,playMode:'equalizer',layoutMode:'circle',lineShape:'straight',solidColor:'#dddde0',toneStops:['#0a0a1a','#ff2d55','#ff9500','#ffcc00'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#050510'},
-  'Deep Ocean':{sliders:{pLines:500,pContrast:60,pHeight:90,pThick:1.5,pZoom:100,pOutline:1.5,pOutlineDist:8,pOutlineCount:3,pOutlineSpace:6,pSpin:0.5,pSpeed:0.8,pAmplify:1.5,pTwist:15,pBulge:0,pWave:10,pWaveFreq:3,pShear:0,pDepth:0,rGlobal:0,rDist:10,rAppear:10,rOutline:10,rColor:0,rDisorder:15,pCircleInner:15,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:false,showOutline:true,outlineStyle:'solid',mirrorOn:true,playMode:'continuous',layoutMode:'fibonacci',lineShape:'dotted',solidColor:'#dddde0',toneStops:['#0a1628','#1565c0','#42a5f5','#80deea'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#060d18'},
+  'Deep Ocean':{sliders:{pLines:500,pContrast:60,pHeight:90,pThick:1.5,pZoom:100,pOutline:1.5,pOutlineDist:8,pOutlineCount:3,pOutlineSpace:6,pSpin:0.5,pSpeed:0.8,pAmplify:1.5,pTwist:15,pBulge:0,pWave:10,pWaveFreq:3,pShear:0,pDepth:0,rGlobal:0,rDist:10,rAppear:10,rOutline:10,rColor:0,rDisorder:15,pCircleInner:15,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:false,showOutline:true,outlineStyle:'solid',mirrorOn:true,playMode:'continuous',layoutMode:'phyllotaxis',lineShape:'dotted',solidColor:'#dddde0',toneStops:['#0a1628','#1565c0','#42a5f5','#80deea'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#060d18'},
   'Solar Flare':{sliders:{pLines:300,pContrast:90,pHeight:200,pThick:3,pZoom:120,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:1,pSpeed:1.2,pAmplify:2.5,pTwist:-25,pBulge:20,pWave:0,pWaveFreq:5,pShear:10,rGlobal:0,rDist:20,rAppear:25,rOutline:0,rColor:30,rDisorder:35,pCircleInner:10,pKalSegments:8,pKalInner:10,pSpiralTurns:7,pSpiralInner:5,pSpiralSpread:90,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:true,showOutline:false,outlineStyle:'solid',mirrorOn:false,playMode:'equalizer',layoutMode:'spiral',lineShape:'tapered',solidColor:'#dddde0',toneStops:['#1b0000','#b71c1c','#ff5722','#ffab40'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#0a0000'},
   'Crystal Grid':{sliders:{pLines:200,pContrast:50,pHeight:80,pThick:1,pZoom:100,pOutline:1,pOutlineDist:5,pOutlineCount:5,pOutlineSpace:3,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:false,showOutline:true,outlineStyle:'dotted',mirrorOn:false,playMode:'continuous',layoutMode:'linear',lineShape:'pins',solidColor:'#dddde0',toneStops:['#0d0d0d','#424242','#9e9e9e','#fafafa'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#0a0a0a'},
   'Kaleidoscope Dream':{sliders:{pLines:350,pContrast:70,pHeight:150,pThick:2,pZoom:110,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:1.5,pSpeed:1,pAmplify:2,pTwist:10,pBulge:-15,pWave:15,pWaveFreq:4,pShear:0,pDepth:0,rGlobal:0,rDist:15,rAppear:20,rOutline:0,rColor:40,rDisorder:20,pCircleInner:25,pKalSegments:10,pKalInner:10,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pDropSens:30},colorMode:'toneramp',varyHeight:true,varyThick:true,showOutline:false,outlineStyle:'solid',mirrorOn:false,playMode:'equalizer',layoutMode:'kaleidoscope',lineShape:'straight',solidColor:'#dddde0',toneStops:['#1a0033','#7b1fa2','#e91e63','#ffd54f'],simpleStops:['#e94560','#f5a623','#6ee7b7'],canvasBg:'#080012'}
@@ -880,6 +928,15 @@ function drawShapedLine(ctx,x,ly,lh,t,val){
       ctx.fillRect(x-stemW/2,tierY,stemW,tierH-blockH);
     }
   }
+  else if(lineShape==='rounded'){
+    // Rounded: line with semicircle caps at both ends
+    var rr=t*0.7;
+    ctx.beginPath();
+    ctx.arc(x,ly+rr,rr,Math.PI,0); // top cap
+    ctx.lineTo(x+rr,ly+lh-rr);
+    ctx.arc(x,ly+lh-rr,rr,0,Math.PI); // bottom cap
+    ctx.closePath();ctx.fill();
+  }
   else{ctx.beginPath();ctx.moveTo(x,ly);ctx.lineTo(x,ly+lh);ctx.stroke()}}
 function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
 function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(c){return Math.round(Math.max(0,Math.min(255,c))).toString(16).padStart(2,'0')}).join('')}
@@ -908,6 +965,19 @@ function sensCurve(v,sens){
   // Use exponential mapping: gamma = e^(k*(sens-1))
   gamma=Math.exp(1.5*(sens-1)); // sens=0.05→0.24, sens=1→1.0, sens=2→4.48
   return Math.pow(Math.min(1,Math.max(0,v)),gamma);
+}
+function applyFadeEdge(vals){
+  var fade=+document.getElementById('pFadeEdge').value/100;
+  if(fade<=0||vals.length<2)return vals;
+  var n=vals.length,result=new Array(n);
+  for(var i=0;i<n;i++){
+    var t=i/(n-1);
+    var edgeDist=Math.min(t,1-t)*2;
+    var mul=edgeDist<fade?edgeDist/fade:1;
+    mul=mul*mul*(3-2*mul);
+    result[i]=vals[i]*mul;
+  }
+  return result;
 }
 function safeDuration(){if(audio&&isFinite(audio.duration)&&audio.duration>0)return audio.duration;if(audioBuffer&&isFinite(audioBuffer.duration)&&audioBuffer.duration>0)return audioBuffer.duration;return 0}
 function safeSetTime(t){if(!audio)return;var d=safeDuration();if(d>0){var c=Math.max(0,Math.min(t,d));if(isFinite(c))audio.currentTime=c}}
@@ -959,7 +1029,7 @@ function liveAnimLoop(){
   rafId=requestAnimationFrame(liveAnimLoop);
   if(!analyser)return;
   var p=P();
-  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
+  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.filter='none';frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
   var amp=+document.getElementById('pAmplify').value;
@@ -1006,7 +1076,7 @@ function liveAnimLoop(){
       var lCtx=lCv.getContext('2d');lCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
       var isCirc=layoutMode!=='linear'&&layoutMode!=='custom';
       if(spin>0&&isCirc){lCtx.save();lCtx.translate(lDrawWL/2,lDrawHL/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawWL/2,-lDrawHL/2)}
-      drawDensity(lCtx,lDrawWL,lDrawHL,liveModVals,lp,false);
+      drawDensity(lCtx,lDrawWL,lDrawHL,applyFadeEdge(liveModVals),lp,false);
       if(spin>0&&isCirc)lCtx.restore();
       offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100;
       var lOffX=(layer.params&&layer.params._offX||0)/100*offCv.width;
@@ -1020,10 +1090,10 @@ function liveAnimLoop(){
     layoutMode=origLayoutL;
   }else{
     if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
-    drawDensity(offCtx,drawW,drawH,modVals,p,false);
+    drawDensity(offCtx,drawW,drawH,applyFadeEdge(modVals),p,false);
     if(spin>0&&layoutMode!=='linear')offCtx.restore();
   }
-  frameCtx.setTransform(1,0,0,1,0,0);
+  frameCtx.setTransform(1,0,0,1,0,0);frameCtx.filter=isRecording?"saturate(1.12) contrast(1.06) brightness(0.97)":"none";
   var srcX=Math.round((drawW-sz.W)/2*sz.dpr),srcY=Math.round((drawH-sz.H)/2*sz.dpr);
   if(srcX<0)srcX=0;if(srcY<0)srcY=0;
   var srcW=Math.round(sz.W*sz.dpr),srcH=Math.round(sz.H*sz.dpr);
@@ -1224,7 +1294,7 @@ function triggerDrop(){
   var doStyle=dropSwitches.style===true;
   var doDistort=dropSwitches.distort===true;
   if(doLayout&&Math.random()<0.4*mult){
-    var layouts=['linear','circle','kaleidoscope','spiral','fibonacci','phyllotaxis','sine','concentric'];
+    var layouts=['linear','circle','kaleidoscope','spiral','phyllotaxis','sine','concentric'];
     var newL=layouts[Math.floor(Math.random()*layouts.length)];
     if(newL!==layoutMode){
       layoutMode=newL;
@@ -1246,7 +1316,7 @@ function triggerDrop(){
     buildColorPanel();
   }
   if(doStyle&&Math.random()<0.3*mult){
-    var shapes=['straight','dotted','dashed','pins','tapered','caps','cross','words'];
+    var shapes=['straight','rounded','dotted','dashed','pins','tapered','caps','cross','words'];
     lineShape=shapes[Math.floor(Math.random()*shapes.length)];
     document.querySelectorAll('#panelStyle .mbtn').forEach(function(b){b.classList.remove('on');var oc=b.getAttribute('onclick')||'';if(oc.indexOf("'"+lineShape+"'")>-1)b.classList.add('on')});
   }
@@ -1283,6 +1353,8 @@ function drawDensity(ctx,W,H,values,p,forExport){
   if(layoutMode==='fibonacci')return drawFibonacci(ctx,W,H,values,p,forExport);
   if(layoutMode==='phyllotaxis')return drawPhyllotaxis(ctx,W,H,values,p,forExport);
   if(layoutMode==='concentric')return drawConcentric(ctx,W,H,values,p,forExport);
+  if(layoutMode==='wave')return drawWave(ctx,W,H,values,p,forExport);
+  if(layoutMode==='image')return drawImageLayout(ctx,W,H,values,p,forExport);
   if(layoutMode==='sine')return drawSine(ctx,W,H,values,p,forExport);
   if(layoutMode==='custom')return drawCustom(ctx,W,H,values,p,forExport);
   var spacings=[],total=0;for(var i=0;i<n;i++){var d=1+values[i]*p.contrast*6,sp=1/Math.max(d,.05);sp*=(1+getRand(i,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);total+=sp}
@@ -1556,6 +1628,57 @@ function drawPhyllotaxis(ctx,W,H,values,p,forExport){
   ctx.globalAlpha=1;return lines;
 }
 
+function drawWave(ctx,W,H,values,p,forExport){
+  var n=values.length;if(n===0)return[];
+  var waveRows=+document.getElementById('pWaveRows').value||8;
+  var waveAmp=(+document.getElementById('pWaveAmp2').value||50)/100;
+  var mLH=H*p.height*0.08; // max line height per row
+  var rowSpacing=H/(waveRows+1);
+  var linesPerRow=Math.max(10,Math.round(n/waveRows));
+  var lines=[];
+  var dist=getDistortions();
+  for(var row=0;row<waveRows;row++){
+    var baseY=rowSpacing*(row+1);
+    var startIdx=Math.round(row*n/waveRows);
+    var endIdx=Math.round((row+1)*n/waveRows);
+    var count=endIdx-startIdx;if(count<1)count=1;
+    for(var i=0;i<count;i++){
+      var vi=startIdx+i;if(vi>=n)vi=n-1;
+      var v=values[vi];
+      var t=i/(count-1||1); // 0 to 1 across the row
+      var x=t*W;
+      // Audio value creates the mountain shape
+      var audioH=(0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45);
+      var hRand=1+getRand(vi+500,'rAppear')*0.5;
+      var lh=mLH*audioH*hRand*2;
+      lh=Math.max(1,Math.min(mLH*3,lh));
+      // The line hangs from the wave curve - wave displacement pushes upward
+      var waveDisp=v*waveAmp*rowSpacing*0.6;
+      var ly=baseY-waveDisp-lh/2;
+      var hR=mLH>0?lh/mLH:1;
+      var tw=varyThick?p.thick*(.2+(1-hR)*.8):p.thick;
+      tw*=(1+getRand(vi+1000,'rAppear')*.3);tw=Math.max(.25,tw);
+      // Distortions
+      var fx=x,fy=ly;
+      if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
+        var dTop=distortLinear(x,ly,W,H,dist);var dBot=distortLinear(x,ly+lh,W,H,dist);
+        fx=(dTop.x+dBot.x)/2;fy=dTop.y;lh=Math.max(1,Math.abs(dBot.y-dTop.y));
+      }
+      var dx=getDisorder(vi)*W*.02,dy=getDisorder(vi+300)*H*.02;
+      fx+=dx;fy+=dy;
+      var col=forExport?lineColHex(v,t,vi,n):lineCol(v,t,vi,n);
+      ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=tw;
+      var _da=dist.depth;
+      if(_da>0){var _ds=1-_da*.4*(1-row/waveRows);ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=tw*Math.max(.2,_ds)}
+      else{ctx.globalAlpha=1}
+      drawShapedLine(ctx,fx,fy,lh,ctx.lineWidth,v);
+      lines.push({v:v,x:fx,y:fy,lh:lh,tw:tw,pos:t});
+    }
+  }
+  lastFrameLines={lines:lines,W:W,H:H,p:p,circle:false};
+  ctx.globalAlpha=1;return lines;
+}
+
 function drawConcentric(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
   var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.42;
@@ -1624,6 +1747,126 @@ function drawConcentric(ctx,W,H,values,p,forExport){
   }
   if(showOutline&&lines.length>2)drawCircleOutline(ctx,lines,cx,cy,forExport);
   ctx.globalAlpha=1;return lines;
+}
+
+// --- IMAGE LAYOUT ---
+var imgLayoutData=null,imgLayoutInvert=false,imgLayoutImg=null,imgLayoutDir='up';
+function setImgDir(d,btn){imgLayoutDir=d;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
+function loadLayoutImage(input){
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  document.getElementById('imgLayoutName').textContent=file.name;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      imgLayoutImg=img;
+      // Sample to brightness grid
+      sampleLayoutImage();
+      renderDensity();
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function sampleLayoutImage(){
+  if(!imgLayoutImg)return;
+  var cols=+document.getElementById('pImgCols').value||60;
+  if(cols<1)cols=60;
+  var aspect=imgLayoutImg.height/imgLayoutImg.width;
+  var rows=Math.max(1,Math.round(cols*aspect)); // maintain image aspect ratio
+  var cv=document.createElement('canvas');cv.width=cols;cv.height=rows;
+  var ctx=cv.getContext('2d');
+  ctx.drawImage(imgLayoutImg,0,0,cols,rows);
+  var d=ctx.getImageData(0,0,cols,rows).data;
+  imgLayoutData={cols:cols,rows:rows,grid:[]};
+  for(var r=0;r<rows;r++){
+    var row=[];
+    for(var c=0;c<cols;c++){
+      var i=(r*cols+c)*4;
+      var brightness=(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114)/255;
+      var alpha=d[i+3]/255;
+      row.push(brightness*alpha);
+    }
+    imgLayoutData.grid.push(row);
+  }
+}
+function drawImageLayout(ctx,W,H,values,p,forExport){
+  if(!imgLayoutData||!imgLayoutData.grid||!imgLayoutData.grid.length){
+    ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='14px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Load an image in Layout options',W/2,H/2);
+    return[];
+  }
+  // Re-sample if cols changed
+  var cols=+document.getElementById('pImgCols').value||80;
+  if(cols!==imgLayoutData.cols&&imgLayoutImg)sampleLayoutImage();
+  if(!imgLayoutData.grid.length)return[];
+  var grid=imgLayoutData.grid;
+  var rows=grid.length;cols=grid[0].length;
+  var threshold=(+document.getElementById('pImgThreshold').value||0)/100;
+  var invert=imgLayoutInvert;
+  var n=values.length||1;
+  var cellW=W/cols,cellH=H/rows;
+  // Max line height: scale to cell height so lines fill their cell
+  var mLH=cellH*2*p.height;
+  var lines=[];
+  var vi=0;
+  var dist=getDistortions();
+  for(var r=0;r<rows;r++){
+    for(var c=0;c<cols;c++){
+      var b=grid[r][c];
+      if(invert)b=1-b;
+      if(b<threshold)continue;
+      var v=n>0?values[vi%n]:0.5;vi++;
+      var dir=imgLayoutDir;
+      var audioH=(0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45);
+      var hRand=1+getRand(vi+500,'rAppear')*0.4;
+      var bPow=Math.sqrt(b);
+      var lh=mLH*bPow*(0.4+audioH*0.6)*hRand;
+      lh=Math.max(2,Math.min(mLH*1.5,lh));
+      var isHoriz=(dir==='left'||dir==='right');
+      // Position: x,ly is where drawShapedLine starts (top of the line)
+      var cx=cellW*(c+0.5),cy=cellH*(r+0.5);
+      var x,ly;
+      if(dir==='up'){
+        x=cx;ly=cy+cellH*0.5-lh; // grows up from cell bottom edge
+      }else if(dir==='down'){
+        x=cx;ly=cy-cellH*0.5; // grows down from cell top edge
+      }else{
+        // Left/Right: we'll rotate when drawing, position at cell center
+        x=cx;ly=cy;
+      }
+      var hR=mLH>0?lh/mLH:1;
+      var tw=varyThick?p.thick*(.3+(1-hR)*.7):p.thick;
+      tw*=(1+getRand(vi+1000,'rAppear')*.3);tw=Math.max(.5,tw);
+      // Distortions (vertical only)
+      var fx=x,fy=ly;
+      if(!isHoriz&&(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth)){
+        var dTop=distortLinear(x,ly,W,H,dist);var dBot=distortLinear(x,ly+lh,W,H,dist);
+        fx=(dTop.x+dBot.x)/2;fy=dTop.y;lh=Math.max(1,Math.abs(dBot.y-dTop.y));
+      }
+      // Disorder
+      var dx=getDisorder(vi)*W*.03,dy=getDisorder(vi+300)*H*.03;
+      fx+=dx;fy+=dy;
+      var col=forExport?lineColHex(v,vi/Math.max(1,cols*rows),vi,cols*rows):lineCol(v,vi/Math.max(1,cols*rows),vi,cols*rows);
+      ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=tw;
+      var _da=dist.depth;
+      if(_da>0){var _nrm=1-r/rows;var _ds=1-_da*.4*_nrm;ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=tw*Math.max(.2,_ds)}
+      else{ctx.globalAlpha=b*0.5+0.5}
+      if(isHoriz){
+        ctx.save();ctx.translate(fx,fy);
+        if(dir==='left')ctx.rotate(-Math.PI/2); else ctx.rotate(Math.PI/2);
+        drawShapedLine(ctx,0,-lh*0.5,lh,ctx.lineWidth,v);
+        ctx.restore();
+      }else{
+        drawShapedLine(ctx,fx,fy,lh,ctx.lineWidth,v);
+      }
+      lines.push({v:v,x:fx,y:fy,lh:lh,tw:tw,pos:vi/Math.max(1,cols*rows)});
+    }
+  }
+  lastFrameLines={lines:lines,W:W,H:H,p:p,circle:false};
+  ctx.globalAlpha=1;
+  return lines;
 }
 
 function drawSine(ctx,W,H,values,p,forExport){
@@ -1738,7 +1981,7 @@ function renderDensity(){
     build3DLines(getRangeRMS(sT,eT),P());
     return;
   }
-  if(!audioBuffer)return;var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
+  if(!audioBuffer)return;var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.filter='none';frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
   var vals;
   var rmsStart=sT,rmsEnd=eT;
   vals=getRangeRMS(sT,eT);
@@ -1776,7 +2019,7 @@ function renderDensity(){
       var lCtx=lCv.getContext('2d');lCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
       var isCirc=layoutMode!=='linear'&&layoutMode!=='custom';
       if(spin>0&&isCirc){lCtx.save();lCtx.translate(lDrawW/2,lDrawH/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawW/2,-lDrawH/2)}
-      drawDensity(lCtx,lDrawW,lDrawH,layerVals,P(),false);
+      drawDensity(lCtx,lDrawW,lDrawH,applyFadeEdge(layerVals),P(),false);
       if(spin>0&&isCirc)lCtx.restore();
       // Composite: center layer canvas onto offscreen canvas with opacity
       offCtx.save();
@@ -1794,11 +2037,11 @@ function renderDensity(){
     layoutMode=origLayout;
   }else{
     if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
-    drawDensity(offCtx,drawW,drawH,vals,P(),false);
+    drawDensity(offCtx,drawW,drawH,applyFadeEdge(vals),P(),false);
     if(spin>0&&layoutMode!=='linear')offCtx.restore();
   }
   // Composite: crop center of zoomed content to fill the entire visible canvas
-  frameCtx.setTransform(1,0,0,1,0,0);
+  frameCtx.setTransform(1,0,0,1,0,0);frameCtx.filter=isRecording?"saturate(1.12) contrast(1.06) brightness(0.97)":"none";
   var srcX=Math.round((drawW-sz.W)/2*sz.dpr),srcY=Math.round((drawH-sz.H)/2*sz.dpr);
   if(srcX<0)srcX=0;if(srcY<0)srcY=0;
   var srcW=Math.round(sz.W*sz.dpr),srcH=Math.round(sz.H*sz.dpr);
@@ -1864,7 +2107,7 @@ function animLoop(){if(!playing){rafId=null;return}
   if(!realtimePreview)return;
 
   var p=P();
-  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
+  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.filter='none';frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
   var speed=+document.getElementById('pSpeed').value;if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002*speed;wavePhase+=0.05*speed;
@@ -1934,7 +2177,7 @@ function animLoop(){if(!playing){rafId=null;return}
       var lCtx=lCv.getContext('2d');lCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
       var isCirc=layoutMode!=='linear'&&layoutMode!=='custom';
       if(spin>0&&isCirc){lCtx.save();lCtx.translate(lDrawW2/2,lDrawH2/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawW2/2,-lDrawH2/2)}
-      drawDensity(lCtx,lDrawW2,lDrawH2,layerModVals,lp,false);
+      drawDensity(lCtx,lDrawW2,lDrawH2,applyFadeEdge(layerModVals),lp,false);
       if(spin>0&&isCirc)lCtx.restore();
       offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100;
       var aOffX=(layer.params&&layer.params._offX||0)/100*offCv.width;
@@ -1948,10 +2191,10 @@ function animLoop(){if(!playing){rafId=null;return}
     layoutMode=origLayout;
   }else{
     if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
-    drawDensity(offCtx,drawW,drawH,modVals,p,false);
+    drawDensity(offCtx,drawW,drawH,applyFadeEdge(modVals),p,false);
     if(spin>0&&layoutMode!=='linear')offCtx.restore();
   }
-  frameCtx.setTransform(1,0,0,1,0,0);
+  frameCtx.setTransform(1,0,0,1,0,0);frameCtx.filter=isRecording?"saturate(1.12) contrast(1.06) brightness(0.97)":"none";
   var srcX=Math.round((drawW-sz.W)/2*sz.dpr),srcY=Math.round((drawH-sz.H)/2*sz.dpr);
   if(srcX<0)srcX=0;if(srcY<0)srcY=0;
   var srcW=Math.round(sz.W*sz.dpr),srcH=Math.round(sz.H*sz.dpr);
@@ -2315,6 +2558,13 @@ function build3DLines(values,p){
       var r=(phInner*0.3+phDens*Math.sqrt(i/n))*spreadScale*0.3;
       var angle=i*div;
       x=Math.cos(angle)*r;z=Math.sin(angle)*r;
+    }else if(layoutMode==='wave'){
+      var wRows3d=+document.getElementById('pWaveRows').value||8;
+      var rowIdx=Math.floor(i*wRows3d/n);
+      var posInRow=(i-Math.round(rowIdx*n/wRows3d));
+      var countInRow=Math.round((rowIdx+1)*n/wRows3d)-Math.round(rowIdx*n/wRows3d);
+      x=(posInRow/(countInRow-1||1)-0.5)*spreadScale*0.5;
+      z=(rowIdx/(wRows3d-1||1)-0.5)*spreadScale*0.4;
     }else if(layoutMode==='concentric'){
       var cRings=+document.getElementById('pConcRings').value;
       var cInner=+document.getElementById('pConcInner').value/100;
@@ -2326,6 +2576,13 @@ function build3DLines(values,p){
       var ringOff=ringIdx*Math.PI*0.618;
       var angle=ringOff+posInRing/countInRing*Math.PI*2;
       x=Math.cos(angle)*ringR;z=Math.sin(angle)*ringR;
+    }else if(layoutMode==='image'){
+      // Grid layout in 3D, same as linear grid
+      var imgCols=+document.getElementById('pImgCols').value||60;
+      var imgRows=Math.max(1,Math.round(n/imgCols));
+      var col3d=i%imgCols,row3d=Math.floor(i/imgCols);
+      x=(col3d/(imgCols-1||1)-0.5)*spreadScale*0.5;
+      z=(row3d/(imgRows-1||1)-0.5)*spreadScale*0.5;
     }else if(layoutMode==='kaleidoscope'){
       var segs=+document.getElementById('pKalSegments').value;
       var kInner=+document.getElementById('pKalInner').value/100;
