@@ -366,7 +366,7 @@ var selStart=null,selEnd=null,dragging=null,selEndCheckRAF=null,cropStart=0,crop
 
 // BG swatches
 (function(){var row=document.getElementById('bgRow');bgPresets.forEach(function(hex){var sw=document.createElement('div');sw.className='bg-swatch';sw.style.background=hex;if(hex==='#ffffff')sw.style.border='2px solid var(--border)';sw.title=hex;sw.addEventListener('click',function(){setBg(hex)});row.appendChild(sw)})})();
-function setBg(hex){canvasBg=hex;document.getElementById('bgColor').value=hex;document.getElementById('frameWrap').style.background=hex;var rgb=hexToRgb(hex);var lum=(0.299*rgb[0]+0.587*rgb[1]+0.114*rgb[2])/255;document.getElementById('frameBadge').style.color=lum>0.5?'rgba(0,0,0,0.4)':'rgba(255,255,255,0.3)';document.querySelectorAll('.bg-swatch').forEach(function(s){s.classList.toggle('active',s.title.toLowerCase()===hex.toLowerCase())});renderDensity()}
+function setBg(hex){pushUndo();canvasBg=hex;document.getElementById('bgColor').value=hex;document.getElementById('frameWrap').style.background=hex;var rgb=hexToRgb(hex);var lum=(0.299*rgb[0]+0.587*rgb[1]+0.114*rgb[2])/255;document.getElementById('frameBadge').style.color=lum>0.5?'rgba(0,0,0,0.4)':'rgba(255,255,255,0.3)';document.querySelectorAll('.bg-swatch').forEach(function(s){s.classList.toggle('active',s.title.toLowerCase()===hex.toLowerCase())});renderDensity()}
 document.getElementById('bgColor').addEventListener('input',function(){setBg(this.value)});
 
 // Panel toggle
@@ -374,7 +374,7 @@ function togglePanel(id){document.getElementById(id).classList.toggle('closed')}
 
 // Params
 function P(){return{lines:+document.getElementById('pLines').value,contrast:+document.getElementById('pContrast').value/100,height:+document.getElementById('pHeight').value/100,thick:+document.getElementById('pThick').value}}
-function upP(){document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vFadeEdge').textContent=document.getElementById('pFadeEdge').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
+function upP(){pushUndo();document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vFadeEdge').textContent=document.getElementById('pFadeEdge').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
   document.getElementById('vCircleInner').textContent=document.getElementById('pCircleInner').value+'%';
   document.getElementById('vKalSegments').textContent=document.getElementById('pKalSegments').value;
   document.getElementById('vKalInner').textContent=document.getElementById('pKalInner').value+'%';
@@ -400,12 +400,12 @@ function upP(){document.getElementById('vLines').textContent=document.getElement
   if(document.getElementById('p3DGlow'))document.getElementById('v3DGlow').textContent=document.getElementById('p3DGlow').value+'%';
   if(stackMode&&stackLayouts.length>0){var _ai=getActiveLayerIdx();if(_ai>=0&&_ai<stackLayouts.length){stackLayouts[_ai].params=getLayoutParams();stackLayouts[_ai].layout=layoutMode}}
   renderDensity()}
-function setC(m,btn){colorMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}buildColorPanel();renderDensity()}
-function setVH(v,btn){varyHeight=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
-function setVT(v,btn){varyThick=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
-function setShape(s,btn){lineShape=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
-function setOutline(v,btn){showOutline=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');document.getElementById('outlineParams').style.display=v?'flex':'none';renderDensity()}
-function setOutlineStyle(s,btn){outlineStyle=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
+function setC(m,btn){pushUndo();colorMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}buildColorPanel();renderDensity()}
+function setVH(v,btn){pushUndo();varyHeight=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
+function setVT(v,btn){pushUndo();varyThick=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
+function setShape(s,btn){pushUndo();lineShape=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
+function setOutline(v,btn){pushUndo();showOutline=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');document.getElementById('outlineParams').style.display=v?'flex':'none';renderDensity()}
+function setOutlineStyle(s,btn){pushUndo();outlineStyle=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
 function getLayoutParams(){
   var p={};
   document.querySelectorAll('.layout-opts input').forEach(function(inp){if(inp.type==='file')return;p[inp.id]=inp.type==='text'?inp.value:+inp.value});
@@ -483,7 +483,7 @@ function getDefaultLayerParams(){
     _outlineWeight:2,_outlineDist:0,_outlineCount:1,_outlineSpace:4
   }));
 }
-function addLayer(){
+function addLayer(){pushUndo();
   // Save current active layer
   if(activeLayerIdx>=0&&activeLayerIdx<stackLayouts.length){
     stackLayouts[activeLayerIdx].params=getLayoutParams();
@@ -497,7 +497,7 @@ function getActiveLayerIdx(){
   if(activeLayerIdx>=stackLayouts.length)activeLayerIdx=Math.max(0,stackLayouts.length-1);
   return activeLayerIdx;
 }
-function removeLayer(idx){
+function removeLayer(idx){pushUndo();
   if(stackLayouts.length<=1)return;
   // Save current active layer before removing
   if(activeLayerIdx<stackLayouts.length){
@@ -569,7 +569,7 @@ function buildLayersUI(){
     list.appendChild(row);
   });
 }
-function setLayout(m,btn){
+function setLayout(m,btn){pushUndo();
   if(stackMode&&stackLayouts.length>0){
     // Update the currently selected layer's layout
     var activeIdx=getActiveLayerIdx();
@@ -592,7 +592,7 @@ function setAspect(r,btn){aspectRatio=r;btn.parentElement.querySelectorAll('.mbt
 
 // Effects
 var mirrorOn=false,spinAngle=0,playMode='continuous',zoomLoud=false;
-function setMirror(v,btn){mirrorOn=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
+function setMirror(v,btn){pushUndo();mirrorOn=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
 function setZoomLoud(v,btn){zoomLoud=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
 function setPlayMode(m,btn){playMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(m==='equalizer'){selStart=null;selEnd=null;updateSelUI()}}
 
@@ -619,7 +619,7 @@ function resetAll(){
   regenSeed();upP();upR();buildColorPanel();renderDensity();
 }
 
-function randomizeAll(){
+function randomizeAll(){pushUndo();
   function rr(min,max){return min+Math.random()*(max-min)}
   function ri(min,max){return Math.round(rr(min,max))}
   function rHex(){return'#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0')}
@@ -1971,7 +1971,6 @@ function drawCircleOutline(ctx,lines,cx,cy,forExport){
   ctx.setLineDash([])}
 
 function renderDensity(){
-  pushUndo();
   // Always save active layer's current state before rendering
   if(stackMode&&stackLayouts.length>0){var _ri=getActiveLayerIdx();if(_ri>=0&&_ri<stackLayouts.length){stackLayouts[_ri].params=getLayoutParams();stackLayouts[_ri].layout=layoutMode}}
   if(mode3D){
