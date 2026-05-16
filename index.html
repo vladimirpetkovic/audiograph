@@ -162,6 +162,12 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     </div>
   </div>
   <div class="controls-area" id="controlsArea">
+    <!-- GLOBAL INTENSITY -->
+    <div style="padding:8px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
+      <span class="prow-label" style="min-width:56px">Intensity</span>
+      <input type="range" min="0" max="200" value="100" step="5" id="pIntensity" oninput="document.getElementById('vIntensity').textContent=this.value+'%'" style="flex:1;-webkit-appearance:none;appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none">
+      <span class="prow-val" id="vIntensity">100%</span>
+    </div>
     <!-- GLOBAL RANDOMNESS -->
     <div class="panel" id="panelWebcam">
       <div class="panel-head" onclick="togglePanel('panelWebcam')"><span class="panel-title">Webcam</span><span class="panel-arrow">▼</span></div>
@@ -308,7 +314,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="panel" id="panelFx">
       <div class="panel-head" onclick="togglePanel('panelFx')"><span class="panel-title">Effects</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body" id="fxBody">
-        <div class="prow"><span class="prow-label">Playback</span><div class="mode-btns"><button class="mbtn on" onclick="setPlayMode('continuous',this)">Continuous</button><button class="mbtn" onclick="setPlayMode('equalizer',this)">Equalizer</button></div></div>
+        <div class="prow"><span class="prow-label">Playback</span><div class="mode-btns"><button class="mbtn" onclick="setPlayMode('off',this)">Off</button><button class="mbtn on" onclick="setPlayMode('continuous',this)">Continuous</button><button class="mbtn" onclick="setPlayMode('equalizer',this)">Equalizer</button></div></div>
+        <div class="prow"><span class="prow-label">Particles</span><div class="mode-btns"><button class="mbtn" onclick="toggleParticles(this)">On</button><button class="mbtn on" onclick="toggleParticles(this)">Off</button></div></div>
         <div class="prow"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
         <div class="prow" id="rowFlip"><span class="prow-label">Flip</span><div class="mode-btns"><button class="mbtn" onclick="setFlipH(this)">Horizontal</button><button class="mbtn" onclick="setFlipV(this)">Vertical</button></div></div>
         <div class="prow" id="rowMirror"><span class="prow-label">Mirror</span><div class="mode-btns"><button class="mbtn" onclick="setMirror(true,this)">Yes</button><button class="mbtn on" onclick="setMirror(false,this)">No</button></div></div>
@@ -462,6 +469,7 @@ function getLayoutParams(){
   p._flipH=flipH;
   p._flipV=flipV;
   p._mirrorOn=mirrorOn;
+  p._particlesOn=particlesOn;
   p._zoomLoud=zoomLoud;
   p._playMode=playMode;
   return JSON.parse(JSON.stringify(p));
@@ -514,8 +522,9 @@ function setLayoutParams(p){
   if('_flipH' in p){flipH=!!p._flipH;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('setFlipH')>-1)b.classList.toggle('on',flipH)})}
   if('_flipV' in p){flipV=!!p._flipV;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('setFlipV')>-1)b.classList.toggle('on',flipV)})}
   if('_mirrorOn' in p){mirrorOn=!!p._mirrorOn;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('setMirror(true')>-1)b.classList.toggle('on',mirrorOn);if(oc.indexOf('setMirror(false')>-1)b.classList.toggle('on',!mirrorOn)})}
+  if('_particlesOn' in p){particlesOn=!!p._particlesOn;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('toggleParticles')>-1){var row=b.parentElement;if(row){row.children[0].classList.toggle('on',particlesOn);row.children[1].classList.toggle('on',!particlesOn)}}})}
   if('_zoomLoud' in p){zoomLoud=!!p._zoomLoud;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('setZoomLoud(true')>-1)b.classList.toggle('on',zoomLoud);if(oc.indexOf('setZoomLoud(false')>-1)b.classList.toggle('on',!zoomLoud)})}
-  if('_playMode' in p){playMode=p._playMode;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("setPlayMode('"+playMode+"'")>-1)b.classList.add('on');else if(oc.indexOf("setPlayMode(")>-1)b.classList.remove('on')})}
+  if('_playMode' in p){if(p._playMode==='particles'){playMode='continuous';particlesOn=true}else{playMode=p._playMode}document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("setPlayMode('"+playMode+"'")>-1)b.classList.add('on');else if(oc.indexOf("setPlayMode(")>-1)b.classList.remove('on')})}
 }
 function initLayers(){
   if(stackLayouts.length===0){
@@ -540,7 +549,7 @@ function getDefaultLayerParams(){
     _outlineWeight:2,_outlineDist:0,_outlineCount:1,_outlineSpace:4,
     _spin:0,_speed:1,_amplify:1,_twist:0,_bulge:0,_wave:0,_waveFreq:5,_shear:0,_depth:0,
     _rGlobal:0,_rDist:0,_rAppear:0,_rOutline:0,_rColor:0,_rDisorder:0,
-    _flipH:false,_flipV:false,_mirrorOn:false,_zoomLoud:false,_playMode:'continuous'
+    _flipH:false,_flipV:false,_mirrorOn:false,_particlesOn:false,_zoomLoud:false,_playMode:'continuous'
   }));
 }
 function addLayer(){pushUndo();
@@ -651,18 +660,19 @@ function setLayout(m,btn){pushUndo();
 function setAspect(r,btn){aspectRatio=r;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
 
 // Effects
-var flipH=false,flipV=false,mirrorOn=false,spinAngle=0,playMode='continuous',zoomLoud=false;
+var flipH=false,flipV=false,mirrorOn=false,particlesOn=false,spinAngle=0,playMode='continuous',zoomLoud=false;
 function setFlipH(btn){pushUndo();flipH=!flipH;btn.classList.toggle('on',flipH);if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function setFlipV(btn){pushUndo();flipV=!flipV;btn.classList.toggle('on',flipV);if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function setMirror(v,btn){pushUndo();mirrorOn=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
+function toggleParticles(btn){pushUndo();particlesOn=!particlesOn;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});if(particlesOn){btn.parentElement.children[0].classList.add('on')}else{btn.parentElement.children[1].classList.add('on')}particleLayers={};if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function setZoomLoud(v,btn){zoomLoud=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
-function setPlayMode(m,btn){playMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(m==='equalizer'){selStart=null;selEnd=null;updateSelUI()}}
+function setPlayMode(m,btn){pushUndo();if(m==='particles'){m='continuous';particlesOn=true}playMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(m==='equalizer'){selStart=null;selEnd=null;updateSelUI()}if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}particleLayers={};renderDensity()}
 
 // Reset all
 function resetAll(){
   var defs={pLines:350,pContrast:75,pSensitivity:100,pHeight:80,pThick:1,pZoom:100,pOffX:0,pOffY:0,pRotation:0,pFadeEdge:0,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pWaveRows:8,pWaveAmp2:50,pConcRings:5,pConcInner:10,pImgThreshold:15,pImgCols:80};
   for(var id in defs){var el=document.getElementById(id);if(el)el.value=defs[id]}
-  colorMode='toneramp';varyHeight=true;varyThick=false;showOutline=false;outlineStyle='solid';flipH=false;flipV=false;mirrorOn=false;playMode='continuous';spinAngle=0;
+  colorMode='toneramp';varyHeight=true;varyThick=false;showOutline=false;outlineStyle='solid';flipH=false;flipV=false;mirrorOn=false;particlesOn=false;playMode='continuous';spinAngle=0;
   layoutMode='linear';document.getElementById('app').classList.remove('circle-mode');
   lineShape='straight';threeShape='cylinder';threeMat='standard';stackMode=true;stackLayouts=[];activeLayerIdx=0;
   initLayers();
@@ -771,6 +781,7 @@ function randomizeAll(){pushUndo();
     if(oc.indexOf("setFlipV")>-1)b.classList.toggle('on',flipV);
     if(oc.indexOf("setMirror(true")>-1)b.classList.toggle('on',mirrorOn);
     if(oc.indexOf("setMirror(false")>-1)b.classList.toggle('on',!mirrorOn);
+    if(oc.indexOf("toggleParticles")>-1){var row=b.parentElement;if(row){row.children[0].classList.toggle('on',particlesOn);row.children[1].classList.toggle('on',!particlesOn)}}
     if(oc.indexOf("setZoomLoud(true")>-1)b.classList.toggle('on',zoomLoud);
     if(oc.indexOf("setZoomLoud(false")>-1)b.classList.toggle('on',!zoomLoud);
     if(oc.indexOf("setOutlineStyle('"+outlineStyle+"'")>-1)b.classList.add('on');
@@ -1154,6 +1165,7 @@ function lineColHex(v,pr,idx,total){
   if(colorMode==='toneramp'){var c=shiftHue(lerpColor(toneStops,v),hueShift);return rgbToHex(c[0],c[1],c[2])}
   if(colorMode==='simpleramp'){var c=shiftHue(lerpColor(simpleStops,pr),hueShift);return rgbToHex(c[0],c[1],c[2])}return solidColor}
 function fmt(s){if(!isFinite(s)||s<0)return'0:00.0';var m=Math.floor(s/60),sc=s%60;return m+':'+(sc<10?'0':'')+sc.toFixed(1)}
+function getIntensity(){return(+document.getElementById('pIntensity').value)/100}
 function sensCurve(v,sens){
   // Apply a power curve: sens<1 compresses (flattens), sens>1 expands (steepens)
   // Map sensitivity 0.05-2.0 to gamma 0.25-3.5
@@ -1236,12 +1248,19 @@ function liveAnimLoop(){
   // Get live frequency data
   var fd=new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(fd);
+  // Normalize frequency data like loaded audio does
+  var fdMax=0;for(var i=0;i<fd.length;i++){if(fd[i]>fdMax)fdMax=fd[i]}
+  if(fdMax===0)fdMax=1;
   var nLines=p.lines,modVals=[];
   var binsPerLine=Math.max(1,Math.floor(fd.length/nLines));
   for(var i=0;i<nLines;i++){
     var sum=0;for(var j=0;j<binsPerLine;j++){var idx=i*binsPerLine+j;if(idx<fd.length)sum+=fd[idx]}
-    modVals.push(sensCurve(Math.min(1,sum/(binsPerLine*255)*amp),sens));
+    var raw=sum/(binsPerLine*fdMax);
+    modVals.push(sensCurve(Math.min(1,raw*amp),sens));
   }
+  // Apply global intensity
+  var gIntensity=getIntensity();
+  if(gIntensity!==1){modVals=modVals.map(function(v){return Math.min(1,v*gIntensity)})}
   // Zoom-to-loudness: modulate zoom by average energy
   if(zoomLoud){var avgE=0;for(var i=0;i<modVals.length;i++)avgE+=modVals[i];avgE/=(modVals.length||1);zoom=zoom*(0.7+avgE*0.8)}
   // Render
@@ -1273,13 +1292,31 @@ function liveAnimLoop(){
       var lp=P();
       var liveModVals=[];
       var bpl3=Math.max(1,Math.floor(fd.length/lp.lines));
-      for(var li=0;li<lp.lines;li++){var s3=0;for(var lj=0;lj<bpl3;lj++){var idx3=li*bpl3+lj;if(idx3<fd.length)s3+=fd[idx3]}liveModVals.push(sensCurve(Math.min(1,s3/(bpl3*255)*lAmpL),lSensL))}
+      for(var li=0;li<lp.lines;li++){var s3=0;for(var lj=0;lj<bpl3;lj++){var idx3=li*bpl3+lj;if(idx3<fd.length)s3+=fd[idx3]}liveModVals.push(sensCurve(Math.min(1,s3/(bpl3*fdMax)*lAmpL),lSensL))}
+      // Apply global intensity
+      if(gIntensity!==1){liveModVals=liveModVals.map(function(v){return Math.min(1,v*gIntensity)})}
       var lCv=document.createElement('canvas');lCv.width=Math.round(lDrawWL*sz.dpr);lCv.height=Math.round(lDrawHL*sz.dpr);
       var lCtx=lCv.getContext('2d');lCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
       var isCirc=layoutMode!=='linear'&&layoutMode!=='custom';
-      if(lSpinL>0&&isCirc){lCtx.save();lCtx.translate(lDrawWL/2,lDrawHL/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawWL/2,-lDrawHL/2)}
-      drawDensity(lCtx,lDrawWL,lDrawHL,applyFadeEdge(liveModVals),lp,false);
-      if(lSpinL>0&&isCirc)lCtx.restore();
+      // Draw base visualization unless playback is off
+      var lPlayModeL2=(layer.params&&layer.params._playMode)||playMode;
+      if(si===getActiveLayerIdx())lPlayModeL2=playMode;
+      if(lPlayModeL2!=='off'){
+        if(lSpinL>0&&isCirc){lCtx.save();lCtx.translate(lDrawWL/2,lDrawHL/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawWL/2,-lDrawHL/2)}
+        drawDensity(lCtx,lDrawWL,lDrawHL,applyFadeEdge(liveModVals),lp,false);
+        if(lSpinL>0&&isCirc)lCtx.restore();
+      }
+      // Particles overlay if enabled
+      var layerParticlesOnL=!!(layer.params&&layer.params._particlesOn);
+      if(si===getActiveLayerIdx()&&particlesOn)layerParticlesOnL=true;
+      if(layerParticlesOnL){
+        var pEnergyL=0;
+        if(liveModVals.length){for(var ei=0;ei<liveModVals.length;ei++)pEnergyL+=liveModVals[ei];pEnergyL/=liveModVals.length}
+        pEnergyL=Math.max(0.1,pEnergyL);
+        spawnParticles(pEnergyL,lDrawWL,lDrawHL,lp,layer.params,si);
+        capParticles(si);
+        updateAndDrawParticles(lCtx,lDrawWL,lDrawHL,pEnergyL,si);
+      }
       // Apply per-layer flip
       var lvFlipH=!!(layer.params&&layer.params._flipH);
       var lvFlipV=!!(layer.params&&layer.params._flipV);
@@ -1325,9 +1362,148 @@ function liveAnimLoop(){
   var dstX=0,dstY=0,dstW=Math.round(sz.W*sz.dpr),dstH=Math.round(sz.H*sz.dpr);
   if(zoom<1){dstW=srcW;dstH=srcH;dstX=Math.round((sz.W*sz.dpr-dstW)/2);dstY=Math.round((sz.H*sz.dpr-dstH)/2);srcX=0;srcY=0;srcW=offCv.width;srcH=offCv.height}
   frameCtx.drawImage(offCv,srcX,srcY,srcW,srcH,dstX,dstY,dstW,dstH);
-  if(mirrorOn){frameCtx.save();var centerY=dstY+dstH/2;frameCtx.translate(0,2*centerY);frameCtx.scale(1,-1);frameCtx.globalAlpha=0.4;frameCtx.drawImage(offCv,srcX,srcY,srcW,srcH,dstX,dstY,dstW,dstH);frameCtx.restore();frameCtx.globalAlpha=1}
   document.getElementById('frameBadge').textContent='LIVE';
 }
+
+// --- PARTICLE SYSTEM ---
+var particleLayers={};
+var particleMaxAge=120; // frames
+function getParticles(layerIdx){if(!particleLayers[layerIdx])particleLayers[layerIdx]=[];return particleLayers[layerIdx]}
+function spawnParticles(energy,W,H,p,layerParams,layerIdx){
+  var particles=getParticles(layerIdx||0);
+  var e=Math.max(0.05,energy);
+  var count=Math.max(2,Math.floor(e*p.lines*0.2));
+  var lm=layoutMode;
+  for(var i=0;i<count;i++){
+    var t=Math.random();
+    var v=e;
+    var px,py;
+    // Spawn position based on layout shape
+    if(lm==='circle'||lm==='kaleidoscope'||lm==='spiral'||lm==='phyllotaxis'||lm==='concentric'){
+      var angle=Math.random()*Math.PI*2;
+      var r=(0.2+Math.random()*0.3)*Math.min(W,H)/2;
+      px=W/2+Math.cos(angle)*r;
+      py=H/2+Math.sin(angle)*r;
+    }else if(lm==='sine'){
+      px=t*W;
+      py=H/2+Math.sin(t*Math.PI*4)*H/4*v;
+    }else if(lm==='custom'){
+      try{
+        var customX=layerParams.customFnX||'t*W';
+        var customY=layerParams.customFnY||'H/2';
+        var n=p.lines;
+        var idx=Math.floor(Math.random()*n);
+        px=eval(customX);py=eval(customY);
+      }catch(e2){px=t*W;py=H/2}
+    }else{
+      px=t*W;
+      py=H/2+(Math.random()-0.5)*H*0.3;
+    }
+    // Velocity driven by energy — louder = faster
+    var speed=(0.5+e*5)*(0.5+Math.random());
+    var angle2=Math.random()*Math.PI*2;
+    if(lm!=='linear'&&lm!=='custom'&&lm!=='sine'){
+      var dx=px-W/2,dy=py-H/2;
+      angle2=Math.atan2(dy,dx)+((Math.random()-0.5)*0.8);
+    }
+    var vx=Math.cos(angle2)*speed;
+    var vy=Math.sin(angle2)*speed;
+    // Size driven by energy — louder = bigger
+    var thick=layerParams._thick||2;
+    var sz2=Math.max(1.5, thick*(0.3+e*2.5)*(0.5+Math.random()));
+    particles.push({
+      x:px,y:py,vx:vx,vy:vy,
+      age:0,maxAge:particleMaxAge*(0.3+e*0.7)*(0.5+Math.random()*0.5),
+      size:sz2,
+      val:e*(0.3+Math.random()*0.7),
+      pos:t
+    });
+  }
+}
+function updateAndDrawParticles(ctx,W,H,energy,layerIdx){
+  var particles=getParticles(layerIdx||0);
+  var twist=(+document.getElementById('pTwist').value)/100;
+  var bulge=(+document.getElementById('pBulge').value)/100;
+  var wave=(+document.getElementById('pWave').value);
+  var depth=(+document.getElementById('pDepth').value)/100;
+  var gravity=0;
+  var energyBoost=0.5+energy*1.5;
+  // Update
+  for(var i=particles.length-1;i>=0;i--){
+    var pt=particles[i];
+    pt.age++;
+    if(pt.age>pt.maxAge){particles.splice(i,1);continue}
+    // Apply twist — curl around center
+    if(twist!==0){
+      var dx=pt.x-W/2,dy=pt.y-H/2;
+      var a=Math.atan2(dy,dx)+twist*0.05;
+      var d=Math.sqrt(dx*dx+dy*dy);
+      pt.vx+=Math.cos(a)*twist*0.1;
+      pt.vy+=Math.sin(a)*twist*0.1;
+    }
+    // Apply bulge — push toward/away from center
+    if(bulge!==0){
+      var dx=pt.x-W/2,dy=pt.y-H/2;
+      var d=Math.sqrt(dx*dx+dy*dy)||1;
+      pt.vx+=dx/d*bulge*0.3;
+      pt.vy+=dy/d*bulge*0.3;
+    }
+    // Apply wave — sinusoidal drift
+    if(wave>0){
+      pt.vx+=Math.sin(pt.age*0.1+pt.pos*10)*wave*0.01;
+      pt.vy+=Math.cos(pt.age*0.1+pt.pos*10)*wave*0.01;
+    }
+    // Energy-reactive velocity boost
+    pt.vx*=(0.95+energy*0.05);
+    pt.vy*=(0.95+energy*0.05);
+    // Damping
+    pt.vx*=0.97;pt.vy*=0.97;
+    pt.x+=pt.vx*energyBoost;pt.y+=pt.vy*energyBoost+gravity;
+    // Remove if off screen
+    if(pt.x<-50||pt.x>W+50||pt.y<-50||pt.y>H+50){particles.splice(i,1);continue}
+  }
+  // Draw
+  var p=P();
+  for(var i=0;i<particles.length;i++){
+    var pt=particles[i];
+    var life=1-pt.age/pt.maxAge;
+    var alpha=Math.max(0.1,life*life); // fade out but keep minimum alpha
+    // Depth effect
+    if(depth>0){
+      var dx=(pt.x-W/2)/(W/2),dy=(pt.y-H/2)/(H/2);
+      var dr=Math.sqrt(dx*dx+dy*dy);
+      var ds=1-depth*0.6*(1-Math.exp(-dr*1.5));
+      alpha*=Math.max(0.1,ds);
+    }
+    var sz=Math.max(2, pt.size*life*energyBoost);
+    if(sz<0.5)continue;
+    var col;
+    try{col=lineCol(pt.val,pt.pos,i,particles.length)}catch(e){col='#e94560'}
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle=col;
+    // Draw particle shape based on lineShape
+    if(lineShape==='dotted'||lineShape==='rounded'){
+      ctx.beginPath();ctx.arc(pt.x,pt.y,sz,0,Math.PI*2);ctx.fill();
+    }else if(lineShape==='cross'){
+      ctx.lineWidth=sz*0.3;ctx.strokeStyle=col;
+      ctx.beginPath();ctx.moveTo(pt.x-sz,pt.y);ctx.lineTo(pt.x+sz,pt.y);ctx.moveTo(pt.x,pt.y-sz);ctx.lineTo(pt.x,pt.y+sz);ctx.stroke();
+    }else if(lineShape==='symbols'||lineShape==='numbers'||lineShape==='words'){
+      ctx.font=Math.max(4,sz*2)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+      var chars=lineShape==='numbers'?'0123456789':(lineShape==='symbols'?'●◆★▲♦◎⬡△▽♠':'SOUND WAVE AUDIO BEAT PULSE RHYTHM');
+      ctx.fillText(chars[i%chars.length],pt.x,pt.y);
+    }else{
+      // Default: small line/dash
+      var a2=Math.atan2(pt.vy,pt.vx);
+      ctx.lineWidth=Math.max(0.5,sz*0.4);ctx.strokeStyle=col;
+      ctx.beginPath();ctx.moveTo(pt.x-Math.cos(a2)*sz,pt.y-Math.sin(a2)*sz);
+      ctx.lineTo(pt.x+Math.cos(a2)*sz,pt.y+Math.sin(a2)*sz);ctx.stroke();
+    }
+  }
+  ctx.globalAlpha=1;
+}
+// Cap particles
+var particleMax=3000;
+function capParticles(layerIdx){var particles=getParticles(layerIdx||0);if(particles.length>particleMax)particles.splice(0,particles.length-particleMax)}
 
 // --- WEBCAM COLOR + DISPLACEMENT ---
 var camStream=null,camVideo=null,camCanvas=null,camCtx=null,camActive=false,camColors=null;
@@ -2207,6 +2383,9 @@ function renderDensity(){
   var vals;
   var rmsStart=sT,rmsEnd=eT;
   vals=getRangeRMS(sT,eT);
+  // Apply global intensity to static view
+  var gIntensityS=getIntensity();
+  if(gIntensityS!==1){vals=vals.map(function(v){return Math.min(1,v*gIntensityS)})}
   var zoom=+document.getElementById('pZoom').value/100;
   if(stackMode&&stackLayouts.length>=1){
     // Find max zoom across layers for offscreen canvas size
@@ -2237,13 +2416,30 @@ function renderDensity(){
       var layerZoom=(layer.params&&layer.params._zoom?layer.params._zoom:100)/100;
       var lDrawW=sz.W*layerZoom,lDrawH=sz.H*layerZoom;
       var layerVals=getRangeRMS(rmsStart,rmsEnd);
+      if(gIntensityS!==1){layerVals=layerVals.map(function(v){return Math.min(1,v*gIntensityS)})}
       // Create a separate canvas for this layer at its own zoom
       var lCv=document.createElement('canvas');lCv.width=Math.round(lDrawW*sz.dpr);lCv.height=Math.round(lDrawH*sz.dpr);
       var lCtx=lCv.getContext('2d');lCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
       var isCirc=layoutMode!=='linear'&&layoutMode!=='custom';
-      if(lSpin>0&&isCirc){lCtx.save();lCtx.translate(lDrawW/2,lDrawH/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawW/2,-lDrawH/2)}
-      drawDensity(lCtx,lDrawW,lDrawH,applyFadeEdge(layerVals),P(),false);
-      if(lSpin>0&&isCirc)lCtx.restore();
+      // Draw base visualization unless playback is off
+      var sPlayMode2=(layer.params&&layer.params._playMode)||playMode;
+      if(si===getActiveLayerIdx())sPlayMode2=playMode;
+      if(sPlayMode2!=='off'){
+        if(lSpin>0&&isCirc){lCtx.save();lCtx.translate(lDrawW/2,lDrawH/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawW/2,-lDrawH/2)}
+        drawDensity(lCtx,lDrawW,lDrawH,applyFadeEdge(layerVals),P(),false);
+        if(lSpin>0&&isCirc)lCtx.restore();
+      }
+      // Particles overlay if enabled
+      var layerParticlesOnS=!!(layer.params&&layer.params._particlesOn);
+      if(si===getActiveLayerIdx()&&particlesOn)layerParticlesOnS=true;
+      if(layerParticlesOnS){
+        var sEnergy=0;
+        if(layerVals.length){for(var ei=0;ei<layerVals.length;ei++)sEnergy+=layerVals[ei];sEnergy/=layerVals.length}
+        sEnergy=Math.max(0.15,sEnergy);
+        spawnParticles(sEnergy,lDrawW,lDrawH,P(),layer.params,si);
+        capParticles(si);
+        updateAndDrawParticles(lCtx,lDrawW,lDrawH,sEnergy,si);
+      }
       // Composite: center layer canvas onto offscreen canvas with opacity + flip
       var lFlipH=!!(layer.params&&layer.params._flipH);
       var lFlipV=!!(layer.params&&layer.params._flipV);
@@ -2367,10 +2563,13 @@ function animLoop(){if(!playing){rafId=null;return}
       analyser.getByteTimeDomainData(rtData);
     }
     var rtSum=0;for(var i=0;i<rtData.length;i++){var s=(rtData[i]-128)/128;rtSum+=s*s}
-    var rtAmp=Math.min(1,Math.sqrt(rtSum/rtData.length)*3*amp);
+    var rtAmp=Math.min(1,Math.sqrt(rtSum/rtData.length)*3);
     var vals=getRangeRMS(r.s,r.e);
     modVals=vals.map(function(v){return sensCurve(Math.min(1,v*(.3+rtAmp*.7)*amp),sens)});
   }
+  // Apply global intensity
+  var gIntensity=getIntensity();
+  if(gIntensity!==1){modVals=modVals.map(function(v){return Math.min(1,v*gIntensity)})}
   // Zoom-to-loudness: modulate zoom by average energy
   if(zoomLoud&&modVals.length){var avgE=0;for(var i=0;i<modVals.length;i++)avgE+=modVals[i];avgE/=modVals.length;zoom=zoom*(0.7+avgE*0.8)}
 
@@ -2410,15 +2609,33 @@ function animLoop(){if(!playing){rafId=null;return}
       }else{
         var lvals=getRangeRMS(r.s,r.e);
         var rtSum2=0;for(var li=0;li<rtData.length;li++){var s2=(rtData[li]-128)/128;rtSum2+=s2*s2}
-        var rtAmp2=Math.min(1,Math.sqrt(rtSum2/rtData.length)*3*lAmp);
+        var rtAmp2=Math.min(1,Math.sqrt(rtSum2/rtData.length)*3);
         layerModVals=lvals.map(function(v){return sensCurve(Math.min(1,v*(.3+rtAmp2*.7)*lAmp),lSens)});
       }
+      // Apply global intensity
+      if(gIntensity!==1){layerModVals=layerModVals.map(function(v){return Math.min(1,v*gIntensity)})}
       var lCv=document.createElement('canvas');lCv.width=Math.round(lDrawW2*sz.dpr);lCv.height=Math.round(lDrawH2*sz.dpr);
       var lCtx=lCv.getContext('2d');lCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
       var isCirc=layoutMode!=='linear'&&layoutMode!=='custom';
-      if(lSpin>0&&isCirc){lCtx.save();lCtx.translate(lDrawW2/2,lDrawH2/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawW2/2,-lDrawH2/2)}
-      drawDensity(lCtx,lDrawW2,lDrawH2,applyFadeEdge(layerModVals),lp,false);
-      if(lSpin>0&&isCirc)lCtx.restore();
+      // Draw base visualization unless playback is off
+      var lPlayMode2=(layer.params&&layer.params._playMode)||playMode;
+      if(si===getActiveLayerIdx())lPlayMode2=playMode;
+      if(lPlayMode2!=='off'){
+        if(lSpin>0&&isCirc){lCtx.save();lCtx.translate(lDrawW2/2,lDrawH2/2);lCtx.rotate(spinAngle);lCtx.translate(-lDrawW2/2,-lDrawH2/2)}
+        drawDensity(lCtx,lDrawW2,lDrawH2,applyFadeEdge(layerModVals),lp,false);
+        if(lSpin>0&&isCirc)lCtx.restore();
+      }
+      // Particles overlay if enabled for this layer
+      var layerParticlesOn=!!(layer.params&&layer.params._particlesOn);
+      if(si===getActiveLayerIdx()&&particlesOn)layerParticlesOn=true;
+      if(layerParticlesOn){
+        var pEnergy=0;
+        if(layerModVals.length){for(var ei=0;ei<layerModVals.length;ei++)pEnergy+=layerModVals[ei];pEnergy/=layerModVals.length}
+        pEnergy=Math.max(0.1,pEnergy);
+        spawnParticles(pEnergy,lDrawW2,lDrawH2,lp,layer.params,si);
+        capParticles(si);
+        updateAndDrawParticles(lCtx,lDrawW2,lDrawH2,pEnergy,si);
+      }
       // Apply per-layer flip
       var aFlipH=!!(layer.params&&layer.params._flipH);
       var aFlipV=!!(layer.params&&layer.params._flipV);
