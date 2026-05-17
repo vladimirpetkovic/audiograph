@@ -14,7 +14,10 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .logo{font-family:'Instrument Serif',serif;font-size:1.3rem;color:var(--accent)}
 .logo a{color:var(--tx3);text-decoration:none;border-bottom:1px solid var(--border-h);font-family:'JetBrains Mono',monospace;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;margin-left:8px;vertical-align:middle}
 .logo a:hover{color:var(--accent2)}
-.top-actions{display:flex;gap:6px}
+.top-actions{display:flex;gap:6px;align-items:center}
+.audio-source-group{display:flex;flex-direction:column;align-items:center;margin-left:8px;padding:4px 10px;background:var(--elevated);border:1px solid var(--border);border-radius:6px}
+.audio-source-label{font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin-bottom:3px}
+.audio-source-btns{display:flex;gap:4px}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--elevated);border:1px solid var(--border);border-radius:5px;color:var(--tx2);font:.65rem/1 'JetBrains Mono',monospace;letter-spacing:.03em;cursor:pointer;transition:all .12s;text-transform:uppercase;white-space:nowrap}
 .btn:hover{border-color:var(--border-h);color:var(--tx)}
 .btn.primary{border-color:var(--accent2);color:var(--accent2);background:var(--accent-g)}
@@ -27,6 +30,12 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .frame-view{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;width:100%;height:calc(100vh - 220px);transition:background .2s}
 .frame-view canvas{width:100%;height:100%;display:block}
 .frame-badge{position:absolute;top:8px;right:10px;font-size:.55rem;letter-spacing:.05em;pointer-events:none}
+.fs-btn{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:rgba(255,255,255,0.6);padding:4px 5px;cursor:pointer;z-index:15;opacity:0;transition:opacity .2s}
+.frame-view:hover .fs-btn{opacity:1}
+.fs-btn:hover{background:rgba(255,255,255,0.15);color:#fff}
+.frame-view:fullscreen,.frame-view:-webkit-full-screen{border:none;border-radius:0;width:100vw;height:100vh;background:#000}
+.frame-view:fullscreen canvas,.frame-view:-webkit-full-screen canvas{width:100vw;height:100vh}
+.frame-view:fullscreen .fs-btn,.frame-view:-webkit-full-screen .fs-btn{bottom:20px;right:20px}
 .idle-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none}
 .idle-overlay svg{width:24px;height:24px;stroke:var(--tx3);fill:none;stroke-width:1}
 .idle-overlay span{font-size:.6rem;color:var(--tx3);text-align:center;line-height:1.5}
@@ -132,11 +141,12 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 <body>
 <div class="top-bar">
   <div class="logo">Audiograph <a href="https://www.vladimirpetkovic.com" target="_blank">by Vladimir Petković</a></div>
-  <div class="top-actions"><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()">Reset</button><label class="btn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button><span class="help-btn"><button class="btn" onclick="toggleHelp()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Guide</button></span></div>
+  <div class="top-actions"><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()">Reset</button><div class="audio-source-group"><span class="audio-source-label">Audio source</span><div class="audio-source-btns"><label class="btn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button></div></div><span class="help-btn"><button class="btn" onclick="toggleHelp()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Guide</button></span></div>
 </div>
 <div class="app" id="app">
   <div class="preview-area">
     <div class="frame-view" id="frameWrap"><canvas id="frameCv"></canvas><div id="three3d" style="position:absolute;inset:0;display:none"></div><div class="frame-badge" id="frameBadge"></div>
+      <button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="Fullscreen (⌘F)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></button>
       <div class="rec-badge" id="recBadge"><div class="rec-dot"></div><span>REC</span><span class="rec-timer" id="recTimer">0:00</span></div>
       <div class="idle-overlay" id="idle"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>drop audio file here<br>or click Load Audio</span></div>
       <div id="dropZone" style="display:none;position:absolute;inset:0;background:rgba(110,231,183,0.08);border:2px dashed var(--accent2);border-radius:8px;z-index:20;align-items:center;justify-content:center"><span style="color:var(--accent2);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase">drop to load</span></div>
@@ -322,7 +332,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div id="particleParams" style="display:none;flex-direction:column;gap:8px">
           <div class="prow"><span class="prow-label">Shape</span><div class="mode-btns"><button class="mbtn on" onclick="setParticleShape('circle',this)">Circle</button><button class="mbtn" onclick="setParticleShape('square',this)">Square</button><button class="mbtn" onclick="setParticleShape('star',this)">Star</button><button class="mbtn" onclick="setParticleShape('line',this)">Line</button><button class="mbtn" onclick="setParticleShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setParticleShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setParticleShape('words',this)">Words</button></div></div>
           <div class="prow"><span class="prow-label">Density</span><input type="range" min="1" max="50" value="20" step="1" id="pPartDensity" oninput="upP()"><span class="prow-val" id="vPartDensity">20</span></div>
-          <div class="prow"><span class="prow-label">Speed</span><input type="range" min="0.1" max="10" value="3" step="0.1" id="pPartSpeed" oninput="upP()"><span class="prow-val" id="vPartSpeed">3</span></div>
+          <div class="prow"><span class="prow-label">Energy</span><input type="range" min="0.1" max="5" value="1" step="0.1" id="pPartEnergy" oninput="upP()"><span class="prow-val" id="vPartEnergy">1×</span></div>
+          <div class="prow"><span class="prow-label">Speed</span><input type="range" min="0" max="10" value="3" step="0.1" id="pPartSpeed" oninput="upP()"><span class="prow-val" id="vPartSpeed">3</span></div>
           <div class="prow"><span class="prow-label">Life</span><input type="range" min="10" max="300" value="120" step="10" id="pPartLife" oninput="upP()"><span class="prow-val" id="vPartLife">120</span></div>
           <div class="prow"><span class="prow-label">Size</span><input type="range" min="1" max="40" value="12" step="0.5" id="pPartSize" oninput="upP()"><span class="prow-val" id="vPartSize">12</span></div>
           <div class="prow"><span class="prow-label">Spread</span><input type="range" min="0" max="100" value="50" step="5" id="pPartSpread" oninput="upP()"><span class="prow-val" id="vPartSpread">50%</span></div>
@@ -425,6 +436,7 @@ function upP(){pushUndo();document.getElementById('vLines').textContent=document
   document.getElementById('vSineWaves').textContent=document.getElementById('pSineWaves').value;
   document.getElementById('vSineAmp').textContent=document.getElementById('pSineAmp').value+'%';
   document.getElementById('vPartDensity').textContent=document.getElementById('pPartDensity').value;
+  document.getElementById('vPartEnergy').textContent=document.getElementById('pPartEnergy').value+'×';
   document.getElementById('vPartSpeed').textContent=document.getElementById('pPartSpeed').value;
   document.getElementById('vPartLife').textContent=document.getElementById('pPartLife').value;
   document.getElementById('vPartSize').textContent=document.getElementById('pPartSize').value;
@@ -492,6 +504,7 @@ function getLayoutParams(){
   p._particlesOn=particlesOn;
   // Particle settings
   p.pPartDensity=+document.getElementById('pPartDensity').value;
+  p.pPartEnergy=+document.getElementById('pPartEnergy').value;
   p.pPartSpeed=+document.getElementById('pPartSpeed').value;
   p.pPartLife=+document.getElementById('pPartLife').value;
   p.pPartSize=+document.getElementById('pPartSize').value;
@@ -554,6 +567,7 @@ function setLayoutParams(p){
   if('_particlesOn' in p){particlesOn=!!p._particlesOn;document.getElementById('particleParams').style.display=particlesOn?'flex':'none';document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('toggleParticles(true')>-1)b.classList.toggle('on',particlesOn);if(oc.indexOf('toggleParticles(false')>-1)b.classList.toggle('on',!particlesOn)})}
   // Restore particle sliders
   if('pPartDensity' in p)document.getElementById('pPartDensity').value=p.pPartDensity;
+  if('pPartEnergy' in p)document.getElementById('pPartEnergy').value=p.pPartEnergy;
   if('pPartSpeed' in p)document.getElementById('pPartSpeed').value=p.pPartSpeed;
   if('pPartLife' in p)document.getElementById('pPartLife').value=p.pPartLife;
   if('pPartSize' in p)document.getElementById('pPartSize').value=p.pPartSize;
@@ -587,7 +601,7 @@ function getDefaultLayerParams(){
     _spin:0,_speed:1,_amplify:1,_twist:0,_bulge:0,_wave:0,_waveFreq:5,_shear:0,_depth:0,
     _rGlobal:0,_rDist:0,_rAppear:0,_rOutline:0,_rColor:0,_rDisorder:0,
     _flipH:false,_flipV:false,_mirrorOn:false,_particleShape:'circle',_particlesOn:false,_zoomLoud:false,_playMode:'continuous',
-    pPartDensity:20,pPartSpeed:3,pPartLife:120,pPartSize:12,pPartSpread:50,pPartGravity:0,pPartDamping:97
+    pPartDensity:20,pPartEnergy:1,pPartSpeed:3,pPartLife:120,pPartSize:12,pPartSpread:50,pPartGravity:0,pPartDamping:97
   }));
 }
 function addLayer(){pushUndo();
@@ -1413,17 +1427,50 @@ function spawnParticles(energy,W,H,p,layerParams,layerIdx){
   var particles=getParticles(layerIdx||0);
   var e=Math.max(0.05,energy);
   var density=layerParams.pPartDensity||20;
+  var pEnergy=layerParams.pPartEnergy||1;
   var pSpeed=layerParams.pPartSpeed||3;
   var pLife=layerParams.pPartLife||120;
   var pSize=layerParams.pPartSize||12;
   var pSpread=(layerParams.pPartSpread!=null?layerParams.pPartSpread:50)/100;
+  // Energy multiplier amplifies audio reactivity
+  e=Math.min(1,e*pEnergy);
   var count=Math.max(1,Math.floor(e*density));
   var lm=layoutMode;
   for(var i=0;i<count;i++){
     var t=Math.random();
     var px,py;
     // Spawn from layout shape — particles emerge from where the lines are
-    if(lm==='circle'||lm==='kaleidoscope'||lm==='spiral'||lm==='phyllotaxis'||lm==='concentric'){
+    if(lm==='image'&&imgLayoutData&&imgLayoutData.grid&&imgLayoutData.grid.length){
+      // Spawn from image pixel positions — retry if pixel is below threshold
+      var grid=imgLayoutData.grid;
+      var rows=grid.length,cols=grid[0].length;
+      var threshold=(+document.getElementById('pImgThreshold').value||0)/100;
+      var invert=imgLayoutInvert;
+      var found=false;
+      for(var attempt=0;attempt<10;attempt++){
+        var rc=Math.floor(Math.random()*rows);
+        var cc=Math.floor(Math.random()*cols);
+        var bri=grid[rc][cc];
+        if(invert)bri=1-bri;
+        if(bri>=threshold){found=true;break}
+      }
+      if(!found)continue;
+      var cellW=W/cols,cellH=H/rows;
+      px=cc*cellW+cellW/2+(Math.random()-0.5)*cellW*0.5;
+      py=rc*cellH+cellH/2+(Math.random()-0.5)*cellH*0.5;
+      // Use image color for this particle
+      if(imgLayoutData.colors&&imgLayoutData.colors[rc]){
+        particles.push({
+          x:px,y:py,vx:Math.cos(Math.random()*Math.PI*2)*(0.3+e*pSpeed)*(0.5+Math.random()),
+          vy:Math.sin(Math.random()*Math.PI*2)*(0.3+e*pSpeed)*(0.5+Math.random()),
+          age:0,maxAge:pLife*(0.3+e*0.7)*(0.5+Math.random()*0.5),
+          size:Math.max(2,pSize*(0.4+e*1.2)*(0.6+Math.random()*0.8)),
+          val:bri*e,pos:t,
+          imgCol:imgLayoutData.colors[rc][cc]
+        });
+        continue;
+      }
+    }else if(lm==='circle'||lm==='kaleidoscope'||lm==='spiral'||lm==='phyllotaxis'||lm==='concentric'){
       var angle=Math.random()*Math.PI*2;
       var r=(0.2+Math.random()*0.3)*Math.min(W,H)/2;
       px=W/2+Math.cos(angle)*r;
@@ -1476,7 +1523,9 @@ function updateAndDrawParticles(ctx,W,H,energy,layerIdx,layerParams){
   var depth=(+document.getElementById('pDepth').value)/100;
   var gravity=(layerParams&&layerParams.pPartGravity)||0;
   var damping=((layerParams&&layerParams.pPartDamping)||97)/100;
-  var energyBoost=0.5+energy*1.5;
+  var pEnergy2=(layerParams&&layerParams.pPartEnergy)||1;
+  var boostedEnergy=Math.min(1,energy*pEnergy2);
+  var energyBoost=0.5+boostedEnergy*1.5;
   var shape=(layerParams&&layerParams._particleShape)||'circle';
   // Update
   for(var i=particles.length-1;i>=0;i--){
@@ -1516,10 +1565,11 @@ function updateAndDrawParticles(ctx,W,H,energy,layerIdx,layerParams){
       var dr=Math.sqrt(dx*dx+dy*dy);
       alpha*=Math.max(0.1,1-depth*0.6*(1-Math.exp(-dr*1.5)));
     }
-    var sz=Math.max(2,pt.size*life*(0.6+energy*0.8));
+    var sz=Math.max(2,pt.size*life*(0.6+boostedEnergy*0.8));
     if(sz<0.5)continue;
     var col;
-    try{col=lineCol(pt.val,pt.pos,i,particles.length)}catch(e){col='#e94560'}
+    if(pt.imgCol){col=pt.imgCol}
+    else{try{col=lineCol(pt.val,pt.pos,i,particles.length)}catch(e){col='#e94560'}}
     ctx.globalAlpha=alpha;
     ctx.fillStyle=col;
     if(shape==='circle'){
@@ -2234,16 +2284,19 @@ function sampleLayoutImage(){
   var ctx=cv.getContext('2d');
   ctx.drawImage(imgLayoutImg,0,0,cols,rows);
   var d=ctx.getImageData(0,0,cols,rows).data;
-  imgLayoutData={cols:cols,rows:rows,grid:[]};
+  imgLayoutData={cols:cols,rows:rows,grid:[],colors:[]};
   for(var r=0;r<rows;r++){
     var row=[];
+    var colorRow=[];
     for(var c=0;c<cols;c++){
       var i=(r*cols+c)*4;
       var brightness=(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114)/255;
       var alpha=d[i+3]/255;
       row.push(brightness*alpha);
+      colorRow.push('rgb('+d[i]+','+d[i+1]+','+d[i+2]+')');
     }
     imgLayoutData.grid.push(row);
+    imgLayoutData.colors.push(colorRow);
   }
 }
 function drawImageLayout(ctx,W,H,values,p,forExport){
@@ -3218,14 +3271,25 @@ function render3DLoop(){
 window.addEventListener('resize',function(){if(audioBuffer){drawOverview();updateCropUI();if(!mode3D)renderDensity()}});
 // Initialize layers on startup
 initLayers();
-window.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo()}if(e.code==='Space'&&!e.target.matches('input,textarea,button')){e.preventDefault();togglePlay()}if(e.key==='Escape'&&document.getElementById('helpOverlay').style.display==='block')toggleHelp()});
+window.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo()}if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();toggleFullscreen()}if(e.code==='Space'&&!e.target.matches('input,textarea,button')){e.preventDefault();togglePlay()}if(e.key==='Escape'&&document.getElementById('helpOverlay').style.display==='block')toggleHelp()});
+function toggleFullscreen(){
+  var el=document.getElementById('frameWrap');
+  if(document.fullscreenElement||document.webkitFullscreenElement){
+    (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+  }else{
+    (el.requestFullscreen||el.webkitRequestFullscreen).call(el);
+  }
+}
+document.addEventListener('fullscreenchange',function(){resizeAll()});
+document.addEventListener('webkitfullscreenchange',function(){resizeAll()});
+function resizeAll(){setTimeout(function(){sizeCanvas(frameCv);renderDensity()},100)}
 function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.display=o.style.display==='block'?'none':'block'}
 </script>
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
 <div class="help-modal">
 <button class="close-help" onclick="toggleHelp()">&times;</button>
 <h2>Audiograph — Guide</h2>
-<p>Audiograph turns sound into visual art. It converts audio into line-based visualizations that react in real time, with full control over layout, style, color, and layering.</p>
+<p>Audiograph turns sound into visual art. It converts audio into line-based visualizations that react in real time, with full control over layout, style, color, layering, and particles.</p>
 
 <div class="help-section">
 <h3>Getting Started</h3>
@@ -3236,45 +3300,71 @@ function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.displ
 
 <div class="help-section">
 <h3>Layers</h3>
-<p>Everything in Audiograph is a layer. You start with one. Each layer has its own layout, line style, colors, and appearance settings. Click a layer name to select it — all panels below update to show that layer's settings.</p>
-<p><strong>+ Add Layer</strong> — creates a new layer with default settings. Each layer has an opacity slider and a remove button (✕).</p>
-<p><strong>Lines / Contrast / Sensitivity</strong> — Lines sets how many lines to draw. Contrast controls the dynamic range between quiet and loud. Sensitivity reshapes the audio response curve: low values compress differences, high values exaggerate them.</p>
-</div>
-
-<div class="help-section">
-<h3>Layouts</h3>
-<p><strong>Linear</strong> — lines spread left to right, spacing driven by loudness. <strong>Circle / Kaleidoscope / Spiral / Phyllotaxis</strong> — radial layouts with various mathematical patterns. <strong>Sine</strong> — lines along a sine wave. <strong>Concentric</strong> — multiple rings of lines. <strong>Image</strong> — upload an image and lines conform to its shape. <strong>Custom</strong> — write your own JS expressions for x/y positioning.</p>
-<p>Each layout has its own tunable parameters that appear when selected.</p>
-</div>
-
-<div class="help-section">
-<h3>Image Layout</h3>
-<p>Upload any image — it becomes a brightness map. Lines appear where the image is bright (or dark, if Invert is on). Use Threshold to cut the background. Resolution controls the grid density. Direction sets whether lines grow Up, Down, Left, or Right.</p>
+<p>Everything in Audiograph is a layer. You start with one. Each layer is a fully independent system — its own layout, style, colors, effects, particles, and playback mode. Nothing is shared between layers.</p>
+<p><strong>+ Add Layer</strong> — creates a new layer with default settings. Each layer has an opacity slider and a remove button (✕). Click a layer name to select it — all panels update to show that layer's settings.</p>
 </div>
 
 <div class="help-section">
 <h3>Appearance</h3>
-<p><strong>Height / Thickness</strong> — line dimensions. <strong>Vary Height / Vary Thick</strong> — add organic variation. <strong>Scale</strong> — zoom the layer in or out. <strong>Offset X / Y</strong> — shift the layer position. <strong>Rotation</strong> — rotate the entire layer. <strong>Fade Edges</strong> — taper line heights at the edges for a soft falloff. <strong>Scale→Loud</strong> — scale pulses with audio energy.</p>
+<p><strong>Layout</strong> — choose the spatial arrangement of lines: Linear, Circle, Kaleidoscope, Spiral, Phyllotaxis, Sine, Concentric, Image, or Custom. Each layout has its own parameters that appear when selected.</p>
+<p><strong>Lines / Contrast / Sensitivity</strong> — Lines sets how many lines to draw. Contrast controls the dynamic range between quiet and loud. Sensitivity reshapes the audio response curve.</p>
+<p><strong>Height / Thickness</strong> — line dimensions. <strong>Vary Height / Vary Thick</strong> — add organic variation. <strong>Scale</strong> — zoom the layer. <strong>Offset X / Y</strong> — shift position. <strong>Rotation</strong> — rotate the layer. <strong>Fade Edges</strong> — soft falloff at edges. <strong>Scale→Loud</strong> — scale pulses with audio energy.</p>
+</div>
+
+<div class="help-section">
+<h3>Image Layout</h3>
+<p>Upload any image — it becomes a brightness map. Lines appear where the image is bright (or dark, if Invert is on). Use Threshold to cut the background. Resolution controls the grid density. Direction sets whether lines grow Up, Down, Left, or Right. When Particles are enabled, they spawn from the image pixel positions and carry the actual RGB colors from the image.</p>
+</div>
+
+<div class="help-section">
+<h3>Custom Layout</h3>
+<p>Write JavaScript expressions for x/y positioning. Variables: <code>t</code> (0→1 position), <code>v</code> (loudness), <code>i</code> (index), <code>n</code> (total lines), <code>W</code>/<code>H</code> (canvas size).</p>
+<p>Examples: Heart curves, Lissajous figures, rose curves, spirographs, DNA helixes, butterfly curves. See the built-in presets for more.</p>
 </div>
 
 <div class="help-section">
 <h3>Line Styles</h3>
-<p>12 styles: Straight, Rounded (pill-shaped), Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words (loudness maps to word length), and Cascade (stepped tower shapes).</p>
+<p>12 styles: Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, and Cascade.</p>
 </div>
 
 <div class="help-section">
 <h3>Color</h3>
-<p><strong>Solid</strong> — one color for all lines. <strong>Tone Ramp</strong> — multi-stop gradient mapped to loudness (quiet→loud). <strong>Simple Ramp</strong> — gradient mapped to position. Click the color swatches to edit, use presets for quick palettes, or add/remove stops.</p>
-</div>
-
-<div class="help-section">
-<h3>Playback Modes</h3>
-<p><strong>Continuous</strong> — the static waveform is modulated by real-time amplitude. Lines stay in place, height pulses with the music. <strong>Equalizer</strong> — FFT frequency data drives each line. Low frequencies on the left, highs on the right. Reacts to every beat and note.</p>
+<p><strong>Solid</strong> — one color for all lines. <strong>Tone Ramp</strong> — multi-stop gradient mapped to loudness (quiet→loud). <strong>Simple Ramp</strong> — gradient mapped to position. Click swatches to edit, use presets for quick palettes (14 tone ramp + 14 simple ramp presets), or add/remove stops.</p>
 </div>
 
 <div class="help-section">
 <h3>Effects</h3>
-<p><strong>Mirror</strong> — reflects the visualization. <strong>Spin</strong> — rotates circular layouts continuously. <strong>Distortions</strong> — Twist, Bulge, Wave (animated), Shear, and Depth (fake 3D perspective). <strong>Drop Switcher</strong> — detects quiet→loud transitions and triggers visual effects.</p>
+<p><strong>Playback</strong> — Off (hides base visualization), Continuous (waveform pulses with amplitude), or Equalizer (FFT frequency bars). All per-layer.</p>
+<p><strong>Particles</strong> — toggle On to overlay an audio-reactive particle system. Particles spawn from the layout positions and react to audio energy. See Particle System section below.</p>
+<p><strong>Amplify</strong> — boost audio response (0.5×–5×). <strong>Flip</strong> — horizontal and/or vertical per-layer. <strong>Mirror</strong> — faded vertical reflection. <strong>Spin</strong> — continuous rotation (circular layouts). <strong>Speed</strong> — animation speed.</p>
+<p><strong>Distortions</strong> — Twist (progressive rotation), Bulge (fisheye/pinch), Wave (animated ripple + adjustable frequency), Shear (diagonal skew), Depth (fake 3D perspective).</p>
+<p><strong>Drop Switcher</strong> — detects quiet→loud transitions and triggers visual effects.</p>
+</div>
+
+<div class="help-section">
+<h3>Particle System</h3>
+<p>Toggle Particles On in the Effects panel to add audio-reactive particles that overlay your visualization. Particles spawn from the actual layout positions — along lines for Linear, from ring positions for Circle, from custom curve points, and from bright image pixels in Image mode.</p>
+<p><strong>Shape</strong> — Circle, Square, Star, Line (velocity-oriented), Numbers, Symbols, or Words.</p>
+<p><strong>Density</strong> — how many particles spawn per frame. <strong>Speed</strong> — velocity, scaled by audio energy. <strong>Life</strong> — how long particles last (frames). <strong>Size</strong> — base size, pulses with loudness. <strong>Spread</strong> — how far from layout positions particles offset. <strong>Gravity</strong> — vertical pull (negative = float up). <strong>Damping</strong> — velocity decay per frame.</p>
+<p>Effects also affect particles: Twist curls them, Bulge pushes outward/inward, Wave adds sinusoidal drift.</p>
+<p>Set Playback to Off + Particles On for a particles-only visualization.</p>
+</div>
+
+<div class="help-section">
+<h3>Intensity</h3>
+<p>The global Intensity slider at the top of the controls (above all panels) multiplies all audio modulation across all layers. Range 0–200%. Use it to quickly boost or reduce the overall audio reactivity.</p>
+</div>
+
+<div class="help-section">
+<h3>Randomness</h3>
+<p><strong>Global</strong> — master intensity for all randomness groups. <strong>Distribution</strong> — randomizes line spacing. <strong>Appearance</strong> — randomizes height/thickness per line. <strong>Outline</strong> — randomizes outline offsets. <strong>Color</strong> — shifts hue per line. <strong>Disorder</strong> — organic positional jitter.</p>
+<p><strong>Re-Roll</strong> — generates new random seeds. <strong>Auto</strong> — continuous sine-wave parameter drift. <strong>Random</strong> — complete randomization of all settings.</p>
+</div>
+
+<div class="help-section">
+<h3>Presets</h3>
+<p>13 built-in presets (★) covering various layouts and styles. Loading a preset replaces only the active layer — other layers stay untouched.</p>
+<p><strong>Save Preset</strong> — saves the current state. <strong>Load Preset</strong> — loads a saved preset. <strong>Clear All</strong> — removes all user presets.</p>
 </div>
 
 <div class="help-section">
@@ -3283,18 +3373,23 @@ function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.displ
 </div>
 
 <div class="help-section">
+<h3>Fullscreen</h3>
+<p>Click the expand icon in the bottom-right corner of the preview (visible on hover), or press <span class="hk">⌘F</span> / <span class="hk">Ctrl+F</span>. The canvas fills the entire screen — ideal for projection. Press Escape to exit.</p>
+</div>
+
+<div class="help-section">
 <h3>Export</h3>
-<p><strong>Download PNG</strong> — saves the current frame as an image (with or without background). <strong>Record</strong> — captures video with audio. Records one pass through the selected range, then downloads as MP4 or WebM depending on browser support.</p>
+<p><strong>Download PNG</strong> — saves the current frame (with or without background). <strong>SVG</strong> — vector export. <strong>Record</strong> — captures video with audio as MP4/WebM.</p>
 </div>
 
 <div class="help-section">
 <h3>Keyboard Shortcuts</h3>
-<p><span class="hk">Ctrl/⌘ + Z</span> Undo &nbsp; <span class="hk">Space</span> Play/Pause</p>
+<p><span class="hk">⌘/Ctrl + Z</span> Undo &nbsp; <span class="hk">⌘/Ctrl + F</span> Fullscreen &nbsp; <span class="hk">Space</span> Play/Pause &nbsp; <span class="hk">Esc</span> Exit fullscreen / close help</p>
 </div>
 
 <div class="help-section">
 <h3>Tips</h3>
-<p>Use multiple layers with different layouts and colors for rich compositions. Try the Randomize button for inspiration. Save presets to keep your favorite setups. For the Image layout, high-contrast images (white on black) work best — use Threshold to clean up the background.</p>
+<p>Use multiple layers with different layouts and colors for rich compositions. Try the Random button for instant generative exploration. Save presets to keep your favorite setups. For the Image layout, high-contrast images work best — use Threshold to clean up the background. For projection, use Fullscreen mode (⌘F) with a dark background. Combine Particles with Playback Off for a particle-only mode.</p>
 </div>
 </div>
 </div>
