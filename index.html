@@ -222,7 +222,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setOutline(true,this)">Yes</button><button class="mbtn on" onclick="setOutline(false,this)">No</button></div></div>
         <div id="outlineParams" style="display:none;flex-direction:column;gap:8px">
           <div class="prow"><span class="prow-label">Weight</span><input type="range" min="0.5" max="8" value="2" step="0.25" id="pOutline" oninput="upP()"><span class="prow-val" id="vOutline">2px</span></div>
-          <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setOutlineStyle('solid',this)">Solid</button><button class="mbtn" onclick="setOutlineStyle('dotted',this)">Dotted</button><button class="mbtn" onclick="setOutlineStyle('dashed',this)">Dashed</button></div></div>
+          <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setOutlineStyle('solid',this)">Solid</button><button class="mbtn" onclick="setOutlineStyle('dotted',this)">Dotted</button><button class="mbtn" onclick="setOutlineStyle('dashed',this)">Dashed</button><button class="mbtn" onclick="setOutlineStyle('connected',this)">Connected</button></div></div>
           <div class="prow"><span class="prow-label">Gap</span><input type="range" min="0" max="30" value="0" step="1" id="pOutlineDist" oninput="upP()"><span class="prow-val" id="vOutlineDist">0</span></div>
           <div class="prow"><span class="prow-label">Count</span><input type="range" min="1" max="10" value="1" step="1" id="pOutlineCount" oninput="upP()"><span class="prow-val" id="vOutlineCount">1</span></div>
           <div class="prow"><span class="prow-label">Spacing</span><input type="range" min="1" max="20" value="4" step="1" id="pOutlineSpace" oninput="upP()"><span class="prow-val" id="vOutlineSpace">4</span></div>
@@ -233,7 +233,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="panel" id="panelAppear">
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns" style="max-width:420px"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleid.</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button></div></div>
+        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns" style="max-width:420px"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleid.</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button><button class="mbtn amber" onclick="setLayout('polar',this)">Polar</button><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button></div></div>
         <!-- Per-layout settings -->
         <div id="layoutOpts_sine" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Waves</span><input type="range" min="0.5" max="10" value="2" step="0.5" id="pSineWaves" oninput="upP()"><span class="prow-val" id="vSineWaves">2</span></div>
@@ -306,6 +306,15 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
           <div class="prow"><span class="prow-label">Threshold</span><input type="range" min="0" max="100" value="15" step="1" id="pTextThreshold" oninput="generateTextLayout()" ><span class="prow-val" id="vTextThreshold">15%</span></div>
           <div class="prow"><span class="prow-label">Resolution</span><input type="range" min="20" max="300" value="80" step="1" id="pTextRes" oninput="generateTextLayout()"><span class="prow-val" id="vTextRes">80</span></div>
         </div>
+        <div id="layoutOpts_scatter" class="layout-opts" style="display:none">
+          <div class="prow"><span class="prow-label">Spread H</span><input type="range" min="5" max="100" value="80" step="5" id="pScatterSpreadH" oninput="upP()"><span class="prow-val" id="vScatterSpreadH">80%</span></div>
+          <div class="prow"><span class="prow-label">Spread V</span><input type="range" min="5" max="100" value="30" step="5" id="pScatterSpreadV" oninput="upP()"><span class="prow-val" id="vScatterSpreadV">30%</span></div>
+          <div class="prow"><span class="prow-label">Cluster</span><input type="range" min="0" max="100" value="50" step="5" id="pScatterCluster" oninput="upP()"><span class="prow-val" id="vScatterCluster">50%</span></div>
+        </div>
+        <div id="layoutOpts_polar" class="layout-opts" style="display:none">
+          <div class="prow"><span class="prow-label">Lobes</span><input type="range" min="1" max="12" value="3" step="1" id="pPolarLobes" oninput="upP()"><span class="prow-val" id="vPolarLobes">3</span></div>
+          <div class="prow"><span class="prow-label">Inner R</span><input type="range" min="0" max="80" value="20" step="1" id="pPolarInner" oninput="upP()"><span class="prow-val" id="vPolarInner">20%</span></div>
+        </div>
         <div style="border-top:1px solid var(--border);margin:4px 0"></div>
         <div class="prow"><span class="prow-label">Lines</span><input type="range" min="80" max="800" value="350" step="10" id="pLines" oninput="upP()"><span class="prow-val" id="vLines">350</span></div>
         <div class="prow"><span class="prow-label">Contrast</span><input type="range" min="5" max="100" value="75" step="1" id="pContrast" oninput="upP()"><span class="prow-val" id="vContrast">75%</span></div>
@@ -326,7 +335,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="panel" id="panelStyle">
       <div class="panel-head" onclick="togglePanel('panelStyle')"><span class="panel-title">Line Style</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><div class="mode-btns"><button class="mbtn on" onclick="setShape('straight',this)">Straight</button><button class="mbtn" onclick="setShape('rounded',this)">Rounded</button><button class="mbtn" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn" onclick="setShape('pins',this)">Pins</button><button class="mbtn" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn" onclick="setShape('caps',this)">Caps</button><button class="mbtn" onclick="setShape('cross',this)">Cross</button><button class="mbtn" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setShape('words',this)">Words</button><button class="mbtn" onclick="setShape('cascade',this)">Cascade</button><button class="mbtn" onclick="setShape('barcode',this)">Barcode</button><button class="mbtn" onclick="setShape('dots2',this)">Dots</button><button class="mbtn" onclick="setShape('circles',this)">Circles</button><button class="mbtn" onclick="setShape('braille',this)">Braille</button></div></div>
+        <div class="prow"><div class="mode-btns"><button class="mbtn on" onclick="setShape('straight',this)">Straight</button><button class="mbtn" onclick="setShape('rounded',this)">Rounded</button><button class="mbtn" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn" onclick="setShape('pins',this)">Pins</button><button class="mbtn" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn" onclick="setShape('caps',this)">Caps</button><button class="mbtn" onclick="setShape('cross',this)">Cross</button><button class="mbtn" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setShape('words',this)">Words</button><button class="mbtn" onclick="setShape('cascade',this)">Cascade</button><button class="mbtn" onclick="setShape('barcode',this)">Feather</button><button class="mbtn" onclick="setShape('circles',this)">Circles</button><button class="mbtn" onclick="setShape('braille',this)">Braille</button></div></div>
       </div>
     </div>
     <!-- COLOR -->
@@ -362,6 +371,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
           <div class="prow"><span class="prow-label">Gravity</span><input type="range" min="-5" max="5" value="0" step="0.1" id="pPartGravity" oninput="upP()"><span class="prow-val" id="vPartGravity">0</span></div>
           <div class="prow"><span class="prow-label">Damping</span><input type="range" min="80" max="100" value="97" step="0.5" id="pPartDamping" oninput="upP()"><span class="prow-val" id="vPartDamping">97%</span></div>
         </div>
+        <div style="border-top:1px solid var(--border);margin:4px 0"></div>
         <div class="prow" id="rowFlip"><span class="prow-label">Flip</span><div class="mode-btns"><button class="mbtn" onclick="setFlipH(this)">Horizontal</button><button class="mbtn" onclick="setFlipV(this)">Vertical</button></div></div>
         <div class="prow" id="rowMirror"><span class="prow-label">Mirror</span><div class="mode-btns"><button class="mbtn" onclick="setMirror(true,this)">Yes</button><button class="mbtn on" onclick="setMirror(false,this)">No</button></div></div>
         <div class="prow" id="rowSymmetry"><span class="prow-label">Symmetry</span><div class="mode-btns"><button class="mbtn on" onclick="setSymmetry('none',this)">Off</button><button class="mbtn" onclick="setSymmetry('x',this)">X</button><button class="mbtn" onclick="setSymmetry('y',this)">Y</button><button class="mbtn" onclick="setSymmetry('xy',this)">XY</button><button class="mbtn" onclick="setSymmetry('r3',this)">3</button><button class="mbtn" onclick="setSymmetry('r4',this)">4</button><button class="mbtn" onclick="setSymmetry('r6',this)">6</button><button class="mbtn" onclick="setSymmetry('r8',this)">8</button></div></div>
@@ -466,6 +476,11 @@ function upP(){pushUndo();document.getElementById('vLines').textContent=document
   document.getElementById('vPartSpread').textContent=document.getElementById('pPartSpread').value+'%';
   document.getElementById('vPartGravity').textContent=document.getElementById('pPartGravity').value;
   document.getElementById('vPartDamping').textContent=document.getElementById('pPartDamping').value+'%';
+  document.getElementById('vScatterSpreadH').textContent=document.getElementById('pScatterSpreadH').value+'%';
+  document.getElementById('vScatterSpreadV').textContent=document.getElementById('pScatterSpreadV').value+'%';
+  document.getElementById('vScatterCluster').textContent=document.getElementById('pScatterCluster').value+'%';
+  document.getElementById('vPolarLobes').textContent=document.getElementById('pPolarLobes').value;
+  document.getElementById('vPolarInner').textContent=document.getElementById('pPolarInner').value+'%';
   if(document.getElementById('p3DHeight'))document.getElementById('v3DHeight').textContent=document.getElementById('p3DHeight').value;
   if(document.getElementById('p3DThick'))document.getElementById('v3DThick').textContent=document.getElementById('p3DThick').value;
   if(document.getElementById('p3DSpread'))document.getElementById('v3DSpread').textContent=document.getElementById('p3DSpread').value;
@@ -626,7 +641,9 @@ function getDefaultLayerParams(){
     _spin:0,_speed:1,_amplify:1,_twist:0,_bulge:0,_wave:0,_waveFreq:5,_shear:0,_depth:0,
     _rGlobal:0,_rDist:0,_rAppear:0,_rOutline:0,_rColor:0,_rDisorder:0,
     _flipH:false,_flipV:false,_mirrorOn:false,_symmetryMode:'none',_particleShape:'circle',_particlesOn:false,_zoomLoud:false,_playMode:'continuous',
-    pPartDensity:20,pPartEnergy:1,pPartSpeed:3,pPartLife:120,pPartSize:12,pPartSpread:50,pPartGravity:0,pPartDamping:97
+    pPartDensity:20,pPartEnergy:1,pPartSpeed:3,pPartLife:120,pPartSize:12,pPartSpread:50,pPartGravity:0,pPartDamping:97,
+    pScatterSpreadH:80,pScatterSpreadV:30,pScatterCluster:50,
+    pPolarLobes:3,pPolarInner:20
   }));
 }
 function addLayer(){pushUndo();
@@ -855,7 +872,7 @@ function randomizeAll(){pushUndo();
   function rHex(){return'#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0')}
   function randomLayerParams(){
     var layouts=['linear','circle','kaleidoscope','spiral','phyllotaxis','sine','concentric'];
-    var shapes=['straight','rounded','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words','cascade','barcode','dots2','circles','braille'];
+    var shapes=['straight','rounded','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words','cascade','barcode','circles','braille'];
     var cmodes=['solid','toneramp','simpleramp'];
     var layout=layouts[ri(0,layouts.length-1)];
     var p=JSON.parse(JSON.stringify(getDefaultLayerParams()));
@@ -1327,29 +1344,39 @@ function drawShapedLine(ctx,x,ly,lh,t,val){
     }
   }
   else if(lineShape==='barcode'){
-    // Cluster of varying-width vertical bars
-    var numBars=3+Math.floor(val*5);
-    var totalW=t*3;
-    var barGap=totalW/(numBars+1)*0.15;
-    var startX=x-totalW/2;
-    for(var bi=0;bi<numBars;bi++){
-      var seed=randSeeds[(Math.round(x)*7+bi)%randSeeds.length];
-      var barW=Math.max(0.3,(totalW/numBars)*(0.3+seed*1.4));
-      var barH=lh*(0.4+seed*0.6);
-      var barY=ly+(lh-barH)/2;
-      ctx.fillRect(startX-barW/2,barY,barW,barH);
-      startX+=totalW/numBars+barGap;
+    // Feather — tapered central stroke with small angled barbs
+    var stemW=Math.max(0.5,t*0.3);
+    ctx.fillRect(x-stemW/2,ly,stemW,lh);
+    var numBarbs=3+Math.floor(val*5);
+    var barbLen=t*1.5;
+    var spacing=lh/(numBarbs+1);
+    for(var bi=0;bi<numBarbs;bi++){
+      var by=ly+spacing*(bi+1);
+      var frac=1-Math.abs((bi/(numBarbs-1||1))-0.5)*2; // thicker in middle
+      var bLen=barbLen*(0.4+frac*0.6);
+      var bW=Math.max(0.3,stemW*0.7);
+      var angle=0.3+frac*0.2; // slight angle
+      // Both sides
+      ctx.save();ctx.translate(x,by);
+      ctx.rotate(-angle);ctx.fillRect(0,-bW/2,bLen,bW);ctx.restore();
+      ctx.save();ctx.translate(x,by);
+      ctx.rotate(Math.PI+angle);ctx.fillRect(0,-bW/2,bLen,bW);ctx.restore();
     }
   }
-  else if(lineShape==='dots2'){
-    // Clean filled circles stacked vertically, count scales with loudness
-    var numDots=Math.max(1,Math.min(8,Math.ceil(val*6)));
-    var dotR=Math.max(1,Math.min(t*0.8,lh/(numDots*2.5)));
-    var spacing=lh/numDots;
-    for(var di=0;di<numDots;di++){
+  else if(lineShape==='chevrons'){
+    // V-shaped chevrons stacked vertically, count scales with loudness
+    var numChev=Math.max(1,Math.min(6,Math.ceil(val*5)));
+    var chevH=lh/numChev;
+    var chevW=Math.max(2,t*1.5);
+    var lw=Math.max(0.5,t*0.3);
+    ctx.lineWidth=lw;
+    for(var ci=0;ci<numChev;ci++){
+      var cy=ly+chevH*ci+chevH/2;
       ctx.beginPath();
-      ctx.arc(x,ly+spacing*di+spacing/2,dotR,0,Math.PI*2);
-      ctx.fill();
+      ctx.moveTo(x-chevW/2,cy-chevH*0.25);
+      ctx.lineTo(x,cy+chevH*0.25);
+      ctx.lineTo(x+chevW/2,cy-chevH*0.25);
+      ctx.stroke();
     }
   }
   else if(lineShape==='circles'){
@@ -1688,8 +1715,21 @@ function spawnParticles(energy,W,H,p,layerParams,layerIdx){
         var n=p.lines;var v=e;var idx=Math.floor(Math.random()*n);
         px=eval(customX);py=eval(customY);
       }catch(e2){px=t*W;py=H/2}
+    }else if(lm==='scatter'){
+      var spreadH2=(layerParams.pScatterSpreadH||80)/100;
+      var spreadV2=(layerParams.pScatterSpreadV||30)/100;
+      px=Math.random()*W*spreadH2+W*(1-spreadH2)/2;
+      py=Math.random()*H*spreadV2+H*(1-spreadV2)/2;
+    }else if(lm==='polar'){
+      var angle=Math.random()*Math.PI*2;
+      var lobes2=layerParams.pPolarLobes||3;
+      var innerPct2=(layerParams.pPolarInner||20)/100;
+      var maxR2=Math.min(W,H)*0.42;
+      var r2=maxR2*innerPct2+(maxR2-maxR2*innerPct2)*(0.5+e*0.5)*(1+Math.cos(angle*lobes2)*0.4);
+      px=W/2+Math.cos(angle)*r2;
+      py=H/2+Math.sin(angle)*r2;
     }else{
-      // linear — spawn along the horizontal line
+      // linear fallback
       px=t*W;
       py=H/2+(Math.random()-0.5)*H*0.15;
     }
@@ -2062,6 +2102,8 @@ function drawDensity(ctx,W,H,values,p,forExport){
   if(layoutMode==='wave')return drawWave(ctx,W,H,values,p,forExport);
   if(layoutMode==='image')return drawImageLayout(ctx,W,H,values,p,forExport);
   if(layoutMode==='text')return drawTextLayout(ctx,W,H,values,p,forExport);
+  if(layoutMode==='scatter')return drawScatter(ctx,W,H,values,p,forExport);
+  if(layoutMode==='polar')return drawPolar(ctx,W,H,values,p,forExport);
   if(layoutMode==='sine')return drawSine(ctx,W,H,values,p,forExport);
   if(layoutMode==='custom')return drawCustom(ctx,W,H,values,p,forExport);
   var spacings=[],total=0;for(var i=0;i<n;i++){var d=1+values[i]*p.contrast*6,sp=1/Math.max(d,.05);sp*=(1+getRand(i,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);total+=sp}
@@ -2645,6 +2687,91 @@ function drawTextLayout(ctx,W,H,values,p,forExport){
   return lines;
 }
 
+function drawScatter(ctx,W,H,values,p,forExport){
+  var n=values.length;if(n===0)return[];
+  var spreadH=(+document.getElementById('pScatterSpreadH').value||80)/100;
+  var spreadV=(+document.getElementById('pScatterSpreadV').value||30)/100;
+  var cluster=(+document.getElementById('pScatterCluster').value||50)/100;
+  var lines=[];
+  var dist=getDistortions();
+  for(var i=0;i<n;i++){
+    var v=values[i];
+    var t=i/n;
+    var sx=randSeeds[i%randSeeds.length];
+    var sy=randSeeds[(i*3+7)%randSeeds.length];
+    var gx=(randSeeds[(i*5+11)%randSeeds.length]+randSeeds[(i*5+12)%randSeeds.length]+randSeeds[(i*5+13)%randSeeds.length])/3;
+    var gy=(randSeeds[(i*5+14)%randSeeds.length]+randSeeds[(i*5+15)%randSeeds.length]+randSeeds[(i*5+16)%randSeeds.length])/3;
+    var px=((1-cluster)*sx+cluster*gx)*W*spreadH+W*(1-spreadH)/2;
+    var py=((1-cluster)*sy+cluster*gy)*H*spreadV+H*(1-spreadV)/2;
+    var dx=px-W/2,dy=py-H/2;
+    var pushDist=v*0.15;
+    px+=dx*pushDist;py+=dy*pushDist;
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
+      var d=distortLinear(px,py,W,H,dist);px=d.x;py=d.y;
+    }
+    px+=getDisorder(i)*W*.03;py+=getDisorder(i+300)*H*.03;
+    var audioH=(0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45);
+    var hRand=1+getRand(i+500,'rAppear')*0.4;
+    var lh=Math.max(2,p.height*20*audioH*hRand);
+    var tw=varyThick?p.thick*(.3+(1-v)*.7):p.thick;
+    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.5,tw);
+    var col=forExport?lineColHex(v,t,i,n):lineCol(v,t,i,n);
+    ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=tw;
+    if(dist.depth>0){var _nrm=Math.sqrt(dx*dx+dy*dy)/Math.max(W,H);var _ds=1-dist.depth*.5*_nrm;ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=tw*Math.max(.2,_ds)}
+    drawShapedLine(ctx,px,py-lh/2,lh,ctx.lineWidth,v);
+    lines.push({v:v,x:px,y:py,lh:lh,tw:tw,pos:t});
+  }
+  lastFrameLines={lines:lines,W:W,H:H,p:p,circle:false};
+  ctx.globalAlpha=1;
+  return lines;
+}
+
+function drawPolar(ctx,W,H,values,p,forExport){
+  var n=values.length;if(n===0)return[];
+  var lobes=+document.getElementById('pPolarLobes').value||3;
+  var innerPct=(+document.getElementById('pPolarInner').value||20)/100;
+  var cx=W/2,cy=H/2;
+  var maxR=Math.min(W,H)*0.42;
+  var innerR=maxR*innerPct;
+  var lines=[];
+  var dist=getDistortions();
+  for(var i=0;i<n;i++){
+    var v=values[i];
+    var t=i/n;
+    var angle=t*Math.PI*2;
+    // Polar radius modulated by lobes and audio
+    var audioH=(0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45);
+    var hRand=1+getRand(i+500,'rAppear')*0.4;
+    var lobeR=1+Math.cos(angle*lobes)*0.4; // base lobe shape
+    var r=innerR+(maxR-innerR)*audioH*lobeR*hRand;
+    var lh=Math.max(2,p.height*0.3*(maxR-innerR)*audioH*hRand);
+    var x=cx+Math.cos(angle)*r;
+    var y=cy+Math.sin(angle)*r;
+    // Distortions
+    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
+      var d=distortLinear(x,y,W,H,dist);x=d.x;y=d.y;
+    }
+    x+=getDisorder(i)*W*.02;y+=getDisorder(i+300)*H*.02;
+    var tw=varyThick?p.thick*(.3+(1-v)*.7):p.thick;
+    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.5,tw);
+    var col=forExport?lineColHex(v,t,i,n):lineCol(v,t,i,n);
+    ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=tw;
+    if(dist.depth>0){var dx2=(x-cx)/(W/2),dy2=(y-cy)/(H/2);var dr=Math.sqrt(dx2*dx2+dy2*dy2);ctx.globalAlpha=Math.max(.1,1-dist.depth*.5*dr)}
+    // Draw line radiating outward from the polar curve
+    var outAngle=Math.atan2(y-cy,x-cx);
+    var lx=x+Math.cos(outAngle)*lh;
+    var ly2=y+Math.sin(outAngle)*lh;
+    // Use shaped line rotated to radial direction
+    ctx.save();ctx.translate(x,y);ctx.rotate(outAngle+Math.PI/2);
+    drawShapedLine(ctx,0,-lh/2,lh,ctx.lineWidth,v);
+    ctx.restore();
+    lines.push({v:v,x:x,y:y,lh:lh,tw:tw,pos:t});
+  }
+  lastFrameLines={lines:lines,W:W,H:H,p:p,circle:true};
+  ctx.globalAlpha=1;
+  return lines;
+}
+
 function drawSine(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
   var waves=+document.getElementById('pSineWaves').value;
@@ -2720,6 +2847,29 @@ function drawCustom(ctx,W,H,values,p,forExport){
 function drawLinearOutline(ctx,lines,forExport){
   var ow=+document.getElementById('pOutline').value,dist=+document.getElementById('pOutlineDist').value,count=+document.getElementById('pOutlineCount').value,spacing=+document.getElementById('pOutlineSpace').value;
   ctx.lineWidth=ow;ctx.lineCap='round';ctx.lineJoin='round';
+  if(outlineStyle==='connected'){
+    // Connect random pairs of line tips
+    ctx.setLineDash([]);
+    var numLinks=Math.min(lines.length*count,lines.length*3);
+    for(var ci=0;ci<numLinks;ci++){
+      var a=Math.floor(randSeeds[(ci*3)%randSeeds.length]*lines.length);
+      var b=Math.floor(randSeeds[(ci*3+1)%randSeeds.length]*lines.length);
+      if(a===b)continue;
+      var la=lines[a],lb=lines[b];
+      var dx=la.x-lb.x,dy=(la.ly||la.y)-(lb.ly||lb.y);
+      var d2=Math.sqrt(dx*dx+dy*dy);
+      // Only connect nearby points (within spacing * 30 px)
+      if(d2>spacing*30+50)continue;
+      var alpha=Math.max(0.05,1-d2/(spacing*30+50));
+      var side=randSeeds[(ci*3+2)%randSeeds.length]>0.5?0:1;
+      var ay=side===0?(la.ly||la.y):(la.ly||la.y)+(la.lh||0);
+      var by2=side===0?(lb.ly||lb.y):(lb.ly||lb.y)+(lb.lh||0);
+      var col=forExport?lineColHex(la.v,la.pos,a,lines.length):lineCol(la.v,la.pos,a,lines.length);
+      ctx.strokeStyle=col;ctx.globalAlpha=alpha*0.6;
+      ctx.beginPath();ctx.moveTo(la.x,ay+dist*(side?1:-1));ctx.lineTo(lb.x,by2+dist*(side?1:-1));ctx.stroke();
+    }
+    ctx.globalAlpha=1;ctx.setLineDash([]);return;
+  }
   if(outlineStyle==='dotted')ctx.setLineDash([ow,ow*1.5]);else if(outlineStyle==='dashed')ctx.setLineDash([ow*3,ow*2]);else ctx.setLineDash([]);
   for(var oi=0;oi<count;oi++){var baseOff=dist+oi*spacing;for(var side=0;side<2;side++){var sign=side===0?-1:1;for(var k=1;k<lines.length;k++){var pv=lines[k-1],cu=lines[k];
     var offP=baseOff*(1+getRand(k+2000+oi*100,'rOutline')*.3);var offC=baseOff*(1+getRand(k+2001+oi*100,'rOutline')*.3);
@@ -2730,6 +2880,25 @@ function drawLinearOutline(ctx,lines,forExport){
 function drawCircleOutline(ctx,lines,cx,cy,forExport){
   var ow=+document.getElementById('pOutline').value,dist=+document.getElementById('pOutlineDist').value,count=+document.getElementById('pOutlineCount').value,spacing=+document.getElementById('pOutlineSpace').value;
   ctx.lineWidth=ow;ctx.lineCap='round';
+  if(outlineStyle==='connected'){
+    ctx.setLineDash([]);
+    var numLinks=Math.min(lines.length*count,lines.length*3);
+    for(var ci=0;ci<numLinks;ci++){
+      var a=Math.floor(randSeeds[(ci*3)%randSeeds.length]*lines.length);
+      var b=Math.floor(randSeeds[(ci*3+1)%randSeeds.length]*lines.length);
+      if(a===b)continue;
+      var la=lines[a],lb=lines[b];
+      var ax=cx+Math.cos(la.angle)*(la.r2+dist),ay=cy+Math.sin(la.angle)*(la.r2+dist);
+      var bx=cx+Math.cos(lb.angle)*(lb.r2+dist),by=cy+Math.sin(lb.angle)*(lb.r2+dist);
+      var dx=ax-bx,dy=ay-by;var d2=Math.sqrt(dx*dx+dy*dy);
+      if(d2>spacing*30+50)continue;
+      var alpha=Math.max(0.05,1-d2/(spacing*30+50));
+      var col=forExport?lineColHex(la.v,la.pos,a,lines.length):lineCol(la.v,la.pos,a,lines.length);
+      ctx.strokeStyle=col;ctx.globalAlpha=alpha*0.6;
+      ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+    }
+    ctx.globalAlpha=1;ctx.setLineDash([]);return;
+  }
   if(outlineStyle==='dotted')ctx.setLineDash([ow,ow*1.5]);else if(outlineStyle==='dashed')ctx.setLineDash([ow*3,ow*2]);else ctx.setLineDash([]);
   for(var oi=0;oi<count;oi++){var off=dist+oi*spacing;
     for(var ring=0;ring<2;ring++){
@@ -3560,6 +3729,37 @@ function toggleFullscreen(){
 document.addEventListener('fullscreenchange',function(){resizeAll()});
 document.addEventListener('webkitfullscreenchange',function(){resizeAll()});
 function resizeAll(){setTimeout(function(){sizeCanvas(frameCv);renderDensity()},100)}
+// --- LAYER DRAG ---
+(function(){
+  var dragging=false,startX=0,startY=0,startOffX=0,startOffY=0;
+  var cv=document.getElementById('frameCv');
+  cv.addEventListener('mousedown',function(e){
+    if(e.button!==0)return;
+    dragging=true;startX=e.clientX;startY=e.clientY;
+    startOffX=+document.getElementById('pOffX').value;
+    startOffY=+document.getElementById('pOffY').value;
+    cv.style.cursor='grabbing';e.preventDefault();
+  });
+  window.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    var rect=cv.getBoundingClientRect();
+    var dx=(e.clientX-startX)/rect.width*100;
+    var dy=(e.clientY-startY)/rect.height*100;
+    var ox=Math.round(Math.max(-100,Math.min(100,startOffX+dx)));
+    var oy=Math.round(Math.max(-100,Math.min(100,startOffY+dy)));
+    document.getElementById('pOffX').value=ox;
+    document.getElementById('pOffY').value=oy;
+    document.getElementById('vOffX').textContent=ox;
+    document.getElementById('vOffY').textContent=oy;
+    renderDensity();
+  });
+  window.addEventListener('mouseup',function(){
+    if(dragging){dragging=false;cv.style.cursor='';
+      if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}
+    }
+  });
+  cv.style.cursor='grab';
+})();
 function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.display=o.style.display==='block'?'none':'block'}
 </script>
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
