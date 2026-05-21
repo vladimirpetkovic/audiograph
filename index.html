@@ -309,7 +309,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         </div>
         <div id="layoutOpts_scatter" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Spread H</span><input type="range" min="5" max="100" value="80" step="5" id="pScatterSpreadH" oninput="upP()"><span class="prow-val" id="vScatterSpreadH">80%</span></div>
-          <div class="prow"><span class="prow-label">Spread V</span><input type="range" min="5" max="100" value="30" step="5" id="pScatterSpreadV" oninput="upP()"><span class="prow-val" id="vScatterSpreadV">30%</span></div>
+          <div class="prow"><span class="prow-label">Spread V</span><input type="range" min="5" max="100" value="80" step="5" id="pScatterSpreadV" oninput="upP()"><span class="prow-val" id="vScatterSpreadV">80%</span></div>
           <div class="prow"><span class="prow-label">Cluster</span><input type="range" min="0" max="100" value="50" step="5" id="pScatterCluster" oninput="upP()"><span class="prow-val" id="vScatterCluster">50%</span></div>
         </div>
         <div style="border-top:1px solid var(--border);margin:4px 0"></div>
@@ -356,19 +356,6 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       <div class="panel-body" id="fxBody">
         <div class="prow"><span class="prow-label">Playback</span><div class="mode-btns"><button class="mbtn" onclick="setPlayMode('off',this)">Off</button><button class="mbtn on" onclick="setPlayMode('continuous',this)">Continuous</button><button class="mbtn" onclick="setPlayMode('equalizer',this)">Equalizer</button></div></div>
         <div class="prow"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
-        <div class="prow"><span class="prow-label">Particles</span><div class="mode-btns"><button class="mbtn" onclick="toggleParticles(true,this)">On</button><button class="mbtn on" onclick="toggleParticles(false,this)">Off</button></div></div>
-        <div id="particleParams" style="display:none;flex-direction:column;gap:8px">
-          <div class="prow"><span class="prow-label">Shape</span><div class="mode-btns"><button class="mbtn on" onclick="setParticleShape('circle',this)">Circle</button><button class="mbtn" onclick="setParticleShape('square',this)">Square</button><button class="mbtn" onclick="setParticleShape('star',this)">Star</button><button class="mbtn" onclick="setParticleShape('line',this)">Line</button><button class="mbtn" onclick="setParticleShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setParticleShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setParticleShape('words',this)">Words</button></div></div>
-          <div class="prow"><span class="prow-label">Density</span><input type="range" min="1" max="50" value="20" step="1" id="pPartDensity" oninput="upP()"><span class="prow-val" id="vPartDensity">20</span></div>
-          <div class="prow"><span class="prow-label">Energy</span><input type="range" min="0.1" max="5" value="1" step="0.1" id="pPartEnergy" oninput="upP()"><span class="prow-val" id="vPartEnergy">1×</span></div>
-          <div class="prow"><span class="prow-label">Speed</span><input type="range" min="0" max="10" value="3" step="0.1" id="pPartSpeed" oninput="upP()"><span class="prow-val" id="vPartSpeed">3</span></div>
-          <div class="prow"><span class="prow-label">Life</span><input type="range" min="10" max="300" value="120" step="10" id="pPartLife" oninput="upP()"><span class="prow-val" id="vPartLife">120</span></div>
-          <div class="prow"><span class="prow-label">Size</span><input type="range" min="1" max="40" value="12" step="0.5" id="pPartSize" oninput="upP()"><span class="prow-val" id="vPartSize">12</span></div>
-          <div class="prow"><span class="prow-label">Spread</span><input type="range" min="0" max="100" value="50" step="5" id="pPartSpread" oninput="upP()"><span class="prow-val" id="vPartSpread">50%</span></div>
-          <div class="prow"><span class="prow-label">Gravity</span><input type="range" min="-5" max="5" value="0" step="0.1" id="pPartGravity" oninput="upP()"><span class="prow-val" id="vPartGravity">0</span></div>
-          <div class="prow"><span class="prow-label">Damping</span><input type="range" min="80" max="100" value="97" step="0.5" id="pPartDamping" oninput="upP()"><span class="prow-val" id="vPartDamping">97%</span></div>
-        </div>
-        <div style="border-top:1px solid var(--border);margin:4px 0"></div>
         <div class="prow" id="rowFlip"><span class="prow-label">Flip</span><div class="mode-btns"><button class="mbtn" onclick="setFlipH(this)">Horizontal</button><button class="mbtn" onclick="setFlipV(this)">Vertical</button></div></div>
         <div class="prow" id="rowMirror"><span class="prow-label">Mirror</span><div class="mode-btns"><button class="mbtn" onclick="setMirror(true,this)">Yes</button><button class="mbtn on" onclick="setMirror(false,this)">No</button></div></div>
         <div class="prow" id="rowSymmetry"><span class="prow-label">Symmetry</span><div class="mode-btns"><button class="mbtn on" onclick="setSymmetry('none',this)">Off</button><button class="mbtn" onclick="setSymmetry('x',this)">X</button><button class="mbtn" onclick="setSymmetry('y',this)">Y</button><button class="mbtn" onclick="setSymmetry('xy',this)">XY</button><button class="mbtn" onclick="setSymmetry('r3',this)">3</button><button class="mbtn" onclick="setSymmetry('r4',this)">4</button><button class="mbtn" onclick="setSymmetry('r6',this)">6</button><button class="mbtn" onclick="setSymmetry('r8',this)">8</button></div></div>
@@ -392,6 +379,32 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       </div>
     </div>
     <!-- 3D -->
+    <div class="panel" id="panelParticles">
+      <div class="panel-head" onclick="togglePanel('panelParticles')"><span class="panel-title">Particles</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-body">
+        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="toggleParticles(true,this)">On</button><button class="mbtn on" onclick="toggleParticles(false,this)">Off</button></div></div>
+        <div id="particleParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow"><span class="prow-label">Shape</span><div class="mode-btns"><button class="mbtn on" onclick="setParticleShape('circle',this)">Circle</button><button class="mbtn" onclick="setParticleShape('square',this)">Square</button><button class="mbtn" onclick="setParticleShape('star',this)">Star</button><button class="mbtn" onclick="setParticleShape('diamond',this)">Diamond</button><button class="mbtn" onclick="setParticleShape('ring',this)">Ring</button><button class="mbtn" onclick="setParticleShape('triangle',this)">Triangle</button><button class="mbtn" onclick="setParticleShape('spark',this)">Spark</button><button class="mbtn" onclick="setParticleShape('line',this)">Line</button><button class="mbtn" onclick="setParticleShape('numbers',this)">Numbers</button><button class="mbtn" onclick="setParticleShape('symbols',this)">Symbols</button><button class="mbtn" onclick="setParticleShape('words',this)">Words</button></div></div>
+          <div class="prow"><span class="prow-label">Density</span><input type="range" min="1" max="50" value="20" step="1" id="pPartDensity" oninput="upP()"><span class="prow-val" id="vPartDensity">20</span></div>
+          <div class="prow"><span class="prow-label">Energy</span><input type="range" min="0.1" max="5" value="1" step="0.1" id="pPartEnergy" oninput="upP()"><span class="prow-val" id="vPartEnergy">1×</span></div>
+          <div class="prow"><span class="prow-label">Speed</span><input type="range" min="0" max="10" value="3" step="0.1" id="pPartSpeed" oninput="upP()"><span class="prow-val" id="vPartSpeed">3</span></div>
+          <div class="prow"><span class="prow-label">Life</span><input type="range" min="10" max="300" value="120" step="10" id="pPartLife" oninput="upP()"><span class="prow-val" id="vPartLife">120</span></div>
+          <div class="prow"><span class="prow-label">Size</span><input type="range" min="1" max="40" value="12" step="0.5" id="pPartSize" oninput="upP()"><span class="prow-val" id="vPartSize">12</span></div>
+          <div class="prow"><span class="prow-label">Spread</span><input type="range" min="0" max="100" value="50" step="5" id="pPartSpread" oninput="upP()"><span class="prow-val" id="vPartSpread">50%</span></div>
+          <div class="prow"><span class="prow-label">Gravity</span><input type="range" min="-5" max="5" value="0" step="0.1" id="pPartGravity" oninput="upP()"><span class="prow-val" id="vPartGravity">0</span></div>
+          <div class="prow"><span class="prow-label">Damping</span><input type="range" min="80" max="100" value="97" step="0.5" id="pPartDamping" oninput="upP()"><span class="prow-val" id="vPartDamping">97%</span></div>
+          <div class="prow"><span class="prow-label">Trail</span><input type="range" min="0" max="60" value="0" step="1" id="pPartTrail" oninput="upP()"><span class="prow-val" id="vPartTrail">0</span></div>
+          <div style="border-top:1px solid var(--border);margin:4px 0"></div>
+          <div class="prow"><span class="prow-label" style="font-size:.45rem;letter-spacing:.08em;opacity:.6">NOISE</span></div>
+          <div class="prow"><span class="prow-label">Perlin</span><input type="range" min="0" max="100" value="0" step="1" id="pNoisePerlin" oninput="upP()"><span class="prow-val" id="vNoisePerlin">0%</span></div>
+          <div class="prow"><span class="prow-label">Curl</span><input type="range" min="0" max="100" value="0" step="1" id="pNoiseCurl" oninput="upP()"><span class="prow-val" id="vNoiseCurl">0%</span></div>
+          <div class="prow"><span class="prow-label">Brownian</span><input type="range" min="0" max="100" value="0" step="1" id="pNoiseBrownian" oninput="upP()"><span class="prow-val" id="vNoiseBrownian">0%</span></div>
+          <div class="prow"><span class="prow-label">Vortex</span><input type="range" min="0" max="100" value="0" step="1" id="pNoiseVortex" oninput="upP()"><span class="prow-val" id="vNoiseVortex">0%</span></div>
+          <div class="prow"><span class="prow-label">Scale</span><input type="range" min="1" max="100" value="30" step="1" id="pNoiseScale" oninput="upP()"><span class="prow-val" id="vNoiseScale">30</span></div>
+          <div class="prow"><span class="prow-label">Speed</span><input type="range" min="1" max="100" value="20" step="1" id="pNoiseSpeed" oninput="upP()"><span class="prow-val" id="vNoiseSpeed">20</span></div>
+        </div>
+      </div>
+    </div>
     <div class="panel" id="panelRandom">
       <div class="panel-head" onclick="togglePanel('panelRandom')"><span class="panel-title">Randomness</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
@@ -474,6 +487,13 @@ function upP(){pushUndo();document.getElementById('vLines').textContent=document
   document.getElementById('vPartSpread').textContent=document.getElementById('pPartSpread').value+'%';
   document.getElementById('vPartGravity').textContent=document.getElementById('pPartGravity').value;
   document.getElementById('vPartDamping').textContent=document.getElementById('pPartDamping').value+'%';
+  document.getElementById('vPartTrail').textContent=document.getElementById('pPartTrail').value;
+  document.getElementById('vNoisePerlin').textContent=document.getElementById('pNoisePerlin').value+'%';
+  document.getElementById('vNoiseCurl').textContent=document.getElementById('pNoiseCurl').value+'%';
+  document.getElementById('vNoiseBrownian').textContent=document.getElementById('pNoiseBrownian').value+'%';
+  document.getElementById('vNoiseVortex').textContent=document.getElementById('pNoiseVortex').value+'%';
+  document.getElementById('vNoiseScale').textContent=document.getElementById('pNoiseScale').value;
+  document.getElementById('vNoiseSpeed').textContent=document.getElementById('pNoiseSpeed').value;
   document.getElementById('vScatterSpreadH').textContent=document.getElementById('pScatterSpreadH').value+'%';
   document.getElementById('vScatterSpreadV').textContent=document.getElementById('pScatterSpreadV').value+'%';
   document.getElementById('vScatterCluster').textContent=document.getElementById('pScatterCluster').value+'%';
@@ -550,6 +570,13 @@ function getLayoutParams(){
   p.pPartSpread=+document.getElementById('pPartSpread').value;
   p.pPartGravity=+document.getElementById('pPartGravity').value;
   p.pPartDamping=+document.getElementById('pPartDamping').value;
+  p.pPartTrail=+document.getElementById('pPartTrail').value;
+  p.pNoisePerlin=+document.getElementById('pNoisePerlin').value;
+  p.pNoiseCurl=+document.getElementById('pNoiseCurl').value;
+  p.pNoiseBrownian=+document.getElementById('pNoiseBrownian').value;
+  p.pNoiseVortex=+document.getElementById('pNoiseVortex').value;
+  p.pNoiseScale=+document.getElementById('pNoiseScale').value;
+  p.pNoiseSpeed=+document.getElementById('pNoiseSpeed').value;
   p._zoomLoud=zoomLoud;
   p._playMode=playMode;
   return JSON.parse(JSON.stringify(p));
@@ -644,8 +671,9 @@ function getDefaultLayerParams(){
     _spin:0,_speed:1,_amplify:1,_twist:0,_bulge:0,_wave:0,_waveFreq:5,_shear:0,_depth:0,_drift:0,
     _rGlobal:0,_rDist:0,_rAppear:0,_rOutline:0,_rColor:0,_rDisorder:0,
     _flipH:false,_flipV:false,_mirrorOn:false,_symmetryMode:'none',_particleShape:'circle',_particlesOn:false,_zoomLoud:false,_playMode:'continuous',
-    pPartDensity:20,pPartEnergy:1,pPartSpeed:3,pPartLife:120,pPartSize:12,pPartSpread:50,pPartGravity:0,pPartDamping:97,
-    pScatterSpreadH:80,pScatterSpreadV:30,pScatterCluster:50
+    pPartDensity:20,pPartEnergy:1,pPartSpeed:3,pPartLife:120,pPartSize:12,pPartSpread:50,pPartGravity:0,pPartDamping:97,pPartTrail:0,
+    pNoisePerlin:0,pNoiseCurl:0,pNoiseBrownian:0,pNoiseVortex:0,pNoiseScale:30,pNoiseSpeed:20,
+    pScatterSpreadH:80,pScatterSpreadV:80,pScatterCluster:50
   }));
 }
 function addLayer(){pushUndo();
@@ -788,6 +816,66 @@ function setAspect(r,btn){aspectRatio=r;btn.parentElement.querySelectorAll('.mbt
 var flipH=false,flipV=false,mirrorOn=false,symmetryMode='none',particlesOn=false,particleShape='circle',spinAngle=0,playMode='continuous',zoomLoud=false;
 var textLayoutData=null,textLayoutFont='Impact',textLayoutWeight='900',textLayoutDir='up';
 var globalFrame=0;
+// --- Perlin noise ---
+var _perm=[];(function(){var p=[];for(var i=0;i<256;i++)p[i]=i;for(var i=255;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=p[i];p[i]=p[j];p[j]=t}for(var i=0;i<512;i++)_perm[i]=p[i&255]})();
+function _fade(t){return t*t*t*(t*(t*6-15)+10)}
+function _lerp(a,b,t){return a+t*(b-a)}
+function _grad(h,x,y){var v=h&3;return(v===0?x+y:v===1?-x+y:v===2?x-y:-x-y)}
+function perlin2(x,y){
+  var xi=Math.floor(x)&255,yi=Math.floor(y)&255;
+  var xf=x-Math.floor(x),yf=y-Math.floor(y);
+  var u=_fade(xf),v=_fade(yf);
+  var aa=_perm[_perm[xi]+yi],ab=_perm[_perm[xi]+yi+1];
+  var ba=_perm[_perm[xi+1]+yi],bb=_perm[_perm[xi+1]+yi+1];
+  return _lerp(_lerp(_grad(aa,xf,yf),_grad(ba,xf-1,yf),u),_lerp(_grad(ab,xf,yf-1),_grad(bb,xf-1,yf-1),u),v);
+}
+function applyNoise(pt,lp,W,H){
+  var scale=((lp&&lp.pNoiseScale)||30)*0.001;
+  var speed=((lp&&lp.pNoiseSpeed)||20)*0.001;
+  var time=globalFrame*speed;
+  var px=pt.x*scale,py=pt.y*scale;
+  var nPerlin=((lp&&lp.pNoisePerlin)||0)/100;
+  var nCurl=((lp&&lp.pNoiseCurl)||0)/100;
+  var nBrown=((lp&&lp.pNoiseBrownian)||0)/100;
+  var nVortex=((lp&&lp.pNoiseVortex)||0)/100;
+  if(nPerlin===0&&nCurl===0&&nBrown===0&&nVortex===0)return;
+  var fx=0,fy=0;
+  // Perlin — smooth directional flow
+  if(nPerlin>0){
+    var nx=perlin2(px+time,py+300)*2;
+    var ny=perlin2(px+500,py+time)*2;
+    fx+=nx*nPerlin;fy+=ny*nPerlin;
+  }
+  // Curl — perpendicular to gradient, creates swirling incompressible flow
+  if(nCurl>0){
+    var eps=0.01;
+    var n0=perlin2(px,py+time*0.7);
+    var dx=(perlin2(px+eps,py+time*0.7)-n0)/eps;
+    var dy=(perlin2(px,py+eps+time*0.7)-n0)/eps;
+    // Curl is perpendicular: (-dy, dx)
+    fx+=(-dy)*nCurl*2;fy+=dx*nCurl*2;
+  }
+  // Brownian — pure random impulse each frame
+  if(nBrown>0){
+    fx+=(Math.random()-0.5)*nBrown*4;
+    fy+=(Math.random()-0.5)*nBrown*4;
+  }
+  // Vortex — orbit around drifting attractor points
+  if(nVortex>0){
+    // 3 attractors that drift with noise
+    for(var vi=0;vi<3;vi++){
+      var ax=W*(0.3+0.4*perlin2(vi*100+time*0.3,0));
+      var ay=H*(0.3+0.4*perlin2(0,vi*100+time*0.3));
+      var ddx=pt.x-ax,ddy=pt.y-ay;
+      var dist=Math.sqrt(ddx*ddx+ddy*ddy)||1;
+      var falloff=Math.exp(-dist*dist/(W*W*0.05));
+      // Tangential force (perpendicular to radius = orbit)
+      fx+=(-ddy/dist)*falloff*nVortex*3;
+      fy+=(ddx/dist)*falloff*nVortex*3;
+    }
+  }
+  pt.vx+=fx;pt.vy+=fy;
+}
 function setFlipH(btn){pushUndo();flipH=!flipH;btn.classList.toggle('on',flipH);if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function setFlipV(btn){pushUndo();flipV=!flipV;btn.classList.toggle('on',flipV);if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function setMirror(v,btn){pushUndo();mirrorOn=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
@@ -1797,11 +1885,20 @@ function updateAndDrawParticles(ctx,W,H,energy,layerIdx,layerParams){
   var boostedEnergy=Math.min(1,energy*pEnergy2);
   var energyBoost=0.5+boostedEnergy*1.5;
   var shape=(layerParams&&layerParams._particleShape)||'circle';
+  var pTrailLen=(layerParams&&layerParams.pPartTrail)||0;
   // Update
   for(var i=particles.length-1;i>=0;i--){
     var pt=particles[i];
     pt.age++;
     if(pt.age>pt.maxAge){particles.splice(i,1);continue}
+    // Store trail history
+    if(pTrailLen>0){
+      if(!pt.trail)pt.trail=[];
+      pt.trail.push({x:pt.x,y:pt.y});
+      if(pt.trail.length>pTrailLen)pt.trail.shift();
+    }
+    // Noise forces
+    applyNoise(pt,layerParams,W,H);
     if(twist!==0){
       var dx=pt.x-W/2,dy=pt.y-H/2;
       var a=Math.atan2(dy,dx)+twist*0.05;
@@ -1841,6 +1938,29 @@ function updateAndDrawParticles(ctx,W,H,energy,layerIdx,layerParams){
     try{col=lineCol(pt.val,pt.pos,i,particles.length)}catch(e){col='#e94560'}
     ctx.globalAlpha=alpha;
     ctx.fillStyle=col;
+    // Draw trail
+    if(pTrailLen>0&&pt.trail&&pt.trail.length>1){
+      var trailPts=pt.trail;
+      var totalPts=trailPts.length;
+      for(var ti=1;ti<totalPts;ti++){
+        var tFrac=ti/totalPts;
+        ctx.beginPath();
+        ctx.moveTo(trailPts[ti-1].x,trailPts[ti-1].y);
+        ctx.lineTo(trailPts[ti].x,trailPts[ti].y);
+        ctx.strokeStyle=col;
+        ctx.lineWidth=Math.max(0.5,sz*0.8*tFrac);
+        ctx.globalAlpha=alpha*tFrac*0.7;
+        ctx.stroke();
+      }
+      // Last segment to current position
+      ctx.beginPath();
+      ctx.moveTo(trailPts[totalPts-1].x,trailPts[totalPts-1].y);
+      ctx.lineTo(pt.x,pt.y);
+      ctx.lineWidth=Math.max(0.5,sz*0.8);
+      ctx.globalAlpha=alpha*0.7;
+      ctx.strokeStyle=col;ctx.stroke();
+      ctx.globalAlpha=alpha;
+    }
     if(shape==='circle'){
       ctx.beginPath();ctx.arc(pt.x,pt.y,sz,0,Math.PI*2);ctx.fill();
     }else if(shape==='square'){
@@ -1855,6 +1975,30 @@ function updateAndDrawParticles(ctx,W,H,energy,layerIdx,layerParams){
         ctx.lineTo(pt.x+Math.cos(a2)*sz*0.4,pt.y+Math.sin(a2)*sz*0.4);
       }
       ctx.closePath();ctx.fill();
+    }else if(shape==='diamond'){
+      ctx.beginPath();
+      ctx.moveTo(pt.x,pt.y-sz);ctx.lineTo(pt.x+sz*0.6,pt.y);
+      ctx.lineTo(pt.x,pt.y+sz);ctx.lineTo(pt.x-sz*0.6,pt.y);
+      ctx.closePath();ctx.fill();
+    }else if(shape==='ring'){
+      ctx.beginPath();ctx.arc(pt.x,pt.y,sz,0,Math.PI*2);
+      ctx.lineWidth=Math.max(0.5,sz*0.25);ctx.strokeStyle=col;ctx.stroke();
+    }else if(shape==='triangle'){
+      ctx.beginPath();
+      ctx.moveTo(pt.x,pt.y-sz);
+      ctx.lineTo(pt.x+sz*0.87,pt.y+sz*0.5);
+      ctx.lineTo(pt.x-sz*0.87,pt.y+sz*0.5);
+      ctx.closePath();ctx.fill();
+    }else if(shape==='spark'){
+      // 4 thin rays from center, oriented by velocity
+      var sa=Math.atan2(pt.vy,pt.vx);
+      ctx.lineWidth=Math.max(0.3,sz*0.15);ctx.strokeStyle=col;
+      for(var sr=0;sr<4;sr++){
+        var ra=sa+sr*Math.PI/4;
+        var rl=sr%2===0?sz:sz*0.5;
+        ctx.beginPath();ctx.moveTo(pt.x,pt.y);
+        ctx.lineTo(pt.x+Math.cos(ra)*rl,pt.y+Math.sin(ra)*rl);ctx.stroke();
+      }
     }else if(shape==='numbers'){
       ctx.font='bold '+Math.max(6,sz*2.5)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText('0123456789'[i%10],pt.x,pt.y);
