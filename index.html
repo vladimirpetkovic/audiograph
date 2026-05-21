@@ -212,6 +212,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div id="layersUI" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;padding:6px;background:var(--elevated);border-radius:4px;border:1px solid var(--border)">
           <div id="layersList"></div>
           <button class="btn" onclick="addLayer()" style="font-size:.5rem;padding:2px 8px;align-self:flex-start">+ Add layer</button>
+          <button class="btn" onclick="multibandSplit()" style="font-size:.5rem;padding:2px 8px;align-self:flex-start" title="Create 3 layers for bass, mid, treble">⚡ Multi-band</button>
         </div>
       </div>
     </div>
@@ -233,7 +234,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="panel" id="panelAppear">
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns" style="max-width:420px"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleid.</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button><button class="mbtn amber" onclick="setLayout('polar',this)">Polar</button><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button></div></div>
+        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns" style="max-width:420px"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleid.</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button></div></div>
         <!-- Per-layout settings -->
         <div id="layoutOpts_sine" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Waves</span><input type="range" min="0.5" max="10" value="2" step="0.5" id="pSineWaves" oninput="upP()"><span class="prow-val" id="vSineWaves">2</span></div>
@@ -311,10 +312,6 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
           <div class="prow"><span class="prow-label">Spread V</span><input type="range" min="5" max="100" value="30" step="5" id="pScatterSpreadV" oninput="upP()"><span class="prow-val" id="vScatterSpreadV">30%</span></div>
           <div class="prow"><span class="prow-label">Cluster</span><input type="range" min="0" max="100" value="50" step="5" id="pScatterCluster" oninput="upP()"><span class="prow-val" id="vScatterCluster">50%</span></div>
         </div>
-        <div id="layoutOpts_polar" class="layout-opts" style="display:none">
-          <div class="prow"><span class="prow-label">Lobes</span><input type="range" min="1" max="12" value="3" step="1" id="pPolarLobes" oninput="upP()"><span class="prow-val" id="vPolarLobes">3</span></div>
-          <div class="prow"><span class="prow-label">Inner R</span><input type="range" min="0" max="80" value="20" step="1" id="pPolarInner" oninput="upP()"><span class="prow-val" id="vPolarInner">20%</span></div>
-        </div>
         <div style="border-top:1px solid var(--border);margin:4px 0"></div>
         <div class="prow"><span class="prow-label">Lines</span><input type="range" min="80" max="800" value="350" step="10" id="pLines" oninput="upP()"><span class="prow-val" id="vLines">350</span></div>
         <div class="prow"><span class="prow-label">Contrast</span><input type="range" min="5" max="100" value="75" step="1" id="pContrast" oninput="upP()"><span class="prow-val" id="vContrast">75%</span></div>
@@ -378,6 +375,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow"><span class="prow-label">Spin</span><input type="range" min="0" max="5" value="0" step="0.5" id="pSpin" oninput="upP()"><span class="prow-val" id="vSpin">0</span></div>
         <div class="prow"><span class="prow-label">Speed</span><input type="range" min="0.1" max="5" value="1" step="0.1" id="pSpeed" oninput="upP()"><span class="prow-val" id="vSpeed">1×</span></div>
         <div class="prow"><span class="prow-label">Disorder</span><input type="range" min="0" max="100" value="0" step="1" id="rDisorder" oninput="upP()"><span class="prow-val" id="vrDisorder">0%</span></div>
+        <div class="prow" id="rowDrift"><span class="prow-label">Drift</span><input type="range" min="0" max="100" value="0" step="1" id="pDrift" oninput="upP()"><span class="prow-val" id="vDrift">0%</span></div>
         <div class="prow"><span class="prow-label">Drop</span><div class="mode-btns"><button class="mbtn" onclick="setDrop(true,this)">On</button><button class="mbtn on" onclick="setDrop(false,this)">Off</button></div></div>
         <div id="dropParams" style="display:none;flex-direction:column;gap:8px">
           <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="1" max="100" value="30" step="1" id="pDropSens" oninput="upP()"><span class="prow-val" id="vDropSens">30</span></div>
@@ -448,7 +446,7 @@ function togglePanel(id){document.getElementById(id).classList.toggle('closed')}
 
 // Params
 function P(){return{lines:+document.getElementById('pLines').value,contrast:+document.getElementById('pContrast').value/100,height:+document.getElementById('pHeight').value/100,thick:+document.getElementById('pThick').value}}
-function upP(){pushUndo();document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vFadeEdge').textContent=document.getElementById('pFadeEdge').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
+function upP(){pushUndo();document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vFadeEdge').textContent=document.getElementById('pFadeEdge').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vDrift').textContent=document.getElementById('pDrift').value+'%';document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
   document.getElementById('vCircleInner').textContent=document.getElementById('pCircleInner').value+'%';
   document.getElementById('vKalSegments').textContent=document.getElementById('pKalSegments').value;
   document.getElementById('vKalInner').textContent=document.getElementById('pKalInner').value+'%';
@@ -479,8 +477,7 @@ function upP(){pushUndo();document.getElementById('vLines').textContent=document
   document.getElementById('vScatterSpreadH').textContent=document.getElementById('pScatterSpreadH').value+'%';
   document.getElementById('vScatterSpreadV').textContent=document.getElementById('pScatterSpreadV').value+'%';
   document.getElementById('vScatterCluster').textContent=document.getElementById('pScatterCluster').value+'%';
-  document.getElementById('vPolarLobes').textContent=document.getElementById('pPolarLobes').value;
-  document.getElementById('vPolarInner').textContent=document.getElementById('pPolarInner').value+'%';
+  document.getElementById('vDrift').textContent=document.getElementById('pDrift').value+'%';
   if(document.getElementById('p3DHeight'))document.getElementById('v3DHeight').textContent=document.getElementById('p3DHeight').value;
   if(document.getElementById('p3DThick'))document.getElementById('v3DThick').textContent=document.getElementById('p3DThick').value;
   if(document.getElementById('p3DSpread'))document.getElementById('v3DSpread').textContent=document.getElementById('p3DSpread').value;
@@ -527,6 +524,9 @@ function getLayoutParams(){
   p._waveFreq=+document.getElementById('pWaveFreq').value;
   p._shear=+document.getElementById('pShear').value;
   p._depth=+document.getElementById('pDepth').value;
+  p._drift=+document.getElementById('pDrift').value;
+  
+  
   // Randomness (per-layer)
   p._rGlobal=+document.getElementById('rGlobal').value;
   p._rDist=+document.getElementById('rDist').value;
@@ -591,6 +591,9 @@ function setLayoutParams(p){
   if('_waveFreq' in p)document.getElementById('pWaveFreq').value=p._waveFreq;
   if('_shear' in p)document.getElementById('pShear').value=p._shear;
   if('_depth' in p)document.getElementById('pDepth').value=p._depth;
+  if('_drift' in p)document.getElementById('pDrift').value=p._drift;
+  
+  
   // Randomness (per-layer)
   if('_rGlobal' in p)document.getElementById('rGlobal').value=p._rGlobal;
   if('_rDist' in p)document.getElementById('rDist').value=p._rDist;
@@ -638,12 +641,11 @@ function getDefaultLayerParams(){
     _simpleStops:['#e94560','#f5a623','#6ee7b7'],
     _showOutline:false,_outlineStyle:'solid',_imgDir:'up',
     _outlineWeight:2,_outlineDist:0,_outlineCount:1,_outlineSpace:4,
-    _spin:0,_speed:1,_amplify:1,_twist:0,_bulge:0,_wave:0,_waveFreq:5,_shear:0,_depth:0,
+    _spin:0,_speed:1,_amplify:1,_twist:0,_bulge:0,_wave:0,_waveFreq:5,_shear:0,_depth:0,_drift:0,
     _rGlobal:0,_rDist:0,_rAppear:0,_rOutline:0,_rColor:0,_rDisorder:0,
     _flipH:false,_flipV:false,_mirrorOn:false,_symmetryMode:'none',_particleShape:'circle',_particlesOn:false,_zoomLoud:false,_playMode:'continuous',
     pPartDensity:20,pPartEnergy:1,pPartSpeed:3,pPartLife:120,pPartSize:12,pPartSpread:50,pPartGravity:0,pPartDamping:97,
-    pScatterSpreadH:80,pScatterSpreadV:30,pScatterCluster:50,
-    pPolarLobes:3,pPolarInner:20
+    pScatterSpreadH:80,pScatterSpreadV:30,pScatterCluster:50
   }));
 }
 function addLayer(){pushUndo();
@@ -655,6 +657,35 @@ function addLayer(){pushUndo();
   // New layer with defaults
   stackLayouts.push({layout:'linear',opacity:100,params:getDefaultLayerParams()});
   selectLayer(stackLayouts.length-1);
+}
+function multibandSplit(){pushUndo();
+  // Save current
+  if(activeLayerIdx>=0&&activeLayerIdx<stackLayouts.length){
+    stackLayouts[activeLayerIdx].params=getLayoutParams();
+    stackLayouts[activeLayerIdx].layout=layoutMode;
+  }
+  // Clear existing layers
+  stackLayouts.length=0;
+  // Bass layer — few lines (low freq bins), warm color
+  var bass=getDefaultLayerParams();
+  bass._lines=80;bass._height=150;bass._thick=4;bass._playMode='equalizer';
+  bass._colorMode='toneramp';bass._toneStops=['#0a000000','#ff2d55','#ff6b35'];
+  bass._lineShape='rounded';bass._fadeEdge=40;
+  stackLayouts.push({layout:'linear',opacity:100,params:bass});
+  // Mid layer — medium lines, offset up
+  var mid=getDefaultLayerParams();
+  mid._lines=200;mid._height=100;mid._thick=2;mid._playMode='equalizer';
+  mid._colorMode='toneramp';mid._toneStops=['#00100000','#7b1fa2','#e040fb'];
+  mid._lineShape='straight';mid._offY=-15;mid._fadeEdge=60;
+  stackLayouts.push({layout:'linear',opacity:80,params:mid});
+  // Treble layer — many lines, offset down
+  var treble=getDefaultLayerParams();
+  treble._lines=400;treble._height=60;treble._thick=0.75;treble._playMode='equalizer';
+  treble._colorMode='toneramp';treble._toneStops=['#00001a00','#00bcd4','#e0f7fa'];
+  treble._lineShape='tapered';treble._offY=10;treble._fadeEdge=80;
+  stackLayouts.push({layout:'linear',opacity:70,params:treble});
+  selectLayer(0);
+  renderDensity();
 }
 function getActiveLayerIdx(){
   if(activeLayerIdx>=stackLayouts.length)activeLayerIdx=Math.max(0,stackLayouts.length-1);
@@ -884,7 +915,7 @@ function randomizeAll(){pushUndo();
     // Appearance
     p._lines=ri(80,600);p._contrast=ri(10,100);p._sensitivity=ri(20,150);
     p._height=ri(20,200);p._thick=+(rr(0.5,10)).toFixed(2);p._zoom=ri(80,200);
-    p._offX=ri(-30,30);p._offY=ri(-30,30);p._rotation=ri(-180,180);
+    p._offX=0;p._offY=0;p._rotation=ri(-180,180);
     p._varyHeight=Math.random()>0.3;p._varyThick=Math.random()>0.6;
     p._fadeEdge=ri(0,80);
     // Style
@@ -907,18 +938,13 @@ function randomizeAll(){pushUndo();
     p._wave=Math.random()>0.5?ri(5,60):0;p._waveFreq=ri(2,10);
     p._shear=Math.random()>0.8?ri(-40,40):0;
     p._depth=Math.random()>0.6?ri(10,80):0;
-    // Randomness
-    p._rGlobal=Math.random()>0.5?ri(10,60):0;
-    p._rDist=Math.random()>0.6?ri(5,40):0;
-    p._rAppear=Math.random()>0.6?ri(5,50):0;
-    p._rOutline=Math.random()>0.7?ri(5,30):0;
-    p._rColor=Math.random()>0.6?ri(5,50):0;
-    p._rDisorder=Math.random()>0.7?ri(10,60):0;
+    // Randomness — all zero for cleaner results
+    p._rGlobal=0;p._rDist=0;p._rAppear=0;p._rOutline=0;p._rColor=0;p._rDisorder=0;
     // Flip/mirror
     p._flipH=Math.random()>0.8;p._flipV=Math.random()>0.8;
     p._mirrorOn=Math.random()>0.7;
     p._zoomLoud=false;
-    p._playMode='continuous';
+    p._playMode=Math.random()>0.5?'equalizer':'continuous';
     return{layout:layout,params:p};
   }
 
@@ -928,7 +954,9 @@ function randomizeAll(){pushUndo();
     stackLayouts[li].layout=rnd.layout;
     stackLayouts[li].params=rnd.params;
   }
+  applyingState=true;
   selectLayer(0);
+  applyingState=false;
   document.getElementById('app').classList.toggle('circle-mode',layoutMode!=='linear');
   document.querySelectorAll('.layout-opts').forEach(function(el){el.style.display='none'});
   var opts=document.getElementById('layoutOpts_'+layoutMode);if(opts){opts.style.display='flex';opts.style.flexDirection='column';opts.style.gap='8px'}
@@ -937,8 +965,7 @@ function randomizeAll(){pushUndo();
   threeShape=shapes3D[ri(0,shapes3D.length-1)];
   var mats3D=['standard','metal','plastic','matte','glass','neon'];
   threeMat=mats3D[ri(0,mats3D.length-1)];
-  // Playback mode
-  playMode=Math.random()>0.5?'equalizer':'continuous';
+  // Playback mode is already set per-layer via randomLayerParams
   // Update all button states
   document.querySelectorAll('.mode-btns').forEach(function(g){g.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')})});
   document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';
@@ -1284,6 +1311,13 @@ function morphLoop(){if(!morphing){morphRAF=null;return}morphRAF=requestAnimatio
 function upR(){document.getElementById('vrGlobal').textContent=document.getElementById('rGlobal').value+'%';document.getElementById('vrDist').textContent=document.getElementById('rDist').value+'%';document.getElementById('vrAppear').textContent=document.getElementById('rAppear').value+'%';document.getElementById('vrOutline').textContent=document.getElementById('rOutline').value+'%';document.getElementById('vrColor').textContent=document.getElementById('rColor').value+'%';renderDensity()}
 function getRand(idx,group){var g=+document.getElementById('rGlobal').value/100;var gr=+document.getElementById(group).value/100;var r=group==='rColor'?gr:Math.max(g,gr);return(randSeeds[idx%randSeeds.length]-0.5)*2*r}
 function getDisorder(idx){var d=+document.getElementById('rDisorder').value/100;return(randSeeds[(idx*7+13)%randSeeds.length]-0.5)*2*d}
+function getDrift(idx){
+  var d=+document.getElementById('pDrift').value/100;
+  if(d===0)return 0;
+  var speed=randSeeds[(idx*11+17)%randSeeds.length]*0.8+0.2;
+  var phase=randSeeds[(idx*13+29)%randSeeds.length]*Math.PI*2;
+  return Math.sin(globalFrame*0.03*speed+phase)*d;
+}
 
 // Drawing
 function drawShapedLine(ctx,x,ly,lh,t,val){
@@ -1515,7 +1549,9 @@ function liveAnimLoop(){
   rafId=requestAnimationFrame(liveAnimLoop);
   if(!analyser)return;
   var p=P();
-  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.filter='none';frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
+  var sz=sizeCanvas(frameCv);
+  frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.filter='none';
+  frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
   var amp=+document.getElementById('pAmplify').value;
@@ -1720,14 +1756,6 @@ function spawnParticles(energy,W,H,p,layerParams,layerIdx){
       var spreadV2=(layerParams.pScatterSpreadV||30)/100;
       px=Math.random()*W*spreadH2+W*(1-spreadH2)/2;
       py=Math.random()*H*spreadV2+H*(1-spreadV2)/2;
-    }else if(lm==='polar'){
-      var angle=Math.random()*Math.PI*2;
-      var lobes2=layerParams.pPolarLobes||3;
-      var innerPct2=(layerParams.pPolarInner||20)/100;
-      var maxR2=Math.min(W,H)*0.42;
-      var r2=maxR2*innerPct2+(maxR2-maxR2*innerPct2)*(0.5+e*0.5)*(1+Math.cos(angle*lobes2)*0.4);
-      px=W/2+Math.cos(angle)*r2;
-      py=H/2+Math.sin(angle)*r2;
     }else{
       // linear fallback
       px=t*W;
@@ -1940,7 +1968,7 @@ function getCamBrightness(pos,lineIdx,totalLines){
     var i2=(cy2*w+cx2)*4;sum+=(d[i2]+d[i2+1]+d[i2+2])/3;cnt++}}
   return cnt>0?(sum/cnt)/255:0;
 }
-function sizeCanvas(cv){var dpr=window.devicePixelRatio||1,r=cv.getBoundingClientRect(),w=Math.round(r.width*dpr),h=Math.round(r.height*dpr);if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}return{W:r.width,H:r.height,dpr:dpr}}
+function sizeCanvas(cv){var dpr=window.devicePixelRatio||1;if(document.fullscreenElement)dpr=Math.min(dpr,1.5);var r=cv.getBoundingClientRect(),w=Math.round(r.width*dpr),h=Math.round(r.height*dpr);if(w<1)w=1;if(h<1)h=1;if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}return{W:r.width,H:r.height,dpr:dpr}}
 function getRangeRMS(sT,eT){if(!audioBuffer)return[];var ch=audioBuffer.getChannelData(0),sr=audioBuffer.sampleRate,s0=Math.max(0,Math.floor(sT*sr)),s1=Math.min(ch.length,Math.floor(eT*sr)),tot=s1-s0;if(tot<10)return[];var p=P(),nb=p.lines,spb=Math.max(1,Math.floor(tot/nb)),vals=[],mx=0;for(var b=0;b<nb;b++){var bs=s0+b*spb,sum=0;for(var i=0;i<spb;i++){var idx=bs+i;if(idx<ch.length){var v=ch[idx];sum+=v*v}}var rms=Math.sqrt(sum/spb);vals.push(rms);if(rms>mx)mx=rms}if(mx===0)return vals.map(function(){return 0});return vals.map(function(v){return v/mx})}
 
 function getCamDisp(pos,lineIdx,totalLines,maxDisp){
@@ -2103,7 +2131,6 @@ function drawDensity(ctx,W,H,values,p,forExport){
   if(layoutMode==='image')return drawImageLayout(ctx,W,H,values,p,forExport);
   if(layoutMode==='text')return drawTextLayout(ctx,W,H,values,p,forExport);
   if(layoutMode==='scatter')return drawScatter(ctx,W,H,values,p,forExport);
-  if(layoutMode==='polar')return drawPolar(ctx,W,H,values,p,forExport);
   if(layoutMode==='sine')return drawSine(ctx,W,H,values,p,forExport);
   if(layoutMode==='custom')return drawCustom(ctx,W,H,values,p,forExport);
   var spacings=[],total=0;for(var i=0;i<n;i++){var d=1+values[i]*p.contrast*6,sp=1/Math.max(d,.05);sp*=(1+getRand(i,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);total+=sp}
@@ -2115,7 +2142,7 @@ function drawDensity(ctx,W,H,values,p,forExport){
     lh=Math.max(2,Math.min(H*.98,lh));
     var ly=(H-lh)/2;
     // Disorder: shift position organically
-    var dx=getDisorder(i)*W*.05;var dy=getDisorder(i+500)*H*.08;
+    var dx=getDisorder(i)*W*.05+getDrift(i)*W*.05;var dy=getDisorder(i+500)*H*.08+getDrift(i+500)*H*.08;
     // Webcam displacement
     var cd=getCamDisp(n>1?i/(n-1):0,i,n,+document.getElementById('camDisplace').value*.005*H);
     dx+=cd.dx;dy+=cd.dy;
@@ -2154,7 +2181,7 @@ function drawCircle(ctx,W,H,values,p,forExport){
     var r1=minR,r2=minR+lh;
     angle+=getRand(i+1500,'rDist')*.15;
     // Disorder: shift angle and radius
-    var dAngle=getDisorder(i)*.3;var dR=getDisorder(i+300)*maxR*.15;
+    var dAngle=getDisorder(i)*.3+getDrift(i)*.3;var dR=getDisorder(i+300)*maxR*.15+getDrift(i+300)*maxR*.15;
     // Webcam displacement (radius shift)
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(n>1?i/(n-1):0,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dAngle+=(cb-0.5)*2*camD*.003}
@@ -2196,7 +2223,7 @@ function drawKaleidoscope(ctx,W,H,values,p,forExport){
     tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var r1=minR,r2=minR+lh;
     var pr=linesPerWedge>1?i/(linesPerWedge-1):0;
-    var dA=getDisorder(i)*.2,dR=getDisorder(i+300)*maxR*.1;
+    var dA=getDisorder(i)*.2+getDrift(i)*.2,dR=getDisorder(i+300)*maxR*.1+getDrift(i+300)*maxR*.1;
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,linesPerWedge);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     r2=Math.max(1,r2+dR);angle+=dA;
@@ -2276,7 +2303,7 @@ function drawSpiral(ctx,W,H,values,p,forExport){
     angle+=getRand(i+1500,'rDist')*.15;
     var r1=r,r2=r+lh;
     var pr=n>1?i/(n-1):0;
-    var dA=getDisorder(i)*.25;var dR=getDisorder(i+300)*maxR*.12;
+    var dA=getDisorder(i)*.25+getDrift(i)*.25;var dR=getDisorder(i+300)*maxR*.12+getDrift(i+300)*maxR*.12;
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
@@ -2316,7 +2343,7 @@ function drawFibonacci(ctx,W,H,values,p,forExport){
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
     tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var r1=r,r2=r+lh;var pr=n>1?i/(n-1):0;
-    var dA=getDisorder(i)*.25;var dR=getDisorder(i+300)*maxR*.12;
+    var dA=getDisorder(i)*.25+getDrift(i)*.25;var dR=getDisorder(i+300)*maxR*.12+getDrift(i+300)*maxR*.12;
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
@@ -2357,7 +2384,7 @@ function drawPhyllotaxis(ctx,W,H,values,p,forExport){
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;
     tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var r1=r,r2=r+lh;var pr=n>1?i/(n-1):0;
-    var dA=getDisorder(i)*.25;var dR=getDisorder(i+300)*maxR*.12;
+    var dA=getDisorder(i)*.25+getDrift(i)*.25;var dR=getDisorder(i+300)*maxR*.12+getDrift(i+300)*maxR*.12;
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
@@ -2726,52 +2753,6 @@ function drawScatter(ctx,W,H,values,p,forExport){
   return lines;
 }
 
-function drawPolar(ctx,W,H,values,p,forExport){
-  var n=values.length;if(n===0)return[];
-  var lobes=+document.getElementById('pPolarLobes').value||3;
-  var innerPct=(+document.getElementById('pPolarInner').value||20)/100;
-  var cx=W/2,cy=H/2;
-  var maxR=Math.min(W,H)*0.42;
-  var innerR=maxR*innerPct;
-  var lines=[];
-  var dist=getDistortions();
-  for(var i=0;i<n;i++){
-    var v=values[i];
-    var t=i/n;
-    var angle=t*Math.PI*2;
-    // Polar radius modulated by lobes and audio
-    var audioH=(0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45);
-    var hRand=1+getRand(i+500,'rAppear')*0.4;
-    var lobeR=1+Math.cos(angle*lobes)*0.4; // base lobe shape
-    var r=innerR+(maxR-innerR)*audioH*lobeR*hRand;
-    var lh=Math.max(2,p.height*0.3*(maxR-innerR)*audioH*hRand);
-    var x=cx+Math.cos(angle)*r;
-    var y=cy+Math.sin(angle)*r;
-    // Distortions
-    if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth){
-      var d=distortLinear(x,y,W,H,dist);x=d.x;y=d.y;
-    }
-    x+=getDisorder(i)*W*.02;y+=getDisorder(i+300)*H*.02;
-    var tw=varyThick?p.thick*(.3+(1-v)*.7):p.thick;
-    tw*=(1+getRand(i+1000,'rAppear')*.3);tw=Math.max(.5,tw);
-    var col=forExport?lineColHex(v,t,i,n):lineCol(v,t,i,n);
-    ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=tw;
-    if(dist.depth>0){var dx2=(x-cx)/(W/2),dy2=(y-cy)/(H/2);var dr=Math.sqrt(dx2*dx2+dy2*dy2);ctx.globalAlpha=Math.max(.1,1-dist.depth*.5*dr)}
-    // Draw line radiating outward from the polar curve
-    var outAngle=Math.atan2(y-cy,x-cx);
-    var lx=x+Math.cos(outAngle)*lh;
-    var ly2=y+Math.sin(outAngle)*lh;
-    // Use shaped line rotated to radial direction
-    ctx.save();ctx.translate(x,y);ctx.rotate(outAngle+Math.PI/2);
-    drawShapedLine(ctx,0,-lh/2,lh,ctx.lineWidth,v);
-    ctx.restore();
-    lines.push({v:v,x:x,y:y,lh:lh,tw:tw,pos:t});
-  }
-  lastFrameLines={lines:lines,W:W,H:H,p:p,circle:true};
-  ctx.globalAlpha=1;
-  return lines;
-}
-
 function drawSine(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
   var waves=+document.getElementById('pSineWaves').value;
@@ -2925,7 +2906,9 @@ function renderDensity(){
     build3DLines(getRangeRMS(sT,eT),P());
     return;
   }
-  if(!audioBuffer)return;var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.filter='none';frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
+  if(!audioBuffer)return;var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.filter='none';
+  frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
+  var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
   var vals;
   var rmsStart=sT,rmsEnd=eT;
   vals=getRangeRMS(sT,eT);
@@ -3088,7 +3071,9 @@ function animLoop(){if(!playing){rafId=null;return}
   if(!realtimePreview)return;
 
   var p=P();
-  var sz=sizeCanvas(frameCv);frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.filter='none';frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
+  var sz=sizeCanvas(frameCv);
+  frameCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);frameCtx.filter='none';
+  frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
   var speed=+document.getElementById('pSpeed').value;if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002*speed;wavePhase+=0.05*speed;
