@@ -225,7 +225,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
     <div class="panel" id="panelAppear">
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><button class="panel-rand" onclick="event.stopPropagation();randAppearance()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns" style="max-width:420px"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleid.</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('octahedron',this)">Octahedron</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('object',this)">Object</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button></div></div>
+        <div class="prow"><span class="prow-label">Layout</span><div class="mode-btns" style="max-width:420px"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleid.</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" onclick="setLayout('object',this)">Object</button><button class="mbtn amber" onclick="setLayout('custom',this)">Custom</button></div></div>
         <!-- Per-layout settings -->
         <div id="layoutOpts_sine" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Waves</span><input type="range" min="0.5" max="10" value="2" step="0.5" id="pSineWaves" oninput="upP()"><span class="prow-val" id="vSineWaves">2</span></div>
@@ -332,21 +332,22 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
           <div class="prow"><span class="prow-label">Noise</span><input type="range" min="0" max="100" value="50" step="5" id="pSphereNoise" oninput="upP()"><span class="prow-val" id="vSphereNoise">50%</span></div>
           <div class="prow"><span class="prow-label">Rotate</span><input type="range" min="0" max="50" value="5" step="1" id="pSphereRotate" oninput="upP()"><span class="prow-val" id="vSphereRotate">5</span></div>
         </div>
-        <div id="layoutOpts_octahedron" class="layout-opts" style="display:none">
-          <div class="prow"><span class="prow-label">Detail</span><input type="range" min="2" max="20" value="8" step="1" id="pOctDetail" oninput="upP()"><span class="prow-val" id="vOctDetail">8</span></div>
-          <div class="prow"><span class="prow-label">Perspective</span><input type="range" min="50" max="500" value="250" step="10" id="pOctPersp" oninput="upP()"><span class="prow-val" id="vOctPersp">250</span></div>
-          <div class="prow"><span class="prow-label">Tilt</span><input type="range" min="-90" max="90" value="15" step="1" id="pOctTilt" oninput="upP()"><span class="prow-val" id="vOctTilt">15°</span></div>
-          <div class="prow"><span class="prow-label">Elevation</span><input type="range" min="0" max="200" value="60" step="5" id="pOctElev" oninput="upP()"><span class="prow-val" id="vOctElev">60%</span></div>
-          <div class="prow"><span class="prow-label">Noise</span><input type="range" min="0" max="100" value="50" step="5" id="pOctNoise" oninput="upP()"><span class="prow-val" id="vOctNoise">50%</span></div>
-          <div class="prow"><span class="prow-label">Rotate</span><input type="range" min="0" max="50" value="5" step="1" id="pOctRotate" oninput="upP()"><span class="prow-val" id="vOctRotate">5</span></div>
-        </div>
-        <div id="layoutOpts_tetrahedron" class="layout-opts" style="display:none">
+                <div id="layoutOpts_tetrahedron" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Detail</span><input type="range" min="2" max="20" value="8" step="1" id="pTetDetail" oninput="upP()"><span class="prow-val" id="vTetDetail">8</span></div>
           <div class="prow"><span class="prow-label">Perspective</span><input type="range" min="50" max="500" value="250" step="10" id="pTetPersp" oninput="upP()"><span class="prow-val" id="vTetPersp">250</span></div>
           <div class="prow"><span class="prow-label">Tilt</span><input type="range" min="-90" max="90" value="15" step="1" id="pTetTilt" oninput="upP()"><span class="prow-val" id="vTetTilt">15°</span></div>
           <div class="prow"><span class="prow-label">Elevation</span><input type="range" min="0" max="200" value="60" step="5" id="pTetElev" oninput="upP()"><span class="prow-val" id="vTetElev">60%</span></div>
           <div class="prow"><span class="prow-label">Noise</span><input type="range" min="0" max="100" value="50" step="5" id="pTetNoise" oninput="upP()"><span class="prow-val" id="vTetNoise">50%</span></div>
           <div class="prow"><span class="prow-label">Rotate</span><input type="range" min="0" max="50" value="5" step="1" id="pTetRotate" oninput="upP()"><span class="prow-val" id="vTetRotate">5</span></div>
+        </div>
+        <div id="layoutOpts_dna" class="layout-opts" style="display:none">
+          <div class="prow"><span class="prow-label">Turns</span><input type="range" min="1" max="12" value="4" step="0.5" id="pDnaTurns" oninput="upP()"><span class="prow-val" id="vDnaTurns">4</span></div>
+          <div class="prow"><span class="prow-label">Radius</span><input type="range" min="10" max="60" value="30" step="1" id="pDnaRadius" oninput="upP()"><span class="prow-val" id="vDnaRadius">30%</span></div>
+          <div class="prow"><span class="prow-label">Perspective</span><input type="range" min="50" max="500" value="250" step="10" id="pDnaPersp" oninput="upP()"><span class="prow-val" id="vDnaPersp">250</span></div>
+          <div class="prow"><span class="prow-label">Tilt</span><input type="range" min="-90" max="90" value="15" step="1" id="pDnaTilt" oninput="upP()"><span class="prow-val" id="vDnaTilt">15°</span></div>
+          <div class="prow"><span class="prow-label">Elevation</span><input type="range" min="0" max="200" value="60" step="5" id="pDnaElev" oninput="upP()"><span class="prow-val" id="vDnaElev">60%</span></div>
+          <div class="prow"><span class="prow-label">Noise</span><input type="range" min="0" max="100" value="50" step="5" id="pDnaNoise" oninput="upP()"><span class="prow-val" id="vDnaNoise">50%</span></div>
+          <div class="prow"><span class="prow-label">Rotate</span><input type="range" min="0" max="50" value="5" step="1" id="pDnaRotate" oninput="upP()"><span class="prow-val" id="vDnaRotate">5</span></div>
         </div>
         <div id="layoutOpts_object" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Model</span><input type="file" id="pObjFile" accept=".obj" onchange="loadObjFile(event)" style="font-size:10px;max-width:140px"></div>
@@ -432,10 +433,10 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow" id="rowFlip"><span class="prow-label">Flip</span><div class="mode-btns"><button class="mbtn" onclick="setFlipH(this)">Horizontal</button><button class="mbtn" onclick="setFlipV(this)">Vertical</button></div></div>
         <div class="prow" id="rowMirror"><span class="prow-label">Mirror</span><div class="mode-btns"><button class="mbtn" onclick="setMirror(true,this)">Yes</button><button class="mbtn on" onclick="setMirror(false,this)">No</button></div></div>
         <div class="prow" id="rowSymmetry"><span class="prow-label">Symmetry</span><div class="mode-btns"><button class="mbtn on" onclick="setSymmetry('none',this)">Off</button><button class="mbtn" onclick="setSymmetry('x',this)">X</button><button class="mbtn" onclick="setSymmetry('y',this)">Y</button><button class="mbtn" onclick="setSymmetry('xy',this)">XY</button><button class="mbtn" onclick="setSymmetry('r3',this)">3</button><button class="mbtn" onclick="setSymmetry('r4',this)">4</button><button class="mbtn" onclick="setSymmetry('r6',this)">6</button><button class="mbtn" onclick="setSymmetry('r8',this)">8</button></div></div>
+        <div class="prow" id="rowSymGap" style="display:none"><span class="prow-label">Sym Gap</span><input type="range" min="0" max="100" value="0" step="1" id="pSymGap" oninput="upP()"><span class="prow-val" id="vSymGap">0%</span></div>
         <div class="prow"><span class="prow-label">Spin</span><input type="range" min="0" max="5" value="0" step="0.5" id="pSpin" oninput="upP()"><span class="prow-val" id="vSpin">0</span></div>
         <div class="prow"><span class="prow-label">Speed</span><input type="range" min="0.1" max="5" value="1" step="0.1" id="pSpeed" oninput="upP()"><span class="prow-val" id="vSpeed">1×</span></div>
         <div class="prow"><span class="prow-label">Disorder</span><input type="range" min="0" max="100" value="0" step="1" id="rDisorder" oninput="upP()"><span class="prow-val" id="vrDisorder">0%</span></div>
-        <div class="prow" id="rowDrift"><span class="prow-label">Drift</span><input type="range" min="0" max="100" value="0" step="1" id="pDrift" oninput="upP()"><span class="prow-val" id="vDrift">0%</span></div>
         <div class="prow"><span class="prow-label">Drop</span><div class="mode-btns"><button class="mbtn" onclick="setDrop(true,this)">On</button><button class="mbtn on" onclick="setDrop(false,this)">Off</button></div></div>
         <div id="dropParams" style="display:none;flex-direction:column;gap:8px">
           <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="1" max="100" value="30" step="1" id="pDropSens" oninput="upP()"><span class="prow-val" id="vDropSens">30</span></div>
@@ -458,12 +459,17 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setPostFx(true,this)">On</button><button class="mbtn on" onclick="setPostFx(false,this)">Off</button></div></div>
         <div class="prow"><span class="prow-label">Bloom</span><input type="range" min="0" max="100" value="0" step="1" id="pfxBloom" oninput="upPostFx()"><span class="prow-val" id="vPfxBloom">0%</span></div>
         <div class="prow"><span class="prow-label">Chromatic</span><input type="range" min="0" max="100" value="0" step="1" id="pfxChroma" oninput="upPostFx()"><span class="prow-val" id="vPfxChroma">0%</span></div>
+        <div class="prow"><span class="prow-label">Contrast</span><input type="range" min="0" max="100" value="0" step="1" id="pfxContrast" oninput="upPostFx()"><span class="prow-val" id="vPfxContrast">0%</span></div>
         <div class="prow"><span class="prow-label">Vignette</span><input type="range" min="0" max="100" value="0" step="1" id="pfxVignette" oninput="upPostFx()"><span class="prow-val" id="vPfxVignette">0%</span></div>
         <div class="prow"><span class="prow-label">Grain</span><input type="range" min="0" max="100" value="0" step="1" id="pfxGrain" oninput="upPostFx()"><span class="prow-val" id="vPfxGrain">0%</span></div>
         <div class="prow"><span class="prow-label">Scanlines</span><input type="range" min="0" max="100" value="0" step="1" id="pfxScanlines" oninput="upPostFx()"><span class="prow-val" id="vPfxScanlines">0%</span></div>
-        <div class="prow"><span class="prow-label">Pixelate</span><input type="range" min="0" max="100" value="0" step="1" id="pfxPixelate" oninput="upPostFx()"><span class="prow-val" id="vPfxPixelate">0%</span></div>
         <div class="prow"><span class="prow-label">Sharpen</span><input type="range" min="0" max="100" value="0" step="1" id="pfxSharpen" oninput="upPostFx()"><span class="prow-val" id="vPfxSharpen">0%</span></div>
         <div class="prow"><span class="prow-label">Invert</span><input type="range" min="0" max="100" value="0" step="1" id="pfxInvert" oninput="upPostFx()"><span class="prow-val" id="vPfxInvert">0%</span></div>
+        <div class="prow"><span class="prow-label">Reflect</span><input type="range" min="0" max="100" value="0" step="1" id="pfxReflect" oninput="upPostFx()"><span class="prow-val" id="vPfxReflect">0%</span></div>
+        <div class="prow"><span class="prow-label">Blur X</span><input type="range" min="0" max="100" value="0" step="1" id="pfxBlurX" oninput="upPostFx()"><span class="prow-val" id="vPfxBlurX">0%</span></div>
+        <div class="prow"><span class="prow-label">Blur Y</span><input type="range" min="0" max="100" value="0" step="1" id="pfxBlurY" oninput="upPostFx()"><span class="prow-val" id="vPfxBlurY">0%</span></div>
+        <div class="prow"><span class="prow-label">Blur Radial</span><input type="range" min="0" max="100" value="0" step="1" id="pfxBlurRadial" oninput="upPostFx()"><span class="prow-val" id="vPfxBlurRadial">0%</span></div>
+        <div class="prow"><span class="prow-label">Focal Area</span><input type="range" min="0" max="100" value="0" step="1" id="pfxFocal" oninput="upPostFx()"><span class="prow-val" id="vPfxFocal">0%</span></div>
       </div>
     </div>
     <!-- REACTIVE RULES -->
@@ -522,7 +528,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 </div>
 <script>
 var frameCv=document.getElementById('frameCv'),frameCtx=frameCv.getContext('2d'),overCv=document.getElementById('overviewCv'),overCtx=overCv.getContext('2d');
-frameCv.addEventListener("mousedown",function(e){var lm=layoutMode;if(lm==="terrain"||lm==="sphere"||lm==="octahedron"||lm==="tetrahedron"||lm==="object"){pushUndo();isDragging=true;dragPrevX=e.clientX;dragPrevY=e.clientY;frameCv.style.cursor="grabbing";e.preventDefault()}});
+frameCv.addEventListener("mousedown",function(e){var lm=layoutMode;if(lm==="terrain"||lm==="sphere"||lm==="tetrahedron"||lm==="dna"||lm==="object"){pushUndo();isDragging=true;dragPrevX=e.clientX;dragPrevY=e.clientY;frameCv.style.cursor="grabbing";e.preventDefault()}});
 frameCv.addEventListener("mousemove",function(e){if(!isDragging)return;var dx=e.clientX-dragPrevX,dy=e.clientY-dragPrevY;dragRotY+=dx*0.008;dragRotX+=dy*0.008;dragPrevX=e.clientX;dragPrevY=e.clientY;var _t3=document.getElementById("p3dTilt"),_r3=document.getElementById("p3dRotate");if(_t3){_t3.value=Math.round(dragRotX*180/Math.PI);document.getElementById("v3dTilt").textContent=_t3.value+"\u00b0"}if(_r3){_r3.value=Math.round(dragRotY*180/Math.PI);document.getElementById("v3dRotate").textContent=_r3.value+"\u00b0"}renderDensity()});
 frameCv.addEventListener("mouseup",function(){isDragging=false;frameCv.style.cursor=""});
 frameCv.addEventListener("mouseleave",function(){isDragging=false;frameCv.style.cursor=""});
@@ -547,7 +553,9 @@ function togglePanel(id){document.getElementById(id).classList.toggle('closed')}
 
 // Params
 function P(){return{lines:+document.getElementById('pLines').value,contrast:+document.getElementById('pContrast').value/100,height:+document.getElementById('pHeight').value/100,thick:+document.getElementById('pThick').value}}
-function upP(){pushUndo();document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vFadeEdge').textContent=document.getElementById('pFadeEdge').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vDrift').textContent=document.getElementById('pDrift').value+'%';document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
+function upP(){pushUndo();document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vFadeEdge').textContent=document.getElementById('pFadeEdge').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vSymGap').textContent=document.getElementById('pSymGap').value+'%';
+document.getElementById('rowSymGap').style.display=symmetryMode!=='none'?'':'none';
+document.getElementById('vrDisorder').textContent=document.getElementById('rDisorder').value+'%';document.getElementById('vDropSens').textContent=document.getElementById('pDropSens').value;document.getElementById('vAmplify').textContent=parseFloat(document.getElementById('pAmplify').value).toFixed(1)+'×';
   document.getElementById('vCircleInner').textContent=document.getElementById('pCircleInner').value+'%';
   document.getElementById('vKalSegments').textContent=document.getElementById('pKalSegments').value;
   document.getElementById('vKalInner').textContent=document.getElementById('pKalInner').value+'%';
@@ -602,13 +610,14 @@ function upP(){pushUndo();document.getElementById('vLines').textContent=document
   document.getElementById('vSphereElev').textContent=document.getElementById('pSphereElev').value+'%';
   document.getElementById('vSphereNoise').textContent=document.getElementById('pSphereNoise').value+'%';
   document.getElementById('vSphereRotate').textContent=document.getElementById('pSphereRotate').value;
-  document.getElementById('vOctDetail').textContent=document.getElementById('pOctDetail').value;
-  document.getElementById('vOctPersp').textContent=document.getElementById('pOctPersp').value;
-  document.getElementById('vOctTilt').textContent=document.getElementById('pOctTilt').value+'°';
-  document.getElementById('vOctElev').textContent=document.getElementById('pOctElev').value+'%';
-  document.getElementById('vOctNoise').textContent=document.getElementById('pOctNoise').value+'%';
-  document.getElementById('vOctRotate').textContent=document.getElementById('pOctRotate').value;
-  document.getElementById('vTetDetail').textContent=document.getElementById('pTetDetail').value;
+              document.getElementById('vDnaTurns').textContent=document.getElementById('pDnaTurns').value;
+document.getElementById('vDnaRadius').textContent=document.getElementById('pDnaRadius').value+'%';
+document.getElementById('vDnaPersp').textContent=document.getElementById('pDnaPersp').value;
+document.getElementById('vDnaTilt').textContent=document.getElementById('pDnaTilt').value+'°';
+document.getElementById('vDnaElev').textContent=document.getElementById('pDnaElev').value+'%';
+document.getElementById('vDnaNoise').textContent=document.getElementById('pDnaNoise').value+'%';
+document.getElementById('vDnaRotate').textContent=document.getElementById('pDnaRotate').value;
+document.getElementById('vTetDetail').textContent=document.getElementById('pTetDetail').value;
   document.getElementById('vTetPersp').textContent=document.getElementById('pTetPersp').value;
   document.getElementById('vTetTilt').textContent=document.getElementById('pTetTilt').value+'°';
   document.getElementById('vTetElev').textContent=document.getElementById('pTetElev').value+'%';
@@ -620,7 +629,7 @@ function upP(){pushUndo();document.getElementById('vLines').textContent=document
   document.getElementById('vObjElev').textContent=document.getElementById('pObjElev').value+'%';
   document.getElementById('vObjNoise').textContent=document.getElementById('pObjNoise').value+'%';
   document.getElementById('vObjRotate').textContent=document.getElementById('pObjRotate').value;
-  document.getElementById('vDrift').textContent=document.getElementById('pDrift').value+'%';
+  
   if(stackMode&&stackLayouts.length>0){var _ai=getActiveLayerIdx();if(_ai>=0&&_ai<stackLayouts.length){stackLayouts[_ai].params=getLayoutParams();stackLayouts[_ai].layout=layoutMode}}
 _captureClean();
   renderDensity()}
@@ -664,7 +673,6 @@ function getLayoutParams(){
   p._waveFreq=+document.getElementById('pWaveFreq').value;
   p._shear=+document.getElementById('pShear').value;
   p._depth=+document.getElementById('pDepth').value;
-  p._drift=+document.getElementById('pDrift').value;
   
   
   // Randomness (per-layer)
@@ -679,6 +687,7 @@ function getLayoutParams(){
   p._flipV=flipV;
   p._mirrorOn=mirrorOn;
   p._symmetryMode=symmetryMode;
+  p._symGap=+document.getElementById('pSymGap').value;
   p._particleShape=particleShape;
   p._particlesOn=particlesOn;
   // Particle settings
@@ -739,7 +748,6 @@ function setLayoutParams(p){
   if('_waveFreq' in p)document.getElementById('pWaveFreq').value=p._waveFreq;
   if('_shear' in p)document.getElementById('pShear').value=p._shear;
   if('_depth' in p)document.getElementById('pDepth').value=p._depth;
-  if('_drift' in p)document.getElementById('pDrift').value=p._drift;
   
   
   // Randomness (per-layer)
@@ -753,6 +761,7 @@ function setLayoutParams(p){
   if('_flipH' in p){flipH=!!p._flipH;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('setFlipH')>-1)b.classList.toggle('on',flipH)})}
   if('_flipV' in p){flipV=!!p._flipV;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('setFlipV')>-1)b.classList.toggle('on',flipV)})}
   if('_mirrorOn' in p){mirrorOn=!!p._mirrorOn;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('setMirror(true')>-1)b.classList.toggle('on',mirrorOn);if(oc.indexOf('setMirror(false')>-1)b.classList.toggle('on',!mirrorOn)})}
+  if('_symGap' in p)document.getElementById('pSymGap').value=p._symGap||0;
   if('_symmetryMode' in p){symmetryMode=p._symmetryMode;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("setSymmetry('"+symmetryMode+"'")>-1)b.classList.add('on');else if(oc.indexOf("setSymmetry(")>-1)b.classList.remove('on')})}
   if('_particleShape' in p){particleShape=p._particleShape;document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf("setParticleShape('"+particleShape+"'")>-1)b.classList.add('on');else if(oc.indexOf("setParticleShape(")>-1)b.classList.remove('on')})}
   if('_particlesOn' in p){particlesOn=!!p._particlesOn;document.getElementById('particleParams').style.display=particlesOn?'flex':'none';document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';if(oc.indexOf('toggleParticles(true')>-1)b.classList.toggle('on',particlesOn);if(oc.indexOf('toggleParticles(false')>-1)b.classList.toggle('on',!particlesOn)})}
@@ -791,13 +800,13 @@ function getDefaultLayerParams(){
     _simpleStops:['#e94560','#f5a623','#6ee7b7'],
     _showOutline:false,_outlineStyle:'solid',_imgDir:'up',
     _outlineWeight:2,_outlineDist:0,_outlineCount:1,_outlineSpace:4,
-    _spin:0,_speed:1,_amplify:1,_twist:0,_bulge:0,_wave:0,_waveFreq:5,_shear:0,_depth:0,_drift:0,
+    _spin:0,_speed:1,_amplify:1,_twist:0,_bulge:0,_wave:0,_waveFreq:5,_shear:0,_depth:0,
     _rGlobal:0,_rDist:0,_rAppear:0,_rOutline:0,_rColor:0,_rDisorder:0,
     _flipH:false,_flipV:false,_mirrorOn:false,_symmetryMode:'none',_particleShape:'circle',_particlesOn:false,_zoomLoud:false,_playMode:'continuous',
     pPartDensity:20,pPartEnergy:1,pPartSpeed:3,pPartLife:120,pPartSize:12,pPartSpread:50,pPartGravity:0,pPartDamping:97,pPartTrail:0,
     pNoisePerlin:0,pNoiseCurl:0,pNoiseBrownian:0,pNoiseVortex:0,pNoiseScale:30,pNoiseSpeed:20,
     pScatterSpreadH:80,pScatterSpreadV:80,pScatterCluster:50,
-    pTerrainGrid:40,pTerrainDepth:40,pTerrainPersp:200,pTerrainCam:35,pTerrainElev:80,pTerrainNoise:40,pTerrainBend:0,pTerrainTwist:0,pSphereGrid:30,pSpherePersp:250,pSphereTilt:15,pSphereElev:60,pSphereNoise:50,pSphereRotate:5,pOctDetail:8,pOctPersp:250,pOctTilt:15,pOctElev:60,pOctNoise:50,pOctRotate:5,pTetDetail:8,pTetPersp:250,pTetTilt:15,pTetElev:60,pTetNoise:50,pTetRotate:5,pObjMaxFaces:2000,pObjPersp:250,pObjTilt:15,pObjElev:60,pObjNoise:50,pObjRotate:5
+    pTerrainGrid:40,pTerrainDepth:40,pTerrainPersp:200,pTerrainCam:35,pTerrainElev:80,pTerrainNoise:40,pTerrainBend:0,pTerrainTwist:0,pSphereGrid:30,pSpherePersp:250,pSphereTilt:15,pSphereElev:60,pSphereNoise:50,pSphereRotate:5,pTetDetail:8,pTetPersp:250,pTetTilt:15,pTetElev:60,pTetNoise:50,pTetRotate:5,pDnaTurns:4,pDnaRadius:30,pDnaPersp:250,pDnaTilt:15,pDnaElev:60,pDnaNoise:50,pDnaRotate:5,pObjMaxFaces:2000,pObjPersp:250,pObjTilt:15,pObjElev:60,pObjNoise:50,pObjRotate:5
   }));
 }
 function addLayer(){pushUndo();
@@ -915,7 +924,7 @@ function buildLayersUI(){
     list.appendChild(row);
   });
 }
-function setLayout(m,btn){pushUndo();var _is3d=m==='terrain'||m==='sphere'||m==='octahedron'||m==='tetrahedron'||m==='object';document.getElementById('p3dTiltRow').style.display=_is3d?'':'none';document.getElementById('p3dRotateRow').style.display=_is3d?'':'none';
+function setLayout(m,btn){pushUndo();var _is3d=m==='terrain'||m==='sphere'||m==='tetrahedron'||m==='dna'||m==='object';document.getElementById('p3dTiltRow').style.display=_is3d?'':'none';document.getElementById('p3dRotateRow').style.display=_is3d?'':'none';
   if(stackMode&&stackLayouts.length>0){
     // Update the currently selected layer's layout
     var activeIdx=getActiveLayerIdx();
@@ -1001,36 +1010,39 @@ function applyNoise(pt,lp,W,H){
 function setFlipH(btn){pushUndo();flipH=!flipH;btn.classList.toggle('on',flipH);if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function setFlipV(btn){pushUndo();flipV=!flipV;btn.classList.toggle('on',flipV);if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function setMirror(v,btn){pushUndo();mirrorOn=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
-function setSymmetry(m,btn){pushUndo();symmetryMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
+function setSymmetry(m,btn){pushUndo();symmetryMode=m;document.getElementById('rowSymGap').style.display=m!=='none'?'':'none';btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function setTextWeight(w,btn){textLayoutWeight=w;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');generateTextLayout()}
 function setTextDir(d,btn){textLayoutDir=d;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
-function applySymmetry(srcCv,mode){
+function applySymmetry(srcCv,mode,gapPct){
   if(!mode||mode==='none')return srcCv;
+  var gap=((gapPct||0)/100);
   var w=srcCv.width,h=srcCv.height;
   var cv=document.createElement('canvas');cv.width=w;cv.height=h;
   var ctx=cv.getContext('2d');
   if(mode==='x'){
-    // Mirror left-right
-    ctx.drawImage(srcCv,0,0);
-    ctx.save();ctx.translate(w,0);ctx.scale(-1,1);ctx.drawImage(srcCv,0,0);ctx.restore();
+    var ox=w*0.45*gap;
+    ctx.drawImage(srcCv,-ox,0);
+    ctx.save();ctx.translate(w,0);ctx.scale(-1,1);ctx.drawImage(srcCv,-ox,0);ctx.restore();
   }else if(mode==='y'){
-    // Mirror top-bottom
-    ctx.drawImage(srcCv,0,0);
-    ctx.save();ctx.translate(0,h);ctx.scale(1,-1);ctx.drawImage(srcCv,0,0);ctx.restore();
+    var oy=h*0.45*gap;
+    ctx.drawImage(srcCv,0,-oy);
+    ctx.save();ctx.translate(0,h);ctx.scale(1,-1);ctx.drawImage(srcCv,0,-oy);ctx.restore();
   }else if(mode==='xy'){
-    // Four quadrant mirror
-    ctx.drawImage(srcCv,0,0);
-    ctx.save();ctx.translate(w,0);ctx.scale(-1,1);ctx.drawImage(srcCv,0,0);ctx.restore();
-    ctx.save();ctx.translate(0,h);ctx.scale(1,-1);ctx.drawImage(srcCv,0,0);ctx.restore();
-    ctx.save();ctx.translate(w,h);ctx.scale(-1,-1);ctx.drawImage(srcCv,0,0);ctx.restore();
+    var ox=w*0.25*gap,oy=h*0.25*gap;
+    ctx.drawImage(srcCv,-ox,-oy);
+    ctx.save();ctx.translate(w,0);ctx.scale(-1,1);ctx.drawImage(srcCv,-ox,-oy);ctx.restore();
+    ctx.save();ctx.translate(0,h);ctx.scale(1,-1);ctx.drawImage(srcCv,-ox,-oy);ctx.restore();
+    ctx.save();ctx.translate(w,h);ctx.scale(-1,-1);ctx.drawImage(srcCv,-ox,-oy);ctx.restore();
   }else{
-    // Radial symmetry: r3, r4, r6, r8
     var n=parseInt(mode.substring(1))||4;
     var cx=w/2,cy=h/2;
+    var radOff=Math.min(w,h)*0.35*gap;
     for(var i=0;i<n;i++){
+      var angle=i*Math.PI*2/n;
       ctx.save();
       ctx.translate(cx,cy);
-      ctx.rotate(i*Math.PI*2/n);
+      ctx.rotate(angle);
+      ctx.translate(radOff,0);
       ctx.translate(-cx,-cy);
       ctx.drawImage(srcCv,0,0);
       ctx.restore();
@@ -1086,7 +1098,7 @@ function setPlayMode(m,btn){pushUndo();if(m==='particles'){m='continuous';partic
 
 // Reset all
 function resetAll(){
-  var defs={pLines:350,pContrast:75,pSensitivity:100,pHeight:80,pThick:1,pZoom:100,pOffX:0,pOffY:0,pRotation:0,pFadeEdge:0,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pWaveRows:8,pWaveAmp2:50,pConcRings:5,pConcInner:10,pImgThreshold:15,pImgCols:80,pTerrainGrid:40,pTerrainDepth:40,pTerrainPersp:200,pTerrainCam:35,pTerrainElev:80,pTerrainNoise:40,pTerrainBend:0,pTerrainTwist:0,pSphereGrid:30,pSpherePersp:250,pSphereTilt:15,pSphereElev:60,pSphereNoise:50,pSphereRotate:5,pOctDetail:8,pOctPersp:250,pOctTilt:15,pOctElev:60,pOctNoise:50,pOctRotate:5,pTetDetail:8,pTetPersp:250,pTetTilt:15,pTetElev:60,pTetNoise:50,pTetRotate:5,pObjMaxFaces:2000,pObjPersp:250,pObjTilt:15,pObjElev:60,pObjNoise:50,pObjRotate:5};
+  var defs={pLines:350,pContrast:75,pSensitivity:100,pHeight:80,pThick:1,pZoom:100,pOffX:0,pOffY:0,pRotation:0,pFadeEdge:0,pOutline:2,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pWaveRows:8,pWaveAmp2:50,pConcRings:5,pConcInner:10,pImgThreshold:15,pImgCols:80,pTerrainGrid:40,pTerrainDepth:40,pTerrainPersp:200,pTerrainCam:35,pTerrainElev:80,pTerrainNoise:40,pTerrainBend:0,pTerrainTwist:0,pSphereGrid:30,pSpherePersp:250,pSphereTilt:15,pSphereElev:60,pSphereNoise:50,pSphereRotate:5,pTetDetail:8,pTetPersp:250,pTetTilt:15,pTetElev:60,pTetNoise:50,pTetRotate:5,pDnaTurns:4,pDnaRadius:30,pDnaPersp:250,pDnaTilt:15,pDnaElev:60,pDnaNoise:50,pDnaRotate:5,pObjMaxFaces:2000,pObjPersp:250,pObjTilt:15,pObjElev:60,pObjNoise:50,pObjRotate:5};
   for(var id in defs){var el=document.getElementById(id);if(el)el.value=defs[id]}
   colorMode='toneramp';varyHeight=true;varyThick=false;showOutline=false;outlineStyle='solid';flipH=false;flipV=false;mirrorOn=false;symmetryMode='none';particlesOn=false;particleShape='circle';playMode='continuous';spinAngle=0;dragRotX=0;dragRotY=0;var _tR=document.getElementById('p3dTilt'),_rR=document.getElementById('p3dRotate');if(_tR){_tR.value=0;document.getElementById('v3dTilt').textContent='0\u00b0'}if(_rR){_rR.value=0;document.getElementById('v3dRotate').textContent='0\u00b0'};
   layoutMode='linear';document.getElementById('app').classList.remove('circle-mode');
@@ -1114,7 +1126,7 @@ function _rHex(){return'#'+[0,0,0].map(function(){return Math.floor(Math.random(
 
 function randAppearance(){
   pushUndo();
-  var layouts=['linear','circle','kaleidoscope','spiral','phyllotaxis','sine','concentric','scatter','terrain','sphere','octahedron','tetrahedron'];
+  var layouts=['linear','circle','kaleidoscope','spiral','phyllotaxis','sine','concentric','scatter','terrain','sphere','tetrahedron'];
   var l=layouts[_ri(0,layouts.length-1)];
   setLayout(l,null);
   document.getElementById('pLines').value=_ri(60,600);
@@ -1170,7 +1182,6 @@ function randEffects(){
   document.getElementById('pWaveFreq').value=_ri(2,10);
   document.getElementById('pShear').value=Math.random()>0.8?_ri(-40,40):0;
   document.getElementById('pDepth').value=Math.random()>0.6?_ri(10,80):0;
-  document.getElementById('pDrift').value=Math.random()>0.5?_ri(5,60):0;
   // Random symmetry
   var syms=['none','none','none','x','y','xy','r3','r4','r6','r8'];
   symmetryMode=syms[_ri(0,syms.length-1)];
@@ -1227,7 +1238,7 @@ function randomizeAll(){pushUndo();
   function ri(min,max){return Math.round(rr(min,max))}
   function rHex(){return'#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0')}
   function randomLayerParams(){
-    var layouts=['linear','circle','kaleidoscope','spiral','phyllotaxis','sine','concentric','terrain','sphere','octahedron','tetrahedron'];
+    var layouts=['linear','circle','kaleidoscope','spiral','phyllotaxis','sine','concentric','terrain','sphere','tetrahedron'];
     var shapes=['straight','rounded','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words','cascade','barcode','circles','braille'];
     var cmodes=['solid','toneramp','simpleramp'];
     var layout=layouts[ri(0,layouts.length-1)];
@@ -1360,11 +1371,11 @@ function getState(){
     stackLayouts[activeLayerIdx].layout=layoutMode;
   }
   var sliders={};
-  ['pLines','pContrast','pSensitivity','pHeight','pThick','pZoom','pOffX','pOffY','pRotation','pFadeEdge','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp','pWaveRows','pWaveAmp2','pConcRings','pConcInner','pImgThreshold','pImgCols','pTerrainGrid','pTerrainDepth','pTerrainPersp','pTerrainCam','pTerrainElev','pTerrainNoise','pTerrainBend','pTerrainTwist','pSphereGrid','pSpherePersp','pSphereTilt','pSphereElev','pSphereNoise','pSphereRotate','pOctDetail','pOctPersp','pOctTilt','pOctElev','pOctNoise','pOctRotate','pTetDetail','pTetPersp','pTetTilt','pTetElev','pTetNoise','pTetRotate','pObjMaxFaces','pObjPersp','pObjTilt','pObjElev','pObjNoise','pObjRotate','p3dTilt','p3dRotate'].forEach(function(id){
+  ['pLines','pContrast','pSensitivity','pHeight','pThick','pZoom','pOffX','pOffY','pRotation','pFadeEdge','pOutline','pOutlineDist','pOutlineCount','pOutlineSpace','pSpin','pSpeed','pAmplify','pTwist','pBulge','pWave','pWaveFreq','pShear','pDepth','rGlobal','rDist','rAppear','rOutline','rColor','rDisorder','pCircleInner','pKalSegments','pKalInner','pSpiralTurns','pSpiralInner','pSpiralSpread','pFibDensity','pFibInner','pPhylDiv','pPhylDensity','pPhylInner','pSineWaves','pSineAmp','pWaveRows','pWaveAmp2','pConcRings','pConcInner','pImgThreshold','pImgCols','pTerrainGrid','pTerrainDepth','pTerrainPersp','pTerrainCam','pTerrainElev','pTerrainNoise','pTerrainBend','pTerrainTwist','pSphereGrid','pSpherePersp','pSphereTilt','pSphereElev','pSphereNoise','pSphereRotate','pTetDetail','pTetPersp','pTetTilt','pTetElev','pTetNoise','pTetRotate','pDnaTurns','pDnaRadius','pDnaPersp','pDnaTilt','pDnaElev','pDnaNoise','pDnaRotate','pObjMaxFaces','pObjPersp','pObjTilt','pObjElev','pObjNoise','pObjRotate','p3dTilt','p3dRotate','pSymGap'].forEach(function(id){
     var el=document.getElementById(id);if(el)sliders[id]=parseFloat(el.value);
   });
   var pfx={enabled:!!postFxEnabled};
-  ['pfxBloom','pfxChroma','pfxVignette','pfxGrain','pfxScanlines','pfxPixelate','pfxSharpen','pfxInvert'].forEach(function(id){
+  ['pfxBloom','pfxChroma','pfxContrast','pfxVignette','pfxGrain','pfxScanlines','pfxSharpen','pfxInvert','pfxReflect','pfxBlurX','pfxBlurY','pfxBlurRadial','pfxFocal'].forEach(function(id){
     var el=document.getElementById(id);if(el)pfx[id]=parseFloat(el.value);
   });
   return{sliders:sliders,playMode:playMode,stackMode:true,stackLayouts:JSON.parse(JSON.stringify(stackLayouts)),activeLayerIdx:activeLayerIdx,canvasBg:canvasBg,seeds:randSeeds.slice(),postFx:pfx};
@@ -1408,7 +1419,7 @@ function applyState(st){
   // Restore post-FX state
   if(st.postFx){
     var pfx=st.postFx;
-    ['pfxBloom','pfxChroma','pfxVignette','pfxGrain','pfxScanlines','pfxPixelate','pfxSharpen','pfxInvert'].forEach(function(id){
+    ['pfxBloom','pfxChroma','pfxContrast','pfxVignette','pfxGrain','pfxScanlines','pfxSharpen','pfxInvert','pfxReflect','pfxBlurX','pfxBlurY','pfxBlurRadial','pfxFocal'].forEach(function(id){
       var el=document.getElementById(id);if(el&&pfx[id]!=null)el.value=pfx[id];
     });
     upPostFx();
@@ -1609,7 +1620,6 @@ var REACTIVE_TARGETS={
   wave:{label:'Wave',base:'pWave',min:0,max:100},
   shear:{label:'Shear',base:'pShear',min:-100,max:100},
   depth:{label:'Depth',base:'pDepth',min:0,max:100},
-  drift:{label:'Drift',base:'pDrift',min:0,max:100},
   partDensity:{label:'Part. Density',base:'pPartDensity',min:1,max:50},
   partSize:{label:'Part. Size',base:'pPartSize',min:1,max:40},
   partSpeed:{label:'Part. Speed',base:'pPartSpeed',min:0.5,max:10},
@@ -1787,7 +1797,6 @@ var MIXER_PARAMS={
     {id:'pWave',min:0,max:50,speed:0.2},
     {id:'pShear',min:-30,max:30,speed:0.15},
     {id:'pDepth',min:0,max:60,speed:0.2},
-    {id:'pDrift',min:0,max:40,speed:0.35},
     {id:'pSpin',min:0,max:3,speed:0.1}
   ],
   colors:[
@@ -1963,9 +1972,9 @@ function upPostFx(){
   document.getElementById('vPfxVignette').textContent=document.getElementById('pfxVignette').value+'%';
   document.getElementById('vPfxGrain').textContent=document.getElementById('pfxGrain').value+'%';
   document.getElementById('vPfxScanlines').textContent=document.getElementById('pfxScanlines').value+'%';
-  document.getElementById('vPfxPixelate').textContent=document.getElementById('pfxPixelate').value+'%';
-  document.getElementById('vPfxSharpen').textContent=document.getElementById('pfxSharpen').value+'%';
+    document.getElementById('vPfxSharpen').textContent=document.getElementById('pfxSharpen').value+'%';
   document.getElementById('vPfxInvert').textContent=document.getElementById('pfxInvert').value+'%';
+  document.getElementById('vPfxReflect').textContent=document.getElementById('pfxReflect').value+'%';
 }
 function initPostFx(){
   if(postFxGl)return;
@@ -1977,7 +1986,7 @@ function initPostFx(){
   var verts=new Float32Array([-1,-1,1,-1,-1,1,1,1]);
   var buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,verts,gl.STATIC_DRAW);
   // Compile main composite shader
-  var vs=`attribute vec2 pos;varying vec2 uv;void main(){uv=vec2(pos.x*0.5+0.5,0.5-pos.y*0.5);gl_Position=vec4(pos,0,1);}`;
+  var vs=`attribute vec2 pos;varying vec2 uv;void main(){uv=vec2(pos.x*0.5+0.5,pos.y*0.5+0.5);gl_Position=vec4(pos,0,1);}`;
   var fs=`precision mediump float;
 varying vec2 uv;
 uniform sampler2D uTex;
@@ -1987,9 +1996,14 @@ uniform float uChroma;
 uniform float uVignette;
 uniform float uGrain;
 uniform float uScanlines;
-uniform float uPixelate;
 uniform float uSharpen;
 uniform float uInvert;
+uniform float uReflect;
+uniform float uBlurX;
+uniform float uBlurY;
+uniform float uBlurRadial;
+uniform float uContrast;
+uniform float uFocal;
 uniform float uTime;
 uniform vec2 uRes;
 
@@ -1997,10 +2011,26 @@ float rand(vec2 co){return fract(sin(dot(co,vec2(12.9898,78.233)))*43758.5453);}
 
 void main(){
   vec2 st=uv;
-  if(uPixelate>0.0){
-    float pxSize=mix(1.0,32.0,uPixelate);
-    vec2 grid=uRes/pxSize;
-    st=floor(st*grid)/grid;
+  vec4 blurCol=vec4(0.0);
+  float blurUsed=0.0;
+  if(uBlurX>0.0){
+    float bx=uBlurX*0.03;
+    vec4 s=vec4(0.0);
+    for(float i=-4.0;i<=4.0;i+=1.0){s+=texture2D(uTex,st+vec2(i*bx/4.0,0.0));}
+    blurCol+=s/9.0;blurUsed+=1.0;
+  }
+  if(uBlurY>0.0){
+    float by=uBlurY*0.03;
+    vec4 s=vec4(0.0);
+    for(float i=-4.0;i<=4.0;i+=1.0){s+=texture2D(uTex,st+vec2(0.0,i*by/4.0));}
+    blurCol+=s/9.0;blurUsed+=1.0;
+  }
+  if(uBlurRadial>0.0){
+    float br=uBlurRadial*0.04;
+    vec2 dir=st-vec2(0.5);
+    vec4 s=vec4(0.0);
+    for(float i=-4.0;i<=4.0;i+=1.0){s+=texture2D(uTex,st+dir*i*br/4.0);}
+    blurCol+=s/9.0;blurUsed+=1.0;
   }
   vec4 col;
   if(uChroma>0.0){
@@ -2016,6 +2046,15 @@ void main(){
     );
   }else{
     col=texture2D(uTex,st);
+  }
+  if(blurUsed>0.0){
+    float blurMix=0.85;
+    if(uFocal>0.0){
+      float fd=length(st-vec2(0.5));
+      float fr=uFocal*0.45;
+      blurMix*=smoothstep(fr,fr+0.15,fd);
+    }
+    col=mix(col,blurCol/blurUsed,blurMix);
   }
   if(uSharpen>0.0){
     vec2 px=1.0/uRes;
@@ -2037,6 +2076,16 @@ void main(){
   }
   if(uGrain>0.0){
     col.rgb+=(rand(st*uRes+fract(uTime*7.0))*2.0-1.0)*uGrain*0.12;
+  }
+  if(uReflect>0.0){
+    vec2 mirUV=vec2(uv.x,1.0-uv.y);
+    vec3 refl=texture2D(uBloom,mirUV).rgb;
+    col.rgb+=refl*uReflect*3.0;
+  }
+  col.rgb=max(col.rgb,vec3(0.0));
+  if(uContrast>0.0){
+    col.rgb=(col.rgb-0.5)*(1.0+uContrast*3.0)+0.5;
+    col.rgb=max(col.rgb,vec3(0.0));
   }
   if(uInvert>0.0){
     col.rgb=mix(col.rgb,1.0-col.rgb,uInvert);
@@ -2123,15 +2172,22 @@ function applyPostFx(){
   }
   // Upload source canvas as texture
   gl.bindTexture(gl.TEXTURE_2D,postFxTexture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,srcCv);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
   var bloom=+document.getElementById('pfxBloom').value/100;
   var chroma=+document.getElementById('pfxChroma').value/100;
   var vignette=+document.getElementById('pfxVignette').value/100;
   var grain=+document.getElementById('pfxGrain').value/100;
   var scanlines=+document.getElementById('pfxScanlines').value/100;
-  var pixelate=+document.getElementById('pfxPixelate').value/100;
   var sharpen=+document.getElementById('pfxSharpen').value/100;
   var invert=+document.getElementById('pfxInvert').value/100;
+  var reflect=+(document.getElementById('pfxReflect')||{value:0}).value/100;
+  var contrast=+(document.getElementById('pfxContrast')||{value:0}).value/100;
+  var blurX=+(document.getElementById('pfxBlurX')||{value:0}).value/100;
+  var blurY=+(document.getElementById('pfxBlurY')||{value:0}).value/100;
+  var blurRadial=+(document.getElementById('pfxBlurRadial')||{value:0}).value/100;
+  var focal=+(document.getElementById('pfxFocal')||{value:0}).value/100;
   // Bloom: threshold → blur H → blur V → blur H (wider) → blur V (wider)
   if(bloom>0){
     // Step 1: Threshold — extract bright pixels into fbC
@@ -2189,9 +2245,14 @@ function applyPostFx(){
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uVignette'),vignette);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uGrain'),grain);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uScanlines'),scanlines);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uPixelate'),pixelate);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uSharpen'),sharpen);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uInvert'),invert);
+  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uReflect'),reflect);
+  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uContrast'),contrast);
+  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBlurX'),blurX);
+  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBlurY'),blurY);
+  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBlurRadial'),blurRadial);
+  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFocal'),focal);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uTime'),performance.now()*0.001);
   gl.uniform2f(gl.getUniformLocation(postFxProgram,'uRes'),w,h);
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);
@@ -2320,13 +2381,7 @@ function morphLoop(){if(!morphing){morphRAF=null;return}morphRAF=requestAnimatio
 function upR(){renderDensity()}
 function getRand(idx,group){var g=+document.getElementById('rGlobal').value/100;var gr=+document.getElementById(group).value/100;var r=group==='rColor'?gr:Math.max(g,gr);return(randSeeds[idx%randSeeds.length]-0.5)*2*r}
 function getDisorder(idx){var d=+document.getElementById('rDisorder').value/100;return(randSeeds[(idx*7+13)%randSeeds.length]-0.5)*2*d}
-function getDrift(idx){
-  var d=+document.getElementById('pDrift').value/100;
-  if(d===0)return 0;
-  var speed=randSeeds[(idx*11+17)%randSeeds.length]*0.8+0.2;
-  var phase=randSeeds[(idx*13+29)%randSeeds.length]*Math.PI*2;
-  return Math.sin(globalFrame*0.03*speed+phase)*d;
-}
+function getDrift(idx){return 0;}
 
 // Drawing
 function drawShapedLine(ctx,x,ly,lh,t,val){
@@ -2589,7 +2644,11 @@ function liveAnimLoop(){
   var spin=+document.getElementById('pSpin').value;
   var amp=+document.getElementById('pAmplify').value;
   var sens=+document.getElementById('pSensitivity').value/100;
-  var speed=+document.getElementById('pSpeed').value;if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002*speed;wavePhase+=0.05*speed;
+  var speed=+document.getElementById('pSpeed').value;
+  // Update spinAngle from max spin across all layers
+  var _maxSpin=spin;
+  if(stackMode)for(var _si=0;_si<stackLayouts.length;_si++){var _lp=stackLayouts[_si].params;if(_lp&&_lp.pSpin>_maxSpin)_maxSpin=_lp.pSpin}
+  if(_maxSpin>0&&layoutMode!=='linear')spinAngle+=_maxSpin*0.002*speed;wavePhase+=0.05*speed;
   if(dropEnabled&&analyser){if(detectDrop(analyser))triggerDrop();applyDropDecay()}
   applyReactiveRules(analyser);
   mixerTick(analyser);
@@ -2668,7 +2727,8 @@ function liveAnimLoop(){
       // Apply per-layer symmetry
       var lvSym=(layer.params&&layer.params._symmetryMode)||'none';
       if(si===getActiveLayerIdx())lvSym=symmetryMode;
-      lCv=applySymmetry(lCv,lvSym);
+      var lvGap=(layer.params&&'_symGap' in layer.params)?layer.params._symGap:(si===getActiveLayerIdx()?+document.getElementById('pSymGap').value:0);
+      lCv=applySymmetry(lCv,lvSym,lvGap);
       // Apply per-layer flip
       var lvFlipH=!!(layer.params&&layer.params._flipH);
       var lvFlipV=!!(layer.params&&layer.params._flipV);
@@ -2830,7 +2890,7 @@ function spawnParticles(energy,W,H,p,layerParams,layerIdx){
       var pick=_objSpawnPts[Math.floor(Math.random()*_objSpawnPts.length)];
       px=pick.x+(Math.random()-0.5)*15;
       py=pick.y+(Math.random()-0.5)*15;
-    }else if((lm==='octahedron'||lm==='tetrahedron')&&lastFrameLines&&lastFrameLines.lines&&lastFrameLines.lines.length>0){
+    }else if((lm==='tetrahedron')&&lastFrameLines&&lastFrameLines.lines&&lastFrameLines.lines.length>0){
       var pLines=lastFrameLines.lines;
       var pick=pLines[Math.floor(Math.random()*pLines.length)];
       px=pick.x+(Math.random()-0.5)*15;
@@ -3281,8 +3341,8 @@ function drawDensity(ctx,W,H,values,p,forExport){
   if(layoutMode==='scatter')return drawScatter(ctx,W,H,values,p,forExport);
   if(layoutMode==='terrain')return drawTerrain(ctx,W,H,values,p,forExport);
   if(layoutMode==='sphere')return drawSphere(ctx,W,H,values,p,forExport);
-  if(layoutMode==='octahedron')return drawPolyhedron(ctx,W,H,values,p,forExport,'oct');
   if(layoutMode==='tetrahedron')return drawPolyhedron(ctx,W,H,values,p,forExport,'tet');
+  if(layoutMode==='dna')return drawDNA(ctx,W,H,values,p,forExport);
   if(layoutMode==='object')return drawObjModel(ctx,W,H,values,p,forExport);
   if(layoutMode==='sine')return drawSine(ctx,W,H,values,p,forExport);
   if(layoutMode==='custom')return drawCustom(ctx,W,H,values,p,forExport);
@@ -4930,6 +4990,163 @@ function drawObjModel(ctx,W,H,values,p,forExport){
   return lines;
 }
 
+
+function drawDNA(ctx,W,H,values,p,forExport){
+  var n=values.length;if(n===0)return[];
+  var turns=+document.getElementById('pDnaTurns').value||4;
+  var radiusPct=+document.getElementById('pDnaRadius').value||30;
+  var persp=+document.getElementById('pDnaPersp').value||250;
+  var tiltDeg=+document.getElementById('pDnaTilt').value||15;
+  var elevScale=(+document.getElementById('pDnaElev').value||60)/100;
+  var noiseAmt=(+document.getElementById('pDnaNoise').value||50)/100;
+  var rotateSpeed=(+document.getElementById('pDnaRotate').value||5)/100;
+  var tw=+document.getElementById('pThick').value||1;
+  var lineShape=window.lineShape||'straight';
+  var time=typeof wavePhase!=='undefined'?wavePhase*0.3:0;
+  var rotAngle=time*rotateSpeed+dragRotY;
+  var tiltRad=tiltDeg*Math.PI/180+dragRotX;
+  var cosT=Math.cos(tiltRad),sinT=Math.sin(tiltRad);
+  var R=Math.min(W,H)*radiusPct/100;
+  var helixH=Math.min(W,H)*0.8;
+  var centerX=W/2,centerY=H/2;
+  var maxBump=R*0.3*elevScale;
+  var steps=Math.max(n,Math.round(turns*40));
+  var lines=[];
+
+  // Generate helix points
+  var strand1=[],strand2=[];
+  for(var i=0;i<=steps;i++){
+    var t=i/steps;
+    var theta=t*turns*Math.PI*2+rotAngle;
+    var y3d=t*helixH-helixH/2;
+    // Audio sample
+    var ai=Math.floor(t*(n-1));
+    var v=values[Math.min(ai,n-1)];
+    var bump=v*maxBump;
+    // Noise
+    var nx=Math.sin(theta*3.1+y3d*0.02)*noiseAmt*0.3;
+    var ny=Math.cos(theta*2.7-y3d*0.03)*noiseAmt*0.2;
+    // Strand 1
+    var x1=(R+bump+nx*R)*Math.cos(theta);
+    var z1=(R+bump+nx*R)*Math.sin(theta);
+    // Strand 2 (offset by PI)
+    var x2=(R+bump+ny*R)*Math.cos(theta+Math.PI);
+    var z2=(R+bump+ny*R)*Math.sin(theta+Math.PI);
+    // Apply tilt (rotate around X axis)
+    var ry1=y3d*cosT-z1*sinT, rz1=y3d*sinT+z1*cosT;
+    var ry2=y3d*cosT-z2*sinT, rz2=y3d*sinT+z2*cosT;
+    // Perspective projection
+    var d1=rz1+persp;if(d1<10)d1=10;
+    var d2=rz2+persp;if(d2<10)d2=10;
+    var sx1=centerX+x1*persp/d1, sy1=centerY+ry1*persp/d1;
+    var sx2=centerX+x2*persp/d2, sy2=centerY+ry2*persp/d2;
+    var h=Math.max(0,bump/Math.max(1,maxBump));
+    strand1.push({sx:sx1,sy:sy1,z:rz1,h:h,t:t});
+    strand2.push({sx:sx2,sy:sy2,z:rz2,h:h,t:t});
+  }
+
+  // Determine if style needs edge strokes
+  var needsEdges=lineShape==='straight'||lineShape==='rounded'||lineShape==='dashed'||lineShape==='dotted'||lineShape==='tapered'||lineShape==='caps'||lineShape==='barcode'||lineShape==='chevrons';
+
+  // Draw rungs (base pairs) — depth sorted
+  var rungs=[];
+  var rungStep=Math.max(1,Math.floor(steps/Math.min(n,120)));
+  for(var i=0;i<=steps;i+=rungStep){
+    var a=strand1[i],b=strand2[i];
+    var avgZ=(a.z+b.z)/2;
+    rungs.push({a:a,b:b,z:avgZ,i:i});
+  }
+  rungs.sort(function(a,b){return a.z-b.z}); // far first
+
+  for(var ri=0;ri<rungs.length;ri++){
+    var rung=rungs[ri];
+    var a=rung.a,b=rung.b;
+    var hAvg=(a.h+b.h)/2;
+    var colVal=hAvg*0.35+rung.a.t*0.65;
+    var col=forExport?lineColHex(colVal,a.t,rung.i%n,n):lineCol(colVal,a.t,rung.i%n,n);
+    ctx.strokeStyle=col;
+    ctx.globalAlpha=Math.max(0.05,0.15+hAvg*0.4);
+    ctx.lineWidth=tw*0.6;
+    ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke();
+  }
+
+  // Draw backbone strands
+  ctx.lineWidth=tw;
+  if(lineShape==='dashed')ctx.setLineDash([tw*4,tw*3]);
+  else if(lineShape==='dotted')ctx.setLineDash([tw,tw*2]);
+  else ctx.setLineDash([]);
+
+  // Strand 1
+  if(needsEdges){
+    ctx.beginPath();
+    for(var i=0;i<=steps;i++){
+      var pt=strand1[i];
+      var colVal=pt.h*0.35+pt.t*0.65;
+      if(i===0)ctx.moveTo(pt.sx,pt.sy);
+      else ctx.lineTo(pt.sx,pt.sy);
+      if(i%10===0&&i>0){
+        var col=forExport?lineColHex(colVal,pt.t,i%n,n):lineCol(colVal,pt.t,i%n,n);
+        ctx.strokeStyle=col;
+        ctx.globalAlpha=Math.max(0.15,0.3+pt.h*0.7);
+        ctx.stroke();
+        ctx.beginPath();ctx.moveTo(pt.sx,pt.sy);
+      }
+    }
+    ctx.stroke();
+
+    // Strand 2
+    ctx.beginPath();
+    for(var i=0;i<=steps;i++){
+      var pt=strand2[i];
+      var colVal=pt.h*0.35+(1-pt.t)*0.65;
+      if(i===0)ctx.moveTo(pt.sx,pt.sy);
+      else ctx.lineTo(pt.sx,pt.sy);
+      if(i%10===0&&i>0){
+        var col=forExport?lineColHex(colVal,pt.t,i%n,n):lineCol(colVal,pt.t,i%n,n);
+        ctx.strokeStyle=col;
+        ctx.globalAlpha=Math.max(0.15,0.3+pt.h*0.7);
+        ctx.stroke();
+        ctx.beginPath();ctx.moveTo(pt.sx,pt.sy);
+      }
+    }
+    ctx.stroke();
+  }
+
+  // Decorative markers at strand vertices
+  if(!needsEdges){
+    var mSize=tw*3;
+    var mStep=Math.max(1,Math.floor(steps/200));
+    for(var i=0;i<=steps;i+=mStep){
+      var pt=strand1[i];
+      var colVal=pt.h*0.35+pt.t*0.65;
+      var col=forExport?lineColHex(colVal,pt.t,i%n,n):lineCol(colVal,pt.t,i%n,n);
+      ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=tw;
+      ctx.globalAlpha=Math.max(0.2,0.3+pt.h*0.7);
+      var markerH=Math.max(mSize*0.5,mSize*pt.h*2);
+      drawShapedLine(ctx,pt.sx,pt.sy-markerH/2,markerH,tw,Math.max(0.15,pt.h));
+      // Strand 2
+      pt=strand2[i];
+      colVal=pt.h*0.35+(1-pt.t)*0.65;
+      col=forExport?lineColHex(colVal,pt.t,i%n,n):lineCol(colVal,pt.t,i%n,n);
+      ctx.strokeStyle=col;ctx.fillStyle=col;
+      ctx.globalAlpha=Math.max(0.2,0.3+pt.h*0.7);
+      markerH=Math.max(mSize*0.5,mSize*pt.h*2);
+      drawShapedLine(ctx,pt.sx,pt.sy-markerH/2,markerH,tw,Math.max(0.15,pt.h));
+    }
+  }
+
+  ctx.setLineDash([]);
+  ctx.globalAlpha=1;
+
+  // Particle data
+  for(var i=0;i<steps;i+=3){
+    var pt=strand1[i];
+    lines.push({v:pt.h*0.35+pt.t*0.65,x:pt.sx,y:pt.sy,lh:Math.max(5,pt.h*30),tw:tw,pos:pt.t});
+  }
+  lastFrameLines={lines:lines,W:W,H:H,p:p,circle:false};
+  return lines;
+}
+
 function drawCustom(ctx,W,H,values,p,forExport){
   var n=values.length;if(n===0)return[];
   var fnXSrc=document.getElementById('customFnX').value||'t*W';
@@ -5108,7 +5325,8 @@ function renderDensity(){
       // Apply per-layer symmetry
       var sSym=(layer.params&&layer.params._symmetryMode)||'none';
       if(si===getActiveLayerIdx())sSym=symmetryMode;
-      lCv=applySymmetry(lCv,sSym);
+      var sGap=(layer.params&&'_symGap' in layer.params)?layer.params._symGap:(si===getActiveLayerIdx()?+document.getElementById('pSymGap').value:0);
+      lCv=applySymmetry(lCv,sSym,sGap);
       // Composite: center layer canvas onto offscreen canvas with opacity + flip
       var lFlipH=!!(layer.params&&layer.params._flipH);
       var lFlipV=!!(layer.params&&layer.params._flipV);
@@ -5222,7 +5440,11 @@ function animLoop(){if(!playing){rafId=null;return}
   frameCtx.fillStyle=canvasBg;frameCtx.fillRect(0,0,sz.W,sz.H);
   var zoom=+document.getElementById('pZoom').value/100;
   var spin=+document.getElementById('pSpin').value;
-  var speed=+document.getElementById('pSpeed').value;if(spin>0&&layoutMode!=='linear')spinAngle+=spin*0.002*speed;wavePhase+=0.05*speed;
+  var speed=+document.getElementById('pSpeed').value;
+  // Update spinAngle from max spin across all layers
+  var _maxSpin=spin;
+  if(stackMode)for(var _si=0;_si<stackLayouts.length;_si++){var _lp=stackLayouts[_si].params;if(_lp&&_lp.pSpin>_maxSpin)_maxSpin=_lp.pSpin}
+  if(_maxSpin>0&&layoutMode!=='linear')spinAngle+=_maxSpin*0.002*speed;wavePhase+=0.05*speed;
   if(dropEnabled&&analyser){if(detectDrop(analyser))triggerDrop();applyDropDecay()}
   applyReactiveRules(analyser);
   mixerTick(analyser);
@@ -5323,7 +5545,8 @@ function animLoop(){if(!playing){rafId=null;return}
       // Apply per-layer symmetry
       var aSym=(layer.params&&layer.params._symmetryMode)||'none';
       if(si===getActiveLayerIdx())aSym=symmetryMode;
-      lCv=applySymmetry(lCv,aSym);
+      var aGap=(layer.params&&'_symGap' in layer.params)?layer.params._symGap:(si===getActiveLayerIdx()?+document.getElementById('pSymGap').value:0);
+      lCv=applySymmetry(lCv,aSym,aGap);
       // Apply per-layer flip
       var aFlipH=!!(layer.params&&layer.params._flipH);
       var aFlipV=!!(layer.params&&layer.params._flipV);
@@ -5602,8 +5825,9 @@ function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.displ
 
 <div class="help-section">
 <h3>Appearance</h3>
-<p><strong>Layouts (12)</strong> — Linear, Circle, Kaleidoscope, Spiral, Phyllotaxis, Sine, Concentric, Scatter, Image, Video, Text, Custom. Each has its own parameters when selected.</p>
+<p><strong>Layouts (17)</strong> — Linear, Circle, Kaleidoscope, Spiral, Phyllotaxis, Sine, Concentric, Scatter, Image, Video, Text, Custom, plus 5 wireframe 3D layouts: Sphere, Tetrahedron, Terrain, DNA, Object. Each has its own parameters when selected.</p>
 <p><strong>Lines / Contrast / Sensitivity / Height / Thickness</strong> — core line parameters. <strong>Vary Height / Vary Thick</strong> — organic variation. <strong>Scale / Offset / Rotation / Fade Edges</strong> — framing controls.</p>
+<p><strong>3D Tilt / 3D Rotate</strong> — appear for wireframe layouts. Control camera angle. Click-drag the canvas to orbit; sliders update bidirectionally.</p>
 <p><strong>🎲</strong> — randomize just this panel's settings.</p>
 </div>
 
@@ -5634,8 +5858,8 @@ function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.displ
 <h3>Effects</h3>
 <p><strong>Playback</strong> — Off / Continuous / Equalizer (per-layer). Off hides base lines for particles-only mode.</p>
 <p><strong>Spin</strong> — continuous rotation. <strong>Speed / Amplify</strong> — animation and audio response scaling.</p>
-<p><strong>Distortions</strong> — Twist, Bulge, Wave (+ frequency), Shear, Depth, Drift. All audio-reactive.</p>
-<p><strong>Symmetry</strong> — Off, X, Y, XY, 3/4/6/8-fold radial. <strong>Flip</strong> — H/V per-layer.</p>
+<p><strong>Distortions</strong> — Twist, Bulge, Wave (+ frequency), Shear, Depth. All audio-reactive.</p>
+<p><strong>Symmetry</strong> — Off, X, Y, XY, 3/4/6/8-fold radial. <strong>Sym Gap</strong> — pushes symmetry copies apart from center. <strong>Flip</strong> — H/V per-layer.</p>
 <p><strong>🎲</strong> randomizes all effects settings.</p>
 </div>
 
@@ -5644,19 +5868,23 @@ function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.displ
 <p>Toggle On to enable real-time GPU post-processing over the entire visualization. All effects run in WebGL fragment shaders with near-zero performance cost.</p>
 <p><strong>Bloom</strong> — bright lines and particles get a soft glow halo. Uses brightness thresholding so dark areas stay clean.</p>
 <p><strong>Chromatic Aberration</strong> — RGB channel separation, radial from center. Creates a camera lens / analog video look.</p>
+<p><strong>Contrast</strong> — boosts contrast around the midpoint. Darks go darker, brights go brighter.</p>
 <p><strong>Vignette</strong> — darkens edges, draws focus to center.</p>
 <p><strong>Grain</strong> — animated film grain noise.</p>
 <p><strong>Scanlines</strong> — CRT-style horizontal lines with subtle horizontal drift.</p>
-<p><strong>Pixelate</strong> — mosaic / pixel art effect.</p>
 <p><strong>Sharpen</strong> — unsharp mask, enhances thin lines and fine detail.</p>
 <p><strong>Invert</strong> — smoothly blend between normal and inverted colors.</p>
+<p><strong>Reflect</strong> — overlays a vertically flipped version of the bloom glow. Recreates the classic mirrored-bloom aesthetic.</p>
+<p><strong>Blur X / Blur Y</strong> — directional motion blur along horizontal or vertical axis.</p>
+<p><strong>Blur Radial</strong> — zoom blur radiating from the center outward.</p>
+<p><strong>Focal Area</strong> — when any blur is active, defines a sharp circular zone at center. Outer areas blur while the focal region stays crisp, creating a depth-of-field effect.</p>
 </div>
 
 <div class="help-section">
 <h3>Reactive Rules</h3>
 <p>Map audio features to visual parameters for automatic audio-reactive behavior. Click <strong>+ Add Rule</strong> to create a mapping.</p>
 <p><strong>Audio sources</strong> — Bass (20-250Hz), Mid (250Hz-2kHz), Treble (2k-16kHz), Energy (full spectrum), Beat (transient spikes).</p>
-<p><strong>Targets</strong> — Spin, Height, Thickness, Zoom, Twist, Bulge, Wave, Shear, Depth, Drift, Particle Density/Size/Speed/Trail, Hue Shift.</p>
+<p><strong>Targets</strong> — Spin, Height, Thickness, Zoom, Twist, Bulge, Wave, Shear, Depth, Particle Density/Size/Speed/Trail, Hue Shift.</p>
 <p>The strength slider controls how much the audio feature modulates the target. Multiple rules can stack. Remove a rule or set strength to 0 to disable — the parameter returns to its base value.</p>
 </div>
 
@@ -5671,7 +5899,7 @@ function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.displ
 
 <div class="help-section">
 <h3>Presets</h3>
-<p><strong>Built-in presets</strong> (★) — 15+ presets covering various styles. Loading applies to the active layer only.</p>
+<p><strong>Built-in presets</strong> (★) — 10 presets covering various styles. Loading applies to the active layer only.</p>
 <p><strong>Save</strong> — saves the active layer. <strong>Save All</strong> — saves all layers, background, and full state (marked with ◈). <strong>Load</strong> — loads a saved preset. <strong>Clear</strong> — removes all user presets.</p>
 <p><strong>Export preset</strong> — open browser console, run <code>copy(JSON.stringify(getState()))</code> to copy the full state as JSON.</p>
 </div>
@@ -5684,6 +5912,7 @@ function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.displ
 <div class="help-section">
 <h3>3D Mode</h3>
 <p>Toggle 3D to render as 3D objects. 5 shapes (Cylinder, Box, Cone, Diamond, Flat) × 6 materials (Standard, Metal, Plastic, Matte, Glass, Neon). Mouse drag to orbit, scroll to zoom.</p>
+<p><strong>Wireframe layouts</strong> — Sphere, Tetrahedron, Terrain, DNA, Object render as colored wireframe structures directly on the canvas. Audio drives vertex displacement, color is mapped from the tone ramp. 3D Tilt and 3D Rotate sliders control the view angle.</p>
 </div>
 
 <div class="help-section">
