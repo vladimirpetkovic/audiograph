@@ -89,6 +89,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .mbtn.styleb{border-color:#7c93f5;color:#9fb0f7}
 .mbtn.styleb.on{color:#c4cdfb;border-color:#a5b4fc;background:rgba(124,147,245,0.14)}
 .mode-btns{display:flex;gap:3px;flex-wrap:wrap;max-width:calc(100% - 70px)}
+.sublabel{font-size:.42rem;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3);margin-bottom:3px}
 /* COLOR PANEL INTERNALS */
 .cp-preview{height:16px;border-radius:3px;margin-bottom:8px;border:1px solid var(--border)}
 .cp-stops{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
@@ -212,25 +213,15 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       </div>
     </div>
     <!-- OUTLINE (per layer) -->
-    <div class="panel" id="panelOutline">
-      <div class="panel-head" onclick="togglePanel('panelOutline')"><span class="panel-title">Outline</span><span class="panel-arrow">▼</span></div>
-      <div class="panel-body">
-        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setOutline(true,this)">Yes</button><button class="mbtn on" onclick="setOutline(false,this)">No</button></div></div>
-        <div id="outlineParams" style="display:none;flex-direction:column;gap:8px">
-          <div class="prow"><span class="prow-label">Opacity</span><input type="range" min="5" max="100" value="60" step="5" id="pOutlineOpacity" oninput="upP()"><span class="prow-val" id="vOutlineOpacity">60%</span></div>
-          <div class="prow"><span class="prow-label">Weight</span><input type="range" min="0.5" max="8" value="2" step="0.25" id="pOutline" oninput="upP()"><span class="prow-val" id="vOutline">2px</span></div>
-          <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setOutlineStyle('solid',this)">Solid</button><button class="mbtn" onclick="setOutlineStyle('dotted',this)">Dotted</button><button class="mbtn" onclick="setOutlineStyle('dashed',this)">Dashed</button><button class="mbtn" onclick="setOutlineStyle('connected',this)">Connected</button><button class="mbtn" onclick="setOutlineStyle('glow',this)">Glow</button><button class="mbtn" onclick="setOutlineStyle('fill',this)">Fill</button></div></div>
-          <div class="prow"><span class="prow-label">Gap</span><input type="range" min="0" max="30" value="0" step="1" id="pOutlineDist" oninput="upP()"><span class="prow-val" id="vOutlineDist">0</span></div>
-          <div class="prow"><span class="prow-label">Count</span><input type="range" min="1" max="10" value="1" step="1" id="pOutlineCount" oninput="upP()"><span class="prow-val" id="vOutlineCount">1</span></div>
-          <div class="prow"><span class="prow-label">Spacing</span><input type="range" min="1" max="20" value="4" step="1" id="pOutlineSpace" oninput="upP()"><span class="prow-val" id="vOutlineSpace">4</span></div>
-        </div>
-      </div>
-    </div>
     <!-- APPEARANCE -->
     <div class="panel" id="panelAppear">
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><button class="panel-rand" onclick="event.stopPropagation();randAppearance()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow" style="align-items:flex-start"><span class="prow-label">Layout</span><div class="mode-btns" style="max-width:420px"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('ridgeplot',this)">Ridge</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleid.</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" onclick="setLayout('object',this)">Object</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button></div></div>
+        <div class="prow" style="align-items:flex-start"><span class="prow-label">Layout</span><div style="flex:1;display:flex;flex-direction:column;gap:6px;max-width:420px;min-width:0">
+          <div><div class="sublabel">General</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('sine',this)">Sine</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('kaleidoscope',this)">Kaleid.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('ridgeplot',this)">Ridge</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
+          <div><div class="sublabel">3D</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button></div></div>
+          <div><div class="sublabel">Input</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" onclick="setLayout('object',this)">3D Object</button></div></div>
+        </div></div>
         <!-- Per-layout settings -->
         <div id="layoutOpts_sine" class="layout-opts" style="display:none">
           <div class="prow"><span class="prow-label">Waves</span><input type="range" min="0.5" max="10" value="2" step="0.5" id="pSineWaves" oninput="upP()"><span class="prow-val" id="vSineWaves">2</span></div>
@@ -378,11 +369,21 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         </div>
         <div style="border-top:1px solid var(--border);margin:4px 0"></div>
         <!-- Style: positioned like Layout, with its own color -->
-        <div class="prow"><span class="prow-label">Style</span><div class="mode-btns" id="styleBtns" style="max-width:420px"><button class="mbtn styleb on" onclick="setShape('straight',this)">Straight</button><button class="mbtn styleb" onclick="setShape('rounded',this)">Rounded</button><button class="mbtn styleb" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn styleb" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn styleb" onclick="setShape('pins',this)">Pins</button><button class="mbtn styleb" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn styleb" onclick="setShape('caps',this)">Caps</button><button class="mbtn styleb" onclick="setShape('cross',this)">Cross</button><button class="mbtn styleb" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn styleb" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn styleb" onclick="setShape('words',this)">Words</button><button class="mbtn styleb" onclick="setShape('cascade',this)">Cascade</button><button class="mbtn styleb" onclick="setShape('barcode',this)">Feather</button><button class="mbtn styleb" onclick="setShape('circles',this)">Circles</button><button class="mbtn styleb" onclick="setShape('braille',this)">Braille</button><button class="mbtn styleb" onclick="setShape('arrows',this)">Arrows</button><button class="mbtn styleb" onclick="setShape('slash',this)">Slash</button><button class="mbtn styleb" onclick="setShape('needles',this)">Needles</button><button class="mbtn styleb" onclick="setShape('diamonds',this)">Diamonds</button></div></div>
+        <div class="prow"><span class="prow-label">Style</span><div class="mode-btns" id="styleBtns" style="max-width:420px"><button class="mbtn styleb" onclick="setShape('off',this)">Off</button><button class="mbtn styleb on" onclick="setShape('straight',this)">Straight</button><button class="mbtn styleb" onclick="setShape('rounded',this)">Rounded</button><button class="mbtn styleb" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn styleb" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn styleb" onclick="setShape('pins',this)">Pins</button><button class="mbtn styleb" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn styleb" onclick="setShape('caps',this)">Caps</button><button class="mbtn styleb" onclick="setShape('cross',this)">Cross</button><button class="mbtn styleb" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn styleb" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn styleb" onclick="setShape('words',this)">Words</button><button class="mbtn styleb" onclick="setShape('cascade',this)">Cascade</button><button class="mbtn styleb" onclick="setShape('barcode',this)">Feather</button><button class="mbtn styleb" onclick="setShape('circles',this)">Circles</button><button class="mbtn styleb" onclick="setShape('braille',this)">Braille</button><button class="mbtn styleb" onclick="setShape('arrows',this)">Arrows</button><button class="mbtn styleb" onclick="setShape('slash',this)">Slash</button><button class="mbtn styleb" onclick="setShape('needles',this)">Needles</button><button class="mbtn styleb" onclick="setShape('diamonds',this)">Diamonds</button></div></div>
         <div id="styleOpts" style="display:flex;flex-direction:column;gap:6px;margin-top:2px">
           <div class="prow" id="rowStyleSize"><span class="prow-label">Size</span><input type="range" min="30" max="250" value="100" step="5" id="pStyleSize" oninput="upP()"><span class="prow-val" id="vStyleSize">100%</span></div>
           <div class="prow" id="rowStyleDensity"><span class="prow-label">Density</span><input type="range" min="30" max="250" value="100" step="5" id="pStyleDensity" oninput="upP()"><span class="prow-val" id="vStyleDensity">100%</span></div>
           <div class="prow" id="rowStyleAngle"><span class="prow-label">Angle</span><input type="range" min="-90" max="90" value="0" step="1" id="pStyleAngle" oninput="upP()"><span class="prow-val" id="vStyleAngle">0°</span></div>
+        </div>
+        <div style="border-top:1px solid var(--border);margin:2px 0"></div>
+        <div class="prow"><span class="prow-label">Outline</span><div class="mode-btns"><button class="mbtn" onclick="setOutline(true,this)">Yes</button><button class="mbtn on" onclick="setOutline(false,this)">No</button></div></div>
+        <div id="outlineParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow"><span class="prow-label">Opacity</span><input type="range" min="5" max="100" value="60" step="5" id="pOutlineOpacity" oninput="upP()"><span class="prow-val" id="vOutlineOpacity">60%</span></div>
+          <div class="prow"><span class="prow-label">Weight</span><input type="range" min="0.5" max="8" value="2" step="0.25" id="pOutline" oninput="upP()"><span class="prow-val" id="vOutline">2px</span></div>
+          <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setOutlineStyle('solid',this)">Solid</button><button class="mbtn" onclick="setOutlineStyle('dotted',this)">Dotted</button><button class="mbtn" onclick="setOutlineStyle('dashed',this)">Dashed</button><button class="mbtn" onclick="setOutlineStyle('connected',this)">Connected</button><button class="mbtn" onclick="setOutlineStyle('fill',this)">Fill</button></div></div>
+          <div class="prow"><span class="prow-label">Gap</span><input type="range" min="0" max="30" value="0" step="1" id="pOutlineDist" oninput="upP()"><span class="prow-val" id="vOutlineDist">0</span></div>
+          <div class="prow"><span class="prow-label">Count</span><input type="range" min="1" max="10" value="1" step="1" id="pOutlineCount" oninput="upP()"><span class="prow-val" id="vOutlineCount">1</span></div>
+          <div class="prow"><span class="prow-label">Spacing</span><input type="range" min="1" max="20" value="4" step="1" id="pOutlineSpace" oninput="upP()"><span class="prow-val" id="vOutlineSpace">4</span></div>
         </div>
       </div>
     </div>
@@ -540,6 +541,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       <div class="panel-body">
         <div class="prow"><button class="mbtn" onclick="savePreset()">Save</button><button class="mbtn" onclick="saveAllPreset()">Save All</button><button class="mbtn" onclick="clearPresets()">Clear</button></div>
         <div class="prow"><button class="mbtn" onclick="exportPreset()">Export</button><button class="mbtn" onclick="document.getElementById('presetImportFile').click()">Import</button><input type="file" id="presetImportFile" accept=".json" style="display:none" onchange="importPresets(event)"></div>
+        <div class="prow"><button class="mbtn" onclick="surpriseMe()" style="flex:1">✨ Surprise Me</button><button class="mbtn" onclick="shareLink()" style="flex:1">🔗 Copy Link</button></div>
         <div id="presetList" style="display:flex;flex-direction:column;gap:4px;margin-top:4px"></div>
       </div>
     </div>
@@ -551,7 +553,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
         <div id="morphList" style="display:flex;flex-wrap:wrap;gap:4px"></div>
         <div class="prow"><span class="prow-label">Morph</span><input type="range" min="0" max="100" value="0" step="1" id="morphSlider" oninput="setMorphManual(this.value)" onchange="morphSliderRelease()"><span class="prow-val" id="vMorph">0%</span></div>
         <div class="prow"><span class="prow-label">Duration</span><input type="range" min="10" max="60" value="20" step="1" id="morphDur" oninput="document.getElementById('vMorphDur').textContent=this.value+'s'"><span class="prow-val" id="vMorphDur">20s</span></div>
-        <div class="prow"><div class="mode-btns"><button class="mbtn" id="morphAutoBtn" onclick="toggleMorphAuto()">Play</button><button class="mbtn" id="morphRandom" onclick="toggleMorphRandom()">Random</button><button class="mbtn" id="morphPing" onclick="this.classList.toggle('on')">Ping-pong</button><button class="mbtn" onclick="bakeMorph()">Apply</button></div></div>
+        <div class="prow"><div class="mode-btns"><button class="mbtn" id="morphAutoBtn" onclick="toggleMorphAuto()">Play</button><button class="mbtn" id="morphRandom" onclick="toggleMorphRandom()">Random</button><button class="mbtn" id="morphBeat" onclick="toggleMorphBeat()">On Beat</button><button class="mbtn" id="morphPing" onclick="this.classList.toggle('on')">Ping-pong</button><button class="mbtn" onclick="bakeMorph()">Apply</button></div></div>
         <div class="prow" style="justify-content:flex-end"><span id="morphNext" style="font-size:.5rem;color:var(--tx3)"></span></div>
         <div style="font-size:.45rem;color:var(--tx3);line-height:1.5">Build a playlist of presets to blend through. <strong>Play</strong> cycles them in order over the chosen Duration each; <strong>Random</strong> jumps between random presets (your list, or all of them if the list is empty). Drag <strong>Morph</strong> to scrub the whole sequence. <strong>Apply</strong> bakes the current blend into editable layers.</div>
       </div>
@@ -1050,7 +1052,23 @@ function buildLayersUI(){
     list.appendChild(row);
   });
 }
-function setLayout(m,btn){pushUndo();var _is3d=m==='terrain'||m==='sphere'||m==='tetrahedron'||m==='dna'||m==='object';document.getElementById('p3dTiltRow').style.display=_is3d?'':'none';document.getElementById('p3dRotateRow').style.display=_is3d?'':'none';
+// Layout crossfade: snapshot the current frame into a DOM overlay that fades out as the new
+// layout renders underneath — a smooth dissolve instead of a hard cut. Decoupled from the
+// render loops and post-FX, so it just works.
+function startLayoutFade(){
+  var fcv=document.getElementById('frameCv'),wrap=document.getElementById('frameWrap');
+  if(!audioBuffer||!fcv||!fcv.width||!fcv.height||!wrap)return;
+  var ov=document.getElementById('_lfOverlay');
+  if(!ov){ov=document.createElement('canvas');ov.id='_lfOverlay';ov.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:20';wrap.appendChild(ov)}
+  if(ov.width!==fcv.width||ov.height!==fcv.height){ov.width=fcv.width;ov.height=fcv.height}
+  var c=ov.getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,ov.width,ov.height);
+  try{c.drawImage(fcv,0,0)}catch(e){return}
+  ov.style.transition='none';ov.style.opacity='1';ov.offsetHeight; // reflow so the transition restarts
+  ov.style.transition='opacity .38s ease-out';ov.style.opacity='0';
+}
+function setLayout(m,btn){pushUndo();
+  if(btn&&!applyingState&&!pmActive&&layoutMode!==m)startLayoutFade();
+  var _is3d=m==='terrain'||m==='sphere'||m==='tetrahedron'||m==='dna'||m==='object';document.getElementById('p3dTiltRow').style.display=_is3d?'':'none';document.getElementById('p3dRotateRow').style.display=_is3d?'':'none';
   if(stackMode&&stackLayouts.length>0){
     // Update the currently selected layer's layout
     var activeIdx=getActiveLayerIdx();
@@ -1058,10 +1076,12 @@ function setLayout(m,btn){pushUndo();var _is3d=m==='terrain'||m==='sphere'||m===
     // Don't save params here — they'll be saved when we switch away from this layer
   }
   layoutMode=m;
-  if(!stackMode){
-    btn.parentElement.querySelectorAll('.mbtn.amber').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');
-  }else{
-    btn.parentElement.querySelectorAll('.mbtn.amber').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');
+  // Clear the active state across ALL layout buttons (they live in separate General/3D/Input
+  // groups now), then highlight only the current one.
+  document.querySelectorAll('.mbtn.amber').forEach(function(b){b.classList.remove('on')});
+  if(btn)btn.classList.add('on');
+  else document.querySelectorAll('.mbtn.amber').forEach(function(b){if((b.getAttribute('onclick')||'').indexOf("'"+m+"'")>-1)b.classList.add('on')});
+  if(stackMode){
     buildLayersUI();
   }
   document.getElementById('app').classList.toggle('circle-mode',m!=='linear');
@@ -1759,19 +1779,18 @@ var REACTIVE_SOURCES={
   beat:{label:'Beat'}
 };
 var REACTIVE_TARGETS={
-  spin:{label:'Spin',base:'pSpin',min:0,max:5},
   height:{label:'Height',base:'pHeight',min:10,max:300},
   thick:{label:'Thickness',base:'pThick',min:0.3,max:10},
   zoom:{label:'Zoom',base:'pZoom',min:50,max:300},
+  contrast:{label:'Contrast',base:'pContrast',min:40,max:100},
   twist:{label:'Twist',base:'pTwist',min:-100,max:100},
   bulge:{label:'Bulge',base:'pBulge',min:-100,max:100},
   wave:{label:'Wave',base:'pWave',min:0,max:100},
+  ripple:{label:'Ripple',base:'pRipple',min:0,max:70},
   shear:{label:'Shear',base:'pShear',min:-100,max:100},
   depth:{label:'Depth',base:'pDepth',min:0,max:100},
-  partDensity:{label:'Part. Density',base:'pPartDensity',min:1,max:50},
-  partSize:{label:'Part. Size',base:'pPartSize',min:1,max:40},
-  partSpeed:{label:'Part. Speed',base:'pPartSpeed',min:0.5,max:10},
-  partTrail:{label:'Part. Trail',base:'pPartTrail',min:0,max:60},
+  fadeEdge:{label:'Fade Edges',base:'pFadeEdge',min:0,max:70},
+  outlineGlow:{label:'Outline Glow',base:'pOutlineOpacity',min:20,max:100},
   hueShift:{label:'Hue Shift',base:null,min:0,max:360}
 };
 var reactiveBaseValues={};
@@ -1798,7 +1817,7 @@ function restoreAllBases(){
 }
 function addReactiveRule(){
   captureReactiveBases();
-  var rule={source:'bass',target:'spin',strength:50,id:'r'+Date.now()+Math.random()};
+  var rule={source:'bass',target:'height',strength:50,id:'r'+Date.now()+Math.random()};
   reactiveRules.push(rule);
   buildReactiveUI();
 }
@@ -2611,6 +2630,7 @@ function pmTick(ts){
   if(!pmAuto){pmRAF=null;return}
   pmRAF=requestAnimationFrame(pmTick);
   if(!pmLast)pmLast=ts;var dt=(ts-pmLast)/1000;pmLast=ts;
+  if(pmBeatSync){pmTickBeat(dt);return}
   var dur=Math.max(2,+document.getElementById('morphDur').value||20);
   var ping=document.getElementById('morphPing').classList.contains('on');
   if(pmRandom){
@@ -2639,6 +2659,7 @@ function bakeMorph(){
   pmAuto=false;if(pmRAF)cancelAnimationFrame(pmRAF);pmRAF=null;
   var b=document.getElementById('morphAutoBtn');if(b)b.classList.remove('on');
   pmRandom=false;var rb=document.getElementById('morphRandom');if(rb)rb.classList.remove('on');
+  pmBeatSync=false;_pmTransit=false;var bb=document.getElementById('morphBeat');if(bb)bb.classList.remove('on');
   if(!pmActive){renderMorphList();return}
   pmActive=false;
   // Drop layers that have faded to (near) invisible, then snap remaining opacities to the UI step
@@ -2647,6 +2668,86 @@ function bakeMorph(){
   for(var i=0;i<kept.length;i++)kept[i].opacity=Math.max(5,Math.min(100,Math.round(kept[i].opacity/5)*5));
   stackLayouts=kept;activeLayerIdx=0;
   buildLayersUI();selectLayer(0);renderDensity();renderMorphList();
+}
+// ===== Beat-synced morph: advance on detected beats instead of the timer =====
+var pmBeatSync=false,_pmBeatPrev=0,_pmBeatCd=0,_pmTransit=false,_pmFreqBuf=null;
+function pmDetectBeat(dt){
+  if(!analyser)return false;
+  if(!_pmFreqBuf||_pmFreqBuf.length!==analyser.frequencyBinCount)_pmFreqBuf=new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(_pmFreqBuf);
+  var n=Math.max(1,Math.floor(_pmFreqBuf.length*0.25)),e=0; // low/low-mid band carries the beat
+  for(var i=0;i<n;i++)e+=_pmFreqBuf[i];e=e/(n*255);
+  _pmBeatCd-=dt;
+  var beat=(e-_pmBeatPrev>0.05)&&_pmBeatCd<=0&&e>0.14;
+  _pmBeatPrev=e*0.85+_pmBeatPrev*0.15;
+  if(beat)_pmBeatCd=0.26; // debounce
+  return beat;
+}
+function _pmSeqNext(pool,cur){var i=pool.indexOf(cur);return pool[(i+1)%pool.length]}
+function pmTickBeat(dt){
+  var pool=getMorphPool();if(pool.length<2){toggleMorphAuto();return}
+  if(!pmFromName||!pmToName){pmFromName=pool[0];pmToName=pmRandom?pmPickFrom(pool,pmFromName):pool[1%pool.length];pmT=0}
+  if(_pmTransit){
+    pmT+=dt/0.45; // quick ~0.45s blend on the beat
+    if(pmT>=1){pmT=1;_pmTransit=false;pmFromName=pmToName;pmToName=pmRandom?pmPickFrom(pool,pmFromName):_pmSeqNext(pool,pmFromName);pmT=0}
+  }else if(pmDetectBeat(dt)){_pmTransit=true;pmT=0}
+  applyPresetMorph(pmT,pmFromName,pmToName);_morphSliderUI(pmT);
+}
+function toggleMorphBeat(){
+  pmBeatSync=!pmBeatSync;var b=document.getElementById('morphBeat');if(b)b.classList.toggle('on',pmBeatSync);
+  _pmTransit=false;_pmBeatPrev=0;_pmBeatCd=0;
+  if(pmBeatSync&&!pmAuto)toggleMorphAuto();
+}
+
+// ===== Shareable link — encode the full look into the URL =====
+function _toast(msg){
+  var d=document.getElementById('agToast');
+  if(!d){d=document.createElement('div');d.id='agToast';d.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--elevated);border:1px solid var(--accent2);color:var(--accent2);padding:8px 16px;border-radius:6px;font:.6rem "JetBrains Mono",monospace;z-index:2000;opacity:0;transition:opacity .2s;pointer-events:none;letter-spacing:.03em';document.body.appendChild(d)}
+  d.textContent=msg;d.style.opacity='1';clearTimeout(d._t);d._t=setTimeout(function(){d.style.opacity='0'},1800);
+}
+function shareLink(){
+  try{
+    var st=getState();delete st.seeds; // seeds are bulky and non-essential to the look
+    var b64=btoa(unescape(encodeURIComponent(JSON.stringify(st))));
+    var url=location.origin+location.pathname+'#s='+b64;
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(url).then(function(){_toast('Link copied to clipboard')},function(){prompt('Copy this link:',url)});
+    else prompt('Copy this link:',url);
+  }catch(e){alert('Could not create link: '+e.message)}
+}
+function loadFromHash(){
+  var h=location.hash||'';if(h.indexOf('#s=')!==0)return false;
+  try{var st=JSON.parse(decodeURIComponent(escape(atob(h.slice(3)))));applyState(st);_toast('Loaded shared look');return true}catch(e){return false}
+}
+
+// ===== Surprise Me — compose a coherent, harmonious random scene =====
+function _hslHex(h,s,l){var c=hslToRgb(((h%360)+360)%360,s,l);return rgbToHex(c[0],c[1],c[2])}
+function surpriseMe(){
+  var niceLayouts=['linear','sine','circle','concentric','spiral','phyllotaxis','sphere','tetrahedron','dna','terrain','ridgeplot'];
+  var niceStyles=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted','cross'];
+  var baseHue=Math.random()*360;
+  // analogous palette mapped quiet→loud, plus a near-black tinted background
+  var stops=[_hslHex(baseHue-15,55,22)+'00',_hslHex(baseHue,65,45),_hslHex(baseHue+30,75,60),_hslHex(baseHue+55,85,72)];
+  var bg=_hslHex(baseHue+200,45,5);
+  var nLayers=Math.random()<0.45?2:1,layers=[];
+  for(var i=0;i<nLayers;i++){
+    var p=getDefaultLayerParams();
+    p._colorMode='toneramp';p._toneStops=stops.slice();
+    p._lineShape=niceStyles[Math.floor(Math.random()*niceStyles.length)];
+    p._lines=Math.round(150+Math.random()*300);
+    p._height=Math.round(45+Math.random()*80);
+    p._thick=+(0.8+Math.random()*3).toFixed(1);
+    p._zoom=Math.round(90+Math.random()*40);
+    p._varyHeight=Math.random()>0.3;
+    p._particlesOn=false;p._playMode='continuous';
+    // subtle motion only — keep it harmonious
+    p._spin=Math.random()<0.4?+(0.3+Math.random()*1).toFixed(1):0;
+    p._wave=Math.random()<0.4?Math.round(Math.random()*22):0;
+    p._twist=Math.random()<0.3?Math.round((Math.random()-0.5)*40):0;
+    p._ripple=Math.random()<0.3?Math.round(Math.random()*40):0;
+    layers.push({layout:niceLayouts[Math.floor(Math.random()*niceLayouts.length)],opacity:i===0?100:Math.round(55+Math.random()*40),params:p});
+  }
+  applyState({playMode:'continuous',stackMode:true,stackLayouts:layers,activeLayerIdx:0,canvasBg:bg});
+  _toast('✨ Surprise');
 }
 refreshPresetList();
 
@@ -2743,6 +2844,7 @@ function _agText(ctx,font){if(ctx._agFont!==font){ctx.font=font;ctx._agFont=font
 // Draw a glyph, skipping the save/rotate/restore transform when there's no rotation (the common case).
 function _agGlyph(ctx,g,x,y,sa){if(sa){ctx.save();ctx.translate(x,y);ctx.rotate(sa);ctx.fillText(g,0,0);ctx.restore()}else{ctx.fillText(g,x,y)}}
 function drawShapedLine(ctx,x,ly,lh,t,val){
+  if(lineShape==='off')return; // "Off" — draw no base shape (used to show only the outline)
   var ss=styleSize,sd=styleDensity,sa=styleAngle;
   if(lineShape==='dotted'){var r=t*.6*ss,g=Math.max(t*0.8,(t*2.2)/sd),y=ly;while(y<=ly+lh){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();y+=g}}
   else if(lineShape==='dashed'){var dL=t*2.5,gL=Math.max(t*0.6,(t*1.8)/sd),y=ly,on=true;ctx.beginPath();while(y<ly+lh){var s=Math.min(on?dL:gL,ly+lh-y);if(on){ctx.moveTo(x,y);ctx.lineTo(x,y+s)}y+=s;on=!on}ctx.stroke()}
@@ -2828,21 +2930,21 @@ function drawShapedLine(ctx,x,ly,lh,t,val){
   else if(lineShape==='circles'){
     // Hollow rings, thickness and count vary with loudness
     var numRings=Math.max(1,Math.min(9,Math.round((1+val*4)*sd)));
-    var maxR=Math.min(lh/2,t*2*ss);
+    var maxR=t*2*ss; // glyph-like marker size (independent of line height)
     var ringW=Math.max(0.5,t*0.3);
     ctx.lineWidth=ringW;
     for(var ri=0;ri<numRings;ri++){
       var r=maxR*(ri+1)/numRings;
       ctx.beginPath();
-      ctx.arc(x,ly+lh/2,r,0,Math.PI*2);
+      ctx.arc(x,ly+maxR,r,0,Math.PI*2); // anchored at the line's top like numbers/symbols → follows the waveform
       ctx.stroke();
     }
   }
   else if(lineShape==='braille'){
     var dotR=Math.max(1,t*0.4*ss);
     var bCols=2,bRows=Math.max(1,Math.min(8,Math.ceil(val*4*sd)));
-    var gapX=dotR*3,gapY=Math.min(dotR*3,lh/(bRows+1));
-    var startY=ly+(lh-gapY*(bRows-1))/2;
+    var gapX=dotR*3,gapY=dotR*3;
+    var startY=ly+dotR; // anchored at the line's top like numbers/symbols → follows the waveform
     for(var br=0;br<bRows;br++){
       for(var bc=0;bc<bCols;bc++){
         var seed=randSeeds[Math.abs(Math.round(x*7+br*2+bc))%randSeeds.length];
@@ -5615,8 +5717,8 @@ function drawDNA(ctx,W,H,values,p,forExport){
   var rotAngle=time*rotateSpeed+dragRotY;
   var tiltRad=tiltDeg*Math.PI/180+dragRotX;
   var cosT=Math.cos(tiltRad),sinT=Math.sin(tiltRad);
-  var R=Math.min(W,H)*radiusPct/100;
-  var helixH=Math.min(W,H)*0.8;
+  var R=Math.min(W,H)*radiusPct/100*0.6; // narrower helix — was too wide/bulky vs the sphere/tet
+  var helixH=Math.min(W,H)*0.7;
   var centerX=W/2,centerY=H/2;
   var maxBump=R*0.3*elevScale;
   var steps=Math.max(n,Math.round(turns*40));
@@ -5822,7 +5924,7 @@ function drawLinearOutline(ctx,lines,forExport){
     }
     ctx.globalAlpha=1;ctx.setLineDash([]);return;
   }
-  if(outlineStyle!=='glow'&&outlineStyle!=='fill'){
+  if(outlineStyle!=='fill'){
   if(outlineStyle==='dotted')ctx.setLineDash([ow,ow*1.5]);else if(outlineStyle==='dashed')ctx.setLineDash([ow*3,ow*2]);else ctx.setLineDash([]);
   for(var oi=0;oi<count;oi++){var baseOff=dist+oi*spacing;for(var side=0;side<2;side++){var sign=side===0?-1:1;for(var k=1;k<lines.length;k++){var pv=lines[k-1],cu=lines[k];
     var offP=baseOff*(1+getRand(k+2000+oi*100,'rOutline')*.3);var offC=baseOff*(1+getRand(k+2001+oi*100,'rOutline')*.3);
@@ -5830,25 +5932,6 @@ function drawLinearOutline(ctx,lines,forExport){
     var cpx=(pv.x+cu.x)/2;var col=forExport?lineColHex(cu.v,cu.pos,k,lines.length):lineCol(cu.v,cu.pos,k,lines.length);ctx.strokeStyle=col;ctx.globalAlpha=outlineAlpha;ctx.beginPath();ctx.moveTo(pv.x,py);ctx.bezierCurveTo(cpx,py,cpx,cy2,cu.x,cy2);ctx.stroke()}}}
   }
   ctx.setLineDash([]);
-  // Glow style: per-segment colored glow with shadowBlur
-  if(outlineStyle==='glow'){
-    ctx.setLineDash([]);
-    for(var oi=0;oi<count;oi++){var baseOff=dist+oi*spacing;for(var side=0;side<2;side++){var sign=side===0?-1:1;
-      for(var k=1;k<lines.length;k++){
-        var pv=lines[k-1],cu=lines[k];
-        var offP=baseOff*(1+getRand(k+2000+oi*100,'rOutline')*.3);
-        var offC=baseOff*(1+getRand(k+2001+oi*100,'rOutline')*.3);
-        var py=(side===0?pv.ly:(pv.ly+pv.lh))+sign*offP;
-        var cy2=(side===0?cu.ly:(cu.ly+cu.lh))+sign*offC;
-        var col=forExport?lineColHex(cu.v,cu.pos,k,lines.length):lineCol(cu.v,cu.pos,k,lines.length);
-        ctx.strokeStyle=col;ctx.globalAlpha=outlineAlpha;
-        ctx.shadowColor=col;ctx.shadowBlur=ow*8;
-        ctx.lineWidth=ow*0.7;
-        ctx.beginPath();ctx.moveTo(pv.x,py);ctx.lineTo(cu.x,cy2);ctx.stroke();
-      }
-    }}
-    ctx.shadowColor='';ctx.shadowBlur=0;
-  }
   // Fill style: filled waveform area with gradient + thin stroke edge
   if(outlineStyle==='fill'){
     ctx.setLineDash([]);
@@ -5886,6 +5969,23 @@ function drawCircleOutline(ctx,lines,cx,cy,forExport){
       ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
     }
     ctx.globalAlpha=1;ctx.setLineDash([]);return;
+  }
+  // Fill style: fill the annular band between the inner and outer edges of the ring of lines.
+  // Concentric has multiple interleaved rings that make the annular fill messy — fall back to
+  // a clean solid outline there.
+  if(outlineStyle==='fill'&&layoutMode!=='concentric'){
+    ctx.setLineDash([]);
+    // sort a copy by angle so the ring path is continuous
+    var sorted=lines.slice().sort(function(a,b){return a.angle-b.angle});
+    ctx.beginPath();
+    for(var k=0;k<sorted.length;k++){var cu=sorted[k];var r=cu.r2+dist;ctx.lineTo(cx+Math.cos(cu.angle)*r,cy+Math.sin(cu.angle)*r)}
+    for(var k=sorted.length-1;k>=0;k--){var cu=sorted[k];var r=Math.max(0,cu.r1-dist);ctx.lineTo(cx+Math.cos(cu.angle)*r,cy+Math.sin(cu.angle)*r)}
+    ctx.closePath();
+    var grd=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(1,cx));
+    for(var gi=0;gi<=10;gi++){var li=Math.floor(gi/10*(sorted.length-1));var col=forExport?lineColHex(sorted[li].v,sorted[li].pos,li,sorted.length):lineCol(sorted[li].v,sorted[li].pos,li,sorted.length);grd.addColorStop(gi/10,col)}
+    ctx.fillStyle=grd;ctx.globalAlpha=outlineAlpha*0.6;ctx.fill();
+    ctx.strokeStyle=grd;ctx.globalAlpha=outlineAlpha;ctx.lineWidth=ow*0.5;ctx.stroke();
+    ctx.globalAlpha=1;return;
   }
   if(outlineStyle==='dotted')ctx.setLineDash([ow,ow*1.5]);else if(outlineStyle==='dashed')ctx.setLineDash([ow*3,ow*2]);else ctx.setLineDash([]);
   for(var oi=0;oi<count;oi++){var off=dist+oi*spacing;
@@ -6463,6 +6563,7 @@ function resizeAll(){setTimeout(function(){sizeCanvas(frameCv);renderDensity()},
 })();
 function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.display=o.style.display==='block'?'none':'block'}
 initLayers();
+try{loadFromHash()}catch(e){}
 </script>
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
 <div class="help-modal">
@@ -6486,8 +6587,8 @@ initLayers();
 
 <div class="help-section">
 <h3>Appearance</h3>
-<p>The Appearance panel holds two choices that define the look: <strong>Layout</strong> (the overall shape/arrangement) and <strong>Style</strong> (how each line is rendered). Both are picker rows — Layout buttons are amber, Style buttons are violet.</p>
-<p><strong>Layouts (19)</strong> — Linear, Circle, Kaleidoscope, Spiral, Phyllotaxis, Sine, Concentric, Scatter, Image, Video, Text, Terrain, Sphere, Tetrahedron, DNA, Object, Math, Ridge, Fractal.</p>
+<p>The Appearance panel holds the choices that define the look: <strong>Layout</strong> (arrangement), <strong>Style</strong> (how each line is rendered), and <strong>Outline</strong>. Layout buttons are amber, Style buttons are violet.</p>
+<p><strong>Layouts (19)</strong>, grouped: <strong>General</strong> — Linear, Sine, Ridge, Circle, Concentric, Spiral, Phyllotaxis, Kaleidoscope, Scatter, Fractal. <strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Object. <strong>Input</strong> — Image, Video, Text, Math.</p>
 <p><strong>🎲</strong> — randomizes both layout and style.</p>
 </div>
 
@@ -6527,15 +6628,15 @@ initLayers();
 </div>
 
 <div class="help-section">
-<h3>Styles (19)</h3>
-<p>Chosen from the Style row in the Appearance panel (violet buttons): Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, Cascade, Feather, Circles, Braille, Arrows, Slash, Needles, Diamonds. Each renders lines differently.</p>
+<h3>Styles (19 + Off)</h3>
+<p>Chosen from the Style row in the Appearance panel (violet buttons): <strong>Off</strong>, Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, Cascade, Feather, Circles, Braille, Arrows, Slash, Needles, Diamonds. Each renders lines differently. <strong>Off</strong> draws no base shape — combine it with an Outline to show only the outline.</p>
 <p><strong>Style settings</strong> — like layouts, each style exposes a few relevant controls right under the Style row (only the ones that apply to the selected style appear):</p>
 <p><strong>Size</strong> — scales the marker or glyph (rings, diamonds, numbers, symbols, words, arrows, etc.). <strong>Density</strong> — repetition count / spacing for repeating styles (dots, dashes, braille rows, rings, cascade tiers, feather barbs). <strong>Angle</strong> — rotation for glyphs, slashes, and feather barbs.</p>
 </div>
 
 <div class="help-section">
-<h3>Outline Styles (4)</h3>
-<p>Solid, Dotted, Dashed, Connected. Outlines draw around each line. Connected draws network-graph lines between random pairs of endpoints.</p>
+<h3>Outline Styles (5)</h3>
+<p>Now in the Appearance panel under Style. <strong>Solid, Dotted, Dashed, Connected, Fill</strong>. Outlines draw around each line; Connected draws network-graph lines between random endpoints; Fill fills the area/ring the lines span with a gradient (works for both linear and radial layouts). Pair any outline with Style → <strong>Off</strong> to render the outline alone.</p>
 </div>
 
 <div class="help-section">
@@ -6569,7 +6670,7 @@ initLayers();
 <h3>Reactive Rules</h3>
 <p>Map audio features to visual parameters for automatic audio-reactive behavior. Click <strong>+ Add Rule</strong> to create a mapping.</p>
 <p><strong>Audio sources</strong> — Bass (20-250Hz), Mid (250Hz-2kHz), Treble (2k-16kHz), Energy (full spectrum), Beat (transient spikes).</p>
-<p><strong>Targets</strong> — Spin, Height, Thickness, Zoom, Twist, Bulge, Wave, Shear, Depth, Drift, Particle Density/Size/Speed/Trail, Hue Shift.</p>
+<p><strong>Targets</strong> — Height, Thickness, Zoom, Contrast, Twist, Bulge, Wave, Ripple, Shear, Depth, Fade Edges, Outline Glow, Hue Shift. Chosen to breathe with the music while keeping the composition harmonious.</p>
 <p>The strength slider controls how much the audio feature modulates the target. Multiple rules can stack. Remove a rule or set strength to 0 to disable — the parameter returns to its base value.</p>
 </div>
 
@@ -6587,13 +6688,15 @@ initLayers();
 <p><strong>Built-in presets</strong> (★) — 15+ presets covering various styles. Loading applies to the active layer only.</p>
 <p><strong>Save</strong> — saves the active layer. <strong>Save All</strong> — saves all layers, background, and full state (marked with ◈). <strong>Load</strong> — loads a saved preset. <strong>Clear</strong> — removes all user presets.</p>
 <p><strong>Export preset</strong> — open browser console, run <code>copy(JSON.stringify(getState()))</code> to copy the full state as JSON.</p>
+<p><strong>✨ Surprise Me</strong> — composes a fresh, coherent random scene (a tasteful layout + harmonious analogous palette + matching style + subtle motion). Great starting point.</p>
+<p><strong>🔗 Copy Link</strong> — copies a URL that encodes the entire current look. Anyone who opens that link sees exactly your composition (they just load their own audio).</p>
 </div>
 
 <div class="help-section">
 <h3>Preset Morph</h3>
-<p>Smoothly blends one preset into another. Pick a <strong>From</strong> and <strong>To</strong> preset, then drag the <strong>Morph</strong> slider (or hit <strong>Auto</strong> to animate over the chosen <strong>Duration</strong>; <strong>Ping-pong</strong> bounces back and forth).</p>
-<p>It blends every layer of both presets: matching layers (same position and layout type) interpolate their parameters, colors, and background for a true geometric morph; layers that differ in type or only exist in one preset crossfade by opacity. So a 2-layer preset morphs cleanly into a 5-layer one.</p>
-<p><strong>Apply</strong> bakes the current blend into normal editable layers (fully faded-out layers are dropped).</p>
+<p>Blends through a <strong>playlist</strong> of presets. Use <strong>+ Add preset…</strong> to build the list (or <strong>All</strong> for every preset, <strong>Clear</strong> to empty it); each entry shows as a removable chip.</p>
+<p><strong>Play</strong> cycles the playlist in order, each transition taking the chosen <strong>Duration</strong> (10–60s), looping seamlessly. <strong>Random</strong> jumps between random presets (your list, or all of them if the list is empty). <strong>On Beat</strong> advances to the next preset on detected beats instead of the timer. <strong>Ping-pong</strong> bounces back and forth. Drag <strong>Morph</strong> to scrub the whole sequence by hand.</p>
+<p>It blends every layer of both presets: matching layers (same position and layout type) interpolate their parameters and colors for a true geometric morph; layers that differ in type or only exist in one preset crossfade by opacity — so a 2-layer preset morphs cleanly into a 5-layer one. The background stays black during a morph. <strong>Apply</strong> bakes the current blend into normal editable layers.</p>
 </div>
 
 <div class="help-section">

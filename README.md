@@ -1,178 +1,137 @@
 # Audiograph
 
-**Sound becomes shape.** A browser-based audio visualization instrument where line spacing encodes loudness — dense when loud, sparse when quiet.
+**Sound becomes shape.** A browser-based audio-visualization instrument where line density and form encode the music — dense and tall when loud, sparse and calm when quiet.
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-6.0-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-20-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+
+**▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
 ---
 
 ## How It Works
 
-Audiograph maps audio energy to visual density. Each "line" in the visualization has a height driven by the loudness at that frequency band. The result is an organic, breathing form that responds to music in real time.
+Audiograph maps audio energy to visual form. Every frame it samples the audio, and each element's height/shape/position is driven by loudness. The result is an organic, breathing composition that reacts to music in real time.
 
 **Three audio sources:**
 - **Load Audio** — drop in any audio file (mp3, wav, flac, ogg)
-- **Microphone** — live input from your mic
-- **System Audio** — capture whatever your computer is playing
+- **Mic** — live input from your microphone
+- **System** — capture whatever your computer is playing (share a tab with audio)
 
-## Features
+## Composition model: Layers
 
-### Layouts
+Everything is built from **layers** — stack as many as you like, each with its own layout, style, colors, outline, deformers, particles, symmetry, and playback mode. Layers have independent opacity and composite together, so a single scene can combine, say, a 3D sphere behind a spiral of glowing rings.
 
-14 spatial arrangements for where lines are placed:
+## Appearance
 
-| Layout | Description |
-|--------|-------------|
-| Linear | Horizontal bar — the default |
-| Circle | Lines radiate from a ring |
-| Kaleidoscope | Segmented circular symmetry |
-| Spiral | Archimedean spiral |
-| Phyllotaxis | Golden-angle botanical pattern |
-| Sine | Lines placed along a sine wave |
-| Concentric | Nested rings |
-| Scatter | Random positions with cluster control |
-| Image | Lines conform to a loaded image's brightness |
-| Video | Live video/camera feed as brightness map |
-| Text | Type anything — lines fill the letter shapes |
-| Terrain | 3D wireframe landscape driven by audio + Perlin noise |
-| Sphere | Wireframe globe with audio-reactive surface bumps |
-| Custom | Write your own X/Y formulas in JavaScript |
+The **Appearance** panel holds the three choices that define a look:
 
-### Line Styles
+### Layout — 19, grouped
 
-15 ways to render each line:
+**General** — Linear · Sine · Circle · Concentric · Spiral · Phyllotaxis · Kaleidoscope · Fractal · Ridge · Scatter
+**3D** — Terrain · Sphere · Tetrahedron · DNA
+**Input** — Image · Video · Text · Math · 3D Object
 
-Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, Cascade, Feather, Circles, Braille
+Highlights:
+- **Ridge** — a Joy Division–style stacked ridge plot; each row is a frequency band (bass at bottom, treble at top).
+- **Fractal** — a recursive, audio-driven branching tree (bass widens branches, treble adds asymmetry).
+- **Terrain / Sphere / Tetrahedron / DNA** — real 3D wireframes with audio-driven surface displacement; drag to orbit.
+- **3D Object** — load your own `.obj` model and drive it with audio.
+- **Image / Video / Text** — lines conform to a brightness map (picture, live camera, or typed words).
+- **Math** — write your own `x`/`y` formulas in JavaScript.
 
-### Color System
+### Style — 20 (incl. Off)
 
-- **Solid** — single color
-- **Tone Ramp** — map loudness to a color gradient (quiet→loud)
-- **Simple Ramp** — map position to a color gradient (left→right)
-- Per-stop **opacity control** for transparency effects
-- 14 tone ramp presets + 14 simple ramp presets
+Off · Straight · Rounded · Dotted · Dashed · Pins · Tapered · Caps · Cross · Numbers · Symbols · Words · Cascade · Feather · Circles · Braille · Arrows · Slash · Needles · Diamonds
 
-### Effects
+Each style exposes contextual controls (**Size / Density / Angle**). **Off** draws no base shape — pair it with an Outline to render the outline alone.
 
-- **Spin** — rotate the visualization over time
-- **Twist** — angular distortion from center
-- **Bulge** — radial push/pull
-- **Wave** — sinusoidal displacement
-- **Shear** — directional skew
-- **Depth** — fade lines by distance
-- **Drift** — animated random line movement
-- **Amplify** — boost audio reactivity
+### Outline — 5 styles
 
-### Post-Processing (GPU)
+Solid · Dotted · Dashed · Connected · Fill. *Connected* draws a network graph between points; *Fill* fills the area/ring the lines span with a gradient (works on both linear and radial layouts).
 
-8 real-time WebGL shader effects, saved with presets:
+## Color
 
-Bloom · Chromatic Aberration · Vignette · Grain · Scanlines · Pixelate · Sharpen · Invert
+- **Solid**, **Tone Ramp** (loudness → gradient), **Simple Ramp** (position → gradient)
+- Per-stop opacity for transparency
+- Dozens of built-in ramp presets
 
-### Reactive Rules
+## Geometry & Motion
 
-Map audio features to visual parameters automatically:
-- **5 sources**: Bass, Mid, Treble, Energy, Beat detection
-- **15 targets**: Spin, Height, Thickness, Zoom, Twist, Bulge, Wave, and more
-- Create multiple rules for complex audio-reactive behavior
+Density, Contrast, Sensitivity, Height, Thickness, Scale, Offset, Rotation, Fade Edges, Vary Height/Thick, Flip, Mirror, Symmetry (X / Y / XY / 3–8-fold radial), Spin, and Speed.
 
-### Layers
+## Deformers
 
-Stack multiple visualizations with independent settings:
+Audio-reactive spatial distortions: **Twist · Bulge · Wave · Shear · Depth · Ripple** (concentric waves) **· Jitter** (animated noise).
 
-- Each layer has its own layout, style, colors, effects, particles
-- Per-layer opacity control
-- Add/remove layers freely
-- Presets can save all layers or load into active layer only
+## Reactive Rules
 
-### Symmetry
+Map audio features to visual parameters for automatic, musical behavior:
+- **Sources**: Bass · Mid · Treble · Energy · Beat
+- **Targets**: Height · Thickness · Zoom · Contrast · Twist · Bulge · Wave · Ripple · Shear · Depth · Fade Edges · Outline Glow · Hue Shift — chosen to *breathe* with the music while keeping the composition harmonious.
+- Stack multiple rules; strength slider per rule.
 
-- Mirror X, Y, or XY
-- Radial symmetry: 3, 4, 6, or 8-fold
-- Flip H/V per layer
+## Particles
 
-### Particles
+Optional per-layer particle overlay that spawns from the actual layout positions and reacts to audio energy. 11 shapes, four combinable noise fields (Perlin / Curl / Brownian / Vortex), and full physics (gravity, damping, spread, trails).
 
-Toggle a particle overlay on any layer:
+## Post-FX (GPU)
 
-- Particles spawn from actual layout positions (including terrain vertices and sphere surface)
-- Audio-reactive: energy drives count, velocity, size, lifetime
-- 11 shapes: Circle, Square, Star, Diamond, Ring, Triangle, Spark, Line, Numbers, Symbols, Words
-- 4 noise types: Perlin, Curl, Brownian, Vortex — combinable at any ratio
-- Full physics: gravity, damping, spread, trail rendering
+Real-time WebGL shader stack: Bloom · Chromatic Aberration · Vignette · Scanlines · Sharpen · Invert · Reflect · Contrast · Blur (X / Y / Radial) · Focal · Trails · Feedback · Edge Glow · Kaleido.
 
-### Terrain Layout
+## Preset Morph ★
 
-A 3D wireframe landscape:
-- Multi-octave Perlin noise creates organic rolling hills
-- Audio modulates noise amplitude — loud parts make hills taller
-- **Bend** curves the terrain into a cylinder arc
-- **Twist** progressively rotates rows by depth
-- Camera angle from 0° (horizon) to 90° (top-down)
-- Perspective projection with adjustable focal length
-- All 15 line styles work on the wireframe
+A signature feature — smoothly blend through a **playlist** of presets:
+- **+ Add preset** to build a sequence (or **All** for everything); each shows as a removable chip.
+- **Play** cycles them in order over a chosen Duration, looping seamlessly.
+- **Random** jumps between random presets (your list, or all of them).
+- **On Beat** advances on detected beats instead of a timer.
+- **Ping-pong** bounces back and forth; drag **Morph** to scrub by hand.
+- Blends *every layer* of both presets — matching layers interpolate parameters and colors for a true geometric morph; mismatched layers/types crossfade, so a 2-layer preset morphs cleanly into a 5-layer one.
+- **Apply** bakes the current blend into editable layers.
 
-### Sphere Layout
+## Presets & Sharing
 
-A wireframe globe:
-- Audio and Perlin noise drive surface radius displacement
-- Auto-rotation with adjustable speed
-- Tilt control (-90° to 90°) for any viewing angle
-- Normal-based backface culling for proper solid appearance
-- Perspective projection with adjustable depth
+- **12 built-in presets**: cell · echo · firepit · glass · globe · helix · organica · rorschach · sacred_circle · spiral_planes · waves · zodiac
+- **Save / Save All / Export / Import** your own.
+- **✨ Surprise Me** — composes a fresh, coherent random scene (tasteful layout + harmonious palette + matching style).
+- **🔗 Copy Link** — encodes the entire current look into a URL. Open the link anywhere to reproduce the composition exactly (just load your own audio).
 
-### Other
+## Export
 
-- **Outline mode** with 4 styles (Solid, Dotted, Dashed, Connected)
-- **Connected** outline draws network-graph lines between points
-- **Playback modes**: Continuous (full waveform) or Equalizer (live frequency bars)
-- **3D mode** with 5 shapes (Cylinder, Box, Cone, Diamond, Flat) and 6 materials
-- **Video layout** with camera support and Edge style (contour lines)
-- **Webcam** input for color sampling and displacement
-- **Fullscreen** mode (⌘F)
-- **Export**: Download PNG, SVG, record MP4/WebM video (captures post-FX)
-- **Presets**: 6 built-in + save/load your own (includes post-FX state)
-- **Random** button for instant inspiration
-- **30-state undo** (⌘Z)
+- **PNG** (with or without background)
+- **SVG** vector export
+- **Record** MP4/WebM video with audio (captures post-FX, at full resolution)
 
 ## Quick Start
 
-1. Open `index.html` in a modern browser (Chrome/Edge recommended)
-2. Click **Load Audio** and pick a song, or click **Mic** / **System**
-3. Hit play — the visualization responds to the music
-4. Explore layouts, styles, and effects in the sidebar
-5. Press **Random** for surprise combinations
-6. Go fullscreen with the ⌘F shortcut or the button in the corner
+1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
+2. Click **Load Audio** and pick a song, or use **Mic** / **System**.
+3. Hit play — the visualization responds to the music.
+4. Explore Layouts, Styles, and the Preset Morph in the sidebar.
+5. Hit **✨ Surprise Me** for instant inspiration, or **🔗 Copy Link** to share a look.
+6. Go fullscreen with ⌘F.
 
-## Presets
+## Performance
 
-Built-in presets to get started:
-
-| Preset | Description |
-|--------|-------------|
-| **vibes** | Spiral with symbols, particles, twist + depth effects |
-| **biohazard** | 3-layer kaleidoscope + spiral + phyllotaxis |
-| **no good** | Text "UP TO NO GOOD" with number particles |
-| **rainbow spiral** | 3-layer spiral/circle equalizer |
-| **YES** | Spiral + text + phyllotaxis with word particles |
-| **Electronic** | 4-layer terrain + scatter + phyllotaxis with particles |
+Rendering is CPU-side Canvas 2D with a WebGL post-FX pass. It caps the device-pixel-ratio, pools offscreen canvases, and caches hot paths to stay smooth; heavy multi-layer presets with maxed post-FX are the most demanding.
 
 ## Tech
 
-- Single HTML file (~600KB)
-- Zero external dependencies — vanilla JS, Canvas 2D, Web Audio API
-- Three.js r128 (CDN) for 3D mode
+- Single HTML file, zero external runtime dependencies — vanilla JS, Canvas 2D, Web Audio API
 - WebGL shader pipeline for post-processing
-- Real 2D Perlin noise implementation
-- MP4/WebM recording via MediaRecorder API
+- Custom 2D Perlin noise
+- MP4/WebM recording via MediaRecorder
 - Works offline after first load
+
+## Keyboard
+
+⌘/Ctrl + Z — Undo · ⌘/Ctrl + F — Fullscreen · Space — Play/Pause · Esc — Exit fullscreen / close help
 
 ## Author
 
-**Vladimir Petković**  
-[vladimirpetkovic.com](https://www.vladimirpetkovic.com)
+**Vladimir Petković** — [vladimirpetkovic.com](https://www.vladimirpetkovic.com)
 
 ## License
 
