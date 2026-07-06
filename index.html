@@ -35,6 +35,11 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .frame-view{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;width:100%;height:calc(100vh - 220px);transition:background .2s}
 .frame-view canvas{width:100%;height:100%;display:block}
 body.mobile-ui #frameCv, body.native #frameCv { touch-action: none; }
+.m-seek{display:none}
+body.mobile-ui #idle{display:none!important}
+body.mobile-ui #overviewWrap,body.mobile-ui #cropBar{display:none!important}
+body.mobile-ui .m-seek{display:block;width:100%;margin:6px 0 2px;height:4px;-webkit-appearance:none;appearance:none;background:var(--tx3,#444);border-radius:2px;outline:none}
+body.mobile-ui .m-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent2,#6ee7b7);cursor:pointer}
 .frame-badge{position:absolute;top:8px;right:10px;font-size:.55rem;letter-spacing:.05em;pointer-events:none}
 .fs-btn{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:rgba(255,255,255,0.6);padding:4px 5px;cursor:pointer;z-index:15;opacity:0;transition:opacity .2s}
 .frame-view:hover .fs-btn{opacity:1}
@@ -169,6 +174,7 @@ body.mobile-ui #frameCv, body.native #frameCv { touch-action: none; }
       <div class="sel-info" id="selInfo"></div>
       <span class="tag" id="rangeTag" style="display:none;font-size:.5rem;color:var(--accent2);background:var(--accent-g);border:1px solid var(--accent-d);border-radius:3px;padding:1px 5px">range</span>
     </div>
+    <input type="range" id="mSeek" class="m-seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
     <div class="overview-wrap" id="overviewWrap"><canvas id="overviewCv"></canvas>
       <div class="crop-dim-left" id="cropDimL"></div><div class="crop-dim-right" id="cropDimR"></div>
       <div class="sel-region" id="selRegion"><div class="sel-handle left" id="selLeft"></div><div class="sel-handle right" id="selRight"></div></div>
@@ -6296,6 +6302,7 @@ function animLoop(){if(!playing){rafId=null;return}
   rafId=requestAnimationFrame(animLoop);
   document.getElementById('tCur').textContent=fmt(audio.currentTime);
   document.getElementById('overviewHead').style.left=(audio.currentTime/safeDuration()*100)+'%';
+  var _ms=document.getElementById('mSeek'); if(_ms&&!_msDragging){ var _d=safeDuration(); _ms.value=_d?(audio.currentTime/_d*1000):0; }
   if(!realtimePreview)return;
 
   var p=P();
@@ -6678,6 +6685,12 @@ function resizeAll(){setTimeout(function(){sizeCanvas(frameCv);renderDensity()},
 function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.display=o.style.display==='block'?'none':'block'}
 initLayers();
 try{loadFromHash()}catch(e){}
+var _msDragging=false;
+(function(){ var ms=document.getElementById('mSeek'); if(!ms) return;
+  ms.addEventListener('input',function(){ if(!audioBuffer) return; _msDragging=true; safeSetTime(parseFloat(ms.value)/1000*safeDuration()); document.getElementById('tCur').textContent=fmt(audio.currentTime); });
+  ms.addEventListener('change',function(){ _msDragging=false; });
+  ms.addEventListener('pointerup',function(){ _msDragging=false; });
+})();
 </script>
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
 <div class="help-modal">
