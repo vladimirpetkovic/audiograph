@@ -571,6 +571,13 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
   </div>
 </div>
 <script>
+/* --- mobile environment shim (inert on desktop web) --- */
+var IS_NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+var IS_MOBILE_UI = IS_NATIVE || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 900);
+try {
+  if (IS_NATIVE) document.body.classList.add('native');
+  if (IS_MOBILE_UI) document.body.classList.add('mobile-ui');
+} catch (e) { /* body not ready is impossible here: script is at end of body */ }
 var frameCv=document.getElementById('frameCv'),frameCtx=frameCv.getContext('2d'),overCv=document.getElementById('overviewCv'),overCtx=overCv.getContext('2d');
 frameCv.addEventListener("mousedown",function(e){var lm=layoutMode;if(lm==="terrain"||lm==="sphere"||lm==="tetrahedron"||lm==="dna"||lm==="object"||lm==="fractal"){pushUndo();isDragging=true;dragPrevX=e.clientX;dragPrevY=e.clientY;frameCv.style.cursor="grabbing";e.preventDefault()}});
 frameCv.addEventListener("mousemove",function(e){if(!isDragging)return;var dx=e.clientX-dragPrevX,dy=e.clientY-dragPrevY;dragRotY+=dx*0.008;dragRotX+=dy*0.008;dragPrevX=e.clientX;dragPrevY=e.clientY;var _t3=document.getElementById("p3dTilt"),_r3=document.getElementById("p3dRotate");if(_t3){_t3.value=Math.round(dragRotX*180/Math.PI);document.getElementById("v3dTilt").textContent=_t3.value+"\u00b0"}if(_r3){_r3.value=Math.round(dragRotY*180/Math.PI);document.getElementById("v3dRotate").textContent=_r3.value+"\u00b0"}renderDensity()});
