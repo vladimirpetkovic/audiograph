@@ -74,20 +74,22 @@ body.mobile-ui .m-layer-menu{position:fixed;z-index:200;background:rgba(18,18,24
 body.mobile-ui .m-layer-menu.open{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 body.mobile-ui .m-layer-menu button{padding:8px 10px;border-radius:7px;background:var(--elevated);color:#dfe3e8;font-size:11px;text-transform:capitalize;border:1px solid transparent;text-align:left;white-space:nowrap;cursor:pointer}
 .sheet-handle{display:none}
-body.mobile-ui .sheet-handle{display:flex;justify-content:center;align-items:center;padding:8px 0 6px;cursor:pointer;position:sticky;top:0;z-index:2;background:rgba(12,12,16,0.96)}
+body.mobile-ui .sheet-handle{display:flex;justify-content:center;align-items:center;padding:8px 0 6px;cursor:pointer;position:static;z-index:2;background:rgba(12,12,16,0.96)}
 body.mobile-ui .sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--tx3)}
 body.mobile-ui #controlsArea{position:fixed;left:0;right:0;bottom:0;z-index:60;width:100%;height:96px;max-height:92vh;margin:0;padding:0 12px calc(14px + env(safe-area-inset-bottom));border:none;border-top:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(12,12,16,0.80);-webkit-backdrop-filter:blur(20px) saturate(1.2);backdrop-filter:blur(20px) saturate(1.2);box-shadow:0 -10px 34px rgba(0,0,0,.55);overflow-y:auto;overscroll-behavior:contain;transition:height .3s cubic-bezier(.32,.72,0,1)}
 body.mobile-ui .preview-area{padding-bottom:52px}
 /* fill the viewport on mobile so the footer sits above the sheet */
 body.mobile-ui{display:flex;flex-direction:column;min-height:100dvh}
 body.mobile-ui .app{flex:1;min-height:0}
-body.mobile-ui .preview-area{flex:1;min-height:0;padding:1rem 1rem 100px;overflow:hidden}
-body.mobile-ui .frame-view{height:auto!important;flex:1;min-height:0}
+body.mobile-ui .preview-area{flex:none;padding:1rem 1rem 8px;overflow:visible}
+body.mobile-ui .frame-view{height:auto!important;aspect-ratio:1/1;flex:none;width:100%;min-height:0}
 /* collapsed peek shows handle + tab strip */
 body.mobile-ui .sheet-handle{z-index:4}
 /* tab strip */
 .sheet-tabs{display:none}
-body.mobile-ui .sheet-tabs{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 10px;position:sticky;top:22px;z-index:3;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:rgba(12,12,16,0.96)}
+body.mobile-ui .sheet-tabs{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 10px;position:static;z-index:3;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:rgba(12,12,16,0.96)}
+body.mobile-ui #controlsArea{overflow:hidden;display:flex;flex-direction:column}
+body.mobile-ui #sheetBody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px}
 body.mobile-ui .sheet-tabs::-webkit-scrollbar{display:none}
 body.mobile-ui .sheet-tab{flex:0 0 auto;padding:6px 13px;border-radius:14px;background:var(--elevated);color:#c2c6cc;font-size:11px;letter-spacing:.02em;white-space:nowrap;border:1px solid transparent;cursor:pointer}
 body.mobile-ui .sheet-tab.active{background:var(--accent2);color:#04130c;font-weight:600}
@@ -6768,7 +6770,7 @@ setInterval(mTransportSync, 250);
 (function(){
   var c=document.getElementById('controlsArea'), handle=document.getElementById('sheetHandle'); if(!c||!handle) return;
   function vh(f){ return window.innerHeight*f; }
-  function detents(){ return {collapsed:96, half:Math.round(vh(0.5)), full:Math.round(vh(0.9))}; }
+  function detents(){ var pa=document.querySelector('.preview-area'); var def=pa?Math.max(150, Math.round(window.innerHeight - pa.getBoundingClientRect().bottom + 6)):Math.round(vh(0.45)); return {collapsed:96, half:def, full:Math.round(vh(0.92))}; }
   var state='collapsed';
   function setDetent(name){ var D=detents(); if(!(name in D)) name='half'; state=name; c.style.transition=''; c.style.height=D[name]+'px'; }
   window.mSheetSetDetent=setDetent;
@@ -6850,6 +6852,13 @@ function buildMobileLayerBar(){
   bar.appendChild(add);
 }
 setTimeout(buildMobileLayerBar,0);
+(function(){ if(!document.body.classList.contains('mobile-ui')) return;
+  var c=document.getElementById('controlsArea'); if(!c || document.getElementById('sheetBody')) return;
+  var sb=document.createElement('div'); sb.id='sheetBody';
+  var keep={sheetHandle:1,sheetTabs:1};
+  [].slice.call(c.children).forEach(function(ch){ if(!keep[ch.id]) sb.appendChild(ch); });
+  c.appendChild(sb);
+})();
 </script>
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
 <div class="help-modal">
