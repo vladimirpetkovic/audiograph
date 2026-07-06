@@ -89,7 +89,7 @@ body.mobile-ui #controlsArea .panel{display:none!important;border:none;backgroun
 body.mobile-ui #controlsArea .panel.mob-active{display:block!important}
 body.mobile-ui #controlsArea .panel.mob-active .panel-body{display:flex!important}
 body.mobile-ui #controlsArea .panel-head{display:none}
-body.mobile-ui #controlsArea .prow:has(#pIntensity){display:none}
+body.mobile-ui #pIntensityRow{display:none!important}
 .frame-badge{position:absolute;top:8px;right:10px;font-size:.55rem;letter-spacing:.05em;pointer-events:none}
 .fs-btn{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:rgba(255,255,255,0.6);padding:4px 5px;cursor:pointer;z-index:15;opacity:0;transition:opacity .2s}
 .frame-view:hover .fs-btn{opacity:1}
@@ -243,7 +243,7 @@ body.mobile-ui #controlsArea .prow:has(#pIntensity){display:none}
     <div class="sheet-handle" id="sheetHandle"><span class="sheet-grip"></span></div>
     <div class="sheet-tabs" id="sheetTabs"></div>
     <!-- GLOBAL INTENSITY -->
-    <div style="padding:8px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
+    <div id="pIntensityRow" style="padding:8px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
       <span class="prow-label" style="min-width:56px">Intensity</span>
       <input type="range" min="0" max="200" value="100" step="5" id="pIntensity" oninput="document.getElementById('vIntensity').textContent=this.value+'%'" style="flex:1;-webkit-appearance:none;appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none">
       <span class="prow-val" id="vIntensity">100%</span>
