@@ -77,8 +77,7 @@ body.mobile-ui .m-layer-menu button{padding:8px 10px;border-radius:7px;backgroun
 .sheet-handle{display:none}
 body.mobile-ui .sheet-handle{display:flex;justify-content:center;align-items:center;padding:8px 0 6px;cursor:pointer;position:sticky;top:0;z-index:2}
 body.mobile-ui .sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--tx3)}
-body.mobile-ui #controlsArea{position:fixed;left:0;right:0;bottom:0;z-index:60;width:100%;max-height:82vh;margin:0;padding:0 12px calc(14px + env(safe-area-inset-bottom));border:none;border-top:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(12,12,16,0.80);-webkit-backdrop-filter:blur(20px) saturate(1.2);backdrop-filter:blur(20px) saturate(1.2);box-shadow:0 -10px 34px rgba(0,0,0,.55);overflow-y:auto;overscroll-behavior:contain;transform:translateY(calc(100% - 44px));transition:transform .3s cubic-bezier(.32,.72,0,1)}
-body.mobile-ui #controlsArea.expanded{transform:translateY(0)}
+body.mobile-ui #controlsArea{position:fixed;left:0;right:0;bottom:0;z-index:60;width:100%;height:96px;max-height:92vh;margin:0;padding:0 12px calc(14px + env(safe-area-inset-bottom));border:none;border-top:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(12,12,16,0.80);-webkit-backdrop-filter:blur(20px) saturate(1.2);backdrop-filter:blur(20px) saturate(1.2);box-shadow:0 -10px 34px rgba(0,0,0,.55);overflow-y:auto;overscroll-behavior:contain;transition:height .3s cubic-bezier(.32,.72,0,1)}
 body.mobile-ui .preview-area{padding-bottom:52px}
 /* fill the viewport on mobile so the footer sits above the sheet */
 body.mobile-ui{display:flex;flex-direction:column;min-height:100dvh}
@@ -86,7 +85,6 @@ body.mobile-ui .app{flex:1;min-height:0}
 body.mobile-ui .preview-area{flex:1;min-height:0;padding:1rem 1rem 100px;overflow:hidden}
 body.mobile-ui .frame-view{height:auto!important;flex:1;min-height:0}
 /* collapsed peek shows handle + tab strip */
-body.mobile-ui #controlsArea{transform:translateY(calc(100% - 94px))}
 body.mobile-ui .sheet-handle{z-index:4}
 /* tab strip */
 .sheet-tabs{display:none}
@@ -6767,7 +6765,26 @@ function mTransportSync(){
 }
 setInterval(mTransportSync, 250);
 (function(){var mi=document.getElementById('mIntensity'),pi=document.getElementById('pIntensity');if(mi&&pi){mi.value=pi.value;mi.addEventListener('input',function(){pi.value=mi.value;pi.dispatchEvent(new Event('input',{bubbles:true}));});}})();
-(function(){var h=document.getElementById('sheetHandle'),c=document.getElementById('controlsArea');if(h&&c){h.addEventListener('click',function(){c.classList.toggle('expanded');});}})();
+(function(){
+  var c=document.getElementById('controlsArea'), handle=document.getElementById('sheetHandle'); if(!c||!handle) return;
+  function vh(f){ return window.innerHeight*f; }
+  function detents(){ return {collapsed:96, half:Math.round(vh(0.5)), full:Math.round(vh(0.9))}; }
+  var state='collapsed';
+  function setDetent(name){ var D=detents(); if(!(name in D)) name='half'; state=name; c.style.transition=''; c.style.height=D[name]+'px'; }
+  window.mSheetSetDetent=setDetent;
+  var dragging=false, moved=false, startY=0, startH=0;
+  handle.addEventListener('pointerdown',function(e){ dragging=true; moved=false; startY=e.clientY; startH=c.offsetHeight; c.style.transition='none'; try{handle.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
+  handle.addEventListener('pointermove',function(e){ if(!dragging)return; var dy=e.clientY-startY; if(Math.abs(dy)>4)moved=true; var hh=Math.min(Math.max(96, startH-dy), Math.round(vh(0.92))); c.style.height=hh+'px'; });
+  function endDrag(){ if(!dragging)return; dragging=false; c.style.transition='';
+    if(!moved){ setDetent(state==='collapsed'?'half':'collapsed'); return; }
+    var D=detents(), hh=c.offsetHeight, best='half', bd=1e9;
+    Object.keys(D).forEach(function(k){ var d=Math.abs(D[k]-hh); if(d<bd){bd=d;best=k;} });
+    setDetent(best);
+  }
+  handle.addEventListener('pointerup',endDrag); handle.addEventListener('pointercancel',endDrag);
+  window.addEventListener('resize',function(){ if(state!=='collapsed') setDetent(state); });
+  setDetent('collapsed');
+})();
 (function(){
   var c=document.getElementById('controlsArea'), tabsEl=document.getElementById('sheetTabs');
   if(!c||!tabsEl) return;
@@ -6784,7 +6801,7 @@ setInterval(mTransportSync, 250);
     var titleEl=p.querySelector('.panel-title');
     var name=titleEl?titleEl.textContent.trim():'Panel';
     var t=document.createElement('div'); t.className='sheet-tab'; t.textContent=name; t._panel=p;
-    t.addEventListener('click',function(){ activate(p); c.classList.add('expanded'); t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'}); });
+    t.addEventListener('click',function(){ activate(p); if(window.mSheetSetDetent)mSheetSetDetent('half'); t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'}); });
     tabsEl.appendChild(t);
   });
   if(panels.length) activate(panels[0]);
