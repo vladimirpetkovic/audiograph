@@ -584,6 +584,26 @@ var frameCv=document.getElementById('frameCv'),frameCtx=frameCv.getContext('2d')
 function is3DLayout(lm){ return lm==="terrain"||lm==="sphere"||lm==="tetrahedron"||lm==="dna"||lm==="object"||lm==="fractal"; }
 var activePointers = new Map(); // pointerId -> {x,y}
 
+/* --- multi-touch: pinch-zoom + two-finger pan (Task 4) --- */
+var pinchState = { active:false, startDist:0, startZoom:1, cx:0, cy:0, lastX:0, lastY:0 };
+function pointerDist(){
+  var pts=[...activePointers.values()];
+  if(pts.length<2) return 0;
+  var a=pts[0], b=pts[1];
+  return Math.hypot(a.x-b.x, a.y-b.y);
+}
+function pointerMid(){
+  var pts=[...activePointers.values()];
+  return { x:(pts[0].x+pts[1].x)/2, y:(pts[0].y+pts[1].y)/2 };
+}
+function getZoom(){ var el=document.getElementById("pZoom"); return el?parseFloat(el.value):100; }
+function setZoom(z){
+  var el=document.getElementById("pZoom"); if(!el) return;
+  var min=parseFloat(el.min)||50, max=parseFloat(el.max)||400;
+  el.value=Math.max(min,Math.min(max,z));
+  el.dispatchEvent(new Event("input",{bubbles:true}));
+}
+
 function syncOrbitSliders(){
   var _t3=document.getElementById("p3dTilt"),_r3=document.getElementById("p3dRotate");
   if(_t3){_t3.value=Math.round(dragRotX*180/Math.PI);document.getElementById("v3dTilt").textContent=_t3.value+"\u00b0";}
@@ -597,6 +617,13 @@ frameCv.addEventListener("pointerdown",function(e){
     isDragging=true; dragPrevX=e.clientX; dragPrevY=e.clientY;
     frameCv.style.cursor="grabbing";
   }
+  if(activePointers.size===2){
+    isDragging=false; frameCv.style.cursor="";
+    pinchState.active=true;
+    pinchState.startDist=pointerDist();
+    pinchState.startZoom=getZoom();
+    var m0=pointerMid(); pinchState.cx=m0.x; pinchState.cy=m0.y; pinchState.lastX=m0.x; pinchState.lastY=m0.y;
+  }
   try{ frameCv.setPointerCapture(e.pointerId); }catch(_){}
   e.preventDefault();
 });
@@ -604,6 +631,28 @@ frameCv.addEventListener("pointerdown",function(e){
 frameCv.addEventListener("pointermove",function(e){
   if(!activePointers.has(e.pointerId)) return;
   activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(activePointers.size===2 && pinchState.active){
+    var d=pointerDist();
+    if(pinchState.startDist>0){ setZoom(pinchState.startZoom * (d/pinchState.startDist)); }
+    var m=pointerMid();
+    var el=frameCv;
+    var ox=document.getElementById('pOffX');
+    if(ox){
+      var spanX=(parseFloat(ox.max)-parseFloat(ox.min));
+      var nvx=(parseFloat(ox.value)||0)+((m.x-pinchState.lastX)/el.clientWidth)*spanX;
+      nvx=Math.max(parseFloat(ox.min),Math.min(parseFloat(ox.max),nvx));
+      ox.value=nvx; ox.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    var oy=document.getElementById('pOffY');
+    if(oy){
+      var spanY=(parseFloat(oy.max)-parseFloat(oy.min));
+      var nvy=(parseFloat(oy.value)||0)+((m.y-pinchState.lastY)/el.clientHeight)*spanY;
+      nvy=Math.max(parseFloat(oy.min),Math.min(parseFloat(oy.max),nvy));
+      oy.value=nvy; oy.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    pinchState.lastX=m.x; pinchState.lastY=m.y;
+    return;
+  }
   if(activePointers.size===1 && isDragging){
     var dx=e.clientX-dragPrevX, dy=e.clientY-dragPrevY;
     dragRotY+=dx*0.008; dragRotX+=dy*0.008;
@@ -615,11 +664,28 @@ frameCv.addEventListener("pointermove",function(e){
 
 function endPointer(e){
   activePointers.delete(e.pointerId);
+  if(activePointers.size<2) pinchState.active=false;
   if(activePointers.size===0){ isDragging=false; frameCv.style.cursor=""; }
 }
 frameCv.addEventListener("pointerup",endPointer);
 frameCv.addEventListener("pointercancel",endPointer);
 frameCv.addEventListener("pointerleave",function(e){ if(e.pointerType==="mouse") endPointer(e); });
+
+/* --- double-tap → fullscreen toggle (Task 4) --- */
+var _lastTap=0;
+function toggleCanvasFullscreen(){
+  window.dispatchEvent(new CustomEvent("audiograph:toggle-fullscreen"));
+  // v1 fallback until Phase 2 sheet exists:
+  if(!document.querySelector("body.mobile-ui .sheet")){
+    if(document.fullscreenElement) document.exitFullscreen && document.exitFullscreen();
+    else frameCv.requestFullscreen && frameCv.requestFullscreen();
+  }
+}
+frameCv.addEventListener("pointerup",function(e){
+  var now=Date.now();
+  if(now-_lastTap<300 && activePointers.size===0){ toggleCanvasFullscreen(); }
+  _lastTap=now;
+});
 
 // --- Motion Trails ---
 var trailCv=null,trailCtx=null;
