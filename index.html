@@ -34,6 +34,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .controls-area{width:420px;flex-shrink:0;border-right:1px solid var(--border);padding:1rem;padding-bottom:2rem;overflow-y:auto;overflow-x:hidden;max-height:calc(100vh - 50px);display:flex;flex-direction:column;gap:6px}
 .frame-view{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;width:100%;height:calc(100vh - 220px);transition:background .2s}
 .frame-view canvas{width:100%;height:100%;display:block}
+body.mobile-ui #frameCv, body.native #frameCv { touch-action: none; }
 .frame-badge{position:absolute;top:8px;right:10px;font-size:.55rem;letter-spacing:.05em;pointer-events:none}
 .fs-btn{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:rgba(255,255,255,0.6);padding:4px 5px;cursor:pointer;z-index:15;opacity:0;transition:opacity .2s}
 .frame-view:hover .fs-btn{opacity:1}
@@ -579,10 +580,46 @@ try {
   if (IS_MOBILE_UI) document.body.classList.add('mobile-ui');
 } catch (e) { /* body not ready is impossible here: script is at end of body */ }
 var frameCv=document.getElementById('frameCv'),frameCtx=frameCv.getContext('2d'),overCv=document.getElementById('overviewCv'),overCtx=overCv.getContext('2d');
-frameCv.addEventListener("mousedown",function(e){var lm=layoutMode;if(lm==="terrain"||lm==="sphere"||lm==="tetrahedron"||lm==="dna"||lm==="object"||lm==="fractal"){pushUndo();isDragging=true;dragPrevX=e.clientX;dragPrevY=e.clientY;frameCv.style.cursor="grabbing";e.preventDefault()}});
-frameCv.addEventListener("mousemove",function(e){if(!isDragging)return;var dx=e.clientX-dragPrevX,dy=e.clientY-dragPrevY;dragRotY+=dx*0.008;dragRotX+=dy*0.008;dragPrevX=e.clientX;dragPrevY=e.clientY;var _t3=document.getElementById("p3dTilt"),_r3=document.getElementById("p3dRotate");if(_t3){_t3.value=Math.round(dragRotX*180/Math.PI);document.getElementById("v3dTilt").textContent=_t3.value+"\u00b0"}if(_r3){_r3.value=Math.round(dragRotY*180/Math.PI);document.getElementById("v3dRotate").textContent=_r3.value+"\u00b0"}renderDensity()});
-frameCv.addEventListener("mouseup",function(){isDragging=false;frameCv.style.cursor=""});
-frameCv.addEventListener("mouseleave",function(){isDragging=false;frameCv.style.cursor=""});
+/* --- unified pointer input for the canvas --- */
+function is3DLayout(lm){ return lm==="terrain"||lm==="sphere"||lm==="tetrahedron"||lm==="dna"||lm==="object"||lm==="fractal"; }
+var activePointers = new Map(); // pointerId -> {x,y}
+
+function syncOrbitSliders(){
+  var _t3=document.getElementById("p3dTilt"),_r3=document.getElementById("p3dRotate");
+  if(_t3){_t3.value=Math.round(dragRotX*180/Math.PI);document.getElementById("v3dTilt").textContent=_t3.value+"\u00b0";}
+  if(_r3){_r3.value=Math.round(dragRotY*180/Math.PI);document.getElementById("v3dRotate").textContent=_r3.value+"\u00b0";}
+}
+
+frameCv.addEventListener("pointerdown",function(e){
+  activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(activePointers.size===1 && is3DLayout(layoutMode)){
+    pushUndo();
+    isDragging=true; dragPrevX=e.clientX; dragPrevY=e.clientY;
+    frameCv.style.cursor="grabbing";
+  }
+  try{ frameCv.setPointerCapture(e.pointerId); }catch(_){}
+  e.preventDefault();
+});
+
+frameCv.addEventListener("pointermove",function(e){
+  if(!activePointers.has(e.pointerId)) return;
+  activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(activePointers.size===1 && isDragging){
+    var dx=e.clientX-dragPrevX, dy=e.clientY-dragPrevY;
+    dragRotY+=dx*0.008; dragRotX+=dy*0.008;
+    dragPrevX=e.clientX; dragPrevY=e.clientY;
+    syncOrbitSliders();
+    renderDensity();
+  }
+});
+
+function endPointer(e){
+  activePointers.delete(e.pointerId);
+  if(activePointers.size===0){ isDragging=false; frameCv.style.cursor=""; }
+}
+frameCv.addEventListener("pointerup",endPointer);
+frameCv.addEventListener("pointercancel",endPointer);
+frameCv.addEventListener("pointerleave",function(e){ if(e.pointerType==="mouse") endPointer(e); });
 
 // --- Motion Trails ---
 var trailCv=null,trailCtx=null;
