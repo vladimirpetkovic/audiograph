@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Audiograph — by Vladimir Petković</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Instrument+Serif&display=swap');
@@ -40,6 +40,16 @@ body.mobile-ui #idle{display:none!important}
 body.mobile-ui #overviewWrap,body.mobile-ui #cropBar{display:none!important}
 body.mobile-ui .m-seek{display:block;width:100%;margin:6px 0 2px;height:4px;-webkit-appearance:none;appearance:none;background:var(--tx3,#444);border-radius:2px;outline:none}
 body.mobile-ui .m-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent2,#6ee7b7);cursor:pointer}
+/* --- mobile compact header (Phase 2) --- */
+body.mobile-ui .top-bar{flex-wrap:wrap;gap:8px;padding:.45rem .7rem;padding-top:calc(.45rem + env(safe-area-inset-top))}
+body.mobile-ui .m-seek{margin-bottom:calc(2px + env(safe-area-inset-bottom))}
+body.mobile-ui .logo{font-size:.82rem;gap:6px}
+body.mobile-ui .logo a{display:none}
+body.mobile-ui .audio-source-label{display:none}
+body.mobile-ui #btnSystem{display:none}
+body.mobile-ui .audio-source-group{flex-direction:row;align-items:center;margin-left:0;padding:2px 6px;gap:6px}
+body.mobile-ui .top-actions{gap:5px;flex-wrap:wrap;justify-content:flex-end;flex:1}
+body.mobile-ui .top-actions .btn{padding:5px 8px;font-size:.6rem}
 .frame-badge{position:absolute;top:8px;right:10px;font-size:.55rem;letter-spacing:.05em;pointer-events:none}
 .fs-btn{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:rgba(255,255,255,0.6);padding:4px 5px;cursor:pointer;z-index:15;opacity:0;transition:opacity .2s}
 .frame-view:hover .fs-btn{opacity:1}
