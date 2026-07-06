@@ -586,6 +586,7 @@ var activePointers = new Map(); // pointerId -> {x,y}
 
 /* --- multi-touch: pinch-zoom + two-finger pan (Task 4) --- */
 var pinchState = { active:false, startDist:0, startZoom:1, cx:0, cy:0, lastX:0, lastY:0 };
+var _multiTouch=false;
 function pointerDist(){
   var pts=[...activePointers.values()];
   if(pts.length<2) return 0;
@@ -619,6 +620,7 @@ frameCv.addEventListener("pointerdown",function(e){
   }
   if(activePointers.size===2){
     isDragging=false; frameCv.style.cursor="";
+    _multiTouch=true;
     pinchState.active=true;
     pinchState.startDist=pointerDist();
     pinchState.startZoom=getZoom();
@@ -682,6 +684,8 @@ function toggleCanvasFullscreen(){
   }
 }
 frameCv.addEventListener("pointerup",function(e){
+  if(e.pointerType==="mouse") return;
+  if(_multiTouch){ if(activePointers.size===0) _multiTouch=false; _lastTap=0; return; }
   var now=Date.now();
   if(now-_lastTap<300 && activePointers.size===0){ toggleCanvasFullscreen(); }
   _lastTap=now;
