@@ -216,6 +216,20 @@ body.mobile-ui #pIntensityRow{display:none!important}
 @media(max-width:900px){.app{flex-direction:column}.controls-area{width:100%;max-height:none;border-right:none;order:1}}
 #mToast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);background:rgba(30,30,38,0.97);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:300;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;border:1px solid var(--border);max-width:80vw;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.5)}
 #mToast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+body.mobile-ui #stopAudioBtn{display:none!important}
+body.mobile-fs .top-bar,body.mobile-fs #mIntensityBar,body.mobile-fs #mLayerBar,body.mobile-fs #controlsArea,body.mobile-fs .m-guide,body.mobile-fs #mToast{display:none!important}
+body.mobile-fs .preview-area{padding:0!important}
+body.mobile-fs .frame-view{aspect-ratio:auto!important;width:100vw!important;height:100dvh!important;border:none!important;border-radius:0!important}
+body.mobile-ui .m-layer-chip{display:inline-flex;align-items:center;gap:6px}
+body.mobile-ui .m-layer-name{cursor:pointer}
+body.mobile-ui .m-layer-x{opacity:.55;font-size:9px;cursor:pointer;line-height:1}
+body.mobile-ui .m-layer-chip.active .m-layer-x{opacity:.8}
+.m-op-row{display:none}
+body.mobile-ui .m-op-row{display:flex;align-items:center;gap:8px;padding:2px 0 8px}
+body.mobile-ui .m-op-label{min-width:56px;font-size:11px;color:var(--tx2,#aaa);text-transform:uppercase;letter-spacing:.04em}
+body.mobile-ui #mLayerOpacity{flex:1;-webkit-appearance:none;appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none}
+body.mobile-ui #mLayerOpacity::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent2);cursor:pointer}
+body.mobile-ui .m-op-val{min-width:38px;text-align:right;font-size:11px;color:var(--accent2)}
 </style>
 </head>
 <body>
@@ -751,12 +765,9 @@ frameCv.addEventListener("pointerleave",function(e){ if(e.pointerType==="mouse")
 /* --- double-tap → fullscreen toggle (Task 4) --- */
 var _lastTap=0;
 function toggleCanvasFullscreen(){
-  window.dispatchEvent(new CustomEvent("audiograph:toggle-fullscreen"));
-  // v1 fallback until Phase 2 sheet exists:
-  if(!document.querySelector("body.mobile-ui .sheet")){
-    if(document.fullscreenElement) document.exitFullscreen && document.exitFullscreen();
-    else frameCv.requestFullscreen && frameCv.requestFullscreen();
-  }
+  if(document.body.classList.contains('mobile-ui')){ document.body.classList.toggle('mobile-fs'); if(window.renderDensity)renderDensity(); window.dispatchEvent(new Event('resize')); return; }
+  if(document.fullscreenElement) document.exitFullscreen && document.exitFullscreen();
+  else frameCv.requestFullscreen && frameCv.requestFullscreen();
 }
 frameCv.addEventListener("pointerup",function(e){
   if(e.pointerType==="mouse") return;
@@ -3273,6 +3284,7 @@ async function startLiveInput(stream){
   liveStream=stream;
   liveSource=audioCtx.createMediaStreamSource(stream);
   liveSource.connect(analyser);
+  try{ if(!audioCtx._liveSink){ audioCtx._liveSink=audioCtx.createGain(); audioCtx._liveSink.gain.value=0; audioCtx._liveSink.connect(audioCtx.destination); } analyser.connect(audioCtx._liveSink); }catch(e){}
   liveMode=true;
   document.getElementById('idle').style.display='none';
   document.getElementById('frameBadge').textContent='LIVE';
@@ -6764,7 +6776,7 @@ var _msDragging=false;
 function mToggleRec(){ if(typeof isRecording!=='undefined' && isRecording){ stopRecording(); } else { startRecording(); } }
 function mTransportSync(){
   var mp=document.getElementById('mPlayIco');
-  if(mp){var pp=!(typeof playing!=='undefined'&&playing); if(mp.getAttribute('data-p')!==(pp?'1':'0')){mp.setAttribute('data-p',pp?'1':'0'); mp.innerHTML=pp?'<polygon points="6 4 20 12 6 20 6 4"/>':'<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>';}}
+  if(mp){var act=(typeof liveMode!=='undefined'&&liveMode)||(typeof playing!=='undefined'&&playing); if(mp.getAttribute('data-a')!==(act?'1':'0')){mp.setAttribute('data-a',act?'1':'0'); mp.innerHTML=act?'<rect x="5" y="5" width="14" height="14" rx="2"/>':'<polygon points="6 4 20 12 6 20 6 4"/>';}}
   var mr=document.getElementById('mRecIco');
   if(mr){var rr=(typeof isRecording!=='undefined'&&isRecording); if(mr.getAttribute('data-r')!==(rr?'1':'0')){mr.setAttribute('data-r',rr?'1':'0'); mr.innerHTML=rr?'<rect x="6" y="6" width="12" height="12" rx="1"/>':'<circle cx="12" cy="12" r="7"/>';}}
   var _mi=document.getElementById('mIntensity'),_pi=document.getElementById('pIntensity'); if(_mi&&_pi&&document.activeElement!==_mi&&_mi.value!==_pi.value){_mi.value=_pi.value;}
@@ -6847,13 +6859,16 @@ function buildMobileLayerBar(){
   var bar=document.getElementById('mLayerBar'); if(!bar || typeof stackLayouts==='undefined') return;
   bar.innerHTML='';
   stackLayouts.forEach(function(layer,idx){
-    var chip=document.createElement('button'); chip.className='m-layer-chip'+(idx===activeLayerIdx?' active':'');
-    chip.textContent=layer.layout; chip.onclick=function(){ selectLayer(idx); };
+    var chip=document.createElement('div'); chip.className='m-layer-chip'+(idx===activeLayerIdx?' active':'');
+    var nm=document.createElement('span'); nm.className='m-layer-name'; nm.textContent=layer.layout; nm.onclick=function(){ selectLayer(idx); };
+    chip.appendChild(nm);
+    if(stackLayouts.length>1){ var x=document.createElement('span'); x.className='m-layer-x'; x.textContent='✕'; x.onclick=function(e){ e.stopPropagation(); removeLayer(idx); }; chip.appendChild(x); }
     bar.appendChild(chip);
   });
   var add=document.createElement('button'); add.className='m-layer-add'; add.textContent='+'; add.setAttribute('aria-label','Add layer');
   add.onclick=function(e){ e.stopPropagation(); toggleLayerMenu(add); };
   bar.appendChild(add);
+  var mo=document.getElementById('mLayerOpacity'); if(mo && stackLayouts[activeLayerIdx]){ mo.value=stackLayouts[activeLayerIdx].opacity; var v=document.getElementById('mLayerOpacityVal'); if(v)v.textContent=stackLayouts[activeLayerIdx].opacity+'%'; }
 }
 setTimeout(buildMobileLayerBar,0);
 (function(){ if(!document.body.classList.contains('mobile-ui')) return;
@@ -6865,12 +6880,20 @@ setTimeout(buildMobileLayerBar,0);
 })();
 function mHasSource(){ return !!((typeof audioBuffer!=='undefined'&&audioBuffer)||(typeof activeAudioSource!=='undefined'&&activeAudioSource)); }
 function mToast(msg){ var t=document.getElementById('mToast'); if(!t){t=document.createElement('div');t.id='mToast';document.body.appendChild(t);} t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(function(){t.classList.remove('show');},2200); }
-function mGuardPlay(){ if(!mHasSource()){mToast('Select an audio source first');return;} togglePlay(); }
+function mGuardPlay(){ if(!mHasSource()){mToast('Select an audio source first');return;} if(typeof liveMode!=='undefined'&&liveMode){ stopAudioSource(); } else { togglePlay(); } }
 function mGuardRec(){ if(!mHasSource()){mToast('Select an audio source first');return;} mToggleRec(); }
 (function(){ if(!document.body.classList.contains('mobile-ui')) return;
   function guard(el){ if(!el) return; el.addEventListener('click',function(e){ if(!mHasSource()){ e.stopImmediatePropagation(); e.preventDefault(); mToast('Select an audio source first'); } }, true); }
   guard(document.getElementById('undoBtn'));
   guard(document.querySelector('.top-actions [onclick="resetAll()"]'));
+})();
+(function(){ if(!document.body.classList.contains('mobile-ui')) return;
+  var pa=document.getElementById('panelAppear'); if(!pa) return; var body=pa.querySelector('.panel-body'); if(!body) return;
+  var row=document.createElement('div'); row.className='m-op-row';
+  row.innerHTML='<span class="m-op-label">Opacity</span><input type="range" min="5" max="100" step="5" value="100" id="mLayerOpacity"><span class="m-op-val" id="mLayerOpacityVal">100%</span>';
+  body.insertBefore(row, body.firstChild);
+  document.getElementById('mLayerOpacity').addEventListener('input',function(){ setLayerOpacity(activeLayerIdx, this.value); document.getElementById('mLayerOpacityVal').textContent=this.value+'%'; });
+  if(typeof buildMobileLayerBar==='function') buildMobileLayerBar();
 })();
 </script>
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
