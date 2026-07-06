@@ -64,6 +64,16 @@ body.mobile-ui .m-guide svg{width:22px;height:22px;stroke:#fff}
 body.mobile-ui .m-intensity{display:block;padding:8px 12px;border-bottom:1px solid var(--border)}
 body.mobile-ui #mIntensity{width:100%;height:8px;-webkit-appearance:none;appearance:none;border-radius:4px;outline:none;background:linear-gradient(90deg,#ff4d4d,#ffd23f,#6ee7b7)}
 body.mobile-ui #mIntensity::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.35);box-shadow:0 1px 3px rgba(0,0,0,.45);cursor:pointer}
+.m-layerbar{display:none}
+body.mobile-ui .m-layerbar{display:flex;gap:6px;align-items:center;overflow-x:auto;overflow-y:visible;padding:6px 12px;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scrollbar-width:none}
+body.mobile-ui .m-layerbar::-webkit-scrollbar{display:none}
+body.mobile-ui .m-layer-chip{flex:0 0 auto;padding:5px 12px;border-radius:13px;background:var(--elevated);color:#c2c6cc;font-size:11px;text-transform:capitalize;white-space:nowrap;border:1px solid transparent;cursor:pointer}
+body.mobile-ui .m-layer-chip.active{background:var(--accent2);color:#04130c;font-weight:600}
+body.mobile-ui .m-layer-add{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--elevated);color:var(--accent2);font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);cursor:pointer}
+.m-layer-menu{display:none}
+body.mobile-ui .m-layer-menu{position:fixed;z-index:200;background:rgba(18,18,24,0.97);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:10px;padding:6px;max-height:60vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+body.mobile-ui .m-layer-menu.open{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+body.mobile-ui .m-layer-menu button{padding:8px 10px;border-radius:7px;background:var(--elevated);color:#dfe3e8;font-size:11px;text-transform:capitalize;border:1px solid transparent;text-align:left;white-space:nowrap;cursor:pointer}
 .sheet-handle{display:none}
 body.mobile-ui .sheet-handle{display:flex;justify-content:center;align-items:center;padding:8px 0 6px;cursor:pointer;position:sticky;top:0;z-index:2}
 body.mobile-ui .sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--tx3)}
@@ -209,6 +219,7 @@ body.mobile-ui #pIntensityRow{display:none!important}
   <div class="top-actions"><button class="btn m-play" onclick="togglePlay()" aria-label="Play/Pause"><svg id="mPlayIco" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>Play</button><button class="btn m-export" onclick="mToggleRec()" aria-label="Record video"><svg id="mRecIco" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>Rec</button><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Reset</button><button class="btn" id="stopAudioBtn" onclick="stopAudioSource()" style="display:none;border-color:var(--crop);color:var(--crop)"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>Stop</button><div class="audio-source-group"><span class="audio-source-label">Audio source</span><div class="audio-source-btns"><label class="btn" id="btnLoadAudio"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" id="btnMic" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" id="btnSystem" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button></div></div><span class="help-btn"><button class="btn" onclick="toggleHelp()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Guide</button></span></div>
 </div>
 <div class="m-intensity" id="mIntensityBar"><input type="range" min="0" max="200" value="100" step="5" id="mIntensity" aria-label="Intensity"></div>
+<div class="m-layerbar" id="mLayerBar"></div>
 <div class="app" id="app">
   <div class="preview-area">
     <div class="frame-view" id="frameWrap"><canvas id="frameCv"></canvas><canvas id="postFxCv" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none"></canvas><div class="frame-badge" id="frameBadge"></div>
@@ -1225,6 +1236,7 @@ function buildLayersUI(){
       (stackLayouts.length>1?'<span class="layer-rm" onclick="removeLayer('+idx+')">✕</span>':'');
     list.appendChild(row);
   });
+  buildMobileLayerBar();
 }
 // Layout crossfade: snapshot the current frame into a DOM overlay that fades out as the new
 // layout renders underneath — a smooth dissolve instead of a hard cut. Decoupled from the
@@ -6759,20 +6771,67 @@ setInterval(mTransportSync, 250);
 (function(){
   var c=document.getElementById('controlsArea'), tabsEl=document.getElementById('sheetTabs');
   if(!c||!tabsEl) return;
-  var panels=[].slice.call(c.querySelectorAll('.panel'));
+  var EXCLUDE={'Webcam':1,'Audio EQ':1,'Layers':1};
+  var panels=[].slice.call(c.querySelectorAll('.panel')).filter(function(p){
+    var t=p.querySelector('.panel-title'); return !(t && EXCLUDE[t.textContent.trim()]);
+  });
+  panels.sort(function(a,b){ return (b.id==='panelAppear'?1:0) - (a.id==='panelAppear'?1:0); });
   function activate(p){
     panels.forEach(function(x){ x.classList.toggle('mob-active', x===p); });
     [].slice.call(tabsEl.children).forEach(function(t){ t.classList.toggle('active', t._panel===p); });
   }
-  panels.forEach(function(p,i){
+  panels.forEach(function(p){
     var titleEl=p.querySelector('.panel-title');
-    var name=titleEl?titleEl.textContent.trim():('Panel '+(i+1));
+    var name=titleEl?titleEl.textContent.trim():'Panel';
     var t=document.createElement('div'); t.className='sheet-tab'; t.textContent=name; t._panel=p;
     t.addEventListener('click',function(){ activate(p); c.classList.add('expanded'); t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'}); });
     tabsEl.appendChild(t);
   });
-  if(panels.length){ var def=panels.filter(function(p){return p.id==='panelAppear';})[0]||panels[0]; activate(def); }
+  if(panels.length) activate(panels[0]);
 })();
+function mLayoutOptions(){
+  var seen={},out=[];
+  [].slice.call(document.querySelectorAll('[onclick^="setLayout("]')).forEach(function(b){
+    var m=(b.getAttribute('onclick')||'').match(/setLayout\('([^']+)'/);
+    if(m&&!seen[m[1]]){seen[m[1]]=1;out.push({id:m[1],label:(b.textContent||m[1]).trim(),btn:b});}
+  });
+  return out;
+}
+function mLayerMenuEl(){
+  var el=document.getElementById('mLayerMenu');
+  if(!el){el=document.createElement('div');el.className='m-layer-menu';el.id='mLayerMenu';document.body.appendChild(el);
+    document.addEventListener('click',function(e){ if(el.classList.contains('open') && !el.contains(e.target)) el.classList.remove('open'); });
+  }
+  return el;
+}
+function toggleLayerMenu(anchor){
+  var el=mLayerMenuEl();
+  if(el.classList.contains('open')){el.classList.remove('open');return;}
+  el.innerHTML='';
+  mLayoutOptions().forEach(function(opt){
+    var b=document.createElement('button'); b.textContent=opt.label;
+    b.onclick=function(ev){ ev.stopPropagation(); el.classList.remove('open'); addLayer(); setLayout(opt.id, opt.btn); };
+    el.appendChild(b);
+  });
+  el.classList.add('open');
+  var r=anchor.getBoundingClientRect();
+  el.style.width='226px';
+  el.style.left=Math.max(8,Math.min(r.left, window.innerWidth-234))+'px';
+  el.style.top=(r.bottom+6)+'px';
+}
+function buildMobileLayerBar(){
+  var bar=document.getElementById('mLayerBar'); if(!bar || typeof stackLayouts==='undefined') return;
+  bar.innerHTML='';
+  stackLayouts.forEach(function(layer,idx){
+    var chip=document.createElement('button'); chip.className='m-layer-chip'+(idx===activeLayerIdx?' active':'');
+    chip.textContent=layer.layout; chip.onclick=function(){ selectLayer(idx); };
+    bar.appendChild(chip);
+  });
+  var add=document.createElement('button'); add.className='m-layer-add'; add.textContent='+'; add.setAttribute('aria-label','Add layer');
+  add.onclick=function(e){ e.stopPropagation(); toggleLayerMenu(add); };
+  bar.appendChild(add);
+}
+setTimeout(buildMobileLayerBar,0);
 </script>
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
 <div class="help-modal">
