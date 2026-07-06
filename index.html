@@ -70,6 +70,26 @@ body.mobile-ui .sheet-grip{width:38px;height:4px;border-radius:2px;background:va
 body.mobile-ui #controlsArea{position:fixed;left:0;right:0;bottom:0;z-index:60;width:100%;max-height:82vh;margin:0;padding:0 12px calc(14px + env(safe-area-inset-bottom));border:none;border-top:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(12,12,16,0.80);-webkit-backdrop-filter:blur(20px) saturate(1.2);backdrop-filter:blur(20px) saturate(1.2);box-shadow:0 -10px 34px rgba(0,0,0,.55);overflow-y:auto;overscroll-behavior:contain;transform:translateY(calc(100% - 44px));transition:transform .3s cubic-bezier(.32,.72,0,1)}
 body.mobile-ui #controlsArea.expanded{transform:translateY(0)}
 body.mobile-ui .preview-area{padding-bottom:52px}
+/* fill the viewport on mobile so the footer sits above the sheet */
+body.mobile-ui{display:flex;flex-direction:column;min-height:100dvh}
+body.mobile-ui .app{flex:1;min-height:0}
+body.mobile-ui .preview-area{flex:1;min-height:0;padding:1rem 1rem 100px;overflow:hidden}
+body.mobile-ui .frame-view{height:auto!important;flex:1;min-height:0}
+/* collapsed peek shows handle + tab strip */
+body.mobile-ui #controlsArea{transform:translateY(calc(100% - 94px))}
+body.mobile-ui .sheet-handle{z-index:4}
+/* tab strip */
+.sheet-tabs{display:none}
+body.mobile-ui .sheet-tabs{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 10px;position:sticky;top:22px;z-index:3;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+body.mobile-ui .sheet-tabs::-webkit-scrollbar{display:none}
+body.mobile-ui .sheet-tab{flex:0 0 auto;padding:6px 13px;border-radius:14px;background:var(--elevated);color:#c2c6cc;font-size:11px;letter-spacing:.02em;white-space:nowrap;border:1px solid transparent;cursor:pointer}
+body.mobile-ui .sheet-tab.active{background:var(--accent2);color:#04130c;font-weight:600}
+/* show one panel at a time on mobile */
+body.mobile-ui #controlsArea .panel{display:none!important;border:none;background:none}
+body.mobile-ui #controlsArea .panel.mob-active{display:block!important}
+body.mobile-ui #controlsArea .panel.mob-active .panel-body{display:flex!important}
+body.mobile-ui #controlsArea .panel-head{display:none}
+body.mobile-ui #controlsArea .prow:has(#pIntensity){display:none}
 .frame-badge{position:absolute;top:8px;right:10px;font-size:.55rem;letter-spacing:.05em;pointer-events:none}
 .fs-btn{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:rgba(255,255,255,0.6);padding:4px 5px;cursor:pointer;z-index:15;opacity:0;transition:opacity .2s}
 .frame-view:hover .fs-btn{opacity:1}
@@ -221,6 +241,7 @@ body.mobile-ui .preview-area{padding-bottom:52px}
   </div>
   <div class="controls-area" id="controlsArea">
     <div class="sheet-handle" id="sheetHandle"><span class="sheet-grip"></span></div>
+    <div class="sheet-tabs" id="sheetTabs"></div>
     <!-- GLOBAL INTENSITY -->
     <div style="padding:8px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
       <span class="prow-label" style="min-width:56px">Intensity</span>
@@ -6735,6 +6756,23 @@ function mTransportSync(){
 setInterval(mTransportSync, 250);
 (function(){var mi=document.getElementById('mIntensity'),pi=document.getElementById('pIntensity');if(mi&&pi){mi.value=pi.value;mi.addEventListener('input',function(){pi.value=mi.value;pi.dispatchEvent(new Event('input',{bubbles:true}));});}})();
 (function(){var h=document.getElementById('sheetHandle'),c=document.getElementById('controlsArea');if(h&&c){h.addEventListener('click',function(){c.classList.toggle('expanded');});}})();
+(function(){
+  var c=document.getElementById('controlsArea'), tabsEl=document.getElementById('sheetTabs');
+  if(!c||!tabsEl) return;
+  var panels=[].slice.call(c.querySelectorAll('.panel'));
+  function activate(p){
+    panels.forEach(function(x){ x.classList.toggle('mob-active', x===p); });
+    [].slice.call(tabsEl.children).forEach(function(t){ t.classList.toggle('active', t._panel===p); });
+  }
+  panels.forEach(function(p,i){
+    var titleEl=p.querySelector('.panel-title');
+    var name=titleEl?titleEl.textContent.trim():('Panel '+(i+1));
+    var t=document.createElement('div'); t.className='sheet-tab'; t.textContent=name; t._panel=p;
+    t.addEventListener('click',function(){ activate(p); c.classList.add('expanded'); t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'}); });
+    tabsEl.appendChild(t);
+  });
+  if(panels.length){ var def=panels.filter(function(p){return p.id==='panelAppear';})[0]||panels[0]; activate(def); }
+})();
 </script>
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
 <div class="help-modal">
