@@ -6650,10 +6650,10 @@ function startRecording(){
   try{videoStream=captureCanvas.captureStream(60)}catch(e){alert('Cannot capture canvas: '+e.message);return}
   // Create combined stream
   var tracks=videoStream.getVideoTracks().slice();
-  // Add audio track if playing from file (not mic)
-  if(audioCtx&&!liveMode){
+  // Add audio track from whatever source is active — file playback, mic, or system
+  // (the analyser node carries the signal in every mode).
+  if(audioCtx&&analyser){
     recAudioDest=audioCtx.createMediaStreamDestination();
-    // Connect analyser output to the recording destination
     try{analyser.connect(recAudioDest)}catch(e){}
     var audioTracks=recAudioDest.stream.getAudioTracks();
     audioTracks.forEach(function(t){tracks.push(t)});
