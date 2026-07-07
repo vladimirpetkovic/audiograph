@@ -109,11 +109,10 @@ body.mobile-ui .m-layer-menu button{padding:8px 10px;border-radius:7px;backgroun
 .sheet-handle{display:none}
 body.mobile-ui .sheet-handle{display:flex;justify-content:center;align-items:center;padding:8px 0 6px;cursor:pointer;position:static;z-index:2;background:rgba(12,12,16,0.96)}
 body.mobile-ui .sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--tx3)}
-body.mobile-ui #controlsArea{position:fixed;left:0;right:0;bottom:0;z-index:60;width:100%;height:96px;max-height:92vh;margin:0;padding:0 12px calc(14px + env(safe-area-inset-bottom));border:none;border-top:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(12,12,16,0.22);-webkit-backdrop-filter:blur(30px) saturate(1.35);backdrop-filter:blur(30px) saturate(1.35);box-shadow:0 -10px 34px rgba(0,0,0,.45);overflow-y:auto;overscroll-behavior:contain;transition:height .3s cubic-bezier(.32,.72,0,1)}
-/* keep controls legible over the ~80%-transparent sheet: dark text halo + slightly stronger row separators */
-body.mobile-ui #sheetBody, body.mobile-ui .sheet-tabs{text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.7)}
+body.mobile-ui #controlsArea{position:fixed;left:0;right:0;bottom:0;z-index:60;width:100%;height:96px;max-height:92vh;margin:0;padding:0 12px calc(14px + env(safe-area-inset-bottom));border:none;border-top:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(12,12,16,0.28);-webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2);box-shadow:0 -10px 34px rgba(0,0,0,.45);overflow-y:auto;overscroll-behavior:contain;transition:height .3s cubic-bezier(.32,.72,0,1)}
+/* keep the control labels/values legible over the see-through sheet (body only — NOT the tabs) */
+body.mobile-ui #sheetBody{text-shadow:0 1px 2px rgba(0,0,0,.85)}
 body.mobile-ui #sheetBody .prow{border-color:rgba(255,255,255,.09)}
-body.mobile-ui .sheet-tab{background:rgba(28,30,38,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 /* Reactive rules: larger, higher-contrast, wrap the strength slider onto its own line */
 body.mobile-ui .rule-row{flex-wrap:wrap;align-items:center;gap:6px;padding:9px 0;border-color:rgba(255,255,255,.1)}
 body.mobile-ui .rule-row select{flex:1;min-width:0;font-size:12px;padding:6px;background:rgba(30,32,40,.82);color:#eef0f2;border-color:rgba(255,255,255,.2);text-shadow:none}
@@ -1522,6 +1521,11 @@ function resetAll(){
     if(t==='NO'&&b.onclick&&(b.onclick.toString().indexOf('setVT')>-1||b.onclick.toString().indexOf('setOutline')>-1||b.onclick.toString().indexOf('setMirror')>-1))b.classList.add('on');
   });
   document.getElementById('outlineParams').style.display='none';
+  // Turn off Post FX and zero every effect slider (label + button state)
+  postFxEnabled=false;trailCv=null;
+  ['pfxBloom','pfxChroma','pfxContrast','pfxVignette','pfxScanlines','pfxSharpen','pfxInvert','pfxReflect','pfxBlurX','pfxBlurY','pfxBlurRadial','pfxFocal','pfxTrails','pfxFeedback','pfxEdgeGlow','pfxKaleido'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=0;var lb=document.getElementById('v'+id.charAt(0).toUpperCase()+id.slice(1));if(lb)lb.textContent='0%';});
+  document.querySelectorAll('#panelPostFx .prow .mbtn').forEach(function(b){b.classList.remove('on');if(b.textContent==='Off')b.classList.add('on');});
+  var _pcv=document.getElementById('postFxCv');if(_pcv)_pcv.style.display='none';
   if(morphing)toggleMorph();
   regenSeed();upP();upR();buildColorPanel();renderDensity();
 }
@@ -3112,8 +3116,8 @@ function buildMobileColorPanel(p){
 
   // Wheel
   var cvs=document.createElement('canvas');cvs.className='mcp-wheel';
-  var cssSize=Math.min(260,Math.max(200,Math.round((p.clientWidth||280))));
-  var size=Math.round(cssSize*dpr);cvs.width=size;cvs.height=size;cvs.style.width='100%';cvs.style.maxWidth=cssSize+'px';cvs.style.height='auto';
+  var cssSize=Math.min(172,Math.max(148,Math.round((p.clientWidth||200)*0.6)));
+  var size=Math.round(cssSize*dpr);cvs.width=size;cvs.height=size;cvs.style.width=cssSize+'px';cvs.style.maxWidth='100%';cvs.style.height='auto';
   var ctx=cvs.getContext('2d');
   function drawWheel(){ctx.clearRect(0,0,size,size);_mPaintWheel(ctx,size);var cx=size/2,cy=size/2,R=size/2;
     stops.forEach(function(c,i){var rgb=hexToRgb(c),hsl=rgbToHsl(rgb[0],rgb[1],rgb[2]);
@@ -3468,6 +3472,19 @@ async function startLiveInput(stream){
   if(analyser){try{analyser.disconnect()}catch(e){}}
   analyser=audioCtx.createAnalyser();analyser.fftSize=4096;
   try{analyser.minDecibels=-90;analyser.maxDecibels=-10;analyser.smoothingTimeConstant=0.7;}catch(e){}
+  // Live-mic spectral compensation: phone mics capture music with a heavy mid bias
+  // (weak deep bass, rolled-off highs). Boost those bands so the whole spectrum reacts.
+  // Patched onto the analyser instance so it applies everywhere (viz + reactive rules),
+  // but gated on liveMode so file playback (a different signal) is never altered.
+  (function(){
+    var n=analyser.frequencyBinCount, c=new Float32Array(n);
+    for(var k=0;k<n;k++){ var lo=2.4*Math.exp(-k/16); var hi=0.8*Math.pow(k/n,0.7); c[k]=1+lo+hi; }
+    var orig=analyser.getByteFrequencyData.bind(analyser);
+    analyser.getByteFrequencyData=function(a){ orig(a);
+      if(typeof liveMode!=='undefined'&&liveMode&&window._micCompOn!==false){
+        for(var k=0;k<a.length&&k<c.length;k++){ var v=a[k]*c[k]; a[k]=v>255?255:v; } }
+    };
+  })();
   liveStream=stream;
   liveSource=audioCtx.createMediaStreamSource(stream);
   liveSource.connect(analyser);
