@@ -3466,7 +3466,13 @@ async function startLiveInput(stream){
 }
 async function startMic(){
   if(activeAudioSource==='mic'){stopAudioSource();return}
-  try{var stream=await navigator.mediaDevices.getUserMedia({audio:true});await startLiveInput(stream);highlightAudioSource('mic')}
+  // Disable iOS/browser voice-processing DSP (echo cancel / noise suppression / auto-gain) —
+  // it is tuned for speech and strips whole frequency bands out of music. We want the raw signal.
+  var micConstraints={audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}};
+  try{var stream;
+    try{stream=await navigator.mediaDevices.getUserMedia(micConstraints);}
+    catch(_e){stream=await navigator.mediaDevices.getUserMedia({audio:true});} // fallback if constraints rejected
+    await startLiveInput(stream);highlightAudioSource('mic')}
   catch(e){alert('Microphone access denied: '+e.message)}
 }
 async function startSystem(){
