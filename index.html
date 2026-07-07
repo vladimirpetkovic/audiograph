@@ -1836,7 +1836,7 @@ function applyState(st){
     var shouldOn=!!pfx.enabled;
     if(wasOn!==shouldOn){
       postFxEnabled=shouldOn;
-      document.getElementById('postFxCv').style.display=shouldOn?'block':'none';
+      document.getElementById('postFxCv').style.display=(shouldOn&&!(typeof IS_MOBILE_UI!=='undefined'&&IS_MOBILE_UI))?'block':'none';
       if(shouldOn)initPostFx();
       document.querySelectorAll('.mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';
         if(oc.indexOf('setPostFx(true')>-1){if(shouldOn)b.classList.add('on');else b.classList.remove('on')}
@@ -2372,10 +2372,18 @@ function setPostFx(on,btn){pushUndo();
   postFxEnabled=on;
   if(btn){btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');}
   else{var btns=document.querySelectorAll('#panelPostFx .prow .mbtn');btns.forEach(function(b){b.classList.remove('on');if((on&&b.textContent==='On')||(!on&&b.textContent==='Off'))b.classList.add('on');});}
-  document.getElementById('postFxCv').style.display=on?'block':'none';
+  // On mobile the effect is composited directly onto frameCv (see applyPostFx), so the overlay
+  // canvas stays hidden — showing it is unreliable in iOS WKWebView.
+  document.getElementById('postFxCv').style.display=(on&&!(typeof IS_MOBILE_UI!=='undefined'&&IS_MOBILE_UI))?'block':'none';
   if(!on)trailCv=null;
   if(on)initPostFx();
-  renderDensity();
+  _pfxRepaint();
+}
+// Repaint the current frame so Post-FX toggles/sliders take effect even when idle or mic-frozen.
+function _pfxRepaint(){
+  if(typeof audioBuffer!=='undefined'&&audioBuffer){renderDensity();}
+  else if(postFxEnabled&&postFxGl){applyPostFx();}
+  else{renderDensity();}
 }
 function upPostFx(){pushUndo();
   document.getElementById('vPfxBloom').textContent=document.getElementById('pfxBloom').value+'%';
@@ -2394,6 +2402,7 @@ function upPostFx(){pushUndo();
   document.getElementById('vPfxFeedback').textContent=document.getElementById('pfxFeedback').value+'%';
   document.getElementById('vPfxEdgeGlow').textContent=document.getElementById('pfxEdgeGlow').value+'%';
   document.getElementById('vPfxKaleido').textContent=document.getElementById('pfxKaleido').value+'%';
+  _pfxRepaint();
 }
 function initPostFx(){
   if(postFxGl)return;
@@ -2691,8 +2700,10 @@ function applyPostFx(){
   gl.viewport(0,0,w,h);
   gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-  // When recording, composite post-FX output onto frameCv so captureStream includes effects
-  if(isRecording){
+  // Composite post-FX output onto frameCv when recording (so captureStream includes effects),
+  // and always on mobile — the separate WebGL overlay canvas does not reliably composite over
+  // the 2D canvas in iOS WKWebView, so we draw the processed pixels onto the visible canvas.
+  if(isRecording||(typeof IS_MOBILE_UI!=='undefined'&&IS_MOBILE_UI)){
     var fCtx=document.getElementById('frameCv').getContext('2d');
     fCtx.save();
     fCtx.setTransform(1,0,0,1,0,0);
