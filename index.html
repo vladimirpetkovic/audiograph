@@ -59,6 +59,9 @@ body.mobile-ui .m-export.rec-on svg *{fill:#ff3b30!important}
 /* mobile: lift muted grays to near-white for readability */
 body.mobile-ui{--tx2:#e6e8ec;--tx3:#c9cdd4}
 body.mobile-ui [onclick="setPlayMode('continuous',this)"]{display:none!important}
+/* larger, easier-to-grab slider handles in the sheet */
+body.mobile-ui #sheetBody input[type=range]{height:5px}
+body.mobile-ui #sheetBody input[type=range]::-webkit-slider-thumb{width:24px!important;height:24px!important;margin-top:-10px!important}
 /* footer: time centered, guide far right, play now in header */
 body.mobile-ui .transport{position:relative;justify-content:center;min-height:34px}
 body.mobile-ui .transport-time{position:absolute;left:50%;transform:translateX(-50%);font-size:.78rem}
@@ -6662,7 +6665,7 @@ function startRecording(){
     var audioTracks=recAudioDest.stream.getAudioTracks();
     audioTracks.forEach(function(t){tracks.push(t)});
   }
-  var combinedStream=new MediaStream(tracks);
+  var combinedStream=new MediaStream(tracks); window._recStream=combinedStream;
   // Find supported MIME type — prefer MP4, fall back to WebM
   var mimeType='';
   var candidates=['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1.4d0028,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9.2,opus','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
@@ -6716,6 +6719,8 @@ function stopRecording(){
   // Disconnect audio recording destination
   if(recAudioDest&&analyser){try{analyser.disconnect(recAudioDest)}catch(e){}}
   recAudioDest=null;
+  // Stop the canvas capture (and audio) tracks so they don't keep running after recording
+  if(window._recStream){window._recStream.getTracks().forEach(function(t){try{t.stop()}catch(e){}});window._recStream=null;}
   // UI updates
   document.getElementById('recBtn').style.display='inline-flex';
   document.getElementById('recStopBtn').style.display='none';
