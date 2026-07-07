@@ -6753,7 +6753,7 @@ function finalizeRecording(){
     // Native: write the video to the cache dir, then offer Save to Photos / Share
     var rd=new FileReader();
     rd.onloadend=function(){
-      var b64=(''+rd.result).split(',')[1]||'';
+      var _du=''+rd.result; var b64=_du.substring(_du.indexOf('base64,')+7);
       var fname='audiograph-'+Date.now()+'.'+ext;
       P.Filesystem.writeFile({path:fname,data:b64,directory:'CACHE'})
         .then(function(res){ mExportChoice(res.uri, ext); })
