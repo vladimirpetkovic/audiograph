@@ -676,7 +676,7 @@ body.mobile-ui .m-op-val{min-width:38px;text-align:right;font-size:11px;color:va
       <div class="panel-head" onclick="togglePanel('panelPresets')"><span class="panel-title">Presets</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow"><button class="mbtn" onclick="savePreset()">Save</button><button class="mbtn" onclick="saveAllPreset()">Save All</button><button class="mbtn" onclick="clearPresets()">Clear</button></div>
-        <div class="prow"><button class="mbtn" onclick="exportPreset()">Export</button><button class="mbtn" onclick="document.getElementById('presetImportFile').click()">Import</button><input type="file" id="presetImportFile" accept=".json" style="display:none" onchange="importPresets(event)"></div>
+        <div class="prow"><button class="mbtn" onclick="exportPreset()">Export</button><button class="mbtn" onclick="exportAllPresets()">Export All</button><button class="mbtn" onclick="document.getElementById('presetImportFile').click()">Import</button><input type="file" id="presetImportFile" accept=".json" style="display:none" onchange="importPresets(event)"></div>
         <div class="prow"><button class="mbtn" onclick="surpriseMe()" style="flex:1">✨ Surprise Me</button><button class="mbtn" onclick="shareLink()" style="flex:1">🔗 Copy Link</button></div>
         <div id="presetList" style="display:flex;flex-direction:column;gap:4px;margin-top:4px"></div>
       </div>
@@ -1988,14 +1988,29 @@ function exportPreset(){
   var name=prompt('Export preset name:');if(!name)return;
   var st=getState();st._saveAll=(stackLayouts.length>1);
   var obj={};obj[name]=st;
-  var blob=new Blob([JSON.stringify(obj)],{type:'application/json'});
+  var json=JSON.stringify(obj);
+  if(_mShareText(name.replace(/[^a-z0-9]/gi,'_')+'.json',json))return;
+  var blob=new Blob([json],{type:'application/json'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[^a-z0-9]/gi,'_')+'.json';a.click();URL.revokeObjectURL(a.href);
+}
+// Write JSON text to a cache file and open the native Share sheet (iOS/Android). Returns true if handled.
+function _mShareText(filename,text){
+  var P=(window.Capacitor&&window.Capacitor.Plugins)||{};
+  if(IS_NATIVE&&P.Filesystem){
+    P.Filesystem.writeFile({path:filename,data:text,directory:'CACHE',encoding:'utf8'})
+      .then(function(res){ if(P.Share)P.Share.share({title:'Audiograph presets',url:res.uri}); else if(typeof mToast==='function')mToast('Saved: '+res.uri); })
+      .catch(function(e){alert('Export failed: '+(e&&e.message||e));});
+    return true;
+  }
+  return false;
 }
 function exportAllPresets(){
   var all={};
   Object.keys(builtinPresets).forEach(function(k){all[k]=builtinPresets[k]});
   try{var u=JSON.parse(localStorage.getItem('audiograph_presets')||'{}');Object.keys(u).forEach(function(k){all[k]=u[k]})}catch(e){}
-  var blob=new Blob([JSON.stringify(all)],{type:'application/json'});
+  var json=JSON.stringify(all);
+  if(_mShareText('audiograph-presets.json',json))return; // native: Share sheet → Save to Files / send
+  var blob=new Blob([json],{type:'application/json'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='audiograph-presets.json';a.click();URL.revokeObjectURL(a.href);
 }
 function importPresets(ev){
