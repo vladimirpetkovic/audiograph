@@ -6715,10 +6715,24 @@ function finalizeRecording(){
   var type=recordedChunks[0].type||'video/webm';
   var blob=new Blob(recordedChunks,{type:type});
   var ext=type.indexOf('mp4')>-1?'mp4':'webm';
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;a.download='audiograph.'+ext;a.click();
-  URL.revokeObjectURL(url);
+  var P=(window.Capacitor&&window.Capacitor.Plugins)||{};
+  if(IS_NATIVE&&P.Filesystem&&P.Share){
+    // Native: write the video to the cache dir, then open the Share Sheet (includes Save to Photos)
+    var rd=new FileReader();
+    rd.onloadend=function(){
+      var b64=(''+rd.result).split(',')[1]||'';
+      var fname='audiograph-'+Date.now()+'.'+ext;
+      P.Filesystem.writeFile({path:fname,data:b64,directory:'CACHE'})
+        .then(function(res){return P.Share.share({title:'Audiograph',url:res.uri});})
+        .catch(function(e){alert('Could not share video: '+(e&&e.message||e));});
+    };
+    rd.readAsDataURL(blob);
+  }else{
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;a.download='audiograph.'+ext;a.click();
+    URL.revokeObjectURL(url);
+  }
   recordedChunks=[];
 }
 
