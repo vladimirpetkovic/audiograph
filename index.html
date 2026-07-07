@@ -109,7 +109,20 @@ body.mobile-ui .m-layer-menu button{padding:8px 10px;border-radius:7px;backgroun
 .sheet-handle{display:none}
 body.mobile-ui .sheet-handle{display:flex;justify-content:center;align-items:center;padding:8px 0 6px;cursor:pointer;position:static;z-index:2;background:rgba(12,12,16,0.96)}
 body.mobile-ui .sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--tx3)}
-body.mobile-ui #controlsArea{position:fixed;left:0;right:0;bottom:0;z-index:60;width:100%;height:96px;max-height:92vh;margin:0;padding:0 12px calc(14px + env(safe-area-inset-bottom));border:none;border-top:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(12,12,16,0.52);-webkit-backdrop-filter:blur(26px) saturate(1.3);backdrop-filter:blur(26px) saturate(1.3);box-shadow:0 -10px 34px rgba(0,0,0,.5);overflow-y:auto;overscroll-behavior:contain;transition:height .3s cubic-bezier(.32,.72,0,1)}
+body.mobile-ui #controlsArea{position:fixed;left:0;right:0;bottom:0;z-index:60;width:100%;height:96px;max-height:92vh;margin:0;padding:0 12px calc(14px + env(safe-area-inset-bottom));border:none;border-top:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(12,12,16,0.22);-webkit-backdrop-filter:blur(30px) saturate(1.35);backdrop-filter:blur(30px) saturate(1.35);box-shadow:0 -10px 34px rgba(0,0,0,.45);overflow-y:auto;overscroll-behavior:contain;transition:height .3s cubic-bezier(.32,.72,0,1)}
+/* keep controls legible over the ~80%-transparent sheet: dark text halo + slightly stronger row separators */
+body.mobile-ui #sheetBody, body.mobile-ui .sheet-tabs{text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.7)}
+body.mobile-ui #sheetBody .prow{border-color:rgba(255,255,255,.09)}
+body.mobile-ui .sheet-tab{background:rgba(28,30,38,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+/* Reactive rules: larger, higher-contrast, wrap the strength slider onto its own line */
+body.mobile-ui .rule-row{flex-wrap:wrap;align-items:center;gap:6px;padding:9px 0;border-color:rgba(255,255,255,.1)}
+body.mobile-ui .rule-row select{flex:1;min-width:0;font-size:12px;padding:6px;background:rgba(30,32,40,.82);color:#eef0f2;border-color:rgba(255,255,255,.2);text-shadow:none}
+body.mobile-ui .rule-row>select:nth-of-type(1){order:1}
+body.mobile-ui .rule-row>span:nth-of-type(1){order:2;font-size:13px!important}
+body.mobile-ui .rule-row>select:nth-of-type(2){order:3}
+body.mobile-ui .rule-row>.rule-del{order:4;font-size:1.1rem;opacity:.85;padding:2px 6px}
+body.mobile-ui .rule-row>.rule-strength{order:5;flex:1 1 68%;min-width:130px;margin-top:2px}
+body.mobile-ui .rule-row>span:nth-of-type(2){order:6;font-size:12px!important;min-width:34px;color:#eef0f2;text-shadow:none}
 body.mobile-ui .preview-area{padding-bottom:52px}
 /* fill the viewport on mobile so the footer sits above the sheet */
 body.mobile-ui{display:flex;flex-direction:column;min-height:100dvh}
