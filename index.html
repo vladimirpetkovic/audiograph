@@ -60,6 +60,14 @@ body.mobile-ui .m-export.rec-on svg *{fill:#ff3b30!important}
 body.mobile-ui{--tx2:#e6e8ec;--tx3:#c9cdd4}
 body.mobile-ui [onclick="setPlayMode('continuous',this)"]{display:none!important}
 body.mobile-ui #fsBtn{display:none!important}
+/* Guide/help modal on mobile: bigger close ✕, credits, and desktop-only sections hidden */
+body.mobile-ui .help-modal .close-help{font-size:2rem;top:8px;right:12px;width:44px;height:44px;display:flex;align-items:center;justify-content:center}
+body.mobile-ui .help-dsk{display:none!important}
+.help-mob{display:none}
+body.mobile-ui .help-mob{display:block}
+.help-credits{display:none}
+body.mobile-ui .help-credits{display:block;margin:-4px 0 16px;font-size:.85rem;line-height:1.5;color:var(--tx3)}
+body.mobile-ui .help-credits a{color:var(--accent2,#6ee7b7);text-decoration:none}
 /* larger, easier-to-grab slider handles in the sheet */
 body.mobile-ui #sheetBody input[type=range]{height:5px}
 body.mobile-ui #sheetBody input[type=range]::-webkit-slider-thumb{width:16px!important;height:22px!important;border-radius:4px!important;margin-top:-8.5px!important}
@@ -6971,15 +6979,29 @@ function mGuardRec(){ if(!mHasSource()){mToast('Select an audio source first');r
 <div class="help-modal">
 <button class="close-help" onclick="toggleHelp()">&times;</button>
 <h2>Audiograph — Guide</h2>
+<div class="help-credits">Designed by Vladimir Petković, 2026<br><a href="https://www.vladimirpetkovic.com" target="_blank" rel="noopener">www.vladimirpetkovic.com</a></div>
 <p>Audiograph turns sound into visual art. Audio becomes line density — louder sounds create denser, taller lines. Every parameter is controllable, layerable, and audio-reactive.</p>
 
 <div class="help-section">
 <h3>Audio Sources</h3>
-<p><strong>Load Audio</strong> — open any audio file (MP3, WAV, FLAC, etc.). The waveform appears in the timeline. Click Play to start.</p>
-<p><strong>Mic</strong> — capture live audio from your microphone. Click again to stop (toggle).</p>
-<p><strong>System</strong> — capture audio from another tab or app (Spotify, YouTube, etc.). A browser share dialog appears — select the tab with your audio and ensure "Share audio" is checked. Click again to stop (toggle).</p>
-<p><strong>Stop</strong> — appears when any source is active. Stops playback and returns to idle.</p>
-<p><strong>Timeline</strong> — click to seek, drag to select a range, use crop handles to loop a section.</p>
+<p class="help-dsk"><strong>Load Audio</strong> — open any audio file (MP3, WAV, FLAC, etc.). The waveform appears in the timeline. Click Play to start.</p>
+<p class="help-mob"><strong>Load Audio</strong> — pick an audio file from your device (MP3, WAV, FLAC, etc.), then press <strong>▶ Play</strong> in the header.</p>
+<p class="help-dsk"><strong>Mic</strong> — capture live audio from your microphone. Click again to stop (toggle).</p>
+<p class="help-mob"><strong>Mic</strong> — visualize live sound from your microphone. Tap again to turn it off.</p>
+<p class="help-dsk"><strong>System</strong> — capture audio from another tab or app (Spotify, YouTube, etc.). A browser share dialog appears — select the tab with your audio and ensure "Share audio" is checked. Click again to stop (toggle).</p>
+<p class="help-dsk"><strong>Stop</strong> — appears when any source is active. Stops playback and returns to idle.</p>
+<p class="help-dsk"><strong>Timeline</strong> — click to seek, drag to select a range, use crop handles to loop a section.</p>
+<p class="help-mob"><strong>▶ / ❚❚ Play &amp; Pause</strong> — the button in the header starts and pauses playback. With the mic, pause freezes the current frame and Play resumes — your mic source stays selected.</p>
+</div>
+
+<div class="help-section help-mob">
+<h3>Getting Around</h3>
+<p><strong>Header</strong> — Load Audio &amp; Mic on the left, Play &amp; Record in the middle, Undo · Reset · Guide on the right.</p>
+<p><strong>Record</strong> — the ● button captures the canvas (with audio) to video. It turns red while recording; tap again to stop, then choose <strong>Save to Photos</strong> or <strong>Share…</strong>.</p>
+<p><strong>Intensity bar</strong> — the coloured meter sets how strongly the visuals react to sound.</p>
+<p><strong>Layer bar</strong> — the chips below the meter are your layers. Tap one to edit it, tap <strong>+</strong> to add a layer (and pick its layout), and tap <strong>✕</strong> on a chip to remove it. Scroll sideways when there are many.</p>
+<p><strong>Bottom sheet</strong> — all controls live here, grouped into tabs. Drag the handle to resize it, or collapse it to tabs-only to watch full-screen. <strong>Double-tap the canvas</strong> for full-screen too.</p>
+<p><strong>Canvas gestures</strong> — one finger orbits 3D layouts, pinch zooms, two fingers pan.</p>
 </div>
 
 <div class="help-section">
@@ -7006,7 +7028,7 @@ function mGuardRec(){ if(!mHasSource()){mToast('Select an audio source first');r
 <p><strong>Tetrahedron</strong> — subdivided tetrahedron with audio-displaced vertices. Line width and opacity pulse with audio energy. Controls: Detail, Perspective, Tilt, Elevation, Noise, Rotate speed.</p>
 <p><strong>DNA</strong> — double helix with audio-reactive rungs and displacement.</p>
 <p><strong>Object</strong> — load a custom .OBJ 3D model and drive it with audio.</p>
-<p>All 3D layouts support mouse drag to orbit and the 3D Tilt / Rotate sliders.</p>
+<p>All 3D layouts support drag to orbit and the 3D Tilt / Rotate sliders.</p>
 </div>
 
 <div class="help-section">
@@ -7018,7 +7040,7 @@ function mGuardRec(){ if(!mHasSource()){mToast('Select an audio source first');r
 <div class="help-section">
 <h3>Fractal Layout</h3>
 <p>A recursive branching tree, driven entirely by audio. The trunk grows from the bottom (or from center in all 4 directions). Bass widens the branch spread angle, mids control branch length decay, treble adds left/right asymmetry, and overall energy scales the tree size. The color ramp spreads from the root (ramp start) to the leaves (ramp end). Line weight and opacity fade with branch depth. Works with line styles and outlines.</p>
-<p><strong>Controls</strong> — Depth (recursion levels), Angle (base spread), Decay (branch length ratio), Branches (2 or 3 per split), Root (Bottom / Center). Mouse drag tilts the tree.</p>
+<p><strong>Controls</strong> — Depth (recursion levels), Angle (base spread), Decay (branch length ratio), Branches (2 or 3 per split), Root (Bottom / Center). Drag tilts the tree.</p>
 </div>
 
 <div class="help-section">
@@ -7048,7 +7070,8 @@ function mGuardRec(){ if(!mHasSource()){mToast('Select an audio source first');r
 
 <div class="help-section">
 <h3>Effects</h3>
-<p><strong>Playback</strong> — Off / Continuous / Equalizer (per-layer). Off hides base lines for particles-only mode.</p>
+<p class="help-dsk"><strong>Playback</strong> — Off / Continuous / Equalizer (per-layer). Off hides base lines for particles-only mode.</p>
+<p class="help-mob"><strong>Playback</strong> — Off / Equalizer (per-layer). Off hides base lines for particles-only mode.</p>
 <p><strong>Spin</strong> — continuous rotation. <strong>Speed / Amplify</strong> — animation and audio response scaling.</p>
 <p><strong>Deformers</strong> — Twist, Bulge, Wave (+ Wave spd), Shear, Depth, Ripple (concentric waves from centre), Jitter (animated positional noise). All audio-reactive. Wave spd also sets the Ripple frequency.</p>
 <p><strong>Symmetry</strong> — Off, X, Y, XY, 3/4/6/8-fold radial. <strong>Flip</strong> — H/V per-layer.</p>
@@ -7089,7 +7112,7 @@ function mGuardRec(){ if(!mHasSource()){mToast('Select an audio source first');r
 <h3>Presets</h3>
 <p><strong>Built-in presets</strong> (★) — 15+ presets covering various styles. Loading applies to the active layer only.</p>
 <p><strong>Save</strong> — saves the active layer. <strong>Save All</strong> — saves all layers, background, and full state (marked with ◈). <strong>Load</strong> — loads a saved preset. <strong>Clear</strong> — removes all user presets.</p>
-<p><strong>Export preset</strong> — open browser console, run <code>copy(JSON.stringify(getState()))</code> to copy the full state as JSON.</p>
+<p class="help-dsk"><strong>Export preset</strong> — open browser console, run <code>copy(JSON.stringify(getState()))</code> to copy the full state as JSON.</p>
 <p><strong>✨ Surprise Me</strong> — composes a fresh, coherent random scene (a tasteful layout + harmonious analogous palette + matching style + subtle motion). Great starting point.</p>
 <p><strong>🔗 Copy Link</strong> — copies a URL that encodes the entire current look. Anyone who opens that link sees exactly your composition (they just load their own audio).</p>
 </div>
@@ -7101,24 +7124,34 @@ function mGuardRec(){ if(!mHasSource()){mToast('Select an audio source first');r
 <p>It blends every layer of both presets: matching layers (same position and layout type) interpolate their parameters and colors for a true geometric morph; layers that differ in type or only exist in one preset crossfade by opacity — so a 2-layer preset morphs cleanly into a 5-layer one. The background stays black during a morph. <strong>Apply</strong> bakes the current blend into normal editable layers.</p>
 </div>
 
-<div class="help-section">
+<div class="help-section help-dsk">
 <h3>Webcam</h3>
 <p>Start the camera to capture video. <strong>Colors On</strong> — line colors are sampled from the camera feed. <strong>Displace</strong> — brightness displaces line positions. <strong>Smoothing</strong> — temporal smoothing for the displacement.</p>
 </div>
 
-<div class="help-section">
+<div class="help-section help-dsk">
 <h3>Export</h3>
 <p><strong>PNG</strong> — current frame with or without background. <strong>SVG</strong> — vector export. <strong>Record</strong> — capture video as MP4/WebM with audio.</p>
 </div>
 
-<div class="help-section">
+<div class="help-section help-mob">
+<h3>Recording</h3>
+<p>Tap the <strong>●</strong> button in the header to record the canvas — the current audio (file or mic) is captured with it. It glows red while recording; tap again to stop. You'll then choose <strong>Save to Photos</strong> or <strong>Share…</strong> (Messages, AirDrop, Instagram, etc.). Collapse the sheet first for a clean, full-frame capture.</p>
+</div>
+
+<div class="help-section help-dsk">
 <h3>Keyboard Shortcuts</h3>
 <p><span class="hk">⌘/Ctrl + Z</span> Undo &nbsp; <span class="hk">⌘/Ctrl + F</span> Fullscreen &nbsp; <span class="hk">Space</span> Play/Pause &nbsp; <span class="hk">Esc</span> Exit fullscreen / close help</p>
 </div>
 
-<div class="help-section">
+<div class="help-section help-dsk">
 <h3>Tips</h3>
 <p>Stack multiple layers with different layouts for rich compositions. Use the 🎲 buttons to randomize individual panels without disrupting others. Try Reactive rules for hands-free audio-reactive behavior (Bass → Twist, Beat → Bulge). Enable Post FX for cinematic polish — Bloom + Vignette + slight Grain transforms the look. For the Video layout with camera, try Edge style with Braille or Dotted styles. For projection, use Fullscreen (⌘F) with a dark background.</p>
+</div>
+
+<div class="help-section help-mob">
+<h3>Tips</h3>
+<p>Stack multiple layers with different layouts for rich compositions. Use the 🎲 buttons to randomize individual panels without disrupting others. Try Reactive rules for hands-free audio-reactive behaviour (Bass → Twist, Beat → Bulge). Enable Post FX for cinematic polish — Bloom + Vignette + a little Grain transforms the look. Collapse the sheet and double-tap the canvas to go full-screen while you perform or record.</p>
 </div>
 </div>
 </div>
