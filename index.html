@@ -115,7 +115,12 @@ body.mobile-ui .preview-area{padding-bottom:52px}
 body.mobile-ui{display:flex;flex-direction:column;min-height:100dvh}
 body.mobile-ui .app{flex:1;min-height:0}
 body.mobile-ui .preview-area{flex:none;padding:1rem 1rem 4px;overflow:visible}
+/* Mobile track timeline under the intensity bar (files only; hidden for mic) */
 body.mobile-ui #mSeek{display:none!important}
+.m-seekwrap{display:none}
+body.mobile-ui .m-seekwrap.on{display:flex;align-items:center;gap:10px;padding:4px 12px 8px;border-bottom:1px solid var(--border)}
+body.mobile-ui .m-seekwrap.on #mSeek{display:block!important;flex:1;width:auto;margin:0}
+body.mobile-ui .m-seek-time{font-size:.7rem;color:var(--tx3);font-variant-numeric:tabular-nums;min-width:78px;text-align:right;letter-spacing:.02em}
 body.mobile-ui .transport{display:none!important}
 body.mobile-ui .frame-view{height:auto!important;aspect-ratio:1/1;flex:none;width:100%;min-height:0}
 /* collapsed peek shows handle + tab strip */
@@ -6541,7 +6546,7 @@ function animLoop(){if(!playing){rafId=null;return}
   rafId=requestAnimationFrame(animLoop);
   document.getElementById('tCur').textContent=fmt(audio.currentTime);
   document.getElementById('overviewHead').style.left=(audio.currentTime/safeDuration()*100)+'%';
-  var _ms=document.getElementById('mSeek'); if(_ms&&!_msDragging){ var _d=safeDuration(); _ms.value=_d?(audio.currentTime/_d*1000):0; }
+  if(typeof _mUpdateSeek==='function')_mUpdateSeek();
   if(!realtimePreview)return;
 
   var p=P();
@@ -6966,12 +6971,35 @@ var _msDragging=false;
   ms.addEventListener('change',function(){ _msDragging=false; });
   ms.addEventListener('pointerup',function(){ _msDragging=false; });
 })();
+// Move the seek bar under the intensity bar on mobile (files only; visibility toggled in mTransportSync)
+(function(){ if(!document.body.classList.contains('mobile-ui')) return;
+  var ms=document.getElementById('mSeek'), ib=document.getElementById('mIntensityBar');
+  if(!ms||!ib) return;
+  var wrap=document.createElement('div'); wrap.className='m-seekwrap'; wrap.id='mSeekWrap';
+  ib.parentNode.insertBefore(wrap, ib.nextSibling);
+  wrap.appendChild(ms);
+  var t=document.createElement('span'); t.className='m-seek-time'; t.id='mSeekTime'; t.textContent='0:00.0 / 0:00.0';
+  wrap.appendChild(t);
+})();
+// Update the mobile seek thumb, progress fill, and time readout for the current position
+function _mUpdateSeek(){
+  var ms=document.getElementById('mSeek'); if(!ms) return;
+  var d=safeDuration(), ct=(typeof audio!=='undefined'&&audio)?audio.currentTime:0;
+  if(!_msDragging){ var pc=d?Math.max(0,Math.min(100,ct/d*100)):0;
+    ms.value=d?ct/d*1000:0;
+    ms.style.background='linear-gradient(to right,var(--accent2) '+pc+'%,rgba(255,255,255,.18) '+pc+'%)'; }
+  var tl=document.getElementById('mSeekTime'); if(tl)tl.textContent=fmt(ct)+' / '+fmt(d);
+}
 function mToggleRec(){ if(typeof isRecording!=='undefined' && isRecording){ stopRecording(); } else { startRecording(); } }
 function mTransportSync(){
   var mp=document.getElementById('mPlayIco');
   if(mp){var act=(typeof liveMode!=='undefined'&&liveMode&&!window._livePaused)||(typeof playing!=='undefined'&&playing); if(mp.getAttribute('data-a')!==(act?'1':'0')){mp.setAttribute('data-a',act?'1':'0'); mp.innerHTML=act?'<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>':'<polygon points="6 4 20 12 6 20 6 4"/>';}}
   var mex=document.querySelector('.m-export'); if(mex){ mex.classList.toggle('rec-on', (typeof isRecording!=='undefined'&&isRecording)); }
   var _mi=document.getElementById('mIntensity'),_pi=document.getElementById('pIntensity'); if(_mi&&_pi&&document.activeElement!==_mi&&_mi.value!==_pi.value){_mi.value=_pi.value;}
+  var _sw=document.getElementById('mSeekWrap');
+  if(_sw){ var _hasFile=(typeof audioBuffer!=='undefined'&&audioBuffer)&&!(typeof liveMode!=='undefined'&&liveMode);
+    _sw.classList.toggle('on',!!_hasFile);
+    if(_hasFile)_mUpdateSeek(); }
 }
 setInterval(mTransportSync, 250);
 /* --- mobile Load Audio: native document picker (audio only, no camera/video) --- */
