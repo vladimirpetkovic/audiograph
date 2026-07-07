@@ -3281,6 +3281,7 @@ async function startLiveInput(stream){
   if(source){try{source.disconnect()}catch(e){}}
   if(analyser){try{analyser.disconnect()}catch(e){}}
   analyser=audioCtx.createAnalyser();analyser.fftSize=4096;
+  try{analyser.minDecibels=-90;analyser.maxDecibels=-10;analyser.smoothingTimeConstant=0.7;}catch(e){}
   liveStream=stream;
   liveSource=audioCtx.createMediaStreamSource(stream);
   liveSource.connect(analyser);
@@ -3335,8 +3336,11 @@ function liveAnimLoop(){
   // Get live frequency data
   var fd=new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(fd);
-  // Normalize frequency data like loaded audio does
-  var fdMax=255;
+  // Adaptive normalization for live input: scale by the signal's own recent peak
+  // so the visualization reacts to dynamics regardless of absolute mic level.
+  var _fp=0;for(var _i=0;_i<fd.length;_i++){if(fd[_i]>_fp)_fp=fd[_i]}
+  window._lgm=Math.max(_fp,(window._lgm||80)*0.99);
+  var fdMax=Math.max(50,window._lgm);
   var nLines=p.lines,modVals=[];
   var binsPerLine=Math.max(1,Math.floor(fd.length/nLines));
   for(var i=0;i<nLines;i++){
@@ -6786,7 +6790,7 @@ setInterval(mTransportSync, 250);
 (function(){
   var c=document.getElementById('controlsArea'), handle=document.getElementById('sheetHandle'); if(!c||!handle) return;
   function vh(f){ return window.innerHeight*f; }
-  function detents(){ var pa=document.querySelector('.preview-area'); var def=pa?Math.max(150, Math.round(window.innerHeight - pa.getBoundingClientRect().bottom + 6)):Math.round(vh(0.45)); return {collapsed:96, half:def, full:Math.round(vh(0.92))}; }
+  function detents(){ var pa=document.querySelector('.preview-area'); var def=pa?Math.max(150, Math.round(window.innerHeight - pa.getBoundingClientRect().bottom + 6)):Math.round(vh(0.45)); return {collapsed:140, half:def, full:Math.round(vh(0.92))}; }
   var state='collapsed';
   function setDetent(name){ var D=detents(); if(!(name in D)) name='half'; state=name; c.style.transition=''; c.style.height=D[name]+'px'; }
   window.mSheetSetDetent=setDetent;
