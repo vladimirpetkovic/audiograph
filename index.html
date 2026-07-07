@@ -61,7 +61,7 @@ body.mobile-ui{--tx2:#e6e8ec;--tx3:#c9cdd4}
 body.mobile-ui [onclick="setPlayMode('continuous',this)"]{display:none!important}
 /* larger, easier-to-grab slider handles in the sheet */
 body.mobile-ui #sheetBody input[type=range]{height:5px}
-body.mobile-ui #sheetBody input[type=range]::-webkit-slider-thumb{width:24px!important;height:24px!important;margin-top:-10px!important}
+body.mobile-ui #sheetBody input[type=range]::-webkit-slider-thumb{width:16px!important;height:22px!important;border-radius:4px!important;margin-top:-8.5px!important}
 /* footer: time centered, guide far right, play now in header */
 body.mobile-ui .transport{position:relative;justify-content:center;min-height:34px}
 body.mobile-ui .transport-time{position:absolute;left:50%;transform:translateX(-50%);font-size:.78rem}
@@ -862,7 +862,7 @@ document.getElementById('bgColor').addEventListener('input',function(){setBg(thi
 function togglePanel(id){document.getElementById(id).classList.toggle('closed')}
 
 // Params
-function P(){return{lines:+document.getElementById('pLines').value,contrast:+document.getElementById('pContrast').value/100,height:+document.getElementById('pHeight').value/100,thick:+document.getElementById('pThick').value}}
+function P(){return{lines:+document.getElementById('pLines').value,contrast:+document.getElementById('pContrast').value/100,height:+document.getElementById('pHeight').value/100,thick:+document.getElementById('pThick').value*((typeof IS_MOBILE_UI!=='undefined'&&IS_MOBILE_UI)?0.5:1)}}
 function upP(){pushUndo();document.getElementById('vLines').textContent=document.getElementById('pLines').value;document.getElementById('vContrast').textContent=document.getElementById('pContrast').value+'%';document.getElementById('vSensitivity').textContent=document.getElementById('pSensitivity').value+'%';document.getElementById('vHeight').textContent=document.getElementById('pHeight').value+'%';document.getElementById('vThick').textContent=document.getElementById('pThick').value+'px';document.getElementById('vOutlineOpacity').textContent=document.getElementById('pOutlineOpacity').value+'%';
   document.getElementById('vOutline').textContent=document.getElementById('pOutline').value+'px';document.getElementById('vOutlineDist').textContent=document.getElementById('pOutlineDist').value;document.getElementById('vOutlineCount').textContent=document.getElementById('pOutlineCount').value;document.getElementById('vOutlineSpace').textContent=document.getElementById('pOutlineSpace').value;document.getElementById('vZoom').textContent=document.getElementById('pZoom').value+'%';document.getElementById('vOffX').textContent=document.getElementById('pOffX').value;document.getElementById('vOffY').textContent=document.getElementById('pOffY').value;document.getElementById('vRotation').textContent=document.getElementById('pRotation').value+'°';document.getElementById('vFadeEdge').textContent=document.getElementById('pFadeEdge').value+'%';document.getElementById('vSpin').textContent=document.getElementById('pSpin').value;document.getElementById('vTwist').textContent=document.getElementById('pTwist').value;document.getElementById('vBulge').textContent=document.getElementById('pBulge').value;document.getElementById('vWave').textContent=document.getElementById('pWave').value;document.getElementById('vWaveFreq').textContent=document.getElementById('pWaveFreq').value;document.getElementById('vShear').textContent=document.getElementById('pShear').value;document.getElementById('vDepth').textContent=document.getElementById('pDepth').value;document.getElementById('vRipple').textContent=document.getElementById('pRipple').value;document.getElementById('vJitter').textContent=document.getElementById('pJitter').value;document.getElementById('vSpeed').textContent=parseFloat(document.getElementById('pSpeed').value).toFixed(1)+'×';document.getElementById('vSymGap').textContent=document.getElementById('pSymGap').value+'%';
 document.getElementById('rowSymGap').style.display=symmetryMode!=='none'?'':'none';
@@ -3362,7 +3362,7 @@ function liveAnimLoop(){
   for(var i=0;i<nLines;i++){
     var sum=0;for(var j=0;j<binsPerLine;j++){var idx=i*binsPerLine+j;if(idx<fd.length)sum+=fd[idx]}
     var raw=sum/(binsPerLine*fdMax);
-    modVals.push(sensCurve(Math.min(1,raw*amp*(liveMode?2.4:1)),sens));
+    modVals.push(sensCurve(Math.min(1,raw*amp*(liveMode?1.6:1)),sens));
   }
   // Apply global intensity
   var gIntensity=getIntensity();
@@ -3499,7 +3499,7 @@ function spawnParticles(energy,W,H,p,layerParams,layerIdx){
   var pEnergy=layerParams.pPartEnergy||1;
   var pSpeed=layerParams.pPartSpeed||3;
   var pLife=layerParams.pPartLife||120;
-  var pSize=layerParams.pPartSize||12;
+  var pSize=(layerParams.pPartSize||12)*((typeof IS_MOBILE_UI!=='undefined'&&IS_MOBILE_UI)?0.55:1);
   var pSpread=(layerParams.pPartSpread!=null?layerParams.pPartSpread:50)/100;
   // Energy multiplier amplifies audio reactivity
   e=Math.min(1,e*pEnergy);
@@ -6937,6 +6937,8 @@ function buildMobileLayerBar(){
   var mo=document.getElementById('mLayerOpacity'); if(mo && stackLayouts[activeLayerIdx]){ mo.value=stackLayouts[activeLayerIdx].opacity; var v=document.getElementById('mLayerOpacityVal'); if(v)v.textContent=stackLayouts[activeLayerIdx].opacity+'%'; }
 }
 setTimeout(buildMobileLayerBar,0);
+/* Resume the audio graph when returning from background (iOS suspends it → stutter) */
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible' && typeof audioCtx!=='undefined' && audioCtx && audioCtx.state==='suspended'){ audioCtx.resume().catch(function(){}); } });
 (function(){ if(!document.body.classList.contains('mobile-ui')) return;
   var c=document.getElementById('controlsArea'); if(!c || document.getElementById('sheetBody')) return;
   var sb=document.createElement('div'); sb.id='sheetBody';
