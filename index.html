@@ -93,6 +93,7 @@ body.mobile-ui .sheet-handle{z-index:4}
 body.mobile-ui .sheet-tabs{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 10px;position:static;z-index:3;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:rgba(12,12,16,0.96)}
 body.mobile-ui #controlsArea{overflow:hidden;display:flex;flex-direction:column}
 body.mobile-ui #sheetBody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px}
+body.mobile-ui #controlsArea.sheet-collapsed #sheetBody{display:none}
 body.mobile-ui .sheet-tabs::-webkit-scrollbar{display:none}
 body.mobile-ui .sheet-tab{flex:0 0 auto;padding:6px 13px;border-radius:14px;background:var(--elevated);color:#c2c6cc;font-size:11px;letter-spacing:.02em;white-space:nowrap;border:1px solid transparent;cursor:pointer}
 body.mobile-ui .sheet-tab.active{background:var(--accent2);color:#04130c;font-weight:600}
@@ -216,6 +217,14 @@ body.mobile-ui #pIntensityRow{display:none!important}
 @media(max-width:900px){.app{flex-direction:column}.controls-area{width:100%;max-height:none;border-right:none;order:1}}
 #mToast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);background:rgba(30,30,38,0.97);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:300;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;border:1px solid var(--border);max-width:80vw;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.5)}
 #mToast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#mExportSheet{display:none}
+body.mobile-ui #mExportSheet{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.55);align-items:flex-end;justify-content:center}
+body.mobile-ui #mExportSheet.open{display:flex}
+body.mobile-ui #mExportSheet .mx-card{width:100%;max-width:520px;background:rgba(20,20,26,0.98);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-radius:18px 18px 0 0;padding:14px 14px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+body.mobile-ui #mExportSheet .mx-title{text-align:center;color:var(--tx2,#aaa);font-size:12px;text-transform:uppercase;letter-spacing:.08em;padding:4px 0 6px}
+body.mobile-ui #mExportSheet .mx-btn{padding:14px;border-radius:12px;background:var(--elevated);color:#fff;font-size:15px;border:1px solid var(--border);cursor:pointer}
+body.mobile-ui #mExportSheet .mx-btn#mxSave{background:var(--accent2);color:#04130c;font-weight:600;border-color:transparent}
+body.mobile-ui #mExportSheet .mx-cancel{background:none;color:var(--tx3,#888)}
 body.mobile-ui #stopAudioBtn{display:none!important}
 body.mobile-fs .top-bar,body.mobile-fs #mIntensityBar,body.mobile-fs #mLayerBar,body.mobile-fs #controlsArea,body.mobile-fs .m-guide,body.mobile-fs #mToast{display:none!important}
 body.mobile-fs .preview-area{padding:0!important}
@@ -6710,21 +6719,41 @@ function stopRecording(){
   if(recTimerRAF){cancelAnimationFrame(recTimerRAF);recTimerRAF=null}
 }
 
+function mExportChoice(uri, ext){
+  var P=(window.Capacitor&&window.Capacitor.Plugins)||{};
+  var ov=document.getElementById('mExportSheet');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='mExportSheet';
+    ov.innerHTML='<div class="mx-card"><div class="mx-title">Recording ready</div>'+
+      '<button class="mx-btn" id="mxSave">Save to Photos</button>'+
+      '<button class="mx-btn" id="mxShare">Share…</button>'+
+      '<button class="mx-btn mx-cancel" id="mxCancel">Cancel</button></div>';
+    ov.addEventListener('click',function(e){ if(e.target===ov) ov.classList.remove('open'); });
+    document.body.appendChild(ov);
+  }
+  document.getElementById('mxCancel').onclick=function(){ ov.classList.remove('open'); };
+  document.getElementById('mxShare').onclick=function(){ ov.classList.remove('open'); if(P.Share) P.Share.share({title:'Audiograph',url:uri}).catch(function(){}); };
+  document.getElementById('mxSave').onclick=function(){ ov.classList.remove('open');
+    if(P.Media&&P.Media.saveVideo){ P.Media.saveVideo({path:uri}).then(function(){mToast('Saved to Photos');}).catch(function(e){mToast('Save failed: '+(e&&e.message||e));}); }
+    else { mToast('Photos save unavailable'); }
+  };
+  ov.classList.add('open');
+}
 function finalizeRecording(){
   if(recordedChunks.length===0)return;
   var type=recordedChunks[0].type||'video/webm';
   var blob=new Blob(recordedChunks,{type:type});
   var ext=type.indexOf('mp4')>-1?'mp4':'webm';
   var P=(window.Capacitor&&window.Capacitor.Plugins)||{};
-  if(IS_NATIVE&&P.Filesystem&&P.Share){
-    // Native: write the video to the cache dir, then open the Share Sheet (includes Save to Photos)
+  if(IS_NATIVE&&P.Filesystem){
+    // Native: write the video to the cache dir, then offer Save to Photos / Share
     var rd=new FileReader();
     rd.onloadend=function(){
       var b64=(''+rd.result).split(',')[1]||'';
       var fname='audiograph-'+Date.now()+'.'+ext;
       P.Filesystem.writeFile({path:fname,data:b64,directory:'CACHE'})
-        .then(function(res){return P.Share.share({title:'Audiograph',url:res.uri});})
-        .catch(function(e){alert('Could not share video: '+(e&&e.message||e));});
+        .then(function(res){ mExportChoice(res.uri, ext); })
+        .catch(function(e){alert('Could not save video: '+(e&&e.message||e));});
     };
     rd.readAsDataURL(blob);
   }else{
@@ -6806,10 +6835,10 @@ setInterval(mTransportSync, 250);
   function vh(f){ return window.innerHeight*f; }
   function detents(){ var pa=document.querySelector('.preview-area'); var def=pa?Math.max(150, Math.round(window.innerHeight - pa.getBoundingClientRect().bottom + 6)):Math.round(vh(0.45)); return {collapsed:140, half:def, full:Math.round(vh(0.92))}; }
   var state='collapsed';
-  function setDetent(name){ var D=detents(); if(!(name in D)) name='half'; state=name; c.style.transition=''; c.style.height=D[name]+'px'; }
+  function setDetent(name){ var D=detents(); if(!(name in D)) name='half'; state=name; c.style.transition=''; c.style.height=D[name]+'px'; c.classList.toggle('sheet-collapsed', name==='collapsed'); }
   window.mSheetSetDetent=setDetent;
   var dragging=false, moved=false, startY=0, startH=0;
-  handle.addEventListener('pointerdown',function(e){ dragging=true; moved=false; startY=e.clientY; startH=c.offsetHeight; c.style.transition='none'; try{handle.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
+  handle.addEventListener('pointerdown',function(e){ dragging=true; c.classList.remove('sheet-collapsed'); moved=false; startY=e.clientY; startH=c.offsetHeight; c.style.transition='none'; try{handle.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
   handle.addEventListener('pointermove',function(e){ if(!dragging)return; var dy=e.clientY-startY; if(Math.abs(dy)>4)moved=true; var hh=Math.min(Math.max(96, startH-dy), Math.round(vh(0.92))); c.style.height=hh+'px'; });
   function endDrag(){ if(!dragging)return; dragging=false; c.style.transition='';
     if(!moved){ setDetent(state==='collapsed'?'half':'collapsed'); return; }
