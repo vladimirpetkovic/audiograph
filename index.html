@@ -55,6 +55,7 @@ body.mobile-ui .m-export{display:inline-flex;order:4}
 body.mobile-ui .top-actions .btn{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:7.5px;line-height:1;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;padding:2px 4px;background:none!important;border:none!important;color:#fff!important}
 body.mobile-ui .top-actions .btn svg{width:22px!important;height:22px!important;stroke:#fff!important}
 body.mobile-ui .m-play svg *,body.mobile-ui .m-export svg *{fill:#fff!important;stroke:none!important}
+body.mobile-ui .m-export.rec-on svg *{fill:#ff3b30!important}
 /* footer: time centered, guide far right, play now in header */
 body.mobile-ui .transport{position:relative;justify-content:center;min-height:34px}
 body.mobile-ui .transport-time{position:absolute;left:50%;transform:translateX(-50%);font-size:.78rem}
@@ -67,7 +68,7 @@ body.mobile-ui #mIntensity::-webkit-slider-thumb{-webkit-appearance:none;appeara
 .m-layerbar{display:none}
 body.mobile-ui .m-layerbar{display:flex;gap:6px;align-items:center;overflow-x:auto;overflow-y:visible;padding:6px 12px;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scrollbar-width:none}
 body.mobile-ui .m-layerbar::-webkit-scrollbar{display:none}
-body.mobile-ui .m-layer-chip{flex:0 0 auto;padding:5px 12px;border-radius:13px;background:var(--elevated);color:#c2c6cc;font-size:11px;text-transform:capitalize;white-space:nowrap;border:1px solid transparent;cursor:pointer}
+body.mobile-ui .m-layer-chip{flex:0 0 auto;padding:5px 12px;border-radius:13px;background:var(--elevated);color:#eef0f2;font-size:11px;text-transform:capitalize;white-space:nowrap;border:1px solid transparent;cursor:pointer}
 body.mobile-ui .m-layer-chip.active{background:var(--accent2);color:#04130c;font-weight:600}
 body.mobile-ui .m-layer-add{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--elevated);color:var(--accent2);font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);cursor:pointer}
 .m-layer-menu{display:none}
@@ -95,7 +96,7 @@ body.mobile-ui #controlsArea{overflow:hidden;display:flex;flex-direction:column}
 body.mobile-ui #sheetBody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px}
 body.mobile-ui #controlsArea.sheet-collapsed #sheetBody{display:none}
 body.mobile-ui .sheet-tabs::-webkit-scrollbar{display:none}
-body.mobile-ui .sheet-tab{flex:0 0 auto;padding:6px 13px;border-radius:14px;background:var(--elevated);color:#c2c6cc;font-size:11px;letter-spacing:.02em;white-space:nowrap;border:1px solid transparent;cursor:pointer}
+body.mobile-ui .sheet-tab{flex:0 0 auto;padding:6px 13px;border-radius:14px;background:var(--elevated);color:#eef0f2;font-size:11px;letter-spacing:.02em;white-space:nowrap;border:1px solid transparent;cursor:pointer}
 body.mobile-ui .sheet-tab.active{background:var(--accent2);color:#04130c;font-weight:600}
 /* show one panel at a time on mobile */
 body.mobile-ui #controlsArea .panel{display:none!important;border:none;background:none}
@@ -3349,7 +3350,7 @@ function liveAnimLoop(){
   // so the visualization reacts to dynamics regardless of absolute mic level.
   var _fp=0;for(var _i=0;_i<fd.length;_i++){if(fd[_i]>_fp)_fp=fd[_i]}
   window._lgm=Math.max(_fp,(window._lgm||80)*0.99);
-  var fdMax=Math.max(50,window._lgm);
+  var fdMax=Math.max(28,window._lgm*0.55);
   var nLines=p.lines,modVals=[];
   var binsPerLine=Math.max(1,Math.floor(fd.length/nLines));
   for(var i=0;i<nLines;i++){
@@ -6667,7 +6668,7 @@ function startRecording(){
   recMimeType=mimeType;
   recordedChunks=[];
   try{
-    mediaRecorder=new MediaRecorder(combinedStream,{mimeType:mimeType,videoBitsPerSecond:50000000});
+    mediaRecorder=new MediaRecorder(combinedStream,{mimeType:mimeType,videoBitsPerSecond:10000000});
   }catch(e){alert('MediaRecorder error: '+e.message);return}
   mediaRecorder.ondataavailable=function(e){if(e.data&&e.data.size>0)recordedChunks.push(e.data)};
   mediaRecorder.onstop=function(){finalizeRecording()};
@@ -6823,12 +6824,24 @@ var _msDragging=false;
 function mToggleRec(){ if(typeof isRecording!=='undefined' && isRecording){ stopRecording(); } else { startRecording(); } }
 function mTransportSync(){
   var mp=document.getElementById('mPlayIco');
-  if(mp){var act=(typeof liveMode!=='undefined'&&liveMode)||(typeof playing!=='undefined'&&playing); if(mp.getAttribute('data-a')!==(act?'1':'0')){mp.setAttribute('data-a',act?'1':'0'); mp.innerHTML=act?'<rect x="5" y="5" width="14" height="14" rx="2"/>':'<polygon points="6 4 20 12 6 20 6 4"/>';}}
-  var mr=document.getElementById('mRecIco');
-  if(mr){var rr=(typeof isRecording!=='undefined'&&isRecording); if(mr.getAttribute('data-r')!==(rr?'1':'0')){mr.setAttribute('data-r',rr?'1':'0'); mr.innerHTML=rr?'<rect x="6" y="6" width="12" height="12" rx="1"/>':'<circle cx="12" cy="12" r="7"/>';}}
+  if(mp){var act=(typeof liveMode!=='undefined'&&liveMode)||(typeof playing!=='undefined'&&playing); if(mp.getAttribute('data-a')!==(act?'1':'0')){mp.setAttribute('data-a',act?'1':'0'); mp.innerHTML=act?'<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>':'<polygon points="6 4 20 12 6 20 6 4"/>';}}
+  var mex=document.querySelector('.m-export'); if(mex){ mex.classList.toggle('rec-on', (typeof isRecording!=='undefined'&&isRecording)); }
   var _mi=document.getElementById('mIntensity'),_pi=document.getElementById('pIntensity'); if(_mi&&_pi&&document.activeElement!==_mi&&_mi.value!==_pi.value){_mi.value=_pi.value;}
 }
 setInterval(mTransportSync, 250);
+/* --- mobile Load Audio: native document picker (audio only, no camera/video) --- */
+(function(){ if(!document.body.classList.contains('mobile-ui')) return;
+  var lb=document.getElementById('btnLoadAudio'); if(!lb) return;
+  function b64ToBlob(b64,mime){ var bin=atob(b64); var arr=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i); return new Blob([arr],{type:mime||'audio/mpeg'}); }
+  lb.addEventListener('click', function(e){
+    var FP=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.FilePicker;
+    if(!FP) return;
+    e.preventDefault();
+    FP.pickFiles({ types:['audio/mpeg','audio/mp4','audio/x-m4a','audio/aac','audio/wav','audio/x-wav','audio/flac','audio/ogg','audio/*'], readData:true, limit:1 })
+      .then(function(res){ var f=res&&res.files&&res.files[0]; if(!f) return; if(f.data){ loadAudioFile(b64ToBlob(f.data, f.mimeType)); } else { mToast('Could not read the file'); } })
+      .catch(function(err){ var m=(err&&err.message)||''; if(/cancel/i.test(m)) return; mToast('Load failed: '+m); });
+  }, true);
+})();
 (function(){var mi=document.getElementById('mIntensity'),pi=document.getElementById('pIntensity');if(mi&&pi){mi.value=pi.value;mi.addEventListener('input',function(){pi.value=mi.value;pi.dispatchEvent(new Event('input',{bubbles:true}));});}})();
 (function(){
   var c=document.getElementById('controlsArea'), handle=document.getElementById('sheetHandle'); if(!c||!handle) return;
@@ -6842,9 +6855,7 @@ setInterval(mTransportSync, 250);
   handle.addEventListener('pointermove',function(e){ if(!dragging)return; var dy=e.clientY-startY; if(Math.abs(dy)>4)moved=true; var hh=Math.min(Math.max(96, startH-dy), Math.round(vh(0.92))); c.style.height=hh+'px'; });
   function endDrag(){ if(!dragging)return; dragging=false; c.style.transition='';
     if(!moved){ setDetent(state==='collapsed'?'half':'collapsed'); return; }
-    var D=detents(), hh=c.offsetHeight, best='half', bd=1e9;
-    Object.keys(D).forEach(function(k){ var d=Math.abs(D[k]-hh); if(d<bd){bd=d;best=k;} });
-    setDetent(best);
+    var hh=c.offsetHeight; state='custom'; c.classList.toggle('sheet-collapsed', hh<=detents().collapsed+8);
   }
   handle.addEventListener('pointerup',endDrag); handle.addEventListener('pointercancel',endDrag);
   window.addEventListener('resize',function(){ if(state!=='collapsed') setDetent(state); });
