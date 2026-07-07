@@ -56,6 +56,9 @@ body.mobile-ui .top-actions .btn{display:flex;flex-direction:column;align-items:
 body.mobile-ui .top-actions .btn svg{width:22px!important;height:22px!important;stroke:#fff!important}
 body.mobile-ui .m-play svg *,body.mobile-ui .m-export svg *{fill:#fff!important;stroke:none!important}
 body.mobile-ui .m-export.rec-on svg *{fill:#ff3b30!important}
+/* mobile: lift muted grays to near-white for readability */
+body.mobile-ui{--tx2:#e6e8ec;--tx3:#c9cdd4}
+body.mobile-ui [onclick="setPlayMode('continuous',this)"]{display:none!important}
 /* footer: time centered, guide far right, play now in header */
 body.mobile-ui .transport{position:relative;justify-content:center;min-height:34px}
 body.mobile-ui .transport-time{position:absolute;left:50%;transform:translateX(-50%);font-size:.78rem}
@@ -3350,13 +3353,13 @@ function liveAnimLoop(){
   // so the visualization reacts to dynamics regardless of absolute mic level.
   var _fp=0;for(var _i=0;_i<fd.length;_i++){if(fd[_i]>_fp)_fp=fd[_i]}
   window._lgm=Math.max(_fp,(window._lgm||80)*0.99);
-  var fdMax=Math.max(28,window._lgm*0.55);
+  var fdMax=Math.max(14,window._lgm*0.32);
   var nLines=p.lines,modVals=[];
   var binsPerLine=Math.max(1,Math.floor(fd.length/nLines));
   for(var i=0;i<nLines;i++){
     var sum=0;for(var j=0;j<binsPerLine;j++){var idx=i*binsPerLine+j;if(idx<fd.length)sum+=fd[idx]}
     var raw=sum/(binsPerLine*fdMax);
-    modVals.push(sensCurve(Math.min(1,raw*amp),sens));
+    modVals.push(sensCurve(Math.min(1,raw*amp*(liveMode?2.4:1)),sens));
   }
   // Apply global intensity
   var gIntensity=getIntensity();
@@ -6735,8 +6738,8 @@ function mExportChoice(uri, ext){
   document.getElementById('mxCancel').onclick=function(){ ov.classList.remove('open'); };
   document.getElementById('mxShare').onclick=function(){ ov.classList.remove('open'); if(P.Share) P.Share.share({title:'Audiograph',url:uri}).catch(function(){}); };
   document.getElementById('mxSave').onclick=function(){ ov.classList.remove('open');
-    if(P.Media&&P.Media.saveVideo){ P.Media.saveVideo({path:uri}).then(function(){mToast('Saved to Photos');}).catch(function(e){mToast('Save failed: '+(e&&e.message||e));}); }
-    else { mToast('Photos save unavailable'); }
+    if(P.Media&&P.Media.saveVideo){ P.Media.saveVideo({path:uri}).then(function(){mToast('Saved to Photos ✓');}).catch(function(e){alert('Photos save failed: '+(e&&e.message||e));}); }
+    else { alert('Media plugin unavailable'); }
   };
   ov.classList.add('open');
 }
@@ -6754,7 +6757,7 @@ function finalizeRecording(){
       var fname='audiograph-'+Date.now()+'.'+ext;
       P.Filesystem.writeFile({path:fname,data:b64,directory:'CACHE'})
         .then(function(res){ mExportChoice(res.uri, ext); })
-        .catch(function(e){alert('Could not save video: '+(e&&e.message||e));});
+        .catch(function(e){alert('Write failed [type='+type+']: '+(e&&e.message||e));});
     };
     rd.readAsDataURL(blob);
   }else{
@@ -6838,7 +6841,7 @@ setInterval(mTransportSync, 250);
     if(!FP) return;
     e.preventDefault();
     FP.pickFiles({ types:['audio/mpeg','audio/mp4','audio/x-m4a','audio/aac','audio/wav','audio/x-wav','audio/flac','audio/ogg','audio/*'], readData:true, limit:1 })
-      .then(function(res){ var f=res&&res.files&&res.files[0]; if(!f) return; if(f.data){ loadAudioFile(b64ToBlob(f.data, f.mimeType)); } else { mToast('Could not read the file'); } })
+      .then(function(res){ var f=res&&res.files&&res.files[0]; if(!f) return; if(f.data){ loadAudioFile(b64ToBlob(f.data, f.mimeType)).then(function(){ var eq=document.querySelector('[onclick="setPlayMode(\'equalizer\',this)"]'); if(eq && typeof playMode!=='undefined' && playMode!=='equalizer') eq.click(); }); } else { mToast('Could not read the file'); } })
       .catch(function(err){ var m=(err&&err.message)||''; if(/cancel/i.test(m)) return; mToast('Load failed: '+m); });
   }, true);
 })();
