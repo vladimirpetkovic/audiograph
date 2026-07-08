@@ -84,6 +84,14 @@ body.mobile-ui .mcp-delstop{border-style:solid;color:#f87171}
 body.mobile-ui .mcp-presets-label{width:100%;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);opacity:.7}
 body.mobile-ui .mcp-presets{width:100%;display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
 body.mobile-ui .mcp-preset{flex:0 0 auto;width:44px;height:26px;border-radius:6px;cursor:pointer;box-shadow:0 0 0 1px rgba(255,255,255,.12) inset}
+/* Demo library picker sheet */
+#mLibrarySheet{display:none}
+body.mobile-ui #mLibrarySheet{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.55);align-items:flex-end;justify-content:center}
+body.mobile-ui #mLibrarySheet.open{display:flex}
+body.mobile-ui #mLibrarySheet .lib-card{width:100%;max-width:520px;max-height:72vh;overflow-y:auto;background:rgba(20,20,26,0.98);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-radius:18px 18px 0 0;padding:14px 14px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px}
+body.mobile-ui #mLibrarySheet .lib-title{text-align:center;color:var(--tx2);font-size:12px;text-transform:uppercase;letter-spacing:.08em;padding:4px 0 6px}
+body.mobile-ui #mLibrarySheet .lib-item{padding:14px;border-radius:10px;background:var(--elevated);color:#eef0f2;font-size:15px;border:1px solid var(--border);text-align:left;cursor:pointer}
+body.mobile-ui #mLibrarySheet .lib-item.cancel{text-align:center;color:var(--tx3);background:none;border:none;margin-top:2px}
 /* larger, easier-to-grab slider handles in the sheet */
 body.mobile-ui #sheetBody input[type=range]{height:5px}
 body.mobile-ui #sheetBody input[type=range]::-webkit-slider-thumb{width:16px!important;height:22px!important;border-radius:4px!important;margin-top:-8.5px!important}
@@ -293,7 +301,7 @@ body.mobile-ui .m-op-val{min-width:38px;text-align:right;font-size:11px;color:va
 <body>
 <div class="top-bar">
   <div class="logo"><svg class="logo-mark" viewBox="0 0 1057.41 738.29" style="height:1.6em;width:auto;vertical-align:middle" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M1032.62,424.91l-73.44,53.2-113.27,82.31-82.48,60.37-82.14,59.87-62.25,44.99c-24.06,17.39-56.82,16.53-80.96-.73-18.36-13.12-29.61-34.8-29.61-57.91l-.11-337.53.03-260.23c0-21.81,9.68-40.96,26.21-54.46,23.74-19.39,60.1-19.5,84.1-1.63l14.09,10.48,62.65,45.34,46.46,33.35,105.28,75.99,40.23,29.39,91.03,65.86,48.68,35.04c14.7,10.58,24.12,25.78,28.35,43.53,6.26,26.34-2.87,53.93-22.83,72.76Z"/><path fill="#d75263" d="M363.39,647.38c-16.83-10-25.1-27.74-25.1-46.74l.03-446.22.18-17.64c.18-18.56,8.39-35.31,24.33-45.27,12.79-7.99,29.02-10.22,43.72-4.22,17.1,6.99,31.66,24.91,31.66,44.44l.05,473.93c0,19.79-13.35,37.64-30.72,44.95-14.45,6.08-30.71,4.76-44.14-3.23Z"/><path fill="#eaaa45" d="M249.43,546.66c-18.97,15.57-46.63,14.17-64.17-2.28-11.47-10.75-16.68-25.76-16.68-41.53l.16-274.23c2.47-32.16,32.05-54.23,62.93-46.26,23.62,6.63,37.01,28.33,36.97,52.44l-.45,274.37c-.02,14.71-7.39,28.16-18.77,37.49Z"/><circle fill="#8ee4ba" cx="49.47" cy="369.14" r="49.47"/></svg>Audiograph <a href="https://www.vladimirpetkovic.com" target="_blank">by Vladimir Petković</a></div>
-  <div class="top-actions"><button class="btn m-play" onclick="mGuardPlay()" aria-label="Play/Pause"><svg id="mPlayIco" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>Play</button><button class="btn m-export" onclick="mGuardRec()" aria-label="Record video"><svg id="mRecIco" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>Rec</button><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Reset</button><button class="btn" id="stopAudioBtn" onclick="stopAudioSource()" style="display:none;border-color:var(--crop);color:var(--crop)"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>Stop</button><div class="audio-source-group"><span class="audio-source-label">Audio source</span><div class="audio-source-btns"><label class="btn" id="btnLoadAudio"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" id="btnMic" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" id="btnSystem" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button></div></div><span class="help-btn"><button class="btn" onclick="toggleHelp()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Guide</button></span><button class="btn m-guide" onclick="toggleHelp()" aria-label="Guide"><span class="mg-ico">?</span>Guide</button></div>
+  <div class="top-actions"><button class="btn m-play" onclick="mGuardPlay()" aria-label="Play/Pause"><svg id="mPlayIco" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>Play</button><button class="btn m-export" onclick="mGuardRec()" aria-label="Record video"><svg id="mRecIco" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>Rec</button><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Reset</button><button class="btn" id="stopAudioBtn" onclick="stopAudioSource()" style="display:none;border-color:var(--crop);color:var(--crop)"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>Stop</button><div class="audio-source-group"><span class="audio-source-label">Audio source</span><div class="audio-source-btns"><label class="btn" id="btnLoadAudio"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" id="btnLibrary" onclick="mOpenLibrary()" style="display:none" aria-label="Demo library"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="13" y2="6"/><line x1="3" y1="12" x2="13" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/><circle cx="18" cy="16" r="3"/><path d="M21 16V6l-3 1"/></svg>Library</button><button class="btn" id="btnMic" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" id="btnSystem" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button></div></div><span class="help-btn"><button class="btn" onclick="toggleHelp()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Guide</button></span><button class="btn m-guide" onclick="toggleHelp()" aria-label="Guide"><span class="mg-ico">?</span>Guide</button></div>
 </div>
 <div class="m-intensity" id="mIntensityBar"><input type="range" min="0" max="200" value="100" step="5" id="mIntensity" aria-label="Intensity"></div>
 <div class="m-layerbar" id="mLayerBar"></div>
@@ -7072,6 +7080,32 @@ function mHandleOpenUrl(url){
   var P=(window.Capacitor&&window.Capacitor.Plugins)||{}; if(!P.App) return;
   try{ P.App.addListener('appUrlOpen', function(data){ mHandleOpenUrl(data&&data.url); }); }catch(e){}
   try{ P.App.getLaunchUrl().then(function(res){ if(res&&res.url) mHandleOpenUrl(res.url); }).catch(function(){}); }catch(e){}
+})();
+// Bundled demo track library (mobile only): reads demos/manifest.json; the Library
+// button appears only when tracks are present. Tapping a track loads + plays it.
+var _mDemos=null;
+function mOpenLibrary(){
+  if(!_mDemos||!_mDemos.length){ if(typeof mToast==='function')mToast('No demo tracks'); return; }
+  var ov=document.getElementById('mLibrarySheet');
+  if(!ov){ ov=document.createElement('div'); ov.id='mLibrarySheet'; ov.addEventListener('click',function(e){ if(e.target===ov)ov.classList.remove('open'); }); document.body.appendChild(ov); }
+  ov.innerHTML='';
+  var card=document.createElement('div'); card.className='lib-card';
+  var t=document.createElement('div'); t.className='lib-title'; t.textContent='Demo Library'; card.appendChild(t);
+  _mDemos.forEach(function(d){ var b=document.createElement('button'); b.className='lib-item'; b.textContent=d.title||d.file; b.addEventListener('click',function(){ ov.classList.remove('open'); mLoadDemo(d.file); }); card.appendChild(b); });
+  var c=document.createElement('button'); c.className='lib-item cancel'; c.textContent='Cancel'; c.addEventListener('click',function(){ ov.classList.remove('open'); }); card.appendChild(c);
+  ov.appendChild(card); ov.classList.add('open');
+}
+function mLoadDemo(file){
+  fetch('demos/'+encodeURIComponent(file)).then(function(r){ if(!r.ok)throw 0; return r.blob(); })
+    .then(function(blob){ return loadAudioFile(new File([blob], file, {type:blob.type||'audio/mpeg'})); })
+    .then(function(){ var eq=document.querySelector('[onclick="setPlayMode(\'equalizer\',this)"]'); if(eq&&typeof playMode!=='undefined'&&playMode!=='equalizer')eq.click(); if(typeof mToast==='function')mToast('Loaded'); })
+    .catch(function(){ if(typeof mToast==='function')mToast('Could not load track'); });
+}
+(function(){ if(!document.body.classList.contains('mobile-ui')) return;
+  fetch('demos/manifest.json').then(function(r){ return r.ok?r.json():[]; }).then(function(list){
+    _mDemos=Array.isArray(list)?list:[];
+    var b=document.getElementById('btnLibrary'); if(b&&_mDemos.length)b.style.display='';
+  }).catch(function(){ _mDemos=[]; });
 })();
 (function(){var mi=document.getElementById('mIntensity'),pi=document.getElementById('pIntensity');if(mi&&pi){mi.value=pi.value;mi.addEventListener('input',function(){pi.value=mi.value;pi.dispatchEvent(new Event('input',{bubbles:true}));});}})();
 (function(){
