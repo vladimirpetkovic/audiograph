@@ -44,7 +44,7 @@ body.mobile-ui .m-seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:
 .m-play,.m-export,.m-guide{display:none}
 body.mobile-ui .top-bar{flex-wrap:nowrap;gap:8px;padding:.4rem .55rem;padding-top:calc(.4rem + env(safe-area-inset-top))}
 body.mobile-ui .m-seek{margin-bottom:calc(2px + env(safe-area-inset-bottom))}
-body.mobile-ui .logo,body.mobile-ui .help-btn,body.mobile-ui .audio-source-label,body.mobile-ui #btnSystem,body.mobile-ui #playBtn{display:none!important}
+body.mobile-ui .logo,body.mobile-ui .help-btn,body.mobile-ui .audio-source-label,body.mobile-ui #btnSystem,body.mobile-ui #btnMic,body.mobile-ui #playBtn{display:none!important}
 body.mobile-ui .top-actions{display:flex;width:100%;gap:8px;flex-wrap:nowrap;justify-content:flex-start;align-items:center}
 body.mobile-ui .m-play{display:inline-flex;order:3;margin-left:auto}
 body.mobile-ui .audio-source-group{display:flex;flex-direction:row;align-items:center;margin:0;padding:0;gap:10px;background:none;border:none;order:1}
@@ -3472,19 +3472,6 @@ async function startLiveInput(stream){
   if(analyser){try{analyser.disconnect()}catch(e){}}
   analyser=audioCtx.createAnalyser();analyser.fftSize=4096;
   try{analyser.minDecibels=-90;analyser.maxDecibels=-10;analyser.smoothingTimeConstant=0.7;}catch(e){}
-  // Live-mic spectral compensation: phone mics capture music with a heavy mid bias
-  // (weak deep bass, rolled-off highs). Boost those bands so the whole spectrum reacts.
-  // Patched onto the analyser instance so it applies everywhere (viz + reactive rules),
-  // but gated on liveMode so file playback (a different signal) is never altered.
-  (function(){
-    var n=analyser.frequencyBinCount, c=new Float32Array(n);
-    for(var k=0;k<n;k++){ var lo=2.4*Math.exp(-k/16); var hi=0.8*Math.pow(k/n,0.7); c[k]=1+lo+hi; }
-    var orig=analyser.getByteFrequencyData.bind(analyser);
-    analyser.getByteFrequencyData=function(a){ orig(a);
-      if(typeof liveMode!=='undefined'&&liveMode&&window._micCompOn!==false){
-        for(var k=0;k<a.length&&k<c.length;k++){ var v=a[k]*c[k]; a[k]=v>255?255:v; } }
-    };
-  })();
   liveStream=stream;
   liveSource=audioCtx.createMediaStreamSource(stream);
   liveSource.connect(analyser);
