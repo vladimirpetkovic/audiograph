@@ -7108,7 +7108,7 @@ function mLoadDemo(file){
   }).catch(function(){ _mDemos=[]; });
 })();
 (function(){var mi=document.getElementById('mIntensity'),pi=document.getElementById('pIntensity');if(mi&&pi){mi.value=pi.value;mi.addEventListener('input',function(){pi.value=mi.value;pi.dispatchEvent(new Event('input',{bubbles:true}));});}})();
-(function(){
+(function(){ if(!document.body.classList.contains('mobile-ui')) return;
   var c=document.getElementById('controlsArea'), handle=document.getElementById('sheetHandle'); if(!c||!handle) return;
   function vh(f){ return window.innerHeight*f; }
   function detents(){ var pa=document.querySelector('.preview-area'); var def=pa?Math.max(150, Math.round(window.innerHeight - pa.getBoundingClientRect().bottom + 6)):Math.round(vh(0.45)); return {collapsed:140, half:def, full:Math.round(vh(0.92))}; }
@@ -7126,7 +7126,7 @@ function mLoadDemo(file){
   window.addEventListener('resize',function(){ if(state!=='collapsed') setDetent(state); });
   setDetent('collapsed');
 })();
-(function(){
+(function(){ if(!document.body.classList.contains('mobile-ui')) return;
   var c=document.getElementById('controlsArea'), tabsEl=document.getElementById('sheetTabs');
   if(!c||!tabsEl) return;
   var EXCLUDE={'Webcam':1,'Audio EQ':1,'Layers':1,'Export':1,'Background':1};
