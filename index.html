@@ -7053,6 +7053,26 @@ setInterval(mTransportSync, 250);
       .catch(function(err){ var m=(err&&err.message)||''; if(/cancel/i.test(m)) return; mToast('Load failed: '+m); });
   }, true);
 })();
+// Share / "Open in Audiograph": receive an audio file opened from another app (Files, browser,
+// downloader, etc.) via the iOS document-open path, read it, and load it as the source.
+function mHandleOpenUrl(url){
+  if(!url) return;
+  var P=(window.Capacitor&&window.Capacitor.Plugins)||{};
+  var clean=(''+url).split('?')[0];
+  var ext=((clean.match(/\.([a-z0-9]+)$/i)||[null,''])[1]||'').toLowerCase();
+  if(!/^(file|content):/i.test(url) && !/^(mp3|m4a|mp4|aac|wav|flac|ogg|aif|aiff)$/.test(ext)) return;
+  if(!P.Filesystem){ if(typeof mToast==='function')mToast('Cannot read file'); return; }
+  function b64ToBlob(b64,mime){ var bin=atob(b64),arr=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i); return new Blob([arr],{type:mime||'audio/mpeg'}); }
+  var mime = ext==='wav'?'audio/wav':(ext==='m4a'||ext==='mp4'||ext==='aac')?'audio/mp4':ext==='flac'?'audio/flac':ext==='ogg'?'audio/ogg':(ext==='aif'||ext==='aiff')?'audio/aiff':'audio/mpeg';
+  P.Filesystem.readFile({path:url}).then(function(res){ return loadAudioFile(b64ToBlob(res.data, mime)); })
+    .then(function(){ var eq=document.querySelector('[onclick="setPlayMode(\'equalizer\',this)"]'); if(eq&&typeof playMode!=='undefined'&&playMode!=='equalizer')eq.click(); if(typeof mToast==='function')mToast('Loaded shared audio'); })
+    .catch(function(){ if(typeof mToast==='function')mToast('Could not open shared file'); });
+}
+(function(){
+  var P=(window.Capacitor&&window.Capacitor.Plugins)||{}; if(!P.App) return;
+  try{ P.App.addListener('appUrlOpen', function(data){ mHandleOpenUrl(data&&data.url); }); }catch(e){}
+  try{ P.App.getLaunchUrl().then(function(res){ if(res&&res.url) mHandleOpenUrl(res.url); }).catch(function(){}); }catch(e){}
+})();
 (function(){var mi=document.getElementById('mIntensity'),pi=document.getElementById('pIntensity');if(mi&&pi){mi.value=pi.value;mi.addEventListener('input',function(){pi.value=mi.value;pi.dispatchEvent(new Event('input',{bubbles:true}));});}})();
 (function(){
   var c=document.getElementById('controlsArea'), handle=document.getElementById('sheetHandle'); if(!c||!handle) return;
