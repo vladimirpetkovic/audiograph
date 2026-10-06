@@ -176,6 +176,16 @@ Edit **Span source region (%)** and **Source rotation** for each plane to arrang
 
 Span regions are saved independently of Custom crops. Switching modes, artistic presets, or fullscreen does not erase either. Save/export/import and mapping Undo preserve Span regions/rotations. Profiles with no mode still load as Custom; old v25 Span profiles now default to horizontal allocation, intentionally replacing the non-deforming behavior. This is a user-aligned source net, not an automatic reconstruction of a 3D object.
 
+## System Audio Preview (v27)
+
+**[Try v27: simpler system-audio connection](versions/audiograph_27.html)**. Includes the v26 fullscreen and deformed Span fixes. Main v22 and all older builds remain unchanged.
+
+Click **System**. Supported desktop Chrome/Edge browsers are asked to open the chooser on **Entire Screen** with system audio offered. Choose a screen, enable **Share with system audio**, and click **Share with Audio**. If that option is unavailable on your browser/OS, use **Chrome Tab** with **Share tab audio** instead.
+
+This is a picker preference, not an automatic permission grant: the site cannot choose a specific screen, force the audio toggle on, remember screen-capture permission, or bypass the dialog. Video tracks are stopped immediately after selection; only audio feeds the visualizer. Inline status provides connection/cancellation/error guidance without extra alert dialogs. The System button is disabled while the chooser is pending, releases unused streams on failure, and can be clicked again to stop. The separate Stop button also disconnects capture.
+
+The picker options follow Chrome's [screen-sharing controls documentation](https://developer.chrome.com/docs/web-platform/screen-sharing-controls); browsers may ignore unsupported hints.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
@@ -209,6 +219,18 @@ npm test
 ```
 
 To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle. Mapping checks run against the v23 preview, exercising projective geometry, pixel-accurate texture/crop sampling, real handle dragging, profile persistence, and GPU-loss recovery. Resolution checks run against v24 at standard and Retina DPI, checking exact canvas and recorded-video dimensions. Content-mode checks retain v25's original projector-space behavior as an archived-version regression. v26 has dedicated Span checks for actual corner/grid deformation, shared source layouts, rotation and persistence. Its fullscreen suite intentionally suspends the controller animation clock and checks actual fullscreen pixels and callback migration/cancellation; the same regression fails on v25. Set `AUDIOGRAPH_BUILD=versions/audiograph_26.html AUDIOGRAPH_RESOLUTION_BUILD=versions/audiograph_26.html` to also exercise projection, mapping and resolution against v26.
+
+v27's `system-audio.cjs` checks requested picker options, audio-only capture, cancellation/denial, missing audio, setup failure, retry, and stream cleanup using controlled display-capture streams. It does not automate Chrome's native share chooser or OS audio support. Use `AUDIOGRAPH_SYSTEM_URL` to run the same connection checks against a published URL.
+
+To exercise all current behavior in v27 while retaining v25's archived content-mode regression:
+
+```sh
+AUDIOGRAPH_BUILD=versions/audiograph_27.html \
+AUDIOGRAPH_RESOLUTION_BUILD=versions/audiograph_27.html \
+AUDIOGRAPH_FULLSCREEN_BUILD=versions/audiograph_27.html \
+AUDIOGRAPH_SPAN_BUILD=versions/audiograph_27.html \
+npm test
+```
 
 ## Keyboard
 

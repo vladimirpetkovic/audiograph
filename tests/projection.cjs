@@ -214,7 +214,7 @@ async function openOutput(page) {
     assert.deepEqual(await retinaPage.evaluate(() => [frameCv.width, frameCv.height]), [960, 540]);
     await matchingFrame(retinaPage);
     await retina.close();
-    assert.match(html.toString(), /Guide .*v2[23456]/);
+    assert.match(html.toString(), /Guide .*v2[234567]/);
     console.log('PASS: high-DPI output respects performance cap; numbered build identified');
   } finally {
     if (browser) await browser.close();

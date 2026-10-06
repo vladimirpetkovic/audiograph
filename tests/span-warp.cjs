@@ -3,7 +3,8 @@ const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 const { chromium } = require('playwright');
-const html = fs.readFileSync(path.join(__dirname, '..', 'versions/audiograph_26.html'));
+const build = process.env.AUDIOGRAPH_SPAN_BUILD || 'versions/audiograph_26.html';
+const html = fs.readFileSync(path.join(__dirname, '..', build));
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html);
 });
