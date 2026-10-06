@@ -116,7 +116,7 @@ Keep the controller tab in the foreground and the laptop awake during a show: br
 
 ## Versions and Rollback
 
-The live entry point is `index.html` (**v22**). Each release is also preserved as `versions/audiograph_N.html`; [v21](versions/audiograph_21.html) and [v22](versions/audiograph_22.html) remain independently runnable. Git release tags provide a second rollback path. Before updating the live entry point, archive its exact contents under the previous version number; never overwrite an existing archive. New features are published at separate numbered preview links for hands-on testing before promotion to the main app.
+The live entry point is `index.html` (**v34**, released from the v23–v34 previews below). Each release is also preserved as `versions/audiograph_N.html`; [v21](versions/audiograph_21.html), [v22](versions/audiograph_22.html) (the previous main app) and every preview remain independently runnable. Git release tags provide a second rollback path. Before updating the live entry point, archive its exact contents under the previous version number; never overwrite an existing archive. New features are published at separate numbered preview links for hands-on testing before promotion to the main app.
 
 ## Projection Mapping Preview (v23)
 
