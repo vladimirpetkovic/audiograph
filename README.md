@@ -116,7 +116,21 @@ Keep the controller tab in the foreground and the laptop awake during a show: br
 
 ## Versions and Rollback
 
-The live entry point is `index.html`. Each release is also preserved as `versions/audiograph_N.html`; [v21](versions/audiograph_21.html) and [v22](versions/audiograph_22.html) remain independently runnable. Git release tags provide a second rollback path. Before updating the live entry point, archive its exact contents under the previous version number; never overwrite an existing archive.
+The live entry point is `index.html` (**v22**). Each release is also preserved as `versions/audiograph_N.html`; [v21](versions/audiograph_21.html) and [v22](versions/audiograph_22.html) remain independently runnable. Git release tags provide a second rollback path. Before updating the live entry point, archive its exact contents under the previous version number; never overwrite an existing archive. New features are published at separate numbered preview links for hands-on testing before promotion to the main app.
+
+## Projection Mapping Preview (v23)
+
+**[Try v23 with detached output and projection mapping](versions/audiograph_23.html)**. This preview does not replace the v22 main app.
+
+1. Click **Setup mapping**, then **3-face cube** for a starting layout like a box with three visible faces. Alternatively enable **Mapping on** and **+ Plane** for each physical face.
+2. Click **Project visuals**, move the output to your projector, and enter fullscreen there.
+3. With **Test grid** on, drag the large corner handles in the laptop editor to align each plane with the real object. Small grid handles provide fine warping. Shift-drag moves a plane; arrow keys nudge a selected handle by one output pixel (Shift: ten).
+4. Toggle **Test grid** off and play audio. Mapping receives the finished artwork, including post-FX. Areas outside the planes are black; editor guides never appear in the output.
+5. **Save mapping** restores alignment in this browser. **Export mapping** creates a separate JSON backup for another computer; **Import mapping** validates and loads it.
+
+Each plane can use the whole visual or a percentage **Source crop**. **Show plane** controls visibility, and later planes cover earlier ones when they overlap. Choose 1-12 cells per side and click **Rebuild grid** to keep the corners but reset fine warps. Corner moves preserve existing fine-warp offsets where valid. Folded or crossed grid cells are rejected. **Undo mapping** is independent of artistic Undo, presets, and morphing.
+
+This is projector-space corner pinning and mesh warping, not a 3D scene reconstruction: map each physical plane from the projector's fixed viewpoint. Moving the object or projector requires recalibration. WebGL/hardware acceleration is required; GPU context loss blacks out the mapped output instead of spilling unwarped artwork, and browser context restoration recovers it. Mapping affects the separate output and its editor; PNG/SVG and video recording retain the original, unwarped artwork. Saved profiles use normalized coordinates but should be checked again if output resolution/aspect ratio changes.
 
 ## Quick Start
 
@@ -150,7 +164,7 @@ npx playwright install chromium
 npm test
 ```
 
-To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle.
+To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle. Mapping checks run against the v23 preview, exercising projective geometry, pixel-accurate texture/crop sampling, real handle dragging, profile persistence, and GPU-loss recovery. Set `AUDIOGRAPH_BUILD=versions/audiograph_23.html` to run both suites against the preview.
 
 ## Keyboard
 
