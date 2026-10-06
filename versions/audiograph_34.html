@@ -645,7 +645,6 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-head" onclick="togglePanel('panelPostFx')"><span class="panel-title">Post FX</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow" id="pfxScopeRow" style="display:none"><span class="prow-label">Applies to</span><div class="mode-btns"><button class="mbtn on" id="pfxTgtLayer" onclick="setPfxTarget('layer')">Active layer</button><button class="mbtn" id="pfxTgtComp" onclick="setPfxTarget('comp')">Whole composition</button></div></div>
-        <div id="pfxScopeNote" style="display:none;font-size:11px;line-height:1.35;color:var(--tx2);margin:-2px 0 4px">This preset applies Post FX to the whole composition (saved before per-layer FX). Choose <b>Whole composition</b> to edit it or turn it Off; <b>Active layer</b> edits only the selected layer.</div>
         <div class="prow" id="pfxEnableRow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setPostFx(true,this)">On</button><button class="mbtn on" onclick="setPostFx(false,this)">Off</button></div></div>
         <div class="prow"><span class="prow-label">Bloom</span><input type="range" min="0" max="100" value="0" step="1" id="pfxBloom" oninput="upPostFx()"><span class="prow-val" id="vPfxBloom">0%</span></div>
         <div class="prow"><span class="prow-label">Chromatic</span><input type="range" min="0" max="100" value="0" step="1" id="pfxChroma" oninput="upPostFx()"><span class="prow-val" id="vPfxChroma">0%</span></div>
