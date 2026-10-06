@@ -238,6 +238,17 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Compact Knob/Switch UI and Touch Gestures Preview (v33)
+
+**[Try v33](versions/audiograph_33.html)**. This version contains all v32 features and adds the following.
+
+- Knobs are 30% larger with more spacing; their arc colour runs from red (minimum) to green (maximum). Rows with fewer than three knobs are centred, and related knobs share a row (Thickness/Fade edges, Scale/Rotation, Offset X/Y, Jitter/Disorder, Morph slider + Duration).
+- Binary Yes/No and On/Off options are pill **switches** (green ON, red OFF) grouped into shared rows (e.g. Vary height / Vary thick / Scale→loud; Flip H/V beside Mirror). The original buttons stay hidden as the source of truth, so presets, Reset and Undo keep working.
+- Option chips (Layout, Style, …) restyled as calm dark chips with a category dot and a green active state; preset actions sit in one row; gaps tightened throughout (expanded sidebar ~7% shorter).
+- **Touch**: on iPad/touchscreens, one finger moves the active layer (orbits 3D layouts), two fingers pinch to Scale and twist to Rotate; the page no longer scrolls while touching the canvas.
+
+Tests: `switches.cjs` (`AUDIOGRAPH_SWITCH_BUILD`) and `touch-gestures.cjs` (`AUDIOGRAPH_TOUCH_BUILD`).
+
 ## Glyph Size, Flares, Per-layer Deformers and Post FX Preview (v32)
 
 **[Try v32](versions/audiograph_32.html)**. This version contains all v31 features and adds the following.

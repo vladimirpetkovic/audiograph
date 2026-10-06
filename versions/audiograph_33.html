@@ -135,7 +135,8 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .switch-grid:not(:has(>.switch-cell:not([style*="display: none"]))){display:none}
 .prow.switch-cell{flex:0 0 72px;max-width:72px;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;position:relative;min-width:0;padding:1px 0}
 .switch-cell .prow-label{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.55rem;letter-spacing:.12em}
-.compact-switch-cell .mode-btns{max-width:100%;justify-content:center;gap:4px}
+.prow.switch-cell.compact-switch-cell{flex-basis:96px;max-width:96px}
+.compact-switch-cell .mode-btns{max-width:100%;justify-content:center;gap:4px;flex-wrap:nowrap}
 .compact-switch-cell .mbtn{padding:4px 5px;font-size:.42rem;letter-spacing:0;min-height:22px}
 .ag-switch{width:56px;height:26px;border:0;border-radius:999px;padding:0;position:relative;cursor:pointer;outline:none;background:#d94a43;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),0 5px 14px rgba(0,0,0,.22);transition:background .16s,box-shadow .16s;-webkit-user-select:none;user-select:none}
 .ag-switch::before{content:attr(data-text);position:absolute;top:0;bottom:0;display:flex;align-items:center;font:.58rem/1 'JetBrains Mono',monospace;font-weight:800;letter-spacing:.06em;color:rgba(9,18,18,.78)}
@@ -564,7 +565,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         <div class="prow" data-knob-row="geom-offset"><span class="prow-label">Offset Y</span><input type="range" min="-100" max="100" value="0" step="1" id="pOffY" oninput="upP()"><span class="prow-val" id="vOffY">0</span></div>
         <div class="prow" id="p3dTiltRow" style="display:none"><span class="prow-label">3D Tilt</span><input type="range" min="-180" max="180" value="0" step="1" id="p3dTilt" oninput="dragRotX=this.value*Math.PI/180;document.getElementById('v3dTilt').textContent=this.value+'°';renderDensity()"><span class="prow-val" id="v3dTilt">0°</span></div>
         <div class="prow" id="p3dRotateRow" style="display:none"><span class="prow-label">3D Rotate</span><input type="range" min="-180" max="180" value="0" step="1" id="p3dRotate" oninput="dragRotY=this.value*Math.PI/180;document.getElementById('v3dRotate').textContent=this.value+'°';renderDensity()"><span class="prow-val" id="v3dRotate">0°</span></div>
-        <div class="prow switch-cell compact-switch-cell" id="rowFlip"><span class="prow-label">Flip</span><div class="mode-btns"><button class="mbtn" onclick="setFlipH(this)">Horizontal</button><button class="mbtn" onclick="setFlipV(this)">Vertical</button></div></div>
+        <div class="prow switch-cell compact-switch-cell" id="rowFlip"><span class="prow-label">Flip</span><div class="mode-btns"><button class="mbtn" onclick="setFlipH(this)" title="Flip horizontally">H</button><button class="mbtn" onclick="setFlipV(this)" title="Flip vertically">V</button></div></div>
         <div class="prow" id="rowMirror"><span class="prow-label">Mirror</span><div class="mode-btns"><button class="mbtn" onclick="setMirror(true,this)">Yes</button><button class="mbtn on" onclick="setMirror(false,this)">No</button></div></div>
         <div class="prow" id="rowSymmetry"><span class="prow-label">Symmetry</span><div class="mode-btns"><button class="mbtn on" onclick="setSymmetry('none',this)">Off</button><button class="mbtn" onclick="setSymmetry('x',this)">X</button><button class="mbtn" onclick="setSymmetry('y',this)">Y</button><button class="mbtn" onclick="setSymmetry('xy',this)">XY</button><button class="mbtn" onclick="setSymmetry('r3',this)">3</button><button class="mbtn" onclick="setSymmetry('r4',this)">4</button><button class="mbtn" onclick="setSymmetry('r6',this)">6</button><button class="mbtn" onclick="setSymmetry('r8',this)">8</button></div></div>
         <div class="prow" id="rowSymGap" style="display:none"><span class="prow-label">Sym Gap</span><input type="range" min="0" max="100" value="0" step="1" id="pSymGap" oninput="upP()"><span class="prow-val" id="vSymGap">0%</span></div>
@@ -8632,6 +8633,64 @@ function resizeAll(){setTimeout(function(){sizeCanvas(frameCv);renderDensity()},
   });
   cv.style.cursor='grab';
 })();
+// --- TOUCH GESTURES (iPad/tablet): 1 finger moves (orbits 3D), 2 fingers pinch-scale + twist-rotate + move ---
+(function(){
+  var cv=document.getElementById('frameCv');cv.style.touchAction='none';
+  var pts={},g=null;
+  function is3D(){var lm=layoutMode;return lm==="terrain"||lm==="sphere"||lm==="tetrahedron"||lm==="dna"||lm==="object"||lm==="fractal"}
+  function el(id){return document.getElementById(id)}
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+  function list(){return Object.keys(pts).map(function(k){return pts[k]})}
+  function rectSize(){var r=cv.getBoundingClientRect();return{w:r.width||1,h:r.height||1}}
+  function begin(){
+    var p=list(),n=p.length;if(!n){g=null;return}
+    var cx=0,cy=0;p.forEach(function(q){cx+=q.x;cy+=q.y});cx/=n;cy/=n;
+    g={n:n,cx:cx,cy:cy,offX:+el('pOffX').value,offY:+el('pOffY').value,zoom:+el('pZoom').value,rot:+el('pRotation').value,rx:dragRotX,ry:dragRotY};
+    if(n>=2){g.d=Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y)||1;g.a=Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x)}
+  }
+  function setV(id,vid,v,suffix){el(id).value=v;var t=el(vid);if(t)t.textContent=el(id).value+suffix}
+  function apply(){
+    if(!g)return;var p=list(),n=p.length;if(!n)return;
+    var cx=0,cy=0;p.forEach(function(q){cx+=q.x;cy+=q.y});cx/=n;cy/=n;
+    var sz=rectSize(),dxp=cx-g.cx,dyp=cy-g.cy;
+    if(is3D()&&n===1){
+      dragRotY=g.ry+dxp*0.008;dragRotX=g.rx+dyp*0.008;
+      var t3=el('p3dTilt'),r3=el('p3dRotate');
+      if(t3){t3.value=Math.round(dragRotX*180/Math.PI);el('v3dTilt').textContent=t3.value+'\u00b0'}
+      if(r3){r3.value=Math.round(dragRotY*180/Math.PI);el('v3dRotate').textContent=r3.value+'\u00b0'}
+    }else if(!is3D()){
+      setV('pOffX','vOffX',Math.round(clamp(g.offX+dxp/sz.w*100,-100,100)),'');
+      setV('pOffY','vOffY',Math.round(clamp(g.offY+dyp/sz.h*100,-100,100)),'');
+    }
+    if(n>=2&&g.d){
+      var d=Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y)||1,a=Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x);
+      setV('pZoom','vZoom',Math.round(clamp(g.zoom*d/g.d,50,400)/10)*10,'%');
+      var da=(a-g.a)*180/Math.PI,r=g.rot+da;r=((r+180)%360+360)%360-180;
+      setV('pRotation','vRotation',Math.round(r),'\u00b0');
+    }
+    renderDensity();
+  }
+  function save(){if(stackMode&&stackLayouts.length>0){var i=getActiveLayerIdx();if(i>=0)stackLayouts[i].params=getLayoutParams()}}
+  cv.addEventListener('pointerdown',function(e){
+    if(e.pointerType!=='touch')return;
+    if(!Object.keys(pts).length)pushUndo();
+    pts[e.pointerId]={x:e.clientX,y:e.clientY};
+    try{cv.setPointerCapture(e.pointerId)}catch(_){}
+    begin();e.preventDefault();
+  });
+  cv.addEventListener('pointermove',function(e){
+    if(e.pointerType!=='touch'||!pts[e.pointerId])return;
+    pts[e.pointerId]={x:e.clientX,y:e.clientY};apply();e.preventDefault();
+  });
+  function end(e){
+    if(e.pointerType!=='touch'||!pts[e.pointerId])return;
+    delete pts[e.pointerId];
+    if(Object.keys(pts).length)begin();else{g=null;save()}
+  }
+  cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
+  // Stop iOS Safari page pinch/scroll and the synthetic mouse events on the canvas.
+  ['touchstart','touchmove','gesturestart','gesturechange'].forEach(function(t){cv.addEventListener(t,function(e){e.preventDefault()},{passive:false})});
+})();
 function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.display=o.style.display==='block'?'none':'block'}
 initLayers();
 projectionMap.init();
@@ -8827,8 +8886,10 @@ try{loadFromHash()}catch(e){}
 </div>
 
 <div class="help-section">
+<h3>Touch (iPad)</h3>
+<p>On a touchscreen, drag one finger on the visuals to move the active layer (or orbit 3D layouts). Pinch with two fingers to change Scale and twist them to change Rotation. The page no longer scrolls while you touch the canvas. Each gesture is a single undo step.</p>
 <h3>Knobs</h3>
-<p>Panel controls are knobs, three per row. Drag up/right to increase and down/left to decrease (hold <span class="hk">Shift</span> for fine control), scroll the mouse wheel over a knob, or focus it and use the arrow keys, <span class="hk">PgUp</span>/<span class="hk">PgDn</span> and <span class="hk">Home</span>/<span class="hk">End</span>. Double-click a knob to reset it to its default. Click the value under a knob to type an exact number. Layer opacity, the Morph crossfader and Intensity stay sliders.</p>
+<p>Panel controls are knobs, up to three per row; their arc shifts from red to green as you turn them up. On/off options are switches (green ON, red OFF). Drag up/right to increase and down/left to decrease (hold <span class="hk">Shift</span> for fine control), scroll the mouse wheel over a knob, or focus it and use the arrow keys, <span class="hk">PgUp</span>/<span class="hk">PgDn</span> and <span class="hk">Home</span>/<span class="hk">End</span>. Double-click a knob to reset it to its default. Click the value under a knob to type an exact number. Layer opacity, the Morph crossfader and Intensity stay sliders.</p>
 </div>
 
 <div class="help-section">
