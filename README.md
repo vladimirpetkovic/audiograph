@@ -156,6 +156,26 @@ Switching modes preserves alignment and saved crops; **Undo mapping**, Save, Exp
 
 Span uses one bounding rectangle including hidden planes, so hiding a face does not move the image on other faces. Adding/deleting/moving planes may change those bounds. Interior grid edits alter the span mask, not the shared image. This is continuous projector-space coverage, not automatic 3D surface unwrapping; use Custom crops for a deliberately arranged wrap. No extra audio analysis or animation runs per plane.
 
+## Fullscreen Animation Fix Preview (v26)
+
+**[Try v26: fullscreen animation + deformed Span fixes](versions/audiograph_26.html)**. Includes prior installation features; earlier archives and the v22 main app remain unchanged.
+
+Earlier detached-output builds scheduled animation frames on the controller window. A browser can pause that window's animation clock when the projection window enters fullscreen or covers the controller, leaving the output frozen while audio continues.
+
+v26 schedules playback, live input, morphing, webcam sampling, and the recording timer using the visible output window's animation clock. Pending callbacks migrate on opening/closing output and visibility changes, with a shared time origin and cancellation handling; closing output returns scheduling to the controller. Disabling laptop realtime preview no longer stops an open projection output.
+
+Keep the computer awake and at least one Audiograph window visible: this prevents dependence on the controller's animation frames, but cannot override browser tab suspension, system sleep, or a stalled GPU.
+
+### Span now deforms with the planes
+
+v25's Span mode used shared projector-space UVs, so it masked an image instead of warping it. v26 replaces that behavior: each plane receives a region of one shared source, then applies its projective corners and fine-mesh deformation to that region.
+
+Choose **Visuals → Span / overflow across planes**, then **Horizontal**, **Vertical**, or **Cube net**. Horizontal/Vertical divide the source equally in plane-list order. Cube net expects three planes ordered Top, Front, Right; it rotates the Top region to join the Front, and joins Front to Right. Top/Right is the cut edge of the unfolded net, not a seamless join.
+
+Edit **Span source region (%)** and **Source rotation** for each plane to arrange your own source layout. Destination corner/grid moves warp the assigned region; they do not change source coordinates. Hidden faces keep their region, and gaps remain black. Adding/removing planes changes implicit horizontal allocations; reapply a layout after editing the plane list. Applied layouts keep explicit source regions until changed.
+
+Span regions are saved independently of Custom crops. Switching modes, artistic presets, or fullscreen does not erase either. Save/export/import and mapping Undo preserve Span regions/rotations. Profiles with no mode still load as Custom; old v25 Span profiles now default to horizontal allocation, intentionally replacing the non-deforming behavior. This is a user-aligned source net, not an automatic reconstruction of a 3D object.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
@@ -188,7 +208,7 @@ npx playwright install chromium
 npm test
 ```
 
-To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle. Mapping checks run against the v23 preview, exercising projective geometry, pixel-accurate texture/crop sampling, real handle dragging, profile persistence, and GPU-loss recovery. Resolution checks run against v24 at standard and Retina DPI, checking exact canvas and recorded-video dimensions. Content-mode checks run against v25, sampling actual GPU pixels across planes and seams and checking mode/profile persistence. Set `AUDIOGRAPH_BUILD=versions/audiograph_25.html AUDIOGRAPH_RESOLUTION_BUILD=versions/audiograph_25.html` to exercise projection, mapping, and resolution against the latest preview too.
+To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle. Mapping checks run against the v23 preview, exercising projective geometry, pixel-accurate texture/crop sampling, real handle dragging, profile persistence, and GPU-loss recovery. Resolution checks run against v24 at standard and Retina DPI, checking exact canvas and recorded-video dimensions. Content-mode checks retain v25's original projector-space behavior as an archived-version regression. v26 has dedicated Span checks for actual corner/grid deformation, shared source layouts, rotation and persistence. Its fullscreen suite intentionally suspends the controller animation clock and checks actual fullscreen pixels and callback migration/cancellation; the same regression fails on v25. Set `AUDIOGRAPH_BUILD=versions/audiograph_26.html AUDIOGRAPH_RESOLUTION_BUILD=versions/audiograph_26.html` to also exercise projection, mapping and resolution against v26.
 
 ## Keyboard
 
