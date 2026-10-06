@@ -78,6 +78,7 @@ async function frames(page) {
       await page.waitForFunction(() => liveMode);
       await page.evaluate(() => {
         document.getElementById('pLines').value = 40; upP();
+        if (typeof setPfxTarget === 'function') setPfxTarget('comp'); // v32+: whole-composition FX renders on #postFxCv
         document.getElementById('pfxInvert').value = 50; setPostFx(true);
       });
       await frames(page);

@@ -121,8 +121,15 @@ async function openOutput(page) {
       setPostFx(true);
     });
     await nextFrames(page);
-    assert.equal(await page.evaluate(() => !!postFxGl), true, 'Post-FX must actually initialize');
+    // v32+: the panel targets the active layer (FX baked into frameCv); then also check the legacy composition FX.
+    assert.equal(await page.evaluate(() => !!postFxGl || !!window._pfxLayerPipe), true, 'Post-FX must actually initialize');
     await matchingFrame(page);
+    if (await page.evaluate(() => typeof setPfxTarget === 'function')) {
+      await page.evaluate(() => { setPfxTarget('comp'); document.getElementById('pfxInvert').value = 65; setPostFx(true); });
+      await nextFrames(page);
+      assert.equal(await page.evaluate(() => !!postFxGl), true, 'composition Post-FX must initialize');
+      await matchingFrame(page);
+    }
     await page.evaluate(() => applyPresetMorph(0.4, 'waves', 'globe'));
     await nextFrames(page);
     await matchingFrame(page);
@@ -214,7 +221,7 @@ async function openOutput(page) {
     assert.deepEqual(await retinaPage.evaluate(() => [frameCv.width, frameCv.height]), [960, 540]);
     await matchingFrame(retinaPage);
     await retina.close();
-    assert.match(html.toString(), /Guide .*v(2[2-9]|3[01])/);
+    assert.match(html.toString(), /Guide .*v(2[2-9]|3[0-2])/);
     console.log('PASS: high-DPI output respects performance cap; numbered build identified');
   } finally {
     if (browser) await browser.close();

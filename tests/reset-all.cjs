@@ -48,6 +48,8 @@ function diff(a, b, path = '') {
         const lo = +el.min, hi = +el.max; el.value = String(lo + (hi - lo) * 0.83); el.dispatchEvent(new Event('input', { bubbles: true }));
       });
       document.getElementById('morphDur').value = 47;
+      // v32+: Post FX is per layer; also set layer FX, then edit the legacy whole-composition FX like v31 did.
+      if (typeof setPfxTarget === 'function') { setPostFx(true); document.getElementById('pfxBloom').value = 30; upPostFx(); setPfxTarget('comp'); }
       setPostFx(true); document.getElementById('pfxTrails').value = 70; document.getElementById('pfxFeedback').value = 40; upPostFx();
       addReactiveRule(); addReactiveRule(); reactiveRules[1].target = 'zoom';
       click('#panelMixer', 'On'); mixerDrop = true; mixerCats.colors = false;
