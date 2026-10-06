@@ -160,11 +160,11 @@ async function dragHandle(page, index, dx, dy, shift = false) {
     console.log('PASS: grid rebuild, add/remove planes, cube starter, independent visual presets/undo');
 
     await page.getByRole('button', { name: 'Test grid', exact: true }).click();
-    await page.evaluate(() => { setPostFx(true); document.getElementById('pfxInvert').value = 100; });
+    await page.evaluate(() => { if (typeof pfxTarget !== 'undefined') pfxTarget = 'comp'; document.getElementById('pfxInvert').value = 100; setPostFx(true); if (typeof compFx !== 'undefined') compFx.pfxInvert = 100; });
     await setQuad(page);
     await paintGradient(page, true);
     closeColor(await sample(page, 0.25, 0.35), [191, 166, 195]);
-    await page.evaluate(() => setPostFx(false));
+    await page.evaluate(() => { setPostFx(false); if (typeof pfxTarget !== 'undefined') pfxTarget = 'layer'; });
     console.log('PASS: mapped output includes final GPU post-effects');
 
     const beforeInvalid = await page.evaluate(() => projectionMap.getProfile());

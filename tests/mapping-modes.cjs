@@ -85,7 +85,7 @@ async function surfacePoint(page, index, u, v) {
     for (const face of [0, 1]) closeColor(await pixel(page, await surfacePoint(page, face, .25, .35)), [64, 89, 60, 255]);
     assert.equal(await page.locator('#mapCropX').isDisabled(), true);
     await page.evaluate(() => projectionMap.changeCrop());
-    assert.match(await page.locator('#mapStatus').textContent(), /Switch Visuals to Custom/);
+    assert.match(await page.locator('#mapStatus').textContent(), /Switch Visuals to (Span or )?Custom/);
     console.log('PASS: duplicate repeats the complete image, ignoring but preserving custom crops');
 
     await page.selectOption('#mapSourceMode', 'span');
