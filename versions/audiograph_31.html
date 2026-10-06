@@ -689,6 +689,9 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
   </div>
 </div>
 <script>
+// v31 Reset: canonical (fresh-load) on/off state of every static mode button, captured before any restore.
+var _agBtnDefaults=[].map.call(document.querySelectorAll('.mbtn'),function(b){return[b,b.classList.contains('on')]});
+var _agLabelDefaults=[].map.call(document.querySelectorAll('.prow-val[id]'),function(l){return[l,l.textContent]});
 var frameCv=document.getElementById('frameCv'),frameCtx=frameCv.getContext('2d'),overCv=document.getElementById('overviewCv'),overCtx=overCv.getContext('2d');
 var projectionWindow=null,projectionCanvas=null,projectionCtx=null,projectionWatch=null;
 // A fullscreen output can hide the controller and suspend its animation-frame clock.
@@ -2125,7 +2128,63 @@ function setZoomLoud(v,btn){zoomLoud=v;btn.parentElement.querySelectorAll('.mbtn
 function setPlayMode(m,btn){pushUndo();if(m==='particles'){m='continuous';particlesOn=true}playMode=m;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');if(m==='equalizer'){selStart=null;selEnd=null;updateSelUI()}if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}particleLayers={};renderDensity()}
 
 // Reset all
+// v31 Reset scope: every artistic/audio-reactive control (all panels except Mapping, Presets and Export),
+// the global Intensity slider and the On Beat style. Installation state (mapping, output window,
+// resolution, renderer/particle backend, saved presets, morph playlist, audio/camera sources) is kept.
+function _agResetScope(el){return !el.closest('#panelMapping,#panelPresets,#panelExport,#morphList,#presetList')&&(!!el.closest('.panel')||el.id==='pIntensity')}
+function _agResetControls(){return[].filter.call(document.querySelectorAll('input[type=range],select'),function(el){return el.id&&_agResetScope(el)})}
+// Everything Reset touches that getState() does not carry, so Undo can restore the pre-reset look exactly.
+function _agResetExtra(){
+  var ui={};_agResetControls().forEach(function(el){ui[el.id]=el.value});
+  return{ui:ui,btn:_agBtnDefaults.map(function(x){return x[0].classList.contains('on')}),
+    rules:JSON.parse(JSON.stringify(reactiveRules)),bases:JSON.parse(JSON.stringify(reactiveBaseValues)),
+    mixer:{on:mixerEnabled,drop:mixerDrop,cats:JSON.parse(JSON.stringify(mixerCats))},
+    drop:{on:dropEnabled,intensity:dropIntensity,sw:JSON.parse(JSON.stringify(dropSwitches))},zoomLoud:zoomLoud,beatMode:pmBeatMode,
+    disp:{mixerParams:document.getElementById('mixerParams').style.display,dropParams:document.getElementById('dropParams').style.display}}
+}
+function _agRestoreExtra(x){
+  undoSuppressed=true;
+  try{
+    _agResetControls().forEach(function(el){if(el.id in x.ui&&el.id!=='morphSlider'&&el.id!=='morphBeatMode'){el.value=x.ui[el.id];el.dispatchEvent(new Event('input',{bubbles:true}))}});
+    _agBtnDefaults.forEach(function(d,i){if(i<x.btn.length)d[0].classList.toggle('on',x.btn[i])});
+    reactiveRules=x.rules;reactiveBaseValues=x.bases;buildReactiveUI();
+    mixerCats=x.mixer.cats;mixerDrop=x.mixer.drop;
+    if(x.mixer.on){var mb=[].find.call(document.querySelectorAll('#panelMixer .mbtn'),function(b){return(b.getAttribute('onclick')||'').indexOf('setMixer(true')>=0});if(mb)setMixer(true,mb)}
+    dropEnabled=x.drop.on;dropIntensity=x.drop.intensity;dropSwitches=x.drop.sw;zoomLoud=x.zoomLoud;
+    document.getElementById('mixerParams').style.display=x.disp.mixerParams;document.getElementById('dropParams').style.display=x.disp.dropParams;
+    setMorphBeatMode(x.beatMode);
+    if(postFxEnabled){document.getElementById('postFxCv').style.display='block';initPostFx()}
+  }finally{undoSuppressed=false}
+}
+// Stops and clears autonomous/audio-reactive engines so nothing keeps driving the defaults afterwards.
+function _agResetEngines(){
+  // Preset morph: stop playback/beat without baking the blend (Reset replaces it anyway).
+  if(pmRAF)cancelVisualFrame(pmRAF);pmRAF=null;pmAuto=false;pmRandom=false;pmBeatSync=false;pmActive=false;_pmGlide=null;_pmTransit=false;pmT=0;pmLast=0;pmDir=1;
+  setMorphBeatMode('glide4');var ms=document.getElementById('morphSlider');if(ms)ms.value=0;var vm=document.getElementById('vMorph');if(vm)vm.textContent='0%';
+  // Mixer: off without restoring its captured home values; clear drift/drop state.
+  mixerEnabled=false;mixerDrop=false;mixerCats={colors:true,effects:true,particles:true};mixerHome={};mixerTargets={};mixerCurrent={};
+  mixerTime=0;mixerDropDecay={twist:0,bulge:0,wave:0,zoom:0};mixerDropPrev=0;mixerDropCooldown=0;_mixerHueShift=0;
+  document.getElementById('mixerParams').style.display='none';
+  // Reactive rules: remove rules and their captured base overrides.
+  reactiveRules=[];reactiveBaseValues={};_reactiveHueOffset=0;buildReactiveUI();
+  // Drop detector.
+  dropEnabled=false;dropIntensity='medium';dropSwitches={layout:false,colors:false,style:false,distort:false};
+  dropHistory=[];dropCooldown=0;dropDecay={twist:0,bulge:0,wave:0};dropEnergyHistory=[];dropQuietFrames=0;
+  document.getElementById('dropParams').style.display='none';var di=document.getElementById('dropIndicator');if(di)di.textContent='waiting...';
+  zoomLoud=false;
+  // Post-FX off, with trail/feedback history discarded.
+  postFxEnabled=false;trailCv=null;trailCtx=null;document.getElementById('postFxCv').style.display='none';
+  // Particles: drop CPU and GPU particle state; bass envelope restarts.
+  particleLayers={};if(typeof agParticles!=='undefined')agParticles.reset();agAudio.reset();
+}
 function resetAll(){
+  // Reset is undoable as one step, including state outside getState() (rules, mixer, drop, post-FX switches).
+  var _pre=getState();_pre._resetExtra=_agResetExtra();undoStack.push(JSON.stringify(_pre));if(undoStack.length>undoMax)undoStack.shift();document.getElementById('undoBtn').disabled=false;
+  undoSuppressed=true;
+  try{
+  _agResetEngines();
+  // Every control in scope returns to its HTML default; the explicit table below then applies Reset's canonical layer values.
+  _agResetControls().forEach(function(el){if(el.tagName==='SELECT'){if(el.id!=='morphBeatMode'){for(var i=0;i<el.options.length;i++)if(el.options[i].defaultSelected){el.selectedIndex=i;break}}}else el.value=el.defaultValue});
   var defs={pLines:350,pContrast:75,pSensitivity:100,pHeight:80,pThick:1,pZoom:100,pOffX:0,pOffY:0,pRotation:0,pFadeEdge:0,pOutline:2,pOutlineOpacity:60,pOutlineDist:0,pOutlineCount:1,pOutlineSpace:4,pSpin:0,pSpeed:1,pAmplify:1,pTwist:0,pBulge:0,pWave:0,pWaveFreq:5,pShear:0,pDepth:0,pRipple:0,pJitter:0,rGlobal:0,rDist:0,rAppear:0,rOutline:0,rColor:0,rDisorder:0,pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,pWaveRows:8,pWaveAmp2:50,pConcRings:5,pConcInner:10,pImgThreshold:15,pImgCols:80,pTerrainGrid:40,pTerrainDepth:40,pTerrainPersp:200,pTerrainCam:35,pTerrainElev:80,pTerrainNoise:40,pTerrainBend:0,pTerrainTwist:0,pSphereGrid:30,pSpherePersp:250,pSphereTilt:15,pSphereElev:60,pSphereNoise:50,pSphereRotate:5,pTetDetail:8,pTetPersp:250,pTetTilt:15,pTetElev:60,pTetNoise:50,pTetRotate:5,pDnaTurns:4,pDnaRadius:30,pDnaPersp:250,pDnaTilt:15,pDnaElev:60,pDnaNoise:50,pDnaRotate:5,pObjMaxFaces:2000,pObjPersp:250,pObjTilt:15,pObjElev:60,pObjNoise:50,pObjRotate:5};
   for(var id in defs){var el=document.getElementById(id);if(el)el.value=defs[id]}
   agAudio.set({punch:60,release:220});
@@ -2145,8 +2204,17 @@ function resetAll(){
     if(t==='NO'&&b.onclick&&(b.onclick.toString().indexOf('setVT')>-1||b.onclick.toString().indexOf('setOutline')>-1||b.onclick.toString().indexOf('setMirror')>-1))b.classList.add('on');
   });
   document.getElementById('outlineParams').style.display='none';
-  if(morphing)toggleMorph();
-  regenSeed();upP();upR();buildColorPanel();renderDensity();
+  // Mode buttons return to their fresh-load state (covers Post FX, Mixer, Drop, Zoom, particles, morph, webcam options).
+  _agBtnDefaults.forEach(function(d){d[0].classList.toggle('on',d[1])});
+  // Refresh value labels and derived state through each control's own handler (undo is suppressed).
+  _agResetControls().forEach(function(el){if(el.id!=='morphSlider'&&el.id!=='morphBeatMode')el.dispatchEvent(new Event('input',{bubbles:true}))});
+  for(var _eqr=0;_eqr<eqIds.length;_eqr++)eqGains[_eqr]=1;if(analyser)analyser.smoothingTimeConstant=0.5;
+  regenSeed();upP();upR();buildColorPanel();
+  // Labels of controls back at their HTML default read exactly as on a fresh load (e.g. "1×", "0 dB").
+  _agLabelDefaults.forEach(function(d){var r=d[0].closest('.prow'),inp=r&&r.querySelector('input[type=range]');if(inp&&_agResetScope(inp)&&inp.value===inp.defaultValue)d[0].textContent=d[1]});
+  }finally{undoSuppressed=false}
+  _lastCleanState=JSON.stringify(getState());
+  renderDensity();
 }
 
 // --- Per-panel randomize ---
@@ -2407,6 +2475,7 @@ function undo(){
   var prev=JSON.parse(undoStack.pop());
   applyState(prev);
   undoSuppressed=false;
+  if(prev._resetExtra)_agRestoreExtra(prev._resetExtra);
   _lastCleanState=JSON.stringify(getState()); // update clean state after undo
   document.getElementById('undoBtn').disabled=undoStack.length===0;
 }
@@ -4816,6 +4885,7 @@ var agParticles=(function(){
   function setMode(m){if(m==='auto')m='gpu';if(m!=='gpu'&&m!=='cpu'){_toast('Unknown particle backend. Choose GPU or CPU.');return}mode=m;try{localStorage.setItem(STORE,m)}catch(e){_toast('Particle backend choice cannot be saved: '+e.message)}
     if(m==='gpu'&&unavailable&&!lost){unavailable='';if(!P)init()}last={gpu:0,cpu:0,alive:0,reasons:[]};var sel=document.getElementById('particleBackend');if(sel&&sel.value!==m)sel.value=m;agGpu.refresh&&agGpu.refresh()}
   return{step:step,beginFrame:beginFrame,label:label,setMode:setMode,getMode:function(){return mode},
+    reset:function(){for(var k in layers)freeLayer(layers[k]);layers={};owner=particleLayers;cur={gpu:0,cpu:0,alive:0,reasons:[]};last={gpu:0,cpu:0,alive:0,reasons:[]}},
     stats:function(){var o=JSON.parse(JSON.stringify(stats));o.mode=mode;o.lost=lost;o.unavailable=unavailable;o.last=JSON.parse(JSON.stringify(last.gpu||last.cpu?last:cur));o.alive=0;for(var k in layers)o.alive+=layers[k].alive;o.gpuLayerIds=Object.keys(layers);o.timerQuery=!!tqExt;return o},
     resetStats:function(){['simPasses','trailPasses','drawCalls','instances','trailInstances','spawned','spawnUploads','killUploads','readbacks','migrationsToGpu','migrationsToCpu','forcedEvictions','gpuLayers','cpuLayers','stepMs','blitMs','gpuMs','gpuSamples'].forEach(function(k){stats[k]=0});stats.reasons={}},
     // Test/diagnostic only: reads the GPU state of one layer back (never called by the render loops).
@@ -8303,6 +8373,7 @@ try{loadFromHash()}catch(e){}
 
 <div class="help-section">
 <h3>Effects</h3>
+<p><strong>Reset</strong> (v31) returns every artistic and audio-reactive setting to its fresh-load default: visuals, colours, particles, EQ, Bass punch/release, post effects, reactive rules, mixer, drop detector and beat style. It also stops a running morph. Mapping, saved presets, the morph playlist, output window, resolution, renderer choice and sources are kept. Undo reverses a Reset in one step.</p>
 <p><strong>Bass punch</strong> (v31, default 60%) makes kicks and bass hits push lines, particles, zoom and beat morphs harder, then relaxes over <strong>Bass release</strong>. It is measured from a 140 Hz low-pass copy of the analysed signal, so it does not change what you hear or record. It applies a bounded gain plus a small bass-only lift, which also moves Equalizer lines that are not bass bins, with a soft knee, so silence stays still and loud material does not clip hard. 0% gives the v30 response. In v30, continuous mode used a broadband level that saturated on mastered music, and Equalizer/live lines gave bass only the first one or two lines. Both settings are saved with presets; older presets keep the current values.</p>
 <p><strong>Playback</strong> — Off / Continuous / Equalizer (per-layer). Off hides base lines for particles-only mode.</p>
 <p><strong>Spin</strong> — continuous rotation. <strong>Speed / Amplify</strong> — animation and audio response scaling.</p>

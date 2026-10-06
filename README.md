@@ -311,6 +311,8 @@ The v30 jitter came from several causes:
 
 Play, Random, Ping-pong (timer mode), scrub, Apply and stop are unchanged.
 
+**Reset** (v31) is a comprehensive artistic reset and one Undo step. It restores every visual, colour, particle, audio-reactive, EQ, Bass punch/release (60%/220 ms), post-FX (trails/feedback caches cleared), webcam slider and beat-style (Glide) control to its fresh-load default. It also clears reactive rules and their bases, turns off and clears the mixer, drop detector and loudness zoom, stops a running morph and frees GPU particles. Kept: mapping/calibration, saved presets and profiles, the morph playlist, output window and resolution, renderer/particle-backend choice, and the audio/camera sources. `reset-all.cjs` mutates every in-scope control, then checks that Reset matches a fresh load exactly while playing and that Undo restores everything.
+
 Tests (each defaults to v31): `particles-gpu.cjs` checks state/image parity, GPU-only simulation counters, all shapes, cap, fallback, switching and context loss. `audio-bass.cjs` and `morph-beat.cjs` use generated WAVs. `npm run bench:particles` runs the benchmark, which needs at least 1.5x on the heavy scenes (`PARTICLE_MIN_SPEEDUP`). Override the build with `AUDIOGRAPH_PARTICLE_BUILD`.
 
 ## Quick Start
