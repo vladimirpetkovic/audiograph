@@ -2,7 +2,7 @@
   "name": "audiograph-browser-tests",
   "private": true,
   "scripts": {
-    "test": "node projection.cjs && node mapping.cjs"
+    "test": "node projection.cjs && node mapping.cjs && node resolution.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

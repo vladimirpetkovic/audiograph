@@ -132,6 +132,16 @@ Each plane can use the whole visual or a percentage **Source crop**. **Show plan
 
 This is projector-space corner pinning and mesh warping, not a 3D scene reconstruction: map each physical plane from the projector's fixed viewpoint. Moving the object or projector requires recalibration. WebGL/hardware acceleration is required; GPU context loss blacks out the mapped output instead of spilling unwarped artwork, and browser context restoration recovers it. Mapping affects the separate output and its editor; PNG/SVG and video recording retain the original, unwarped artwork. Saved profiles use normalized coordinates but should be checked again if output resolution/aspect ratio changes.
 
+## Output Resolution Preview (v24)
+
+**[Try v24: output resolution + mapping + detached visuals](versions/audiograph_24.html)**. The main app remains v22, and the v23 mapping preview is unchanged.
+
+Choose **Output resolution** beside the transport, then **Project visuals**. **Auto** retains window-sized rendering with the existing device-pixel-ratio cap. **720p (1280 x 720)**, **1080p (1920 x 1080)**, **1440p (2560 x 1440)**, and **4K (3840 x 2160)** render exactly those pixel dimensions, regardless of Retina/high-DPI scaling or fullscreen/window size. Both displays fit the same 16:9 composition without stretching; other display aspect ratios get black bars.
+
+Start with **720p** for demanding installations or **1080p** for a quality/performance balance. 4K has four times the pixels of 1080p. A stronger GPU helps WebGL effects/mapping and raster workload, but complex geometry and particles also depend on the CPU. Keep hardware acceleration enabled; a fixed resolution controls pixel workload, not frame rate.
+
+The setting applies only while the output window is open and lasts for this session, independently of presets and mapping profiles. Closing output restores normal controller-preview sizing; reopening reuses your choice. Selection is locked during recording, and fixed-mode recordings use exactly the selected resolution. Check physical mapping alignment after changing the composition's aspect ratio.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
@@ -164,7 +174,7 @@ npx playwright install chromium
 npm test
 ```
 
-To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle. Mapping checks run against the v23 preview, exercising projective geometry, pixel-accurate texture/crop sampling, real handle dragging, profile persistence, and GPU-loss recovery. Set `AUDIOGRAPH_BUILD=versions/audiograph_23.html` to run both suites against the preview.
+To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle. Mapping checks run against the v23 preview, exercising projective geometry, pixel-accurate texture/crop sampling, real handle dragging, profile persistence, and GPU-loss recovery. Resolution checks run against v24 at standard and Retina DPI, checking exact canvas and recorded-video dimensions. Set `AUDIOGRAPH_BUILD=versions/audiograph_24.html` to exercise projection and mapping against the latest preview too.
 
 ## Keyboard
 
