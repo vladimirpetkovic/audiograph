@@ -1,6 +1,6 @@
 // v33 touch gestures on the main canvas: one finger moves 2D layers (orbits 3D layouts),
 // two fingers pinch to scale and twist to rotate; the page itself must not scroll.
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_TOUCH_BUILD || 'versions/audiograph_33.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_TOUCH_BUILD || 'versions/audiograph_34.html';
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && fs.existsSync(chrome)) process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chrome;

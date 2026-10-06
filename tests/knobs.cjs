@@ -2,8 +2,8 @@
 // Intensity) is mirrored by exactly one role=slider knob, laid out 3 per row. Drag, wheel, keyboard and
 // double-click drive the hidden range input through its real handlers; programmatic writes (presets,
 // Reset, reactive rules, undo) are reflected on the knob; hidden rows hide their knob.
-// Build: AUDIOGRAPH_KNOB_BUILD (default versions/audiograph_33.html).
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_KNOB_BUILD || 'versions/audiograph_33.html';
+// Build: AUDIOGRAPH_KNOB_BUILD (default versions/audiograph_34.html).
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_KNOB_BUILD || 'versions/audiograph_34.html';
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && fs.existsSync(chrome)) process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chrome;
@@ -57,7 +57,7 @@ const MISMATCH = () => [...document.querySelectorAll('.knob')].filter(k => {
       const inline = document.querySelector('.rule-row .knob.inline').getBoundingClientRect();
       return { knob: [Math.round(k.width), Math.round(k.height)], inline: [Math.round(inline.width), Math.round(inline.height)] };
     });
-    assert.deepEqual(sizes, { knob: [52, 52], inline: [31, 31] }, 'v33 knob sizes');
+    assert.deepEqual(sizes, { knob: [68, 68], inline: [40, 40] }, 'v34 knob sizes');
 
     // 2. Three per row.
     const layout = await page.evaluate(() => ['panelGeo', 'panelFx', 'panelPostFx', 'panelEQ'].map(id => {
@@ -105,21 +105,39 @@ const MISMATCH = () => [...document.querySelectorAll('.knob')].filter(k => {
     await kLines.scrollIntoViewIfNeeded();
     const b = await kLines.boundingBox();
     const v0 = +(await page.locator('#pLines').inputValue());
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down();
-    for (let i = 1; i <= 5; i++) await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 - i * 8);
-    await page.mouse.up();
+    const cx = b.x + b.width / 2, cy = b.y + b.height / 2, R = 25;
+    // Rotary drag: move the pointer along a circle around the knob centre (screen degrees, 0 = right, 90 = down).
+    const turn = async (from, to, steps = 12) => {
+      const pt = a => [cx + R * Math.cos(a * Math.PI / 180), cy + R * Math.sin(a * Math.PI / 180)];
+      await page.mouse.move(...pt(from)); await page.mouse.down();
+      for (let i = 1; i <= steps; i++) await page.mouse.move(...pt(from + (to - from) * i / steps));
+      await page.mouse.up();
+    };
+    const L = await page.evaluate(() => ({ mn: +pLines.min, mx: +pLines.max }));
+    await turn(-90, 0); // a quarter turn clockwise
     const drag = await page.evaluate(() => ({ v: +document.getElementById('pLines').value, txt: document.getElementById('vLines').textContent, lines: getLayoutParams()._lines, ev: __ev.slice(),
       aria: +document.querySelector('#pLines + .knob').getAttribute('aria-valuenow') }));
-    assert.ok(drag.v > v0 + 50, `drag up raises pLines ${v0} -> ${drag.v}`);
+    const expect = (L.mx - L.mn) * 90 / 270;
+    assert.ok(Math.abs(drag.v - v0 - expect) <= (L.mx - L.mn) * 0.04, `clockwise quarter turn raises pLines by ~1/3 range ${v0} -> ${drag.v}`);
     assert.equal(drag.txt, String(drag.v)); assert.equal(drag.lines, drag.v); assert.equal(drag.aria, drag.v);
     assert.ok(drag.ev.includes('input') && drag.ev[drag.ev.length - 1] === 'change', 'input events then change: ' + drag.ev.join());
-    // Horizontal drag left lowers it; Shift is fine control.
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.mouse.move(b.x + b.width / 2 - 30, b.y + b.height / 2); await page.mouse.up();
+    // Counter-clockwise lowers it.
+    await turn(0, -60);
     const v1 = +(await page.locator('#pLines').inputValue());
-    assert.ok(v1 < drag.v, 'drag left lowers');
-    await page.keyboard.down('Shift'); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 - 10); await page.mouse.up(); await page.keyboard.up('Shift');
+    assert.ok(v1 < drag.v, 'counter-clockwise lowers');
+    // A long continuous clockwise turn keeps increasing past halfway (no bounce back) and stops at max.
+    await page.evaluate(() => { pLines.value = pLines.min; pLines.dispatchEvent(new Event('input', { bubbles: true })); });
+    const seen = [];
+    await page.mouse.move(cx + R * Math.cos(135 * Math.PI / 180), cy + R * Math.sin(135 * Math.PI / 180)); await page.mouse.down();
+    for (let i = 1; i <= 36; i++) { const a = (135 + i * 10) * Math.PI / 180; await page.mouse.move(cx + R * Math.cos(a), cy + R * Math.sin(a)); seen.push(+(await page.locator('#pLines').inputValue())); }
+    await page.mouse.up();
+    assert.ok(seen.every((x, i) => i === 0 || x >= seen[i - 1]), 'monotonic while turning clockwise: ' + seen.join());
+    assert.equal(seen[seen.length - 1], L.mx, 'turning past the end clamps at max');
+    // Shift is fine control.
+    await page.evaluate(() => { pLines.value = 350; pLines.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.keyboard.down('Shift'); await turn(-90, 0); await page.keyboard.up('Shift');
     const v2 = +(await page.locator('#pLines').inputValue());
-    assert.ok(v2 > v1 && v2 - v1 < (drag.v - v0) / 2, `shift drag is fine ${v1} -> ${v2}`);
+    assert.ok(v2 > 350 && v2 - 350 < expect / 2, `shift turn is fine 350 -> ${v2}`);
 
     // 4. Double-click resets to the HTML default.
     await kLines.dblclick();

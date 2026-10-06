@@ -238,6 +238,10 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Larger Knobs Preview (v34)
+
+**[Try v34](versions/audiograph_34.html)**. Same as v33 with knobs another 30% larger (68 px; inline knobs 40 px), and knobs now turn like real dials: drag around the knob centre (clockwise raises, counter-clockwise lowers; 270° covers the full range; Shift = fine). Values stop at the ends instead of bouncing back.
+
 ## Compact Knob/Switch UI and Touch Gestures Preview (v33)
 
 **[Try v33](versions/audiograph_33.html)**. This version contains all v32 features and adds the following.
