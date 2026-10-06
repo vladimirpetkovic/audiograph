@@ -238,6 +238,81 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## GPU Particles, Bass Punch and Beat Glide Preview (v31)
+
+**[Try v31](versions/audiograph_31.html)**. This version contains all v30 features and adds the following.
+
+**Particles** (beside Renderer) defaults to **GPU sim+draw**. Each layer keeps its particles in WebGL2 RGBA32F ping-pong textures (an 8192-slot ring per layer). One fragment-shader pass per layer per frame handles the following:
+
+- Ageing and death
+- Gravity, damping and energy boost
+- Twist, bulge and wave
+- Perlin, curl, Brownian and vortex noise
+
+Instanced draws render trails and all 11 shapes: circle, square, star, diamond, ring, triangle, spark, line, and numbers, symbols and words from a glyph atlas. JavaScript still spawns particles (same layout and audio emission) and uploads only the new ones. It also applies the oldest-first 2000 cap by uploading kill markers. There is no per-particle CPU update and no per-frame readback.
+
+The following fall back per layer to the original CPU code (one readback, then CPU), with the reason shown in the renderer status:
+
+- Camera colours
+- Color randomness
+- Blend modes, filters and shadows
+- Non-uniform transforms
+- Oversized surfaces
+- A lost context
+
+**CPU (original)** is the comparison/rollback option. The choice is remembered, and `?particles=gpu|cpu` overrides it.
+
+Known GPU differences:
+
+- Brownian noise uses a GPU hash rather than `Math.random`.
+- A glyph is fixed per particle.
+- Trail joins are round.
+- Changing trail length restarts trails.
+- The cap does not see particles that already left the screen.
+
+PNG, SVG and recording use the same composited frames as before.
+
+On Apple M2 Max with Chrome 154 (ANGLE Metal), at 746x578, with 60 warm-up and 40 measured frames, `tests/particles-benchmark.cjs` gave these median results (alive counts matched):
+
+| Scene (alive) | CPU frame | GPU frame | Speedup |
+| --- | ---: | ---: | ---: |
+| 4 layers circles (8000) | 14.7 ms | 6.0 ms | 2.4x |
+| 4 layers stars + trails 20 (8000) | 33.5 ms | 8.5 ms | 3.9x |
+| 4 layers noise + vortex (8000) | 16.0 ms | 6.1 ms | 2.6x |
+| 1 layer numbers + trails 8 (2000) | 357 ms | 3.8 ms | 94x |
+
+**Bass punch** (default 60%) and **Bass release** (default 220 ms) are in the Effects section next to Amplify. Weak bass in v30 had two causes:
+
+- Continuous mode scaled the static waveform by a broadband level, `min(1, rms*3)`, which saturates on mastered music. A 50 Hz and a 2 kHz tone at equal amplitude gave identical values.
+- Equalizer and live lines average linear FFT bins, so bass reaches only the first line or two.
+
+v31 measures one bass feature per frame from a 140 Hz low-pass tap of the shared analyser. The tap ends in an analyser, so playback and recording audio are unchanged. The feature combines bass level, onset transient, instant attack and the chosen release. It drives a bounded gain plus a small bass-only lift with a soft knee. This applies in file, mic, system and equalizer paths, every layer, particle energy, zoom and beat morph onsets.
+
+Punch 0 gives exactly the v30 values. The setting is saved in state as `bass`; older presets keep the current value.
+
+Measured results from `tests/audio-bass.cjs`:
+
+- **Equal tones:** 50 Hz vs 2 kHz is 1.00x at punch 0 and 1.58x at punch 60.
+- **Kick peaks:** 0.43 at punch 0 vs 0.65 at punch 60.
+- **Equalizer kick range:** 0.03 at punch 0 vs 0.19 at punch 60.
+- **Silence:** never boosted.
+
+**On Beat** has a style selector:
+
+- **Glide ¼/beat** (default) and **Glide 1/beat**: each detected bass onset moves the target forward by one step, with a 180 ms debounce and hysteresis. A critically damped spring on the shared output scheduler eases the morph position toward the target, with continuous position and velocity and no overshoot. It settles in about 0.7 s, and rapid beats extend the target by at most 1.5 steps.
+- **Snap (v30)** keeps the original detector and 0.45 s linear jump.
+
+The v30 jitter came from several causes:
+
+- The detector read 0–6 kHz, including hi-hats.
+- Linear ramps started and stopped dead.
+- Beats arriving during a ramp were dropped.
+- The detector history went stale, so ramps chained back to back.
+
+Play, Random, Ping-pong (timer mode), scrub, Apply and stop are unchanged.
+
+Tests (each defaults to v31): `particles-gpu.cjs` checks state/image parity, GPU-only simulation counters, all shapes, cap, fallback, switching and context loss. `audio-bass.cjs` and `morph-beat.cjs` use generated WAVs. `npm run bench:particles` runs the benchmark, which needs at least 1.5x on the heavy scenes (`PARTICLE_MIN_SPEEDUP`). Override the build with `AUDIOGRAPH_PARTICLE_BUILD`.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
