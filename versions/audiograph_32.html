@@ -96,6 +96,25 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .prow-val{font-size:.6rem;color:var(--accent2);min-width:28px;text-align:right;flex-shrink:0;cursor:pointer;border-bottom:1px dashed transparent}
 .prow-val:hover{border-bottom-color:var(--accent2)}
 .prow-val-input{font:.6rem/1 'JetBrains Mono',monospace;color:var(--accent2);background:var(--elevated);border:1px solid var(--accent2);border-radius:3px;width:44px;text-align:right;padding:1px 3px;outline:none}
+/* v32 knobs: the range input stays the source of truth (visually hidden), the knob mirrors it */
+.knob-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 6px;min-width:0}
+.knob-grid:not(:has(>.knob-cell:not([style*="display: none"]))){display:none}
+.prow.knob-cell{flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;position:relative;padding:2px 0}
+.knob-cell .prow-label{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.5rem}
+.knob-cell .prow-val{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.knob-cell .prow-val-input{width:56px;text-align:center}
+input[type="range"].knob-src{position:absolute!important;left:0;top:0;width:1px!important;height:1px!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;opacity:0;pointer-events:none;clip-path:inset(50%);overflow:hidden}
+.knob{position:relative;width:40px;height:40px;flex-shrink:0;cursor:ns-resize;touch-action:none;outline:none;border-radius:50%;-webkit-user-select:none;user-select:none}
+.knob svg{display:block;width:100%;height:100%;overflow:visible;pointer-events:none}
+.knob-track,.knob-fill{fill:none;stroke-width:2.5;stroke-linecap:butt}
+.knob-track{stroke:#2a2a30}
+.knob-fill{stroke:#e9e9ec;transition:stroke .15s}
+.knob-tick{stroke:#f4f4f6;stroke-width:2;stroke-linecap:round}
+.knob:hover .knob-fill,.knob.drag .knob-fill,.knob:focus-visible .knob-fill{stroke:var(--accent2)}
+.knob:focus-visible .knob-track{stroke:var(--border-h)}
+.knob.inline{width:24px;height:24px;display:inline-block;vertical-align:middle}
+.knob.inline .knob-track,.knob.inline .knob-fill{stroke-width:3}
+body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .mbtn{padding:2px 7px;font:.5rem/1 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--tx3);cursor:pointer;transition:all .12s}
 .mbtn:hover{color:var(--tx2);border-color:var(--border-h)}
 .mbtn.on{color:var(--accent2);border-color:var(--accent2);background:var(--accent-g)}
@@ -3852,7 +3871,135 @@ function surpriseMe(){
 refreshPresetList();
 
 // Editable values
-document.querySelectorAll('.prow-val').forEach(function(el){el.addEventListener('click',function(){var sl=el.parentElement.querySelector('input[type="range"]');if(!sl)return;var inp=document.createElement('input');inp.type='text';inp.className='prow-val-input';inp.value=parseFloat(sl.value);el.style.display='none';el.parentElement.appendChild(inp);inp.focus();inp.select();function commit(){var v=parseFloat(inp.value);if(isFinite(v)){v=Math.max(parseFloat(sl.min),Math.min(parseFloat(sl.max),v));sl.value=v;upP()}inp.remove();el.style.display=''}inp.addEventListener('blur',commit);inp.addEventListener('keydown',function(e){if(e.key==='Enter')commit();if(e.key==='Escape'){inp.remove();el.style.display=''}})})});
+document.querySelectorAll('.prow-val').forEach(function(el){el.addEventListener('click',function(){var sl=el.parentElement.querySelector('input[type="range"]');if(!sl)return;var inp=document.createElement('input');inp.type='text';inp.className='prow-val-input';inp.value=parseFloat(sl.value);el.style.display='none';el.parentElement.appendChild(inp);inp.focus();inp.select();var done=false;function commit(){if(done)return;done=true;var v=parseFloat(inp.value);if(isFinite(v)){v=Math.max(parseFloat(sl.min),Math.min(parseFloat(sl.max),v));sl.value=v;sl.dispatchEvent(new Event('input',{bubbles:true}));sl.dispatchEvent(new Event('change',{bubbles:true}))}inp.remove();el.style.display=''}inp.addEventListener('blur',commit);inp.addEventListener('keydown',function(e){if(e.key==='Enter')commit();if(e.key==='Escape'){done=true;inp.remove();el.style.display=''}})})});
+
+// v32 knobs: each panel <input type="range"> stays the single source of truth (same id/min/max/step/
+// value/oninput), visually hidden; a role=slider knob mirrors it. Rows of knobs flow 3 per row in a
+// .knob-grid. Programmatic value writes (Reset, presets, morph, reactive, mixer, undo...) are mirrored
+// by wrapping the HTMLInputElement value setter: knobbed inputs are queued and redrawn once per frame.
+var agKnobs=(function(){
+  var NS_ARC='M7.272 32.728A18 18 0 1 1 32.728 32.728',EXCLUDE_ID=/^(morphSlider|pIntensity)$/,EXCLUDE_SEL='#layersList,.cp-stop,[data-no-knob]';
+  var proto=HTMLInputElement.prototype,dV=Object.getOwnPropertyDescriptor(proto,'value'),dN=Object.getOwnPropertyDescriptor(proto,'valueAsNumber');
+  var dirty=new Set(),scheduled=false,stats={knobs:0,flushes:0,renders:0,flushMs:0};
+  function queue(k){dirty.add(k);if(!scheduled){scheduled=true;requestAnimationFrame(flush)}}
+  function flush(){scheduled=false;var t=performance.now();dirty.forEach(render);dirty.clear();stats.flushes++;stats.flushMs+=performance.now()-t}
+  Object.defineProperty(proto,'value',{configurable:true,enumerable:dV.enumerable,get:dV.get,set:function(v){dV.set.call(this,v);if(this._knob)queue(this._knob)}});
+  if(dN&&dN.set)Object.defineProperty(proto,'valueAsNumber',{configurable:true,enumerable:dN.enumerable,get:dN.get,set:function(v){dN.set.call(this,v);if(this._knob)queue(this._knob)}});
+  function lim(inp){var mn=parseFloat(inp.min),mx=parseFloat(inp.max),s=parseFloat(inp.step);if(!isFinite(mn))mn=0;if(!isFinite(mx))mx=100;if(!(mx>mn))mx=mn+1;if(!(s>0))s=1;return{mn:mn,mx:mx,s:s}}
+  function cur(inp){return parseFloat(dV.get.call(inp))}
+  function render(k){
+    var inp=k.inp,L=lim(inp),v=cur(inp),txt=k.val?k.val.textContent:'';
+    if(v===k.v&&L.mn===k.mn&&L.mx===k.mx&&txt===k.txt)return;
+    stats.renders++;
+    if(L.mn!==k.mn||L.mx!==k.mx){k.el.setAttribute('aria-valuemin',L.mn);k.el.setAttribute('aria-valuemax',L.mx)}
+    if(v!==k.v||L.mn!==k.mn||L.mx!==k.mx){
+      var f=Math.max(0,Math.min(1,(v-L.mn)/(L.mx-L.mn))),z=L.mn<0&&L.mx>0?-L.mn/(L.mx-L.mn):0,a=Math.min(f,z)*100,b=Math.max(f,z)*100;
+      k.fill.setAttribute('stroke-dasharray',b-a<0.05?'0 200':'0 '+a.toFixed(2)+' '+(b-a).toFixed(2)+' 200');
+      k.tick.setAttribute('transform','rotate('+(f*270-135).toFixed(1)+' 20 20)');
+      k.el.setAttribute('aria-valuenow',v);k.angle=f*270-135;
+    }
+    if(txt!==k.txt){if(txt)k.el.setAttribute('aria-valuetext',txt);else k.el.removeAttribute('aria-valuetext')}
+    k.v=v;k.mn=L.mn;k.mx=L.mx;k.txt=txt;
+  }
+  // User edits: write the input (browser clamps/snaps to step), fire 'input' so the existing handlers run.
+  function setVal(k,raw){
+    var inp=k.inp,L=lim(inp),before=dV.get.call(inp);
+    dV.set.call(inp,String(Math.max(L.mn,Math.min(L.mx,raw))));
+    var changed=dV.get.call(inp)!==before;
+    if(changed){k.changed=true;inp.dispatchEvent(new Event('input',{bubbles:true}))}
+    render(k);return changed;
+  }
+  function commit(k){if(k.changed){k.changed=false;k.inp.dispatchEvent(new Event('change',{bubbles:true}))}}
+  function mode(inp){
+    if(inp.type!=='range'||inp._knob||EXCLUDE_ID.test(inp.id)||inp.closest(EXCLUDE_SEL))return null;
+    var row=inp.parentElement;
+    if(row&&row.classList.contains('prow')&&row.closest('.panel'))return 'cell';
+    if(inp.classList.contains('rule-strength'))return 'inline';
+    return null;
+  }
+  function attach(inp){
+    var m=mode(inp);if(!m)return null;
+    var row=inp.parentElement,lab=m==='cell'?row.querySelector('.prow-label'):null,val=m==='cell'?row.querySelector('.prow-val'):inp.nextElementSibling;
+    var el=document.createElement('div');el.className='knob'+(m==='inline'?' inline':'');el.tabIndex=0;el.setAttribute('role','slider');
+    el.setAttribute('aria-label',inp.getAttribute('aria-label')||(lab&&lab.textContent.trim())||inp.title||(m==='inline'?'Rule strength':'Value'));
+    var tip=inp.title||(row&&row.title)||'';el.title=tip?tip+' (drag, wheel or arrows; double-click resets)':'Drag, wheel or arrows; double-click resets';
+    el.innerHTML='<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path class="knob-track" d="'+NS_ARC+'" pathLength="100"/><path class="knob-fill" d="'+NS_ARC+'" pathLength="100" stroke-dasharray="0 200"/>'+
+      '<circle cx="20" cy="20" r="13.5" fill="url(#agKnobGrad)" stroke="#303036" stroke-width=".6" filter="url(#agKnobShadow)"/><line class="knob-tick" x1="20" y1="8.6" x2="20" y2="13.2"/></svg>';
+    var k={inp:inp,el:el,val:val&&val.tagName==='SPAN'?val:null,fill:el.querySelector('.knob-fill'),tick:el.querySelector('.knob-tick'),
+      def:inp.hasAttribute('value')?inp.defaultValue:dV.get.call(inp),v:NaN,mn:NaN,mx:NaN,txt:null,drag:null,changed:false,wraw:null,wt:0};
+    inp._knob=k;el._knob=k;inp.classList.add('knob-src');inp.tabIndex=-1;inp.setAttribute('aria-hidden','true');
+    inp.insertAdjacentElement('afterend',el);
+    if(m==='cell')row.classList.add('knob-cell');
+    el.addEventListener('pointerdown',function(e){
+      if(e.button!==0)return;e.preventDefault();el.focus({preventScroll:true});
+      try{el.setPointerCapture(e.pointerId)}catch(_){}
+      k.drag={id:e.pointerId,x:e.clientX,y:e.clientY,raw:cur(inp)};k.changed=false;el.classList.add('drag');document.body.classList.add('knob-dragging');
+    });
+    el.addEventListener('pointermove',function(e){
+      var d=k.drag;if(!d||e.pointerId!==d.id)return;
+      var L=lim(inp),px=(e.clientX-d.x)-(e.clientY-d.y);d.x=e.clientX;d.y=e.clientY;if(!px)return;
+      d.raw=Math.max(L.mn,Math.min(L.mx,d.raw+px*(L.mx-L.mn)/(e.shiftKey?1000:180)));setVal(k,d.raw);
+    });
+    function end(){if(!k.drag)return;k.drag=null;el.classList.remove('drag');document.body.classList.remove('knob-dragging');commit(k)}
+    el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);el.addEventListener('lostpointercapture',end);
+    el.addEventListener('dblclick',function(e){e.preventDefault();k.changed=false;setVal(k,parseFloat(k.def));commit(k)});
+    el.addEventListener('wheel',function(e){
+      e.preventDefault();
+      var L=lim(inp),c=cur(inp),unit=e.deltaMode===1?33:e.deltaMode===2?400:1,dy=e.deltaY*unit,dx=e.deltaX*unit;
+      var px=e.shiftKey&&!dy?-dx:Math.abs(dy)>=Math.abs(dx)?-dy:dx;if(!px)return;
+      if(k.wraw===null||Math.abs(k.wraw-c)>=L.s)k.wraw=c;
+      var dv=px*(L.mx-L.mn)/(e.shiftKey?4000:800);
+      if(e.deltaMode!==0||Math.abs(px)>=50)dv=(dv<0?-1:1)*Math.max(Math.abs(dv),L.s);
+      k.wraw=Math.max(L.mn,Math.min(L.mx,k.wraw+dv));setVal(k,k.wraw);
+      clearTimeout(k.wt);k.wt=setTimeout(function(){commit(k)},250);
+    },{passive:false});
+    el.addEventListener('keydown',function(e){
+      var L=lim(inp),c=cur(inp),big=Math.max(L.s,(L.mx-L.mn)/10),st=e.shiftKey?big:L.s,t;
+      switch(e.key){
+        case 'ArrowUp':case 'ArrowRight':t=c+st;break;
+        case 'ArrowDown':case 'ArrowLeft':t=c-st;break;
+        case 'PageUp':t=c+big;break;case 'PageDown':t=c-big;break;
+        case 'Home':t=L.mn;break;case 'End':t=L.mx;break;
+        default:return;
+      }
+      e.preventDefault();e.stopPropagation();k.changed=false;setVal(k,t);commit(k);
+    });
+    attrObs.observe(inp,{attributes:true,attributeFilter:['min','max','step','value']});
+    stats.knobs++;render(k);return k;
+  }
+  // Wrap each run of consecutive knob cells into one 3-column grid; hidden cells simply drop out of the flow.
+  function group(row){
+    if(!row.classList.contains('knob-cell')||(row.parentElement&&row.parentElement.classList.contains('knob-grid')))return;
+    var prev=row.previousElementSibling,grid;
+    if(prev&&prev.classList.contains('knob-grid'))grid=prev;else{grid=document.createElement('div');grid.className='knob-grid';row.parentElement.insertBefore(grid,row)}
+    grid.appendChild(row);
+    for(var n=grid.nextElementSibling;n&&(n.classList.contains('knob-cell')||n.classList.contains('knob-grid'));n=grid.nextElementSibling){
+      if(n.classList.contains('knob-grid')){while(n.firstChild)grid.appendChild(n.firstChild);n.remove()}else grid.appendChild(n);
+    }
+  }
+  function enhance(root){
+    var list=root.matches&&root.matches('input[type="range"]')?[root]:[].slice.call((root||document).querySelectorAll('input[type="range"]'));
+    list.forEach(function(inp){var k=attach(inp);if(k&&inp.parentElement.classList.contains('knob-cell'))group(inp.parentElement)});
+  }
+  function defs(){
+    if(document.getElementById('agKnobDefs'))return;
+    var d=document.createElement('div');d.id='agKnobDefs';d.setAttribute('aria-hidden','true');d.style.cssText='position:absolute;width:0;height:0;overflow:hidden';
+    d.innerHTML='<svg width="0" height="0"><defs><linearGradient id="agKnobGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2c31"/><stop offset="1" stop-color="#141417"/></linearGradient>'+
+      '<filter id="agKnobShadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.4" flood-color="#000" flood-opacity=".7"/></filter></defs></svg>';
+    document.body.appendChild(d);
+  }
+  // Observers stay narrow: the render loop rewrites hundreds of value labels per frame, so no subtree
+  // observer on the panels. Dynamic hosts (reactive rules, or any [data-knob-host]) get childList only;
+  // each knobbed input gets its own attribute observer for min/max/step changes.
+  var attrObs=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++)if(muts[i].target._knob)queue(muts[i].target._knob)});
+  var hostObs=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++)for(var j=0;j<muts[i].addedNodes.length;j++){var n=muts[i].addedNodes[j];if(n.nodeType===1)enhance(n)}});
+  function init(){
+    defs();enhance(document);
+    document.querySelectorAll('#reactiveRules,[data-knob-host]').forEach(function(h){hostObs.observe(h,{childList:true})});
+  }
+  return{init:init,enhance:enhance,stats:function(){return Object.assign({},stats)},knobOf:function(inp){return inp&&inp._knob?inp._knob.el:null},sync:function(){flush()}};
+})();
+agKnobs.init();
 
 // Color panel
 function buildColorPanel(){var p=document.getElementById('colorPanel');p.innerHTML='';
@@ -8582,6 +8729,11 @@ try{loadFromHash()}catch(e){}
 <div class="help-section">
 <h3>Export</h3>
 <p><strong>PNG</strong> — current frame with or without background. <strong>SVG</strong> — vector export. <strong>Record</strong> — capture video as MP4/WebM with audio.</p>
+</div>
+
+<div class="help-section">
+<h3>Knobs</h3>
+<p>Panel controls are knobs, three per row. Drag up/right to increase and down/left to decrease (hold <span class="hk">Shift</span> for fine control), scroll the mouse wheel over a knob, or focus it and use the arrow keys, <span class="hk">PgUp</span>/<span class="hk">PgDn</span> and <span class="hk">Home</span>/<span class="hk">End</span>. Double-click a knob to reset it to its default. Click the value under a knob to type an exact number. Layer opacity, the Morph crossfader and Intensity stay sliders.</p>
 </div>
 
 <div class="help-section">

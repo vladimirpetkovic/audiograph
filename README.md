@@ -246,8 +246,9 @@ Seamless charts intentionally distort the flat artwork instead of unfolding phys
 - Built-in presets **flares** and **magnet**; **zodiac** replaced with the updated Zodiac 2 composition.
 - **Ripple** and **Jitter** are per-layer like the other deformers. Older saves that applied one global value keep it on every layer, so they look unchanged.
 - **Post FX** is per layer: the panel edits the active layer, and its effects (including Trails/Feedback history) are applied on the GPU to that layer before compositing. Projection, recording, fullscreen and PNG export show the per-layer result. Saves from before v32 (and the built-in presets) keep their global Post FX as a legacy **Whole composition** effect, so they look unchanged; the panel shows an **Applies to** switch to edit it or turn it off.
+- Panel sliders are now **knobs**, three per row (label above, value below). Drag vertically or horizontally (Shift = fine), use the mouse wheel over a knob, arrow/PageUp/PageDown/Home/End keys when focused; double-click resets to the default and clicking the value still lets you type a number. The hidden range inputs remain the source of truth, so presets, Reset, Undo, morph, reactive rules and the mixer move the knobs too. Layer opacity, the Morph crossfader and global Intensity stay sliders.
 
-Tests: `glyph-styles.cjs` (override the build with `AUDIOGRAPH_GLYPH_BUILD`) and `layer-scope.cjs` (`AUDIOGRAPH_SCOPE_BUILD`).
+Tests: `glyph-styles.cjs` (override the build with `AUDIOGRAPH_GLYPH_BUILD`), `layer-scope.cjs` (`AUDIOGRAPH_SCOPE_BUILD`) and `knobs.cjs` (`AUDIOGRAPH_KNOB_BUILD`; `knobs-bench.cjs` measures playback cost with the knobs visible).
 
 ## GPU Particles, Bass Punch and Beat Glide Preview (v31)
 
