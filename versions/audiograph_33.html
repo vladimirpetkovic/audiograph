@@ -88,8 +88,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .panel-rand{font-size:.5rem;padding:1px 5px;margin-left:auto;margin-right:6px;background:var(--elevated);border:1px solid var(--border);border-radius:3px;color:var(--tx2);cursor:pointer;opacity:0.4;transition:opacity .15s;letter-spacing:.04em}.panel-rand:hover{opacity:1;color:var(--accent2)}
 .panel.closed .panel-body{display:none}
 .panel.closed .panel-arrow{transform:rotate(-90deg)}
-.panel-body{padding:8px 10px;display:flex;flex-direction:column;gap:8px}
-.prow{display:flex;align-items:center;gap:8px;min-width:0;max-width:100%}
+.panel-body{padding:7px 10px;display:flex;flex-direction:column;gap:6px}
+.prow{display:flex;align-items:center;gap:7px;min-width:0;max-width:100%}
 .prow-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);min-width:56px;flex-shrink:0}
 .prow input[type="range"]{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none}
 .prow input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--accent2);border:2px solid var(--bg);cursor:pointer;margin-top:-3.5px}
@@ -97,9 +97,9 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .prow-val:hover{border-bottom-color:var(--accent2)}
 .prow-val-input{font:.6rem/1 'JetBrains Mono',monospace;color:var(--accent2);background:var(--elevated);border:1px solid var(--accent2);border-radius:3px;width:44px;text-align:right;padding:1px 3px;outline:none}
 /* v33 direct controls: source inputs/buttons stay in the DOM; knobs/switches mirror them */
-.knob-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:18px 10px;min-width:0;overflow:hidden}
+.knob-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 10px;min-width:0;overflow:hidden}
 .knob-grid:not(:has(>.knob-cell:not([style*="display: none"]))){display:none}
-.prow.knob-cell,.morph-duration-cell.knob-cell{flex:0 0 calc((100% - 20px)/3);max-width:calc((100% - 20px)/3);flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;position:relative;padding:3px 0}
+.prow.knob-cell,.morph-duration-cell.knob-cell{flex:0 0 calc((100% - 20px)/3);max-width:calc((100% - 20px)/3);flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;position:relative;padding:2px 0}
 .knob-cell .prow-label{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.5rem;letter-spacing:.12em}
 .knob-cell .prow-val{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.62rem;font-weight:600}
 .knob-cell .prow-val-input{width:56px;text-align:center}
@@ -118,7 +118,7 @@ input[type="range"].knob-src{position:absolute!important;left:0;top:0;width:1px!
 .knob.inline{width:31px;height:31px;display:inline-block;vertical-align:middle}
 .knob.inline .knob-track,.knob.inline .knob-fill{stroke-width:3}
 body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
-.mbtn{--chip-hint:rgba(255,255,255,.16);position:relative;min-height:23px;padding:4px 9px;font:.52rem/1 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.025em;background:#1b1b20;border:1px solid rgba(255,255,255,.055);border-radius:6px;color:#9a9aa3;cursor:pointer;transition:transform .12s,background .12s,border-color .12s,color .12s,box-shadow .12s;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+.mbtn{--chip-hint:rgba(255,255,255,.16);position:relative;min-height:22px;padding:4px 8px;font:.52rem/1 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.025em;background:#1b1b20;border:1px solid rgba(255,255,255,.055);border-radius:6px;color:#9a9aa3;cursor:pointer;transition:transform .12s,background .12s,border-color .12s,color .12s,box-shadow .12s;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
 .mbtn:hover{color:#d5d5dc;background:#23232a;border-color:rgba(255,255,255,.11);transform:translateY(-1px)}
 .mbtn.on{color:#061713;border-color:rgba(0,217,145,.72);background:#00d991;box-shadow:0 4px 12px rgba(0,217,145,.16),inset 0 1px 0 rgba(255,255,255,.22)}
 .mbtn.amber{--chip-hint:#f59e0b;color:#c4a66f}
@@ -126,14 +126,14 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .mbtn.amber::before,.mbtn.styleb::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--chip-hint);margin-right:5px;vertical-align:1px;opacity:.85}
 .mbtn.amber.on,.mbtn.styleb.on{color:#061713;border-color:rgba(0,217,145,.72);background:#00d991}
 .mbtn.amber.on::before,.mbtn.styleb.on::before{background:#061713;opacity:.45}
-.mode-btns{display:flex;gap:5px;flex-wrap:wrap;max-width:100%;min-width:0;align-items:center}
+.mode-btns{display:flex;gap:4px;flex-wrap:wrap;max-width:100%;min-width:0;align-items:center}
 .prow-label+.mode-btns{flex:1;max-width:calc(100% - 70px)}
 #panelPresets .preset-actions{gap:4px;flex-wrap:nowrap;align-items:stretch}
 #panelPresets .preset-actions .mbtn{flex:1 1 0;min-width:0;padding:4px 3px;font-size:.42rem;letter-spacing:0;text-align:center}
 .mode-btns.ag-switch-src{position:absolute!important;left:0;top:0;width:1px!important;height:1px!important;margin:0!important;overflow:hidden!important;clip-path:inset(50%);opacity:0;pointer-events:none}
-.switch-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:16px 12px;align-items:start;min-width:0;overflow:hidden;padding:2px 0 3px}
+.switch-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 10px;align-items:start;min-width:0;overflow:hidden;padding:1px 0 2px}
 .switch-grid:not(:has(>.switch-cell:not([style*="display: none"]))){display:none}
-.prow.switch-cell{flex:0 0 74px;max-width:74px;flex-direction:column;align-items:center;justify-content:flex-start;gap:7px;position:relative;min-width:0;padding:2px 0}
+.prow.switch-cell{flex:0 0 72px;max-width:72px;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;position:relative;min-width:0;padding:1px 0}
 .switch-cell .prow-label{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.55rem;letter-spacing:.12em}
 .compact-switch-cell .mode-btns{max-width:100%;justify-content:center;gap:4px}
 .compact-switch-cell .mbtn{padding:4px 5px;font-size:.42rem;letter-spacing:0;min-height:22px}

@@ -72,9 +72,10 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
       const offenders = [...area.querySelectorAll('.knob-grid,.switch-grid,.knob-cell,.switch-cell,.ag-switch')].filter(el => {
         const r = el.getBoundingClientRect(); return r.width && (r.left < ar.left - 1 || r.right > ar.right + 1);
       }).map(el => el.className || el.tagName);
-      return { scroll: area.scrollWidth - area.clientWidth, offenders };
+      return { scroll: area.scrollWidth - area.clientWidth, offenders, height: area.scrollHeight };
     });
     assert.ok(overflow.scroll <= 1, 'sidebar has no horizontal scroll: ' + JSON.stringify(overflow));
+    assert.ok(overflow.height <= 5500, 'expanded sidebar stays compact: ' + JSON.stringify(overflow));
     assert.deepEqual(overflow.offenders, []);
     const chips = await page.evaluate(() => {
       const row = document.querySelector('#panelPresets .preset-actions'), rr = row.getBoundingClientRect(), buttons = [...row.querySelectorAll('.mbtn')];
