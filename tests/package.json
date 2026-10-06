@@ -2,7 +2,7 @@
   "name": "audiograph-browser-tests",
   "private": true,
   "scripts": {
-    "test": "node projection.cjs && node mapping.cjs && node resolution.cjs && node mapping-modes.cjs && node fullscreen.cjs && node span-warp.cjs && node system-audio.cjs && node plane-interaction.cjs && node gpu-renderer.cjs && node seamless-span.cjs && node particles-gpu.cjs && node audio-bass.cjs && node morph-beat.cjs && node reset-all.cjs && node audio-transport.cjs && node glyph-styles.cjs && node layer-scope.cjs && node knobs.cjs",
+    "test": "node projection.cjs && node mapping.cjs && node resolution.cjs && node mapping-modes.cjs && node fullscreen.cjs && node span-warp.cjs && node system-audio.cjs && node plane-interaction.cjs && node gpu-renderer.cjs && node seamless-span.cjs && node particles-gpu.cjs && node audio-bass.cjs && node morph-beat.cjs && node reset-all.cjs && node audio-transport.cjs && node glyph-styles.cjs && node layer-scope.cjs && node knobs.cjs && node switches.cjs",
     "bench:particles": "node particles-benchmark.cjs",
     "bench:knobs": "node knobs-bench.cjs"
   },

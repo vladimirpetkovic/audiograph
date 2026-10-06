@@ -2,8 +2,8 @@
 // Intensity) is mirrored by exactly one role=slider knob, laid out 3 per row. Drag, wheel, keyboard and
 // double-click drive the hidden range input through its real handlers; programmatic writes (presets,
 // Reset, reactive rules, undo) are reflected on the knob; hidden rows hide their knob.
-// Build: AUDIOGRAPH_KNOB_BUILD (default versions/audiograph_32.html).
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_KNOB_BUILD || 'versions/audiograph_32.html';
+// Build: AUDIOGRAPH_KNOB_BUILD (default versions/audiograph_33.html).
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_KNOB_BUILD || 'versions/audiograph_33.html';
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && fs.existsSync(chrome)) process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chrome;
@@ -51,6 +51,13 @@ const MISMATCH = () => [...document.querySelectorAll('.knob')].filter(k => {
     assert.ok(census.rule, 'dynamic reactive rule strength gets a knob');
     assert.deepEqual(census.opacity, { visible: true, knob: false }, 'layer opacity stays a visible slider');
     assert.ok(census.morph && census.intensity, 'morph crossfader and global intensity stay sliders');
+    const sizes = await page.evaluate(() => {
+      const k = document.querySelector('#pLines + .knob').getBoundingClientRect();
+      if (!document.querySelector('.rule-row .knob.inline')) addReactiveRule();
+      const inline = document.querySelector('.rule-row .knob.inline').getBoundingClientRect();
+      return { knob: [Math.round(k.width), Math.round(k.height)], inline: [Math.round(inline.width), Math.round(inline.height)] };
+    });
+    assert.deepEqual(sizes, { knob: [52, 52], inline: [31, 31] }, 'v33 knob sizes');
 
     // 2. Three per row.
     const layout = await page.evaluate(() => ['panelGeo', 'panelFx', 'panelPostFx', 'panelEQ'].map(id => {
