@@ -186,6 +186,16 @@ This is a picker preference, not an automatic permission grant: the site cannot 
 
 The picker options follow Chrome's [screen-sharing controls documentation](https://developer.chrome.com/docs/web-platform/screen-sharing-controls); browsers may ignore unsupported hints.
 
+## Direct Plane Controls Preview (v28)
+
+**[Try v28: direct face selection + draggable Span artwork](versions/audiograph_28.html)**. Includes v27's system-audio setup and v26's fullscreen/Span fixes. Main v22 and every earlier preview remain unchanged.
+
+Double-click a visible face in **Setup mapping** to select it directly; names, source controls and handles update together. Selection follows the actual fine mesh, not just its four corners. Overlapping faces select the topmost visible one; use the dropdown for hidden faces.
+
+In **Visuals → Span**, choose **Move visuals** and drag inside any face. This moves the whole shared image across its source net, keeping seams, crops, source regions and physical plane alignment intact. The grabbed artwork follows the face's perspective, fine mesh and quarter-turn source rotation. Geometry handles are locked, including Shift-drag. Switch to **Adjust planes** to edit calibration.
+
+**Image X/Y** controls the shared offset precisely, within +/-100% of the source. Source image edges reveal black rather than smearing edge pixels. Arrow keys nudge the image from the selected face (Shift: ten output pixels). **Reset position** resets only the image offset. Each drag is one mapping Undo step; Save/Export/Import preserve position. Other visuals modes keep but ignore the Span offset. Test grid ignores it and selects Adjust planes; Move visuals turns Test grid off.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
@@ -222,13 +232,16 @@ To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE
 
 v27's `system-audio.cjs` checks requested picker options, audio-only capture, cancellation/denial, missing audio, setup failure, retry, and stream cleanup using controlled display-capture streams. It does not automate Chrome's native share chooser or OS audio support. Use `AUDIOGRAPH_SYSTEM_URL` to run the same connection checks against a published URL.
 
-To exercise all current behavior in v27 while retaining v25's archived content-mode regression:
+v28's `plane-interaction.cjs` uses actual double-click/drag/key events and projected GPU pixels to check visible-plane selection, overlap/mesh hit testing, shared-image movement through perspective/fine warps/rotations, geometry locking, cancellation, undo, black overflow, and profile persistence. Use `AUDIOGRAPH_INTERACTION_URL` for the published preview.
+
+To exercise all current behavior in v28 while retaining v25's archived content-mode regression:
 
 ```sh
-AUDIOGRAPH_BUILD=versions/audiograph_27.html \
-AUDIOGRAPH_RESOLUTION_BUILD=versions/audiograph_27.html \
-AUDIOGRAPH_FULLSCREEN_BUILD=versions/audiograph_27.html \
-AUDIOGRAPH_SPAN_BUILD=versions/audiograph_27.html \
+AUDIOGRAPH_BUILD=versions/audiograph_28.html \
+AUDIOGRAPH_RESOLUTION_BUILD=versions/audiograph_28.html \
+AUDIOGRAPH_FULLSCREEN_BUILD=versions/audiograph_28.html \
+AUDIOGRAPH_SPAN_BUILD=versions/audiograph_28.html \
+AUDIOGRAPH_SYSTEM_BUILD=versions/audiograph_28.html \
 npm test
 ```
 
