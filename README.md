@@ -200,6 +200,21 @@ In **Visuals → Span**, choose **Move visuals** and drag inside any face. This 
 
 **[Try v29](versions/audiograph_29.html)**. Removes the explanatory paragraph beneath the Span selector without leaving empty space. All v28 functionality is retained; previous previews and main v22 are unchanged.
 
+## GPU Renderer Preview (v30)
+
+**[Try v30](versions/audiograph_30.html)**. Adds a WebGL2 geometry renderer for layer drawing. Layout code is unchanged. Its Canvas 2D calls (paths, lines, arcs, curves, dashes, solid fills and text) are recorded, tessellated with real caps and joins, and drawn in one MSAA WebGL2 batch per layer. Glyphs come from an internal atlas. **Settings → Renderer** switches between **GPU (WebGL2)** and **Canvas 2D (original)**. The choice is remembered, and `?renderer=canvas|gpu` overrides it. The status text next to the switch shows how many layers ran on the GPU, plus the reason for any layer that used Canvas 2D.
+
+The following automatically fall back to the original Canvas 2D code for that layer:
+
+- Gradients or patterns, including the outline "fill" style
+- Image, video and text layouts
+- Kaleidoscope, which copies pixels
+- Clipping and shadows
+- Unusual blend modes
+- Very large layers
+
+If the browser drops the GPU context, every layer draws with Canvas 2D until the context is restored, and the status says so. Particles, symmetry and flip/mirror, layer compositing, PNG/SVG export and the vector SVG path are still Canvas 2D. Post-FX and projection mapping were already WebGL and are unchanged. Gains depend on the workload. On an Apple M2 Max in headless Chrome 154 at 1146×778, completed frames were about 1.5× faster for dense dotted circles and numbers. Some builtin presets were 15–25% slower because JavaScript tessellation costs more than Canvas 2D there. Run `tests/gpu-benchmark.cjs` on your hardware. v30 also caches per-frame audio-level analysis, which makes both renderers faster. Main v22 and earlier previews are unchanged.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
@@ -211,7 +226,7 @@ In **Visuals → Span**, choose **Move visuals** and drag inside any face. This 
 
 ## Performance
 
-Rendering is CPU-side Canvas 2D with a WebGL post-FX pass. It caps the device-pixel-ratio, pools offscreen canvases, and caches hot paths to stay smooth; heavy multi-layer presets with maxed post-FX are the most demanding.
+Rendering is Canvas 2D with a WebGL post-FX pass. The v30 preview can instead draw layer geometry with WebGL2, falling back per layer. It caps the device-pixel-ratio, pools offscreen canvases, and caches hot paths to stay smooth; heavy multi-layer presets with maxed post-FX are the most demanding.
 
 ## Tech
 
@@ -248,6 +263,18 @@ AUDIOGRAPH_SPAN_BUILD=versions/audiograph_28.html \
 AUDIOGRAPH_SYSTEM_BUILD=versions/audiograph_28.html \
 npm test
 ```
+
+v30's `gpu-renderer.cjs` checks the following on the default `versions/audiograph_30.html` (override with `AUDIOGRAPH_GPU_BUILD`):
+
+- The active WebGL2 path, with real draw calls and vertices
+- Pixel parity with Canvas 2D across presets: mean RGB difference ≤5 and ≤1% of pixels differing by more than 64
+- Animation during playback
+- Per-layer fallback reasons for a mixed stack
+- Context loss and restore
+- Projection and recording output
+- Backend persistence
+
+`gpu-benchmark.cjs [--quick]` times identical scenes in both backends. It reports `renderDensity` CPU time and completed-frame time (median/p90 after warm-up) and playback cadence; `AG_DETAIL=1` adds a record/render/blit breakdown.
 
 ## Keyboard
 
