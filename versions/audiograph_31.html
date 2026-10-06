@@ -160,12 +160,13 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .layer-row .layer-rm:hover{color:var(--hot)}
 .layer-row.layer-active .layer-name{color:var(--accent);font-weight:600}
 @media(max-width:900px){.app{flex-direction:column}.controls-area{width:100%;max-height:none;border-right:none;order:1}}
+#stopAudioBtn.transport-stop{border-color:var(--crop);color:var(--crop)}#stopAudioBtn:disabled{opacity:.45;cursor:not-allowed}
 </style>
 </head>
 <body>
 <div class="top-bar">
   <div class="logo"><img class="logo-mark" alt="Audiograph" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCAxNjU4IDE2MTYiPgogIDwhLS0gR2VuZXJhdG9yOiBBZG9iZSBJbGx1c3RyYXRvciAzMC41LjEsIFNWRyBFeHBvcnQgUGx1Zy1JbiAuIFNWRyBWZXJzaW9uOiAyLjEuNCBCdWlsZCAzKSAgLS0+CiAgPGRlZnM+CiAgICA8c3R5bGU+CiAgICAgIC5zdDAgewogICAgICAgIGZpbGw6IG5vbmU7CiAgICAgICAgc3Ryb2tlOiAjZmZmOwogICAgICAgIHN0cm9rZS1taXRlcmxpbWl0OiAxMDsKICAgICAgICBzdHJva2Utd2lkdGg6IDMwcHg7CiAgICAgIH0KCiAgICAgIC5zdDEgewogICAgICAgIGZpbGw6ICNmZmY7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxNjU4IiBoZWlnaHQ9IjE2MTYiLz4KICA8Y2lyY2xlIGNsYXNzPSJzdDAiIGN4PSI4MjkiIGN5PSI4MDgiIHI9IjU5Ni41OSIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMjkxLDgzNC4zNmMtMTYuNjItMjIuMTUtNDIuNy0zNS4xOC03MC4zOC0zNS4xOGgtMjM0LjU1Yy02LjI2LDAtMTIuMzIsMC0xOC4wNy0uMmgtNzMuMWMtMzYuMTMsMC02NS42OCwyOS41Ni02NS42OCw2NS42OGgwYzAsMzYuMTMsMjMuNDIsMzYuMTksMzUuOTgsMzYuMTloMTEyLjJjMTkuODEsMCwzMC4zOCwyMy4xNiwxNy41OCwzOC4yOC00MC4zNiw0Ny42OS0xMDAuNDEsNzguNDItMTY2LjQzLDc4LjQ3LTEyMS4zNi4wOS0yMTkuNjctOTguNzEtMjE4Ljc4LTIyMC4yNi44Ny0xMTkuNzMsMTAxLjcxLTIxOC40OSwyMjEuNDMtMjE2Ljk4LDc0LjYzLjk0LDE0MC4yNCwzOS4yOCwxNzguOTcsOTcuMTQsOC4yNywxMi4zNiwyMi4xNCwxOS43OSwzNy4wMSwxOS43OWgxMTcuMWMxMS43NywwLDE4LjU2LTEzLjM3LDExLjYxLTIyLjg4bC0yNS44LTM1LjI1LTEzOC40My0xOTAuNS04OS40Ny0xMjMuNWMtMzEuNjctMzMuNTctNzguMDctNDguOTMtMTIyLjM2LTM4LjQtMjkuODYsNy4xLTU1LjQxLDIyLjk1LTczLjIxLDQ3LjY3bC01OC45Miw4MS44Ni0xMTAuNzcsMTUzLjA5LTQ5LjQzLDY3LjY1LTg5LjI4LDEyMy42OGMtNC4xNSw0LjA4LTguMDMsOC41My0xMS41MywxMy40MWwtMTk2Ljg2LDI3NC4wN2MtMzMuMjEsNDYuMjMtMjIuNTUsMTExLjIzLDIzLjY4LDE0NC40NGgwYzQ2LjIzLDMzLjIxLDExMS4yMywyMi41NSwxNDQuNDQtMjMuNjhoMGMzMy43LTQ2LjkxLDg3LjkyLTc0LjczLDE0NS42OC03NC43M2w2MTAuNjYtLjA3YzU3LjQsMCwxMTEuMzMsMjcuNDUsMTQ1LjA5LDczLjg3bC42OC45NGMzMy4yMSw0Ni4yMyw5OC4yMSw1Ni44OSwxNDQuNDQsMjMuNjhoMGM0Ni4yMy0zMy4yMSw1Ni44OS05OC4yMSwyMy42OC0xNDQuNDRsLTU3LjQ5LTc5LjA0LTM4LjQtNTMuMTMtNjEuMjktODEuNjdaIi8+Cjwvc3ZnPg==">Audiograph <a href="https://www.vladimirpetkovic.com" target="_blank">by Vladimir Petković</a></div>
-  <div class="top-actions"><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()">Reset</button><button class="btn" id="stopAudioBtn" onclick="stopAudioSource()" style="display:none;border-color:var(--crop);color:var(--crop)"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>Stop</button><div class="audio-source-group"><span class="audio-source-label">Audio source</span><div class="audio-source-btns"><label class="btn" id="btnLoadAudio"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" id="btnMic" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" id="btnSystem" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button></div></div><span class="help-btn"><button class="btn" onclick="toggleHelp()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Guide</button></span></div>
+  <div class="top-actions"><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()">Reset</button><button class="btn" id="stopAudioBtn" onclick="audioTransportClick()" disabled title="Choose Load audio, Mic or System first" aria-label="Play audio source (choose Load audio, Mic or System first)"><svg id="stopAudioIco" viewBox="0 0 24 24" style="width:12px;height:12px"><polygon points="5 3 19 12 5 21 5 3"/></svg><span id="stopAudioLbl">Play</span></button><div class="audio-source-group"><span class="audio-source-label">Audio source</span><div class="audio-source-btns"><label class="btn" id="btnLoadAudio"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" id="btnMic" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" id="btnSystem" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button></div></div><span class="help-btn"><button class="btn" onclick="toggleHelp()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Guide</button></span></div>
 </div>
 <p class="system-audio-hint" id="systemAudioHint" role="status" aria-live="polite" style="display:none">Choose Entire Screen and enable Share with system audio.</p>
 <div class="app" id="app">
@@ -4073,8 +4074,32 @@ agAudio.load();
 // --- LIVE INPUT (Mic / System) ---
 var liveStream=null,liveSource=null,liveMode=false;
 var activeAudioSource=null; // 'file','mic','system'
+// Top transport (v31): always visible. Stop while a source actually sounds (live input connected or file playing);
+// otherwise Play for the last selected source. lastAudioSource survives Stop so Play can resume the file or reconnect
+// Mic/System; live tracks are ended on Stop, so reconnecting asks for permission again from the click gesture.
+var lastAudioSource=null;
+function audioTransportActive(){return !!(liveMode||(playing&&audio))}
+function syncAudioTransport(){
+  var b=document.getElementById('stopAudioBtn');if(!b)return;
+  var on=audioTransportActive(),src=on?(liveMode?activeAudioSource:'file'):lastAudioSource,
+    name={file:'audio file',mic:'Mic',system:'System audio'}[src]||'',lbl,title;
+  if(on){lbl='Stop';title='Stop '+name}
+  else if(!src){lbl='Play';title='Choose Load audio, Mic or System first'}
+  else{lbl='Play';title=src==='file'?'Play audio file':'Reconnect '+name+' (asks for permission again)'}
+  document.getElementById('stopAudioLbl').textContent=lbl;
+  document.getElementById('stopAudioIco').innerHTML=on?'<rect x="6" y="6" width="12" height="12" rx="1"/>':'<polygon points="5 3 19 12 5 21 5 3"/>';
+  b.title=title;b.setAttribute('aria-label',lbl==='Play'&&!src?'Play audio source ('+title+')':title);
+  b.disabled=systemCapturePending||(!on&&(!src||(src==='file'&&!audio)));
+  b.classList.toggle('transport-stop',on);
+}
+function audioTransportClick(){
+  if(audioTransportActive()){stopAudioSource();return}
+  if(lastAudioSource==='mic')startMic();
+  else if(lastAudioSource==='system')startSystem();
+  else if(lastAudioSource==='file'&&audio){if(!playing)togglePlay()}
+}
 function highlightAudioSource(which){
-  activeAudioSource=which;
+  activeAudioSource=which;if(which)lastAudioSource=which;
   if(which!=='system')document.getElementById('systemAudioHint').style.display='none';
   ['btnLoadAudio','btnMic','btnSystem'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.classList.remove('active');
@@ -4082,10 +4107,8 @@ function highlightAudioSource(which){
   if(which){
     var id=which==='file'?'btnLoadAudio':which==='mic'?'btnMic':'btnSystem';
     var el=document.getElementById(id);if(el)el.classList.add('active');
-    document.getElementById('stopAudioBtn').style.display='';
-  }else{
-    document.getElementById('stopAudioBtn').style.display='none';
   }
+  syncAudioTransport();
 }
 function stopAudioSource(){
   var wasSystem=activeAudioSource==='system';
@@ -4102,6 +4125,7 @@ function stopLive(){
   if(liveSource){try{liveSource.disconnect()}catch(e){}}
   liveSource=null;liveMode=false;
   if(rafId){cancelVisualFrame(rafId);rafId=null}
+  syncAudioTransport();
 }
 async function startLiveInput(stream){
   stopLive();
@@ -4122,7 +4146,7 @@ async function startLiveInput(stream){
 async function startMic(){
   if(activeAudioSource==='mic'){stopAudioSource();return}
   try{var stream=await navigator.mediaDevices.getUserMedia({audio:true});await startLiveInput(stream);highlightAudioSource('mic')}
-  catch(e){alert('Microphone access denied: '+e.message)}
+  catch(e){systemAudioStatus('Microphone was not connected ('+(e.name==='NotAllowedError'?'permission denied':e.message)+'). Click Mic or Play to retry.',true);syncAudioTransport()}
 }
 var systemCapturePending=false;
 function systemAudioStatus(message,error){
@@ -4136,7 +4160,7 @@ async function startSystem(){
     systemAudioStatus('System audio capture is unavailable here. Try desktop Chrome or Edge over HTTPS, or use Load audio / Mic.',true);return;
   }
   var stream=null,connected=false,button=document.getElementById('btnSystem');
-  systemCapturePending=true;button.disabled=true;
+  systemCapturePending=true;button.disabled=true;syncAudioTransport();
   systemAudioStatus('Choose Entire Screen, enable Share with system audio, then click Share with Audio. A Chrome Tab with shared audio also works.');
   try{
     stream=await navigator.mediaDevices.getDisplayMedia({
@@ -4174,7 +4198,7 @@ async function startSystem(){
     if(stream&&!connected){
       stream.getTracks().forEach(function(t){t.stop()});
     }
-    systemCapturePending=false;button.disabled=false;
+    systemCapturePending=false;button.disabled=false;syncAudioTransport();
   }
 }
 function liveAnimLoop(){
@@ -7842,10 +7866,10 @@ document.addEventListener('drop',function(e){e.preventDefault();dragCounter=0;dr
 
 // Transport
 function getPlayRange(){var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}return{s:sT,e:eT}}
-function togglePlay(){if(!audio||safeDuration()===0)return;if(playing){audio.pause();playing=false;if(rafId){cancelVisualFrame(rafId);rafId=null}}else{if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();var r=getPlayRange();safeSetTime(Math.max(audio.currentTime,r.s));if(audio.currentTime>=r.e||audio.currentTime<r.s)safeSetTime(r.s);audio.play();playing=true;animLoop()}updatePlayBtn()}
+function togglePlay(){if(!audio||safeDuration()===0)return;if(playing){audio.pause();playing=false;if(rafId){cancelVisualFrame(rafId);rafId=null}}else{if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();var r=getPlayRange();safeSetTime(Math.max(audio.currentTime,r.s));if(audio.currentTime>=r.e||audio.currentTime<r.s)safeSetTime(r.s);audio.play();playing=true;if(!liveMode&&activeAudioSource!=='file')highlightAudioSource('file');animLoop()}updatePlayBtn()}
 function playSelection(){if(!audio||selStart===null||selEnd===null)return;var s=Math.min(selStart,selEnd);safeSetTime(s);if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();audio.play();playing=true;updatePlayBtn();animLoop()}
 function resetSel(){selStart=null;selEnd=null;updateSelUI();renderDensity()}
-function updatePlayBtn(){var ico=document.getElementById('playIco'),lbl=document.getElementById('playLbl');if(playing){ico.innerHTML='<line x1="6" y1="4" x2="6" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/>';lbl.textContent='Pause'}else{ico.innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';lbl.textContent='Play'}}
+function updatePlayBtn(){var ico=document.getElementById('playIco'),lbl=document.getElementById('playLbl');if(playing){ico.innerHTML='<line x1="6" y1="4" x2="6" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/>';lbl.textContent='Pause'}else{ico.innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';lbl.textContent='Play'}syncAudioTransport()}
 var realtimePreview=true;
 var rtData=new Uint8Array(2048);
 var freqData=new Uint8Array(2048);
@@ -8303,7 +8327,7 @@ try{loadFromHash()}catch(e){}
 <p><strong>Mic</strong> — capture live audio from your microphone. Click again to stop (toggle).</p>
 <p><strong>System</strong> — capture audio from another tab or app (Spotify, YouTube, etc.). Audiograph asks supported desktop Chrome/Edge browsers to open the chooser on <strong>Entire Screen</strong> with system audio offered. Choose the screen, enable <strong>Share with system audio</strong>, and click <strong>Share with Audio</strong>. If system audio is unavailable, choose a <strong>Chrome Tab</strong> with <strong>Share tab audio</strong>. The browser decides which sources are supported.</p>
 <p>The site cannot preselect a particular screen, force the audio toggle on, or skip your permission prompt. Video capture is stopped immediately after selection; audio alone feeds the visualizer. Inline status explains connection, cancellation, or missing audio without another dialog. Click System again to stop.</p>
-<p><strong>Stop</strong> — appears when any source is active. Stops playback and returns to idle.</p>
+<p><strong>Stop / Play</strong> (v31): always visible next to the source buttons. It shows <strong>Stop</strong> while a source is sounding (a file playing, or Mic/System connected); clicking it stops playback and returns to idle as before. Otherwise it shows <strong>Play</strong> for the last source: a file resumes where it stopped (or restarts after it ends), and Mic/System reconnect, asking for permission again because stopped live tracks cannot resume. Before any source is chosen it is disabled. If permission is refused it stays on Play with a message. Pause on the lower transport also turns it to Play.</p>
 <p><strong>Timeline</strong> — click to seek, drag to select a range, use crop handles to loop a section.</p>
 </div>
 

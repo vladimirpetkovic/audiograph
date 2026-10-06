@@ -165,7 +165,9 @@ async function frames(page) {
       const reopened = page.waitForEvent('popup');
       await page.click('#projectionBtn'); output = await reopened;
       await dimensions(page, 1920, 1080);
-      await page.click('#stopAudioBtn');
+      // v31+ toggles this button to Play once the file is no longer playing; only stop an active source.
+      if (/Stop/.test(await page.locator('#stopAudioBtn').textContent())) await page.click('#stopAudioBtn');
+      assert.equal(await page.evaluate(() => typeof playing === 'undefined' || !playing || liveMode), true);
       await page.evaluate(() => applyState(builtinPresets.waves));
       assert.equal(await page.locator('#outputResolution').inputValue(), '1080');
       await dimensions(page, 1920, 1080);
