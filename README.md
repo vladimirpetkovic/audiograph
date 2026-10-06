@@ -238,6 +238,16 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Glyph Size, Flares and Per-layer Deformers Preview (v32)
+
+**[Try v32](versions/audiograph_32.html)**. This version contains all v31 features and adds the following.
+
+- Numbers, Symbols and Words draw at their proper size in circle, spiral and other radial layouts and respond to **Size** and **Angle**. Previously a cached font went stale after each per-line `restore()` and every glyph fell back to 10 px.
+- Built-in preset **flares**.
+- **Ripple** and **Jitter** are per-layer like the other deformers. Older saves that applied one global value keep it on every layer, so they look unchanged.
+
+Test: `glyph-styles.cjs` (override the build with `AUDIOGRAPH_GLYPH_BUILD`).
+
 ## GPU Particles, Bass Punch and Beat Glide Preview (v31)
 
 **[Try v31](versions/audiograph_31.html)**. This version contains all v30 features and adds the following.
