@@ -97,6 +97,23 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
     assert.ok(activeBg[1] > 170 && activeBg[0] < 40, 'active chip filled green: ' + chips.activeBg);
     assert.ok(inactiveBg.every(v => v >= 20 && v <= 45), 'inactive chip is dark filled: ' + chips.inactiveBg);
     assert.ok(/rgba\(255, 255, 255, 0\.0/.test(chips.inactiveBorder) && chips.inactiveRadius >= 5, 'inactive chip has subtle border/radius: ' + JSON.stringify(chips));
+    const switchRows = await page.evaluate(() => {
+      const cell = label => [...document.querySelectorAll('.switch-cell')].find(r => r.querySelector('.prow-label')?.textContent.trim() === label);
+      const sameTop = labels => new Set(labels.map(l => Math.round(cell(l).getBoundingClientRect().top))).size === 1;
+      const centerGap = label => {
+        const c = cell(label), g = c.parentElement, row = [...g.children].filter(x => Math.round(x.getBoundingClientRect().top) === Math.round(c.getBoundingClientRect().top));
+        const gr = g.getBoundingClientRect(), l = Math.min(...row.map(x => x.getBoundingClientRect().left)), r = Math.max(...row.map(x => x.getBoundingClientRect().right));
+        return Math.abs((l + r) / 2 - (gr.left + gr.right) / 2);
+      };
+      return {
+        threeAcross: sameTop(['Vary height', 'Vary thick', 'Scale→loud']),
+        flipMirror: sameTop(['Flip', 'Mirror']),
+        flipCompact: !!cell('Flip').querySelector('.mode-btns') && !cell('Flip').querySelector('.ag-switch'),
+        flipMirrorCentered: centerGap('Flip'),
+      };
+    });
+    assert.deepEqual({ threeAcross: switchRows.threeAcross, flipMirror: switchRows.flipMirror, flipCompact: switchRows.flipCompact }, { threeAcross: true, flipMirror: true, flipCompact: true });
+    assert.ok(switchRows.flipMirrorCentered < 2, 'flip/mirror row centered ' + JSON.stringify(switchRows));
     assert.deepEqual(errors, []);
     console.log(`switches: PASS (${census.stats.switches} switches; skipped ${census.stats.skipped.join('; ')})`);
   } finally { await t.close(); }
