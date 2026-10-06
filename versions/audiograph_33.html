@@ -97,12 +97,15 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .prow-val:hover{border-bottom-color:var(--accent2)}
 .prow-val-input{font:.6rem/1 'JetBrains Mono',monospace;color:var(--accent2);background:var(--elevated);border:1px solid var(--accent2);border-radius:3px;width:44px;text-align:right;padding:1px 3px;outline:none}
 /* v33 direct controls: source inputs/buttons stay in the DOM; knobs/switches mirror them */
-.knob-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 10px;min-width:0;overflow:hidden}
+.knob-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:18px 10px;min-width:0;overflow:hidden}
 .knob-grid:not(:has(>.knob-cell:not([style*="display: none"]))){display:none}
-.prow.knob-cell{flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;position:relative;padding:3px 0}
+.prow.knob-cell,.morph-duration-cell.knob-cell{flex:0 0 calc((100% - 20px)/3);max-width:calc((100% - 20px)/3);flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;position:relative;padding:3px 0}
 .knob-cell .prow-label{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.5rem;letter-spacing:.12em}
 .knob-cell .prow-val{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.62rem;font-weight:600}
 .knob-cell .prow-val-input{width:56px;text-align:center}
+.morph-combo-row{gap:7px;align-items:center}
+.morph-combo-row input#morphSlider{flex:1 1 78px;max-width:110px}
+.morph-duration-cell.knob-cell{flex:0 0 76px;max-width:76px;display:flex}
 input[type="range"].knob-src{position:absolute!important;left:0;top:0;width:1px!important;height:1px!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;opacity:0;pointer-events:none;clip-path:inset(50%);overflow:hidden}
 .knob{position:relative;width:52px;height:52px;flex-shrink:0;cursor:ns-resize;touch-action:none;outline:none;border-radius:50%;-webkit-user-select:none;user-select:none}
 .knob svg{display:block;width:100%;height:100%;overflow:visible;pointer-events:none}
@@ -115,14 +118,18 @@ input[type="range"].knob-src{position:absolute!important;left:0;top:0;width:1px!
 .knob.inline{width:31px;height:31px;display:inline-block;vertical-align:middle}
 .knob.inline .knob-track,.knob.inline .knob-fill{stroke-width:3}
 body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
-.mbtn{padding:2px 7px;font:.5rem/1 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--tx3);cursor:pointer;transition:all .12s}
-.mbtn:hover{color:var(--tx2);border-color:var(--border-h)}
-.mbtn.on{color:var(--accent2);border-color:var(--accent2);background:var(--accent-g)}
-.mbtn.amber{border-color:var(--crop);color:var(--crop)}
-.mbtn.amber.on{color:#f87171;border-color:#f87171;background:rgba(248,113,113,0.12)}
-.mbtn.styleb{border-color:#7c93f5;color:#9fb0f7}
-.mbtn.styleb.on{color:#c4cdfb;border-color:#a5b4fc;background:rgba(124,147,245,0.14)}
-.mode-btns{display:flex;gap:3px;flex-wrap:wrap;max-width:calc(100% - 70px)}
+.mbtn{--chip-hint:rgba(255,255,255,.16);position:relative;min-height:23px;padding:4px 9px;font:.52rem/1 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.025em;background:#1b1b20;border:1px solid rgba(255,255,255,.055);border-radius:6px;color:#9a9aa3;cursor:pointer;transition:transform .12s,background .12s,border-color .12s,color .12s,box-shadow .12s;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+.mbtn:hover{color:#d5d5dc;background:#23232a;border-color:rgba(255,255,255,.11);transform:translateY(-1px)}
+.mbtn.on{color:#061713;border-color:rgba(0,217,145,.72);background:#00d991;box-shadow:0 4px 12px rgba(0,217,145,.16),inset 0 1px 0 rgba(255,255,255,.22)}
+.mbtn.amber{--chip-hint:#f59e0b;color:#c4a66f}
+.mbtn.styleb{--chip-hint:#8aa2ff;color:#a8b7ec}
+.mbtn.amber::before,.mbtn.styleb::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--chip-hint);margin-right:5px;vertical-align:1px;opacity:.85}
+.mbtn.amber.on,.mbtn.styleb.on{color:#061713;border-color:rgba(0,217,145,.72);background:#00d991}
+.mbtn.amber.on::before,.mbtn.styleb.on::before{background:#061713;opacity:.45}
+.mode-btns{display:flex;gap:5px;flex-wrap:wrap;max-width:100%;min-width:0;align-items:center}
+.prow-label+.mode-btns{flex:1;max-width:calc(100% - 70px)}
+#panelPresets .preset-actions{gap:4px;flex-wrap:nowrap;align-items:stretch}
+#panelPresets .preset-actions .mbtn{flex:1 1 0;min-width:0;padding:4px 3px;font-size:.42rem;letter-spacing:0;text-align:center}
 .mode-btns.ag-switch-src{position:absolute!important;left:0;top:0;width:1px!important;height:1px!important;margin:0!important;overflow:hidden!important;clip-path:inset(50%);opacity:0;pointer-events:none}
 .switch-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 16px;align-items:start;justify-items:center;min-width:0;overflow:hidden;padding:2px 0 3px}
 .switch-grid:not(:has(>.switch-cell:not([style*="display: none"]))){display:none}
@@ -545,13 +552,13 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="5" max="200" value="100" step="5" id="pSensitivity" oninput="upP()"><span class="prow-val" id="vSensitivity">100%</span></div>
         <div class="prow"><span class="prow-label">Height</span><input type="range" min="5" max="300" value="80" step="5" id="pHeight" oninput="upP()"><span class="prow-val" id="vHeight">80%</span></div>
         <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="15" value="1" step="0.25" id="pThick" oninput="upP()"><span class="prow-val" id="vThick">1px</span></div>
+        <div class="prow"><span class="prow-label">Fade edges</span><input type="range" min="0" max="100" value="0" step="5" id="pFadeEdge" oninput="upP()"><span class="prow-val" id="vFadeEdge">0%</span></div>
         <div class="prow"><span class="prow-label">Vary height</span><div class="mode-btns"><button class="mbtn on" onclick="setVH(true,this)">Yes</button><button class="mbtn" onclick="setVH(false,this)">No</button></div></div>
         <div class="prow"><span class="prow-label">Vary thick</span><div class="mode-btns"><button class="mbtn" onclick="setVT(true,this)">Yes</button><button class="mbtn on" onclick="setVT(false,this)">No</button></div></div>
-        <div class="prow"><span class="prow-label">Fade edges</span><input type="range" min="0" max="100" value="0" step="5" id="pFadeEdge" oninput="upP()"><span class="prow-val" id="vFadeEdge">0%</span></div>
-        <div class="prow"><span class="prow-label">Scale</span><input type="range" min="50" max="400" value="100" step="10" id="pZoom" oninput="upP()"><span class="prow-val" id="vZoom">100%</span></div>
-        <div class="prow"><span class="prow-label">Offset X</span><input type="range" min="-100" max="100" value="0" step="1" id="pOffX" oninput="upP()"><span class="prow-val" id="vOffX">0</span></div>
-        <div class="prow"><span class="prow-label">Offset Y</span><input type="range" min="-100" max="100" value="0" step="1" id="pOffY" oninput="upP()"><span class="prow-val" id="vOffY">0</span></div>
-        <div class="prow"><span class="prow-label">Rotation</span><input type="range" min="-180" max="180" value="0" step="1" id="pRotation" oninput="upP()"><span class="prow-val" id="vRotation">0°</span></div>
+        <div class="prow" data-knob-row="geom-transform"><span class="prow-label">Scale</span><input type="range" min="50" max="400" value="100" step="10" id="pZoom" oninput="upP()"><span class="prow-val" id="vZoom">100%</span></div>
+        <div class="prow" data-knob-row="geom-transform"><span class="prow-label">Rotation</span><input type="range" min="-180" max="180" value="0" step="1" id="pRotation" oninput="upP()"><span class="prow-val" id="vRotation">0°</span></div>
+        <div class="prow" data-knob-row="geom-offset"><span class="prow-label">Offset X</span><input type="range" min="-100" max="100" value="0" step="1" id="pOffX" oninput="upP()"><span class="prow-val" id="vOffX">0</span></div>
+        <div class="prow" data-knob-row="geom-offset"><span class="prow-label">Offset Y</span><input type="range" min="-100" max="100" value="0" step="1" id="pOffY" oninput="upP()"><span class="prow-val" id="vOffY">0</span></div>
         <div class="prow"><span class="prow-label">Scale→loud</span><div class="mode-btns"><button class="mbtn" onclick="setZoomLoud(true,this)">On</button><button class="mbtn on" onclick="setZoomLoud(false,this)">Off</button></div></div>
         <div class="prow" id="p3dTiltRow" style="display:none"><span class="prow-label">3D Tilt</span><input type="range" min="-180" max="180" value="0" step="1" id="p3dTilt" oninput="dragRotX=this.value*Math.PI/180;document.getElementById('v3dTilt').textContent=this.value+'°';renderDensity()"><span class="prow-val" id="v3dTilt">0°</span></div>
         <div class="prow" id="p3dRotateRow" style="display:none"><span class="prow-label">3D Rotate</span><input type="range" min="-180" max="180" value="0" step="1" id="p3dRotate" oninput="dragRotY=this.value*Math.PI/180;document.getElementById('v3dRotate').textContent=this.value+'°';renderDensity()"><span class="prow-val" id="v3dRotate">0°</span></div>
@@ -612,7 +619,6 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         <div class="prow"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
         <div class="prow" title="Bass punch: kicks and bass hits push lines, particles and beat morphs harder, and the image relaxes between hits. Measured from a 140 Hz low-pass tap; 0 = v30 response."><span class="prow-label">Bass punch</span><input type="range" min="0" max="100" value="60" step="1" id="pBassPunch" oninput="agAudio.ui()"><span class="prow-val" id="vBassPunch">60%</span></div>
         <div class="prow" title="How long a bass hit keeps pushing before the image relaxes (release time)."><span class="prow-label">Bass release</span><input type="range" min="60" max="800" value="220" step="10" id="pBassRelease" oninput="agAudio.ui()"><span class="prow-val" id="vBassRelease">220 ms</span></div>
-        <div class="prow"><span class="prow-label">Disorder</span><input type="range" min="0" max="100" value="0" step="1" id="rDisorder" oninput="upP()"><span class="prow-val" id="vrDisorder">0%</span></div>
         <div class="prow"><span class="prow-label">Drop</span><div class="mode-btns"><button class="mbtn" onclick="setDrop(true,this)">On</button><button class="mbtn on" onclick="setDrop(false,this)">Off</button></div></div>
         <div id="dropParams" style="display:none;flex-direction:column;gap:8px">
           <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="1" max="100" value="30" step="1" id="pDropSens" oninput="upP()"><span class="prow-val" id="vDropSens">30</span></div>
@@ -627,7 +633,8 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         <div class="prow" id="rowShear"><span class="prow-label">Shear</span><input type="range" min="-100" max="100" value="0" step="1" id="pShear" oninput="upP()"><span class="prow-val" id="vShear">0</span></div>
         <div class="prow" id="rowDepth"><span class="prow-label">Depth</span><input type="range" min="0" max="200" value="0" step="1" id="pDepth" oninput="upP()"><span class="prow-val" id="vDepth">0</span></div>
         <div class="prow" id="rowRipple"><span class="prow-label">Ripple</span><input type="range" min="-100" max="100" value="0" step="1" id="pRipple" oninput="upP()"><span class="prow-val" id="vRipple">0</span></div>
-        <div class="prow" id="rowJitter"><span class="prow-label">Jitter</span><input type="range" min="0" max="100" value="0" step="1" id="pJitter" oninput="upP()"><span class="prow-val" id="vJitter">0</span></div>
+        <div class="prow" data-knob-row="fx-jitter"><span class="prow-label">Disorder</span><input type="range" min="0" max="100" value="0" step="1" id="rDisorder" oninput="upP()"><span class="prow-val" id="vrDisorder">0%</span></div>
+        <div class="prow" id="rowJitter" data-knob-row="fx-jitter"><span class="prow-label">Jitter</span><input type="range" min="0" max="100" value="0" step="1" id="pJitter" oninput="upP()"><span class="prow-val" id="vJitter">0</span></div>
       </div>
     </div>
     <!-- POST FX -->
@@ -692,9 +699,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     <div class="panel" id="panelPresets">
       <div class="panel-head" onclick="togglePanel('panelPresets')"><span class="panel-title">Presets</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><button class="mbtn" onclick="savePreset()">Save</button><button class="mbtn" onclick="saveAllPreset()">Save All</button><button class="mbtn" onclick="clearPresets()">Clear</button></div>
-        <div class="prow"><button class="mbtn" onclick="exportPreset()">Export</button><button class="mbtn" onclick="document.getElementById('presetImportFile').click()">Import</button><input type="file" id="presetImportFile" accept=".json" style="display:none" onchange="importPresets(event)"></div>
-        <div class="prow"><button class="mbtn" onclick="surpriseMe()" style="flex:1">✨ Surprise Me</button><button class="mbtn" onclick="shareLink()" style="flex:1">🔗 Copy Link</button></div>
+        <div class="prow preset-actions"><button class="mbtn" onclick="savePreset()">Save</button><button class="mbtn" onclick="saveAllPreset()">Save All</button><button class="mbtn" onclick="clearPresets()">Clear</button><button class="mbtn" onclick="exportPreset()">Export</button><button class="mbtn" onclick="document.getElementById('presetImportFile').click()">Import</button><input type="file" id="presetImportFile" accept=".json" style="display:none" onchange="importPresets(event)"><button class="mbtn" onclick="surpriseMe()">✨ Surprise</button><button class="mbtn" onclick="shareLink()">🔗 Link</button></div>
         <div id="presetList" style="display:flex;flex-direction:column;gap:4px;margin-top:4px"></div>
       </div>
     </div>
@@ -704,8 +709,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-body">
         <div class="prow"><select id="morphAdd" onchange="morphAddPreset(this.value);this.selectedIndex=0" style="flex:1;background:var(--elevated);border:1px solid var(--border);border-radius:4px;color:var(--tx);font:.55rem 'JetBrains Mono',monospace;padding:3px 5px;min-width:0"><option value="">+ Add preset…</option></select><button class="mbtn" onclick="morphAddAll()">All</button><button class="mbtn" onclick="morphClearList()">Clear</button></div>
         <div id="morphList" style="display:flex;flex-wrap:wrap;gap:4px"></div>
-        <div class="prow"><span class="prow-label">Morph</span><input type="range" min="0" max="100" value="0" step="1" id="morphSlider" oninput="setMorphManual(this.value)" onchange="morphSliderRelease()"><span class="prow-val" id="vMorph">0%</span></div>
-        <div class="prow"><span class="prow-label">Duration</span><input type="range" min="10" max="60" value="20" step="1" id="morphDur" oninput="document.getElementById('vMorphDur').textContent=this.value+'s'"><span class="prow-val" id="vMorphDur">20s</span></div>
+        <div class="prow morph-combo-row"><span class="prow-label">Morph</span><input type="range" min="0" max="100" value="0" step="1" id="morphSlider" oninput="setMorphManual(this.value)" onchange="morphSliderRelease()"><span class="prow-val" id="vMorph">0%</span><div class="morph-duration-cell"><span class="prow-label">Duration</span><input type="range" min="10" max="60" value="20" step="1" id="morphDur" oninput="document.getElementById('vMorphDur').textContent=this.value+'s'"><span class="prow-val" id="vMorphDur">20s</span></div></div>
         <div class="prow"><div class="mode-btns"><button class="mbtn" id="morphAutoBtn" onclick="toggleMorphAuto()">Play</button><button class="mbtn" id="morphRandom" onclick="toggleMorphRandom()">Random</button><button class="mbtn" id="morphBeat" onclick="toggleMorphBeat()">On Beat</button><select id="morphBeatMode" onchange="setMorphBeatMode(this.value)" title="On Beat style. Glide: each bass beat moves the morph target forward and the blend eases there smoothly (rapid beats cannot pile up). Snap: original v30 0.45 s jump per detected beat."><option value="glide4">Glide ¼/beat</option><option value="glide1">Glide 1/beat</option><option value="snap">Snap (v30)</option></select><button class="mbtn" id="morphPing" onclick="this.classList.toggle('on')">Ping-pong</button><button class="mbtn" onclick="bakeMorph()">Apply</button></div></div>
         <div class="prow" style="justify-content:flex-end"><span id="morphNext" style="font-size:.5rem;color:var(--tx3)"></span></div>
         <div style="font-size:.45rem;color:var(--tx3);line-height:1.5">Build a playlist of presets to blend through. <strong>Play</strong> cycles them in order over the chosen Duration each; <strong>Random</strong> jumps between random presets (your list, or all of them if the list is empty). Drag <strong>Morph</strong> to scrub the whole sequence. <strong>Apply</strong> bakes the current blend into editable layers.</div>
@@ -3927,6 +3931,7 @@ var agKnobs=(function(){
   function commit(k){if(k.changed){k.changed=false;k.inp.dispatchEvent(new Event('change',{bubbles:true}))}}
   function mode(inp){
     if(inp.type!=='range'||inp._knob||EXCLUDE_ID.test(inp.id)||inp.closest(EXCLUDE_SEL))return null;
+    if(inp.id==='morphDur'&&inp.parentElement&&inp.parentElement.classList.contains('morph-duration-cell'))return 'morph';
     var row=inp.parentElement;
     if(row&&row.classList.contains('prow')&&row.closest('.panel'))return 'cell';
     if(inp.classList.contains('rule-strength'))return 'inline';
@@ -3934,7 +3939,7 @@ var agKnobs=(function(){
   }
   function attach(inp){
     var m=mode(inp);if(!m)return null;
-    var row=inp.parentElement,lab=m==='cell'?row.querySelector('.prow-label'):null,val=m==='cell'?row.querySelector('.prow-val'):inp.nextElementSibling;
+    var row=inp.parentElement,lab=(m==='cell'||m==='morph')?row.querySelector('.prow-label'):null,val=(m==='cell'||m==='morph')?row.querySelector('.prow-val'):inp.nextElementSibling;
     var el=document.createElement('div');el.className='knob'+(m==='inline'?' inline':'');el.tabIndex=0;el.setAttribute('role','slider');
     el.setAttribute('aria-label',inp.getAttribute('aria-label')||(lab&&lab.textContent.trim())||inp.title||(m==='inline'?'Rule strength':'Value'));
     var tip=inp.title||(row&&row.title)||'';el.title=tip?tip+' (drag, wheel or arrows; double-click resets)':'Drag, wheel or arrows; double-click resets';
@@ -3945,6 +3950,7 @@ var agKnobs=(function(){
     inp._knob=k;el._knob=k;inp.classList.add('knob-src');inp.tabIndex=-1;inp.setAttribute('aria-hidden','true');
     inp.insertAdjacentElement('afterend',el);
     if(m==='cell')row.classList.add('knob-cell');
+    if(m==='morph')row.classList.add('knob-cell');
     el.addEventListener('pointerdown',function(e){
       if(e.button!==0)return;e.preventDefault();el.focus({preventScroll:true});
       try{el.setPointerCapture(e.pointerId)}catch(_){}
@@ -3982,14 +3988,20 @@ var agKnobs=(function(){
     attrObs.observe(inp,{attributes:true,attributeFilter:['min','max','step','value']});
     stats.knobs++;render(k);return k;
   }
-  // Wrap each run of consecutive knob cells into one 3-column grid; hidden cells simply drop out of the flow.
+  // Wrap consecutive knob cells into centered rows. Explicit data-knob-row groups create deliberate
+  // two-knob rows without changing the source inputs or their handlers.
+  function rkey(row){return row.getAttribute('data-knob-row')||''}
+  function gkey(grid){return grid.getAttribute('data-knob-row')||''}
   function group(row){
-    if(!row.classList.contains('knob-cell')||(row.parentElement&&row.parentElement.classList.contains('knob-grid')))return;
+    if(!row.classList.contains('knob-cell')||row.classList.contains('morph-duration-cell')||(row.parentElement&&row.parentElement.classList.contains('knob-grid')))return;
     var prev=row.previousElementSibling,grid;
-    if(prev&&prev.classList.contains('knob-grid'))grid=prev;else{grid=document.createElement('div');grid.className='knob-grid';row.parentElement.insertBefore(grid,row)}
+    var key=rkey(row);
+    if(prev&&prev.classList.contains('knob-grid')&&gkey(prev)===key)grid=prev;else{grid=document.createElement('div');grid.className='knob-grid';if(key)grid.setAttribute('data-knob-row',key);row.parentElement.insertBefore(grid,row)}
     grid.appendChild(row);
     for(var n=grid.nextElementSibling;n&&(n.classList.contains('knob-cell')||n.classList.contains('knob-grid'));n=grid.nextElementSibling){
-      if(n.classList.contains('knob-grid')){while(n.firstChild)grid.appendChild(n.firstChild);n.remove()}else grid.appendChild(n);
+      if(n.classList.contains('knob-grid')&&gkey(n)===key){while(n.firstChild)grid.appendChild(n.firstChild);n.remove()}
+      else if(n.classList.contains('knob-cell')&&!n.classList.contains('morph-duration-cell')&&rkey(n)===key)grid.appendChild(n);
+      else break;
     }
   }
   function enhance(root){
@@ -8680,7 +8692,7 @@ try{loadFromHash()}catch(e){}
 
 <div class="help-section">
 <h3>Appearance</h3>
-<p>The Appearance panel holds the choices that define the look: <strong>Layout</strong> (arrangement), <strong>Style</strong> (how each line is rendered), and <strong>Outline</strong>. Layout buttons are amber, Style buttons are violet.</p>
+<p>The Appearance panel holds the choices that define the look: <strong>Layout</strong> (arrangement), <strong>Style</strong> (how each line is rendered), and <strong>Outline</strong>. Layout and Style use compact dark chips with subtle category dots and a filled active state.</p>
 <p><strong>Layouts (19)</strong>, grouped: <strong>General</strong> — Linear, Sine, Ridge, Circle, Concentric, Spiral, Phyllotaxis, Kaleidoscope, Scatter, Fractal. <strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Object. <strong>Input</strong> — Image, Video, Text, Math.</p>
 <p><strong>🎲</strong> — randomizes both layout and style.</p>
 </div>
@@ -8722,7 +8734,7 @@ try{loadFromHash()}catch(e){}
 
 <div class="help-section">
 <h3>Styles (19 + Off)</h3>
-<p>Chosen from the Style row in the Appearance panel (violet buttons): <strong>Off</strong>, Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, Cascade, Feather, Circles, Braille, Arrows, Slash, Needles, Diamonds. Each renders lines differently. <strong>Off</strong> draws no base shape — combine it with an Outline to show only the outline.</p>
+<p>Chosen from the Style row in the Appearance panel: <strong>Off</strong>, Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, Cascade, Feather, Circles, Braille, Arrows, Slash, Needles, Diamonds. Each renders lines differently. <strong>Off</strong> draws no base shape — combine it with an Outline to show only the outline.</p>
 <p><strong>Style settings</strong> — like layouts, each style exposes a few relevant controls right under the Style row (only the ones that apply to the selected style appear):</p>
 <p><strong>Size</strong> — scales the marker or glyph (rings, diamonds, numbers, symbols, words, arrows, etc.). <strong>Density</strong> — repetition count / spacing for repeating styles (dots, dashes, braille rows, rings, cascade tiers, feather barbs). <strong>Angle</strong> — rotation for glyphs, slashes, and feather barbs.</p>
 </div>

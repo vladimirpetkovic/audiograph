@@ -76,6 +76,28 @@ const MISMATCH = () => [...document.querySelectorAll('.knob')].filter(k => {
       assert.ok(rows.every(n => n >= 1 && n <= 3), id + ' rows ' + rows);
       if (id !== 'panelPostFx') assert.ok(rows.some(n => n === 3), id + ' fills 3 per row ' + rows);
     }
+    const grouped = await page.evaluate(() => {
+      const top = id => Math.round(document.querySelector('#' + id).closest('.knob-cell').getBoundingClientRect().top);
+      const rowCenter = id => {
+        const cell = document.querySelector('#' + id).closest('.knob-cell'), grid = cell.parentElement, gr = grid.getBoundingClientRect(), cr = cell.getBoundingClientRect();
+        const row = [...grid.children].filter(c => Math.round(c.getBoundingClientRect().top) === Math.round(cr.top));
+        const l = Math.min(...row.map(c => c.getBoundingClientRect().left)), r = Math.max(...row.map(c => c.getBoundingClientRect().right));
+        return Math.abs((l + r) / 2 - (gr.left + gr.right) / 2);
+      };
+      const morph = document.querySelector('.morph-combo-row').getBoundingClientRect(), dur = document.getElementById('morphDur').closest('.knob-cell').getBoundingClientRect();
+      return {
+        thickFade: top('pThick') === top('pFadeEdge'),
+        scaleRotation: top('pZoom') === top('pRotation'),
+        offset: top('pOffX') === top('pOffY'),
+        disorderJitter: top('rDisorder') === top('pJitter'),
+        centeredPairs: ['pZoom', 'pOffX', 'rDisorder'].map(rowCenter),
+        morphSameRow: Math.abs((morph.top + morph.bottom) / 2 - (dur.top + dur.bottom) / 2) < 20,
+        morphSliderWidth: document.getElementById('morphSlider').getBoundingClientRect().width,
+      };
+    });
+    assert.ok(grouped.thickFade && grouped.scaleRotation && grouped.offset && grouped.disorderJitter, JSON.stringify(grouped));
+    assert.ok(grouped.centeredPairs.every(x => x < 2), 'two-knob rows centered ' + grouped.centeredPairs.join());
+    assert.ok(grouped.morphSameRow && grouped.morphSliderWidth <= 120, 'morph duration shares shortened slider row ' + JSON.stringify(grouped));
 
     // 3. Drag: pLines up = more lines, real handler (upP -> vLines, layer params), change on release.
     await page.evaluate(() => { window.__ev = []; const el = document.getElementById('pLines'); el.addEventListener('input', () => __ev.push('input')); el.addEventListener('change', () => __ev.push('change')); });

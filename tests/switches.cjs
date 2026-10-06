@@ -76,6 +76,27 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
     });
     assert.ok(overflow.scroll <= 1, 'sidebar has no horizontal scroll: ' + JSON.stringify(overflow));
     assert.deepEqual(overflow.offenders, []);
+    const chips = await page.evaluate(() => {
+      const row = document.querySelector('#panelPresets .preset-actions'), rr = row.getBoundingClientRect(), buttons = [...row.querySelectorAll('.mbtn')];
+      const active = getComputedStyle(document.querySelector('#panelAppear .mbtn.on'));
+      const inactive = getComputedStyle(document.querySelector('#panelAppear .mbtn:not(.on)'));
+      return {
+        presetButtons: buttons.length,
+        presetOneLine: new Set(buttons.map(b => Math.round(b.getBoundingClientRect().top))).size === 1,
+        presetOverflow: buttons.some(b => { const r = b.getBoundingClientRect(); return r.left < rr.left - 1 || r.right > rr.right + 1; }),
+        activeBg: active.backgroundColor,
+        activeBorder: active.borderTopColor,
+        inactiveBg: inactive.backgroundColor,
+        inactiveBorder: inactive.borderTopColor,
+        inactiveRadius: parseFloat(inactive.borderTopLeftRadius),
+      };
+    });
+    assert.equal(chips.presetButtons, 7, 'preset action buttons in one row');
+    assert.ok(chips.presetOneLine && !chips.presetOverflow, 'preset actions fit: ' + JSON.stringify(chips));
+    const activeBg = rgb(chips.activeBg), inactiveBg = rgb(chips.inactiveBg);
+    assert.ok(activeBg[1] > 170 && activeBg[0] < 40, 'active chip filled green: ' + chips.activeBg);
+    assert.ok(inactiveBg.every(v => v >= 20 && v <= 45), 'inactive chip is dark filled: ' + chips.inactiveBg);
+    assert.ok(/rgba\(255, 255, 255, 0\.0/.test(chips.inactiveBorder) && chips.inactiveRadius >= 5, 'inactive chip has subtle border/radius: ' + JSON.stringify(chips));
     assert.deepEqual(errors, []);
     console.log(`switches: PASS (${census.stats.switches} switches; skipped ${census.stats.skipped.join('; ')})`);
   } finally { await t.close(); }
