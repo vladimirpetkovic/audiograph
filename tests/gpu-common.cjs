@@ -37,7 +37,7 @@ async function open({ headless = process.env.AUDIOGRAPH_HEADED ? false : true, v
     context.on('page', page => page.on('pageerror', e => errors.push(e.message)));
     await context.route('https://fonts.googleapis.com/**', route => route.abort());
     const page = await context.newPage();
-    await page.goto(`http://127.0.0.1:${server.address().port}/${query}`);
+    await page.goto(process.env.AUDIOGRAPH_GPU_URL || `http://127.0.0.1:${server.address().port}/${query}`);
     await page.locator('#fileInput').setInputFiles(audioFile());
     await page.waitForFunction(() => audioBuffer && audio && source);
     return { browser, server, page, errors, async close() { try { await browser.close(); } finally { server.close(); } } };

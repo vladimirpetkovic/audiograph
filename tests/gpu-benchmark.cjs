@@ -3,6 +3,7 @@
 // renderDensity() (CPU submit) and time until the frame is complete (1x1 readback flush), plus
 // playback animLoop cost and frame cadence. Usage: node gpu-benchmark.cjs [--quick]
 const { open, deterministic } = require('./gpu-common.cjs');
+const assert = require('node:assert/strict');
 
 const quick = process.argv.includes('--quick');
 const WARM = quick ? 5 : 15, SAMPLES = quick ? 12 : 40, PLAY_MS = quick ? 1500 : 4000;
@@ -64,15 +65,22 @@ async function playback(page, mode) {
     const env = await s.page.evaluate(() => { agGpu.ensure(); const st = agGpu.stats(); return { renderer: st.renderer, timerQuery: st.timerQuery, ua: navigator.userAgent, dpr: devicePixelRatio, size: frameCv.width + 'x' + frameCv.height }; });
     console.log(`GPU: ${env.renderer}\nUA: ${env.ua}\nDPR ${env.dpr}, preview canvas ${env.size}; warm-up ${WARM}, samples ${SAMPLES}; times in ms (median / p90)`);
     console.log('EXT_disjoint_timer_query_webgl2:', env.timerQuery ? 'exposed (not used: async results cannot be attributed per frame here)' : 'unavailable');
-    console.log('workload'.padEnd(36) + 'canvas cpu   gpu cpu | canvas done  gpu done | speedup(done) | GPU/compat layers');
+    console.log('workload'.padEnd(36) + 'canvas cpu   gpu cpu | canvas done  gpu done  auto done | GPU/Auto speedup(done) | GPU/compat layers');
     const rows = [];
     for (const w of [...synthetic, ...presets.map(p => ({ name: 'preset ' + p, preset: p }))]) {
       if (w.preset) await deterministic(s.page, await s.page.evaluate(p => builtinPresets[p], w.preset)); else await scene(s.page, w);
-      const c = await measure(s.page, 'canvas'), g = await measure(s.page, 'gpu');
+      const c = await measure(s.page, 'canvas'), g = await measure(s.page, 'gpu'), a = await measure(s.page, 'auto');
       const sp = q(c.total, .5) / q(g.total, .5);
-      rows.push({ w: w.name, sp });
-      console.log(w.name.padEnd(36) + `${f(q(c.cpu, .5))}/${f(q(c.cpu, .9))} ${f(q(g.cpu, .5))}/${f(q(g.cpu, .9))} | ${f(q(c.total, .5))} ${f(q(g.total, .5))} | ${sp.toFixed(2)}x | ${g.gpu}/${g.compat} ${JSON.stringify(g.reasons)}`);
+      rows.push({ w: w.name, sp, autoSpeedup: q(c.total, .5) / q(a.total, .5) });
+      console.log(w.name.padEnd(36) + `${f(q(c.cpu, .5))}/${f(q(c.cpu, .9))} ${f(q(g.cpu, .5))}/${f(q(g.cpu, .9))} | ${f(q(c.total, .5))} ${f(q(g.total, .5))} ${f(q(a.total, .5))} | ${sp.toFixed(2)}x/${(q(c.total, .5) / q(a.total, .5)).toFixed(2)}x | ${g.gpu}/${g.compat} ${JSON.stringify(g.reasons)}`);
       if (process.env.AG_DETAIL) console.log(`   gpu record ${g.rec.toFixed(2)} render ${g.ren.toFixed(2)} (blit ${g.blit.toFixed(2)})`);
+    }
+    if (process.argv.includes('--assert-speedup')) {
+      const dots = rows.find(r => r.w === 'circle 800 dotted x3');
+      const glyphs = rows.find(r => r.w === 'spiral 800 numbers x3');
+      assert.ok(dots.sp >= 1.5 && dots.autoSpeedup >= 1.5, 'dense dots must improve at least 1.5x in forced GPU and Auto');
+      assert.ok(glyphs.sp >= 1.1 && glyphs.autoSpeedup >= 1.1, 'dense numbers must improve at least 1.1x in forced GPU and Auto');
+      console.log('PASS: completed-frame speed thresholds (dots >=1.5x, numbers >=1.1x) for forced GPU and Auto');
     }
     console.log('\nPlayback (animLoop, real audio clock) — per-frame JS cost and rAF cadence:');
     for (const p of ['cell', 'zodiac']) {

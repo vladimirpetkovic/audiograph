@@ -197,12 +197,13 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
       </label>
       <span id="outputResolutionStatus" style="font-size:.55rem;color:var(--tx3)" role="status" aria-live="polite">Open output to apply</span>
       <label class="output-resolution">Renderer
-        <select id="rendererBackend" onchange="agGpu.setMode(this.value)" title="GPU batches layer geometry on WebGL2 and automatically uses Canvas 2D for features it cannot match. Canvas 2D is the original renderer for comparison or rollback.">
+        <select id="rendererBackend" onchange="agGpu.setMode(this.value)" title="Auto accelerates dense dots and glyphs; other geometry keeps the original Canvas path. GPU forces compatible layer geometry onto WebGL2 for comparison.">
+          <option value="auto">Auto (selective GPU)</option>
           <option value="gpu">GPU (WebGL2)</option>
           <option value="canvas">Canvas 2D (original)</option>
         </select>
       </label>
-      <span id="rendererStatus" style="font-size:.55rem;color:var(--tx3)" role="status" aria-live="polite">GPU WebGL2 ready</span>
+      <span id="rendererStatus" style="font-size:.55rem;color:var(--tx3)" role="status" aria-live="polite">Auto renderer ready</span>
     </div>
     <div class="overview-wrap" id="overviewWrap"><canvas id="overviewCv"></canvas>
       <div class="crop-dim-left" id="cropDimL"></div><div class="crop-dim-right" id="cropDimR"></div>
@@ -238,6 +239,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
           <span class="map-help">Shared source layout</span>
           <button class="mbtn" onclick="projectionMap.layoutSpan('horizontal')">Horizontal</button>
           <button class="mbtn" onclick="projectionMap.layoutSpan('vertical')">Vertical</button>
+          <button class="mbtn" onclick="projectionMap.layoutSpan('seamlessCube')">Seamless cube</button>
+          <button class="mbtn" onclick="projectionMap.layoutSpan('fit')">Fit surface</button>
           <button class="mbtn" onclick="projectionMap.layoutSpan('cube')">Cube net</button>
         </div>
         <div class="map-controls" id="mapSpanMoveControls" style="display:none">
@@ -819,6 +822,10 @@ var projectionMap=(function(){
         if(!region||![region.x,region.y,region.width,region.height].every(Number.isFinite)||region.x<0||region.y<0||region.width<=0||region.height<=0||region.x+region.width>1.00000001||region.y+region.height>1.00000001||!Number.isInteger(region.rotation)||region.rotation<0||region.rotation>3)throw new Error('Span source region must fit inside the image, with rotation 0-3.');
         result.spanRegion={x:region.x,y:region.y,width:region.width,height:region.height,rotation:region.rotation};
       }
+      if(s.spanMesh!==undefined){
+        if(!validSurface({cols:s.cols,rows:s.rows,points:s.spanMesh}))throw new Error('Seamless source mesh must match the plane grid, stay inside the image, and not fold.');
+        result.spanMesh=s.spanMesh.map(function(p){return{x:p.x,y:p.y}});
+      }
       return result;
     });
     var result={version:1,enabled:value.enabled,sourceMode:mode,surfaces:surfaces};
@@ -841,11 +848,11 @@ var projectionMap=(function(){
     ['X','Y','W','H'].forEach(function(key,i){
       var input=document.getElementById('mapCrop'+key);
       input.value=+(region[['x','y','width','height'][i]]*100).toFixed(6);
-      input.disabled=profile.sourceMode==='duplicate';
+      input.disabled=profile.sourceMode==='duplicate'||(profile.sourceMode==='span'&&!!s.spanMesh);
     });
-    document.getElementById('mapCropLabel').textContent=profile.sourceMode==='span'?'Span source region (%)':'Source crop (%)';
+    document.getElementById('mapCropLabel').textContent=profile.sourceMode==='span'?(s.spanMesh?'Seamless source mesh (use Move visuals)':'Span source region (%)'):'Source crop (%)';
     document.getElementById('mapSpanLayouts').style.display=profile.sourceMode==='span'?'':'none';
-    document.getElementById('mapSpanRotationRow').style.display=profile.sourceMode==='span'?'':'none';
+    document.getElementById('mapSpanRotationRow').style.display=profile.sourceMode==='span'&&!s.spanMesh?'':'none';
     document.getElementById('mapSpanRotation').value=region.rotation||0;
     if(profile.sourceMode!=='span'||!profile.enabled||calibration)editMode='planes';
     document.getElementById('mapSpanMoveControls').style.display=profile.sourceMode==='span'?'':'none';
@@ -938,6 +945,29 @@ var projectionMap=(function(){
     else if(region.rotation===3){var old=u;u=1-v;v=old}
     return{x:region.x+u*region.width,y:region.y+v*region.height};
   }
+  function sampleSourceMesh(surface,u,v){
+    var x=Math.min(surface.cols-1,Math.floor(u*surface.cols)),y=Math.min(surface.rows-1,Math.floor(v*surface.rows));
+    var tx=u*surface.cols-x,ty=v*surface.rows-y,i=y*(surface.cols+1)+x,ids,weights;
+    if(tx>=ty){ids=[i,i+1,i+surface.cols+2];weights=[1-tx,tx-ty,ty]}
+    else{ids=[i,i+surface.cols+2,i+surface.cols+1];weights=[1-ty,tx,ty-tx]}
+    var result={x:0,y:0};
+    ids.forEach(function(id,j){result.x+=surface.spanMesh[id].x*weights[j];result.y+=surface.spanMesh[id].y*weights[j]});
+    return result;
+  }
+  function meshSourcePoint(surface,id){
+    var x=id%(surface.cols+1),y=Math.floor(id/(surface.cols+1)),stride=surface.cols+1,a,b;
+    if(y===0){a=0;b=surface.cols}
+    else if(y===surface.rows){a=surface.rows*stride;b=a+surface.cols}
+    else if(x===0){a=0;b=surface.rows*stride}
+    else if(x===surface.cols){a=surface.cols;b=surface.rows*stride+surface.cols}
+    else{return surface.spanMesh[id]}
+    var p=surface.points[id],p0=surface.points[a],p1=surface.points[b],dx=p1.x-p0.x,dy=p1.y-p0.y;
+    var t=((p.x-p0.x)*dx+(p.y-p0.y)*dy)/(dx*dx+dy*dy);
+    if(Math.hypot(p.x-p0.x-dx*t,p.y-p0.y-dy*t)>1e-7)return surface.spanMesh[id];
+    var uv0=surface.spanMesh[a],uv1=surface.spanMesh[b];
+    // Preserve linear source joins when adjacent faces use different projective edge spacing.
+    return{x:uv0.x+(uv1.x-uv0.x)*t,y:uv0.y+(uv1.y-uv0.y)*t};
+  }
   function surfaceSample(surface,index,p,fallback){
     var stride=surface.cols+1,h=homography(corners(surface)),region=spanRegion(surface,index);
     function sample(ids,inside){
@@ -951,11 +981,12 @@ var projectionMap=(function(){
       var weights=[l0,l1,l2],u=0,v=0,total=0;
       ids.forEach(function(id,i){
         var x=(id%stride)/surface.cols,y=Math.floor(id/stride)/surface.rows;
-        var weight=weights[i]/projectPoint(h,x,y).w;
-        u+=weight*x;v+=weight*y;total+=weight;
+        var weight=weights[i]/(surface.spanMesh?1:projectPoint(h,x,y).w);
+        var uv=surface.spanMesh?meshSourcePoint(surface,id):{x:x,y:y};
+        u+=weight*uv.x;v+=weight*uv.y;total+=weight;
       });
       if(total<=1e-8)return null;
-      var source=sourcePoint(region,u/total,v/total);source.triangle=ids;return source;
+      var source=surface.spanMesh?{x:u/total,y:v/total}:sourcePoint(region,u/total,v/total);source.triangle=ids;return source;
     }
     for(var y=0;y<surface.rows;y++)for(var x=0;x<surface.cols;x++){
       var i=y*stride+x;
@@ -980,20 +1011,52 @@ var projectionMap=(function(){
       {x:.5,y:.5,width:.5,height:.5,rotation:0}
     ];
     var count=profile.surfaces.length;
+    var cubeCharts=[
+      [{x:0,y:.25},{x:.5,y:0},{x:1,y:.25},{x:.5,y:.5}],
+      [{x:0,y:.25},{x:.5,y:.5},{x:.5,y:1},{x:0,y:.75}],
+      [{x:.5,y:.5},{x:1,y:.25},{x:1,y:.75},{x:.5,y:1}]
+    ];
+    var bounds={left:1,top:1,right:0,bottom:0};
+    if(kind==='fit')profile.surfaces.forEach(function(s){s.points.forEach(function(p){bounds.left=Math.min(bounds.left,p.x);bounds.top=Math.min(bounds.top,p.y);bounds.right=Math.max(bounds.right,p.x);bounds.bottom=Math.max(bounds.bottom,p.y)})});
     profile.surfaces.forEach(function(s,index){
+      delete s.spanMesh;
+      if(kind==='seamlessCube'){
+        var actual=corners(s),h=homography(actual),chart=cubeCharts[index];
+        function mix(a,b,t){return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t}}
+        function edge(i,j,u,v){
+          var p=projectPoint(h,u,v),a=actual[i],b=actual[j],dx=b.x-a.x,dy=b.y-a.y;
+          var t=((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy);
+          return mix(chart[i],chart[j],t);
+        }
+        s.spanMesh=[];
+        for(var y=0;y<=s.rows;y++)for(var x=0;x<=s.cols;x++){
+          var u=x/s.cols,v=y/s.rows,top=edge(0,1,u,0),bottom=edge(3,2,u,1),left=edge(0,3,0,v),right=edge(1,2,1,v);
+          var bilinear=mix(mix(chart[0],chart[1],u),mix(chart[3],chart[2],u),v);
+          // Shared edges use screen-linear source coordinates, even when face perspective weights differ.
+          s.spanMesh.push({x:Math.max(0,Math.min(1,top.x*(1-v)+bottom.x*v+left.x*(1-u)+right.x*u-bilinear.x)),y:Math.max(0,Math.min(1,top.y*(1-v)+bottom.y*v+left.y*(1-u)+right.y*u-bilinear.y))});
+        }
+      }else if(kind==='fit'){
+        s.spanMesh=s.points.map(function(p){return{x:(p.x-bounds.left)/(bounds.right-bounds.left),y:(p.y-bounds.top)/(bounds.bottom-bounds.top)}});
+      }
+      if(s.spanMesh)return;
       s.spanRegion=kind==='cube'?copy(cubeRegions[index]):
         kind==='vertical'?{x:0,y:index/count,width:1,height:1/count,rotation:0}:
         {x:index/count,y:0,width:1/count,height:1,rotation:0};
     });
   }
   function layoutSpan(kind){
-    if(kind!=='horizontal'&&kind!=='vertical'&&kind!=='cube'){status('Choose Horizontal, Vertical, or Cube net.',true);return}
-    if(kind==='cube'&&profile.surfaces.length!==3){status('Cube net needs exactly three planes, in Top, Front, Right order.',true);return}
-    remember();assignSpanLayout(kind);profile.sourceMode='span';
-    changed(kind==='cube'?'Cube source net applied in Top, Front, Right order. Top joins Front; Front joins Right. The Top/Right edge is the net cut.':'Shared image split '+kind+'ly in plane-list order. Alignment and custom crops are unchanged.');
+    if(['horizontal','vertical','cube','seamlessCube','fit'].indexOf(kind)<0){status('Choose a listed shared-source layout.',true);return}
+    if((kind==='cube'||kind==='seamlessCube')&&profile.surfaces.length!==3){status('Cube layouts need exactly three planes, in Top, Front, Right order.',true);return}
+    var previous=copy(profile);assignSpanLayout(kind);
+    if(profile.surfaces.some(function(s){return s.spanMesh&&!validSurface({cols:s.cols,rows:s.rows,points:s.spanMesh})})){
+      profile=previous;status('This source layout would fold. Use Fit surface or adjust the plane corners.',true);return;
+    }
+    history.push(previous);if(history.length>40)history.shift();profile.sourceMode='span';
+    changed(kind==='seamlessCube'?'Seamless cube applied: one image stretches across Top, Front and Right with no cut edge.':kind==='fit'?'Image fitted across the current surface. Source coordinates are now anchored; subsequent plane/grid moves warp the image.':kind==='cube'?'Cube source net applied in Top, Front, Right order. Top joins Front; Front joins Right. The Top/Right edge is the net cut.':'Shared image split '+kind+'ly in plane-list order. Alignment and custom crops are unchanged.');
   }
   function rotateSpan(rotation){
     if(profile.sourceMode!=='span'||!Number.isInteger(rotation)||rotation<0||rotation>3){status('Choose a listed source rotation in Span mode.',true);syncUI();return}
+    if(profile.surfaces[selected].spanMesh){status('Seamless layouts share fixed source edges. Use Move visuals, or choose a rectangular layout to edit face rotation.',true);return}
     remember();var surface=profile.surfaces[selected],region=copy(spanRegion(surface,selected));region.rotation=rotation;surface.spanRegion=region;changed('Span source rotation updated.');
   }
   function vertices(){
@@ -1004,7 +1067,8 @@ var projectionMap=(function(){
       function vertex(x,y){
         var p=s.points[y*stride+x],u=x/s.cols,v=y/s.rows,w=projectPoint(h,u,v).w;
         if(mode==='span'){
-          var source=sourcePoint(c,u,v);u=source.x;v=source.y;
+          var source=s.spanMesh?meshSourcePoint(s,y*stride+x):sourcePoint(c,u,v);u=source.x;v=source.y;
+          if(s.spanMesh)w=1;
         }else if(mode==='custom'){u=c.x+u*c.width;v=c.y+v*c.height}
         data.push((p.x*2-1)*w,(1-p.y*2)*w,w,u,1-v);
       }
@@ -1126,7 +1190,7 @@ var projectionMap=(function(){
       makeSurface('Front',3,[{x:.29,y:.29},{x:.59,y:.41},{x:.55,y:.89},{x:.285,y:.72}]),
       makeSurface('Right',3,[{x:.59,y:.41},{x:.75,y:.33},{x:.70,y:.78},{x:.55,y:.89}])
     ]};
-    assignSpanLayout('cube');
+    assignSpanLayout('seamlessCube');
     selected=0;selectedPoint=0;calibration=true;changed('Three-face starter loaded. Fit each face to your object; Undo mapping restores your previous setup.');
   }
   function rename(name){
@@ -1137,16 +1201,18 @@ var projectionMap=(function(){
   function regrid(){
     var cells=Number(document.getElementById('mapCells').value);
     if(!Number.isInteger(cells)||cells<1||cells>12){status('Choose 1-12 grid cells per side.',true);syncUI();return}
-    remember();var s=profile.surfaces[selected],c=corners(s);
-    s.cols=cells;s.rows=cells;s.points=buildPoints(c,cells,cells);selectedPoint=0;changed('Grid rebuilt from the four corners. Fine-warp offsets have been reset.');
+    remember();var s=profile.surfaces[selected],c=corners(s),mesh=null;
+    if(s.spanMesh){mesh=[];for(var y=0;y<=cells;y++)for(var x=0;x<=cells;x++)mesh.push(sampleSourceMesh(s,x/cells,y/cells))}
+    s.cols=cells;s.rows=cells;s.points=buildPoints(c,cells,cells);if(mesh)s.spanMesh=mesh;selectedPoint=0;changed('Grid rebuilt from the four corners. Fine-warp offsets have been reset.');
   }
-  function resetPlane(){remember();var s=profile.surfaces[selected],reset=makeSurface(s.name,s.cols);reset.crop=copy(s.crop);if(s.spanRegion)reset.spanRegion=copy(s.spanRegion);reset.visible=s.visible;profile.surfaces[selected]=reset;selectedPoint=0;changed('Selected plane reset.')}
+  function resetPlane(){remember();var s=profile.surfaces[selected],reset=makeSurface(s.name,s.cols);reset.crop=copy(s.crop);if(s.spanRegion)reset.spanRegion=copy(s.spanRegion);if(s.spanMesh)reset.spanMesh=copy(s.spanMesh);reset.visible=s.visible;profile.surfaces[selected]=reset;selectedPoint=0;changed('Selected plane reset.')}
   function undo(){
     if(!history.length)return;
     profile=history.pop();selected=Math.min(selected,profile.surfaces.length-1);selectedPoint=0;changed('Previous mapping restored.');
   }
   function changeCrop(){
     if(profile.sourceMode==='duplicate'){status('Switch Visuals to Span or Custom to edit a source region.',true);syncUI();return}
+    if(profile.sourceMode==='span'&&profile.surfaces[selected].spanMesh){status('Seamless source coordinates preserve shared edges. Use Move visuals, or choose Horizontal, Vertical or Cube net to edit rectangular source regions.',true);syncUI();return}
     var values=['X','Y','W','H'].map(function(key){return Number(document.getElementById('mapCrop'+key).value)/100});
     if(!values.every(Number.isFinite)||values[0]<0||values[1]<0||values[2]<=0||values[3]<=0||values[0]+values[2]>1.00000001||values[1]+values[3]>1.00000001){status('Crop X+W and Y+H must fit within 100%, with positive width and height.',true);syncUI();return}
     remember();var surface=profile.surfaces[selected],region={x:values[0],y:values[1],width:values[2],height:values[3]};
@@ -3654,7 +3720,7 @@ function _agGlyph(ctx,g,x,y,sa){if(sa){ctx.save();ctx.translate(x,y);ctx.rotate(
 function drawShapedLine(ctx,x,ly,lh,t,val){
   if(lineShape==='off')return; // "Off" — draw no base shape (used to show only the outline)
   var ss=styleSize,sd=styleDensity,sa=styleAngle;
-  if(lineShape==='dotted'){var r=t*.6*ss,g=Math.max(t*0.8,(t*2.2)/sd),y=ly;while(y<=ly+lh){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();y+=g}}
+  if(lineShape==='dotted'){if(ctx._agDotted){ctx._agDotted(x,ly,lh,t,ss,sd);return}var r=t*.6*ss,g=Math.max(t*0.8,(t*2.2)/sd),y=ly;while(y<=ly+lh){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();y+=g}}
   else if(lineShape==='dashed'){var dL=t*2.5,gL=Math.max(t*0.6,(t*1.8)/sd),y=ly,on=true;ctx.beginPath();while(y<ly+lh){var s=Math.min(on?dL:gL,ly+lh-y);if(on){ctx.moveTo(x,y);ctx.lineTo(x,y+s)}y+=s;on=!on}ctx.stroke()}
   else if(lineShape==='pins'){var r=t*1.2*ss,sw=Math.max(.5,t*.3),ow=ctx.lineWidth;ctx.lineWidth=sw;ctx.beginPath();ctx.moveTo(x,ly+r);ctx.lineTo(x,ly+lh-r);ctx.stroke();ctx.lineWidth=ow;ctx.beginPath();ctx.arc(x,ly+r,r,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x,ly+lh-r,r,0,Math.PI*2);ctx.fill()}
   else if(lineShape==='tapered'){var _hw=t*.6*ss;ctx.beginPath();ctx.moveTo(x-_hw,ly+lh);ctx.lineTo(x+_hw,ly+lh);ctx.lineTo(x,ly);ctx.closePath();ctx.fill()}
@@ -4695,14 +4761,13 @@ function applyDropDecay(){
 
 // --- DENSITY DRAW ---
 // ===== v30 GPU geometry renderer (WebGL2) =====
-// Layout code runs unchanged against a recording context that tessellates its paths into one
-// batched WebGL2 draw per layer. Anything it cannot reproduce faithfully (text, images, gradients,
-// dashes, clipping, holes, non-uniform stroke scale) aborts the attempt and that layer is drawn by
-// the original Canvas 2D code instead, with the reason shown in the renderer status.
+// Compatible layout geometry is batched in WebGL2, with analytic dots/caps and a glyph atlas.
+// Auto keeps expensive general path tessellation on Canvas; forced GPU mode allows comparison.
+// Unsupported drawing operations fall back per layer, with the reason in the renderer status.
 var agGpu=(function(){
-  var TAU=Math.PI*2,STORE='audiograph_renderer',mode='gpu';
+  var TAU=Math.PI*2,STORE='audiograph_renderer',mode='auto';
   try{var qm=new URLSearchParams(location.search).get('renderer'),sm=localStorage.getItem(STORE);
-    if(qm==='gpu'||qm==='canvas')mode=qm;else if(sm==='gpu'||sm==='canvas')mode=sm}catch(e){}
+    if(qm==='auto'||qm==='gpu'||qm==='canvas')mode=qm;else if(sm==='auto'||sm==='gpu'||sm==='canvas')mode=sm}catch(e){}
   var tex=null,cv=null,gl=null,prog=null,vao=null,vbo=null,uRes=null,loseExt=null,lost=false,unavailable='',cvW=0,cvH=0,maxDim=0;
   var MAX_PIXELS=4096*4096,Z_STEP=2.4e-7,MAX_OPS=8e6;
   var stats={recordMs:0,renderMs:0,blitMs:0,frames:0,gpuLayers:0,compatLayers:0,drawCalls:0,vertices:0,contextLosses:0,restores:0,reasons:{}};
@@ -4835,8 +4900,22 @@ var agGpu=(function(){
   var rings={},segsK=[];
   function ringK(r){var q=Math.min(4000,Math.round(r*4)),k=segsK[q];if(!k){k=Math.max(8,Math.min(96,arcSegs(Math.max(q,1)/4,TAU)));k+=k&1;segsK[q]=k}return k}
   function ring(k){var t=rings[k];if(!t){t=new Float64Array(2*k+2);for(var i=0;i<=k;i++){t[2*i]=Math.cos(TAU*i/k);t[2*i+1]=Math.sin(TAU*i/k)}rings[k]=t}return t}
-  RP._disc=function(x,y,r,z,c){var k=ringK(r),t=ring(k),px=x+r,py=y;
-    for(var i=1;i<=k;i++){var nx=x+r*t[2*i],ny=y+r*t[2*i+1];this._tri(x,y,px,py,nx,ny,z,c);px=nx;py=ny}};
+  RP._roundQuad=function(x,y,ax,ay,bx,by,half,z,c){
+    if(this.n+6>this.cap)this._alloc(this.cap*2);
+    var y0=half?0:-1;
+    var p0x=x-ax+bx*y0,p0y=y-ay+by*y0,p1x=x+ax+bx*y0,p1y=y+ay+by*y0;
+    var p2x=x+ax+bx,p2y=y+ay+by,p3x=x-ax+bx,p3y=y-ay+by;
+    this._vt(p0x,p0y,z,c,-3.49,y0*.49);this._vt(p1x,p1y,z,c,-2.51,y0*.49);this._vt(p2x,p2y,z,c,-2.51,.49);
+    this._vt(p0x,p0y,z,c,-3.49,y0*.49);this._vt(p2x,p2y,z,c,-2.51,.49);this._vt(p3x,p3y,z,c,-3.49,.49);
+  };
+  RP._disc=function(x,y,r,z,c){this._roundQuad(x,y,r,0,0,r,false,z,c)};
+  RP._agDotted=function(x,y,length,width,size,density){
+    var col=this._col(this._fs,1);if(!col)return;
+    var r=width*.6*size,gap=Math.max(width*.8,width*2.2/density),end=y+length;
+    var ax=this.a*r,ay=this.b*r,bx=this.c*r,by=this.d*r;
+    for(;y<=end;y+=gap)this._roundQuad(this.a*x+this.c*y+this.e,this.b*x+this.d*y+this.f,ax,ay,bx,by,false,this._z(),col);
+    this.beginPath();
+  };
   // Pie slice of radius r from unit vector u to unit vector v (shorter way round).
   RP._wedge=function(x,y,r,ux,uy,vx,vy,z,c){var dt=Math.max(-1,Math.min(1,ux*vx+uy*vy)),th=Math.acos(dt);if(th<1e-6)return;
     var m=Math.max(1,Math.ceil(th*ringK(r)/TAU)),st=(ux*vy-uy*vx<0?-th:th)/m,cs=Math.cos(st),sn=Math.sin(st),ax=ux,ay=uy;
@@ -4857,8 +4936,8 @@ var agGpu=(function(){
     if(this._lj==='miter'){var mx=n0x+n1x,my=n0y+n1y,ml=Math.sqrt(mx*mx+my*my);if(ml<1e-9)return;mx/=ml;my/=ml;var cs=mx*n0x+my*n0y;
       if(cs>1e-9&&1/cs<=this._ml){var L=hw/cs;this._tri(p0x,p0y,x+sg*mx*L,y+sg*my*L,p1x,p1y,z,c)}}};
   RP._cap=function(x,y,dx,dy,hw,z,c){var L=Math.sqrt(dx*dx+dy*dy);
-    if(this._lc==='round'){if(!L){this._disc(x,y,hw,z,c);return}var ux=dx/L*hw,uy=dy/L*hw,k=ringK(hw),t=ring(k),h=k>>1,px=x-uy,py=y+ux;
-      for(var i=1;i<=h;i++){var co=t[2*i],si=t[2*i+1],nx=x-uy*co+ux*si,ny=y+ux*co+uy*si;this._tri(x,y,px,py,nx,ny,z,c);px=nx;py=ny}}
+    if(this._lc==='round'){if(!L){this._disc(x,y,hw,z,c);return}var ux=dx/L*hw,uy=dy/L*hw;
+      this._roundQuad(x,y,-uy,ux,ux,uy,true,z,c)}
     else if(this._lc==='square'&&L)this._quad(x,y,x+dx/L*hw,y+dy/L*hw,hw,z,c)};
   RP.stroke=function(path){if(path!==undefined)no('Path2D stroke');if(!this.sub.length)return;
     var a=this.a,b=this.b,c=this.c,d=this.d,sa=a*a+b*b,sc=c*c+d*d,eps=1e-6*Math.max(sa,sc)+1e-12;
@@ -4922,7 +5001,12 @@ var agGpu=(function(){
     try{
       if(!cv){cv=document.createElement('canvas');cv.width=cv.height=1;
         cv.addEventListener('webglcontextlost',function(e){e.preventDefault();lost=true;prog=null;stats.contextLosses++;status(true);if(typeof playing!=='undefined'&&!playing&&!liveMode)setTimeout(renderDensity,0)});
-        cv.addEventListener('webglcontextrestored',function(){lost=false;if(build()){stats.restores++}status(true);if(typeof playing!=='undefined'&&!playing&&!liveMode)setTimeout(renderDensity,0)});
+        cv.addEventListener('webglcontextrestored',function(){
+          lost=false;
+          try{if(build()){unavailable='';stats.restores++}}
+          catch(e){prog=null;unavailable='WebGL2 restore failed: '+e.message}
+          status(true);if(typeof playing!=='undefined'&&!playing&&!liveMode)setTimeout(renderDensity,0);
+        });
         gl=cv.getContext('webgl2',{alpha:true,premultipliedAlpha:true,antialias:true,depth:true,stencil:false,preserveDrawingBuffer:true,powerPreference:'high-performance'})}
       if(!gl){unavailable='WebGL2 unavailable';return false}
       loseExt=gl.getExtension('WEBGL_lose_context');return build();
@@ -4932,7 +5016,7 @@ var agGpu=(function(){
     function sh(t,src){var s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s}
     var p=gl.createProgram();
     gl.attachShader(p,sh(gl.VERTEX_SHADER,'#version 300 es\nlayout(location=0) in vec3 aPos;layout(location=1) in vec4 aCol;layout(location=2) in vec2 aUV;uniform vec2 uRes;out vec4 vCol;out vec2 vUV;void main(){vec2 c=aPos.xy/uRes*2.0-1.0;gl_Position=vec4(c.x,-c.y,aPos.z,1.0);vCol=aCol;vUV=aUV;}'));
-    gl.attachShader(p,sh(gl.FRAGMENT_SHADER,'#version 300 es\nprecision mediump float;uniform sampler2D uTex;in vec4 vCol;in vec2 vUV;out vec4 o;void main(){float a=vCol.a*(vUV.x<-0.5?1.0:texture(uTex,vUV).a);o=vec4(vCol.rgb*a,a);}'));
+    gl.attachShader(p,sh(gl.FRAGMENT_SHADER,'#version 300 es\nprecision highp float;uniform sampler2D uTex;in vec4 vCol;in vec2 vUV;out vec4 o;void main(){float coverage=1.0;if(vUV.x<-1.5){vec2 p=vec2(vUV.x+3.0,vUV.y)/0.49;float d=length(p);coverage=clamp((1.0-d)/max(fwidth(d),0.0001)+0.5,0.0,1.0);if(coverage<=0.0)discard;}else if(vUV.x>=-0.5){coverage=texture(uTex,vUV).a;if(coverage<=0.0)discard;}float a=vCol.a*coverage;o=vec4(vCol.rgb*a,a);}'));
     gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));
     prog=p;uRes=gl.getUniformLocation(p,'uRes');vao=gl.createVertexArray();gl.bindVertexArray(vao);vbo=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
     gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,4,gl.UNSIGNED_BYTE,true,24,12);gl.enableVertexAttribArray(2);gl.vertexAttribPointer(2,2,gl.FLOAT,false,24,16);
@@ -4957,7 +5041,8 @@ var agGpu=(function(){
   function compat(reason,ctx,W,H,values,p,forExport){cur.compat++;stats.compatLayers++;stats.reasons[reason]=(stats.reasons[reason]||0)+1;
     if(cur.reasons.indexOf(reason)<0)cur.reasons.push(reason);return drawDensity(ctx,W,H,values,p,forExport)}
   function draw(ctx,W,H,values,p,forExport){
-    if(mode!=='gpu')return compat('Canvas 2D selected',ctx,W,H,values,p,forExport);
+    if(mode==='canvas')return compat('Canvas 2D selected',ctx,W,H,values,p,forExport);
+    if(mode==='auto'&&(p.lines<128||['dotted','numbers','symbols','words'].indexOf(lineShape)<0))return compat('Auto: general geometry on Canvas 2D',ctx,W,H,values,p,forExport);
     if(!prog&&!lost&&!unavailable)init();
     if(unavailable)return compat(unavailable,ctx,W,H,values,p,forExport);
     if(lost||!prog||gl.isContextLost())return compat('GPU context lost',ctx,W,H,values,p,forExport);
@@ -4972,18 +5057,19 @@ var agGpu=(function(){
     cur.gpu++;stats.gpuLayers++;return res}
   function particlesActive(){if(particlesOn)return true;if(typeof stackLayouts!=='undefined')for(var i=0;i<stackLayouts.length;i++)if(stackLayouts[i].params&&stackLayouts[i].params._particlesOn)return true;return false}
   function text(){
-    if(mode!=='gpu')return{t:'Canvas 2D (original)',tip:'Original Canvas 2D renderer selected. Choose GPU to batch layer geometry on WebGL2.'};
+    if(mode==='canvas')return{t:'Canvas 2D (original)',tip:'Original Canvas 2D renderer selected. Auto selectively accelerates dense dots and glyphs; GPU forces compatible geometry for comparison.'};
     if(unavailable)return{t:'Canvas 2D fallback: '+unavailable,tip:unavailable};
     if(lost)return{t:'GPU context lost: Canvas 2D fallback',tip:'WebGL2 context lost; drawing with Canvas 2D until the browser restores it.'};
     var L=last,tot=L.gpu+L.compat,s;
     if(!tot)s='GPU WebGL2 ready';else if(!L.compat)s='GPU WebGL2: '+L.gpu+'/'+tot+' layer'+(tot>1?'s':'');
     else s='GPU '+L.gpu+'/'+tot+' layers; Canvas 2D: '+L.reasons.join(', ');
     if(particlesActive())s+=' (particles Canvas 2D)';
+    if(mode==='auto')s='Auto: '+s;
     return{t:s,tip:s+'. Symmetry, flip, mirror and layer compositing stay Canvas 2D; post-FX and mapping are WebGL. Device: '+(stats.renderer||'n/a')}}
   function status(force){var now=performance.now();if(!force&&now-statusAt<300)return;statusAt=now;var el=document.getElementById('rendererStatus');if(!el)return;var o=text();
     if(el.textContent!==o.t)el.textContent=o.t;if(el.title!==o.tip)el.title=o.tip;var sel=document.getElementById('rendererBackend');if(sel&&sel.value!==mode)sel.value=mode}
   function beginFrame(){if(cur.gpu||cur.compat){last=cur;cur={gpu:0,compat:0,reasons:[]}}stats.frames++;status(false)}
-  function setMode(m){if(m!=='gpu'&&m!=='canvas')return;mode=m;compatUntil={};try{localStorage.setItem(STORE,m)}catch(e){}last={gpu:0,compat:0,reasons:[]};cur={gpu:0,compat:0,reasons:[]};
+  function setMode(m){if(m!=='auto'&&m!=='gpu'&&m!=='canvas'){_toast('Unknown renderer. Choose Auto, GPU or Canvas 2D.');return}mode=m;compatUntil={};try{localStorage.setItem(STORE,m)}catch(e){_toast('Renderer choice cannot be saved: '+e.message)}last={gpu:0,compat:0,reasons:[]};cur={gpu:0,compat:0,reasons:[]};
     if(typeof playing!=='undefined'&&!playing&&!liveMode)renderDensity();status(true)}
   return{draw:draw,beginFrame:beginFrame,setMode:setMode,getMode:function(){return mode},status:function(){return text().t},
     stats:function(){var o=JSON.parse(JSON.stringify(stats));o.mode=mode;o.lost=lost;o.unavailable=unavailable;o.last=JSON.parse(JSON.stringify(last.gpu||last.compat?last:cur));return o},
@@ -7759,8 +7845,9 @@ try{loadFromHash()}catch(e){}
 <div class="help-section">
 <h3>Duplicate or Span Visuals</h3>
 <p>In <strong>Setup mapping</strong>, choose the <strong>Visuals</strong> mode. <strong>Duplicate on each plane</strong> shows the complete artwork independently on every face. <strong>Span / overflow across planes</strong> spreads portions of one shared image over the faces using a source layout, deforming each portion rather than restarting the complete image.</p>
-<p>Span now divides a shared source image into plane regions and <strong>warps those regions through each plane's corners and fine grid</strong>. Choose <strong>Horizontal</strong> or <strong>Vertical</strong> to allocate equal regions in plane-list order. <strong>Cube net</strong> uses Top, Front, Right order and rotates the Top region to join the Front; Front joins Right. Top/Right is the cut edge of this unfolded net. All three faces cannot form a seamless flat net without a cut.</p>
-<p>Edit <strong>Span source region (%)</strong> and <strong>Source rotation</strong> per plane for your own surface arrangement. Moving destination corners/grid points deforms the image without moving its source region. Hidden planes retain their allocation; areas outside planes stay black. Adding/removing planes changes implicit allocations; apply a layout again after changing the plane list. This is a source layout you align to the object, not automatic 3D reconstruction.</p>
+<p>For a box with Top, Front and Right faces, choose <strong>Seamless cube</strong>: one image stretches across all three visible faces, sharing source coordinates along every common edge. The 3-face starter uses this layout by default. This is a continuous, deliberately stretched source chart, not three rectangular crops or a physical unfolded cube net. Fine-mesh triangles warp the chart with your calibrated geometry. Shared edges must align physically; source continuity cannot hide a gap or overlap in calibration.</p>
+<p><strong>Fit surface</strong> fits the image to the current mapped bounds and anchors a continuous source mesh there; subsequent corner/grid edits deform that anchored artwork. Use it for arrangements other than a three-face cube. <strong>Horizontal</strong> and <strong>Vertical</strong> retain equal rectangular source allocations in plane-list order. Legacy <strong>Cube net</strong> keeps its unfolded rectangular regions with an intentional Top/Right cut.</p>
+<p>Rectangular layouts expose <strong>Span source region (%)</strong> and <strong>Source rotation</strong>. Seamless meshes lock those per-face controls to avoid breaking their common edges; use <strong>Move visuals</strong> to reposition the shared image. Switching to a rectangular layout restores region editing. Hidden planes retain their allocation; areas outside planes stay black. Save/export/import preserves the source mesh as well as geometry and image position. This is a source layout you align to the object, not automatic 3D reconstruction.</p>
 <p><strong>Double-click a visible face</strong> in the editor to select it without the dropdown. Where faces overlap, the topmost visible face is selected. Hidden faces can still be selected from the list.</p>
 <p>In Span mode, choose <strong>Move visuals</strong> and drag inside any face. The entire shared image slides across the source net, preserving plane corners, fine warps, crops and source joins. Dragging follows that face's perspective, mesh and source rotation. Geometry is locked, including Shift-drag; switch to <strong>Adjust planes</strong> to recalibrate. Arrow keys nudge the image (Shift: ten output pixels). Image X/Y gives a precise shared offset, limited to +/-100% of the source. Beyond the image edges, mapped pixels are black rather than stretched.</p>
 <p><strong>Reset position</strong> restores the original artwork position without resetting alignment. Mapping Undo, Save, Export and Import retain the offset. Switching Visuals modes preserves it but applies it only to Span. Test grid ignores the offset and returns to Adjust planes; entering Move visuals turns Test grid off.</p>
@@ -7773,7 +7860,8 @@ try{loadFromHash()}catch(e){}
 <p>Choose <strong>Output resolution</strong> beside the transport before or after opening the projection window. <strong>Auto</strong> follows the window size and the existing device-pixel-ratio cap. <strong>720p / 1080p / 1440p / 4K</strong> use exactly 1280 &times; 720, 1920 &times; 1080, 2560 &times; 1440, or 3840 &times; 2160 pixels, regardless of screen DPI or fullscreen/window size.</p>
 <p>Fixed modes render a 16:9 composition, scaled to fit the output without stretching; non-16:9 displays have black bars. The laptop preview shows the same composition. Start with <strong>720p</strong> for demanding presets, or <strong>1080p</strong> for a balance of quality and performance. 4K uses four times as many pixels as 1080p.</p>
 <p>The selector applies only while output is open; closing it returns to normal laptop-preview sizing. Your choice remains for reopening during this session and is independent of visual and mapping presets. Resolution changes are locked during recording. Recording with fixed output uses the selected pixel size. Check mapping alignment after any aspect-ratio change.</p>
-<p><strong>Renderer</strong> (beside Output resolution) chooses how layer geometry is drawn. <strong>GPU (WebGL2)</strong> runs each layer's layout through a recorder that turns its lines, dots and shapes into one batched WebGL2 draw, with antialiasing and the same caps, joins, opacity and colors. Whenever a layer needs something the GPU path cannot match yet, such as text styles, image/video/text layouts, gradient fills, dashed or dotted outlines, or holes, that layer automatically uses the original Canvas 2D drawing. The status shows how many layers used the GPU and why any used Canvas 2D. Particles, symmetry, flip, mirror and layer compositing remain Canvas 2D; post-FX and mapping were already WebGL. PNG/SVG export uses the CPU path. If the browser loses the GPU context, rendering switches to Canvas 2D until it is restored. <strong>Canvas 2D (original)</strong> uses the v29 renderer throughout; the choice is remembered on this device.</p>
+<p><strong>Renderer</strong> beside Output resolution defaults to <strong>Auto (selective GPU)</strong>: dense dotted, number, symbol and word layers use WebGL2; other geometry stays Canvas 2D to avoid extra JavaScript tessellation cost. Dots and round caps use analytic GPU shaders; glyphs use a cached texture atlas. <strong>GPU (WebGL2)</strong> forces all compatible geometry for comparison, but may be slower for some presets. Unsupported features fall back per layer, including image/video/text layouts, gradients, clipping and shadows. Status reports GPU/Canvas layers and fallback reasons.</p>
+<p>Particles, symmetry, flip, mirror, layer composition and PNG/SVG export retain their original paths. Post-FX and mapping remain WebGL. Context loss falls back to Canvas until restoration. <strong>Canvas 2D (original)</strong> is available for comparison/rollback. Renderer choice is remembered locally; this first-stage migration does not promise that every preset or resolution is faster.</p>
 <p>A faster GPU helps post-FX and mapping, but complex geometry and particles also depend on CPU performance. Keep browser hardware acceleration enabled. Fixed output resolution limits pixel workload; it does not guarantee a particular frame rate.</p>
 </div>
 

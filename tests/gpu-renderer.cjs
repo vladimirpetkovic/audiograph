@@ -9,8 +9,10 @@ async function run() {
   const s = await open();
   const { page, errors } = s;
   try {
+    assert.equal(await page.evaluate(() => agGpu.getMode()), 'auto', 'selective Auto is the safe default');
+    await page.evaluate(() => agGpu.setMode('gpu'));
     const info = await page.evaluate(() => ({ status: agGpu.status(), stats: agGpu.stats(), sel: document.getElementById('rendererBackend').value }));
-    assert.equal(info.sel, 'gpu', 'GPU is the default backend');
+    assert.equal(info.sel, 'gpu', 'explicit GPU backend');
     assert.equal(info.stats.mode, 'gpu');
     assert.ok(info.stats.renderer, 'WebGL2 renderer string is reported');
     console.log(`build ${build}; renderer: ${info.stats.renderer}`);
@@ -33,6 +35,33 @@ async function run() {
       const bg = g.data.slice(0, 3);
       assert.ok(inked(g, bg) > 0.005, `${name}: GPU frame is not blank`);
     }
+
+    for (const shape of ['dotted', 'numbers', 'symbols', 'words']) {
+      await page.evaluate(shape => {
+        const st = getState(), layer = st.stackLayouts[0];
+        st.stackLayouts = [{ layout: 'circle', opacity: 100, params: {
+          ...layer.params, _lines: 300, _lineShape: shape, _thick: 2,
+          _showOutline: false, _particlesOn: false
+        } }];
+        st.activeLayerIdx = 0; st.sliders.pLines = 300; applyState(st); presetLockFrames = 0;
+      }, shape);
+      await deterministic(page);
+      const c = await frame(page, 'canvas'), g = await frame(page, 'gpu'), a = await frame(page, 'auto');
+      const delta = diff(c, g);
+      console.log(`${shape} analytic/atlas parity mean ${delta.mean.toFixed(2)}, big ${(delta.big * 100).toFixed(2)}%`);
+      assert.ok(delta.mean <= MEAN_TOL && delta.big <= BIG_TOL, `${shape}: original drawing parity`);
+      assert.ok(a.stats.drawCalls > 0 && a.stats.gpuLayers > 0, `${shape}: Auto uses actual GPU drawing`);
+      assert.ok(diff(g, a).mean < .1, `${shape}: Auto matches forced GPU`);
+    }
+    await deterministic(page, await page.evaluate(() => builtinPresets.zodiac));
+    await page.evaluate(() => {
+      stackLayouts.forEach(layer => { layer.params._lineShape = 'straight'; });
+      lineShape = 'straight'; renderDensity();
+    });
+    const auto = await frame(page, 'auto'), canvas = await frame(page, 'canvas');
+    assert.equal(auto.stats.drawCalls, 0, 'Auto keeps general geometry on original path');
+    assert.equal(diff(auto, canvas).mean, 0, 'Auto general geometry preserves exact baseline');
+    assert.match(auto.status, /Auto:/);
 
     // Dynamic: frames change over time on the GPU path.
     await page.evaluate(() => { agGpu.setMode('gpu'); if (!playing) togglePlay(); });

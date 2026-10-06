@@ -202,7 +202,9 @@ In **Visuals → Span**, choose **Move visuals** and drag inside any face. This 
 
 ## GPU Renderer Preview (v30)
 
-**[Try v30](versions/audiograph_30.html)**. Adds a WebGL2 geometry renderer for layer drawing. Layout code is unchanged. Its Canvas 2D calls (paths, lines, arcs, curves, dashes, solid fills and text) are recorded, tessellated with real caps and joins, and drawn in one MSAA WebGL2 batch per layer. Glyphs come from an internal atlas. **Settings → Renderer** switches between **GPU (WebGL2)** and **Canvas 2D (original)**. The choice is remembered, and `?renderer=canvas|gpu` overrides it. The status text next to the switch shows how many layers ran on the GPU, plus the reason for any layer that used Canvas 2D.
+**[Try v30](versions/audiograph_30.html)**. Adds a WebGL2 geometry renderer for layer drawing. Layout formulas remain compatible. Dense dots go directly to GPU analytic circle quads instead of generating circle triangles in JavaScript; round stroke caps use the same shader path. Numbers/symbols/words use a cached glyph atlas. Other compatible paths can be recorded/tessellated into one WebGL2 batch per layer.
+
+**Renderer** beside Output resolution defaults to **Auto (selective GPU)**: dense dotted/glyph layers (at least 128 lines) use WebGL2; other geometry keeps the original Canvas path to avoid JavaScript tessellation regressions. This is a conservative workload policy, not a per-device adaptive benchmark. **GPU (WebGL2)** forces compatible geometry for comparison; **Canvas 2D (original)** is the compatibility/rollback option. The choice is remembered, and `?renderer=auto|canvas|gpu` overrides it. Status reports which layers ran on GPU and why other layers used Canvas.
 
 The following automatically fall back to the original Canvas 2D code for that layer:
 
@@ -213,7 +215,28 @@ The following automatically fall back to the original Canvas 2D code for that la
 - Unusual blend modes
 - Very large layers
 
-If the browser drops the GPU context, every layer draws with Canvas 2D until the context is restored, and the status says so. Particles, symmetry and flip/mirror, layer compositing, PNG/SVG export and the vector SVG path are still Canvas 2D. Post-FX and projection mapping were already WebGL and are unchanged. Gains depend on the workload. On an Apple M2 Max in headless Chrome 154 at 1146×778, completed frames were about 1.5× faster for dense dotted circles and numbers. Some builtin presets were 15–25% slower because JavaScript tessellation costs more than Canvas 2D there. Run `tests/gpu-benchmark.cjs` on your hardware. v30 also caches per-frame audio-level analysis, which makes both renderers faster. Main v22 and earlier previews are unchanged.
+If the browser drops the GPU context, drawing continues with Canvas 2D until restoration; status reports the fallback. Particles, symmetry/flip/mirror, layer compositing and PNG/SVG export remain on the original Canvas/vector paths. Post-FX and mapping remain WebGL. This is the first acceleration stage, not a fully GPU-resident renderer or GPU particle simulation.
+
+Performance is workload-dependent. On Apple M2 Max / headless Chrome 154 / ANGLE Metal at 1146x778, 15 warm-up frames and 40 measured frames gave these completed-frame medians (including a readback flush):
+
+| Scene | Canvas 2D | Forced GPU | Auto |
+| --- | ---: | ---: | ---: |
+| 800 dotted circles, 3 layers | 65.4 ms | 11.4 ms | 11.5 ms |
+| 800 numbers, 3 spiral layers | 12.2 ms | 7.8 ms | 7.9 ms |
+| cell preset | 13.9 ms | 16.5 ms | 14.4 ms |
+| sacred_circle preset | 10.9 ms | 12.8 ms | 8.9 ms |
+| zodiac preset | 8.8 ms | 10.5 ms | 9.7 ms |
+| organica preset | 9.0 ms | 12.1 ms | 9.5 ms |
+
+Dense dots improved about 5.7x and numbers about 1.5x in this run. Builtin results are mixed: forced generic tessellation can be slower, and Auto is not guaranteed to improve every preset. Normal cell/zodiac playback remained display-limited around 60 Hz on both forced backends; that is not a promise of 60 FPS at 4K or on another machine.
+
+Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame median/p90 and playback cadence comparisons; output includes Auto and forced GPU, not just submission time. `--assert-speedup` checks dots >=1.5x and numbers >=1.1x for both GPU and Auto on the measured environment. v30 also caches audio-range analysis for both backends. Main v22 and earlier previews are unchanged.
+
+### Seamless Span correction
+
+**Seamless cube** stretches one continuous source chart across Top, Front and Right, sharing all three common edges with no cut. It is now the 3-face starter's default. **Fit surface** anchors a continuous source mesh to the current mapped bounds for other arrangements. Later corner/grid moves deform that anchored image; shared straight edges stay source-linear even with unequal face perspective.
+
+Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
 ## Quick Start
 
@@ -253,14 +276,15 @@ v27's `system-audio.cjs` checks requested picker options, audio-only capture, ca
 
 v28's `plane-interaction.cjs` uses actual double-click/drag/key events and projected GPU pixels to check visible-plane selection, overlap/mesh hit testing, shared-image movement through perspective/fine warps/rotations, geometry locking, cancellation, undo, black overflow, and profile persistence. Use `AUDIOGRAPH_INTERACTION_URL` for the published preview.
 
-To exercise all current behavior in v28 while retaining v25's archived content-mode regression:
+To exercise all current behavior in v30 while retaining v25's archived content-mode regression:
 
 ```sh
-AUDIOGRAPH_BUILD=versions/audiograph_28.html \
-AUDIOGRAPH_RESOLUTION_BUILD=versions/audiograph_28.html \
-AUDIOGRAPH_FULLSCREEN_BUILD=versions/audiograph_28.html \
-AUDIOGRAPH_SPAN_BUILD=versions/audiograph_28.html \
-AUDIOGRAPH_SYSTEM_BUILD=versions/audiograph_28.html \
+AUDIOGRAPH_BUILD=versions/audiograph_30.html \
+AUDIOGRAPH_RESOLUTION_BUILD=versions/audiograph_30.html \
+AUDIOGRAPH_FULLSCREEN_BUILD=versions/audiograph_30.html \
+AUDIOGRAPH_SPAN_BUILD=versions/audiograph_30.html \
+AUDIOGRAPH_SYSTEM_BUILD=versions/audiograph_30.html \
+AUDIOGRAPH_INTERACTION_BUILD=versions/audiograph_30.html \
 npm test
 ```
 
@@ -274,7 +298,9 @@ v30's `gpu-renderer.cjs` checks the following on the default `versions/audiograp
 - Projection and recording output
 - Backend persistence
 
-`gpu-benchmark.cjs [--quick]` times identical scenes in both backends. It reports `renderDensity` CPU time and completed-frame time (median/p90 after warm-up) and playback cadence; `AG_DETAIL=1` adds a record/render/blit breakdown.
+`gpu-benchmark.cjs [--quick] [--assert-speedup]` times identical scenes in Canvas, forced GPU and Auto. It reports `renderDensity` CPU time and completed-frame time (median/p90 after warm-up) and playback cadence; `AG_DETAIL=1` adds a record/render/blit breakdown. `AUDIOGRAPH_GPU_URL` can run renderer acceptance against a published preview.
+
+`seamless-span.cjs` measures all three cube joins with GPU source-gradient pixels, including unequal perspective, fine warping, shared-image dragging, profile validation, undo and persistence. Override with `AUDIOGRAPH_SEAM_BUILD` or `AUDIOGRAPH_SEAM_URL`.
 
 ## Keyboard
 
