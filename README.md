@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-21-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-22-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -104,6 +104,20 @@ A signature feature — smoothly blend through a **playlist** of presets:
 - **SVG** vector export
 - **Record** MP4/WebM video with audio (captures post-FX, at full resolution)
 
+## Live Projection (v22)
+
+Click **Project visuals** beside the transport to open a visuals-only window. Move it to a projector or second monitor, then click **Fullscreen**, press **F**, or double-click the visuals. Escape exits fullscreen. The output's controls and cursor hide after two seconds in fullscreen; move the mouse to reveal them.
+
+Keep the original window visible on your laptop to control the music and visuals. The output shares the finished frames, including layers, particles, morphing, trails, and GPU post-FX, rather than running a second visualization or duplicating audio. Rendering uses the output screen's aspect ratio and device-pixel-ratio (subject to the existing performance cap); the controller preview is letterboxed to match without distortion.
+
+**Focus output** reuses the open window. **Close output**, or closing the output itself, leaves playback running; you can reopen it at any time. Closing/reloading the controller closes its output too. Allow pop-ups for Audiograph if prompted. Use an extended desktop, not display mirroring, to keep controls off the projector.
+
+Keep the controller tab in the foreground and the laptop awake during a show: browsers can throttle hidden or minimized windows. Larger output resolutions and heavy presets cost more GPU/CPU time. Recording keeps its starting resolution even if the output is resized; the output letterboxes until recording stops.
+
+## Versions and Rollback
+
+The live entry point is `index.html`. Each release is also preserved as `versions/audiograph_N.html`; [v21](versions/audiograph_21.html) and [v22](versions/audiograph_22.html) remain independently runnable. Git release tags provide a second rollback path. Before updating the live entry point, archive its exact contents under the previous version number; never overwrite an existing archive.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
@@ -124,6 +138,19 @@ Rendering is CPU-side Canvas 2D with a WebGL post-FX pass. It caps the device-pi
 - Custom 2D Perlin noise
 - MP4/WebM recording via MediaRecorder
 - Works offline after first load
+
+## Browser Regression Checks
+
+The app still has no build step or runtime dependencies. Optional projection tests live in `tests/`:
+
+```sh
+cd tests
+npm ci
+npx playwright install chromium
+npm test
+```
+
+To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle.
 
 ## Keyboard
 
