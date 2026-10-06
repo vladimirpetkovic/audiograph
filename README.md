@@ -196,6 +196,10 @@ In **Visuals → Span**, choose **Move visuals** and drag inside any face. This 
 
 **Image X/Y** controls the shared offset precisely, within +/-100% of the source. Source image edges reveal black rather than smearing edge pixels. Arrow keys nudge the image from the selected face (Shift: ten output pixels). **Reset position** resets only the image offset. Each drag is one mapping Undo step; Save/Export/Import preserve position. Other visuals modes keep but ignore the Span offset. Test grid ignores it and selects Adjust planes; Move visuals turns Test grid off.
 
+## Span Text Cleanup Preview (v29)
+
+**[Try v29](versions/audiograph_29.html)**. Removes the explanatory paragraph beneath the Span selector without leaving empty space. All v28 functionality is retained; previous previews and main v22 are unchanged.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
