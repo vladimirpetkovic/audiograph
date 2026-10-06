@@ -142,6 +142,20 @@ Start with **720p** for demanding installations or **1080p** for a quality/perfo
 
 The setting applies only while the output window is open and lasts for this session, independently of presets and mapping profiles. Closing output restores normal controller-preview sizing; reopening reuses your choice. Selection is locked during recording, and fixed-mode recordings use exactly the selected resolution. Check physical mapping alignment after changing the composition's aspect ratio.
 
+## Mapping Content Modes Preview (v25)
+
+**[Try v25: duplicate or span visuals across mapped planes](versions/audiograph_25.html)**. Includes detached output, mapping, and the resolution selector; earlier builds and the v22 main app stay unchanged.
+
+In **Setup mapping**, use **Visuals**:
+
+- **Duplicate on each plane** repeats the complete visual on each physical face, with perspective and fine-mesh warping.
+- **Span / overflow across planes** shows one continuous image in the projector's view, fitted to the combined plane bounds. Adjacent faces sample the same image at shared edges rather than restarting. Gaps and areas outside the planes are black.
+- **Custom per-plane crops** preserves the existing crop workflow for manually arranging parts of the source over faces.
+
+Switching modes preserves alignment and saved crops; **Undo mapping**, Save, Export, and Import include the mode. Old profiles without a mode load as Custom to retain their exact appearance. Crop inputs are editable only in Custom. The calibration grid follows the chosen mode.
+
+Span uses one bounding rectangle including hidden planes, so hiding a face does not move the image on other faces. Adding/deleting/moving planes may change those bounds. Interior grid edits alter the span mask, not the shared image. This is continuous projector-space coverage, not automatic 3D surface unwrapping; use Custom crops for a deliberately arranged wrap. No extra audio analysis or animation runs per plane.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
@@ -174,7 +188,7 @@ npx playwright install chromium
 npm test
 ```
 
-To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle. Mapping checks run against the v23 preview, exercising projective geometry, pixel-accurate texture/crop sampling, real handle dragging, profile persistence, and GPU-loss recovery. Resolution checks run against v24 at standard and Retina DPI, checking exact canvas and recorded-video dimensions. Set `AUDIOGRAPH_BUILD=versions/audiograph_24.html` to exercise projection and mapping against the latest preview too.
+To use an installed Chromium/Chrome instead, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. The checks use generated audio and fake microphone input; they cover frame equality, post-FX, morphing, resizing, fullscreen, recording, and window lifecycle. Mapping checks run against the v23 preview, exercising projective geometry, pixel-accurate texture/crop sampling, real handle dragging, profile persistence, and GPU-loss recovery. Resolution checks run against v24 at standard and Retina DPI, checking exact canvas and recorded-video dimensions. Content-mode checks run against v25, sampling actual GPU pixels across planes and seams and checking mode/profile persistence. Set `AUDIOGRAPH_BUILD=versions/audiograph_25.html AUDIOGRAPH_RESOLUTION_BUILD=versions/audiograph_25.html` to exercise projection, mapping, and resolution against the latest preview too.
 
 ## Keyboard
 
