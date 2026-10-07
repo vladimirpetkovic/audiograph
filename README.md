@@ -27,11 +27,11 @@ Everything is built from **layers** — stack as many as you like, each with its
 
 The **Appearance** panel holds the three choices that define a look:
 
-### Layout — 19, grouped
+### Layout — 20, grouped
 
 **General** — Linear · Sine · Circle · Concentric · Spiral · Phyllotaxis · Kaleidoscope · Fractal · Ridge · Scatter
 **3D** — Terrain · Sphere · Tetrahedron · DNA
-**Input** — Image · Video · Text · Math · 3D Object
+**Input** — Image · Video · Pixel Warp · Text · Math · 3D Object
 
 Highlights:
 - **Ridge** — a Joy Division–style stacked ridge plot; each row is a frequency band (bass at bottom, treble at top).
@@ -237,6 +237,12 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 **Seamless cube** stretches one continuous source chart across Top, Front and Right, sharing all three common edges with no cut. It is now the 3-face starter's default. **Fit surface** anchors a continuous source mesh to the current mapped bounds for other arrangements. Later corner/grid moves deform that anchored image; shared straight edges stay source-linear even with unequal face perspective.
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
+
+## Pixel Warp Preview (v35)
+
+**[Try v35](versions/audiograph_35.html)**. Adds a new per-layer **Pixel Warp** input layout that renders the original image/video colours directly instead of converting the media into line sources. Choose Image, Video, or Camera, then switch between **Pixels** (source-coloured quads with visible gaps as audio displaces them) and **Mesh** (a continuous warped grid).
+
+The WebGL2 path samples the media texture on the GPU every frame, so video and camera frames keep their full source colour while bass, mid and treble deform vertices. Controls include Resolution, Pixel size, Displace, Bass push, Mid swirl, Treble scatter, Luma weight, Flow/speed, Elasticity, Depth, Direction, Fit, Saturation, Brightness, Contrast and Beat flash. A generated colour test card appears when no media is loaded. Pixel Warp participates in layers, opacity/blend, per-layer Post-FX, projection output, PNG export, Reset, Undo, presets and reactive rules like other layouts.
 
 ## Larger Knobs Preview (v34)
 
