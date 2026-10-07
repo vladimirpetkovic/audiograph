@@ -447,7 +447,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
           <div id="pwVideoRow" class="prow" style="display:none"><label class="btn" style="font-size:.5rem;padding:2px 8px"><svg viewBox="0 0 24 24" style="width:10px;height:10px"><polygon points="5,3 19,12 5,21"/></svg>Load video<input type="file" accept="video/*" onchange="loadLayoutVideo(this)" style="display:none"></label><span style="font-size:.45rem;color:var(--tx3);margin-left:6px">Uses Video media</span></div>
           <div class="prow"><span class="prow-label">Mode</span><div class="mode-btns"><button class="mbtn on" onclick="setPixelWarpMode('pixels',this)">Pixels</button><button class="mbtn" onclick="setPixelWarpMode('mesh',this)">Mesh</button></div></div>
           <div class="prow"><span class="prow-label">Direction</span><div class="mode-btns"><button class="mbtn on" onclick="setPixelWarpDir('radial',this)">Radial</button><button class="mbtn" onclick="setPixelWarpDir('up',this)">Up</button><button class="mbtn" onclick="setPixelWarpDir('noise',this)">Noise</button><button class="mbtn" onclick="setPixelWarpDir('explode',this)">Explode</button></div></div>
-          <div class="prow"><span class="prow-label">Fit</span><div class="mode-btns"><button class="mbtn on" onclick="setPixelWarpFit('cover',this)">Cover</button><button class="mbtn" onclick="setPixelWarpFit('contain',this)">Contain</button></div></div>
+          <div class="prow"><span class="prow-label">Fit</span><div class="mode-btns"><button class="mbtn" onclick="setPixelWarpFit('cover',this)">Cover</button><button class="mbtn on" onclick="setPixelWarpFit('contain',this)">Contain</button></div></div>
           <div class="prow"><span class="prow-label">Resolution</span><input type="range" min="16" max="512" value="192" step="1" id="pPwRes" oninput="upP()"><span class="prow-val" id="vPwRes">192</span></div>
           <div class="prow"><span class="prow-label">Pixel size</span><input type="range" min="10" max="180" value="82" step="1" id="pPwSize" oninput="upP()"><span class="prow-val" id="vPwSize">82%</span></div>
           <div class="prow"><span class="prow-label">Displace</span><input type="range" min="0" max="200" value="52" step="1" id="pPwDisplace" oninput="upP()"><span class="prow-val" id="vPwDisplace">52%</span></div>
@@ -1897,7 +1897,7 @@ function getDefaultLayerParams(){
     _colorMode:'toneramp',_solidColor:'#dddde0',
     _toneStops:['#1a1a2e00','#e94560','#f5a623','#6ee7b7'],
     _simpleStops:['#e94560','#f5a623','#6ee7b7'],
-    _showOutline:false,_outlineStyle:'solid',_imgDir:'up',_pwSource:'image',_pwMode:'pixels',_pwDir:'radial',_pwFit:'cover',
+    _showOutline:false,_outlineStyle:'solid',_imgDir:'up',_pwSource:'image',_pwMode:'pixels',_pwDir:'radial',_pwFit:'contain',
     _outlineWeight:2,_outlineDist:0,_outlineCount:1,_outlineSpace:4,
     _spin:0,_speed:1,_amplify:1,_twist:0,_bulge:0,_wave:0,_waveFreq:5,_shear:0,_depth:0,_ripple:0,_jitter:0,
     _rGlobal:0,_rDist:0,_rAppear:0,_rOutline:0,_rColor:0,_rDisorder:0,
@@ -4676,7 +4676,7 @@ function liveAnimLoop(){
       if(si===getActiveLayerIdx())lPlayModeL2=playMode;
       if(lPlayModeL2!=='off'){
         var _spunL=false;
-        if(isCirc&&lSpinL>0&&!pmActive){if(!layerSpunPrev[si])layerSpinAngle[si]=0;layerSpinAngle[si]=(layerSpinAngle[si]||0)+lSpinL*0.002*speed;lCtx.save();lCtx.translate(lDrawWL/2,lDrawHL/2);lCtx.rotate(layerSpinAngle[si]);lCtx.translate(-lDrawWL/2,-lDrawHL/2);_spunL=true}
+        _objSpinRot=0;if(isCirc&&lSpinL>0&&!pmActive){if(!layerSpunPrev[si])layerSpinAngle[si]=0;layerSpinAngle[si]=(layerSpinAngle[si]||0)+lSpinL*0.002*speed;if(layoutMode==='object')_objSpinRot=layerSpinAngle[si];else{lCtx.save();lCtx.translate(lDrawWL/2,lDrawHL/2);lCtx.rotate(layerSpinAngle[si]);lCtx.translate(-lDrawWL/2,-lDrawHL/2);_spunL=true}}
         layerSpunPrev[si]=(isCirc&&lSpinL>0&&!pmActive);
         agDrawDensity(lCtx,lDrawWL,lDrawHL,applyFadeEdge(liveModVals),lp,false);
       }
@@ -4730,7 +4730,7 @@ function liveAnimLoop(){
     setLayoutParams(origParamsL);
     layoutMode=origLayoutL;
   }else{
-    if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
+    _objSpinRot=spin>0&&layoutMode==='object'?spinAngle:0;if(spin>0&&layoutMode!=='linear'&&layoutMode!=='object'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
     agPixelWarp.setLayer(0);agDrawDensity(offCtx,drawW,drawH,applyFadeEdge(modVals),p,false);
     // Particles (non-stack mode)
     if(particlesOn){
@@ -4740,7 +4740,7 @@ function liveAnimLoop(){
       capParticles(0);
       updateAndDrawParticles(offCtx,drawW,drawH,_pE,0,_lp);
     }
-    if(spin>0&&layoutMode!=='linear')offCtx.restore();
+    if(spin>0&&layoutMode!=='linear'&&layoutMode!=='object')offCtx.restore();
   }
   frameCtx.setTransform(1,0,0,1,0,0);frameCtx.filter="none";
   var srcX=Math.round((drawW-sz.W)/2*sz.dpr),srcY=Math.round((drawH-sz.H)/2*sz.dpr);
@@ -4792,9 +4792,9 @@ function spawnParticles(energy,W,H,p,layerParams,layerIdx){
         if(bri>=threshold){found=true;break}
       }
       if(!found)continue;
-      var cellW=W/cols,cellH=H/rows;
-      px=cc*cellW+cellW/2+(Math.random()-0.5)*cellW*0.5;
-      py=rc*cellH+cellH/2+(Math.random()-0.5)*cellH*0.5;
+      var _mf=_mediaFit(W,H,cols,rows),cellW=_mf.cw,cellH=_mf.ch;
+      px=_mf.ox+cc*cellW+cellW/2+(Math.random()-0.5)*cellW*0.5;
+      py=_mf.oy+rc*cellH+cellH/2+(Math.random()-0.5)*cellH*0.5;
     }else if(lm==='video'&&vidEl&&(vidEl.srcObject||vidEl.readyState>=2)){
       // Sample fresh frame for particles
       sampleVideoFrame();
@@ -4812,9 +4812,9 @@ function spawnParticles(energy,W,H,p,layerParams,layerIdx){
         if(bri>=threshold){found=true;break}
       }
       if(!found)continue;
-      var cellW=W/cols,cellH=H/rows;
-      px=cc*cellW+cellW/2+(Math.random()-0.5)*cellW*0.5;
-      py=rc*cellH+cellH/2+(Math.random()-0.5)*cellH*0.5;
+      var _mf=_mediaFit(W,H,cols,rows),cellW=_mf.cw,cellH=_mf.ch;
+      px=_mf.ox+cc*cellW+cellW/2+(Math.random()-0.5)*cellW*0.5;
+      py=_mf.oy+rc*cellH+cellH/2+(Math.random()-0.5)*cellH*0.5;
     }else if(lm==='text'&&textLayoutData&&textLayoutData.grid&&textLayoutData.grid.length){
       var grid=textLayoutData.grid;
       var rows=grid.length,cols=grid[0].length;
@@ -6372,6 +6372,8 @@ function sampleLayoutImage(){
     imgLayoutData.colors.push(colorRow);
   }
 }
+// v35: image/video grids keep the media's aspect ratio (square cells, centred, contain) instead of stretching to the canvas.
+function _mediaFit(W,H,cols,rows){var c=Math.min(W/cols,H/rows);return{cw:c,ch:c,ox:(W-c*cols)/2,oy:(H-c*rows)/2}}
 function drawImageLayout(ctx,W,H,values,p,forExport){
   if(!imgLayoutData||!imgLayoutData.grid||!imgLayoutData.grid.length){
     ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='14px sans-serif';ctx.textAlign='center';
@@ -6389,7 +6391,7 @@ function drawImageLayout(ctx,W,H,values,p,forExport){
   // Use scan/edge style if selected
   if(imgStyle==='edge')return drawEdgeStyle(ctx,W,H,values,p,forExport,grid,rows,cols,threshold,invert,imgLayoutData.colors);
   var n=values.length||1;
-  var cellW=W/cols,cellH=H/rows;
+  var _mf=_mediaFit(W,H,cols,rows),cellW=_mf.cw,cellH=_mf.ch;
   // Max line height: scale to cell height so lines fill their cell
   var mLH=cellH*2*p.height;
   var lines=[];
@@ -6409,7 +6411,7 @@ function drawImageLayout(ctx,W,H,values,p,forExport){
       lh=Math.max(2,Math.min(mLH*1.5,lh));
       var isHoriz=(dir==='left'||dir==='right');
       // Position: x,ly is where drawShapedLine starts (top of the line)
-      var cx=cellW*(c+0.5),cy=cellH*(r+0.5);
+      var cx=_mf.ox+cellW*(c+0.5),cy=_mf.oy+cellH*(r+0.5);
       var x,ly;
       if(dir==='up'){
         x=cx;ly=cy+cellH*0.5-lh; // grows up from cell bottom edge
@@ -6454,7 +6456,7 @@ function drawImageLayout(ctx,W,H,values,p,forExport){
 
 
 // --- Pixel Warp Layout (v35) ---
-var pixelWarpSource='image',pixelWarpMode='pixels',pixelWarpDir='radial',pixelWarpFit='cover';
+var pixelWarpSource='image',pixelWarpMode='pixels',pixelWarpDir='radial',pixelWarpFit='contain';
 function _pwStore(){if(stackMode&&stackLayouts.length>0){var i=getActiveLayerIdx();if(i>=0&&stackLayouts[i]){stackLayouts[i].params=getLayoutParams();stackLayouts[i].layout=layoutMode}}}
 function syncPixelWarpUI(){
   document.querySelectorAll('#layoutOpts_pixelwarp .mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';
@@ -6588,7 +6590,7 @@ function drawEdgeStyle(ctx,W,H,values,p,forExport,grid,rows,cols,threshold,inver
   var n=values.length||1;
   var lines=[];var vi=0;
   var dist=getDistortions();
-  var cellW=W/cols,cellH=H/rows;
+  var _mf=_mediaFit(W,H,cols,rows),cellW=_mf.cw,cellH=_mf.ch;
   var useSourceColor=!!(colors&&colors.length&&camUseColors);
   // Build edge magnitude grid using Sobel-like gradient
   var edgeGrid=[];
@@ -6607,7 +6609,7 @@ function drawEdgeStyle(ctx,W,H,values,p,forExport,grid,rows,cols,threshold,inver
   }
   ctx.lineCap='round';ctx.lineJoin='round';
   for(var r=0;r<rows;r++){
-    var baseY=cellH*(r+0.5);
+    var baseY=_mf.oy+cellH*(r+0.5);
     var v=n>0?values[vi%n]:0.5;vi++;
     var audioH=(0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45);
     // First pass: draw contour segments colored by source pixel
@@ -6624,7 +6626,7 @@ function drawEdgeStyle(ctx,W,H,values,p,forExport,grid,rows,cols,threshold,inver
         if(segStart>=0){
           ctx.beginPath();
           for(var sc=segStart;sc<c;sc++){
-            var x=cellW*(sc+0.5);
+            var x=_mf.ox+cellW*(sc+0.5);
             var ee=edgeGrid[r][sc];
             var lh=cellH*4*p.height*ee*audioH;
             var y=baseY-lh;
@@ -6653,7 +6655,7 @@ function drawEdgeStyle(ctx,W,H,values,p,forExport,grid,rows,cols,threshold,inver
       for(var c=0;c<cols;c++){
         var e=edgeGrid[r][c];
         if(e<threshold*1.5)continue;
-        var x=cellW*(c+0.5);
+        var x=_mf.ox+cellW*(c+0.5);
         var lh=cellH*3*p.height*e*audioH;
         if(lh<2)continue;
         var y=baseY-lh;
@@ -6689,7 +6691,7 @@ function drawVideoLayout(ctx,W,H,values,p,forExport){
   var invert=vidLayoutInvert;
   if(vidStyle==='edge')return drawEdgeStyle(ctx,W,H,values,p,forExport,grid,rows,cols,threshold,invert,vidLayoutData.colors);
   // Grid style (original)
-  var n=values.length||1;var cellW=W/cols,cellH=H/rows;var mLH=cellH*2*p.height;
+  var n=values.length||1;var _mf=_mediaFit(W,H,cols,rows),cellW=_mf.cw,cellH=_mf.ch;var mLH=cellH*2*p.height;
   var lines2=[];var vi=0;var dist=getDistortions();
   for(var r=0;r<rows;r++){for(var c=0;c<cols;c++){
     var b=grid[r][c];if(invert)b=1-b;if(b<threshold)continue;
@@ -6698,7 +6700,7 @@ function drawVideoLayout(ctx,W,H,values,p,forExport){
     var hRand=1+getRand(vi+500,'rAppear')*0.4;var bPow=Math.sqrt(b);
     var lh=mLH*bPow*(0.4+audioH*0.6)*hRand;lh=Math.max(2,Math.min(mLH*1.5,lh));
     var isHoriz=(dir==='left'||dir==='right');
-    var cx=cellW*(c+0.5),cy=cellH*(r+0.5);var x,ly;
+    var cx=_mf.ox+cellW*(c+0.5),cy=_mf.oy+cellH*(r+0.5);var x,ly;
     if(dir==='up'){x=cx;ly=cy+cellH*0.5-lh}else if(dir==='down'){x=cx;ly=cy-cellH*0.5}else{x=cx;ly=cy}
     var hR=mLH>0?lh/mLH:1;var tw=varyThick?p.thick*(.3+(1-hR)*.7):p.thick;
     tw*=(1+getRand(vi+1000,'rAppear')*.3);tw=Math.max(.5,tw);
@@ -7593,6 +7595,7 @@ function drawPolyhedron(ctx,W,H,values,p,forExport,shape){
 
 // --- OBJ Model Layout ---
 var objModelData=null;
+var _objSpinRot=0; // v35: turntable angle for the 3D object, fed from Spin
 var _objSpawnPts=[]; // {verts:[[x,y,z],...], faces:[[i,j,k],...], normals:[[nx,ny,nz],...]}
 
 function loadObjFile(ev){
@@ -7621,42 +7624,74 @@ function loadObjFile(ev){
       }
     }
     if(verts.length<3||faces.length<1){alert('No geometry found in OBJ');return}
-    // Center and normalize to unit size
-    var minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
-    for(var i=0;i<verts.length;i++){
-      var v=verts[i];
-      if(v[0]<minX)minX=v[0];if(v[0]>maxX)maxX=v[0];
-      if(v[1]<minY)minY=v[1];if(v[1]>maxY)maxY=v[1];
-      if(v[2]<minZ)minZ=v[2];if(v[2]>maxZ)maxZ=v[2];
-    }
-    var cx=(minX+maxX)/2,cy=(minY+maxY)/2,cz=(minZ+maxZ)/2;
-    var scale=Math.max(maxX-minX,maxY-minY,maxZ-minZ)||1;
-    for(var i=0;i<verts.length;i++){
-      verts[i]=[(verts[i][0]-cx)/scale*2,-(verts[i][1]-cy)/scale*2,(verts[i][2]-cz)/scale*2];
-    }
-    // Compute per-vertex normals
-    var normals=[];
-    for(var i=0;i<verts.length;i++)normals.push([0,0,0]);
-    for(var i=0;i<faces.length;i++){
-      var f=faces[i],a=verts[f[0]],b=verts[f[1]],c=verts[f[2]];
-      var e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]];
-      var e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
-      var nx=e1[1]*e2[2]-e1[2]*e2[1],ny=e1[2]*e2[0]-e1[0]*e2[2],nz=e1[0]*e2[1]-e1[1]*e2[0];
-      for(var j=0;j<3;j++){normals[f[j]][0]+=nx;normals[f[j]][1]+=ny;normals[f[j]][2]+=nz}
-    }
-    for(var i=0;i<normals.length;i++){
-      var n=normals[i],len=Math.sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2])||1;
-      normals[i]=[n[0]/len,n[1]/len,n[2]/len];
-    }
+    var _m=_objNormalizeModel(verts,faces);verts=_m.verts;faces=_m.faces;var normals=_m.normals;
     objModelData={verts:verts,faces:faces,normals:normals};
     renderDensity();
   };
   reader.readAsText(file);
 }
 
+// v35: custom OBJ wireframe like the built-in solids. Big meshes are simplified by vertex clustering
+// (keeps a connected, evenly spaced wireframe instead of scattered random triangles). Cached per model/limit.
+var _objWireCache=null;
+function _objNormalizeModel(verts,faces){
+  var minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+  for(var i=0;i<verts.length;i++){var v=verts[i];if(v[0]<minX)minX=v[0];if(v[0]>maxX)maxX=v[0];if(v[1]<minY)minY=v[1];if(v[1]>maxY)maxY=v[1];if(v[2]<minZ)minZ=v[2];if(v[2]>maxZ)maxZ=v[2]}
+  var cx=(minX+maxX)/2,cy=(minY+maxY)/2,cz=(minZ+maxZ)/2,sc=Math.max(maxX-minX,maxY-minY,maxZ-minZ)||1;
+  for(var i=0;i<verts.length;i++)verts[i]=[(verts[i][0]-cx)/sc*2,-(verts[i][1]-cy)/sc*2,(verts[i][2]-cz)/sc*2];
+  var normals=[];for(var i=0;i<verts.length;i++)normals.push([0,0,0]);
+  for(var i=0;i<faces.length;i++){var f=faces[i],a=verts[f[0]],b=verts[f[1]],c=verts[f[2]];if(!a||!b||!c)continue;
+    var e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+    var nx=e1[1]*e2[2]-e1[2]*e2[1],ny=e1[2]*e2[0]-e1[0]*e2[2],nz=e1[0]*e2[1]-e1[1]*e2[0];
+    for(var j=0;j<3;j++){normals[f[j]][0]+=nx;normals[f[j]][1]+=ny;normals[f[j]][2]+=nz}}
+  for(var i=0;i<normals.length;i++){var n=normals[i],l=Math.sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2])||1;normals[i]=[n[0]/l,n[1]/l,n[2]/l]}
+  return{verts:verts,faces:faces,normals:normals};
+}
+function _objDefaultModel(){
+  // Trefoil torus knot tube, shown until a custom .obj is loaded.
+  var U=144,V=10,R=0.16,verts=[],faces=[];
+  function knot(t){var r=2+Math.cos(3*t);return[r*Math.cos(2*t),r*Math.sin(2*t),-Math.sin(3*t)*1.2]}
+  for(var i=0;i<U;i++){
+    var t=i/U*Math.PI*2,p=knot(t),q=knot(t+0.01),T=[q[0]-p[0],q[1]-p[1],q[2]-p[2]],tl=Math.hypot(T[0],T[1],T[2])||1;T=[T[0]/tl,T[1]/tl,T[2]/tl];
+    var N=[-T[1],T[0],0],nl=Math.hypot(N[0],N[1],N[2])||1;N=[N[0]/nl,N[1]/nl,0];
+    var B=[T[1]*N[2]-T[2]*N[1],T[2]*N[0]-T[0]*N[2],T[0]*N[1]-T[1]*N[0]];
+    for(var j=0;j<V;j++){var a=j/V*Math.PI*2,c=Math.cos(a)*R*3,s2=Math.sin(a)*R*3;verts.push([p[0]+N[0]*c+B[0]*s2,p[1]+N[1]*c+B[1]*s2,p[2]+N[2]*c+B[2]*s2])}
+  }
+  for(var i=0;i<U;i++)for(var j=0;j<V;j++){var a=i*V+j,b=((i+1)%U)*V+j,c=((i+1)%U)*V+(j+1)%V,d=i*V+(j+1)%V;faces.push([a,b,c]);faces.push([a,c,d])}
+  var m=_objNormalizeModel(verts,faces);m.isDefault=true;return m;
+}
+function _objWire(model,maxFaces){
+  var c=_objWireCache;if(c&&c.model===model&&c.maxFaces===maxFaces)return c.wire;
+  var V=model.verts,Nm=model.normals,F=model.faces;
+  function edgesOf(map,count){
+    var seen=new Map(),edges=[];
+    for(var i=0;i<F.length;i++){var f=F[i];for(var j=0;j<3;j++){var a=map(f[j]),b=map(f[(j+1)%3]);if(a<0||b<0||a===b)continue;var lo=a<b?a:b,hi=a<b?b:a,k=lo*count+hi;if(!seen.has(k)){seen.set(k,1);edges.push([lo,hi])}}}
+    return edges;
+  }
+  var wire;
+  if(F.length<=maxFaces){wire={verts:V,normals:Nm,edges:edgesOf(function(i){return i<V.length?i:-1},V.length)}}
+  else{
+    var target=maxFaces*1.5;
+    function cluster(g){
+      var ids=new Map(),cv=[],cn=[],cc=[],map=new Int32Array(V.length);
+      for(var i=0;i<V.length;i++){var v=V[i],x=Math.min(g-1,Math.floor((v[0]+1)/2*g)),y=Math.min(g-1,Math.floor((v[1]+1)/2*g)),z=Math.min(g-1,Math.floor((v[2]+1)/2*g)),k=(x*g+y)*g+z,id=ids.get(k);
+        if(id===undefined){id=cv.length;ids.set(k,id);cv.push([0,0,0]);cn.push([0,0,0]);cc.push(0)}
+        map[i]=id;cv[id][0]+=v[0];cv[id][1]+=v[1];cv[id][2]+=v[2];var n=Nm[i];cn[id][0]+=n[0];cn[id][1]+=n[1];cn[id][2]+=n[2];cc[id]++}
+      for(var i=0;i<cv.length;i++){var k=cc[i];cv[i]=[cv[i][0]/k,cv[i][1]/k,cv[i][2]/k];var n=cn[i],l=Math.sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2])||1;cn[i]=[n[0]/l,n[1]/l,n[2]/l]}
+      return{verts:cv,normals:cn,edges:edgesOf(function(i){return i<V.length?map[i]:-1},cv.length)};
+    }
+    var lo=4,hi=512,best=cluster(lo);
+    while(hi-lo>1){var mid=(lo+hi)>>1,w=cluster(mid);if(w.edges.length<=target){best=w;lo=mid}else hi=mid}
+    wire=best;
+  }
+  _objWireCache={model:model,maxFaces:maxFaces,wire:wire};
+  return wire;
+}
 function drawObjModel(ctx,W,H,values,p,forExport){
   var _d3=getDistortions();var _d3any=_d3.twist||_d3.bulge||_d3.wave||_d3.shear||_d3.depth||_d3.ripple||_d3.jitter;
-  var n=values.length;if(n===0||!objModelData)return[];
+  var n=values.length;if(n===0)return[];
+  if(!objModelData){if(!window._objDefault)window._objDefault=_objDefaultModel()}
+  var _model=objModelData||window._objDefault;
   var maxFaces=+document.getElementById('pObjMaxFaces').value||1500;
   var persp=+document.getElementById('pObjPersp').value||250;
   var tiltDeg=+document.getElementById('pObjTilt').value||15;
@@ -7669,21 +7704,10 @@ function drawObjModel(ctx,W,H,values,p,forExport){
   var baseR=Math.min(W,H)*0.32;
   var maxBump=baseR*0.15*elevScale*p.height;
   var centerX=W*0.5,centerY=H*0.5;
-  var rotAngle=time*rotateSpeed+dragRotY;
+  var _rotEl=document.getElementById('pObjRotate'),_rotMul=_rotEl?(+_rotEl.value)/5:1;
+  var rotAngle=_objSpinRot*_rotMul+dragRotY;
 
-  var srcVerts=objModelData.verts;
-  var srcNormals=objModelData.normals;
-  var srcFaces=objModelData.faces;
-
-  // Decimate: if too many faces, sample uniformly
-  var useFaces=srcFaces;
-  if(srcFaces.length>maxFaces){
-    var step=srcFaces.length/maxFaces;
-    useFaces=[];
-    for(var i=0;i<srcFaces.length&&useFaces.length<maxFaces;i+=step){
-      useFaces.push(srcFaces[Math.floor(i)]);
-    }
-  }
+  var _wire=_objWire(_model,maxFaces),srcVerts=_wire.verts,srcNormals=_wire.normals;
 
   // Audio energy
   var audioEnergy=0;for(var i=0;i<n;i++)audioEnergy+=values[i];audioEnergy/=n;
@@ -7692,17 +7716,10 @@ function drawObjModel(ctx,W,H,values,p,forExport){
   var cosR=Math.cos(rotAngle),sinR=Math.sin(rotAngle);
   var cosT=Math.cos(tiltRad+dragRotX),sinT=Math.sin(tiltRad+dragRotX);
 
-  // Build displaced + projected vertices (only used ones)
-  var usedVerts={};
-  for(var i=0;i<useFaces.length;i++){
-    var f=useFaces[i];
-    usedVerts[f[0]]=1;usedVerts[f[1]]=1;usedVerts[f[2]]=1;
-  }
-
-  var projected={};
-  var usedKeys=Object.keys(usedVerts);
+  var projected=new Array(srcVerts.length);
+  var usedKeys=[];for(var vi0=0;vi0<srcVerts.length;vi0++)usedKeys.push(vi0);
   for(var ki=0;ki<usedKeys.length;ki++){
-    var vi=+usedKeys[ki];
+    var vi=usedKeys[ki];
     if(vi>=srcVerts.length)continue;
     var sv=srcVerts[vi],sn=srcNormals[vi];
     // Diffuse audio mapping — use 3D spatial hash to spread audio across entire surface
@@ -7749,17 +7766,7 @@ function drawObjModel(ctx,W,H,values,p,forExport){
     projected[vi]={sx:sx,sy:sy,h:Math.max(0,h/Math.max(1,maxBump)),nz:tnz,depth:tz};
   }
 
-  // Build edges from faces (deduplicated)
-  var edgeSet={};
-  var edges=[];
-  for(var i=0;i<useFaces.length;i++){
-    var f=useFaces[i];
-    for(var j=0;j<3;j++){
-      var a=f[j],b=f[(j+1)%3];
-      var key=Math.min(a,b)+'-'+Math.max(a,b);
-      if(!edgeSet[key]){edgeSet[key]=1;edges.push([a,b])}
-    }
-  }
+  var edges=_wire.edges.slice();
 
   // Set line style
   ctx.lineWidth=tw;ctx.lineCap='round';ctx.lineJoin='round';
@@ -7776,36 +7783,30 @@ function drawObjModel(ctx,W,H,values,p,forExport){
     return db-da;
   });
 
-  // Determine if style needs edge strokes
+  // Wireframe like the built-in solids: always drawn (fainter under marker styles), back edges as a dim ghost.
   var needsEdges=lineShape==='straight'||lineShape==='rounded'||lineShape==='dashed'||lineShape==='dotted'||lineShape==='tapered'||lineShape==='caps'||lineShape==='barcode'||lineShape==='chevrons';
-  // Draw wireframe + collect particle spawn points
+  var wireAlpha=needsEdges?1:0.45;
+  ctx.lineWidth=Math.max(0.5,tw*(0.4+audioEnergy*1.6));
   _objSpawnPts=[];
   for(var i=0;i<edges.length;i++){
     var pa=projected[edges[i][0]],pb=projected[edges[i][1]];
     if(!pa||!pb)continue;
-    // Backface cull
-    if(pa.nz>0.1&&pb.nz>0.1)continue;
     var hAvg=(pa.h+pb.h)/2;
     var posNorm=i/edges.length;
     var oColVal=hAvg*0.35+posNorm*0.65;
     var col=forExport?lineColHex(oColVal,posNorm,i%n,n):lineCol(oColVal,posNorm,i%n,n);
-    // Only draw edge lines for line-based styles
-    if(needsEdges){
-      ctx.strokeStyle=col;
-      ctx.globalAlpha=Math.max(0.08,0.2+hAvg*0.8);
-      ctx.beginPath();ctx.moveTo(pa.sx,pa.sy);ctx.lineTo(pb.sx,pb.sy);ctx.stroke();
-    }
-    // Collect every 3rd drawn edge midpoint for particle spawning
-    if(i%3===0){
-      _objSpawnPts.push({x:(pa.sx+pb.sx)/2,y:(pa.sy+pb.sy)/2});
-    }
+    ctx.strokeStyle=col;
+    if(pa.nz>0.1&&pb.nz>0.1)ctx.globalAlpha=(0.07+audioEnergy*0.05)*wireAlpha;
+    else{ctx.globalAlpha=Math.max(0.08,0.2+hAvg*0.8)*wireAlpha;if(i%3===0)_objSpawnPts.push({x:(pa.sx+pb.sx)/2,y:(pa.sy+pb.sy)/2})}
+    ctx.beginPath();ctx.moveTo(pa.sx,pa.sy);ctx.lineTo(pb.sx,pb.sy);ctx.stroke();
   }
+  ctx.lineWidth=tw;
 
   // Decorative markers
   if(lineShape!=='straight'&&lineShape!=='rounded'&&lineShape!=='dashed'&&lineShape!=='dotted'){
     var mSize=tw*3;var step=Math.max(1,Math.floor(usedKeys.length/300));
     for(var ki=0;ki<usedKeys.length;ki+=step){
-      var pt=projected[+usedKeys[ki]];
+      var pt=projected[usedKeys[ki]];
       if(!pt||pt.nz>0.1)continue;
       var omColVal=pt.h*0.35+(ki/usedKeys.length)*0.65;
       var col=forExport?lineColHex(omColVal,ki/usedKeys.length,ki%n,n):lineCol(omColVal,ki/usedKeys.length,ki%n,n);
@@ -8184,7 +8185,7 @@ function renderDensity(){
       if(si===getActiveLayerIdx())sPlayMode2=playMode;
       if(sPlayMode2!=='off'){
         var _spunR=false;
-        if(isCirc&&lSpin>0&&!pmActive&&(layerSpinAngle[si]||0)){lCtx.save();lCtx.translate(lDrawW/2,lDrawH/2);lCtx.rotate(layerSpinAngle[si]);lCtx.translate(-lDrawW/2,-lDrawH/2);_spunR=true}
+        _objSpinRot=0;if(isCirc&&lSpin>0&&!pmActive&&(layerSpinAngle[si]||0)){if(layoutMode==='object')_objSpinRot=layerSpinAngle[si];else{lCtx.save();lCtx.translate(lDrawW/2,lDrawH/2);lCtx.rotate(layerSpinAngle[si]);lCtx.translate(-lDrawW/2,-lDrawH/2);_spunR=true}}
         agPixelWarp.setLayer(si);agDrawDensity(lCtx,lDrawW,lDrawH,applyFadeEdge(layerVals),P(),false);
       }
       // Particles overlay — inside spin transform
@@ -8242,7 +8243,7 @@ function renderDensity(){
     setLayoutParams(origParams);
     layoutMode=origLayout;
   }else{
-    if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
+    _objSpinRot=spin>0&&layoutMode==='object'?spinAngle:0;if(spin>0&&layoutMode!=='linear'&&layoutMode!=='object'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
     agPixelWarp.setLayer(0);agDrawDensity(offCtx,drawW,drawH,applyFadeEdge(vals),P(),false);
     // Particles (non-stack mode)
     if(particlesOn){
@@ -8252,7 +8253,7 @@ function renderDensity(){
       capParticles(0);
       updateAndDrawParticles(offCtx,drawW,drawH,_pE2,0,_lp2);
     }
-    if(spin>0&&layoutMode!=='linear')offCtx.restore();
+    if(spin>0&&layoutMode!=='linear'&&layoutMode!=='object')offCtx.restore();
   }
   // Composite: crop center of zoomed content to fill the entire visible canvas
   frameCtx.setTransform(1,0,0,1,0,0);frameCtx.filter="none";
@@ -8411,7 +8412,7 @@ function animLoop(){if(!playing){rafId=null;return}
       if(si===getActiveLayerIdx())lPlayMode2=playMode;
       if(lPlayMode2!=='off'){
         var _spun2=false;
-        if(isCirc&&lSpin>0&&!pmActive){if(!layerSpunPrev[si])layerSpinAngle[si]=0;layerSpinAngle[si]=(layerSpinAngle[si]||0)+lSpin*0.002*speed;lCtx.save();lCtx.translate(lDrawW2/2,lDrawH2/2);lCtx.rotate(layerSpinAngle[si]);lCtx.translate(-lDrawW2/2,-lDrawH2/2);_spun2=true}
+        _objSpinRot=0;if(isCirc&&lSpin>0&&!pmActive){if(!layerSpunPrev[si])layerSpinAngle[si]=0;layerSpinAngle[si]=(layerSpinAngle[si]||0)+lSpin*0.002*speed;if(layoutMode==='object')_objSpinRot=layerSpinAngle[si];else{lCtx.save();lCtx.translate(lDrawW2/2,lDrawH2/2);lCtx.rotate(layerSpinAngle[si]);lCtx.translate(-lDrawW2/2,-lDrawH2/2);_spun2=true}}
         layerSpunPrev[si]=(isCirc&&lSpin>0&&!pmActive);
         agPixelWarp.setLayer(si);agDrawDensity(lCtx,lDrawW2,lDrawH2,applyFadeEdge(layerModVals),lp,false);
       }
@@ -8465,7 +8466,7 @@ function animLoop(){if(!playing){rafId=null;return}
     setLayoutParams(origParams);
     layoutMode=origLayout;
   }else{
-    if(spin>0&&layoutMode!=='linear'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
+    _objSpinRot=spin>0&&layoutMode==='object'?spinAngle:0;if(spin>0&&layoutMode!=='linear'&&layoutMode!=='object'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
     agPixelWarp.setLayer(0);agDrawDensity(offCtx,drawW,drawH,applyFadeEdge(modVals),p,false);
     // Particles (non-stack mode)
     if(particlesOn){
@@ -8475,7 +8476,7 @@ function animLoop(){if(!playing){rafId=null;return}
       capParticles(0);
       updateAndDrawParticles(offCtx,drawW,drawH,_pE,0,_lp);
     }
-    if(spin>0&&layoutMode!=='linear')offCtx.restore();
+    if(spin>0&&layoutMode!=='linear'&&layoutMode!=='object')offCtx.restore();
   }
   frameCtx.setTransform(1,0,0,1,0,0);frameCtx.filter="none";
   var srcX=Math.round((drawW-sz.W)/2*sz.dpr),srcY=Math.round((drawH-sz.H)/2*sz.dpr);

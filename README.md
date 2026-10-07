@@ -244,6 +244,8 @@ Seamless charts intentionally distort the flat artwork instead of unfolding phys
 
 The WebGL2 path samples the media texture on the GPU every frame, so video and camera frames keep their full source colour while bass, mid and treble deform vertices. Controls include Resolution, Pixel size, Displace, Bass push, Mid swirl, Treble scatter, Luma weight, Flow/speed, Elasticity, Depth, Direction, Fit, Saturation, Brightness, Contrast and Beat flash. A generated colour test card appears when no media is loaded. Pixel Warp participates in layers, opacity/blend, per-layer Post-FX, projection output, PNG export, Reset, Undo, presets and reactive rules like other layouts.
 
+Pixel Warp now defaults to **Contain** fit, and the Image and Video grid layouts keep the media's original aspect ratio (centred, letterboxed) instead of stretching it to the canvas. **3D Object** layers now always show a wireframe like the built-in solids (a trefoil knot appears until you load an OBJ), with dim back edges; the object stays still unless **Spin** is on, and the Rotate knob sets spin speed.
+
 ## Larger Knobs Preview (v34)
 
 **[Try v34](versions/audiograph_34.html)**. Same as v33 with knobs another 30% larger (68 px; inline knobs 40 px), and knobs now turn like real dials: drag around the knob centre (clockwise raises, counter-clockwise lowers; 270° covers the full range; Shift = fine). Values stop at the ends instead of bouncing back.
