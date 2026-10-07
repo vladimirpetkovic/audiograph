@@ -238,6 +238,13 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## 3D Solids in the Layout Picker Preview (v40)
+
+- **Knot**, **Cube** and **Torus** are now layout buttons in the **3D** group (next to Terrain, Sphere, Tetrahedron, DNA) instead of a Model row inside 3D Object.
+- **3D Object** (Input) is for your own model: the **OBJ file** picker appears only there. Until a file is loaded it shows the Knot; loading an .OBJ switches to it automatically.
+- Old presets/layers using the Model row still load and light the matching button.
+- Tests: `tests/text-led.cjs` checks the new buttons and their highlighting.
+
 ## Fracture Modes, Organic Cracks, Video Ping-Pong & Single Scroll Preview (v39)
 
 - **Fracture Mode**: **Flow** (v37 continuous drifting, multi-scale shards) or **Shatter** (the v35/v36 static pattern with instant hits and reshuffle on onsets). Size var and Drift show only in Flow. Saved per layer/composition.

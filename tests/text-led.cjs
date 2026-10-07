@@ -1,5 +1,5 @@
 // v38: LED-equalizer text style and built-in Cube/Torus 3D objects.
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TEXTLED_BUILD || 'versions/audiograph_38.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TEXTLED_BUILD || 'versions/audiograph_40.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -20,10 +20,13 @@ const SHOTS = process.env.AG_SHOTS || '';
     const click = sel => page.evaluate(sel => [...document.querySelectorAll('.mbtn')].find(b => (b.getAttribute('onclick') || '').includes(sel)).click(), sel);
 
     // 3D Object: Knot, Cube and Torus all render distinct wireframes; state persists per layer.
-    await click("setLayout('object'");
     const objs = {};
     for (const m of ['knot', 'cube', 'torus']) {
-      await click(`setObjModel('${m}'`);
+      // v40: the built-in solids are layout chips in the 3D group.
+      await click(`setObjLayout('${m}'`);
+      const chip = await page.evaluate(m => [...document.querySelectorAll('.mbtn.amber.on')].map(b => b.textContent.toLowerCase()), m);
+      assert.deepEqual(chip, [m], 'only the chosen 3D chip is lit');
+      assert.equal(await page.evaluate(() => layoutMode), 'object');
       await page.waitForTimeout(300);
       objs[m] = await stat();
       if (SHOTS) await page.locator('#frameCv').screenshot({ path: `${SHOTS}/obj-${m}.png` });
@@ -31,8 +34,13 @@ const SHOTS = process.env.AG_SHOTS || '';
       assert.equal(await page.evaluate(() => objBuiltin), m);
     }
     assert.ok(new Set(Object.values(objs).map(o => o.hash)).size === 3, 'models differ');
-    const fileBtn = await page.evaluate(() => document.getElementById('objModelFileBtn').disabled);
-    assert.equal(fileBtn, true, 'File is disabled until an OBJ is loaded');
+    const groups = await page.evaluate(() => ['knot', 'cube', 'torus', 'file'].map(m => document.querySelector(`.mbtn[data-objm="${m}"]`).closest('div').previousElementSibling.textContent.trim()));
+    assert.deepEqual(groups, ['3D', '3D', '3D', 'Input'], 'Knot/Cube/Torus live under 3D, custom 3D Object under Input');
+    await click("setObjLayout('file'");
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.mbtn.amber.on')].map(b => b.textContent)), ['3D Object']);
+    await page.evaluate(() => selectLayer(0));
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.mbtn.amber.on')].map(b => b.textContent)), ['3D Object'], 'highlight survives layer reselect');
+    await click("setObjLayout('torus'");
     const saved = await page.evaluate(() => { const st = getState(); return JSON.stringify(st).includes('"_objModel":"torus"'); });
     assert.ok(saved, 'object model saved with layer state');
 

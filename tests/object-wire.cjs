@@ -20,7 +20,7 @@ function sphereObj(lat, lon) {
   const { page, errors } = t;
   try {
     const shot = () => page.evaluate(() => { renderDensity(); const d = frameCtx.getImageData(0, 0, frameCv.width, frameCv.height).data; let s = 0, ink = 0; for (let i = 0; i < d.length; i += 4) { const v = d[i] + d[i + 1] + d[i + 2]; s = (s * 31 + v) >>> 0; if (v > 60) ink++; } return { hash: s, ink: ink / (d.length / 4) }; });
-    await page.evaluate(() => { particlesOn = false; [...document.querySelectorAll('.mbtn')].find(b => /setLayout\('object'/.test(b.getAttribute('onclick') || '')).click(); });
+    await page.evaluate(() => { particlesOn = false; [...document.querySelectorAll('.mbtn')].find(b => /setLayout\('object'|setObjLayout\('file'/.test(b.getAttribute('onclick') || '')).click(); });
 
     // 1. No model loaded: the default knot wireframe is drawn (never blank), for line and marker styles.
     const def = await shot();
