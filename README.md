@@ -238,6 +238,14 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## LED Text, Cube/Torus, Pixel Shapes & Layer Order Preview (v38)
+
+- **Text** layout gets a **Style** switch: **LED** (default) renders the word as a slanted LED equalizer — square segments that light from the floor up with the audio, green at the bottom to orange at the top, peak-hold sparkle and dim ghost segments. Knobs: **Slant**, **Seg gap**, **Floor**; **Colour** EQ or Palette. **Lines** keeps the previous look.
+- **3D Object** gets built-in **Knot**, **Cube** and **Torus** models (quad wireframes). **File** selects a loaded .OBJ. The model is saved per layer.
+- **Pixel Warp** gets a pixel **Shape** row (Pixels mode): **Square** (default), **Round**, **Diamond**, **Hex** — anti-aliased masks in the fragment shader, saved per layer.
+- **Layers**: ▲/▼ reorder layers; deleting the last (active) layer no longer overwrites the layer above it with the deleted layer's settings.
+- Tests: `tests/text-led.cjs` (`AUDIOGRAPH_TEXTLED_BUILD`), `tests/layer-order.cjs` (`AUDIOGRAPH_LAYERORDER_BUILD`), `tests/pixel-shape.cjs` (`AUDIOGRAPH_PWSHAPE_BUILD`).
+
 ## Fracture Flow Preview (v37)
 
 **[Try v37](versions/audiograph_37.html)**. Voronoi Fracture now moves with the music instead of reshuffling randomly: the crack network drifts and bends continuously (faster when the sound is louder), shards breathe in and out smoothly, and hits ramp in rather than snap. Cells are weighted so big plates sit next to small splinters. New knobs: **Size var** (how different shard sizes are) and **Drift** (how fast the cracks travel). In the Post FX panel the fracture controls sit in their own framed group and only appear when Fracture is switched on.
