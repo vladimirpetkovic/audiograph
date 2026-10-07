@@ -73,6 +73,24 @@ async function render(page) { await page.evaluate(() => renderDensity()); await 
     assert.ok(diff(uni, multi).mean > 1, 'Size var changes the fracture layout');
     await page.evaluate(() => { layerFx.pfxFracSize = 65; _pfxStoreLayer(); });
 
+    // v39: Noise bends the crack lines organically; Shatter mode is the static v35/v36 partition (no drift).
+    if (await page.evaluate(() => 'pfxFracNoise' in pfxDefault())) {
+      await page.evaluate(() => { layerFx.pfxFracNoise = 0; _pfxStoreLayer(); });
+      const straight = await render(page); await shot(page, 'fracture-noise0.png');
+      await page.evaluate(() => { layerFx.pfxFracNoise = 100; _pfxStoreLayer(); });
+      const wobbly = await render(page); await shot(page, 'fracture-noise100.png');
+      assert.ok(diff(straight, wobbly).mean > 1, 'Noise changes the crack shapes');
+      await page.evaluate(() => { layerFx.pfxFracNoise = 35; layerFx.pfxFracMode = 'shatter'; _pfxStoreLayer(); syncPfxPanel(); });
+      const hidden = await page.evaluate(() => [...document.querySelectorAll('.frac-flow-only')].every(e => getComputedStyle(e).display === 'none'));
+      assert.ok(hidden, 'Size var / Drift hidden in Shatter');
+      const s1 = await render(page); await shot(page, 'fracture-shatter.png'); await wait(120); const s2 = await render(page);
+      assert.ok(diff(base, s1).mean > 5, 'Shatter mode still cracks under drive');
+      assert.ok(diff(s1, s2).mean < 0.5, `Shatter is static under steady drive mean=${diff(s1, s2).mean}`);
+      const saved = await page.evaluate(() => JSON.stringify(getState()).includes('"pfxFracMode":"shatter"'));
+      assert.ok(saved, 'Mode saved with the layer');
+      await page.evaluate(() => { layerFx.pfxFracMode = 'flow'; _pfxStoreLayer(); syncPfxPanel(); });
+    }
+
     // Drive stops: the envelope decays according to Recovery and returns toward the intact frame.
     await page.evaluate(() => { window.__agFractureDrive = { bass: 0, beat: 0 }; });
     for (let i = 0; i < 12; i++) { await wait(110); await page.evaluate(() => renderDensity()); }

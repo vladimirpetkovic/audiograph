@@ -238,6 +238,13 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Fracture Modes, Organic Cracks & Single Scroll Preview (v39)
+
+- **Fracture Mode**: **Flow** (v37 continuous drifting, multi-scale shards) or **Shatter** (the v35/v36 static pattern with instant hits and reshuffle on onsets). Size var and Drift show only in Flow. Saved per layer/composition.
+- **Noise** knob (default 35%) domain-warps the Voronoi lookup with layered value noise, so crack lines meander organically in both modes.
+- **Single scrollbar** on desktop (>900px): the page no longer scrolls; the controls column is the only scroller, with a thicker 12px thumb. Narrow/iPad portrait layout is unchanged.
+- Tests: `tests/voronoi-fracture.cjs` adds Noise/Shatter checks; new `tests/single-scroll.cjs` (`AUDIOGRAPH_SCROLL_BUILD`).
+
 ## LED Text, Cube/Torus, Pixel Shapes & Layer Order Preview (v38)
 
 - **Text** layout gets a **Style** switch: **LED** (default) renders the word as a slanted LED equalizer — square segments that light from the floor up with the audio, green at the bottom to orange at the top, peak-hold sparkle and dim ghost segments. Knobs: **Slant**, **Seg gap**, **Floor**; **Colour** EQ or Palette. **Lines** keeps the previous look.
