@@ -75,7 +75,8 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
       return { scroll: area.scrollWidth - area.clientWidth, offenders, height: area.scrollHeight };
     });
     assert.ok(overflow.scroll <= 1, 'sidebar has no horizontal scroll: ' + JSON.stringify(overflow));
-    assert.ok(overflow.height <= 6000, 'expanded sidebar stays compact: ' + JSON.stringify(overflow));
+    // v45 adds the ✨ AI Look panel (~200px) above Layers.
+    assert.ok(overflow.height <= 6250, 'expanded sidebar stays compact: ' + JSON.stringify(overflow));
     assert.deepEqual(overflow.offenders, []);
     const chips = await page.evaluate(() => {
       const row = document.querySelector('#panelPresets .preset-actions'), rr = row.getBoundingClientRect(), buttons = [...row.querySelectorAll('.mbtn')];

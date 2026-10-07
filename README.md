@@ -238,6 +238,18 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## AI Look Preview (v45)
+
+**[Try v45](versions/audiograph_45.html)**.
+- New **✨ AI Look** panel: describe a look in plain words (e.g. *slow purple galaxy with glowing trails*) and press **Create look** or Enter. It rebuilds the active layer, or **+ As layer** adds it on top. Example chips give a one-click start. Undo reverts it.
+- The AI sets layout, line style, colors, background, energy, density, thickness, spin and direction, warp, glow, trails, symmetry, particles and growth type. Everything stays editable in the normal panels afterwards.
+- Three free engines, no API keys and no server:
+  - **Quick**: instant keyword matching, works everywhere including iPad.
+  - **Local AI**: the open **Qwen2.5 1.5B Instruct** model runs inside the browser through [WebLLM](https://github.com/mlc-ai/web-llm) and WebGPU (recent Chrome/Edge). It downloads about 1 GB once and is cached after that. Generating a look takes about 3 seconds, and prompts never leave the computer.
+  - **Ollama**: uses a model served by [Ollama](https://ollama.com) on the same machine (default `qwen2.5:3b`; start it with `OLLAMA_ORIGINS=* ollama serve`).
+- Model output is treated as untrusted. Values are checked against allowed lists and clamped. Words you type explicitly, such as *bars*, *thick* or *spin left*, override the model, and the model fills in mood and palette. If an engine is unavailable, Quick is used automatically.
+- Tests: `tests/ai-look.cjs` covers keyword reading, UI create/undo, adding a layer, sanitising bad model output (via mocked Ollama), explicit-word priority, fallbacks, and keyboard isolation of the prompt field.
+
 ## Spin Direction, Audio Dynamics & Playback in Audio EQ Preview (v44)
 
 **[Try v44](versions/audiograph_44.html)**.
