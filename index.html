@@ -206,6 +206,13 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .help-modal .close-help{position:absolute;top:12px;right:16px;font-size:.8rem;color:var(--tx3);cursor:pointer;background:none;border:none;line-height:1}
 .help-modal .close-help:hover{color:var(--tx)}
 .help-section{margin-bottom:16px}
+.help-modal ul,.help-modal ol{margin:4px 0 10px;padding-left:18px;color:var(--tx2)}
+.help-modal li{margin:2px 0}
+.help-modal strong{color:var(--tx)}
+.help-toc{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 14px}
+.help-toc a{font-size:.48rem;padding:2px 7px;border:1px solid var(--border);border-radius:10px;color:var(--tx2);text-decoration:none;background:var(--elevated)}
+.help-toc a:hover{color:var(--accent);border-color:var(--accent)}
+.help-section{scroll-margin-top:12px}
 .mbtn.stack-on{border-color:var(--accent2);color:var(--accent2);background:rgba(110,231,183,0.12);border-style:solid}
 .layer-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:.5rem;color:var(--tx2)}
 .layer-row .layer-name{min-width:60px;text-transform:capitalize;color:var(--accent2)}
@@ -1587,6 +1594,25 @@ frameCv.addEventListener("mouseup",function(){isDragging=false;frameCv.style.cur
 frameCv.addEventListener("mouseleave",function(){isDragging=false;frameCv.style.cursor=""});
 
 // --- Motion Trails ---
+// 8-bit multiplicative trail fades stall at low values (x*(1-a) rounds back to x) and leave ghosts that never clear.
+// Subtract a small constant so history always reaches zero: SVG filter where ctx.filter exists, CPU bands otherwise (Safari).
+var _agTrailSub=(function(){
+  var flt=null,tmp=null;
+  function init(g){if(flt!==null)return flt;flt=('filter' in g);if(flt){var ns='http://www.w3.org/2000/svg',sv=document.createElementNS(ns,'svg');sv.setAttribute('width','0');sv.setAttribute('height','0');sv.style.position='absolute';var f='<feFuncX type="linear" slope="1" intercept="-0.016"/>';sv.innerHTML='<filter id="agTrailSubA" color-interpolation-filters="sRGB"><feComponentTransfer>'+f.replace('X','A')+'</feComponentTransfer></filter><filter id="agTrailSubC" color-interpolation-filters="sRGB"><feComponentTransfer>'+f.replace('X','R')+f.replace('X','G')+f.replace('X','B')+'</feComponentTransfer></filter>';document.body.appendChild(sv)}return flt}
+  return function(cv,g,mode,fadeA){
+    var n=cv._agSub=((cv._agSub||0)+1)%8,w=cv.width,h=cv.height;if(!w||!h)return;
+    g.save();g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;
+    if(init(g)){
+      if(n%4===0){if(!tmp)tmp=document.createElement('canvas');if(tmp.width!==w||tmp.height!==h){tmp.width=w;tmp.height=h}var tg=tmp.getContext('2d');tg.globalCompositeOperation='copy';tg.filter='url(#agTrailSub'+mode+')';tg.drawImage(cv,0,0);tg.filter='none';g.globalCompositeOperation='copy';g.drawImage(tmp,0,0)}
+    }else{
+      var bh=Math.ceil(h/8),y=n*bh,hh=Math.min(bh,h-y);
+      if(hh>0){var lim=Math.min(255,Math.ceil(0.5/Math.max(fadeA,0.004))+2),id=g.getImageData(0,y,w,hh),d=id.data,ch=false,i,k,v;
+        for(i=0;i<d.length;i+=4){if(mode==='A'){v=d[i+3];if(v&&v<=lim){d[i+3]=v>8?v-8:0;ch=true}}else{for(k=0;k<3;k++){v=d[i+k];if(v&&v<=lim){d[i+k]=v>8?v-8:0;ch=true}}}}
+        if(ch)g.putImageData(id,0,y)}
+    }
+    g.restore();
+  };
+})();
 var trailCv=null,trailCtx=null;
 function applyTrails(sourceCv){
   var trails=+compFx.pfxTrails||0;
@@ -1601,7 +1627,7 @@ function applyTrails(sourceCv){
   // Feedback zoom: scale the trail buffer slightly before fading
   if(feedback>0){
     var zoomAmt=1+feedback/100*0.06;
-    var tmpCv=document.createElement('canvas');tmpCv.width=w;tmpCv.height=h;
+    var tmpCv=_agPoolCv('fbComp',w,h);
     var tmpCtx=tmpCv.getContext('2d');
     tmpCtx.drawImage(trailCv,0,0);
     trailCtx.clearRect(0,0,w,h);
@@ -1618,6 +1644,7 @@ function applyTrails(sourceCv){
   trailCtx.globalAlpha=fadeAlpha;
   trailCtx.fillStyle='#000000';
   trailCtx.fillRect(0,0,w,h);
+  trailCtx.globalAlpha=1;_agTrailSub(trailCv,trailCtx,'C',fadeAlpha);
   // Draw current frame using lighten (black bg passes through)
   trailCtx.globalAlpha=1;
   trailCtx.globalCompositeOperation='lighten';
@@ -2233,11 +2260,14 @@ function syncTextStyleUI(){var led=textLayoutStyle==='led';document.querySelecto
 function setTextStyle(st,btn){pushUndo();textLayoutStyle=st==='lines'?'lines':'led';syncTextStyleUI();renderDensity()}
 function setTextLedCol(c,btn){pushUndo();textLedCol=c==='palette'?'palette':'eq';syncTextStyleUI();renderDensity()}
 function setTextDir(d,btn){textLayoutDir=d;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
-function applySymmetry(srcCv,mode,gapPct){
+var _agPool={};
+// Per-frame layer passes reuse one cleared canvas per slot instead of allocating every frame.
+function _agPoolCv(key,w,h){var c=_agPool[key];if(!c){c=_agPool[key]=document.createElement('canvas')}if(c.width!==w||c.height!==h){c.width=w;c.height=h}var x=c.getContext('2d');x.setTransform(1,0,0,1,0,0);x.globalAlpha=1;x.globalCompositeOperation='source-over';x.clearRect(0,0,w,h);return c}
+function applySymmetry(srcCv,mode,gapPct,key){
   if(!mode||mode==='none')return srcCv;
   var gap=((gapPct||0)/100);
   var w=srcCv.width,h=srcCv.height;
-  var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  var cv=key?_agPoolCv(key,w,h):document.createElement('canvas');if(!key){cv.width=w;cv.height=h}
   var ctx=cv.getContext('2d');
   if(mode==='x'){
     var gx=w*gap;
@@ -2889,14 +2919,14 @@ function exportPreset(){
   var st=getState();st._saveAll=(stackLayouts.length>1);
   var obj={};obj[name]=st;
   var blob=new Blob([JSON.stringify(obj)],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[^a-z0-9]/gi,'_')+'.json';a.click();URL.revokeObjectURL(a.href);
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[^a-z0-9]/gi,'_')+'.json';a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000);
 }
 function exportAllPresets(){
   var all={};
   Object.keys(builtinPresets).forEach(function(k){all[k]=builtinPresets[k]});
   try{var u=JSON.parse(localStorage.getItem('audiograph_presets')||'{}');Object.keys(u).forEach(function(k){all[k]=u[k]})}catch(e){}
   var blob=new Blob([JSON.stringify(all)],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='audiograph-presets.json';a.click();URL.revokeObjectURL(a.href);
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='audiograph-presets.json';a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000);
 }
 function importPresets(ev){
   var file=ev.target.files[0];if(!file)return;
@@ -3745,6 +3775,7 @@ function _layerTrail(si,src,trails,feedback){
   ctx.globalAlpha=1-trails/100*0.97;
   ctx.fillRect(0,0,w,h);
   ctx.globalAlpha=1;
+  _agTrailSub(t.cv,ctx,'A',1-trails/100*0.97);
   ctx.globalCompositeOperation='lighten';
   ctx.drawImage(src,0,0);
   ctx.globalCompositeOperation='source-over';
@@ -4863,12 +4894,12 @@ function liveAnimLoop(){
       var lvSym=(layer.params&&layer.params._symmetryMode)||'none';
       if(si===getActiveLayerIdx())lvSym=symmetryMode;
       var lvGap=(layer.params&&'_symGap' in layer.params)?layer.params._symGap:(si===getActiveLayerIdx()?+document.getElementById('pSymGap').value:0);
-      lCv=applySymmetry(lCv,lvSym,lvGap);
+      lCv=applySymmetry(lCv,lvSym,lvGap,'symL'+si);
       // Apply per-layer flip
       var lvFlipH=!!(layer.params&&layer.params._flipH);
       var lvFlipV=!!(layer.params&&layer.params._flipV);
       if(lvFlipH||lvFlipV){
-        var tmpCvL=document.createElement('canvas');tmpCvL.width=lCv.width;tmpCvL.height=lCv.height;
+        var tmpCvL=_agPoolCv('fL'+si,lCv.width,lCv.height);
         var tmpCtxL=tmpCvL.getContext('2d');
         tmpCtxL.translate(lvFlipH?lCv.width:0,lvFlipV?lCv.height:0);
         tmpCtxL.scale(lvFlipH?-1:1,lvFlipV?-1:1);
@@ -4878,7 +4909,7 @@ function liveAnimLoop(){
       // Per-layer mirror
       var lvMirror=!!(layer.params&&layer.params._mirrorOn);
       if(lvMirror){
-        var mCvL=document.createElement('canvas');mCvL.width=lCv.width;mCvL.height=lCv.height;
+        var mCvL=_agPoolCv('mL'+si,lCv.width,lCv.height);
         var mCtxL=mCvL.getContext('2d');
         mCtxL.drawImage(lCv,0,0);
         mCtxL.save();mCtxL.translate(0,lCv.height);mCtxL.scale(1,-1);mCtxL.globalAlpha=0.4;
@@ -7580,9 +7611,9 @@ var agGrowth=(function(){
   function seed(s,type,W,H,thick,strong){var m=Math.min(W,H),n,i;
     var ra=s.spin||0,cs=Math.cos(ra),sn=Math.sin(ra);if(type==='vine'&&growDir==='center'){n=strong?4:1;for(i=0;i<n;i++){var ca=Math.random()*Math.PI*2+ra,cr=m*.03*Math.random();s.tips.push(tip(W/2+Math.cos(ca)*cr,H/2+Math.sin(ca)*cr,ca,thick*(1.4+Math.random()),0,1,0))}}
     else if(type==='vine'){if(growDir==='top'){ra+=Math.PI;cs=-cs;sn=-sn}n=strong?3:1;for(i=0;i<n;i++){var rx=W*(.1+.8*Math.random())-W/2,ry=H/2+2,qx=rx*cs-ry*sn,qy=rx*sn+ry*cs,kk=Math.min(1,(W/2+2)/Math.max(1e-6,Math.abs(qx)),(H/2+2)/Math.max(1e-6,Math.abs(qy)));s.tips.push(tip(W/2+qx*kk,H/2+qy*kk,-Math.PI/2+ra+(Math.random()-.5)*.6,thick*(1.4+Math.random()),0,1,0))}}
-    else if(type==='neuron'){if(!s.somas.length)return;var o=s.somas[Math.floor(Math.random()*s.somas.length)];sprout(s,o,strong?7:2,thick)}
-    else{n=strong?5:2;var cx=W/2,cy=H*.55;for(i=0;i<n;i++){var a2=(i/n)*Math.PI*2+Math.random()*.5+ra;s.tips.push(tip(cx,cy,a2,thick*1.6,0,1,0))}}}
-  function sprout(s,o,n,thick){for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,t=tip(o.x+Math.cos(a)*o.r,o.y+Math.sin(a)*o.r,a,thick*(1.1+Math.random()*.6),0,1,0);t.o=o;s.tips.push(t)}}
+    else if(type==='neuron'){if(!s.somas.length)return;var o=s.somas[Math.floor(Math.random()*s.somas.length)];sprout(s,o,strong?7:2,thick,s.spinOn?ra:null)}
+    else{n=strong?5:2;var cx=W/2,cy=H*.55;for(i=0;i<n;i++){var a2=s.spinOn?ra+(Math.random()-.5)*.7:(i/n)*Math.PI*2+Math.random()*.5;s.tips.push(tip(cx,cy,a2,thick*1.6,0,1,0))}}}
+  function sprout(s,o,n,thick,aim){for(var i=0;i<n;i++){var a=aim==null?Math.random()*Math.PI*2:aim+(Math.random()-.5)*.9,t=tip(o.x+Math.cos(a)*o.r,o.y+Math.sin(a)*o.r,a,thick*(1.1+Math.random()*.6),0,1,0);t.o=o;s.tips.push(t)}}
   // Neurons live for a while, fade out, and are reborn elsewhere (kept away from the others).
   function somas(s,W,H,m,thick){var want=Math.max(1,val('pGrowNeurons',6)|0),life=Math.max(1,val('pGrowLife',3)),fresh=!s.somas.length;
     s.somas.forEach(function(o){o.age++});s.somas=s.somas.filter(function(o){if(o.age<o.span)return true;o.dead=true;return false});
@@ -7596,7 +7627,7 @@ var agGrowth=(function(){
     var f=Math.pow(1-trail,2)*0.08+(trail<1?0.0004:0);s.fadeAcc+=f;if(s.fadeAcc>=0.04||f>=0.04){g.setTransform(1,0,0,1,0,0);g.globalCompositeOperation='destination-out';g.globalAlpha=1;g.fillStyle='rgba(0,0,0,'+Math.min(1,s.fadeAcc)+')';g.fillRect(0,0,s.cv.width,s.cv.height);s.fadeAcc=0}
     if(trail<1&&++s.clean>=Math.round(20/Math.max(.05,(1-trail)*3.3))){s.clean=0;cleanup(s.cv)}
     g.globalCompositeOperation='source-over';g.setTransform(k,0,0,k,0,0);g.lineCap='round';
-    var sa=(typeof _objSpinRot!=='undefined'?_objSpinRot:0)||0,da=sa-(s.spin||0);s.spin=sa;if(da&&Math.abs(da)<1){var c1=Math.cos(da),s1=Math.sin(da);s.somas.forEach(function(o){var x=o.x-W/2,y=o.y-H/2;o.x=W/2+x*c1-y*s1;o.y=H/2+x*s1+y*c1})}
+    var sa=(typeof _objSpinRot!=='undefined'?_objSpinRot:0)||0;s.spinOn=sa!==(s.spin||0)||(s.spinOn&&sa!==0);s.spin=sa;
     s.t+=0.016;s.avg+=(au.bass-s.avg)*.04;if(s.cool>0)s.cool--;
     var hit=au.onset||(au.bass>s.avg*1.35+.08&&s.cool===0);if(hit)s.cool=8;
     if(type==='neuron')somas(s,W,H,m,thick);if(hit||s.tips.length<(type==='coral'?1:3))seed(s,type,W,H,thick,hit);
@@ -8549,13 +8580,13 @@ function renderDensity(){
       var sSym=(layer.params&&layer.params._symmetryMode)||'none';
       if(si===getActiveLayerIdx())sSym=symmetryMode;
       var sGap=(layer.params&&'_symGap' in layer.params)?layer.params._symGap:(si===getActiveLayerIdx()?+document.getElementById('pSymGap').value:0);
-      lCv=applySymmetry(lCv,sSym,sGap);
+      lCv=applySymmetry(lCv,sSym,sGap,'symS'+si);
       // Composite: center layer canvas onto offscreen canvas with opacity + flip
       var lFlipH=!!(layer.params&&layer.params._flipH);
       var lFlipV=!!(layer.params&&layer.params._flipV);
       // Apply flip by redrawing layer canvas flipped onto itself
       if(lFlipH||lFlipV){
-        var tmpCv=document.createElement('canvas');tmpCv.width=lCv.width;tmpCv.height=lCv.height;
+        var tmpCv=_agPoolCv('fS'+si,lCv.width,lCv.height);
         var tmpCtx=tmpCv.getContext('2d');
         tmpCtx.translate(lFlipH?lCv.width:0,lFlipV?lCv.height:0);
         tmpCtx.scale(lFlipH?-1:1,lFlipV?-1:1);
@@ -8565,7 +8596,7 @@ function renderDensity(){
       // Per-layer mirror: draw a faded vertical reflection
       var lMirror=!!(layer.params&&layer.params._mirrorOn);
       if(lMirror){
-        var mCv=document.createElement('canvas');mCv.width=lCv.width;mCv.height=lCv.height;
+        var mCv=_agPoolCv('mS'+si,lCv.width,lCv.height);
         var mCtx=mCv.getContext('2d');
         mCtx.drawImage(lCv,0,0);
         mCtx.save();mCtx.translate(0,lCv.height);mCtx.scale(1,-1);mCtx.globalAlpha=0.4;
@@ -8629,7 +8660,7 @@ function clampSelToCrop(){if(selStart===null||selEnd===null)return;var s=Math.mi
 
 // File load
 async function loadAudioFile(file){
-  if(!file)return;stopLive();initAudio();if(playing){audio.pause();playing=false;updatePlayBtn()}if(rafId){cancelVisualFrame(rafId);rafId=null}if(source){try{source.disconnect()}catch(ex){}}audio=null;selStart=null;selEnd=null;var ab=await file.arrayBuffer();try{audioBuffer=await audioCtx.decodeAudioData(ab.slice(0))}catch(err){alert('Cannot decode');return}audio=new Audio();audio.src=URL.createObjectURL(file);await new Promise(function(r){audio.addEventListener('canplaythrough',r,{once:true});audio.load()}).catch(function(){});source=audioCtx.createMediaElementSource(audio);if(!analyser){analyser=audioCtx.createAnalyser();analyser.fftSize=4096}source.connect(analyser);analyser.connect(audioCtx.destination);document.getElementById('idle').style.display='none';document.getElementById('tDur').textContent=fmt(safeDuration());cropStart=0;cropEnd=safeDuration();audio.addEventListener('ended',function(){playing=false;updatePlayBtn();if(rafId){cancelVisualFrame(rafId);rafId=null}});highlightAudioSource('file');drawOverview();updateCropUI();updateSelUI();renderDensity()
+  if(!file)return;stopLive();initAudio();if(playing){audio.pause();playing=false;updatePlayBtn()}if(rafId){cancelVisualFrame(rafId);rafId=null}if(source){try{source.disconnect()}catch(ex){}}audio=null;selStart=null;selEnd=null;var ab=await file.arrayBuffer();try{audioBuffer=await audioCtx.decodeAudioData(ab.slice(0))}catch(err){alert('Cannot decode');return}if(window._agAudioUrl){try{URL.revokeObjectURL(window._agAudioUrl)}catch(ex){}}audio=new Audio();audio.src=window._agAudioUrl=URL.createObjectURL(file);await new Promise(function(r){audio.addEventListener('canplaythrough',r,{once:true});audio.load()}).catch(function(){});source=audioCtx.createMediaElementSource(audio);if(!analyser){analyser=audioCtx.createAnalyser();analyser.fftSize=4096}source.connect(analyser);analyser.connect(audioCtx.destination);document.getElementById('idle').style.display='none';document.getElementById('tDur').textContent=fmt(safeDuration());cropStart=0;cropEnd=safeDuration();audio.addEventListener('ended',function(){playing=false;updatePlayBtn();if(rafId){cancelVisualFrame(rafId);rafId=null}});highlightAudioSource('file');drawOverview();updateCropUI();updateSelUI();renderDensity()
 }
 document.getElementById('fileInput').addEventListener('change',function(e){loadAudioFile(e.target.files[0])});
 
@@ -8643,7 +8674,7 @@ document.addEventListener('drop',function(e){e.preventDefault();dragCounter=0;dr
 
 // Transport
 function getPlayRange(){var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}return{s:sT,e:eT}}
-function togglePlay(){if(!audio||safeDuration()===0)return;if(playing){audio.pause();playing=false;if(rafId){cancelVisualFrame(rafId);rafId=null}}else{if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();var r=getPlayRange();safeSetTime(Math.max(audio.currentTime,r.s));if(audio.currentTime>=r.e||audio.currentTime<r.s)safeSetTime(r.s);audio.play();playing=true;if(!liveMode&&activeAudioSource!=='file')highlightAudioSource('file');animLoop()}updatePlayBtn()}
+function togglePlay(){if(!audio||safeDuration()===0)return;if(playing){audio.pause();playing=false;if(rafId){cancelVisualFrame(rafId);rafId=null}}else{if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();var r=getPlayRange();safeSetTime(Math.max(audio.currentTime,r.s));if(audio.currentTime>=r.e||audio.currentTime<r.s)safeSetTime(r.s);var _pp=audio.play();if(_pp&&_pp.catch)_pp.catch(function(e){if(!e||e.name!=='AbortError')console.warn(e)});playing=true;if(!liveMode&&activeAudioSource!=='file')highlightAudioSource('file');animLoop()}updatePlayBtn()}
 function playSelection(){if(!audio||selStart===null||selEnd===null)return;var s=Math.min(selStart,selEnd);safeSetTime(s);if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();audio.play();playing=true;updatePlayBtn();animLoop()}
 function resetSel(){selStart=null;selEnd=null;updateSelUI();renderDensity()}
 function updatePlayBtn(){var ico=document.getElementById('playIco'),lbl=document.getElementById('playLbl');if(playing){ico.innerHTML='<line x1="6" y1="4" x2="6" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/>';lbl.textContent='Pause'}else{ico.innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';lbl.textContent='Play'}syncAudioTransport()}
@@ -8776,12 +8807,12 @@ function animLoop(){if(!playing){rafId=null;return}
       var aSym=(layer.params&&layer.params._symmetryMode)||'none';
       if(si===getActiveLayerIdx())aSym=symmetryMode;
       var aGap=(layer.params&&'_symGap' in layer.params)?layer.params._symGap:(si===getActiveLayerIdx()?+document.getElementById('pSymGap').value:0);
-      lCv=applySymmetry(lCv,aSym,aGap);
+      lCv=applySymmetry(lCv,aSym,aGap,'symA'+si);
       // Apply per-layer flip
       var aFlipH=!!(layer.params&&layer.params._flipH);
       var aFlipV=!!(layer.params&&layer.params._flipV);
       if(aFlipH||aFlipV){
-        var tmpCv2=document.createElement('canvas');tmpCv2.width=lCv.width;tmpCv2.height=lCv.height;
+        var tmpCv2=_agPoolCv('fA'+si,lCv.width,lCv.height);
         var tmpCtx2=tmpCv2.getContext('2d');
         tmpCtx2.translate(aFlipH?lCv.width:0,aFlipV?lCv.height:0);
         tmpCtx2.scale(aFlipH?-1:1,aFlipV?-1:1);
@@ -8791,7 +8822,7 @@ function animLoop(){if(!playing){rafId=null;return}
       // Per-layer mirror
       var aMirror=!!(layer.params&&layer.params._mirrorOn);
       if(aMirror){
-        var mCv2=document.createElement('canvas');mCv2.width=lCv.width;mCv2.height=lCv.height;
+        var mCv2=_agPoolCv('mA'+si,lCv.width,lCv.height);
         var mCtx2=mCv2.getContext('2d');
         mCtx2.drawImage(lCv,0,0);
         mCtx2.save();mCtx2.translate(0,lCv.height);mCtx2.scale(1,-1);mCtx2.globalAlpha=0.4;
@@ -8861,7 +8892,7 @@ function doExport(){
     var expCtx=expCv.getContext('2d');
     expCtx.fillStyle=canvasBg;expCtx.fillRect(0,0,expCv.width,expCv.height);
     expCtx.drawImage(cv,0,0);
-    expCv.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();URL.revokeObjectURL(u)},'image/png');
+    expCv.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();setTimeout(function(){URL.revokeObjectURL(u)},1000)},'image/png');
   }else{
     // Re-render to a clean canvas without background
     var sz=sizeCanvas(cv);
@@ -8891,7 +8922,7 @@ function doExport(){
         setLayoutParams(origParams);layoutMode=origLayout;
       }else{drawDensity(expCtx,sz.W,sz.H,vals,P(),false)}
     }
-    expCv.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();URL.revokeObjectURL(u)},'image/png');
+    expCv.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();setTimeout(function(){URL.revokeObjectURL(u)},1000)},'image/png');
   }
 }
 
@@ -8995,7 +9026,7 @@ function finalizeRecording(){
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
   a.href=url;a.download='audiograph.'+ext;a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(function(){URL.revokeObjectURL(url)},1000);
   recordedChunks=[];
 }
 
@@ -9108,6 +9139,16 @@ function resizeAll(){setTimeout(function(){sizeCanvas(frameCv);renderDensity()},
   ['touchstart','touchmove','gesturestart','gesturechange'].forEach(function(t){cv.addEventListener(t,function(e){e.preventDefault()},{passive:false})});
 })();
 function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.display=o.style.display==='block'?'none':'block'}
+document.addEventListener('keydown',function(e){
+  var t=e.target,tag=(t&&t.tagName)||'';if(e.defaultPrevented||e.altKey||(t&&t.isContentEditable)||/^(INPUT|TEXTAREA|SELECT)$/.test(tag))return;
+  var help=document.getElementById('helpOverlay');
+  if(e.key==='Escape'&&help.style.display==='block'){help.style.display='none';return}
+  if(t&&t.closest&&t.closest('#mapEditor,[role="slider"],[role="switch"]'))return;
+  if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return}
+  if(e.metaKey||e.ctrlKey)return;
+  if(e.key===' '&&tag!=='BUTTON'){e.preventDefault();togglePlay();return}
+  if(e.key.toLowerCase()==='f'&&!e.shiftKey){e.preventDefault();toggleFullscreen()}
+});
 initLayers();
 projectionMap.init();
 try{loadFromHash()}catch(e){}
@@ -9115,205 +9156,165 @@ try{loadFromHash()}catch(e){}
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
 <div class="help-modal">
 <button class="close-help" onclick="toggleHelp()">&times;</button>
-<h2>Audiograph — Guide <span style="font-size:.5em;font-weight:400;letter-spacing:.08em;color:var(--tx3);vertical-align:middle">v42</span></h2>
-<p>Audiograph turns sound into visual art. Audio becomes line density — louder sounds create denser, taller lines. Every parameter is controllable, layerable, and audio-reactive.</p>
+<h2>Audiograph — Guide <span style="font-size:.5em;font-weight:400;letter-spacing:.08em;color:var(--tx3);vertical-align:middle">v43</span></h2>
+<p>Audiograph turns sound into moving images. Pick a source, pick a layout, and shape the look while the music plays. Everything reacts to audio, and nearly everything can be undone.</p>
+<nav class="help-toc" aria-label="Guide contents">
+<a href="#g-start">Quick start</a><a href="#g-audio">Audio</a><a href="#g-layers">Layers</a><a href="#g-layout">Layout</a><a href="#g-style">Style &amp; Outline</a><a href="#g-color">Color</a><a href="#g-geo">Geometry &amp; Motion</a><a href="#g-deform">Deformers</a><a href="#g-particles">Particles</a><a href="#g-postfx">Post FX</a><a href="#g-auto">Reactive &amp; Mixer</a><a href="#g-presets">Presets &amp; Morph</a><a href="#g-live">Live output</a><a href="#g-mapping">Projection mapping</a><a href="#g-perf">Resolution &amp; renderer</a><a href="#g-export">Export</a><a href="#g-controls">Knobs, touch &amp; keys</a>
+</nav>
 
-<div class="help-section">
-<h3>Duplicate or Span Visuals</h3>
-<p>In <strong>Setup mapping</strong>, choose the <strong>Visuals</strong> mode. <strong>Duplicate on each plane</strong> shows the complete artwork independently on every face. <strong>Span / overflow across planes</strong> spreads portions of one shared image over the faces using a source layout, deforming each portion rather than restarting the complete image.</p>
-<p>For a box with Top, Front and Right faces, choose <strong>Seamless cube</strong>: one image stretches across all three visible faces, sharing source coordinates along every common edge. The 3-face starter uses this layout by default. This is a continuous, deliberately stretched source chart, not three rectangular crops or a physical unfolded cube net. Fine-mesh triangles warp the chart with your calibrated geometry. Shared edges must align physically; source continuity cannot hide a gap or overlap in calibration.</p>
-<p><strong>Fit surface</strong> fits the image to the current mapped bounds and anchors a continuous source mesh there; subsequent corner/grid edits deform that anchored artwork. Use it for arrangements other than a three-face cube. <strong>Horizontal</strong> and <strong>Vertical</strong> retain equal rectangular source allocations in plane-list order. Legacy <strong>Cube net</strong> keeps its unfolded rectangular regions with an intentional Top/Right cut.</p>
-<p>Rectangular layouts expose <strong>Span source region (%)</strong> and <strong>Source rotation</strong>. Seamless meshes lock those per-face controls to avoid breaking their common edges; use <strong>Move visuals</strong> to reposition the shared image. Switching to a rectangular layout restores region editing. Hidden planes retain their allocation; areas outside planes stay black. Save/export/import preserves the source mesh as well as geometry and image position. This is a source layout you align to the object, not automatic 3D reconstruction.</p>
-<p><strong>Double-click a visible face</strong> in the editor to select it without the dropdown. Where faces overlap, the topmost visible face is selected. Hidden faces can still be selected from the list.</p>
-<p>In Span mode, choose <strong>Move visuals</strong> and drag inside any face. The entire shared image slides across the source net, preserving plane corners, fine warps, crops and source joins. Dragging follows that face's perspective, mesh and source rotation. Geometry is locked, including Shift-drag; switch to <strong>Adjust planes</strong> to recalibrate. Arrow keys nudge the image (Shift: ten output pixels). Image X/Y gives a precise shared offset, limited to +/-100% of the source. Beyond the image edges, mapped pixels are black rather than stretched.</p>
-<p><strong>Reset position</strong> restores the original artwork position without resetting alignment. Mapping Undo, Save, Export and Import retain the offset. Switching Visuals modes preserves it but applies it only to Span. Test grid ignores the offset and returns to Adjust planes; entering Move visuals turns Test grid off.</p>
-<p><strong>Custom per-plane crops</strong> keeps the original crop workflow. Span regions and Custom crops are stored separately. Switching modes never changes plane positions or erases either set of regions, and <strong>Undo mapping</strong> restores the previous mode. Save/export/import includes the choice, Span regions, and rotations. Older profiles without a mode load in Custom; v25 Span profiles get a horizontal allocation, replacing the non-deforming projector-space behavior. Artistic presets do not change mapping.</p>
-<p><strong>Test grid</strong> follows the selected mode, so you can see repeated grids versus one shared grid before playing music. All modes reuse the same rendered visual; they do not start separate audio or animation engines per plane.</p>
+<div class="help-section" id="g-start">
+<h3>1 · Quick start</h3>
+<ol>
+<li><strong>Load audio</strong> (or drop a file on the timeline), then press <strong>Play</strong>. Mic and System work too.</li>
+<li>In <strong>Appearance</strong>, click a <strong>Layout</strong> — this is the biggest change to the picture.</li>
+<li>Pick a <strong>Style</strong> and a <strong>Color</strong> ramp.</li>
+<li>Stuck? Press <strong>✨ Surprise</strong> in Presets for a ready-made scene, or 🎲 on any panel to randomise just that panel.</li>
+<li><span class="hk">⌘/Ctrl Z</span> undoes anything. <strong>Reset</strong> returns every look setting to default.</li>
+</ol>
+<p>Panels only show controls that matter for the selected layout, so the sidebar changes as you switch layouts.</p>
 </div>
 
-<div class="help-section">
-<h3>Output Resolution</h3>
-<p>Choose <strong>Output resolution</strong> beside the transport before or after opening the projection window. <strong>Auto</strong> follows the window size and the existing device-pixel-ratio cap. <strong>720p / 1080p / 1440p / 4K</strong> use exactly 1280 &times; 720, 1920 &times; 1080, 2560 &times; 1440, or 3840 &times; 2160 pixels, regardless of screen DPI or fullscreen/window size.</p>
-<p>Fixed modes render a 16:9 composition, scaled to fit the output without stretching; non-16:9 displays have black bars. The laptop preview shows the same composition. Start with <strong>720p</strong> for demanding presets, or <strong>1080p</strong> for a balance of quality and performance. 4K uses four times as many pixels as 1080p.</p>
-<p>The selector applies only while output is open; closing it returns to normal laptop-preview sizing. Your choice remains for reopening during this session and is independent of visual and mapping presets. Resolution changes are locked during recording. Recording with fixed output uses the selected pixel size. Check mapping alignment after any aspect-ratio change.</p>
-<p><strong>Renderer</strong> beside Output resolution defaults to <strong>Auto (selective GPU)</strong>: dense dotted, number, symbol and word layers use WebGL2; other geometry stays Canvas 2D to avoid extra JavaScript tessellation cost. Dots and round caps use analytic GPU shaders; glyphs use a cached texture atlas. <strong>GPU (WebGL2)</strong> forces all compatible geometry for comparison, but may be slower for some presets. Unsupported features fall back per layer, including image/video/text layouts, gradients, clipping and shadows. Status reports GPU/Canvas layers and fallback reasons.</p>
-<p><strong>Particles</strong> (v31) beside the renderer default to <strong>GPU sim+draw</strong>: each layer's particles live in WebGL2 float textures; a shader pass ages, kills and moves them (gravity, damping, energy, twist/bulge/wave, Perlin/curl/Brownian/vortex noise) and instanced draws render all 11 shapes and trails. JavaScript only uploads new spawns and the oldest-particle cap; nothing is read back per frame. Camera colours, Color randomness, blend modes, filters, shadows and non-uniform transforms fall back per layer to the original CPU path, with the reason shown in status. <strong>CPU (original)</strong> restores the v30 path. Known GPU differences: Brownian noise uses its own random stream, glyph choice is fixed per particle, trail joins are round, changing trail length restarts trails, and the cap ignores particles that already left the screen.</p>
-<p>Symmetry, flip, mirror, layer composition and PNG/SVG export retain their original paths. Post-FX and mapping remain WebGL. Context loss falls back to Canvas until restoration. <strong>Canvas 2D (original)</strong> is available for comparison/rollback. Renderer choice is remembered locally; this first-stage migration does not promise that every preset or resolution is faster.</p>
-<p>A faster GPU helps post-FX and mapping, but complex geometry and particles also depend on CPU performance. Keep browser hardware acceleration enabled. Fixed output resolution limits pixel workload; it does not guarantee a particular frame rate.</p>
+<div class="help-section" id="g-audio">
+<h3>2 · Audio</h3>
+<ul>
+<li><strong>Load audio</strong> — MP3, WAV, FLAC, OGG. The waveform shows in the timeline.</li>
+<li><strong>Mic</strong> — live microphone. <strong>System</strong> — audio from another tab or app (Chrome/Edge): choose a screen or tab and turn on <em>Share audio</em>.</li>
+<li><strong>Play / Stop</strong> sits next to the sources and resumes the last one.</li>
+<li><strong>Timeline</strong> — click to seek, drag to select a range, use the handles to loop it.</li>
+<li><strong>Audio EQ</strong> — 10 bands and presets that change what the visuals react to (not what you hear). Boost the bass to make kicks dominate.</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>Projection Mapping</h3>
-<p><strong>Setup mapping</strong> opens the controller's mapping editor. Enable <strong>Mapping on</strong>, add one plane for each physical face, and drag its four large corner handles to align the projected image. Use <strong>3-face cube</strong> as a starter for a box; it replaces the current mapping and can be undone.</p>
-<p>Small grid handles add fine warping. Shift-drag translates the selected plane; arrow keys nudge the selected handle, with Shift for 10 pixels. Corner moves preserve fine-warp offsets where possible. Folded grids are rejected. <strong>Rebuild grid</strong> keeps the corners but resets fine adjustments; <strong>Reset plane</strong> returns it to a rectangle.</p>
-<p><strong>Test grid</strong> replaces the artwork with a calibration pattern. Toggle it off after alignment. Areas outside the planes are black; editing handles stay on the laptop only. Each plane can show the entire visualization or a <strong>Source crop</strong>. Planes are drawn in list order, with later planes on top.</p>
-<p><strong>Save mapping</strong> restores alignment on this browser at startup. Export/import mapping JSON for a portable backup. Mapping and <strong>Undo mapping</strong> are independent of artistic presets and Undo, so changing the look does not move the installation. Mapping is applied only to the projection output and its editor, not PNG/SVG exports or the original video recording.</p>
-<p>This is projector-space calibration for physical planes, not a 3D scene reconstruction. Align it from the projector's fixed position; moving the projector or object requires recalibration. WebGL is required. Start in Chrome/Edge with an extended desktop and the controller visible.</p>
+<div class="help-section" id="g-layers">
+<h3>3 · Layers</h3>
+<p>A scene is a stack of <strong>layers</strong>. Each layer has its own layout, style, colour, deformers, particles, Post FX and playback, so you can put a 3D sphere behind a glowing spiral.</p>
+<ul>
+<li><strong>+ Add layer</strong> adds one; click a layer name to edit it. All panels below edit the <em>selected</em> layer.</li>
+<li>Each layer has an <strong>opacity</strong> slider, <strong>▲/▼</strong> to reorder (top of the list draws on top) and <strong>✕</strong> to remove.</li>
+<li><strong>⚡ Multi-band</strong> creates three layers driven by bass, mids and treble.</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>Live Projection</h3>
-<p><strong>Project visuals</strong> opens a separate, visuals-only window. Move it to your projector or second monitor, then click <strong>Fullscreen</strong>, press <strong>F</strong>, or double-click the visuals. Controls and the cursor fade away in fullscreen; move the mouse to reveal them. Escape exits fullscreen.</p>
-<p>Keep Audiograph's controller window visible on your laptop. All audio sources, layers, presets, morphs, particles, and post-FX share the same rendered output. The composition fits the output screen's aspect ratio; your laptop preview is letterboxed, not stretched. Audio plays only from the controller.</p>
-<p><strong>Focus output</strong> brings the existing window forward. <strong>Close output</strong> closes it without stopping the music. Reopen it at any time. Allow pop-ups if your browser blocks the window. Closing or reloading the controller also closes its output. Animation uses the visible output window's clock, so entering output fullscreen does not depend on the laptop preview receiving animation frames. Closing output hands the clock back to the controller. Keep the computer awake and at least one Audiograph window visible; browsers can still suspend fully hidden windows. During recording, resolution stays fixed; resizing the output temporarily letterboxes the recorded frame.</p>
+<div class="help-section" id="g-layout">
+<h3>4 · Layout</h3>
+<p>The Layout row in <strong>Appearance</strong> decides how sound becomes shape. Each layout's own settings appear in the framed box right under the picker.</p>
+<ul>
+<li><strong>General</strong> — Linear, Sine, Circle, Concentric, Spiral, Phyllotaxis, Fractal (audio-driven tree), Scatter, and <strong>Growth</strong>: living Vine, Neuron or Coral simulations with Life, Trail, line type, Thickness, vine Direction (Bottom / Top / Center) and Neuron count.</li>
+<li><strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus. Drag the visuals to orbit; 3D Tilt / Rotate are in Geometry.</li>
+<li><strong>Input</strong> — <strong>Image</strong> and <strong>Video</strong> (file or camera) become brightness maps drawn with lines; <strong>Pixel Warp</strong> keeps the real image colours and pushes pixels or a mesh with the music; <strong>Text</strong> (LED equalizer or scan lines); <strong>Math</strong> (your own formula); <strong>3D Object</strong> (load an .OBJ).</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>Audio Sources</h3>
-<p><strong>Load Audio</strong> — open any audio file (MP3, WAV, FLAC, etc.). The waveform appears in the timeline. Click Play to start.</p>
-<p><strong>Mic</strong> — capture live audio from your microphone. Click again to stop (toggle).</p>
-<p><strong>System</strong> — capture audio from another tab or app (Spotify, YouTube, etc.). Audiograph asks supported desktop Chrome/Edge browsers to open the chooser on <strong>Entire Screen</strong> with system audio offered. Choose the screen, enable <strong>Share with system audio</strong>, and click <strong>Share with Audio</strong>. If system audio is unavailable, choose a <strong>Chrome Tab</strong> with <strong>Share tab audio</strong>. The browser decides which sources are supported.</p>
-<p>The site cannot preselect a particular screen, force the audio toggle on, or skip your permission prompt. Video capture is stopped immediately after selection; audio alone feeds the visualizer. Inline status explains connection, cancellation, or missing audio without another dialog. Click System again to stop.</p>
-<p><strong>Stop / Play</strong> (v31): always visible next to the source buttons. It shows <strong>Stop</strong> while a source is sounding (a file playing, or Mic/System connected); clicking it stops playback and returns to idle as before. Otherwise it shows <strong>Play</strong> for the last source: a file resumes where it stopped (or restarts after it ends), and Mic/System reconnect, asking for permission again because stopped live tracks cannot resume. Before any source is chosen it is disabled. If permission is refused it stays on Play with a message. Pause on the lower transport also turns it to Play.</p>
-<p><strong>Timeline</strong> — click to seek, drag to select a range, use crop handles to loop a section.</p>
+<div class="help-section" id="g-style">
+<h3>5 · Style &amp; Outline</h3>
+<p><strong>Style</strong> sets how each line is drawn: Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, Cascade, Feather, Circles, Braille, Arrows, Slash, Needles, Diamonds — or <strong>Off</strong>. Size, Density and Angle appear when the style uses them.</p>
+<p><strong>Outline</strong> traces the shape: Solid, Dotted, Dashed, Connected (network lines) or Fill. Style Off + Outline shows the outline alone.</p>
 </div>
 
-<div class="help-section">
-<h3>Layers</h3>
-<p>Everything is a layer. Each layer has its own layout, style, colors, effects, particles, and playback mode — fully independent. Click a layer name to select it. Use <strong>+ Add Layer</strong> to stack visualizations. Each layer has an opacity slider, ▲/▼ to reorder it and a remove button (✕).</p>
+<div class="help-section" id="g-color">
+<h3>6 · Color &amp; Background</h3>
+<ul>
+<li><strong>Solid</strong> — one colour. <strong>Tone ramp</strong> — colour follows loudness (quiet → loud). <strong>Simple ramp</strong> — colour follows position.</li>
+<li>Each stop has its own opacity; there are 14 presets of each ramp type. Text, Growth and particles use these colours too.</li>
+<li><strong>Background</strong> sets the canvas colour.</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>Appearance</h3>
-<p>The Appearance panel holds the choices that define the look: <strong>Layout</strong> (arrangement), <strong>Style</strong> (how each line is rendered), and <strong>Outline</strong>. Layout and Style use compact dark chips with subtle category dots and a filled active state.</p>
-<p><strong>Layouts</strong>, grouped: <strong>General</strong> — Linear, Sine, Circle, Concentric, Spiral, Phyllotaxis, Scatter, Fractal, Growth. <strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus. <strong>Input</strong> — Image, Video, Pixel Warp, Text, Math, 3D Object (custom .OBJ). Kaleidoscope and Ridge were retired in v41; old presets that use them still render.</p>
-<p><strong>Pixel Warp</strong> (v35) renders the image/video itself with preserved source colours. Pick Image, Video or Camera; <strong>Pixels</strong> samples the source into coloured pixels (Shape: Square, Round, Diamond or Hex) that separate as audio pushes them, while <strong>Mesh</strong> keeps a continuous warped surface. Resolution controls grid complexity; Bass push, Mid swirl, Treble scatter, Luma weight, Flow, Elasticity, Depth, Pattern, Fit and colour controls tune how the media deforms. <strong>Pattern</strong> picks the displacement field: Noise (default), Diffuse, Curl (swirling flow), Turb (ridged turbulence streaks), Waves (travelling wave fronts) or Cells (tiles shifting independently). All of them work across the whole frame. With no media loaded it shows a built-in colour test card instead of a blank layer.</p>
-<p><strong>🎲</strong> — randomizes both layout and style.</p>
+<div class="help-section" id="g-geo">
+<h3>7 · Geometry &amp; Motion</h3>
+<ul>
+<li><strong>Density, Contrast, Sensitivity, Height, Thickness</strong> — the core response. Sensitivity is how hard audio drives the layer.</li>
+<li><strong>Vary height / thick, Scale→loud</strong> — organic variation and zoom on loud parts.</li>
+<li><strong>Scale, Rotation, Offset X/Y, Fade edges</strong> — framing. You can also drag the visuals to move the layer.</li>
+<li><strong>Flip, Mirror, Symmetry</strong> (X, Y, XY, 3–8-fold) — reflections. <strong>Spin / Speed</strong> — rotation and animation speed. For Growth, Spin turns the emitter while old trails stay put.</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>Geometry &amp; Motion</h3>
-<p>Core line and framing parameters, separated from the look pickers. <strong>Density / Contrast / Sensitivity / Height / Thickness</strong> — core line parameters. <strong>Vary Height / Vary Thick</strong> — organic variation. <strong>Scale / Offset / Rotation / Fade Edges</strong> — framing. <strong>Flip / Mirror / Symmetry / Sym Gap</strong> — reflection and radial symmetry. <strong>Spin / Speed</strong> — continuous rotation and animation rate. <strong>🎲</strong> randomizes these settings.</p>
+<div class="help-section" id="g-deform">
+<h3>8 · Deformers &amp; audio response</h3>
+<ul>
+<li><strong>Playback</strong> — Continuous (flowing), Equalizer (frequency bars) or Off (hide the lines, e.g. particles only).</li>
+<li><strong>Amplify</strong> — overall response. <strong>Bass punch / release</strong> — how hard kicks hit and how fast the image relaxes.</li>
+<li><strong>Drop</strong> — detects big drops and can switch Layout, Colors, Style or Distort (Subtle / Medium / Wild).</li>
+<li><strong>Twist, Bulge, Wave, Shear, Depth, Ripple, Disorder, Jitter</strong> — audio-reactive shape bending.</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>3D Layouts</h3>
-<p><strong>Terrain</strong> — a 3D perspective grid where audio lifts the terrain surface. Controls: Grid density, Perspective, Camera angle, Elevation, Noise, Bend, Twist.</p>
-<p><strong>Sphere</strong> — audio displaces the surface of a rotating sphere. The sphere breathes with energy; back hemisphere shows as a faint ghost. Controls: Grid, Perspective, Tilt, Elevation, Noise, Rotate speed.</p>
-<p><strong>Tetrahedron</strong> — subdivided tetrahedron with audio-displaced vertices. Line width and opacity pulse with audio energy. Controls: Detail, Perspective, Tilt, Elevation, Noise, Rotate speed.</p>
-<p><strong>DNA</strong> — double helix with audio-reactive rungs and displacement.</p>
-<p><strong>Knot / Cube / Torus</strong> (3D) — built-in wireframe solids driven by audio. <strong>3D Object</strong> (Input) shows your own .OBJ model (choose it under Model); until one is loaded it shows the Knot.</p>
-<p><strong>Text</strong> — Style LED draws the text as a slanted LED equalizer (segments light from the floor up with peak sparkle, coloured by the Color section; Slant, Seg gap, Floor). Lines keeps the original scan-line look.</p>
-<p>All 3D layouts support mouse drag to orbit and the 3D Tilt / Rotate sliders.</p>
+<div class="help-section" id="g-particles">
+<h3>9 · Particles</h3>
+<p>Turn <strong>On</strong> to emit audio-reactive particles from the layer. 11 shapes (Circle … Words). Tune Density, Energy, Speed, Life, Size, Spread, Gravity, Damping and Trail, and mix four noise fields (Perlin, Curl, Brownian, Vortex). Particles follow the layer's Spin, Symmetry and Flip and run on the GPU.</p>
 </div>
 
-
-<div class="help-section">
-<h3>Fractal Layout</h3>
-<p>A recursive branching tree, driven entirely by audio. The trunk grows from the bottom (or from center in all 4 directions). Bass widens the branch spread angle, mids control branch length decay, treble adds left/right asymmetry, and overall energy scales the tree size. The color ramp spreads from the root (ramp start) to the leaves (ramp end). Line weight and opacity fade with branch depth. Works with line styles and outlines.</p>
-<p><strong>Controls</strong> — Depth (recursion levels), Angle (base spread), Decay (branch length ratio), Branches (2 or 3 per split), Root (Bottom / Center). Mouse drag tilts the tree.</p>
+<div class="help-section" id="g-postfx">
+<h3>10 · Post FX</h3>
+<p>GPU effects for the selected layer. Turn <strong>Enabled</strong> on, then mix:</p>
+<ul>
+<li><strong>Fracture</strong> — Voronoi cracks that open on bass. <em>Flow</em> drifts continuously; <em>Shatter</em> reshuffles on hits. <strong>Noise</strong> makes cracks organic.</li>
+<li><strong>Bloom, Chromatic, Vignette, Scanlines, Sharpen, Invert, Reflect, Contrast</strong> — look and lens.</li>
+<li><strong>Blur X/Y/Radial, Focal Area, Trails, Feedback, Edge Glow, Kaleido</strong> — motion and echo effects.</li>
+</ul>
+<p>Older presets apply Post FX to the whole composition; <strong>Applies to</strong> lets you edit that or switch to the active layer.</p>
 </div>
 
-<div class="help-section">
-<h3>Image & Video Layouts</h3>
-<p><strong>Image</strong> — upload any image as a brightness map. Lines appear where the image is bright. Controls: Direction, Threshold, Resolution, Invert.</p>
-<p><strong>Video</strong> — load a video file or enable the camera for a live feed. The video becomes a moving brightness map that updates every frame. Controls: Source (File/Camera), Style (Grid/Edge), Direction, Threshold, Resolution, Playback speed, Invert.</p>
-<p><strong>Edge style</strong> — draws contour lines along brightness boundaries in the image/video. Creates an outline/wireframe effect. Line styles (Dotted, Braille, etc.) apply to edge lines when selected.</p>
-<p>When Webcam Colors are On (in the Webcam panel), edge lines use the actual RGB colors from the video source.</p>
+<div class="help-section" id="g-auto">
+<h3>11 · Reactive rules &amp; Mixer</h3>
+<ul>
+<li><strong>Reactive</strong> — <strong>+ Add Rule</strong> links an audio feature (Bass, Mid, Treble, Energy, Beat) to a parameter (Height, Twist, Zoom, Hue shift…) with a strength. Rules stack. Example: Beat → Bulge.</li>
+<li><strong>Mixer</strong> — hands-free variation: <em>Drift</em> slowly wanders Colors, Effects and Particles (Speed, Amount); <em>Drop</em> adds a punch On Beat.</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>Styles (19 + Off)</h3>
-<p>Chosen from the Style row in the Appearance panel: <strong>Off</strong>, Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, Cascade, Feather, Circles, Braille, Arrows, Slash, Needles, Diamonds. Each renders lines differently. <strong>Off</strong> draws no base shape — combine it with an Outline to show only the outline.</p>
-<p><strong>Style settings</strong> — like layouts, each style exposes a few relevant controls right under the Style row (only the ones that apply to the selected style appear):</p>
-<p><strong>Size</strong> — scales the marker or glyph (rings, diamonds, numbers, symbols, words, arrows, etc.). <strong>Density</strong> — repetition count / spacing for repeating styles (dots, dashes, braille rows, rings, cascade tiers, feather barbs). <strong>Angle</strong> — rotation for glyphs, slashes, and feather barbs.</p>
+<div class="help-section" id="g-presets">
+<h3>12 · Presets &amp; Morph</h3>
+<ul>
+<li><strong>★ Built-in presets</strong> — click to load. <strong>Save</strong> stores the active layer; <strong>Save All</strong> stores the whole scene (◈).</li>
+<li><strong>Export / Import</strong> — preset files to share or back up. <strong>🔗 Link</strong> copies a URL that recreates your scene.</li>
+<li><strong>✨ Surprise</strong> — a fresh, coherent random scene.</li>
+<li><strong>Preset Morph</strong> — build a playlist (<strong>+ Add preset…</strong> or <strong>All</strong>) and press <strong>Play</strong> to blend through it over the chosen Duration. <strong>Random</strong> shuffles, <strong>On Beat</strong> advances with the music, <strong>Ping-pong</strong> goes back and forth, <strong>Apply</strong> keeps the current blend.</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>Outline Styles (5)</h3>
-<p>Now in the Appearance panel under Style. <strong>Solid, Dotted, Dashed, Connected, Fill</strong>. Outlines draw around each line; Connected draws network-graph lines between random endpoints; Fill fills the area/ring the lines span with a gradient (works for both linear and radial layouts). Pair any outline with Style → <strong>Off</strong> to render the outline alone.</p>
+<div class="help-section" id="g-live">
+<h3>13 · Live output</h3>
+<ul>
+<li><strong>Project visuals</strong> opens a visuals-only window. Drag it to the projector or second screen, then press <span class="hk">F</span> or double-click it for fullscreen. Allow pop-ups if blocked.</li>
+<li>Keep the controller window on your laptop — audio plays from there. <strong>Close output</strong> stops projecting without stopping the music.</li>
+<li><strong>Webcam</strong> panel — use camera colours for the lines, or let brightness displace them.</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>Color</h3>
-<p><strong>Solid</strong> — one color. <strong>Tone Ramp</strong> — multi-stop gradient mapped to loudness (quiet→loud). <strong>Simple Ramp</strong> — gradient mapped to position. Each stop has an opacity slider for alpha control. 14 tone ramp + 14 simple ramp presets. <strong>🎲</strong> randomizes the palette.</p>
+<div class="help-section" id="g-mapping">
+<h3>14 · Projection mapping</h3>
+<ol>
+<li>Open <strong>Setup mapping</strong> and turn <strong>Mapping on</strong>. For a box, start with <strong>3-face cube</strong>.</li>
+<li>Drag each plane's four corners onto the physical faces. Small grid points add fine warping; Shift-drag moves a whole plane; double-click a face to select it.</li>
+<li><strong>Test grid</strong> helps alignment. Choose <strong>Duplicate</strong> (whole image on each face) or <strong>Span</strong> (one image across faces — <strong>Seamless cube</strong> keeps edges continuous). In Span, <strong>Move visuals</strong> slides the image without moving planes.</li>
+<li><strong>Save mapping</strong> restores it on next launch; Export/Import makes a backup. Mapping has its own Undo and is never changed by presets.</li>
+</ol>
 </div>
 
-<div class="help-section">
-<h3>Effects</h3>
-<p><strong>Reset</strong> (v31) returns every artistic and audio-reactive setting to its fresh-load default: visuals, colours, particles, EQ, Bass punch/release, post effects, reactive rules, mixer, drop detector and beat style. It also stops a running morph. Mapping, saved presets, the morph playlist, output window, resolution, renderer choice and sources are kept. Undo reverses a Reset in one step.</p>
-<p><strong>v32</strong>: Numbers, Symbols and Words now render at their proper size in circle, spiral and other radial layouts, and respond to <strong>Size</strong> and <strong>Angle</strong>. Built-in presets <strong>flares</strong> and <strong>magnet</strong> added; <strong>zodiac</strong> updated. Deformers and <strong>Post FX</strong> now affect only the active layer; older presets keep their whole-composition Post FX.</p>
-<p><strong>Bass punch</strong> (v31, default 60%) makes kicks and bass hits push lines, particles, zoom and beat morphs harder, then relaxes over <strong>Bass release</strong>. It is measured from a 140 Hz low-pass copy of the analysed signal, so it does not change what you hear or record. It applies a bounded gain plus a small bass-only lift, which also moves Equalizer lines that are not bass bins, with a soft knee, so silence stays still and loud material does not clip hard. 0% gives the v30 response. In v30, continuous mode used a broadband level that saturated on mastered music, and Equalizer/live lines gave bass only the first one or two lines. Both settings are saved with presets; older presets keep the current values.</p>
-<p><strong>Playback</strong> — Off / Continuous / Equalizer (per-layer). Off hides base lines for particles-only mode.</p>
-<p><strong>Spin</strong> — continuous rotation. <strong>Speed / Amplify</strong> — animation and audio response scaling.</p>
-<p><strong>Deformers</strong> — Twist, Bulge, Wave (+ Wave spd), Shear, Depth, Ripple (concentric waves from centre), Jitter (animated positional noise). All audio-reactive. Wave spd also sets the Ripple frequency.</p>
-<p><strong>Symmetry</strong> — Off, X, Y, XY, 3/4/6/8-fold radial. <strong>Flip</strong> — H/V per-layer.</p>
-<p><strong>🎲</strong> randomizes all effects settings.</p>
+<div class="help-section" id="g-perf">
+<h3>15 · Resolution &amp; renderer</h3>
+<ul>
+<li><strong>Output resolution</strong> — Auto, or fixed 720p / 1080p / 1440p / 4K for the output window. Start at 720p for heavy scenes, 1080p for balance.</li>
+<li><strong>Renderer</strong> — Auto (GPU where it helps) is best; GPU and Canvas 2D are for comparison. <strong>Particles</strong> default to GPU.</li>
+<li>Keep browser hardware acceleration on. The status beside the renderer shows what is running on the GPU.</li>
+</ul>
 </div>
 
-<div class="help-section">
-<h3>Post FX (GPU Shader Effects)</h3>
-<p>Toggle On to enable real-time GPU post-processing for the <strong>active layer</strong>. Each layer has its own Post FX settings (including its own Trails/Feedback history), applied to that layer before it is blended with the others; select another layer to see and edit its settings. All effects run in WebGL fragment shaders; layers with Post FX off cost nothing extra.</p>
-<p><strong>Applies to</strong> — presets saved before v32 (including the built-in presets) applied Post FX to the whole composition, and still do, so they look unchanged. When such a preset is loaded, choose <strong>Whole composition</strong> to edit that effect or turn it Off, or <strong>Active layer</strong> to edit the selected layer.</p>
-<p><strong>Fracture</strong> — cracks the layer into Voronoi shards that open on bass and beats. <strong>Mode</strong>: Flow (cracks drift continuously with the sound, mixed shard sizes via Size var and Drift) or Shatter (classic static crack pattern that reshuffles on hits). <strong>Noise</strong> bends the crack lines so they look organic instead of straight.</p>
-<p><strong>Bloom</strong> — bright lines and particles get a soft glow halo. Uses brightness thresholding so dark areas stay clean.</p>
-<p><strong>Chromatic Aberration</strong> — RGB channel separation, radial from center. Creates a camera lens / analog video look.</p>
-<p><strong>Vignette</strong> — darkens edges, draws focus to center.</p>
-<p><strong>Grain</strong> — animated film grain noise.</p>
-<p><strong>Scanlines</strong> — CRT-style horizontal lines with subtle horizontal drift.</p>
-<p><strong>Pixelate</strong> — mosaic / pixel art effect.</p>
-<p><strong>Sharpen</strong> — unsharp mask, enhances thin lines and fine detail.</p>
-<p><strong>Invert</strong> — smoothly blend between normal and inverted colors.</p>
+<div class="help-section" id="g-export">
+<h3>16 · Export</h3>
+<p><strong>Download PNG</strong> saves the current frame with its background or transparent. <strong>REC</strong> (top bar) records video with audio.</p>
 </div>
 
-<div class="help-section">
-<h3>Reactive Rules</h3>
-<p>Map audio features to visual parameters for automatic audio-reactive behavior. Click <strong>+ Add Rule</strong> to create a mapping.</p>
-<p><strong>Audio sources</strong> — Bass (20-250Hz), Mid (250Hz-2kHz), Treble (2k-16kHz), Energy (full spectrum), Beat (transient spikes).</p>
-<p><strong>Targets</strong> — Height, Thickness, Zoom, Contrast, Twist, Bulge, Wave, Ripple, Shear, Depth, Fade Edges, Outline Glow, Hue Shift. Chosen to breathe with the music while keeping the composition harmonious.</p>
-<p>The strength slider controls how much the audio feature modulates the target. Multiple rules can stack. Remove a rule or set strength to 0 to disable — the parameter returns to its base value.</p>
-</div>
-
-<div class="help-section">
-<h3>Particles</h3>
-<p>Toggle On to overlay audio-reactive particles. They spawn from layout positions and react to audio energy.</p>
-<p><strong>11 shapes</strong> — Circle, Square, Star, Diamond, Ring, Triangle, Spark, Line, Numbers, Symbols, Words.</p>
-<p><strong>Controls</strong> — Density, Energy, Speed, Life, Size, Spread, Gravity, Damping, Trail (0-60 frames).</p>
-<p><strong>Noise mixer</strong> — 4 combinable noise types: Perlin (smooth flow), Curl (swirling), Brownian (chaotic jitter), Vortex (orbital). Each 0-100% with shared Scale and Speed controls.</p>
-<p>Particles inherit Spin, Symmetry, and Flip from the layer. They are simulated and drawn on the GPU when the particle backend is GPU (see Renderer). Set Playback to Off for particles-only mode. <strong>🎲</strong> randomizes all particle settings.</p>
-</div>
-
-<div class="help-section">
-<h3>Presets</h3>
-<p><strong>Built-in presets</strong> (★) — 15+ presets covering various styles. Loading applies to the active layer only.</p>
-<p><strong>Save</strong> — saves the active layer. <strong>Save All</strong> — saves all layers, background, and full state (marked with ◈). <strong>Load</strong> — loads a saved preset. <strong>Clear</strong> — removes all user presets.</p>
-<p><strong>Export preset</strong> — open browser console, run <code>copy(JSON.stringify(getState()))</code> to copy the full state as JSON.</p>
-<p><strong>✨ Surprise Me</strong> — composes a fresh, coherent random scene (a tasteful layout + harmonious analogous palette + matching style + subtle motion). Great starting point.</p>
-<p><strong>🔗 Copy Link</strong> — copies a URL that encodes the entire current look. Anyone who opens that link sees exactly your composition (they just load their own audio).</p>
-</div>
-
-<div class="help-section">
-<h3>Preset Morph</h3>
-<p>Blends through a <strong>playlist</strong> of presets. Use <strong>+ Add preset…</strong> to build the list (or <strong>All</strong> for every preset, <strong>Clear</strong> to empty it); each entry shows as a removable chip.</p>
-<p><strong>Play</strong> cycles the playlist in order, each transition taking the chosen <strong>Duration</strong> (10–60s), looping seamlessly. <strong>Random</strong> jumps between random presets (your list, or all of them if the list is empty). <strong>On Beat</strong> advances on detected bass beats instead of the timer. Its style selector offers <strong>Glide ¼/beat</strong> (default: each beat moves a quarter preset), <strong>Glide 1/beat</strong> (one preset per beat), both easing smoothly with no overshoot; rapid beats extend the target only up to 1.5 steps ahead. <strong>Snap (v30)</strong> keeps the original 0.45 s jump per beat. The style is remembered. <strong>Ping-pong</strong> bounces back and forth. Drag <strong>Morph</strong> to scrub the whole sequence by hand.</p>
-<p>It blends every layer of both presets: matching layers (same position and layout type) interpolate their parameters and colors for a true geometric morph; layers that differ in type or only exist in one preset crossfade by opacity — so a 2-layer preset morphs cleanly into a 5-layer one. The background stays black during a morph. <strong>Apply</strong> bakes the current blend into normal editable layers.</p>
-</div>
-
-<div class="help-section">
-<h3>Webcam</h3>
-<p>Start the camera to capture video. <strong>Colors On</strong> — line colors are sampled from the camera feed. <strong>Displace</strong> — brightness displaces line positions. <strong>Smoothing</strong> — temporal smoothing for the displacement.</p>
-</div>
-
-<div class="help-section">
-<h3>Export</h3>
-<p><strong>PNG</strong> — current frame with or without background. <strong>SVG</strong> — vector export. <strong>Record</strong> — capture video as MP4/WebM with audio.</p>
-</div>
-
-<div class="help-section">
-<h3>Touch (iPad)</h3>
-<p>On a touchscreen, drag one finger on the visuals to move the active layer (or orbit 3D layouts). Pinch with two fingers to change Scale and twist them to change Rotation. The page no longer scrolls while you touch the canvas. Each gesture is a single undo step.</p>
-<h3>Knobs</h3>
-<p>Panel controls are knobs, up to three per row; their arc shifts from red to green as you turn them up. On/off options are switches (green ON, red OFF). Grab a knob and turn it like a real dial: circle clockwise to increase and counter-clockwise to decrease, stopping at either end (hold <span class="hk">Shift</span> for fine control), scroll the mouse wheel over a knob, or focus it and use the arrow keys, <span class="hk">PgUp</span>/<span class="hk">PgDn</span> and <span class="hk">Home</span>/<span class="hk">End</span>. Double-click a knob to reset it to its default. Click the value under a knob to type an exact number. Layer opacity, the Morph crossfader and Intensity stay sliders.</p>
-</div>
-
-<div class="help-section">
-<h3>Keyboard Shortcuts</h3>
-<p><span class="hk">⌘/Ctrl + Z</span> Undo &nbsp; <span class="hk">⌘/Ctrl + F</span> Fullscreen &nbsp; <span class="hk">Space</span> Play/Pause &nbsp; <span class="hk">Esc</span> Exit fullscreen / close help</p>
-</div>
-
-<div class="help-section">
-<h3>Tips</h3>
-<p>Stack multiple layers with different layouts for rich compositions. Use the 🎲 buttons to randomize individual panels without disrupting others. Try Reactive rules for hands-free audio-reactive behavior (Bass → Twist, Beat → Bulge). Enable Post FX for cinematic polish — Bloom + Vignette + slight Grain transforms the look. For the Video layout with camera, try Edge style with Braille or Dotted styles. For projection, use Fullscreen (⌘F) with a dark background.</p>
+<div class="help-section" id="g-controls">
+<h3>17 · Knobs, touch &amp; keys</h3>
+<ul>
+<li><strong>Knobs</strong> — drag in a circle (clockwise = up), scroll the wheel, or focus and use arrow keys. Hold <span class="hk">Shift</span> for fine control. The arc goes red → green as the value rises. Switches are green ON / red OFF.</li>
+<li><strong>Touch (iPad)</strong> — one finger moves the layer (orbits 3D); pinch to scale, twist to rotate.</li>
+<li><span class="hk">Space</span> Play/Pause &nbsp; <span class="hk">⌘/Ctrl Z</span> Undo &nbsp; <span class="hk">F</span> Fullscreen &nbsp; <span class="hk">Esc</span> Exit fullscreen / close Guide</li>
+</ul>
+<p><strong>Tips:</strong> stack 2–3 layers with different layouts; Bloom + Vignette gives instant polish; for slow installations try Growth with a long Life and Trail.</p>
 </div>
 </div>
 </div>
