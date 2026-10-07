@@ -24,7 +24,7 @@ const SHOTS = process.env.AG_SHOTS || '';
       return { shown: getComputedStyle(o).display, heads, links, missing: links.filter(h => !document.querySelector(h)), title: o.querySelector('h2').textContent };
     });
     assert.equal(g.shown, 'block', 'Guide opens');
-    assert.match(g.title, /Guide .*v43/);
+    assert.match(g.title, /Guide .*v4[3-9]/);
     const order = ['Quick start', 'Audio', 'Layers', 'Layout', 'Style', 'Color', 'Geometry', 'Deformers', 'Particles', 'Post FX', 'Reactive', 'Presets', 'Live output', 'Projection mapping', 'Resolution', 'Export', 'Knobs'];
     order.forEach((w, i) => assert.ok(g.heads[i] && g.heads[i].includes(w), `section ${i + 1} is ${w}: ${g.heads[i]}`));
     assert.equal(g.links.length, g.heads.length, 'one contents link per section');

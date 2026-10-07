@@ -185,7 +185,8 @@ const img = data => ({ data });
     const legacy = { ...(await p.evaluate(() => Object.fromEntries(['flares', 'firepit', 'echo', 'rorschach', 'waves', 'glass'].map(k => [k, builtinPresets[k]])))), synthetic: synth };
     for (const [name, st] of Object.entries(legacy)) {
       // Reset first so keys missing from a preset fall back to fresh-load values in both builds (no carry-over).
-      for (const pg of [fresh, old]) { await pg.evaluate(() => resetAll()); await pg.evaluate(LOAD, st); }
+      for (const pg of [fresh, old]) { await pg.evaluate(() => { resetAll(); if (typeof setDynamics === 'function') setDynamics(0, true); }); await pg.evaluate(LOAD, st); }
+      // v44 Dynamics (default 50) reshapes audio on purpose; 0 is the pre-v44 signal path.
       const n = await fresh.evaluate(SHOT, 3), o = await old.evaluate(SHOT, 3);
       assert.equal(n.frame.w, o.frame.w); assert.ok(o.fx && n.fx, name + ': composition FX on in both');
       const df = diff(o.frame, n.frame), dx = diff(o.fx, n.fx);

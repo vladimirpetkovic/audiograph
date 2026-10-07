@@ -56,6 +56,8 @@ function compareState(a, b, tol) {
       assert.ok(im.mean < (glyph ? 4 : 2.5) && im.big < (glyph ? 0.05 : 0.02), `${shape} image parity`);
     }
     // 3. Cap: long life saturates the 2000 cap identically.
+    // Dynamics (v44) lowers typical line values; the cap check needs full emission, so use the flat response.
+    await page.evaluate(() => { if (typeof setDynamics === 'function') setDynamics(0); });
     await particleScene(page, { density: 50, life: 300, speed: 0.4 });
     const cc = await run(page, 'cpu', 80, 3), gc = await run(page, 'gpu', 80, 3);
     console.log(`cap: CPU ${cc.cpu.length} GPU ${gc.gpu.length} kills=${gc.stats.killUploads} forced=${gc.stats.forcedEvictions}`);

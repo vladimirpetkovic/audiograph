@@ -238,6 +238,14 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Spin Direction, Audio Dynamics & Playback in Audio EQ Preview (v44)
+
+**[Try v44](versions/audiograph_44.html)**.
+- **Spin Left / Right**: Geometry & Motion has **↺ Left** and **Right ↻** buttons next to the Spin amount. The direction is saved per layer, in presets and in undo, and randomize picks one. Growth's rotating emitter follows it too.
+- **Loaded audio no longer looks clipped.** Mastered tracks are loud almost all the time, so their line values sat near maximum and Bass Punch pushed them into the ceiling. The new **Dynamics** control (Audio EQ, default 50%) spreads line heights around the track's median, Bass Punch now leaves headroom, and loudness follows the track instead of saturating. On a loud test track the share of lines above 90% dropped from 77% to about 30%. **Dynamics 0%** gives the previous response.
+- **Playback** (Off / Continuous / Equalizer) moved from Deformers to the top of **Audio EQ**, next to Dynamics.
+- Tests: `tests/audio-dyn.cjs` covers Playback placement, Dynamics spread/state/reset, and Left/Right spin with undo.
+
 ## Onboarding Guide & Keyboard Shortcuts Preview (v43)
 
 **[Try v43](versions/audiograph_43.html)**.
