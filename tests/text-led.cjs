@@ -44,17 +44,21 @@ const SHOTS = process.env.AG_SHOTS || '';
     const saved = await page.evaluate(() => { const st = getState(); return JSON.stringify(st).includes('"_objModel":"torus"'); });
     assert.ok(saved, 'object model saved with layer state');
 
-    // Text: LED style default, Direction hidden, Colour visible; EQ colours are green-dominant.
+    // Text: LED style default, Direction hidden; colours follow the Color section (v40).
     await click("setLayout('text'");
     await page.waitForTimeout(500);
-    const ui = await page.evaluate(() => ({ st: textLayoutStyle, dir: getComputedStyle(rowTextDir).display, col: getComputedStyle(rowTextCol).display }));
-    assert.deepEqual(ui, { st: 'led', dir: 'none', col: 'flex' === ui.col ? 'flex' : ui.col });
-    assert.equal(ui.dir, 'none');
-    assert.notEqual(ui.col, 'none');
+    const ui = await page.evaluate(() => ({ st: textLayoutStyle, dir: getComputedStyle(rowTextDir).display, col: !!document.getElementById('rowTextCol') }));
+    assert.deepEqual(ui, { st: 'led', dir: 'none', col: false });
+    await page.evaluate(() => { colorMode = 'solid'; solidColor = '#ff0000'; });
+    await page.waitForTimeout(300);
+    const red = await stat();
+    assert.ok(red.red > 0.6 && red.green < 0.05, 'LED text uses the Color section (solid red): ' + JSON.stringify(red));
+    await page.evaluate(() => { solidColor = '#00ff00'; });
+    await page.waitForTimeout(300);
     const led = await stat();
     if (SHOTS) await page.locator('#frameCv').screenshot({ path: `${SHOTS}/text-led.png` });
     assert.ok(led.ink > 0.01, 'LED text renders: ' + JSON.stringify(led));
-    assert.ok(led.green > 0.3, 'EQ gradient is green at the bottom: ' + JSON.stringify(led));
+    assert.ok(led.green > 0.6, 'LED text follows a Color change (solid green): ' + JSON.stringify(led));
     await click("setTextStyle('lines'");
     await page.waitForTimeout(300);
     const lines = await stat();
