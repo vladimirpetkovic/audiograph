@@ -23,7 +23,7 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
       const nonBinaryStillButtons = [...document.querySelectorAll('.prow')].some(r => r.querySelector('.prow-label')?.textContent.trim() === 'Branches' && r.querySelector('.mode-btns') && !r.querySelector('.ag-switch'));
       return { stats: agSwitches.stats(), enhanced, hiddenSources, nonBinaryStillButtons };
     });
-    assert.equal(census.stats.switches, 17, JSON.stringify(census));
+    assert.equal(census.stats.switches, 18, JSON.stringify(census));
     assert.equal(census.hiddenSources, census.stats.switches);
     assert.ok(census.enhanced.includes('Vary height') && census.enhanced.includes('Vary thick'), 'expected layer switches');
     assert.ok(census.nonBinaryStillButtons, 'non-binary two-button controls stay as buttons');
