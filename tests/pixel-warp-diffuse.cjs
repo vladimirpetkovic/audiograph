@@ -35,7 +35,10 @@ const { open } = require('./gpu-common.cjs');
       sums.push(`${d} ${r[d].center.toFixed(2)}/${r[d].edge.toFixed(2)}`);
     }
     const btns = await page.$$eval('.mbtn[onclick^="setPixelWarpDir"]', b => b.map(x => x.textContent));
-    assert.deepEqual(btns, ['Noise', 'Diffuse', 'Curl', 'Turb', 'Waves', 'Cells']);
+    // v39 removed the Cells button (legacy 'cells' presets still render, checked above).
+    const want = ['Noise', 'Diffuse', 'Curl', 'Turb', 'Waves'];
+    assert.deepEqual(btns.filter(b => b !== 'Cells'), want);
+    if (/audiograph_(39|[4-9]\d)\.html/.test(process.env.AUDIOGRAPH_PWDIFFUSE_BUILD || '')) assert.ok(!btns.includes('Cells'), 'Cells removed');
     assert.deepEqual(errors, []);
     console.log(`pixel-warp-diffuse: PASS (radial centre ${r.radial.center.toFixed(2)}; ${sums.join(', ')})`);
   } finally { await t.close(); }

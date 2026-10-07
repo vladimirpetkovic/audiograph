@@ -238,12 +238,14 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
-## Fracture Modes, Organic Cracks & Single Scroll Preview (v39)
+## Fracture Modes, Organic Cracks, Video Ping-Pong & Single Scroll Preview (v39)
 
 - **Fracture Mode**: **Flow** (v37 continuous drifting, multi-scale shards) or **Shatter** (the v35/v36 static pattern with instant hits and reshuffle on onsets). Size var and Drift show only in Flow. Saved per layer/composition.
 - **Noise** knob (default 35%) domain-warps the Voronoi lookup with layered value noise, so crack lines meander organically in both modes.
 - **Single scrollbar** on desktop (>900px): the page no longer scrolls; the controls column is the only scroller, with a thicker 12px thumb. Narrow/iPad portrait layout is unchanged.
-- Tests: `tests/voronoi-fracture.cjs` adds Noise/Shatter checks; new `tests/single-scroll.cjs` (`AUDIOGRAPH_SCROLL_BUILD`).
+- **Video ping-pong**: uploaded videos play forward then backward instead of looping (no jump/flash at the loop point). The reverse leg is stepped by seeking, so it can look a little less smooth on long-GOP files. Pixel Warp holds the last video frame while seeking instead of flashing its placeholder.
+- **Pixel Warp**: the **Cells** pattern button is removed (old presets using it still render).
+- Tests: `tests/voronoi-fracture.cjs` adds Noise/Shatter checks; new `tests/single-scroll.cjs` (`AUDIOGRAPH_SCROLL_BUILD`), `tests/video-pingpong.cjs` (`AUDIOGRAPH_PINGPONG_BUILD`, needs ffmpeg).
 
 ## LED Text, Cube/Torus, Pixel Shapes & Layer Order Preview (v38)
 
