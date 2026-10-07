@@ -238,6 +238,18 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Growth Life, Line Types, Neurons & Spin Emitter Preview (v42)
+
+- **Growth** options are tidied: **Type** (Vine / Neuron / Coral) and **Line** buttons each sit on one centred row; the Clear button is removed.
+- New **Life** knob (1–60 s, default 3 s) sets how long each growing branch keeps growing, so growth can live much longer. **Trail** at 100% keeps trails permanently.
+- **Line** types: **Solid**, **Dotted**, **Dashed**, **Beads** (bass-swollen dots). New **Thickness** knob (10–400%).
+- **Neuron**: a **Neurons** knob (1–24) sets how many cells exist; each lives a while, fades out (its dendrites wither) and is reborn somewhere else. Cell bodies are much smaller.
+- **Spin** no longer rotates the whole image for Growth: the emitter (vine base, coral seeds, neuron positions) turns while older trails stay where they were drawn and fade.
+- **Vine** gets a **Direction** row: **Bottom** (default), **Top** (hangs down) or **Center** (radiates outward). Saved per layer and in presets.
+- Every layout's options now sit in a framed box under the layout picker, like the Fracture group.
+- **Smart cleanup**: controls that the selected layout's renderer never reads are hidden and come back when you switch layouts. For example, Growth and Pixel Warp hide Style, Outline, Contrast, Vary height/thick, Disorder and the shape deformers (Twist…Jitter). Fractal hides the deformers. 3D layouts hide Outline, Contrast, Vary height/thick and Disorder. Image, Video and Text hide Outline and Vary height. Audio controls (Sensitivity, Amplify, Bass, Drop), transform, symmetry, spin and speed always stay.
+- Tests: `tests/growth.cjs` covers line types, neuron count/relocation, spin keeping trails in place, vine direction and the smart-cleanup map.
+
 ## Growth Simulations & Tidier Layout Panel Preview (v41)
 
 - New **Growth** layout (General): Houdini-style growth sims driven by the music. **Type**: **Vine** (curling tendrils rising from the bottom, with leaves), **Neuron** (dendrites sprouting from somas that appear on beats) and **Coral** (radial bifurcating branches). Bass hits seed new growth and widen branching; overall energy drives speed and stroke weight; treble adds jitter/curl.
