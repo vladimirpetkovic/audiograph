@@ -53,11 +53,25 @@ async function render(page) { await page.evaluate(() => renderDensity()); await 
     assert.ok(dq.mean < 1.5 && dq.big < 0.005, `silence not intact mean=${dq.mean} big=${dq.big}`);
 
     // Bass + beat drive opens cracks, offsets/rotates shards and visibly changes the image.
-    await page.evaluate(() => { window.__agFractureDrive = { bass: 1, beat: 1 }; renderDensity(); });
+    await page.evaluate(() => { window.__agFractureDrive = { bass: 1, beat: 1 }; });
+    for (let i = 0; i < 8; i++) { await wait(40); await page.evaluate(() => renderDensity()); }
     const hit = await render(page);
     await shot(page, 'fracture-shattered.png');
     const dh = diff(base, hit);
     assert.ok(dh.mean > 5 && dh.big > 0.015, `drive did not visibly shatter mean=${dh.mean} big=${dh.big}`);
+
+    // v37: under steady sound the crack network drifts smoothly (frames change, but only a little between frames),
+    // and Size var produces a different, multi-scale partition.
+    await wait(60); const drift1 = await render(page); await wait(60); const drift2 = await render(page);
+    const dd = diff(drift1, drift2);
+    assert.ok(dd.mean > 0.05, `cracks should drift under steady sound mean=${dd.mean}`);
+    assert.ok(dd.mean < dh.mean * 0.6, `drift should be smooth, not a reshuffle step=${dd.mean} hit=${dh.mean}`);
+    await page.evaluate(() => { layerFx.pfxFracSize = 0; _pfxStoreLayer(); });
+    const uni = await render(page);
+    await page.evaluate(() => { layerFx.pfxFracSize = 100; _pfxStoreLayer(); });
+    const multi = await render(page);
+    assert.ok(diff(uni, multi).mean > 1, 'Size var changes the fracture layout');
+    await page.evaluate(() => { layerFx.pfxFracSize = 65; _pfxStoreLayer(); });
 
     // Drive stops: the envelope decays according to Recovery and returns toward the intact frame.
     await page.evaluate(() => { window.__agFractureDrive = { bass: 0, beat: 0 }; });
