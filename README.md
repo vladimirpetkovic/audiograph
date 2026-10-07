@@ -238,6 +238,14 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Growth Simulations & Tidier Layout Panel Preview (v41)
+
+- New **Growth** layout (General): Houdini-style growth sims driven by the music. **Type**: **Vine** (curling tendrils rising from the bottom, with leaves), **Neuron** (dendrites sprouting from somas that appear on beats) and **Coral** (radial bifurcating branches). Bass hits seed new growth and widen branching; overall energy drives speed and stroke weight; treble adds jitter/curl.
+- Trails persist and fade slowly, coloured by the **Color** section. Knobs: **Speed**, **Branching**, **Curl**, **Trail** (how long growth lingers), **Tips** (max live branches). **Clear** wipes the trails. Type is saved per layer; each layer keeps its own trails.
+- **Kaleidoscope** and **Ridge** are removed from the layout picker and randomisers (old presets using them still render).
+- The **Layout** and **Style** headings now sit above their buttons, centred; all layout options are centred too.
+- Tests: new `tests/growth.cjs` (`AUDIOGRAPH_GROWTH_BUILD`).
+
 ## 3D Solids, Text Colour & Faster Pixel Warp Preview (v40)
 
 - **Knot**, **Cube** and **Torus** are now layout buttons in the **3D** group (next to Terrain, Sphere, Tetrahedron, DNA) instead of a Model row inside 3D Object.
