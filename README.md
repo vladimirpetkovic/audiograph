@@ -238,6 +238,17 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Onboarding Guide & Keyboard Shortcuts Preview (v43)
+
+**[Try v43](versions/audiograph_43.html)**.
+- The in-app **Guide** is rewritten for fast onboarding. It opens with a 5-step **Quick start**, then covers each area in order of importance: Audio, Layers, Layout, Style & Outline, Color, Geometry & Motion, Deformers, Particles, Post FX, Reactive & Mixer, Presets & Morph, Live output, Projection mapping, Resolution & renderer, Export, and Knobs/touch/keys. Each section is short, and a row of contents chips jumps straight to it.
+- Keyboard shortcuts in the controller window now work as documented: **Space** play/pause, **⌘/Ctrl Z** undo, **F** fullscreen preview, **Esc** closes the Guide. They are ignored while typing in a field or using a focused knob or switch.
+- Pausing right after pressing Play no longer logs an "interrupted play()" error.
+- **Post FX Trails now fade fully to black.** 8-bit fades used to stall at low brightness, so a faint ghost of old trails never cleared (most visible on Growth). A small subtractive cleanup pass now runs after each fade, through an SVG filter where available and a CPU fallback on Safari/iPad. This applies to both per-layer and composition Trails.
+- **Growth Spin rotates the emitter only.** Coral emits in a direction that sweeps around, and neurons stay in place while their sprouting direction turns. Branches already drawn stay where they are and fade.
+- Performance: Symmetry, Flip, Mirror and Feedback reuse scratch canvases per layer instead of allocating new ones every frame. The previous audio file's blob URL is released when a new file loads. Download links are revoked after a delay so Safari doesn't cancel them.
+- Tests: `tests/guide.cjs` checks section order, contents links, that every layout is documented, and the shortcuts. `tests/growth.cjs` now checks that Trails at 100% fade to zero.
+
 ## Growth Life, Line Types, Neurons & Spin Emitter Preview (v42)
 
 - **Growth** options are tidied: **Type** (Vine / Neuron / Coral) and **Line** buttons each sit on one centred row; the Clear button is removed.

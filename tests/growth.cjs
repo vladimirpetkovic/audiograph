@@ -129,6 +129,24 @@ const SHOTS = process.env.AG_SHOTS || '';
     await page.evaluate(() => { setLayout('growth', null); resetAll(); });
     assert.deepEqual((await hidden()).filter(id => id !== 'outlineParams' && id !== 'styleOpts'), [], 'Reset restores all controls');
 
+    // v43: Post FX Trails history must fade fully to nothing (8-bit fades used to stall and leave a ghost forever).
+    const ghost = await page.evaluate(() => {
+      const src = document.createElement('canvas'); src.width = 320; src.height = 200;
+      const g = src.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(20, 20, 280, 160);
+      _layerTrails = {}; _layerTrail(99, src, 100, 0); _layerTrail(99, src, 100, 0);
+      g.clearRect(0, 0, 320, 200);
+      const alpha = () => { const d = _layerTrails[99].cv.getContext('2d').getImageData(0, 0, 320, 200).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; };
+      for (let i = 0; i < 900; i++) _layerTrail(99, src, 100, 0);
+      const layer = alpha();
+      trailCv = null; compFx.pfxTrails = 100; const f = document.createElement('canvas'); f.width = 320; f.height = 200; const fg = f.getContext('2d'); fg.fillStyle = '#fff'; fg.fillRect(20, 20, 280, 160);
+      applyTrails(f); applyTrails(f); fg.fillStyle = '#000'; fg.fillRect(0, 0, 320, 200);
+      for (let i = 0; i < 900; i++) applyTrails(f);
+      const d = trailCv.getContext('2d').getImageData(0, 0, 320, 200).data; let comp = 0; for (let i = 0; i < d.length; i += 4) if (d[i] | d[i + 1] | d[i + 2]) comp++;
+      compFx.pfxTrails = 0; trailCv = null; delete _layerTrails[99];
+      return { layer, comp };
+    });
+    assert.deepEqual(ghost, { layer: 0, comp: 0 }, 'Trails at 100% fade fully to black: ' + JSON.stringify(ghost));
+
     assert.deepEqual(errors, []);
     console.log('growth: PASS ' + JSON.stringify(res) + ' lines ' + JSON.stringify(lt) + ' faded ' + faded.toFixed(4));
   } finally { await t.close(); }
