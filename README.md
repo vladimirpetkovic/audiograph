@@ -238,9 +238,9 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
-## Pixel Warp Diffuse Preview (v36)
+## Pixel Warp Patterns Preview (v36)
 
-**[Try v36](versions/audiograph_36.html)**. Pixel Warp gets a new default **Diffuse** direction: every region of the image is displaced along its own noise-driven direction with patchy strength, so the audio deforms the whole frame instead of bulging it from the centre. Depth now enlarges pixels in place (Explode keeps its centre zoom), and Radial no longer tears pixels into long triangles near the centre.
+**[Try v36](versions/audiograph_36.html)**. Pixel Warp's centre-weighted directions (Radial, Up, Explode) are replaced by full-frame **Pattern** fields: **Noise** (default), **Diffuse**, **Curl** (swirling divergence-free flow), **Turb** (ridged turbulence streaks), **Waves** (travelling wave fronts) and **Cells** (tiles of the image shifting independently). Depth now enlarges pixels in place. Older presets that saved Radial/Up/Explode still load and render as before.
 
 ## Pixel Warp Preview (v35)
 
