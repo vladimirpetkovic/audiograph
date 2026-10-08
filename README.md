@@ -238,6 +238,15 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Sacred Geometry Preview (v53)
+
+**[Try v53](versions/audiograph_53.html)**. New **Sacred** layout (General row) that draws the audio lines along classic sacred-geometry figures: Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, 64 Tetrahedron, Vector Equilibrium and Torus.
+
+- **Map**: *Along path* spreads the spectrum over the whole figure; *Per shape* gives each circle/edge its own band.
+- **Lines**: *Along* traces the figure (default); *Across* draws ticks perpendicular to it.
+- **Outline** strokes the underlying figure, **Breathe** pulses each shape with its band, **Bloom** reveals the figure from the centre as energy rises.
+- Autopilot and Surprise Me can pick Sacred with a random figure. Test: `tests/sacred.cjs`.
+
 ## Growth Noise Preview (v52)
 
 **[Try v52](versions/audiograph_52.html)**.
