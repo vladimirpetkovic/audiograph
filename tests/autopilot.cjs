@@ -1,5 +1,5 @@
 // v47/v48: Autopilot — section detection (build-up / drop / breakdown / phrase) drives crossfaded look changes.
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_49.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_50.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs'), path = require('node:path');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -101,7 +101,38 @@ const SHOTS = process.env.AUTOPILOT_SHOTS;
       return { diff, ev: getState().stackLayouts.length, colorsOn: document.querySelector('#apChangesRow .mbtn.on').textContent };
     });
     assert.ok(cmp.diff.length >= 1 && cmp.diff.every(k => ['_toneStops', '_simpleStops', '_solidColor', '_colorMode'].includes(k)), 'colors mode only changes palette: ' + cmp.diff);
-    assert.equal(cmp.ev, 1); assert.equal(cmp.colorsOn, 'Everything');
+    const multi = await page.evaluate(() => typeof agAuto.setLayers === 'function');
+    assert.equal(cmp.ev, multi ? 3 : 1, 'Everything drop builds ' + (multi ? 3 : 1) + ' layers'); assert.equal(cmp.colorsOn, 'Everything');
+    if (multi) {
+      // v50: multi-layer Everything. Fixed counts, staggered single-layer swaps, distinct layouts, role opacities.
+      const ml = await page.evaluate(async () => {
+        const wait = () => new Promise(r => setTimeout(r, 700)), lay = () => getState().stackLayouts;
+        const rowShown = getComputedStyle(document.getElementById('apLayersRow')).display !== 'none';
+        agAuto.setLayers('2'); agAuto.change('drop', 0.3); await wait();
+        const two = lay().map(l => [l.layout, l.opacity]);
+        const swaps = [];
+        for (let i = 0; i < 4; i++) {
+          const before = lay().map(l => l.layout); agAuto._reset(); agAuto.change('phrase', 0.3); await wait();
+          const after = lay().map(l => l.layout); swaps.push(after.filter((x, j) => x !== before[j]).length);
+        }
+        // Mid-fade ripple: with a stagger the bottom layer is further along than the top one.
+        agAuto.setLayers('3'); agAuto._reset(); agAuto.change('drop', 4); await new Promise(r => setTimeout(r, 1000));
+        const mid = lay().length; agAuto.stop(); agAuto.start();
+        const three = lay().map(l => l.layout), pref = agAuto.state().layers;
+        agAuto.setLayers('1'); agAuto._reset(); agAuto.change('drop', 0.3); await wait();
+        const one = lay().length;
+        agAuto.setChanges('mood'); const rowHidden = getComputedStyle(document.getElementById('apLayersRow')).display === 'none';
+        agAuto.setLayers('auto');
+        return { rowShown, two, swaps, mid, three, pref, one, rowHidden, ls: localStorage.getItem('audiograph_ap_layers') };
+      });
+      console.log('multi-layer', JSON.stringify(ml));
+      assert.ok(ml.rowShown && ml.rowHidden, 'Layers row only shows for Everything');
+      assert.equal(ml.two.length, 2); assert.deepEqual(ml.two.map(x => x[1]), [100, 70]); assert.notEqual(ml.two[0][0], ml.two[1][0], 'distinct layouts');
+      assert.ok(ml.swaps.every(n => n <= 1), 'phrase changes swap at most one layer: ' + ml.swaps);
+      assert.ok(ml.mid > 3, 'crossfade in progress mid-drop');
+      assert.equal(ml.three.length, 3); assert.equal(new Set(ml.three).size, 3); assert.ok(!ml.three.includes('linear'));
+      assert.equal(ml.pref, '3'); assert.equal(ml.one, 1); assert.equal(ml.ls, 'auto');
+    }
 
     // Preset Morph Play turns Autopilot off; Reset too.
     await page.evaluate(() => { agAuto.start(); toggleMorphAuto(); });

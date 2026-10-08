@@ -238,6 +238,14 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Multi-layer Autopilot Preview (v50)
+
+**[Try v50](versions/audiograph_50.html)**.
+- **Everything** mode now builds a stack of 1–3 layers instead of a single layer: a main layer plus lighter supporting layers.
+  - Supporting layers sit at 70% and 55% opacity and share the main palette, rotated. They use thinner, sparser fine-line shapes, no particles, and a gentle counter-spin. Each layer gets a different layout.
+- **Layers** setting (only shown for Everything): **Auto** uses 1–2 layers in breakdowns, 2 in grooves and up to 3 on build-ups and drops. You can also fix it at 1, 2 or 3; the choice is saved.
+- **Changes ripple instead of jumping.** A groove or new-phrase change swaps one layer at a time (rotating through the stack) while the others glide to the new colors. Drops rebuild the whole stack, with each layer's fade starting slightly after the one below.
+
 ## Spin Left/Right, No Sine & Smoother Autopilot Preview (v49)
 
 **[Try v49](versions/audiograph_49.html)**.

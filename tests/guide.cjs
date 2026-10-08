@@ -24,7 +24,7 @@ const SHOTS = process.env.AG_SHOTS || '';
       return { shown: getComputedStyle(o).display, heads, links, missing: links.filter(h => !document.querySelector(h)), title: o.querySelector('h2').textContent };
     });
     assert.equal(g.shown, 'block', 'Guide opens');
-    assert.match(g.title, /Guide .*v4[3-9]/);
+    assert.match(g.title, /Guide .*v(4[3-9]|[5-9][0-9])/);
     const automation = g.heads[1] && g.heads[1].includes('Automation');
     const order = ['Quick start', ...(automation ? ['Automation'] : []), ...(g.heads[1] && g.heads[1].includes('AI Look') ? ['AI Look'] : []), ...(g.heads[2] && g.heads[2].includes('Autopilot') ? ['Autopilot'] : []), 'Audio', 'Layers', 'Layout', 'Style', 'Color', 'Geometry', 'Deformers', 'Particles', 'Post FX', ...(automation ? [] : ['Reactive']), 'Presets', 'Live output', 'Projection mapping', 'Resolution', 'Export', 'Knobs'];
     order.forEach((w, i) => assert.ok(g.heads[i] && g.heads[i].includes(w), `section ${i + 1} is ${w}: ${g.heads[i]}`));
