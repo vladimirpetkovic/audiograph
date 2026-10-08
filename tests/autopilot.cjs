@@ -1,5 +1,5 @@
 // v47/v48: Autopilot — section detection (build-up / drop / breakdown / phrase) drives crossfaded look changes.
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_50.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_51.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs'), path = require('node:path');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -132,6 +132,20 @@ const SHOTS = process.env.AUTOPILOT_SHOTS;
       assert.ok(ml.mid > 3, 'crossfade in progress mid-drop');
       assert.equal(ml.three.length, 3); assert.equal(new Set(ml.three).size, 3); assert.ok(!ml.three.includes('linear'));
       assert.equal(ml.pref, '3'); assert.equal(ml.one, 1); assert.equal(ml.ls, 'auto');
+    }
+
+    if (await page.evaluate(() => typeof apNoZoom !== 'undefined')) {
+      // v51: Scale loud is off for Autopilot and comes back afterwards.
+      const z = await page.evaluate(async () => {
+        agAuto.stop(); zoomLoud = true; const st = getState(); st.stackLayouts.forEach(l => l.params._zoomLoud = true); applyState(st);
+        agAuto.start(); const during = apNoZoom; agAuto.setChanges('mood'); agAuto._reset(); agAuto.change('phrase', 0.3); await new Promise(r => setTimeout(r, 900));
+        const moodKeeps = getState().stackLayouts.every(l => l.params._zoomLoud === true);
+        agAuto.setChanges('everything'); agAuto._reset(); agAuto.change('drop', 0.3); await new Promise(r => setTimeout(r, 900));
+        const genOff = getState().stackLayouts.every(l => !l.params._zoomLoud);
+        agAuto.stop(); const after = apNoZoom; agAuto.start();
+        return { during, moodKeeps, genOff, after };
+      });
+      assert.deepEqual(z, { during: true, moodKeeps: true, genOff: true, after: false }, 'scale loud disabled for autopilot: ' + JSON.stringify(z));
     }
 
     // Preset Morph Play turns Autopilot off; Reset too.

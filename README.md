@@ -238,6 +238,11 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Autopilot Without Scale Loud Preview (v51)
+
+**[Try v51](versions/audiograph_51.html)**.
+- **Scale loud is paused while Autopilot runs**, so the picture no longer pumps in and out with loudness. Generated layers save it as off, Mood leaves your own setting alone, and it comes back as soon as Autopilot stops.
+
 ## Multi-layer Autopilot Preview (v50)
 
 **[Try v50](versions/audiograph_50.html)**.
