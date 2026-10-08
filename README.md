@@ -238,6 +238,14 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Growth Noise Preview (v52)
+
+**[Try v52](versions/audiograph_52.html)**.
+- **Noise** knob in the Growth layout (0–100%, default 45%) randomizes how growth spreads, mainly for **Coral**:
+  - uneven branch lengths and widths, lopsided forks, the occasional triple fork or single kink, and tips that wander;
+  - scattered starting points instead of always sprouting from the same spot.
+- Vine and Neuron get a gentle extra wobble. Set Noise to 0 for the old, perfectly regular coral. Older saves load with the default.
+
 ## Autopilot Without Scale Loud Preview (v51)
 
 **[Try v51](versions/audiograph_51.html)**.

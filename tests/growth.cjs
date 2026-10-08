@@ -114,6 +114,23 @@ const SHOTS = process.env.AG_SHOTS || '';
     assert.equal(await page.evaluate(() => JSON.stringify(getState()).includes('"_growDir":"center"')), true, 'direction saved');
     await click("setGrowType('coral'");
     assert.equal(await page.evaluate(() => getComputedStyle(growDirRow).display), 'none', 'Direction row hidden for Coral');
+    if (await page.evaluate(() => !!document.getElementById('pGrowNoise'))) {
+      // v52: Noise randomizes coral (uneven widths/forks, scattered origins); 0 restores the regular coral.
+      const coralAt = async n => {
+        await page.evaluate(n => { document.getElementById('pGrowNoise').value = n; document.getElementById('pGrowTrail').value = 70; upP(); agGrowth.clear(); if (!playing) togglePlay(); }, n);
+        const ws = new Set(), xs = [];
+        for (let i = 0; i < 8; i++) { await page.waitForTimeout(400); (await page.evaluate(() => agGrowth.tips(Object.keys(agGrowth.stats()).find(k => k.endsWith('coral'))))).forEach(t => { ws.add(t.w.toFixed(3) + '/' + t.gen); if (t.gen === 0) xs.push(t.x); }); }
+        const W = await page.evaluate(() => frameCv.width);
+        return { widths: ws.size, spread: xs.length ? (Math.max(...xs) - Math.min(...xs)) / W : 0, ink: +(await ink()).toFixed(4) };
+      };
+      const n0 = await coralAt(0), n100 = await coralAt(100);
+      console.log('coral noise', JSON.stringify({ n0, n100 }));
+      assert.ok(n100.spread > Math.max(0.25, n0.spread * 3), 'noise scatters coral origins: ' + JSON.stringify({ n0, n100 }));
+      assert.ok(n100.ink >= n0.ink * 0.5, 'noisy coral still grows');
+      assert.equal(await page.evaluate(() => getState().stackLayouts[activeLayerIdx].params.pGrowNoise), 100, 'noise saved per layer');
+      const legacy = await page.evaluate(() => { const st = getState(); delete st.stackLayouts[st.activeLayerIdx].params.pGrowNoise; applyState(st); return [+document.getElementById('pGrowNoise').value, document.getElementById('vGrowNoise').textContent]; });
+      assert.deepEqual(legacy, [45, '45%'], 'older saves use the default noise');
+    }
     await page.evaluate(() => { if (playing) togglePlay(); });
 
     // v42 smart cleanup: controls the current layout never reads are hidden, and come back elsewhere.
