@@ -238,6 +238,14 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Graph Layout Preview (v57)
+
+**[Try v57](versions/audiograph_57.html)**. New **Graph** layout: an Obsidian-style network of hubs, clusters and loose notes in a live force layout. Audio lines run along the links (spreading out from the biggest hub), nodes are sized by link count and swell with their band, and bass kicks push the graph apart so it breathes with the beat. Controls: **Shuffle**, Map, Lines, Nodes, Hubs, Links, Loose, Pulse, Drift, Size, Twinkle, Outline and Bloom. Autopilot can pick it.
+
+## Coral Noise Preview (v56)
+
+**[Try v56](versions/audiograph_56.html)**. Growth **Noise** no longer moves the coral; it reshapes the linework instead. Branches meander, swell and pinch, and pick up small knobs, while every coral still grows from the centre.
+
 ## Vector & Raster Image Preview (v55)
 
 **[Try v55](versions/audiograph_55.html)**. The **Image** layout now has a **Source** switch:
