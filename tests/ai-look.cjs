@@ -1,5 +1,5 @@
 // v45: AI Look — prompt -> validated look spec -> active layer (Quick keywords, Ollama/WebLLM with untrusted output sanitised).
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AI_BUILD || 'versions/audiograph_45.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AI_BUILD || 'versions/audiograph_46.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -54,10 +54,21 @@ const { open, wav, load } = require('./audio-common.cjs');
 
     // Words typed explicitly beat the model (bars -> linear, thick), model still supplies palette.
     const ov = await page.evaluate(() => agAI.sanitize({ layout: 'concentric', thickness: 15, colors: ['#ff4444', '#990000'], glow: 40 }, 'aggressive red techno bars with thick lines'));
-    assert.deepEqual([ov.layout, ov.thickness, ov.energy, ov.colors[0], ov.glow], ['linear', 65, 85, '#ff4444', 40]);
+    assert.deepEqual([ov.layout, ov.thickness, ov.energy, ov.colors[1], ov.glow], ['linear', 65, 85, '#ff2e3b', 40]);
+    assert.deepEqual(await page.evaluate(() => agAI.sanitize({ colors: ['#ff4444', '#990000'] }, 'aggressive techno bars').colors), ['#ff4444', '#990000'], 'model palette used when no color is named');
     const gd = await page.evaluate(() => [agAI.sanitize({ background: '#333333', shape: 'words' }, 'purple galaxy'), agAI.sanitize({ background: '#333333', shape: 'words' }, 'galaxy made of words on a white background')]);
     assert.equal(gd[0].shape, 'straight'); assert.ok(parseInt(gd[0].background.slice(1, 3), 16) < 40, 'grey model background darkened');
     assert.deepEqual([gd[1].shape, gd[1].background], ['words', '#f4f1ea']);
+    // v46: named colors beat theme palettes, word-start matching, pulse -> zoom with loudness, Ollama 404 = model missing.
+    const v46 = await page.evaluate(() => [agAI.keywords('slow red galaxy with green trails and pulsating dots'), agAI.keywords('pink and black spiral'), agAI.keywords('brain storm'), agAI.sanitize({ colors: ['#240046', '#7b2cbf'] }, 'red galaxy')]);
+    assert.deepEqual([v46[0].layout, v46[0].shape, v46[0].colors, v46[0].pulse, v46[0].trails > 0, v46[0].spin > 0], ['spiral', 'dotted', ['#4d0e12', '#2ee86b', '#ff2e3b'], true, true, true]);
+    assert.equal(v46[1].shape, 'straight', '"pink" must not match "ink"'); assert.equal(v46[2].shape, 'straight', '"brain" must not match "rain"');
+    assert.equal(v46[3].colors[1], '#ff2e3b', 'named color overrides model palette');
+    assert.equal(await page.evaluate(() => agAI.toLayer(agAI.keywords('pulsing blue rings')).params._zoomLoud), true);
+    await page.unroute('http://localhost:11434/api/chat');
+    await page.route('http://localhost:11434/api/chat', r => r.fulfill({ status: 404, headers: { 'Access-Control-Allow-Origin': '*' }, body: '{"error":"model not found"}' }));
+    await page.evaluate(() => agAI.generate(false));
+    assert.match(await page.evaluate(() => document.getElementById('aiStatus').textContent), /model "qwen2\.5:3b" is missing.*ollama pull qwen2\.5:3b/);
     // Ollama down -> falls back to Quick with a message.
     await page.unroute('http://localhost:11434/api/chat');
     await page.route('http://localhost:11434/api/chat', r => r.abort());
@@ -65,7 +76,7 @@ const { open, wav, load } = require('./audio-common.cjs');
     const f = await page.evaluate(() => agAI.generate(true));
     assert.equal(f.symmetry, 'r6');
     const fb = await page.evaluate(() => ({ n: stackLayouts.length, act: activeLayerIdx, msg: document.getElementById('aiStatus').textContent, btn: document.querySelector('.ai-go').disabled }));
-    assert.equal(fb.n, 2, '+ As layer adds a layer'); assert.equal(fb.act, 1); assert.match(fb.msg, /Ollama not reachable.*Quick/); assert.equal(fb.btn, false);
+    assert.equal(fb.n, 2, '+ As layer adds a layer'); assert.equal(fb.act, 1); assert.match(fb.msg, /Ollama isn't running.*ollama pull qwen2\.5:3b.*OLLAMA_ORIGINS.*Local AI.*Quick/); assert.equal(fb.btn, false);
 
     // Local AI without WebGPU -> clear message + Quick fallback (headless has no navigator.gpu usually; force it).
     await page.evaluate(() => { Object.defineProperty(navigator, 'gpu', { value: undefined, configurable: true }); agAI.setEngine('webllm'); });

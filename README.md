@@ -238,6 +238,14 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## AI Look Fixes Preview (v46)
+
+**[Try v46](versions/audiograph_46.html)**.
+- **Named colors win.** "slow red galaxy with green trails" is now red with green accents. Before, the word *galaxy* replaced both colors with the purple galaxy palette. The first color you name is the dominant one, and the model's palette is used only when you don't name a color.
+- Keywords match whole words only, so *pink* no longer picks the brush (Tapered) style and *brain* doesn't mean rain.
+- *Pulsating*, *beat* or *bounce* turn on zoom with loudness. *Galaxy*, *vortex* and *swirl* add a slow spin.
+- Clearer **Ollama** messages: when it isn't installed, running or allowed to answer this site, the status gives the exact setup steps (`ollama pull qwen2.5:3b`, `launchctl setenv OLLAMA_ORIGINS "*"`, restart) or suggests **Local AI**. A missing model gets its own message.
+
 ## AI Look Preview (v45)
 
 **[Try v45](versions/audiograph_45.html)**.
