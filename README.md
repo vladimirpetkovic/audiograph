@@ -238,6 +238,10 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Particle Emission Sweep Preview (v58)
+
+**[Try v58](versions/audiograph_58.html)**. Particles now start from what each layout actually draws. Before this, Sacred, Graph, Growth, Fractal, DNA, Pixel Warp and vector Image emitted from a flat horizontal band, and Terrain spawned many particles off-screen. Now 3D shapes emit from their projected lines, Growth from its growing tips, Pixel Warp from the picture, and media layouts from their bright pixels. A layout that draws nothing no longer reuses the previous layout's shape. The **Stars** layout was removed; old saves using it open as Sacred.
+
 ## Graph Layout Preview (v57)
 
 **[Try v57](versions/audiograph_57.html)**. New **Graph** layout: an Obsidian-style network of hubs, clusters and loose notes in a live force layout. Audio lines run along the links (spreading out from the biggest hub), nodes are sized by link count and swell with their band, and bass kicks push the graph apart so it breathes with the beat. Controls: **Shuffle**, Map, Lines, Nodes, Hubs, Links, Loose, Pulse, Drift, Size, Twinkle, Outline and Bloom. Autopilot can pick it.
