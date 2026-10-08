@@ -1,5 +1,5 @@
 // v47/v48: Autopilot — section detection (build-up / drop / breakdown / phrase) drives crossfaded look changes.
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_48.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_49.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs'), path = require('node:path');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -40,7 +40,8 @@ const SHOTS = process.env.AUTOPILOT_SHOTS;
     assert.match(vibe.read, /calm/); assert.match(vibe.read, /90 bpm/); assert.match(vibe.read, /spiral/);
     assert.deepEqual(vibe.layouts, ['phyllotaxis', 'spiral']); assert.deepEqual(vibe.shapes, ['dotted']); assert.ok(vibe.thin); assert.ok(vibe.pal, 'described palette kept');
     assert.ok(vibe.maxE < 60, 'calm vibe tames drops: ' + vibe.maxE);
-    assert.equal(vibe.freeSine, 0, 'no Sine layout'); assert.ok(vibe.linearN > 0); assert.equal(vibe.linearSpin, 0, 'Linear never spins');
+    assert.equal(vibe.freeSine, 0, 'no Sine layout'); assert.equal(vibe.linearSpin, 0, 'Linear never spins');
+    if (!/_4[78]\.html$/.test(process.env.AUDIOGRAPH_PARTICLE_BUILD)) assert.equal(vibe.linearN, 0, 'v49: Autopilot never generates Linear');
     assert.equal(vibe.stored, '');
 
     // 1. Section detector on synthetic energy (no audio loaded, so only our step() feeds it).
@@ -54,7 +55,7 @@ const SHOTS = process.env.AUTOPILOT_SHOTS;
       const drop = agAuto.state().section;
       run(10, () => ({ energy: 0.06 + 0.02 * Math.random(), treble: 0.02 }));              // breakdown
       const calm = agAuto.state().section;
-      await new Promise(r => setTimeout(r, 6000));                                         // let the last fade finish
+      const t0 = Date.now(); while ((agAuto.state().fading || agAuto.state().pending) && Date.now() - t0 < 30000) await new Promise(r => setTimeout(r, 200)); // let queued fades finish
       return { mid, drop, calm, kinds: agAuto.state().events.map(e => e.kind), fading: agAuto.state().fading, n: stackLayouts.length, opac: stackLayouts.map(l => l.opacity), pm: pmActive };
     });
     console.log('synthetic events', ev.kinds.join(' '));
@@ -62,6 +63,28 @@ const SHOTS = process.env.AUTOPILOT_SHOTS;
     assert.ok(ev.kinds.includes('drop') && ev.kinds.includes('calm'), 'drop and breakdown trigger changes');
     assert.ok(ev.kinds.indexOf('drop') < ev.kinds.lastIndexOf('calm'));
     assert.equal(ev.fading, false); assert.equal(ev.pm, false); assert.equal(ev.n, 1, 'mood keeps the user layer count'); assert.deepEqual(ev.opac, [100]);
+
+    // v49: subtle steady spin, black background, spin left/right controls.
+    if (await page.evaluate(() => !!document.getElementById('pSpinL'))) {
+      const v49 = await page.evaluate(() => {
+        const orig = getState();
+        const specs = Array.from({ length: 200 }, (_, i) => agAuto.spec(['calm', 'groove', 'build', 'drop', 'phrase'][i % 5]));
+        const r = { maxSpin: Math.max(...specs.map(x => x.spinAmt)), bgs: [...new Set(specs.map(x => x.background))], bg: canvasBg };
+        const L = document.getElementById('pSpinL'), R = document.getElementById('pSpinR');
+        L.value = 0.7; L.dispatchEvent(new Event('input', { bubbles: true })); r.left = [+pSpin.value, spinDir, +R.value, stackLayouts[activeLayerIdx].params._spinDir];
+        R.value = 1.3; R.dispatchEvent(new Event('input', { bubbles: true })); r.right = [+pSpin.value, spinDir, +L.value];
+        R.value = 0; R.dispatchEvent(new Event('input', { bubbles: true })); r.zero = [+pSpin.value, +L.value, +R.value];
+        const st = getState(); st.stackLayouts[0].params._spin = 2; st.stackLayouts[0].params._spinDir = -1; applyState(st); r.load = [+L.value, +R.value];
+        r.oldRow = getComputedStyle(document.getElementById('rowSpinDir')).display === 'none' || !document.getElementById('rowSpinDir').offsetParent;
+        applyState(orig);
+        return r;
+      });
+      console.log('v49', JSON.stringify(v49));
+      assert.ok(v49.maxSpin <= 1.2, 'autopilot spin stays subtle');
+      assert.deepEqual(v49.bgs, ['#000000']); assert.equal(v49.bg, '#000000', 'background stays black');
+      assert.deepEqual(v49.left, [0.7, -1, 0, -1]); assert.deepEqual(v49.right, [1.3, 1, 0]); assert.deepEqual(v49.zero, [0, 0, 0]);
+      assert.deepEqual(v49.load, [2, 0]); assert.ok(v49.oldRow, 'old direction toggle hidden');
+    }
 
     // Mood changed palette + motion on the user's layer but kept its layout.
     const lay0 = await page.evaluate(() => layoutMode);

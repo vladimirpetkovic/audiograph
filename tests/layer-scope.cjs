@@ -182,7 +182,8 @@ const img = data => ({ data });
     }, await p.evaluate(() => window.__two));
       // Excluded: cell/globe/organica/zodiac are not reproducible across page loads even in v31 (3D/custom layers);
     // sacred_circle changed on purpose in v32 (radial glyph size fix) and spiral_planes uses terrain.
-    const legacy = { ...(await p.evaluate(() => Object.fromEntries(['flares', 'firepit', 'echo', 'rorschach', 'waves', 'glass'].map(k => [k, builtinPresets[k]])))), synthetic: synth };
+    // waves has a Sine layer; v49 removed Sine and migrates it to Linear + Wave, so it is only compared while Sine exists.
+    const legacy = { ...(await p.evaluate(() => Object.fromEntries(['flares', 'firepit', 'echo', 'rorschach', 'waves', 'glass'].filter(k => k !== 'waves' || [...document.querySelectorAll('.mbtn')].some(b => (b.getAttribute('onclick') || '').includes("setLayout('sine'"))).map(k => [k, builtinPresets[k]])))), synthetic: synth };
     for (const [name, st] of Object.entries(legacy)) {
       // Reset first so keys missing from a preset fall back to fresh-load values in both builds (no carry-over).
       for (const pg of [fresh, old]) { await pg.evaluate(() => { resetAll(); if (typeof setDynamics === 'function') setDynamics(0, true); }); await pg.evaluate(LOAD, st); }

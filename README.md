@@ -238,6 +238,23 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Spin Left/Right, No Sine & Smoother Autopilot Preview (v49)
+
+**[Try v49](versions/audiograph_49.html)**.
+- **Spin left ↺ / Spin right ↻**: two knobs replace the old Spin amount and direction toggle. Turning one up clears the other, and the steps are now 0.1 for slow turns.
+  - Saves, presets and the Mixer still use the same stored amount and direction, so nothing old breaks.
+- **Sine layout removed.** Older saves, links, Preset Morph and the built-in *waves* preset load a Sine layer as Linear with the Wave deformer.
+- **Autopilot**:
+  - **Never generates Linear.**
+  - **Spin is subtle**: 0–0.7 normally, up to 1.2 when you describe spin. It keeps one direction for the whole run and may reverse only in a breakdown.
+  - **Background is always black.**
+  - **Smoother**: smootherstep fades of about 2.5 s on drops, 7–10 s otherwise. Changes are at least 8 s apart, except drops. A change that arrives during a fade waits for the fade to finish, and a drop continues from what's on screen instead of jumping.
+  - Spin keeps turning through crossfades. Before, every fade froze the rotation and snapped it back to 0°.
+- Tests:
+  - `autopilot.cjs`: spin, black background and the Spin left/right controls.
+  - `layer-order.cjs`: uses Concentric and checks the Sine migration.
+  - `layer-scope.cjs`: compares *waves* against v31 only while Sine exists.
+
 ## Automation Panel Preview (v48)
 
 **[Try v48](versions/audiograph_48.html)**.
