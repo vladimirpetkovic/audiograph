@@ -238,6 +238,16 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Object Surface Signal & Colour Presets Preview (v59)
+
+**[Try v59](versions/audiograph_59.html)**. Knot, Cube, Torus and 3D Object have a new **Signal** switch. **Shape** is the original behaviour: the audio pushes the mesh. **Surface** keeps the geometry fixed and moves the audio across its skin instead.
+- **Flow** sets the pattern: Rings, Sweep, Spiral or Scatter.
+- **Lines** sets the direction: Across (standing off the surface) or Along it.
+- **Travel**, **Count**, **Wire** and **Back** tune the motion, the line density, the ghost wireframe and the back faces.
+- Every Style works on the surface, and Shape-mode markers now turn to follow the surface.
+
+The colour presets were redone as gradients that blend several colours, in the spirit of the default. Black &amp; white is kept.
+
 ## Particle Emission Sweep Preview (v58)
 
 **[Try v58](versions/audiograph_58.html)**. Particles now start from what each layout actually draws. Before this, Sacred, Graph, Growth, Fractal, DNA, Pixel Warp and vector Image emitted from a flat horizontal band, and Terrain spawned many particles off-screen. Now 3D shapes emit from their projected lines, Growth from its growing tips, Pixel Warp from the picture, and media layouts from their bright pixels. A layout that draws nothing no longer reuses the previous layout's shape. The **Stars** layout was removed; old saves using it open as Sacred.
