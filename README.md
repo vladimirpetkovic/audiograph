@@ -238,6 +238,18 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Vector & Raster Image Preview (v55)
+
+**[Try v55](versions/audiograph_55.html)**. The **Image** layout now has a **Source** switch:
+
+- **Import vector** (SVG): the drawing's paths are traced by audio lines exactly like Sacred, with Map (Along/Shapes), Lines (Along/Across), Outline, Breathe and Bloom. SVGs are parsed inertly; scripts, event handlers and external links are stripped.
+- **Import raster** (PNG/JPG): new default **LED** style turns the picture into an equalizer (like Text LED, with Seg gap and Floor); Grid and Edge remain.
+- Test: `tests/image-vector.cjs`.
+
+## Stars Preview (v54)
+
+**[Try v54](versions/audiograph_54.html)**. New **Stars** layout: real constellations (Orion, Big Dipper, Cassiopeia, Cygnus, Scorpius, Leo, Lyra, Southern Cross, Gemini, Taurus, Winter Sky, Summer Sky) traced by audio lines, with stars that flare with their band (**Stars**, **Twinkle**), a twinkling background **Field**, and Map/Lines/Outline/Bloom like Sacred. Sacred's Figure buttons now wrap onto several rows.
+
 ## Sacred Geometry Preview (v53)
 
 **[Try v53](versions/audiograph_53.html)**. New **Sacred** layout (General row) that draws the audio lines along classic sacred-geometry figures: Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, 64 Tetrahedron, Vector Equilibrium and Torus.
