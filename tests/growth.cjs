@@ -115,17 +115,24 @@ const SHOTS = process.env.AG_SHOTS || '';
     await click("setGrowType('coral'");
     assert.equal(await page.evaluate(() => getComputedStyle(growDirRow).display), 'none', 'Direction row hidden for Coral');
     if (await page.evaluate(() => !!document.getElementById('pGrowNoise'))) {
-      // v52: Noise randomizes coral (uneven widths/forks, scattered origins); 0 restores the regular coral.
+      // v52: Noise randomizes coral; 0 restores the regular coral. v56+: it shapes the linework (meander, swell/pinch) and origins stay put.
+      const v56 = await page.evaluate(() => typeof agGrowth.shape === 'function');
       const coralAt = async n => {
         await page.evaluate(n => { document.getElementById('pGrowNoise').value = n; document.getElementById('pGrowTrail').value = 70; upP(); agGrowth.clear(); if (!playing) togglePlay(); }, n);
         const ws = new Set(), xs = [];
         for (let i = 0; i < 8; i++) { await page.waitForTimeout(400); (await page.evaluate(() => agGrowth.tips(Object.keys(agGrowth.stats()).find(k => k.endsWith('coral'))))).forEach(t => { ws.add(t.w.toFixed(3) + '/' + t.gen); if (t.gen === 0) xs.push(t.x); }); }
         const W = await page.evaluate(() => frameCv.width);
-        return { widths: ws.size, spread: xs.length ? (Math.max(...xs) - Math.min(...xs)) / W : 0, ink: +(await ink()).toFixed(4) };
+        const sh = v56 ? await page.evaluate(() => agGrowth.shape(Object.keys(agGrowth.stats()).find(k => k.endsWith('coral')))) : {};
+        if (process.env.AUDIOGRAPH_GROWTH_SHOTS) await page.locator('#frameCv').screenshot({ path: '/tmp/ap/coral-n' + n + '.png' });
+        return { widths: ws.size, spread: xs.length ? (Math.max(...xs) - Math.min(...xs)) / W : 0, ink: +(await ink()).toFixed(4), ...sh };
       };
       const n0 = await coralAt(0), n100 = await coralAt(100);
       console.log('coral noise', JSON.stringify({ n0, n100 }));
-      assert.ok(n100.spread > Math.max(0.25, n0.spread * 3), 'noise scatters coral origins: ' + JSON.stringify({ n0, n100 }));
+      if (v56) {
+        assert.ok(n100.spread < n0.spread * 1.5 + 0.03, 'coral origins stay put at any noise: ' + JSON.stringify({ n0, n100 }));
+        assert.ok(n0.wobble === 0 && n100.wobble > 0.0008, 'noise meanders the coral stroke: ' + JSON.stringify({ n0, n100 }));
+        assert.ok(n100.width > 0.15, 'noise swells and pinches coral lines: ' + JSON.stringify(n100));
+      } else assert.ok(n100.spread > Math.max(0.25, n0.spread * 3), 'noise scatters coral origins: ' + JSON.stringify({ n0, n100 }));
       assert.ok(n100.ink >= n0.ink * 0.5, 'noisy coral still grows');
       assert.equal(await page.evaluate(() => getState().stackLayouts[activeLayerIdx].params.pGrowNoise), 100, 'noise saved per layer');
       const legacy = await page.evaluate(() => { const st = getState(); delete st.stackLayouts[st.activeLayerIdx].params.pGrowNoise; applyState(st); return [+document.getElementById('pGrowNoise').value, document.getElementById('vGrowNoise').textContent]; });
