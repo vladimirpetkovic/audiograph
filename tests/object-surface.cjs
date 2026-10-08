@@ -1,6 +1,7 @@
 // v59: 3D objects get Signal = Shape (old displacement) or Surface (fixed mesh, audio lines travel over it, all styles);
 // richer multi-colour gradient presets (black & white kept).
-process.env.AUDIOGRAPH_PARTICLE_BUILD=process.env.AUDIOGRAPH_OBJSURF_BUILD||'versions/audiograph_59.html';
+// v60: the same Surface signal for Terrain, Sphere, Tetrahedron and DNA.
+process.env.AUDIOGRAPH_PARTICLE_BUILD=process.env.AUDIOGRAPH_OBJSURF_BUILD||'versions/audiograph_60.html';
 const { open, wav, sine, kicks, load } = require('./audio-common.cjs');
 const assert=(c,m)=>{if(!c){console.error('FAIL: '+m);process.exit(1)}console.log('ok - '+m)};
 (async()=>{const t=await open({viewport:{width:1280,height:800}});const {page,errors}=t;
@@ -41,6 +42,33 @@ const assert=(c,m)=>{if(!c){console.error('FAIL: '+m);process.exit(1)}console.lo
  await page.evaluate(()=>{setObjSignal('shape');setObjFlow('rings');setObjTick('across');document.getElementById('pObjTravel').value=5});
  await page.evaluate(s=>applyState(JSON.parse(s)),st);
  assert(await page.evaluate(()=>objSignal==='surface'&&objFlow==='spiral'&&objTick==='along'&&+document.getElementById('pObjTravel').value===77&&+document.getElementById('pObjWire').value===12),'signal/flow/lines/sliders restored via state');
+ // v60: every 3D layout gets the shared Signal block and a fixed surface
+ for(const m of ['terrain','sphere','tetrahedron','dna']){
+  await page.evaluate(m=>{setLayout(m,[...document.querySelectorAll('.mbtn')].find(b=>(b.getAttribute('onclick')||'').includes("setLayout('"+m+"'")));setObjSignal('surface');setObjFlow('rings');setObjTick('across')},m);await page.waitForTimeout(250);
+  const u=await page.evaluate(m=>{const box=document.getElementById('ag3dSignalBox'),pan=document.getElementById('layoutOpts_'+m),sh=[...pan.querySelectorAll('.obj-shape-only')];
+    return{host:box.parentNode===pan&&box.offsetParent!==null,surf:[...box.querySelectorAll('.obj-surf-only')].every(e=>e.offsetParent!==null),shapeHidden:sh.every(e=>e.offsetParent===null),nShape:sh.length,
+      vary:!document.getElementById('rowVaryH').classList.contains('ag-na'),gpu:typeof agGpuStats==='function'?JSON.stringify(agGpuStats()):''}},m);
+  assert(u.host&&u.surf,m+': Signal/Flow/Lines rows shown in its panel');
+  assert(m==='terrain'?u.nShape===0:(u.nShape===2&&u.shapeHidden),m+': '+(m==='terrain'?'Elevation/Noise stay (they shape the fixed relief)':'Elevation/Noise hidden in Surface'));
+  assert(u.vary,m+': Vary height available in Surface');
+  const g=await page.evaluate(m=>{const c=document.createElement('canvas');c.width=800;c.height=500;const x=c.getContext('2d'),z=new Array(120).fill(0),l=new Array(120).fill(1);
+    const draw=v=>{({terrain:drawTerrain,sphere:drawSphere,dna:drawDNA,tetrahedron:(a,b,c2,d,e,f)=>drawPolyhedron(a,b,c2,d,e,f,'tet')})[m](x,800,500,v,P(),false);return JSON.stringify(_objSurfDbg.verts)};
+    const fixed=draw(z)===draw(l);const w0=wavePhase;document.getElementById('pObjTravel').value=60;wavePhase=10;draw(l.map((_,i)=>i/119));const a=JSON.stringify(_objSurfDbg.lh);wavePhase=13;draw(l.map((_,i)=>i/119));const moved=a!==JSON.stringify(_objSurfDbg.lh);wavePhase=w0;document.getElementById('pObjTravel').value=35;
+    return{fixed,moved,front:_objSurfDbg.front}},m);
+  assert(g.fixed,m+': geometry stays fixed with the audio');
+  assert(g.moved&&g.front>40,m+': audio lines travel over it ('+g.front+')');
+  for(const f of ['rings','sweep','spiral','scatter'])for(const k of ['across','along']){await page.evaluate(([f,k])=>{setObjFlow(f);setObjTick(k)},[f,k]);await page.waitForTimeout(120);const d=await page.evaluate(()=>_objSurfDbg);if(!(d.front>20&&d.flow===f))assert(false,`${m} ${f} ${k} draws (${d.front})`)}
+  console.log('ok - '+m+': all flows and line directions draw');
+  for(const st of ['tapered','dotted','pins','numbers']){await page.evaluate(st=>setShape(st,[...document.querySelectorAll('.styleb')].find(b=>b.getAttribute('onclick').includes("'"+st+"'"))),st);await page.waitForTimeout(200);const n=await ink();if(!(n>30))assert(false,m+' style '+st+' ink '+n)}
+  await page.evaluate(()=>setShape('straight',[...document.querySelectorAll('.styleb')].find(b=>b.getAttribute('onclick').includes("'straight'"))));
+  console.log('ok - '+m+': styles render on the surface');
+  assert(await page.evaluate(()=>lastFrameLines.lines.length>20),m+': surface lines feed particle emission');
+  await page.evaluate(()=>setObjSignal('shape'));await page.waitForTimeout(200);
+  assert(await page.evaluate(m=>[...document.getElementById('layoutOpts_'+m).querySelectorAll('.obj-shape-only')].every(e=>e.offsetParent!==null)&&[...document.querySelectorAll('#ag3dSignalBox .obj-surf-only')].every(e=>e.offsetParent===null),m),m+': Shape restores its original controls');
+  assert(await ink()>30,m+': Shape mode still draws');
+ }
+ await page.evaluate(()=>setObjLayout('knot',document.querySelector('[onclick^="setObjLayout(\'knot\'"]')));
+ assert(await page.evaluate(()=>document.getElementById('ag3dSignalBox').parentNode.id==='layoutOpts_object'),'Signal block returns to the Object panel');
  // palettes: multi-colour gradients, default first, black & white kept
  const pal=await page.evaluate(()=>({t:tonePresets,s:simplePresets}));
  assert(pal.t[0].join()==='#1a1a2e00,#e94560,#f5a623,#6ee7b7'&&pal.s[0].join()==='#e94560,#f5a623,#6ee7b7','default gradients stay first');

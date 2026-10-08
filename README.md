@@ -238,6 +238,13 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Surface Signal for All 3D Layouts Preview (v60)
+
+**[Try v60](versions/audiograph_60.html)**. The Signal switch from v59 now works on every 3D layout: **Terrain**, **Sphere**, **Tetrahedron**, **DNA**, Knot, Cube, Torus and 3D Object.
+- In **Surface** mode the shape stays fixed and the audio lines travel over it, with the same Flow, Lines, Travel, Count, Wire and Back controls and every Style.
+- Terrain becomes a still landscape (Elevation and Noise shape it). Sphere is a fixed globe, Tetrahedron has crisp flat faces, and DNA is a clean double helix with the signal running along its strands and rungs.
+- The Signal setting is shared across the 3D layouts on a layer. **Shape** mode is unchanged.
+
 ## Object Surface Signal & Colour Presets Preview (v59)
 
 **[Try v59](versions/audiograph_59.html)**. Knot, Cube, Torus and 3D Object have a new **Signal** switch. **Shape** is the original behaviour: the audio pushes the mesh. **Surface** keeps the geometry fixed and moves the audio across its skin instead.
