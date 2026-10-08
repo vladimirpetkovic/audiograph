@@ -238,6 +238,20 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Automation Panel Preview (v48)
+
+**[Try v48](versions/audiograph_48.html)**.
+- **🎛 Automation** puts **Autopilot**, **Mixer** and **Reactive** into one panel with three tabs. A dot on a tab shows that mode is running, even when another tab is open.
+- **Describe box** in Autopilot (it replaces AI Look and the Theme switch). Write the tempo, vibe, energy, colors, layouts and line styles, e.g. *slow dreamy 90 bpm, deep blue and gold, thin dotted lines, spirals and flowers*.
+  - Tempo (words or a BPM) scales motion speed and spin.
+  - Energy words tame or push drops.
+  - Named colors or themes fix the palette, which gets rotated between changes.
+  - Named layouts and line styles become the pool that Everything picks from.
+  - The line under the box shows what it understood, and the text is remembered between visits.
+- **Sine removed** from the Autopilot layouts. **Linear never spins**: Everything gives Linear zero spin, and Mood leaves spin unchanged on Linear layers.
+- **AI Look panel hidden** for now; its code stays in the file.
+- Tests: `autopilot.cjs` covers the tabs, the dots, the description reading, no Sine and no Linear spin. `guide.cjs`, `knobs.cjs` (opens the Reactive tab first) and `switches.cjs` are updated.
+
 ## Autopilot Preview (v47)
 
 **[Try v47](versions/audiograph_47.html)**.

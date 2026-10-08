@@ -53,6 +53,7 @@ const MISMATCH = () => [...document.querySelectorAll('.knob')].filter(k => {
     assert.ok(census.morph && census.intensity, 'morph crossfader and global intensity stay sliders');
     const sizes = await page.evaluate(() => {
       const k = document.querySelector('#pLines + .knob').getBoundingClientRect();
+      if (typeof setAutoTab === 'function') setAutoTab('reactive');
       if (!document.querySelector('.rule-row .knob.inline')) addReactiveRule();
       const inline = document.querySelector('.rule-row .knob.inline').getBoundingClientRect();
       return { knob: [Math.round(k.width), Math.round(k.height)], inline: [Math.round(inline.width), Math.round(inline.height)] };

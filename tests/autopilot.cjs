@@ -1,5 +1,5 @@
-// v47: Autopilot — section detection (build-up / drop / breakdown / phrase) drives crossfaded look changes.
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_47.html';
+// v47/v48: Autopilot — section detection (build-up / drop / breakdown / phrase) drives crossfaded look changes.
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_48.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs'), path = require('node:path');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -12,9 +12,36 @@ const SHOTS = process.env.AUTOPILOT_SHOTS;
   const t = await open({ viewport: { width: 1280, height: 800 } });
   const { page, errors } = t;
   try {
-    // UI: AI Look example chips hidden; Autopilot panel sits right after AI Look.
-    const ui = await page.evaluate(() => ({ chips: getComputedStyle(document.querySelector('.ai-chips')).display, next: document.getElementById('panelAI').nextElementSibling.id, params: getComputedStyle(document.getElementById('apParams')).display, sec: document.getElementById('apSection').textContent }));
-    assert.deepEqual(ui, { chips: 'none', next: 'panelAuto', params: 'none', sec: 'Off' });
+    // UI (v48): AI Look hidden; one Automation panel with Autopilot / Mixer / Reactive tabs.
+    const ui = await page.evaluate(() => {
+      const vis = id => getComputedStyle(document.getElementById(id)).display !== 'none';
+      const r = { ai: vis('panelAI'), title: document.querySelector('#panelAuto .panel-title').textContent, params: getComputedStyle(document.getElementById('apParams')).display, sec: document.getElementById('apSection').textContent, tabs: [...document.querySelectorAll('#autoTabs .mbtn')].map(b => b.textContent), oldPanels: document.querySelectorAll('.panel#panelMixer,.panel#panelReactive').length };
+      r.first = [vis('autoSecPilot'), vis('panelMixer'), vis('panelReactive')];
+      setAutoTab('mixer'); r.mixer = [vis('autoSecPilot'), vis('panelMixer'), vis('panelReactive')];
+      setAutoTab('reactive'); r.reactive = [vis('autoSecPilot'), vis('panelMixer'), vis('panelReactive')];
+      addReactiveRule(); syncAutoDots(); r.dot = document.querySelector('#autoTabs .mbtn[data-tab="reactive"]').classList.contains('live');
+      clearReactiveRules(); syncAutoDots(); r.dotOff = document.querySelector('#autoTabs .mbtn[data-tab="reactive"]').classList.contains('live');
+      setAutoTab('pilot');
+      return r;
+    });
+    assert.deepEqual(ui, { ai: false, title: '🎛 Automation', params: 'none', sec: 'Off', tabs: ['Autopilot', 'Mixer', 'Reactive'], oldPanels: 0, first: [true, false, false], mixer: [false, true, false], reactive: [false, false, true], dot: true, dotOff: false });
+
+    // Describe box: tempo, energy, palette, layouts and line styles steer the generated looks. Sine never appears; Linear never spins.
+    const vibe = await page.evaluate(() => {
+      agAuto.setVibe('slow dreamy 90 bpm, deep blue and gold, thin dotted lines, spirals and flowers');
+      const v = agAuto.vibe(), read = document.getElementById('apVibeRead').textContent;
+      const specs = Array.from({ length: 40 }, (_, i) => agAuto.spec(i % 2 ? 'drop' : 'calm'));
+      agAuto.setVibe('');
+      const free = Array.from({ length: 300 }, (_, i) => agAuto.spec(['calm', 'groove', 'build', 'drop', 'phrase'][i % 5]));
+      return { tempo: v.tempo, bpm: v.bpm, read, layouts: [...new Set(specs.map(s => s.layout))].sort(), shapes: [...new Set(specs.map(s => s.shape))], thin: specs.every(s => s.thickness < 25), pal: specs.every(s => s.colors.slice().sort().join() === specs[0].colors.slice().sort().join()), maxE: Math.max(...specs.map(s => s.energy)), freeSine: free.filter(s => s.layout === 'sine').length, linearSpin: free.filter(s => s.layout === 'linear' && s.spin !== 0).length, linearN: free.filter(s => s.layout === 'linear').length, stored: localStorage.getItem('audiograph_ap_vibe') };
+    });
+    console.log('vibe', JSON.stringify(vibe));
+    assert.equal(vibe.bpm, 90); assert.equal(vibe.tempo, 0.75);
+    assert.match(vibe.read, /calm/); assert.match(vibe.read, /90 bpm/); assert.match(vibe.read, /spiral/);
+    assert.deepEqual(vibe.layouts, ['phyllotaxis', 'spiral']); assert.deepEqual(vibe.shapes, ['dotted']); assert.ok(vibe.thin); assert.ok(vibe.pal, 'described palette kept');
+    assert.ok(vibe.maxE < 60, 'calm vibe tames drops: ' + vibe.maxE);
+    assert.equal(vibe.freeSine, 0, 'no Sine layout'); assert.ok(vibe.linearN > 0); assert.equal(vibe.linearSpin, 0, 'Linear never spins');
+    assert.equal(vibe.stored, '');
 
     // 1. Section detector on synthetic energy (no audio loaded, so only our step() feeds it).
     const ev = await page.evaluate(async () => {
@@ -39,6 +66,7 @@ const SHOTS = process.env.AUTOPILOT_SHOTS;
     // Mood changed palette + motion on the user's layer but kept its layout.
     const lay0 = await page.evaluate(() => layoutMode);
     assert.equal(lay0, 'linear', 'mood mode keeps layout');
+    assert.equal(await page.evaluate(() => getState().stackLayouts[0].params._spin), await page.evaluate(() => getDefaultLayerParams()._spin), 'mood never adds spin to a Linear layer');
 
     // 2. Changes = colors only touches palette; Everything swaps layout. Undo returns to pre-autopilot look.
     const cmp = await page.evaluate(async () => {
