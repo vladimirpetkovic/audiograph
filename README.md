@@ -238,6 +238,20 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Autopilot Preview (v47)
+
+**[Try v47](versions/audiograph_47.html)**.
+- **🎛 Autopilot** listens to the music and detects its sections: **Breakdown** (calm), **Groove**, **Build-up** (rising energy) and **Drop** (peak). Loudness is measured relative to the last 90 s of the track, so quiet and loud masters both work.
+- At each section change the visuals cross-fade to a new look: a slow 5 s fade into a breakdown, a 0.5 s cut on a drop. If the section stays the same, a new phrase starts every **Every** seconds (8–60 s, default 24).
+- **Changes**:
+  - **Colors** recolors your own layers.
+  - **Mood** also changes motion: speed, spin, pulse, warp, bloom and trails.
+  - **Everything** creates a new layer each time, with its own layout, shape, symmetry and particles.
+- **Theme** sets where the looks come from. **Free** walks the color wheel. **AI prompt** follows the colors, layout and shape words in the AI Look box.
+- The panel shows the detected section, a live energy meter and when the next change comes. Turning it on saves an Undo step. Reset and Auto-morph turn it off.
+- The AI Look example chips are hidden for now.
+- Tests: `autopilot.cjs` checks section detection, both with synthetic energy curves and with real playback of a calm → loud WAV.
+
 ## AI Look Fixes Preview (v46)
 
 **[Try v46](versions/audiograph_46.html)**.
