@@ -238,6 +238,12 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## 3D Style Parity Preview (v61)
+
+**[Try v61](versions/audiograph_61.html)**. Every 3D layout (Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus, 3D Object) now has the same features in both Signal modes. In **Shape** mode, marker styles such as Pins, Numbers, Tapered and Caps used to remove the wire and point straight up on Sphere, Tetrahedron and DNA. Now they keep a faint wire underneath and stand out of the surface along its normal, as they already did on Knot, Cube and Torus.
+
+In **Surface** mode, Tetrahedron is the geodesic sphere again (the look it has in Shape mode, with **Detail** setting the density), and Sphere uses the same geodesic mesh (its **Grid** sets the density) instead of a latitude/longitude grid.
+
 ## Surface Signal for All 3D Layouts Preview (v60)
 
 **[Try v60](versions/audiograph_60.html)**. The Signal switch from v59 now works on every 3D layout: **Terrain**, **Sphere**, **Tetrahedron**, **DNA**, Knot, Cube, Torus and 3D Object.

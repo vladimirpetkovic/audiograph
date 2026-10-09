@@ -1,7 +1,7 @@
 // v59: 3D objects get Signal = Shape (old displacement) or Surface (fixed mesh, audio lines travel over it, all styles);
 // richer multi-colour gradient presets (black & white kept).
 // v60: the same Surface signal for Terrain, Sphere, Tetrahedron and DNA.
-process.env.AUDIOGRAPH_PARTICLE_BUILD=process.env.AUDIOGRAPH_OBJSURF_BUILD||'versions/audiograph_60.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD=process.env.AUDIOGRAPH_OBJSURF_BUILD||'versions/audiograph_61.html';
 const { open, wav, sine, kicks, load } = require('./audio-common.cjs');
 const assert=(c,m)=>{if(!c){console.error('FAIL: '+m);process.exit(1)}console.log('ok - '+m)};
 (async()=>{const t=await open({viewport:{width:1280,height:800}});const {page,errors}=t;
@@ -67,6 +67,21 @@ const assert=(c,m)=>{if(!c){console.error('FAIL: '+m);process.exit(1)}console.lo
   assert(await page.evaluate(m=>[...document.getElementById('layoutOpts_'+m).querySelectorAll('.obj-shape-only')].every(e=>e.offsetParent!==null)&&[...document.querySelectorAll('#ag3dSignalBox .obj-surf-only')].every(e=>e.offsetParent===null),m),m+': Shape restores its original controls');
   assert(await ink()>30,m+': Shape mode still draws');
  }
+ // v61: Shape-mode styles on every 3D layout — wire stays under marker styles, markers follow the surface normal
+ for(const m of ['terrain','sphere','tetrahedron','dna']){
+  const r=await page.evaluate(m=>{setLayout(m,[...document.querySelectorAll('.mbtn')].find(b=>(b.getAttribute('onclick')||'').includes("setLayout('"+m+"'")));setObjSignal('shape');
+    setShape('pins',[...document.querySelectorAll('.styleb')].find(b=>b.getAttribute('onclick').includes("'pins'")));
+    const c=document.createElement('canvas');c.width=800;c.height=500;const x=c.getContext('2d'),v=new Array(120).fill(0).map((_,i)=>.3+.6*Math.abs(Math.sin(i*.37)));
+    const f={terrain:drawTerrain,sphere:drawSphere,dna:drawDNA,tetrahedron:(a,b,c2,d,e,g)=>drawPolyhedron(a,b,c2,d,e,g,'tet')}[m];
+    const orig=_ag3dMarker;let calls=0,tilted=0;_ag3dMarker=function(ctx,X,Y,nx,ny){calls++;const l=Math.hypot(nx||0,ny||0);if(l>.05&&Math.abs(Math.atan2(ny,nx)+Math.PI/2)>.2)tilted++;};
+    f(x,800,500,v,P(),false);_ag3dMarker=orig;
+    const d=x.getImageData(0,0,800,500).data;let ink=0;for(let i=3;i<d.length;i+=16)if(d[i]>10)ink++;
+    return{calls,tilted,ink}},m);
+  assert(r.calls>20,m+': marker styles draw markers in Shape mode ('+r.calls+')');
+  assert(r.tilted>r.calls*.2,m+': markers follow the surface instead of all pointing up ('+r.tilted+'/'+r.calls+')');
+  assert(r.ink>300,m+': wire still drawn under marker styles ('+r.ink+')');
+ }
+ await page.evaluate(()=>setShape('straight',[...document.querySelectorAll('.styleb')].find(b=>b.getAttribute('onclick').includes("'straight'"))));
  await page.evaluate(()=>setObjLayout('knot',document.querySelector('[onclick^="setObjLayout(\'knot\'"]')));
  assert(await page.evaluate(()=>document.getElementById('ag3dSignalBox').parentNode.id==='layoutOpts_object'),'Signal block returns to the Object panel');
  // palettes: multi-colour gradients, default first, black & white kept
