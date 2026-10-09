@@ -8098,6 +8098,16 @@ function drawFractal(ctx,W,H,values,p,forExport){
     var rootX=W/2+dragRotY*W*0.1,rootY=H*0.92;
     drawBranch(rootX,rootY,-Math.PI/2+(dragRotX*0.3),rootLen,maxDepth,0.5);
   }
+  // Connected outline: link nearby branch tips (the outer leaves) like the other layouts' Connected style
+  if(showOutline&&outlineStyle==='connected'&&lines.length>2){
+    var _ow=+document.getElementById('pOutline').value,_sp=+document.getElementById('pOutlineSpace').value,_cnt=+document.getElementById('pOutlineCount').value,_oa=(+document.getElementById('pOutlineOpacity').value||60)/100,_lim=_sp*12+30;
+    var _tips=lines.filter(function(l){return l.pos>.5});if(_tips.length>600){var _st=_tips.length/600;_tips=_tips.filter(function(l,i){return i%Math.ceil(_st)===0})}
+    ctx.setLineDash([]);ctx.lineWidth=_ow;var _per=Math.min(3,_cnt);
+    for(var _i=0;_i<_tips.length;_i++)for(var _j=_i+1,_links=0;_j<_tips.length&&_links<_per;_j++){var _a=_tips[_i],_b=_tips[_j],_d=Math.hypot(_a.x-_b.x,_a.y-_b.y);if(_d<2||_d>_lim)continue;
+      if(randSeeds[(_i*7+_j)%randSeeds.length]>.5)continue;_links++;
+      ctx.strokeStyle=forExport?lineColHex(_a.v,_a.pos,_i,_tips.length):lineCol(_a.v,_a.pos,_i,_tips.length);ctx.globalAlpha=_oa*Math.max(.1,1-_d/_lim);
+      ctx.beginPath();ctx.moveTo(_a.x,_a.y);ctx.lineTo(_b.x,_b.y);ctx.stroke()}
+  }
 
   ctx.globalAlpha=1;
   lastFrameLines={lines:lines,W:W,H:H,p:p,circle:false};
@@ -8923,6 +8933,23 @@ function drawLinearOutline(ctx,lines,forExport){
   ctx.globalAlpha=1;
 }
 
+// Phyllotaxis: consecutive lines sit a golden angle apart, so the ring outline never connected them.
+// Trace the spiral arms instead: link each line to the one a Fibonacci step away (the step whose tips are closest).
+function _phylOutline(ctx,lines,cx,cy,forExport,ow,dist,count,spacing,alpha){
+  var n=lines.length,tip=function(l,r){return[cx+Math.cos(l.angle)*r,cy+Math.sin(l.angle)*r]},F=0,best=1e18;
+  [3,5,8,13,21,34,55,89].forEach(function(f){if(f*2>n)return;var s=0,c=0;for(var i=Math.floor(n*.3);i+f<n;i++){var a=tip(lines[i],lines[i].r2),b=tip(lines[i+f],lines[i+f].r2);s+=Math.hypot(a[0]-b[0],a[1]-b[1]);c++}if(c&&s/c<best){best=s/c;F=f}});
+  if(!F)return;
+  ctx.lineCap='round';ctx.lineJoin='round';
+  if(outlineStyle==='dotted')ctx.setLineDash([ow,ow*1.5]);else if(outlineStyle==='dashed')ctx.setLineDash([ow*3,ow*2]);else ctx.setLineDash([]);
+  var fill=outlineStyle==='fill';
+  for(var oi=0;oi<(fill?1:count);oi++){var off=dist+oi*spacing;
+    for(var ring=fill?1:0;ring<2;ring++)for(var k=0;k+F<n;k++){
+      var a=lines[k],b=lines[k+F],ra=ring?a.r2+off:Math.max(0,a.r1-off),rb=ring?b.r2+off:Math.max(0,b.r1-off),pa=tip(a,ra),pb=tip(b,rb);
+      if(Math.hypot(pa[0]-pb[0],pa[1]-pb[1])>best*3)continue;
+      ctx.strokeStyle=forExport?lineColHex(a.v,a.pos,k,n):lineCol(a.v,a.pos,k,n);ctx.globalAlpha=alpha*(ring?1:.6);
+      if(fill){ctx.lineWidth=ow;var pc=tip(a,Math.max(0,a.r1-off)),pd=tip(b,Math.max(0,b.r1-off));ctx.fillStyle=ctx.strokeStyle;ctx.globalAlpha=alpha*.35;ctx.beginPath();ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);ctx.lineTo(pd[0],pd[1]);ctx.lineTo(pc[0],pc[1]);ctx.closePath();ctx.fill();ctx.globalAlpha=alpha}
+      ctx.lineWidth=ow;ctx.beginPath();ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);ctx.stroke()}}
+  ctx.globalAlpha=1;ctx.setLineDash([])}
 function drawCircleOutline(ctx,lines,cx,cy,forExport){
   var ow=+document.getElementById('pOutline').value,dist=+document.getElementById('pOutlineDist').value,count=+document.getElementById('pOutlineCount').value,spacing=+document.getElementById('pOutlineSpace').value,outlineAlpha=(+document.getElementById('pOutlineOpacity').value||60)/100;
   ctx.lineWidth=ow;ctx.lineCap='round';
@@ -8948,6 +8975,7 @@ function drawCircleOutline(ctx,lines,cx,cy,forExport){
   // Fill style: fill the annular band between the inner and outer edges of the ring of lines.
   // Concentric has multiple interleaved rings that make the annular fill messy — fall back to
   // a clean solid outline there.
+  if(layoutMode==='phyllotaxis'){_phylOutline(ctx,lines,cx,cy,forExport,ow,dist,count,spacing,outlineAlpha);return}
   if(outlineStyle==='fill'&&layoutMode!=='concentric'){
     ctx.setLineDash([]);
     // sort a copy by angle so the ring path is continuous

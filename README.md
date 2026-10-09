@@ -244,6 +244,8 @@ Seamless charts intentionally distort the flat artwork instead of unfolding phys
 
 In **Surface** mode, Tetrahedron is the geodesic sphere again (the look it has in Shape mode, with **Detail** setting the density), and Sphere uses the same geodesic mesh (its **Grid** sets the density) instead of a latitude/longitude grid.
 
+**Outline fixes:** Phyllotaxis showed the Outline control but never drew anything, because its lines sit a golden angle apart and the ring outline skipped every gap. It now traces the sunflower spiral arms in every outline style (Solid, Dotted, Dashed, Connected, Fill, with Count and Gap). Fractal's **Connected** outline, which used to draw nothing, now links nearby branch tips. A new `tests/outline.cjs` checks that every layout showing the Outline control actually draws it.
+
 ## Surface Signal for All 3D Layouts Preview (v60)
 
 **[Try v60](versions/audiograph_60.html)**. The Signal switch from v59 now works on every 3D layout: **Terrain**, **Sphere**, **Tetrahedron**, **DNA**, Knot, Cube, Torus and 3D Object.
