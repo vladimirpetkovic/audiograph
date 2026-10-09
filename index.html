@@ -3849,6 +3849,14 @@ function _pfxFractureDrive(pipe,fx){
   var drift=(fx.pfxFracDrift!=null?+fx.pfxFracDrift:45)/100;pipe._fracPhase=(+(pipe._fracPhase||0)+dt*drift*(0.15+2.6*env))%6283.1853;
   return Math.max(0,Math.min(1,pipe._fracEnv||0));
 }
+// v62: with Scale loud the layer canvas changes size every frame, which re-allocated the WebGL FX canvas and
+// textures (and reset Trails) each frame. Centre it on a fixed canvas (base zoom x1.5, the loudest zoom) first.
+// v62: playback Off + particles — trace the layout on a hidden canvas so particles follow this frame's shape (not a stale one)
+function _agShapeOnly(si,W,H,vals,p){var c=_agPoolCv('pOffShape',Math.max(1,Math.round(W)),Math.max(1,Math.round(H)));agPixelWarp.setLayer(si);agDrawDensity(c.getContext('2d'),W,H,vals,p,false)}
+function _pfxPadLoud(si,cv,fx,zoom,sz){
+  if(!zoomLoud||apNoZoom||!pfxActive(fx)||!cv||!cv.width)return cv;
+  var w=Math.ceil(sz.W*zoom*1.5*sz.dpr),h=Math.ceil(sz.H*zoom*1.5*sz.dpr);if(cv.width>w||cv.height>h)return cv;
+  var c=_agPoolCv('pfxPad'+si,w,h);c.getContext('2d').drawImage(cv,Math.round((w-cv.width)/2),Math.round((h-cv.height)/2));return c}
 function applyLayerFx(si,src,fx,noHistory){
   if(!pfxActive(fx)||!src||!src.width||!src.height){if(!noHistory&&_layerTrails[si])delete _layerTrails[si];return src}
   if(!noHistory){
@@ -5002,6 +5010,7 @@ function liveAnimLoop(){
       var _partOnL=!!(layer.params&&layer.params._particlesOn);
       if(si===getActiveLayerIdx()&&particlesOn)_partOnL=true;
       if(_partOnL){
+        if(lPlayModeL2==='off')_agShapeOnly(si,lDrawWL,lDrawHL,applyFadeEdge(liveModVals),lp);
         var pEnergyL=0;
         if(liveModVals.length){for(var ei=0;ei<liveModVals.length;ei++)pEnergyL+=liveModVals[ei];pEnergyL/=liveModVals.length}
         pEnergyL=Math.max(0.1,pEnergyL);
@@ -5036,7 +5045,7 @@ function liveAnimLoop(){
         mCtxL.drawImage(lCv,0,0);mCtxL.restore();
         lCv=mCvL;
       }
-      lCv=applyLayerFx(si,lCv,layer.params&&layer.params._postFx);
+      lCv=applyLayerFx(si,_pfxPadLoud(si,lCv,layer.params&&layer.params._postFx,(layer.params&&layer.params._zoom?layer.params._zoom:100)/100,sz),layer.params&&layer.params._postFx);
       offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100;
       var lOffX=(layer.params&&layer.params._offX||0)/100*sz.W*sz.dpr;
       var lOffY=(layer.params&&layer.params._offY||0)/100*sz.H*sz.dpr;
@@ -9073,6 +9082,7 @@ function renderDensity(){
       if(si===getActiveLayerIdx()&&particlesOn)_partOnS=true;
       if(pmActive)_partOnS=false; // particles are stochastic — suppress during preset-morph preview
       if(_partOnS){
+        if(sPlayMode2==='off')_agShapeOnly(si,lDrawW,lDrawH,applyFadeEdge(layerVals),P());
         var sEnergy=0;
         if(layerVals.length){for(var ei=0;ei<layerVals.length;ei++)sEnergy+=layerVals[ei];sEnergy/=layerVals.length}
         sEnergy=Math.max(0.15,sEnergy);
@@ -9301,6 +9311,7 @@ function animLoop(){if(!playing){rafId=null;return}
       var _partOn=!!(layer.params&&layer.params._particlesOn);
       if(si===getActiveLayerIdx()&&particlesOn)_partOn=true;
       if(_partOn){
+        if(lPlayMode2==='off')_agShapeOnly(si,lDrawW2,lDrawH2,applyFadeEdge(layerModVals),lp);
         var pEnergy=0;
         if(layerModVals.length){for(var ei=0;ei<layerModVals.length;ei++)pEnergy+=layerModVals[ei];pEnergy/=layerModVals.length}
         pEnergy=Math.max(0.1,pEnergy);
@@ -9335,7 +9346,7 @@ function animLoop(){if(!playing){rafId=null;return}
         mCtx2.drawImage(lCv,0,0);mCtx2.restore();
         lCv=mCv2;
       }
-      lCv=applyLayerFx(si,lCv,layer.params&&layer.params._postFx);
+      lCv=applyLayerFx(si,_pfxPadLoud(si,lCv,layer.params&&layer.params._postFx,(layer.params&&layer.params._zoom?layer.params._zoom:100)/100,sz),layer.params&&layer.params._postFx);
       offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100;
       var aOffX=(layer.params&&layer.params._offX||0)/100*sz.W*sz.dpr;
       var aOffY=(layer.params&&layer.params._offY||0)/100*sz.H*sz.dpr;
@@ -10057,7 +10068,7 @@ try{loadFromHash()}catch(e){}
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
 <div class="help-modal">
 <button class="close-help" onclick="toggleHelp()">&times;</button>
-<h2>Audiograph — Guide <span style="font-size:.5em;font-weight:400;letter-spacing:.08em;color:var(--tx3);vertical-align:middle">v61</span></h2>
+<h2>Audiograph — Guide <span style="font-size:.5em;font-weight:400;letter-spacing:.08em;color:var(--tx3);vertical-align:middle">v62</span></h2>
 <p>Audiograph turns sound into moving images. Pick a source, pick a layout, and shape the look while the music plays. Everything reacts to audio, and nearly everything can be undone.</p>
 <nav class="help-toc" aria-label="Guide contents">
 <a href="#g-start">Quick start</a><a href="#g-auto">Automation</a><a href="#g-audio">Audio</a><a href="#g-layers">Layers</a><a href="#g-layout">Layout</a><a href="#g-style">Style &amp; Outline</a><a href="#g-color">Color</a><a href="#g-geo">Geometry &amp; Motion</a><a href="#g-deform">Deformers</a><a href="#g-particles">Particles</a><a href="#g-postfx">Post FX</a><a href="#g-presets">Presets &amp; Morph</a><a href="#g-live">Live output</a><a href="#g-mapping">Projection mapping</a><a href="#g-perf">Resolution &amp; renderer</a><a href="#g-export">Export</a><a href="#g-controls">Knobs, touch &amp; keys</a>
