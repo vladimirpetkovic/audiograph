@@ -238,6 +238,10 @@ Run `tests/gpu-benchmark.cjs` on the installation machine for completed-frame me
 
 Seamless charts intentionally distort the flat artwork instead of unfolding physical faces into rectangular crops. Legacy **Cube net** still has an intentional Top/Right cut; Horizontal/Vertical and rectangular source-region editing remain available. Mesh layouts lock per-face rectangle/rotation edits to protect joins; **Move visuals** still moves the whole shared image. Save/export/import, Undo and grid rebuilding preserve the source mesh. Physical edge alignment remains necessary: this is not automatic edge blending or calibration.
 
+## Post FX Performance Preview (v62)
+
+**[Try v62](versions/audiograph_62.html)**. Fixes a slowdown and jitter when layer or composition **Post FX** (especially Bloom) were combined with **Scale loud**. The layer canvas used to change size on every frame, so the WebGL FX pipeline reallocated its textures each frame and layer Trails/Feedback kept resetting. The layer is now padded onto a fixed-size canvas before the FX run, so frame rate holds at 60 fps and Trails persist. Covered by `tests/pfx-loud.cjs`.
+
 ## 3D Style Parity Preview (v61)
 
 **[Try v61](versions/audiograph_61.html)**. Every 3D layout (Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus, 3D Object) now has the same features in both Signal modes. In **Shape** mode, marker styles such as Pins, Numbers, Tapered and Caps used to remove the wire and point straight up on Sphere, Tetrahedron and DNA. Now they keep a faint wire underneath and stand out of the surface along its normal, as they already did on Knot, Cube and Torus.
