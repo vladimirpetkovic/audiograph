@@ -43,6 +43,12 @@ const SVG=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle
   if(c!=='linear'&&c!=='custom'&&c!=='text'&&c!=='scatter')assert(Math.max(...ys)-Math.min(...ys)>0.25,c+' does not fall back to the horizontal band');
   if(process.env.SHOT){const d=await page.evaluate(sp=>{const c=document.getElementById('frameCv'),x=document.createElement('canvas');x.width=640;x.height=400;const g=x.getContext('2d');g.drawImage(c,0,0,640,400);g.fillStyle='#f00';sp.forEach(p=>{g.fillRect(p[0]*640-1,p[1]*400-1,2,2)});return x.toDataURL('image/png').split(',')[1]},sp);require('fs').writeFileSync('/tmp/ap/ps-'+c.replace(':','-')+'.png',Buffer.from(d,'base64'))}
  }
+ // v62: playback Off (particles only) — particles follow the current layout, not the last drawn one
+ await page.evaluate(()=>{setLayout('linear',document.querySelector('[onclick^="setLayout(\'linear\'"]'));particlesOn=true});await page.waitForTimeout(400);
+ await page.evaluate(()=>{setPlayMode('off',document.querySelector('[onclick^="setPlayMode(\'off\'"]'));particlesOn=true;setLayout('dna',document.querySelector('[onclick^="setLayout(\'dna\'"]'));__sp=[]});
+ await page.waitForTimeout(1000);
+ const off=await page.evaluate(()=>{const a=__sp.slice(0,600),xs=a.map(p=>p[0]),ys=a.map(p=>p[1]);particlesOn=false;setPlayMode('continuous',document.querySelector('[onclick^="setPlayMode(\'continuous\'"]'));return[a.length,Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys)]});
+ assert(off[0]>100&&off[1]<0.7&&off[2]>0.6,'playback Off: particles follow the current layout (DNA), not a stale shape '+off.map(v=>+v.toFixed(2)));
  // a layout that draws nothing (Video with no source) must not reuse the previous layout's shape
  await page.evaluate(()=>{setLayout('sacred',document.querySelector('[onclick^="setLayout(\'sacred\'"]'))});await page.waitForTimeout(400);
  const stale=await page.evaluate(async()=>{lastFrameLines={lines:[],W:1,H:1};const W=800,H=500;drawDensity(document.createElement('canvas').getContext('2d'),W,H,new Array(120).fill(.5),P(),false);const n=lastFrameLines.lines.length;layoutMode='video';var o=vidEl;vidEl=null;drawDensity(document.createElement('canvas').getContext('2d'),W,H,new Array(120).fill(.5),P(),false);const a=getParticles(0),k=a.length;spawnParticles(.8,W,H,P(),{pPartDensity:50},0);const m=a.length-k;vidEl=o;layoutMode='sacred';return[n,m]});

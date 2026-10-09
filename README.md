@@ -242,6 +242,8 @@ Seamless charts intentionally distort the flat artwork instead of unfolding phys
 
 **[Try v62](versions/audiograph_62.html)**. Fixes a slowdown and jitter when layer or composition **Post FX** (especially Bloom) were combined with **Scale loud**. The layer canvas used to change size on every frame, so the WebGL FX pipeline reallocated its textures each frame and layer Trails/Feedback kept resetting. The layer is now padded onto a fixed-size canvas before the FX run, so frame rate holds at 60 fps and Trails persist. Covered by `tests/pfx-loud.cjs`.
 
+Also fixes particles with playback **Off** (particles only): since v58 particles emit from the shape drawn this frame, but Off skipped drawing, so particles kept spawning along a stale shape (e.g. the previous layout's band after switching to DNA). The layout is now traced on a hidden canvas so particles follow the current layout. A sweep of every layout (2D, Sacred, Graph, Growth, Fractal, all 3D in Shape and Surface modes, Knot/Cube/Torus, Image raster/vector, Text, Pixel Warp, Custom, Post FX + Scale loud) confirms particles spawn on the drawn shape; `tests/particles-emit.cjs` covers the Off case.
+
 ## 3D Style Parity Preview (v61)
 
 **[Try v61](versions/audiograph_61.html)**. Every 3D layout (Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus, 3D Object) now has the same features in both Signal modes. In **Shape** mode, marker styles such as Pins, Numbers, Tapered and Caps used to remove the wire and point straight up on Sphere, Tetrahedron and DNA. Now they keep a faint wire underneath and stand out of the surface along its normal, as they already did on Knot, Cube and Torus.

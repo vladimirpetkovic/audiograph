@@ -3851,6 +3851,8 @@ function _pfxFractureDrive(pipe,fx){
 }
 // v62: with Scale loud the layer canvas changes size every frame, which re-allocated the WebGL FX canvas and
 // textures (and reset Trails) each frame. Centre it on a fixed canvas (base zoom x1.5, the loudest zoom) first.
+// v62: playback Off + particles — trace the layout on a hidden canvas so particles follow this frame's shape (not a stale one)
+function _agShapeOnly(si,W,H,vals,p){var c=_agPoolCv('pOffShape',Math.max(1,Math.round(W)),Math.max(1,Math.round(H)));agPixelWarp.setLayer(si);agDrawDensity(c.getContext('2d'),W,H,vals,p,false)}
 function _pfxPadLoud(si,cv,fx,zoom,sz){
   if(!zoomLoud||apNoZoom||!pfxActive(fx)||!cv||!cv.width)return cv;
   var w=Math.ceil(sz.W*zoom*1.5*sz.dpr),h=Math.ceil(sz.H*zoom*1.5*sz.dpr);if(cv.width>w||cv.height>h)return cv;
@@ -5008,6 +5010,7 @@ function liveAnimLoop(){
       var _partOnL=!!(layer.params&&layer.params._particlesOn);
       if(si===getActiveLayerIdx()&&particlesOn)_partOnL=true;
       if(_partOnL){
+        if(lPlayModeL2==='off')_agShapeOnly(si,lDrawWL,lDrawHL,applyFadeEdge(liveModVals),lp);
         var pEnergyL=0;
         if(liveModVals.length){for(var ei=0;ei<liveModVals.length;ei++)pEnergyL+=liveModVals[ei];pEnergyL/=liveModVals.length}
         pEnergyL=Math.max(0.1,pEnergyL);
@@ -9079,6 +9082,7 @@ function renderDensity(){
       if(si===getActiveLayerIdx()&&particlesOn)_partOnS=true;
       if(pmActive)_partOnS=false; // particles are stochastic — suppress during preset-morph preview
       if(_partOnS){
+        if(sPlayMode2==='off')_agShapeOnly(si,lDrawW,lDrawH,applyFadeEdge(layerVals),P());
         var sEnergy=0;
         if(layerVals.length){for(var ei=0;ei<layerVals.length;ei++)sEnergy+=layerVals[ei];sEnergy/=layerVals.length}
         sEnergy=Math.max(0.15,sEnergy);
@@ -9307,6 +9311,7 @@ function animLoop(){if(!playing){rafId=null;return}
       var _partOn=!!(layer.params&&layer.params._particlesOn);
       if(si===getActiveLayerIdx()&&particlesOn)_partOn=true;
       if(_partOn){
+        if(lPlayMode2==='off')_agShapeOnly(si,lDrawW2,lDrawH2,applyFadeEdge(layerModVals),lp);
         var pEnergy=0;
         if(layerModVals.length){for(var ei=0;ei<layerModVals.length;ei++)pEnergy+=layerModVals[ei];pEnergy/=layerModVals.length}
         pEnergy=Math.max(0.1,pEnergy);
