@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-62-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-63-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -116,7 +116,7 @@ Keep the controller tab in the foreground and the laptop awake during a show: br
 
 ## Versions and Rollback
 
-The live entry point is `index.html` (**v62**, released from the v44–v62 previews below). Each release is also preserved as `versions/audiograph_N.html`; [v21](versions/audiograph_21.html), [v22](versions/audiograph_22.html), [v34](versions/audiograph_34.html), [v42](versions/audiograph_42.html), [v43](versions/audiograph_43.html), [v61](versions/audiograph_61.html) (the previous main app) and every preview remain independently runnable. Git release tags provide a second rollback path. Before updating the live entry point, archive its exact contents under the previous version number; never overwrite an existing archive. New features are published at separate numbered preview links for hands-on testing before promotion to the main app.
+The live entry point is `index.html` (**v63**, released from the v44–v63 previews below). Each release is also preserved as `versions/audiograph_N.html`; [v21](versions/audiograph_21.html), [v22](versions/audiograph_22.html), [v34](versions/audiograph_34.html), [v42](versions/audiograph_42.html), [v43](versions/audiograph_43.html), [v61](versions/audiograph_61.html), [v62](versions/audiograph_62.html) (the previous main app) and every preview remain independently runnable. Git release tags provide a second rollback path. Before updating the live entry point, archive its exact contents under the previous version number; never overwrite an existing archive. New features are published at separate numbered preview links for hands-on testing before promotion to the main app.
 
 ## Projection Mapping Preview (v23)
 
