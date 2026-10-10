@@ -17,7 +17,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .logo a:hover{color:var(--accent2)}
 .top-actions{display:flex;gap:6px;align-items:center}
 .audio-source-group{display:flex;flex-direction:column;align-items:center;margin-left:8px;padding:4px 10px;background:var(--elevated);border:1px solid var(--border);border-radius:6px}
-.audio-source-label{font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin-bottom:3px}
+.audio-source-label{font-size:.5rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin-bottom:3px}
 .audio-source-btns{display:flex;gap:4px}
 .system-audio-hint{font-size:.5rem;line-height:1.5;color:var(--tx2);margin:4px 1.5rem;text-align:right}
 .system-audio-hint.error{color:var(--hot)}
@@ -202,7 +202,35 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .btn.rec-stop{border-color:var(--hot);color:#fff;background:var(--hot)}
 .btn.rec-stop:hover{background:#ef4444}
 .rec-timer{font-size:.55rem;color:var(--hot);font-variant-numeric:tabular-nums}
-.help-btn{margin-left:12px;border-left:1px solid var(--border);padding-left:12px}
+
+#agTourRing{position:fixed;z-index:9000;display:none;pointer-events:none;border:2px solid var(--accent2);border-radius:8px;box-shadow:0 0 18px 2px rgba(110,231,183,.6);transition:left .25s,top .25s,width .25s,height .25s}
+#agTourCard{position:fixed;z-index:9001;display:none;background:var(--surface);border:1px solid var(--accent2);border-radius:10px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,.6);color:var(--tx);font-family:'Inter','Helvetica Neue',Arial,sans-serif;max-width:420px}
+@media(max-width:900px){#agTourCard{max-width:none}}
+#agTourCard .tour-step{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2)}
+#agTourCard .tour-title{font-size:1.05rem;font-weight:600;margin:4px 0 6px}
+#agTourCard .tour-txt{font-size:.82rem;line-height:1.5;color:var(--tx2)}
+#agTourCard .tour-dots{display:flex;gap:5px;margin:10px 0}
+#agTourCard .tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--border-h)}
+#agTourCard .tour-dots i.on{background:var(--accent2)}
+#agTourCard .tour-btns{display:flex;gap:8px;align-items:center}
+#agTourCard .tour-next{border-color:var(--accent2);color:var(--accent2);background:var(--accent-d)}
+.help-btn{display:none}
+.top-actions #tourBtn,.top-actions .btn.help-q{box-sizing:border-box;height:34px;padding-top:0;padding-bottom:0;display:inline-flex;align-items:center;justify-content:center}
+.top-actions .btn.help-q{gap:7px}
+@media (pointer:coarse){.top-actions #tourBtn,.top-actions .btn.help-q{height:44px}}
+.help-q-ico{display:inline-flex;align-items:center;justify-content:center;flex:none;width:18px;height:18px;border-radius:50%;border:1.5px solid currentColor;font:700 .75rem/1 'Inter','Helvetica Neue',Arial,sans-serif;letter-spacing:0}
+#tourBtn,.top-actions .btn.help-q{border-color:var(--accent2);color:var(--accent2);background:var(--accent-d)}
+#agTourBanner{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:17;display:none;max-width:90%;text-align:center;padding:9px 18px;border-radius:999px;background:rgba(8,8,10,.78);border:1px solid var(--accent2);color:#fff;font:600 .95rem/1.3 'Inter','Helvetica Neue',Arial,sans-serif;box-shadow:0 0 24px rgba(110,231,183,.35);pointer-events:none}
+#agTourBanner b{color:var(--accent2);font-weight:700}
+.help-btn{margin-left:12px}
+.audio-source-slot{display:flex;justify-content:center;flex-shrink:0}
+.audio-source-group{transition:border-color .3s,box-shadow .3s}
+.audio-source-group.needs-src{border-color:var(--accent2);animation:srcPulse 1.8s ease-in-out infinite}
+.audio-source-group.needs-src .audio-source-label{color:var(--accent2)}
+@keyframes srcPulse{0%,100%{box-shadow:0 0 0 0 rgba(110,231,183,.0)}50%{box-shadow:0 0 14px 2px rgba(110,231,183,.45)}}
+@media (prefers-reduced-motion:reduce){.audio-source-group.needs-src{animation:none;box-shadow:0 0 10px 1px rgba(110,231,183,.35)}}
+@media(max-width:900px){.top-bar{flex-wrap:wrap;row-gap:8px}.top-actions{flex-wrap:wrap}}
+@media(min-width:901px){.top-bar{padding-right:0;position:relative}.audio-source-slot{width:420px;margin-left:0}.audio-source-slot .audio-source-group{margin-left:0}}
 .help-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;overflow-y:auto;padding:40px 20px}
 .help-modal{max-width:640px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;color:var(--tx);font-size:.55rem;line-height:1.7;position:relative}
 .help-modal h2{font-size:.75rem;color:var(--accent);margin:0 0 12px;letter-spacing:.08em;text-transform:uppercase}
@@ -239,24 +267,81 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .controls-area::-webkit-scrollbar{width:12px}.controls-area::-webkit-scrollbar-track{background:transparent}
 .controls-area::-webkit-scrollbar-thumb{background:#4a4a52;border-radius:6px;border:2px solid var(--bg)}.controls-area::-webkit-scrollbar-thumb:hover{background:#6a6a74}
 #stopAudioBtn.transport-stop{border-color:var(--crop);color:var(--crop)}#stopAudioBtn:disabled{opacity:.45;cursor:not-allowed}
+/* Tablet touch targets: larger panel navigation, controls and toolbar without changing desktop sizing. */
+@media (pointer:coarse){
+  .top-bar{padding:12px 16px;gap:12px;flex-wrap:wrap}
+  .top-bar{padding-top:max(12px,env(safe-area-inset-top))}
+  .top-actions{gap:8px;max-width:100%;flex-wrap:wrap}
+  .btn{min-height:42px;padding:10px 14px;font-size:.72rem;touch-action:manipulation}
+  .btn svg{width:16px;height:16px}
+  .audio-source-group{padding:6px 10px}
+  .audio-source-label{font-size:.52rem}
+  .audio-source-btns{gap:6px;flex-wrap:wrap}
+  .controls-area{gap:8px;padding:12px 12px max(24px,env(safe-area-inset-bottom))}
+  .panel-head{min-height:44px;padding:10px 12px;touch-action:manipulation}
+  .panel-title{font-size:.65rem}
+  .panel-arrow{font-size:.72rem}
+  .panel-rand{min-height:34px;padding:5px 8px;font-size:.6rem;opacity:.75}
+  .panel-body{gap:8px;padding:10px 12px}
+  .prow-label{font-size:.62rem}
+  .prow-val{min-height:36px;display:flex;align-items:center;justify-content:flex-end;font-size:.7rem}
+  .mbtn{min-height:36px;padding:8px 10px;font-size:.6rem;touch-action:manipulation}
+  #panelPresets .preset-actions .mbtn{min-height:36px;padding:8px 6px;font-size:.52rem}
+  .compact-switch-cell .mbtn{min-height:36px;padding:8px 7px;font-size:.52rem}
+  .prow input[type="range"]{height:30px;background:transparent}
+  .prow input[type="range"]::-webkit-slider-runnable-track{height:4px;background:var(--border);border-radius:2px}
+  .prow input[type="range"]::-webkit-slider-thumb{width:20px;height:20px;margin-top:-8px}
+  .layer-row input[type=range]{height:30px;accent-color:var(--accent2)}
+  .knob{width:76px;height:76px}
+  #panelPostFx .knob{width:68px;height:68px}
+  .ai-prompt{min-height:72px;padding:10px;font-size:16px}
+  .ai-chip{min-height:34px;display:inline-flex;align-items:center;padding:5px 9px;font-size:.62rem}
+  .prow-val-input,.prow select,.map-controls input,.map-controls select{min-height:36px;font-size:16px}
+  .overview-wrap{height:68px}
+  .sel-handle{width:22px}
+  .crop-handle{width:22px}
+}
+@media (pointer:coarse) and (max-width:699px){
+  .top-bar{padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left));gap:8px}
+  .top-bar .logo{width:100%}
+  .top-actions{width:100%;gap:6px}
+  .top-actions .btn{flex:1 1 0;justify-content:center;padding:10px 6px}
+  .audio-source-slot{width:100%;order:3}
+  .audio-source-group{width:100%;margin-left:0}
+  .audio-source-btns{width:100%;flex-wrap:nowrap;gap:6px}
+  .audio-source-btns .btn{flex:1 1 0;justify-content:center;padding:10px 4px;font-size:.62rem;gap:4px}
+  .audio-source-btns .btn svg{width:14px;height:14px}
+  .help-btn{margin-left:0;order:2}
+  .preview-area{padding:10px;gap:8px;overflow:visible}
+  .frame-view{height:min(46svh,420px);min-height:220px;flex-shrink:0}
+  .controls-area{padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
+  .mode-btns{flex-wrap:wrap}
+  .prow{flex-wrap:wrap}
+  .prow-label{min-width:0}
+}
+@media (pointer:coarse) and (min-width:700px) and (max-width:900px){
+  .preview-area{overflow:visible;padding:12px;gap:10px}
+  .frame-view{height:min(42vh,440px);height:min(42svh,440px);min-height:240px;flex-shrink:0}
+}
 </style>
 </head>
 <body>
 <div class="top-bar">
   <div class="logo"><img class="logo-mark" alt="Audiograph" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCAxNjU4IDE2MTYiPgogIDwhLS0gR2VuZXJhdG9yOiBBZG9iZSBJbGx1c3RyYXRvciAzMC41LjEsIFNWRyBFeHBvcnQgUGx1Zy1JbiAuIFNWRyBWZXJzaW9uOiAyLjEuNCBCdWlsZCAzKSAgLS0+CiAgPGRlZnM+CiAgICA8c3R5bGU+CiAgICAgIC5zdDAgewogICAgICAgIGZpbGw6IG5vbmU7CiAgICAgICAgc3Ryb2tlOiAjZmZmOwogICAgICAgIHN0cm9rZS1taXRlcmxpbWl0OiAxMDsKICAgICAgICBzdHJva2Utd2lkdGg6IDMwcHg7CiAgICAgIH0KCiAgICAgIC5zdDEgewogICAgICAgIGZpbGw6ICNmZmY7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxNjU4IiBoZWlnaHQ9IjE2MTYiLz4KICA8Y2lyY2xlIGNsYXNzPSJzdDAiIGN4PSI4MjkiIGN5PSI4MDgiIHI9IjU5Ni41OSIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xMjkxLDgzNC4zNmMtMTYuNjItMjIuMTUtNDIuNy0zNS4xOC03MC4zOC0zNS4xOGgtMjM0LjU1Yy02LjI2LDAtMTIuMzIsMC0xOC4wNy0uMmgtNzMuMWMtMzYuMTMsMC02NS42OCwyOS41Ni02NS42OCw2NS42OGgwYzAsMzYuMTMsMjMuNDIsMzYuMTksMzUuOTgsMzYuMTloMTEyLjJjMTkuODEsMCwzMC4zOCwyMy4xNiwxNy41OCwzOC4yOC00MC4zNiw0Ny42OS0xMDAuNDEsNzguNDItMTY2LjQzLDc4LjQ3LTEyMS4zNi4wOS0yMTkuNjctOTguNzEtMjE4Ljc4LTIyMC4yNi44Ny0xMTkuNzMsMTAxLjcxLTIxOC40OSwyMjEuNDMtMjE2Ljk4LDc0LjYzLjk0LDE0MC4yNCwzOS4yOCwxNzguOTcsOTcuMTQsOC4yNywxMi4zNiwyMi4xNCwxOS43OSwzNy4wMSwxOS43OWgxMTcuMWMxMS43NywwLDE4LjU2LTEzLjM3LDExLjYxLTIyLjg4bC0yNS44LTM1LjI1LTEzOC40My0xOTAuNS04OS40Ny0xMjMuNWMtMzEuNjctMzMuNTctNzguMDctNDguOTMtMTIyLjM2LTM4LjQtMjkuODYsNy4xLTU1LjQxLDIyLjk1LTczLjIxLDQ3LjY3bC01OC45Miw4MS44Ni0xMTAuNzcsMTUzLjA5LTQ5LjQzLDY3LjY1LTg5LjI4LDEyMy42OGMtNC4xNSw0LjA4LTguMDMsOC41My0xMS41MywxMy40MWwtMTk2Ljg2LDI3NC4wN2MtMzMuMjEsNDYuMjMtMjIuNTUsMTExLjIzLDIzLjY4LDE0NC40NGgwYzQ2LjIzLDMzLjIxLDExMS4yMywyMi41NSwxNDQuNDQtMjMuNjhoMGMzMy43LTQ2LjkxLDg3LjkyLTc0LjczLDE0NS42OC03NC43M2w2MTAuNjYtLjA3YzU3LjQsMCwxMTEuMzMsMjcuNDUsMTQ1LjA5LDczLjg3bC42OC45NGMzMy4yMSw0Ni4yMyw5OC4yMSw1Ni44OSwxNDQuNDQsMjMuNjhoMGM0Ni4yMy0zMy4yMSw1Ni44OS05OC4yMSwyMy42OC0xNDQuNDRsLTU3LjQ5LTc5LjA0LTM4LjQtNTMuMTMtNjEuMjktODEuNjdaIi8+Cjwvc3ZnPg==">Audiograph <a href="https://www.vladimirpetkovic.com" target="_blank">by Vladimir Petković</a></div>
-  <div class="top-actions"><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()">Reset</button><button class="btn" id="stopAudioBtn" onclick="audioTransportClick()" disabled title="Choose Load audio, Mic or System first" aria-label="Play audio source (choose Load audio, Mic or System first)"><svg id="stopAudioIco" viewBox="0 0 24 24" style="width:12px;height:12px"><polygon points="5 3 19 12 5 21 5 3"/></svg><span id="stopAudioLbl">Play</span></button><div class="audio-source-group"><span class="audio-source-label">Audio source</span><div class="audio-source-btns"><label class="btn" id="btnLoadAudio"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" id="btnMic" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" id="btnSystem" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button></div></div><span class="help-btn"><button class="btn" onclick="toggleHelp()"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Guide</button></span></div>
+  <div class="top-actions"><button class="btn" id="tourBtn" onclick="agTour.start()" title="Interactive tutorial: build a look step by step">Tutorial</button><button class="btn help-q" onclick="toggleHelp()" title="Open the Guide" aria-label="Guide"><span class="help-q-ico" aria-hidden="true">?</span>Guide</button><div class="audio-source-slot"><div class="audio-source-group"><span class="audio-source-label">Audio source</span><div class="audio-source-btns"><label class="btn" id="btnLoadAudio"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Load audio<input type="file" accept="audio/*" id="fileInput"></label><button class="btn" id="btnMic" onclick="startMic()"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>Mic</button><button class="btn" id="btnSystem" onclick="startSystem()"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</button></div></div></div></div>
 </div>
 <p class="system-audio-hint" id="systemAudioHint" role="status" aria-live="polite" style="display:none">Choose Entire Screen and enable Share with system audio.</p>
 <div class="app" id="app">
   <div class="preview-area">
     <div class="frame-view" id="frameWrap"><canvas id="frameCv"></canvas><canvas id="postFxCv" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none"></canvas><div class="frame-badge" id="frameBadge"></div>
+      
       <button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="Fullscreen (⌘F)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></button>
       <div class="rec-badge" id="recBadge"><div class="rec-dot"></div><span>REC</span><span class="rec-timer" id="recTimer">0:00</span></div>
       <div class="idle-overlay" id="idle"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>drop audio file here<br>or click Load Audio</span></div>
       <div id="dropZone" style="display:none;position:absolute;inset:0;background:rgba(110,231,183,0.08);border:2px dashed var(--accent2);border-radius:8px;z-index:20;align-items:center;justify-content:center"><span style="color:var(--accent2);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase">drop to load</span></div>
     </div>
     <div class="transport">
-      <button class="btn" id="playBtn" onclick="togglePlay()"><svg viewBox="0 0 24 24" id="playIco"><polygon points="5 3 19 12 5 21 5 3"/></svg><span id="playLbl">Play</span></button>
+      <button class="btn" id="stopAudioBtn" onclick="audioTransportClick()" disabled title="Choose Load audio, Mic or System first" aria-label="Play audio source (choose Load audio, Mic or System first)"><svg id="stopAudioIco" viewBox="0 0 24 24" style="width:12px;height:12px"><polygon points="5 3 19 12 5 21 5 3"/></svg><span id="stopAudioLbl">Play</span></button><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()">Reset</button>
       <button class="btn" onclick="playSelection()" id="playSelBtn" style="display:none"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>Sel</button>
       <button class="btn" onclick="resetSel()" id="resetSelBtn" style="display:none">Reset sel</button>
       <div class="transport-time"><span id="tCur">0:00.0</span><span style="color:var(--tx3)"> / </span><span id="tDur">0:00.0</span></div>
@@ -408,44 +493,6 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         <div id="aiStatus" class="ai-status" role="status">Quick: instant keyword matching, no download.</div>
       </div>
     </div>
-    <div class="panel" id="panelAuto">
-      <div class="panel-head" onclick="togglePanel('panelAuto')"><span class="panel-title">🎛 Automation</span><span class="panel-arrow">▼</span></div>
-      <div class="panel-body">
-        <div class="mode-btns auto-tabs" id="autoTabs"><button class="mbtn on" data-tab="pilot" onclick="setAutoTab('pilot')">Autopilot<i class="auto-dot"></i></button><button class="mbtn" data-tab="mixer" onclick="setAutoTab('mixer')">Mixer<i class="auto-dot"></i></button><button class="mbtn" data-tab="reactive" onclick="setAutoTab('reactive')">Reactive<i class="auto-dot"></i></button></div>
-        <div class="auto-sec" id="autoSecPilot">
-        <div class="prow" id="apEnableRow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="agAuto.start()">On</button><button class="mbtn on" onclick="agAuto.stop()">Off</button></div></div>
-        <textarea id="apVibe" class="ai-prompt" rows="2" placeholder="Describe tempo, vibe, energy, colors… e.g. slow dreamy 90 bpm, deep blue and gold, thin lines, spirals" oninput="agAuto.setVibe(this.value)"></textarea>
-        <div class="ap-last" id="apVibeRead"></div>
-        <div class="ap-status"><span id="apSection">Off</span><span class="ap-bar"><span id="apMeter"></span></span><span id="apNext"></span></div>
-        <div id="apParams" style="display:none;flex-direction:column;gap:8px">
-          <div class="prow" id="apChangesRow" title="Colors: only the palette changes. Mood: palette plus motion, glow and trails on your own layers. Everything: a new generated look of 1–3 layers."><span class="prow-label">Changes</span><div class="mode-btns"><button class="mbtn" onclick="agAuto.setChanges('colors')">Colors</button><button class="mbtn on" onclick="agAuto.setChanges('mood')">Mood</button><button class="mbtn" onclick="agAuto.setChanges('everything')">Everything</button></div></div>
-          <div class="prow" id="apLayersRow" style="display:none" title="How many layers Everything builds. Auto: 1–2 in breakdowns, 2 in grooves, up to 3 on build-ups and drops. Supporting layers share the palette, draw lighter and change one at a time."><span class="prow-label">Layers</span><div class="mode-btns"><button class="mbtn on" onclick="agAuto.setLayers('auto')">Auto</button><button class="mbtn" onclick="agAuto.setLayers('1')">1</button><button class="mbtn" onclick="agAuto.setLayers('2')">2</button><button class="mbtn" onclick="agAuto.setLayers('3')">3</button></div></div>
-          <div class="prow" title="Longest time without a change. Drops, breakdowns and build-ups always trigger a change."><span class="prow-label">Every</span><input type="range" min="8" max="60" value="24" step="1" id="apEvery" oninput="document.getElementById('vApEvery').textContent=this.value+'s'"><span class="prow-val" id="vApEvery">24s</span></div>
-          <div class="ap-last" id="apLast"></div>
-        </div>
-        </div>
-        <div class="auto-sec" id="panelMixer" style="display:none">
-        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setMixer(true,this)">On</button><button class="mbtn on" onclick="setMixer(false,this)">Off</button></div></div>
-        <div id="mixerParams" style="display:none;flex-direction:column;gap:8px">
-          <div class="prow"><span class="prow-label">Speed</span><input type="range" min="1" max="100" value="15" step="1" id="mixSpeed" oninput="document.getElementById('vMixSpeed').textContent=this.value"><span class="prow-val" id="vMixSpeed">15</span></div>
-          <div class="prow"><span class="prow-label">Amount</span><input type="range" min="1" max="100" value="30" step="1" id="mixAmount" oninput="document.getElementById('vMixAmount').textContent=this.value+'%'"><span class="prow-val" id="vMixAmount">30%</span></div>
-          <div style="border-top:1px solid var(--border);margin:2px 0"></div>
-          <div class="prow"><span class="prow-label" style="font-size:.42rem;opacity:.5">DRIFT</span></div>
-          <div class="prow"><span class="prow-label">Colors</span><div class="mode-btns"><button class="mbtn on" onclick="mixerCats.colors=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn" onclick="mixerCats.colors=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
-          <div class="prow"><span class="prow-label">Effects</span><div class="mode-btns"><button class="mbtn on" onclick="mixerCats.effects=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn" onclick="mixerCats.effects=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
-          <div class="prow"><span class="prow-label">Particles</span><div class="mode-btns"><button class="mbtn on" onclick="mixerCats.particles=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn" onclick="mixerCats.particles=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
-          <div style="border-top:1px solid var(--border);margin:2px 0"></div>
-          <div class="prow"><span class="prow-label" style="font-size:.42rem;opacity:.5">DROP</span></div>
-          <div class="prow"><span class="prow-label">On Beat</span><div class="mode-btns"><button class="mbtn" onclick="mixerDrop=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn on" onclick="mixerDrop=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
-          <div class="prow"><span class="prow-label">Punch</span><input type="range" min="1" max="100" value="40" step="1" id="mixPunch" oninput="document.getElementById('vMixPunch').textContent=this.value+'%'"><span class="prow-val" id="vMixPunch">40%</span></div>
-        </div>
-        </div>
-        <div class="auto-sec" id="panelReactive" style="display:none">
-        <div id="reactiveRules" style="display:flex;flex-direction:column;gap:6px"></div>
-        <div class="prow" style="margin-top:4px"><button class="mbtn" onclick="addReactiveRule()" style="flex:1">+ Add Rule</button><button class="mbtn" onclick="clearReactiveRules()">Clear</button></div>
-        </div>
-      </div>
-    </div>
     <div class="panel" id="panelDist">
       <div class="panel-head" onclick="togglePanel('panelDist')"><span class="panel-title">Layers</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
@@ -462,7 +509,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><button class="panel-rand" onclick="event.stopPropagation();randAppearance()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow prow-stack"><span class="prow-label">Layout</span><div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:420px;min-width:0">
-          <div><div class="sublabel">General</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
+          <div><div class="sublabel">General</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('rose',this)" title="Rose curve (rhodonea): petals set by Petals and Denominator.">Rose</button><button class="mbtn amber" onclick="setLayout('spiro',this)" title="Spirograph: a pen on a rolling wheel inside a ring.">Spiro</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
           <div><div class="sublabel">3D</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" data-objm="knot" onclick="setObjLayout('knot',this)">Knot</button><button class="mbtn amber" data-objm="cube" onclick="setObjLayout('cube',this)">Cube</button><button class="mbtn amber" data-objm="torus" onclick="setObjLayout('torus',this)">Torus</button></div></div>
           <div><div class="sublabel">Input</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('pixelwarp',this)">Pixel Warp</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" data-objm="file" onclick="setObjLayout('file',this)">3D Object</button></div></div>
         </div></div>
@@ -579,7 +626,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
           </select></div>
           <div class="prow"><span class="prow-label">Weight</span><div class="mode-btns"><button class="mbtn" onclick="setTextWeight('400',this)">Regular</button><button class="mbtn" onclick="setTextWeight('700',this)">Bold</button><button class="mbtn on" onclick="setTextWeight('900',this)">Black</button></div></div>
           <div class="prow"><span class="prow-label">Style</span><div class="mode-btns"><button class="mbtn on" onclick="setTextStyle('led',this)">LED</button><button class="mbtn" onclick="setTextStyle('lines',this)">Lines</button></div></div>
-          
+
           <div class="prow" data-knob-row="text-led"><span class="prow-label">Slant</span><input type="range" min="-40" max="40" value="15" step="1" id="pTextSlant" oninput="generateTextLayout()"><span class="prow-val" id="vTextSlant">15</span></div>
           <div class="prow text-led-only" data-knob-row="text-led"><span class="prow-label">Seg gap</span><input type="range" min="0" max="60" value="22" step="1" id="pTextGap" oninput="upP()"><span class="prow-val" id="vTextGap">22%</span></div>
           <div class="prow text-led-only" data-knob-row="text-led"><span class="prow-label">Floor</span><input type="range" min="0" max="100" value="35" step="1" id="pTextFloor" oninput="upP()"><span class="prow-val" id="vTextFloor">35%</span></div>
@@ -639,6 +686,22 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
           <div class="prow"><span class="prow-label">Thickness</span><input type="range" min="10" max="400" value="100" step="5" id="pGrowThick" oninput="upP()"><span class="prow-val" id="vGrowThick">100%</span></div>
           <div class="prow"><span class="prow-label">Tips</span><input type="range" min="20" max="800" value="240" step="10" id="pGrowMax" oninput="upP()"><span class="prow-val" id="vGrowMax">240</span></div>
         </div>
+        <div id="layoutOpts_lissajous" class="layout-opts" style="display:none">
+          <div class="prow"><span class="prow-label">Freq X</span><input type="range" min="1" max="9" value="3" step="1" id="pLisA" oninput="upP()"><span class="prow-val" id="vLisA">3</span></div>
+          <div class="prow"><span class="prow-label">Freq Y</span><input type="range" min="1" max="9" value="2" step="1" id="pLisB" oninput="upP()"><span class="prow-val" id="vLisB">2</span></div>
+          <div class="prow"><span class="prow-label">Drift</span><input type="range" min="0" max="100" value="30" step="1" id="pLisDrift" oninput="upP()"><span class="prow-val" id="vLisDrift">30%</span></div>
+        </div>
+        <div id="layoutOpts_rose" class="layout-opts" style="display:none">
+          <div class="prow"><span class="prow-label">Petals</span><input type="range" min="1" max="12" value="5" step="1" id="pRoseN" oninput="upP()"><span class="prow-val" id="vRoseN">5</span></div>
+          <div class="prow"><span class="prow-label">Denom.</span><input type="range" min="1" max="7" value="2" step="1" id="pRoseD" oninput="upP()"><span class="prow-val" id="vRoseD">2</span></div>
+          <div class="prow"><span class="prow-label">Drift</span><input type="range" min="0" max="100" value="30" step="1" id="pRoseDrift" oninput="upP()"><span class="prow-val" id="vRoseDrift">30%</span></div>
+        </div>
+        <div id="layoutOpts_spiro" class="layout-opts" style="display:none">
+          <div class="prow"><span class="prow-label">Ring</span><input type="range" min="3" max="13" value="7" step="1" id="pSpiR" oninput="upP()"><span class="prow-val" id="vSpiR">7</span></div>
+          <div class="prow"><span class="prow-label">Wheel</span><input type="range" min="1" max="12" value="3" step="1" id="pSpiW" oninput="upP()"><span class="prow-val" id="vSpiW">3</span></div>
+          <div class="prow"><span class="prow-label">Pen</span><input type="range" min="10" max="150" value="80" step="1" id="pSpiPen" oninput="upP()"><span class="prow-val" id="vSpiPen">80%</span></div>
+          <div class="prow"><span class="prow-label">Drift</span><input type="range" min="0" max="100" value="30" step="1" id="pSpiDrift" oninput="upP()"><span class="prow-val" id="vSpiDrift">30%</span></div>
+        </div>
         <div id="layoutOpts_sacred" class="layout-opts" style="display:none">
           <div class="prow prow-stack" id="sacPatRow" title="Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, 64 Star Tetrahedron, Vector Equilibrium and Torus."><span class="prow-label">Figure</span><div class="mode-btns grow-btns wrap-btns"><button class="mbtn" onclick="setSacredPat('seed',this)">Seed</button><button class="mbtn on" onclick="setSacredPat('flower',this)">Flower</button><button class="mbtn" onclick="setSacredPat('egg',this)">Egg</button><button class="mbtn" onclick="setSacredPat('fruit',this)">Fruit</button><button class="mbtn" onclick="setSacredPat('metatron',this)">Metatron</button><button class="mbtn" onclick="setSacredPat('vesica',this)">Vesica</button><button class="mbtn" onclick="setSacredPat('germ',this)">Germ</button><button class="mbtn" onclick="setSacredPat('tree',this)">Tree</button><button class="mbtn" onclick="setSacredPat('merkaba',this)">Merkaba</button><button class="mbtn" onclick="setSacredPat('star64',this)">Star 64</button><button class="mbtn" onclick="setSacredPat('vector',this)">Vector</button><button class="mbtn" onclick="setSacredPat('torus',this)">Torus</button></div></div>
           <div class="prow prow-stack" id="sacMapRow" title="Along: the spectrum flows along the figure, low notes in the middle. Shapes: every circle and edge pulses with its own frequency band."><span class="prow-label">Map</span><div class="mode-btns grow-btns"><button class="mbtn on" onclick="setSacredMap('along',this)">Along</button><button class="mbtn" onclick="setSacredMap('shapes',this)">Shapes</button></div></div>
@@ -697,7 +760,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         </div>
         <div style="border-top:1px solid var(--border);margin:4px 0"></div>
         <!-- Style: positioned like Layout, with its own color -->
-        <div class="prow prow-stack" id="rowStyle"><span class="prow-label">Style</span><div class="mode-btns" id="styleBtns" style="max-width:420px"><button class="mbtn styleb" onclick="setShape('off',this)">Off</button><button class="mbtn styleb on" onclick="setShape('straight',this)">Straight</button><button class="mbtn styleb" onclick="setShape('rounded',this)">Rounded</button><button class="mbtn styleb" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn styleb" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn styleb" onclick="setShape('pins',this)">Pins</button><button class="mbtn styleb" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn styleb" onclick="setShape('caps',this)">Caps</button><button class="mbtn styleb" onclick="setShape('cross',this)">Cross</button><button class="mbtn styleb" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn styleb" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn styleb" onclick="setShape('words',this)">Words</button><button class="mbtn styleb" onclick="setShape('cascade',this)">Cascade</button><button class="mbtn styleb" onclick="setShape('barcode',this)">Feather</button><button class="mbtn styleb" onclick="setShape('circles',this)">Circles</button><button class="mbtn styleb" onclick="setShape('braille',this)">Braille</button><button class="mbtn styleb" onclick="setShape('arrows',this)">Arrows</button><button class="mbtn styleb" onclick="setShape('slash',this)">Slash</button><button class="mbtn styleb" onclick="setShape('needles',this)">Needles</button><button class="mbtn styleb" onclick="setShape('diamonds',this)">Diamonds</button></div></div>
+        <div class="prow prow-stack" id="rowStyle"><span class="prow-label">Style</span><div class="mode-btns" id="styleBtns" style="max-width:420px"><button class="mbtn styleb" onclick="setShape('off',this)">Off</button><button class="mbtn styleb on" onclick="setShape('straight',this)">Straight</button><button class="mbtn styleb" onclick="setShape('rounded',this)">Rounded</button><button class="mbtn styleb" onclick="setShape('dotted',this)">Dotted</button><button class="mbtn styleb" onclick="setShape('dashed',this)">Dashed</button><button class="mbtn styleb" onclick="setShape('pins',this)">Pins</button><button class="mbtn styleb" onclick="setShape('tapered',this)">Tapered</button><button class="mbtn styleb" onclick="setShape('caps',this)">Caps</button><button class="mbtn styleb" onclick="setShape('cross',this)">Cross</button><button class="mbtn styleb" onclick="setShape('numbers',this)">Numbers</button><button class="mbtn styleb" onclick="setShape('symbols',this)">Symbols</button><button class="mbtn styleb" onclick="setShape('words',this)">Words</button><button class="mbtn styleb" onclick="setShape('cascade',this)">Cascade</button><button class="mbtn styleb" onclick="setShape('barcode',this)">Feather</button><button class="mbtn styleb" onclick="setShape('circles',this)">Circles</button><button class="mbtn styleb" onclick="setShape('braille',this)">Braille</button><button class="mbtn styleb" onclick="setShape('arrows',this)">Arrows</button><button class="mbtn styleb" onclick="setShape('slash',this)">Slash</button><button class="mbtn styleb" onclick="setShape('needles',this)">Needles</button><button class="mbtn styleb" onclick="setShape('diamonds',this)">Diamonds</button><button class="mbtn styleb" onclick="setShape('inkwater',this)">Ink in Water</button></div></div>
         <div id="styleOpts" style="display:flex;flex-direction:column;gap:6px;margin-top:2px">
           <div class="prow" id="rowStyleSize"><span class="prow-label">Size</span><input type="range" min="30" max="250" value="100" step="5" id="pStyleSize" oninput="upP()"><span class="prow-val" id="vStyleSize">100%</span></div>
           <div class="prow" id="rowStyleDensity"><span class="prow-label">Density</span><input type="range" min="30" max="250" value="100" step="5" id="pStyleDensity" oninput="upP()"><span class="prow-val" id="vStyleDensity">100%</span></div>
@@ -864,10 +927,49 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <input type="range" value="0" id="rColor"><input type="range" value="0" id="rDisorder">
     </div>
     <!-- DISTRIBUTION -->
+    <div class="panel" id="panelAuto">
+      <div class="panel-head" onclick="togglePanel('panelAuto')"><span class="panel-title">🎛 Automation</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-body">
+        <div class="mode-btns auto-tabs" id="autoTabs"><button class="mbtn on" data-tab="pilot" onclick="setAutoTab('pilot')">Autopilot<i class="auto-dot"></i></button><button class="mbtn" data-tab="mixer" onclick="setAutoTab('mixer')">Mixer<i class="auto-dot"></i></button><button class="mbtn" data-tab="reactive" onclick="setAutoTab('reactive')">Reactive<i class="auto-dot"></i></button></div>
+        <div class="auto-sec" id="autoSecPilot">
+        <div class="prow" id="apEnableRow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="agAuto.start()">On</button><button class="mbtn on" onclick="agAuto.stop()">Off</button></div></div>
+        <textarea id="apVibe" class="ai-prompt" rows="2" placeholder="Describe mood, colors, layout, style and motion. e.g. slow dreamy, blue + gold, spirals, thin lines, gentle spin" oninput="agAuto.setVibe(this.value)"></textarea>
+        <div class="ap-last" id="apVibeRead"></div>
+        <div class="prow" title="At 100%, Autopilot uses only the layouts and styles you named, cycles them in order, and minimizes random changes. Lower values explore beyond your prompt more often."><span class="prow-label">Prompt match</span><input type="range" min="0" max="100" value="85" step="1" id="apMatch" oninput="agAuto.setMatch(this.value)"><span class="prow-val" id="vApMatch">85%</span></div>
+        <div class="ap-status"><span id="apSection">Off</span><span class="ap-bar"><span id="apMeter"></span></span><span id="apNext"></span></div>
+        <div id="apParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow" id="apChangesRow" title="Colors: only the palette changes. Mood: palette plus motion, glow and trails on your own layers. Everything: a new generated look of 1–3 layers."><span class="prow-label">Changes</span><div class="mode-btns"><button class="mbtn" onclick="agAuto.setChanges('colors')">Colors</button><button class="mbtn on" onclick="agAuto.setChanges('mood')">Mood</button><button class="mbtn" onclick="agAuto.setChanges('everything')">Everything</button></div></div>
+          <div class="prow" id="apLayersRow" style="display:none" title="How many layers Everything builds. Auto: 1–2 in breakdowns, 2 in grooves, up to 3 on build-ups and drops. Supporting layers share the palette, draw lighter and change one at a time."><span class="prow-label">Layers</span><div class="mode-btns"><button class="mbtn on" onclick="agAuto.setLayers('auto')">Auto</button><button class="mbtn" onclick="agAuto.setLayers('1')">1</button><button class="mbtn" onclick="agAuto.setLayers('2')">2</button><button class="mbtn" onclick="agAuto.setLayers('3')">3</button></div></div>
+          <div class="prow" title="Longest time without a change. Drops, breakdowns and build-ups always trigger a change."><span class="prow-label">Every</span><input type="range" min="8" max="60" value="24" step="1" id="apEvery" oninput="document.getElementById('vApEvery').textContent=this.value+'s'"><span class="prow-val" id="vApEvery">24s</span></div>
+          <div class="ap-last" id="apLast"></div>
+        </div>
+        </div>
+        <div class="auto-sec" id="panelMixer" style="display:none">
+        <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setMixer(true,this)">On</button><button class="mbtn on" onclick="setMixer(false,this)">Off</button></div></div>
+        <div id="mixerParams" style="display:none;flex-direction:column;gap:8px">
+          <div class="prow"><span class="prow-label">Speed</span><input type="range" min="1" max="100" value="15" step="1" id="mixSpeed" oninput="document.getElementById('vMixSpeed').textContent=this.value"><span class="prow-val" id="vMixSpeed">15</span></div>
+          <div class="prow"><span class="prow-label">Amount</span><input type="range" min="1" max="100" value="30" step="1" id="mixAmount" oninput="document.getElementById('vMixAmount').textContent=this.value+'%'"><span class="prow-val" id="vMixAmount">30%</span></div>
+          <div style="border-top:1px solid var(--border);margin:2px 0"></div>
+          <div class="prow"><span class="prow-label" style="font-size:.42rem;opacity:.5">DRIFT</span></div>
+          <div class="prow"><span class="prow-label">Colors</span><div class="mode-btns"><button class="mbtn on" onclick="mixerCats.colors=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn" onclick="mixerCats.colors=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
+          <div class="prow"><span class="prow-label">Effects</span><div class="mode-btns"><button class="mbtn on" onclick="mixerCats.effects=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn" onclick="mixerCats.effects=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
+          <div class="prow"><span class="prow-label">Particles</span><div class="mode-btns"><button class="mbtn on" onclick="mixerCats.particles=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn" onclick="mixerCats.particles=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
+          <div style="border-top:1px solid var(--border);margin:2px 0"></div>
+          <div class="prow"><span class="prow-label" style="font-size:.42rem;opacity:.5">DROP</span></div>
+          <div class="prow"><span class="prow-label">On Beat</span><div class="mode-btns"><button class="mbtn" onclick="mixerDrop=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn on" onclick="mixerDrop=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
+          <div class="prow"><span class="prow-label">Punch</span><input type="range" min="1" max="100" value="40" step="1" id="mixPunch" oninput="document.getElementById('vMixPunch').textContent=this.value+'%'"><span class="prow-val" id="vMixPunch">40%</span></div>
+        </div>
+        </div>
+        <div class="auto-sec" id="panelReactive" style="display:none">
+        <div id="reactiveRules" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div class="prow" style="margin-top:4px"><button class="mbtn" onclick="addReactiveRule()" style="flex:1">+ Add Rule</button><button class="mbtn" onclick="clearReactiveRules()">Clear</button></div>
+        </div>
+      </div>
+    </div>
     <div class="panel" id="panelPresets">
       <div class="panel-head" onclick="togglePanel('panelPresets')"><span class="panel-title">Presets</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow preset-actions"><button class="mbtn" onclick="savePreset()">Save</button><button class="mbtn" onclick="saveAllPreset()">Save All</button><button class="mbtn" onclick="clearPresets()">Clear</button><button class="mbtn" onclick="exportPreset()">Export</button><button class="mbtn" onclick="document.getElementById('presetImportFile').click()">Import</button><input type="file" id="presetImportFile" accept=".json" style="display:none" onchange="importPresets(event)"><button class="mbtn" onclick="surpriseMe()">✨ Surprise</button><button class="mbtn" onclick="shareLink()">🔗 Link</button></div>
+        <div class="prow preset-actions"><button class="mbtn" onclick="savePreset()">Save</button><button class="mbtn" onclick="clearPresets()">Clear</button><button class="mbtn" onclick="exportPreset()">Export</button><button class="mbtn" onclick="document.getElementById('presetImportFile').click()">Import</button><input type="file" id="presetImportFile" accept=".json" style="display:none" onchange="importPresets(event)"><button class="mbtn" onclick="surpriseMe()">✨ Surprise</button><button class="mbtn" onclick="shareLink()">🔗 Link</button></div>
         <div id="presetList" style="display:flex;flex-direction:column;gap:4px;margin-top:4px"></div>
       </div>
     </div>
@@ -1782,6 +1884,7 @@ document.getElementById('vrDisorder').textContent=document.getElementById('rDiso
   document.getElementById('vKalSegments').textContent=document.getElementById('pKalSegments').value;
   document.getElementById('vKalInner').textContent=document.getElementById('pKalInner').value+'%';
   document.getElementById('vSpiralTurns').textContent=document.getElementById('pSpiralTurns').value;
+  [['LisA',''],['LisB',''],['LisDrift','%'],['RoseN',''],['RoseD',''],['RoseDrift','%'],['SpiR',''],['SpiW',''],['SpiPen','%'],['SpiDrift','%']].forEach(function(d){var s=document.getElementById('p'+d[0]),l=document.getElementById('v'+d[0]);if(s&&l)l.textContent=s.value+d[1]});
   document.getElementById('vSpiralInner').textContent=document.getElementById('pSpiralInner').value+'%';
   document.getElementById('vSpiralSpread').textContent=document.getElementById('pSpiralSpread').value+'%';
   document.getElementById('vFibDensity').textContent=document.getElementById('pFibDensity').value+'%';
@@ -1869,9 +1972,9 @@ function setVT(v,btn){pushUndo();varyThick=v;btn.parentElement.querySelectorAll(
 function setShape(s,btn){pushUndo();lineShape=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');updateStyleOpts(s);if(stackMode&&stackLayouts.length>0){var _i=getActiveLayerIdx();if(_i>=0)stackLayouts[_i].params=getLayoutParams()}renderDensity()}
 function updateStyleOpts(s){
   // which styles use which controls
-  var usesSize=['rounded','pins','tapered','caps','cross','numbers','symbols','words','cascade','barcode','circles','braille','arrows','needles','diamonds','dotted'];
-  var usesDensity=['dotted','dashed','braille','circles','cascade','barcode','chevrons','pins'];
-  var usesAngle=['slash','barcode','numbers','symbols','words','arrows'];
+  var usesSize=['rounded','pins','tapered','caps','cross','numbers','symbols','words','cascade','barcode','circles','braille','arrows','needles','diamonds','dotted','inkwater'];
+  var usesDensity=['dotted','dashed','braille','circles','cascade','barcode','chevrons','pins','inkwater'];
+  var usesAngle=['slash','barcode','numbers','symbols','words','arrows','inkwater'];
   function tog(id,on){var e=document.getElementById(id);if(e)e.style.display=on?'':'none';}
   tog('rowStyleSize',usesSize.indexOf(s)>=0);
   tog('rowStyleDensity',usesDensity.indexOf(s)>=0);
@@ -1922,8 +2025,8 @@ function getLayoutParams(){
   p._depth=+document.getElementById('pDepth').value;
   p._ripple=+document.getElementById('pRipple').value;
   p._jitter=+document.getElementById('pJitter').value;
-  
-  
+
+
   // Randomness (per-layer)
   p._rGlobal=+document.getElementById('rGlobal').value;
   p._rDist=+document.getElementById('rDist').value;
@@ -2017,8 +2120,8 @@ function setLayoutParams(p){
   if('_depth' in p)document.getElementById('pDepth').value=p._depth;
   if('_ripple' in p)document.getElementById('pRipple').value=p._ripple;
   if('_jitter' in p)document.getElementById('pJitter').value=p._jitter;
-  
-  
+
+
   // Randomness (per-layer)
   if('_rGlobal' in p)document.getElementById('rGlobal').value=p._rGlobal;
   if('_rDist' in p)document.getElementById('rDist').value=p._rDist;
@@ -4213,7 +4316,7 @@ function loadFromHash(){
 // ===== Surprise Me — compose a coherent, harmonious random scene =====
 function _hslHex(h,s,l){var c=hslToRgb(((h%360)+360)%360,s,l);return rgbToHex(c[0],c[1],c[2])}
 function surpriseMe(){
-  var niceLayouts=['linear','circle','concentric','spiral','phyllotaxis','sphere','tetrahedron','dna','terrain','sacred','graph'];
+  var niceLayouts=['linear','circle','concentric','spiral','phyllotaxis','sphere','tetrahedron','dna','terrain','sacred','graph','lissajous','rose','spiro'];
   var niceStyles=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted','cross'];
   var baseHue=Math.random()*360;
   // analogous palette mapped quiet→loud, plus a near-black tinted background
@@ -4550,7 +4653,15 @@ function _agGlyph(ctx,g,x,y,sa){if(sa){ctx.save();ctx.translate(x,y);ctx.rotate(
 function drawShapedLine(ctx,x,ly,lh,t,val){
   if(lineShape==='off')return; // "Off" — draw no base shape (used to show only the outline)
   var ss=styleSize,sd=styleDensity,sa=styleAngle;
-  if(lineShape==='dotted'){if(ctx._agDotted){ctx._agDotted(x,ly,lh,t,ss,sd);return}var r=t*.6*ss,g=Math.max(t*0.8,(t*2.2)/sd),y=ly;while(y<=ly+lh){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();y+=g}}
+  if(lineShape==='inkwater'){
+    var vv=Math.max(0,Math.min(1,+val||0)),rx=Math.max(t*3*ss,lh*.12)*(0.8+vv*.65),ry=Math.max(t*2*ss,lh*.58),mx=x+Math.sin(sa+vv*Math.PI*2)*rx*.22,my=ly+lh*.5;
+    ctx.save();ctx.translate(mx,my);ctx.scale(1,Math.max(.35,ry/Math.max(1,rx)));
+    var ink=ctx.createRadialGradient(0,0,0,0,0,rx);ink.addColorStop(0,'rgba(255,255,255,.28)');ink.addColorStop(.24,ctx.fillStyle);ink.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=ink;ctx.beginPath();ctx.arc(0,0,rx,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha*=.58;ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=Math.max(.45,t*.3);ctx.beginPath();
+    for(var wi=0;wi<=24;wi++){var wt=wi/24,wy=(wt-.5)*lh,wx=Math.sin(wt*Math.PI*3+sa+vv*4)*rx*.55+Math.sin(wt*Math.PI*7+vv*2)*rx*.12;if(wi===0)ctx.moveTo(wx,wy);else ctx.lineTo(wx,wy)}ctx.stroke();ctx.restore();
+  }
+  else if(lineShape==='dotted'){if(ctx._agDotted){ctx._agDotted(x,ly,lh,t,ss,sd);return}var r=t*.6*ss,g=Math.max(t*0.8,(t*2.2)/sd),y=ly;while(y<=ly+lh){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();y+=g}}
   else if(lineShape==='dashed'){var dL=t*2.5,gL=Math.max(t*0.6,(t*1.8)/sd),y=ly,on=true;ctx.beginPath();while(y<ly+lh){var s=Math.min(on?dL:gL,ly+lh-y);if(on){ctx.moveTo(x,y);ctx.lineTo(x,y+s)}y+=s;on=!on}ctx.stroke()}
   else if(lineShape==='pins'){var r=t*1.2*ss,sw=Math.max(.5,t*.3),ow=ctx.lineWidth;ctx.lineWidth=sw;ctx.beginPath();ctx.moveTo(x,ly+r);ctx.lineTo(x,ly+lh-r);ctx.stroke();ctx.lineWidth=ow;ctx.beginPath();ctx.arc(x,ly+r,r,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x,ly+lh-r,r,0,Math.PI*2);ctx.fill()}
   else if(lineShape==='tapered'){var _hw=t*.6*ss;ctx.beginPath();ctx.moveTo(x-_hw,ly+lh);ctx.lineTo(x+_hw,ly+lh);ctx.lineTo(x,ly);ctx.closePath();ctx.fill()}
@@ -4803,7 +4914,9 @@ function audioTransportActive(){return !!(liveMode||(playing&&audio))}
 function syncAudioTransport(){
   var b=document.getElementById('stopAudioBtn');if(!b)return;
   var on=audioTransportActive(),src=on?(liveMode?activeAudioSource:'file'):lastAudioSource,
-    name={file:'audio file',mic:'Mic',system:'System audio'}[src]||'',lbl,title;
+    name,lbl,title;
+  if(!src&&audio)src='file';
+  name={file:'audio file',mic:'Mic',system:'System audio'}[src]||'';
   if(on){lbl='Stop';title='Stop '+name}
   else if(!src){lbl='Play';title='Choose Load audio, Mic or System first'}
   else{lbl='Play';title=src==='file'?'Play audio file':'Reconnect '+name+' (asks for permission again)'}
@@ -4812,12 +4925,14 @@ function syncAudioTransport(){
   b.title=title;b.setAttribute('aria-label',lbl==='Play'&&!src?'Play audio source ('+title+')':title);
   b.disabled=systemCapturePending||(!on&&(!src||(src==='file'&&!audio)));
   b.classList.toggle('transport-stop',on);
+  var g=document.querySelector('.audio-source-group');if(g)g.classList.toggle('needs-src',!on&&!src);
 }
+document.addEventListener('DOMContentLoaded',function(){syncAudioTransport()});
 function audioTransportClick(){
   if(audioTransportActive()){stopAudioSource();return}
   if(lastAudioSource==='mic')startMic();
   else if(lastAudioSource==='system')startSystem();
-  else if(lastAudioSource==='file'&&audio){if(!playing)togglePlay()}
+  else if(audio){if(!playing)togglePlay();highlightAudioSource('file')}
 }
 function highlightAudioSource(which){
   activeAudioSource=which;if(which)lastAudioSource=which;
@@ -6204,13 +6319,14 @@ var agGpu=(function(){
   function compat(reason,ctx,W,H,values,p,forExport){cur.compat++;stats.compatLayers++;stats.reasons[reason]=(stats.reasons[reason]||0)+1;
     if(cur.reasons.indexOf(reason)<0)cur.reasons.push(reason);return drawDensity(ctx,W,H,values,p,forExport)}
   function draw(ctx,W,H,values,p,forExport){
+    if(lineShape==='inkwater')return compat('Canvas 2D style: '+lineShape,ctx,W,H,values,p,forExport);
     if(mode==='canvas')return compat('Canvas 2D selected',ctx,W,H,values,p,forExport);
     if(mode==='auto'&&(p.lines<128||['dotted','numbers','symbols','words'].indexOf(lineShape)<0))return compat('Auto: general geometry on Canvas 2D',ctx,W,H,values,p,forExport);
     if(!prog&&!lost&&!unavailable)init();
     if(unavailable)return compat(unavailable,ctx,W,H,values,p,forExport);
     if(lost||!prog||gl.isContextLost())return compat('GPU context lost',ctx,W,H,values,p,forExport);
     if(forExport)return compat('export',ctx,W,H,values,p,forExport);
-    if(layoutMode==='image'||layoutMode==='video'||layoutMode==='text'||layoutMode==='pixelwarp'||layoutMode==='growth'||layoutMode==='sacred'||layoutMode==='graph'||_ag3dSurf())return compat(layoutMode+' layout',ctx,W,H,values,p,forExport);
+    if(layoutMode==='image'||layoutMode==='video'||layoutMode==='text'||layoutMode==='pixelwarp'||layoutMode==='growth'||layoutMode==='sacred'||layoutMode==='graph'||layoutMode==='lissajous'||layoutMode==='rose'||layoutMode==='spiro'||_ag3dSurf())return compat(layoutMode+' layout',ctx,W,H,values,p,forExport);
     var w=ctx.canvas.width,h=ctx.canvas.height;
     if(w>maxDim||h>maxDim||w*h>MAX_PIXELS)return compat('layer above GPU surface budget',ctx,W,H,values,p,forExport);
     var k=sig(),skip=compatUntil[k];if(skip&&skip.until>stats.frames)return compat(skip.reason,ctx,W,H,values,p,forExport);
@@ -6269,6 +6385,7 @@ function drawDensity(ctx,W,H,values,p,forExport){
   if(layoutMode==='growth')return agGrowth.draw(ctx,W,H,values,p,forExport);
   if(layoutMode==='sacred')return agSacred.draw(ctx,W,H,values,p,forExport);
   if(layoutMode==='graph')return agGraph.draw(ctx,W,H,values,p,forExport);
+  if(layoutMode==='lissajous'||layoutMode==='rose'||layoutMode==='spiro')return agCurves.draw(layoutMode,ctx,W,H,values,p,forExport);
   var spacings=[],total=0;for(var i=0;i<n;i++){var d=1+values[i]*p.contrast*6,sp=1/Math.max(d,.05);sp*=(1+getRand(i,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);total+=sp}
   var scale=W/total,mLH=H*p.height,lines=[],x=0;
   for(var i=0;i<n;i++){x+=spacings[i]*scale;var v=values[i];
@@ -7411,7 +7528,7 @@ function drawTerrain(ctx,W,H,values,p,forExport){
       var ry=y3d*cosA-z3d*sinA;
       var rz2=y3d*sinA+z3d*cosA;
       // Perspective projection
-      var d=rz2+persp;if(d<10)d=10;
+      var d=rz2+persp;if(d<persp*.55)d=persp*.55;
       var sx=centerX+x3d*persp/d;
       var sy=centerY+ry*persp/d;
       if(_d3any){var _dp=distortLinear(sx,sy,W,H,_d3);sx=_dp.x;sy=_dp.y;}
@@ -7558,7 +7675,7 @@ function drawSphere(ctx,W,H,values,p,forExport){
       var ry=y3d*cosTilt-z3d*sinTilt;
       var rz=y3d*sinTilt+z3d*cosTilt;
       // Perspective projection
-      var d=rz+persp+baseR;if(d<10)d=10;
+      var d=rz+persp+baseR;if(d<persp*.55)d=persp*.55;
       var sx=centerX+x3d*persp/d;
       var sy=centerY+ry*persp/d;
       // Backface: z3d after tilt
@@ -7776,6 +7893,36 @@ function setGrowDir(d,btn){pushUndo();if(growDir!==d){growDir=d;agGrowth.clear()
 function setGrowLine(l,btn){pushUndo();growLine=l;syncGrowUI();renderDensity()}
 function syncGrowUI(){document.querySelectorAll('.grow-vine-only').forEach(function(el){el.style.display=growType==='vine'?'':'none'});document.querySelectorAll('.mbtn[onclick^="setGrowDir"]').forEach(function(b){b.classList.toggle('on',b.getAttribute('onclick').indexOf("'"+growDir+"'")>=0)});document.querySelectorAll('.grow-neuron-only').forEach(function(el){el.style.display=growType==='neuron'?'':'none'});document.querySelectorAll('.mbtn[onclick^="setGrowLine"]').forEach(function(b){b.classList.toggle('on',b.getAttribute('onclick').indexOf("'"+growLine+"'")>=0)});document.querySelectorAll('.mbtn[onclick^="setGrowType"]').forEach(function(b){b.classList.toggle('on',b.getAttribute('onclick').indexOf("'"+growType+"'")>=0)})}
 function setGrowType(t,btn){pushUndo();if(growType!==t){growType=t;agGrowth.clear()}syncGrowUI();renderDensity()}
+// v69: Harmonograph (Lissajous), Rose and Spirograph: audio lines stand on a closed parametric curve.
+var agCurves=(function(){
+  var T=Math.PI*2;
+  function val(id,d){var e=document.getElementById(id);return e?+e.value:d}
+  function gcd(a,b){a=Math.round(a);b=Math.round(b);while(b){var t=a%b;a=b;b=t}return Math.max(1,a)}
+  function curve(kind,ph){
+    if(kind==='lissajous'){var a=val('pLisA',3),b=val('pLisB',2);return{period:T,f:function(t){return[Math.sin(a*t+ph),Math.sin(b*t)]}}}
+    if(kind==='rose'){var n=val('pRoseN',5),d=val('pRoseD',2),k=n/d;return{period:T*d,f:function(t){var r=Math.cos(k*t+ph*.35);return[r*Math.cos(t),r*Math.sin(t)]}}}
+    var R=val('pSpiR',7),r=Math.min(R-1,val('pSpiW',3)),dd=val('pSpiPen',80)/100*r,q=(R-r)/r;
+    return{period:T*r/gcd(R,r),f:function(t){return[(R-r)*Math.cos(t+ph*.2)+dd*Math.cos(q*t),(R-r)*Math.sin(t+ph*.2)-dd*Math.sin(q*t)]}}}
+  function draw(kind,ctx,W,H,values,p,forExport){
+    var n=values.length;if(!n)return[];
+    var cx=W/2,cy=H/2,maxR=Math.min(W,H)*.4,mLH=maxR*.28*p.height;
+    var drift=val(kind==='lissajous'?'pLisDrift':kind==='rose'?'pRoseDrift':'pSpiDrift',30)/100;
+    var low=0,c=Math.max(1,Math.floor(n*.12));for(var q=0;q<c;q++)low+=values[q]||0;low/=c;
+    var ph=globalFrame*.006*drift+low*drift*.8,cv=curve(kind,ph),f=cv.f,mx=1e-6,i;
+    for(i=0;i<160;i++){var s=f(i/160*cv.period);mx=Math.max(mx,Math.abs(s[0]),Math.abs(s[1]))}
+    var k=maxR/mx,lines=[],ds=cv.period/n*.25;
+    for(i=0;i<n;i++){
+      var t=i/n*cv.period,a0=f(t),a1=f(t+ds),x=cx+a0[0]*k,y=cy+a0[1]*k,ang=Math.atan2(a1[1]-a0[1],a1[0]-a0[0]),v=values[i];
+      var hRand=1+getRand(i+500,'rAppear')*.7,lh;if(varyHeight)lh=mLH*((0.5-p.contrast*0.45)+v*(0.5+p.contrast*0.45))*hRand;else lh=mLH;
+      lh=Math.max(1,Math.min(mLH*1.3,lh));var hR=mLH>0?lh/mLH:1,tw=varyThick?p.thick*(.15+(1-hR)*.85):p.thick;tw=Math.max(.25,tw*(1+getRand(i+1000,'rAppear')*.5));
+      var dd=getDisorder(i)*maxR*.04;x+=Math.cos(ang)*dd;y+=Math.sin(ang)*dd;
+      var pr=n>1?i/(n-1):0,col=forExport?lineColHex(v,pr,i,n):lineCol(v,pr,i,n);
+      ctx.save();ctx.translate(x,y);ctx.rotate(ang);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.globalAlpha=1;ctx.lineWidth=tw;
+      drawShapedLine(ctx,0,-lh/2,lh,tw,v);ctx.restore();
+      lines.push({v:v,x:x,y:y,lh:lh,tw:tw,pos:pr})}
+    ctx.globalAlpha=1;lastFrameLines={lines:lines,W:W,H:H,p:p,circle:false};return lines}
+  return{draw:draw}
+})();
 var agGrowth=(function(){
   var states={},flt=null,tmp=null;
   // Subtractive alpha cleanup: multiplicative 8-bit fades stall at low alpha and leave grey ghosts.
@@ -7790,8 +7937,10 @@ var agGrowth=(function(){
     return r}
   function st(key,W,H){var s=states[key];if(!s){s=states[key]={cv:document.createElement('canvas'),W:0,H:0,tips:[],frame:-1,t:0,avg:0.1,cool:0,fadeAcc:0,clean:0,somas:[],wob:0,wn:0,wv:0}}
     var k=Math.min(1,2048/Math.max(W,H)),cw=Math.max(1,Math.round(W*k)),ch=Math.max(1,Math.round(H*k));
-    if(s.cv.width!==cw||s.cv.height!==ch){var old=null;if(s.W&&s.cv.width>1){old=document.createElement('canvas');old.width=s.cv.width;old.height=s.cv.height;old.getContext('2d').drawImage(s.cv,0,0)}
+    if(s.cv.width!==cw||s.cv.height!==ch){var old=null,same=s.W&&Math.abs(s.W/s.H-W/H)<.01*(W/H);if(same&&s.cv.width>1){old=document.createElement('canvas');old.width=s.cv.width;old.height=s.cv.height;old.getContext('2d').drawImage(s.cv,0,0)}
+      // A different aspect (e.g. fullscreen) would stretch old trails, so start the drawing fresh instead.
       s.cv.width=cw;s.cv.height=ch;if(old)s.cv.getContext('2d').drawImage(old,0,0,cw,ch);
+      if(s.W&&!same){s.tips=[];s.somas=[]}
       if(s.W){var sx=W/s.W,sy=H/s.H;s.tips.forEach(function(t){t.x*=sx;t.y*=sy});s.somas.forEach(function(o){o.x*=sx;o.y*=sy})}}
     s.W=W;s.H=H;s.k=cw/W;return s}
   function tip(x,y,a,w,gen,life,c,spin){return{x:x,y:y,a:a,w:w,gen:gen,life:life,c:c,spin:spin||(Math.random()<.5?-1:1),seg:0,j:Math.random()}}
@@ -8247,7 +8396,7 @@ function drawPolyhedron(ctx,W,H,values,p,forExport,shape){
     var tny=nny*cosT-nnz*sinT;
     var tnz=nny*sinT+nnz*cosT;
     // Perspective
-    var d=tz+persp+baseR;if(d<10)d=10;
+    var d=tz+persp+baseR;if(d<persp*.55)d=persp*.55;
     var sx=centerX+rx*persp/d;
     var sy=centerY+ty*persp/d;
       if(_d3any){var _dp=distortLinear(sx,sy,W,H,_d3);sx=_dp.x;sy=_dp.y;}
@@ -8393,8 +8542,8 @@ function _objActiveModel(){
   return _objBuiltinCache[k];
 }
 // Smart cleanup: hide controls the current layout's renderer never reads (derived from each draw function).
-var AG_LAYOUT_NA=(function(){var G=['growth','pixelwarp'],F=['growth','pixelwarp','fractal'],D3=['terrain','sphere','tetrahedron','dna','object'],DEF=F.concat(['sacred','graph']),
-  OUT=G.concat(['scatter','image','video','text','sacred','graph'],D3),m={rowStyle:G,styleOpts:G,rowOutline:OUT,outlineParams:OUT,divOutline:OUT,
+var AG_LAYOUT_NA=(function(){var G=['growth','pixelwarp'],F=['growth','pixelwarp','fractal'],D3=['terrain','sphere','tetrahedron','dna','object'],DEF=F.concat(['sacred','graph','lissajous','rose','spiro']),
+  OUT=G.concat(['scatter','image','video','text','sacred','graph','lissajous','rose','spiro'],D3),m={rowStyle:G,styleOpts:G,rowOutline:OUT,outlineParams:OUT,divOutline:OUT,
   rowContrast:F.concat(D3),rowHeight:['growth','dna'],rowThick:['pixelwarp'],rowVaryH:F.concat(['scatter','image','video','text'],D3),rowVaryT:F.concat(D3),rowDisorder:F.concat(D3)};
   ['rowTwist','rowBulge','rowWave','rowWaveFreq','rowShear','rowDepth','rowRipple','rowJitter'].forEach(function(id){m[id]=DEF});return m})();
 var AG_OBJ_SURF_OK={rowContrast:1,rowVaryH:1,rowVaryT:1,rowDisorder:1};
@@ -8511,7 +8660,7 @@ function drawObjModel(ctx,W,H,values,p,forExport){
     var tny=nny*cosT-nnz*sinT;
     var tnz=nny*sinT+nnz*cosT;
     // Perspective
-    var d=tz+persp+baseR;if(d<10)d=10;
+    var d=tz+persp+baseR;if(d<persp*.55)d=persp*.55;
     var sx=centerX+rx*persp/d;
     var sy=centerY+ty*persp/d;
     if(_d3any){var _dp=distortLinear(sx,sy,W,H,_d3);sx=_dp.x;sy=_dp.y;}
@@ -9192,7 +9341,7 @@ function getPlayRange(){var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min
 function togglePlay(){if(!audio||safeDuration()===0)return;if(playing){audio.pause();playing=false;if(rafId){cancelVisualFrame(rafId);rafId=null}}else{if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();var r=getPlayRange();safeSetTime(Math.max(audio.currentTime,r.s));if(audio.currentTime>=r.e||audio.currentTime<r.s)safeSetTime(r.s);var _pp=audio.play();if(_pp&&_pp.catch)_pp.catch(function(e){if(!e||e.name!=='AbortError')console.warn(e)});playing=true;if(!liveMode&&activeAudioSource!=='file')highlightAudioSource('file');animLoop()}updatePlayBtn()}
 function playSelection(){if(!audio||selStart===null||selEnd===null)return;var s=Math.min(selStart,selEnd);safeSetTime(s);if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();audio.play();playing=true;updatePlayBtn();animLoop()}
 function resetSel(){selStart=null;selEnd=null;updateSelUI();renderDensity()}
-function updatePlayBtn(){var ico=document.getElementById('playIco'),lbl=document.getElementById('playLbl');if(playing){ico.innerHTML='<line x1="6" y1="4" x2="6" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/>';lbl.textContent='Pause'}else{ico.innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';lbl.textContent='Play'}syncAudioTransport()}
+function updatePlayBtn(){syncAudioTransport()}
 var realtimePreview=true;
 var rtData=new Uint8Array(2048);
 var freqData=new Uint8Array(2048);
@@ -9658,7 +9807,7 @@ function resizeAll(){setTimeout(function(){sizeCanvas(frameCv);renderDensity()},
 function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.display=o.style.display==='block'?'none':'block'}
 // --- AI Look (v45): text prompt -> look spec -> layer params. Engines: quick (keywords), webllm (in-browser), ollama (local). ---
 var agAI=(function(){
-  var LAYOUTS=['linear','circle','spiral','phyllotaxis','concentric','terrain','sphere','tetrahedron','dna','fractal','growth','scatter','sacred','graph'];
+  var LAYOUTS=['linear','circle','spiral','phyllotaxis','concentric','terrain','sphere','tetrahedron','dna','fractal','growth','scatter','sacred','graph','lissajous','rose','spiro'];
   var SHAPES=['straight','rounded','dotted','dashed','pins','tapered','caps','cross','numbers','symbols','words','cascade','barcode','circles','braille','arrows','slash','needles','diamonds'];
   var SYMS=['none','x','y','xy','r3','r4','r6','r8'],GROWS=['vine','coral','neuron'];
   var MODEL='Qwen2.5-1.5B-Instruct-q4f16_1-MLC',WEBLLM_URL='https://esm.run/@mlc-ai/web-llm@0.2.79';
@@ -9677,11 +9826,11 @@ var agAI=(function(){
     blood:['#3d0000','#950101','#ff0000'],rainbow:['#ff595e','#ffca3a','#8ac926','#1982c4','#6a4c93'],aurora:['#00f5a0','#00d9f5','#7b2ff7']
   };
   var COL={purple:'#9b5de5',violet:'#7b2cbf',lavender:'#c8b6ff',pink:'#ff4fa3',magenta:'#ff00c8',red:'#ff2e3b',crimson:'#c9184a',orange:'#ff8c1a',amber:'#ffb000',yellow:'#ffe14d',green:'#2ee86b',lime:'#b5ff3b',mint:'#7dffc7',teal:'#00b8a9',cyan:'#00e5ff',aqua:'#33fff0',turquoise:'#2ee6d6',blue:'#2f6bff',navy:'#14213d',indigo:'#4b3bff',white:'#ffffff',silver:'#c0c0c0',grey:'#8a8a8a',gray:'#8a8a8a',black:'#111111',brown:'#8b5a2b',beige:'#e8d8b8',cream:'#fff3d6'};
-  var LAYW=[['graph',/graph|network|nodes?\b|connect|obsidian|social|internet|synap|web of/],['sacred',/sacred|mandala|flower of life|seed of life|metatron|merkaba|yantra|vesica|torus|geometr/],['spiral',/spiral|galax|vortex|swirl|whirl|hypno/],['phyllotaxis',/flower|sunflower|petal|seed|blossom|phyllo/],['linear',/wave|ocean|sea\b|water|sine|river|flow/],
+  var LAYW=[['lissajous',/lissajous|harmonograph|oscilloscope|figure.?eight|lemniscate/],['rose',/\brose\b|rhodonea|petals?\b/],['spiro',/spirograph|hypotrochoid|epicycl|gear/],['graph',/graph|network|nodes?\b|connect|obsidian|social|internet|synap|web of/],['sacred',/sacred|mandala|flower of life|seed of life|metatron|merkaba|yantra|vesica|torus|geometr/],['spiral',/spiral|galax|vortex|swirl|whirl|hypno/],['phyllotaxis',/flower|sunflower|petal|seed|blossom|phyllo/],['linear',/wave|ocean|sea\b|water|sine|river|flow/],
     ['concentric',/ring|ripple|target|tunnel|portal|pulse ring/],['terrain',/mountain|landscape|terrain|hill|desert|valley|land\b/],['sphere',/planet|globe|sphere|moon|world|orb\b/],
     ['tetrahedron',/crystal|pyramid|gem\b|prism|tetra/],['growth',/vine|plant|ivy|forest|organic|grow|root|coral|reef|neuron|brain|nerve|lightning|synap/],['dna',/dna|helix|genetic|gene\b/],
     ['fractal',/fractal|tree|branch/],['scatter',/stars?\b|scatter|dust|nebula|cosmic|constellation|firefl|snow/],['circle',/circle|sun\b|round|mandala|clock|radial/],['linear',/bars?\b|equali[sz]er|linear|skyline|city|spectrum/]];
-  var SHAPEW=[['dotted',/dots?\b|dotted|pointill/],['needles',/needle|rain|spike/],['numbers',/number|digit|matrix|code|data/],['braille',/braille/],['arrows',/arrow/],['diamonds',/diamond/],['circles',/circles|bubble/],
+  var SHAPEW=[['inkwater',/ink in water|inkwater|pigment bloom|watercolor bloom/],['dotted',/dots?\b|dotted|pointill/],['needles',/needle|rain|spike/],['numbers',/number|digit|matrix|code|data/],['braille',/braille/],['arrows',/arrow/],['diamonds',/diamond/],['circles',/circles|bubble/],
     ['dashed',/dash/],['slash',/slash|glitch/],['barcode',/barcode/],['cascade',/cascade|waterfall/],['rounded',/rounded|soft|smooth/],['words',/words?\b|text|letters/],['symbols',/symbol|glyph|rune/],['pins',/pins?\b/],['tapered',/taper|brush|ink/],['cross',/cross|plus/]];
   // Match at word starts only, so "pink" isn't "ink" and "brain" isn't "rain".
   LAYW.concat(SHAPEW).forEach(function(x){x[1]=new RegExp('\\b(?:'+x[1].source+')')});
@@ -9750,8 +9899,12 @@ var agAI=(function(){
     if(s.glow||s.trails){p._postFx.enabled=true;p._postFx.pfxBloom=Math.round(s.glow);p._postFx.pfxEdgeGlow=Math.round(s.glow*0.3);p._postFx.pfxTrails=Math.round(s.trails)}
     if(s.layout==='terrain')p.pTerrainElev=Math.round(40+e*100);
     if(s.layout==='sacred'){p._sacredPat=SACRED_PATS[Math.floor(Math.random()*SACRED_PATS.length)];p._sacredMap=Math.random()<.5?'along':'shapes';p._sacredTick=Math.random()<.65?'along':'across';p.pSacSkel=Math.round(20+Math.random()*30);p.pSacBreathe=Math.round(20+e*50);p.pSacBloom=s.energy<40?Math.round(30+Math.random()*40):0}
+    if(s.layout==='lissajous'){p.pLisA=1+Math.floor(Math.random()*7);p.pLisB=1+Math.floor(Math.random()*7);if(p.pLisA===p.pLisB)p.pLisB=p.pLisA%9+1;p.pLisDrift=Math.round(15+Math.random()*50)}
+    if(s.layout==='rose'){p.pRoseN=2+Math.floor(Math.random()*9);p.pRoseD=1+Math.floor(Math.random()*5);p.pRoseDrift=Math.round(15+Math.random()*50)}
+    if(s.layout==='spiro'){p.pSpiR=5+Math.floor(Math.random()*8);p.pSpiW=1+Math.floor(Math.random()*(p.pSpiR-2));p.pSpiPen=Math.round(40+Math.random()*100);p.pSpiDrift=Math.round(15+Math.random()*50)}
     if(s.layout==='graph'){p._graphSeed=1+Math.floor(Math.random()*9999);p._graphMap=Math.random()<.5?'along':'shapes';p._graphTick=Math.random()<.75?'along':'across';p.pGraphNodes=Math.round(90+Math.random()*180);p.pGraphHubs=Math.round(2+Math.random()*6);p.pGraphPulse=Math.round(25+e*60);p.pGraphDrift=Math.round(15+Math.random()*35);p.pGraphSkel=Math.round(30+Math.random()*30);p.pGraphBloom=s.energy<40?Math.round(30+Math.random()*40):0}
     if(s.layout==='sphere'||s.layout==='tetrahedron'||s.layout==='dna'){var r=Math.round(2+e*10);p.pSphereRotate=r;p.pTetRotate=r;p.pDnaRotate=r}
+    if(/^(sphere|tetrahedron|dna|terrain|object)$/.test(s.layout)){p._height=Math.min(p._height,100);p._twist=Math.min(p._twist,12);p._wave=Math.min(p._wave,15);p._bulge=Math.min(p._bulge,6);p._amplify=Math.min(p._amplify,1.6)}
     return{layout:s.layout,opacity:100,params:p};
   }
   function apply(s,asNew){
@@ -9824,13 +9977,185 @@ function syncAutoDots(){
   var live={pilot:typeof agAuto!=='undefined'&&agAuto.on(),mixer:typeof mixerEnabled!=='undefined'&&!!mixerEnabled,reactive:typeof reactiveRules!=='undefined'&&reactiveRules.length>0};
   document.querySelectorAll('#autoTabs .mbtn').forEach(function(b){b.classList.toggle('live',!!live[b.dataset.tab])});
 }
+// v73: interactive tutorial (was the v72 tour). Uses the saved "Tutorial" preset when present. Builds one look step by step (audio -> layout -> style -> geometry -> color -> particles -> deformers -> Post FX).
+// To use your own look, set agTour.recipe to {layout:'id',params:{...layer params}} (e.g. a saved preset's stackLayouts[0]).
+var agTour=(function(){
+  var recipe={layout:'spiral',params:{
+    _lines:260,_height:95,_lineShape:'tapered',_thick:3,_varyThick:true,_spin:0.4,_spinDir:1,_speed:1.2,
+    _colorMode:'toneramp',_toneStops:['#0b1d3a00','#4f46e5','#ec4899','#fde68a'],_simpleStops:['#4f46e5','#ec4899','#fde68a'],
+    _particlesOn:true,pPartDensity:30,pPartLife:110,pPartSize:10,
+    _twist:18,_wave:14,_waveFreq:4,_bulge:6,
+    _postFx:{enabled:true,pfxBloom:45,pfxTrails:35}}};
+  var ALL=[
+    {t:'Choose your Audio source',sel:'.audio-source-group',txt:'Everything starts with sound: load a file, use the Mic, or capture System audio. Press Next and a demo beat plays if nothing is loaded.',grp:null,ban:'Pick your <b>Audio source</b>'},
+    {t:'Pick your Layout',sel:'#panelAppear .panel-body .prow-stack',panel:'panelAppear',txt:'The layout decides where the audio lines stand: lines, circles, spirals, 3D shapes and more.',grp:'layout',ban:'Pick your <b>Layout</b>'},
+    {t:'Pick a Style',sel:'#rowStyle',panel:'panelAppear',txt:'Style changes how each line is drawn: straight, tapered, dotted, pins and more.',grp:'style',ban:'Choose a line <b>Style</b>'},
+    {t:'Add an Outline',sel:'#rowOutline',panel:'panelAppear',txt:'An optional glowing outline traces each line. Choose Yes, then set its opacity, weight and gap.',grp:'outline',ban:'Add an <b>Outline</b>'},
+    {t:'Set Geometry & Motion',sel:'#panelGeo',panel:'panelGeo',txt:'How many lines, how tall they react, plus spin and speed.',grp:'geometry',ban:'Tune <b>Geometry &amp; Motion</b>'},
+    {t:'Choose your Colors',sel:'#panelColor',panel:'panelColor',txt:'Color maps loudness to a gradient. Quiet parts start soft and louder parts glow brighter.',grp:'color',ban:'Choose your <b>Colors</b>'},
+    {t:'Add Particles',sel:'#panelParticles',panel:'panelParticles',txt:'Particles are thrown off the lines by the music. Density, life and size shape the sparkle.',grp:'particles',ban:'Add <b>Particles</b>'},
+    {t:'Bend it with Deformers',sel:'#panelFx',panel:'panelFx',txt:'Deformers bend the whole picture: twist, wave and bulge respond to the beat.',grp:'deform',ban:'Bend it with <b>Deformers</b>'},
+    {t:'Finish with Post FX',sel:'#panelPostFx',panel:'panelPostFx',txt:'Post FX finish the image: bloom adds glow, trails leave a soft echo of motion.',grp:'fx',ban:'Finish with <b>Post FX</b>'},
+    {t:'Save it as a Preset',sel:'#panelPresets',panel:'panelPresets',txt:'Type a name, then press Save. Your look is stored in this browser and appears in the list below; click it any time to bring it back. Export gives you a file to share or back up. (Not saved now, just showing how.)',grp:'fx',ban:'Save it in <b>Presets</b>',last:true},
+    {t:'Save a Video',sel:'#panelExport',panel:'panelExport',txt:'Press Record to capture the visuals together with the audio, press Stop when you are done and the video downloads. Download PNG saves a still frame. Choose With bg or Transparent for the background.',grp:'fx',ban:'Save a <b>Video</b>',last:true},
+    {t:'Stack Layers',sel:'#layersUI',panel:'panelDist',txt:'Layers stack several looks on top of each other, each with its own layout and settings. We just added a Circle layer. Nothing resets after this, so keep playing: click a layer to edit it, or try Autopilot to make looks for you.',grp:'fx',ban:'Add a <b>Layer</b>: Circle',last:true,addCircle:true}
+  ];
+  var STEPS=ALL.slice();
+  var ORDER=['layout','style','outline','geometry','color','particles','deform','fx'];
+  var GEO=/^(_lines|_height|_contrast|_sensitivity|_zoom|_offX|_offY|_rotation|_spin|_spinDir|_speed|_amplify|_symmetryMode|_flipH|_flipV|_mirrorOn|_fadeEdge|_varyHeight|_playMode)$/;
+  function group(k){
+    if(k==='_postFx')return'fx';
+    if(/^(_lineShape|_style|_varyThick|_thick)/.test(k))return'style';
+    if(/^_(showOutline|outline)/.test(k))return'outline';
+    if(GEO.test(k))return'geometry';
+    if(/^(_colorMode|_toneStops|_simpleStops|_solidColor)$/.test(k))return'color';
+    if(/^(_particles|_particleShape|pPart|pNoise)/.test(k))return'particles';
+    if(/^(_twist|_bulge|_wave|_waveFreq|_shear|_depth|_ripple|_jitter)$/.test(k))return'deform';
+    return'layout';
+  }
+  var idx=-1,live=false,timer=0,els={};
+  function fromPreset(t){var l=t&&t.stackLayouts&&t.stackLayouts[0];return l&&l.params?{layout:l.layout,params:JSON.parse(JSON.stringify(l.params))}:null}
+  function loadRecipe(){
+    var r=null;
+    try{if(typeof builtinPresets!=='undefined')r=fromPreset(builtinPresets.Tutorial||builtinPresets.tutorial)}catch(e){}
+    if(!r)try{var all=JSON.parse(localStorage.getItem('audiograph_presets')||'{}');r=fromPreset(all.Tutorial||all.tutorial)}catch(e){}
+    if(r)recipe=r;
+  }
+  function changed(g){
+    var d=getDefaultLayerParams(),src=recipe.params;
+    if(g==='outline')return !!src._showOutline;
+    if(g==='fx')return !!(src._postFx&&src._postFx.enabled);
+    return Object.keys(src).some(function(k){return group(k)===g&&k!=='_postFx'&&JSON.stringify(src[k])!==JSON.stringify(d[k])&&(g!=='particles'||k!=='_particlesOn'||src[k])&&(g!=='layout'||k.charAt(0)==='p'||true)});
+  }
+  function names(){
+    var l=document.querySelector('[onclick^="setLayout(\''+recipe.layout+'\'"]'),st=document.querySelector('[onclick^="setShape(\''+(recipe.params._lineShape||'straight')+'\'"]');
+    return{layout:l?l.textContent.trim():recipe.layout,style:st?st.textContent.trim():(recipe.params._lineShape||'straight')};
+  }
+  function fill(t){var n=names();return t.replace(/\{layout\}/g,n.layout).replace(/\{style\}/g,n.style)}
+  function buildSteps(){STEPS=ALL.filter(function(x){return !x.grp||x.last||x.grp==='layout'||changed(x.grp)})}
+  function $(id){return document.getElementById(id)}
+  function build(){
+    if(els.card)return;
+    var ring=document.createElement('div');ring.id='agTourRing';
+    var card=document.createElement('div');card.id='agTourCard';card.setAttribute('role','dialog');card.setAttribute('aria-live','polite');
+    card.innerHTML='<div class="tour-step" id="agTourStep"></div><div class="tour-title" id="agTourTitle"></div><div class="tour-txt" id="agTourTxt"></div><div class="tour-dots" id="agTourDots"></div><div class="tour-btns"><button class="btn" id="agTourSkip">Skip</button><span style="flex:1"></span><button class="btn" id="agTourBack">Back</button><button class="btn tour-next" id="agTourNext">Next</button></div>';
+    document.body.appendChild(ring);document.body.appendChild(card);
+    var bn=document.createElement('div');bn.id='agTourBanner';var fw=document.getElementById('frameWrap');(fw||document.body).appendChild(bn);
+    els={ring:ring,card:card};
+    $('agTourSkip').onclick=stop;$('agTourBack').onclick=function(){go(idx-1)};$('agTourNext').onclick=next;
+    document.addEventListener('keydown',function(e){if(!live)return;if(e.key==='Escape')stop();else if(e.key==='ArrowRight')next();else if(e.key==='ArrowLeft'&&idx>0)go(idx-1)});
+  }
+  function layerFor(k){
+    var p=getDefaultLayerParams(),layout='linear';
+    var upto=STEPS[k].grp?ORDER.indexOf(STEPS[k].grp):-1;
+    var src=recipe.params;
+    Object.keys(src).forEach(function(key){if(ORDER.indexOf(group(key))<=upto&&upto>=0)p[key]=JSON.parse(JSON.stringify(src[key]))});
+    if(upto>=0)layout=recipe.layout;
+    p._postFx=pfxNorm(upto>=ORDER.indexOf('fx')&&src._postFx?src._postFx:null);
+    return{layout:layout,opacity:100,params:p};
+  }
+  function demoFile(){
+    var sr=22050,bpm=112,beat=60/bpm,bars=8,len=Math.floor(sr*beat*4*bars),d=new Float32Array(len),seed=7;
+    function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296*2-1}
+    var bass=[55,55,65.41,49],arp=[220,261.63,329.63,392,440,392,329.63,261.63],prev=0;
+    for(var i=0;i<len;i++){
+      var t=i/sr,b=t/beat,bt=b%1,tb=bt*beat,bar=Math.floor(b/4),beatN=Math.floor(b)%4,v=0;
+      var kf=45+75*Math.exp(-tb*30);v+=Math.sin(2*Math.PI*kf*tb)*Math.exp(-tb*9)*0.9;
+      var sub=bass[bar%4],bt2=(b*2)%1*beat/2;v+=(Math.sin(2*Math.PI*sub*t)+0.3*Math.sin(4*Math.PI*sub*t))*0.28*Math.exp(-bt2*3);
+      var eb=(b*2)%1;if(eb<1){var et=eb*beat/2,an=arp[Math.floor(b*2)%8]*(bar%2?1.25:1);v+=Math.sin(2*Math.PI*an*t)*0.13*Math.exp(-et*7)}
+      var nz=rnd();if(beatN===1||beatN===3)v+=nz*0.35*Math.exp(-tb*16);
+      var hb=(b*2)%1*beat/2,hh=nz-prev;prev=nz;v+=hh*0.16*Math.exp(-hb*55)*(Math.floor(b*2)%2?1:0.6);
+      d[i]=v;
+    }
+    var pk=0;for(i=0;i<len;i++)pk=Math.max(pk,Math.abs(d[i]));
+    var buf=new ArrayBuffer(44+len*2),dv=new DataView(buf);
+    function ws(o,s){for(var j=0;j<s.length;j++)dv.setUint8(o+j,s.charCodeAt(j))}
+    ws(0,'RIFF');dv.setUint32(4,36+len*2,true);ws(8,'WAVEfmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);dv.setUint32(24,sr,true);dv.setUint32(28,sr*2,true);dv.setUint16(32,2,true);dv.setUint16(34,16,true);ws(36,'data');dv.setUint32(40,len*2,true);
+    for(i=0;i<len;i++)dv.setInt16(44+i*2,Math.round(d[i]/(pk||1)*0.85*32767),true);
+    return new File([buf],'audiograph-demo-beat.wav',{type:'audio/wav'});
+  }
+  async function ensureAudio(){
+    if(liveMode)return;
+    if(!audio)await loadAudioFile(demoFile());
+    if(!playing)togglePlay();
+  }
+  function openOnly(id){
+    document.querySelectorAll('.controls-area > .panel').forEach(function(p){p.classList.toggle('closed',p.id!==id)});
+  }
+  function place(){
+    if(!live)return;var s=STEPS[idx],t=s&&document.querySelector(s.sel);if(!t)return;
+    var r=t.getBoundingClientRect(),vh=innerHeight,vw=innerWidth;
+    var ca=document.querySelector('.controls-area'),cr=ca?ca.getBoundingClientRect():{top:0,bottom:vh};
+    var top=Math.max(r.top,Math.min(cr.top,r.bottom)),bot=Math.min(r.bottom,Math.max(cr.bottom,r.top));
+    if(r.top<0)top=Math.max(top,0);
+    top=Math.max(top,0);bot=Math.min(bot,vh);
+    var rg=els.ring.style;rg.left=(r.left-6)+'px';rg.top=(top-6)+'px';rg.width=(r.width+12)+'px';rg.height=Math.max(10,bot-top+12)+'px';
+    var narrow=vw<=900,cs=els.card.style;
+    if(narrow){var low=(top+bot)/2>vh*.5;cs.left='8px';cs.right='8px';cs.width='auto';if(low){cs.top='8px';cs.bottom='auto'}else{cs.bottom='max(8px,env(safe-area-inset-bottom))';cs.top='auto'}}
+    else{cs.left='24px';cs.right='auto';cs.width='360px';cs.bottom='24px';cs.top='auto'}
+  }
+  function loop(){place();timer=requestAnimationFrame(loop)}
+  function go(i){
+    build();idx=Math.max(0,Math.min(STEPS.length-1,i));var s=STEPS[idx];
+    if(s.panel)openOnly(s.panel);
+    if(stackLayouts.length>1){stackLayouts.splice(1);applyingState=true;try{selectLayer(0)}finally{applyingState=false}}
+    applyPresetToLayer({stackLayouts:[layerFor(idx)]});
+    if(s.addCircle){addLayer();setLayout('circle')}
+    var t=document.querySelector(s.sel);if(t&&t.scrollIntoView)t.scrollIntoView({block:'center',behavior:'smooth'});
+    $('agTourStep').textContent='Step '+(idx+1)+' of '+STEPS.length;$('agTourTitle').textContent=s.t;$('agTourTxt').textContent=fill(s.txt);
+    var bn=$('agTourBanner');bn.innerHTML=fill(s.ban||s.t);bn.style.display='block';
+    $('agTourDots').innerHTML=STEPS.map(function(_,n){return'<i'+(n===idx?' class="on"':'')+'></i>'}).join('');
+    $('agTourBack').style.visibility=idx?'visible':'hidden';$('agTourNext').textContent=idx===STEPS.length-1?'Finish':'Next';
+    els.card.style.display='block';els.ring.style.display='block';
+    if(!live){live=true;loop()}
+  }
+  async function next(){
+    if(idx===STEPS.length-1){stop();return}
+    if(idx===0){try{await ensureAudio()}catch(e){console.warn(e)}}
+    go(idx+1);
+  }
+  function start(){
+    build();try{localStorage.setItem('agTourSeen','1')}catch(e){}
+    loadRecipe();buildSteps();resetAll();go(0);
+  }
+  function stop(){
+    live=false;cancelAnimationFrame(timer);if(els.card){els.card.style.display='none';els.ring.style.display='none';var bn=$('agTourBanner');if(bn)bn.style.display='none'}
+    try{localStorage.setItem('agTourSeen','1')}catch(e){}
+  }
+  function invite(){
+    build();
+    $('agTourStep').textContent='Welcome';$('agTourTitle').textContent='New to Audiograph?';
+    $('agTourTxt').textContent='Take the interactive tutorial: we build a look step by step, from audio source to Post FX.';
+    $('agTourDots').innerHTML='';$('agTourBack').style.visibility='hidden';$('agTourNext').textContent='Start tutorial';
+    $('agTourSkip').onclick=function(){stop();$('agTourSkip').onclick=stop};
+    $('agTourNext').onclick=function(){$('agTourNext').onclick=next;$('agTourSkip').onclick=stop;start()};
+    var cs=els.card.style;cs.display='block';cs.left='24px';cs.right='auto';cs.width='360px';cs.bottom='24px';cs.top='auto';
+    if(innerWidth<=900){cs.left='8px';cs.right='8px';cs.width='auto'}
+  }
+  window.addEventListener('load',function(){
+    var seen=false;try{seen=!!localStorage.getItem('agTourSeen')}catch(e){}
+    if(!seen&&!navigator.webdriver&&!/[?&]notour/.test(location.search))setTimeout(invite,1500);
+  });
+  return{start:start,stop:stop,go:go,next:next,steps:STEPS,layerFor:layerFor,demoFile:demoFile,get recipe(){return recipe},set recipe(r){recipe=r},get live(){return live}};
+})();
+
 var agAuto=(function(){
   var on=false,raf=null,last=0,changes=localStorage.getItem('audiograph_ap_changes')||'mood',vibe=localStorage.getItem('audiograph_ap_vibe')||'',vb=null;
+  var match=Math.max(0,Math.min(100,+(localStorage.getItem('audiograph_ap_match')||85))),layoutCursor=0,shapeCursor=0;
+  if(!isFinite(match))match=85;
   var fast=0,mid=0,slow=0,treb=0,hist=[],histT=0,lo=0,hi=1,level=0,levHist=[],section='waiting',secT=0,sinceChange=0,silentT=0,hue=Math.random()*360,buf=null;
   var fade=null,events=[],pending=null,apDir=Math.random()<0.5?-1:1;
   var layersPref=localStorage.getItem('audiograph_ap_layers')||'auto',slot=0,ownSig='';
   function el(id){return document.getElementById(id)}
   var MIN_GAP=8;
+  var recentL=[];
+  function pick(list,free,key){
+    if(!list||!list.length||!(match>=100||Math.random()*100<match)){
+      if(key==='layout'){var fresh=free.filter(function(l){return recentL.indexOf(l)<0});if(fresh.length)free=fresh;var c=free[Math.floor(Math.random()*free.length)];recentL.push(c);if(recentL.length>5)recentL.shift();return c}
+      return free[Math.floor(Math.random()*free.length)]}
+    if(match>=100){var i=key==='layout'?layoutCursor++:shapeCursor++;return list[i%list.length]}
+    return list[Math.floor(Math.random()*list.length)];
+  }
   function every(){return Math.max(8,+((el('apEvery')||{}).value||24))}
   function features(){
     if(typeof analyser==='undefined'||!analyser)return null;
@@ -9870,7 +10195,9 @@ var agAuto=(function(){
     var kw=agAI.keywords(t),h=kw._hit||{},v={kw:kw,hit:h,layouts:[],shapes:[],tempo:1,bpm:0,energy:h.energy?kw.energy:null};
     agAI.LAYW.forEach(function(w){if(w[0]!=='linear'&&w[1].test(t)&&v.layouts.indexOf(w[0])<0)v.layouts.push(w[0])});
     LAYOUT_NAMES.forEach(function(n){if(new RegExp('\\b'+n).test(t)&&v.layouts.indexOf(n)<0)v.layouts.push(n)});
+    if(/\bink\s+in\s+water\b/.test(t)&&!/\b(?:waves?|ocean|sea|river|flow)\b/.test(t))v.layouts=v.layouts.filter(function(n){return n!=='linear'});
     agAI.SHAPEW.forEach(function(w){if(w[1].test(t)&&!/^(words|numbers|symbols|braille|cascade|barcode)$/.test(w[0])&&v.shapes.indexOf(w[0])<0)v.shapes.push(w[0])});
+    if(/\bink\s+in\s+water\b/.test(t))v.shapes=v.shapes.filter(function(n){return n!=='tapered'});
     var b=t.match(/(\d{2,3})\s*bpm/);
     if(b){v.bpm=+b[1];v.tempo=Math.max(0.5,Math.min(1.6,v.bpm/120))}
     else if(/\b(slow|calm|ambient|gentle|chill|lazy|serene|drift|meditat|downtempo|dreamy)/.test(t))v.tempo=0.6;
@@ -9885,7 +10212,7 @@ var agAuto=(function(){
     if(v.bpm)o.push(v.bpm+' bpm');else if(v.tempo!==1)o.push(v.tempo<1?'slow motion':'fast motion');
     if(v.palette)o.push(v.hit.colors?'your colors':'themed palette');
     if(v.layouts.length)o.push(v.layouts.join(', '));
-    if(v.shapes.length)o.push(v.shapes.join(', ')+' lines');
+    if(v.shapes.length)o.push(v.shapes.map(function(s){return({inkwater:'ink in water'}[s]||s)}).join(', ')+' style');
     ['thickness','density','glow','trails','warp','particles','symmetry'].forEach(function(k){if(v.hit[k]||(k==='glow'||k==='trails'||k==='warp')&&v.kw[k])o.push(k==='thickness'?(v.kw.thickness<30?'thin':'thick'):k==='density'?(v.kw.density<40?'sparse':'dense'):k)});
     if(v.dark)o.push('dark');
     return o.length?'Reads: '+o.join(' · '):'No keywords recognised yet: try a tempo, mood, colors or shapes.';
@@ -9895,18 +10222,17 @@ var agAuto=(function(){
     var v=vb;
     var E={calm:18,groove:50,build:72,drop:92,phrase:section==='drop'?85:section==='calm'?22:section==='build'?70:50}[kind]||50;
     if(v&&v.energy!=null)E=Math.round(E*0.5+v.energy*0.5);
-    var r=Math.random,j=function(x){return Math.max(0,Math.min(100,x+(r()-0.5)*20))};
+    var r=Math.random,j=function(x){return Math.max(0,Math.min(100,x+(r()-0.5)*20*(1-match/100)))};
     if(!companion)hue+=kind==='drop'?120+r()*60:kind==='phrase'?25+r()*30:kind==='calm'?-40:15;
     var sat=E>70?80:E<30?45:62,colors=[_hslHex(hue-20,sat,14),_hslHex(hue,sat,45),_hslHex(hue+35,sat+5,62),_hslHex(hue+70,sat+10,E>70?66:76)];
     var s={layout:'circle',shape:'straight',colors:colors,background:'#000000',energy:E,density:E>70?60+r()*30:25+r()*35,thickness:E>70?18+r()*25:6+r()*20,
       spin:(E>60?40:15)*(r()<0.5?-1:1),warp:E<30?20+r()*30:r()*25,glow:E>70?25+r()*20:20+r()*25,trails:E<40?35+r()*30:r()*15,
       symmetry:E>80&&r()<0.35?['r4','r6','xy'][Math.floor(r()*3)]:'none',particles:E>80&&r()<0.5,growth:['vine','coral','neuron'][Math.floor(r()*3)],pulse:E>60};
-    var calmL=['spiral','phyllotaxis','concentric','sphere','growth','terrain','sacred','graph'],hotL=['circle','concentric','spiral','tetrahedron','sphere','dna','scatter','sacred'];
+    var calmL=['spiral','phyllotaxis','concentric','sphere','growth','terrain','sacred','graph','lissajous','rose','spiro','fractal'],hotL=['circle','concentric','spiral','tetrahedron','sphere','dna','scatter','sacred','lissajous','rose','spiro','graph','terrain'];
     var shapes=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted'];
-    var pool=v&&v.layouts.length?v.layouts:(E>60?hotL:calmL),spool=v&&v.shapes.length?v.shapes:shapes;
-    s.layout=pool[Math.floor(r()*pool.length)];s.shape=spool[Math.floor(r()*spool.length)];
+    s.layout=pick(v&&v.layouts,E>60?hotL:calmL,'layout');s.shape=pick(v&&v.shapes,shapes,'shape');
     if(v){var kw=v.kw,h=v.hit;
-      if(v.palette){s.colors=kw.colors.slice();if(kind!=='calm'&&kind!=='drop'&&s.colors.length>2){var c=s.colors.slice(1);for(var n=Math.floor(r()*c.length);n>0;n--)c.push(c.shift());s.colors=[s.colors[0]].concat(c)}}
+      if(v.palette){s.colors=kw.colors.slice();if(match<100&&kind!=='calm'&&kind!=='drop'&&s.colors.length>2){var c=s.colors.slice(1);for(var n=Math.floor(r()*c.length);n>0;n--)c.push(c.shift());s.colors=[s.colors[0]].concat(c)}}
       if(h.growth)s.growth=kw.growth;if(h.symmetry)s.symmetry=kw.symmetry;if(h.particles)s.particles=kw.particles;
       if(h.thickness)s.thickness=j(kw.thickness);if(h.density)s.density=j(kw.density);
       ['glow','trails','warp'].forEach(function(k){if(kw[k])s[k]=j(kw[k])});
@@ -9917,6 +10243,9 @@ var agAuto=(function(){
     var amt=r()<0.3?0:(E>60?0.2+r()*0.5:0.1+r()*0.35);
     if(v){if(v.hit.spin)amt=Math.max(amt,v.kw.spin>60?0.9:0.6);amt*=v.tempo}
     s.spinAmt=s.layout==='linear'?0:+Math.min(1.2,amt).toFixed(2);
+    // Quiet tones fade through the ramp's first stop: transparent more often when calm, partly see-through otherwise.
+    var fadeP=E<30?0.85:E<60?0.65:0.4;
+    if(!(v&&v.palette)&&r()<fadeP&&s.colors.length>2&&/^#[0-9a-f]{6}$/i.test(s.colors[0])){s.colors=s.colors.slice();s.colors[0]+=(r()<0.5?'00':['33','55','77'][Math.floor(r()*3)])}
     return s;
   }
   // ---- Multi-layer Everything: a base layer plus lighter supporting layers that share its palette ----
@@ -9935,7 +10264,7 @@ var agAuto=(function(){
     var c=null;
     for(var k=0;k<8;k++){c=spec(kind,true);if(used.indexOf(c.layout)<0&&c.layout!=='linear'&&(i===0||c.layout!=='growth'))break}
     c.colors=paletteFor(s,i);c.trails=s.trails;c.background='#000000';
-    if(i>0){var fine=['straight','tapered','needles','dotted','pins'];if(fine.indexOf(c.shape)<0)c.shape=fine[Math.floor(Math.random()*fine.length)];c.density*=0.45;c.thickness*=0.4;c.glow*=0.5;c.particles=false;c.symmetry='none'}
+    if(i>0){var fine=['straight','tapered','needles','dotted','pins'];if(!(match>=90&&vb&&vb.shapes.length)&&fine.indexOf(c.shape)<0)c.shape=fine[Math.floor(Math.random()*fine.length)];c.density*=0.45;c.thickness*=0.4;c.glow*=0.5;c.particles=false;c.symmetry='none'}
     var l=agAI.toLayer(c);l.params._zoomLoud=false;
     l.params._spin=+(s.spinAmt*(i?0.7:1)).toFixed(2);l.params._spinDir=i===1?-apDir:apDir;
     if(vb&&vb.tempo!==1)l.params._speed=+Math.max(0.1,Math.min(5,l.params._speed*vb.tempo)).toFixed(1);
@@ -10036,23 +10365,29 @@ var agAuto=(function(){
     document.querySelectorAll('#apEnableRow .mbtn').forEach(function(b){b.classList.toggle('on',(b.getAttribute('onclick')||'').indexOf(on?'start':'stop')>-1)});
     document.querySelectorAll('#apChangesRow .mbtn').forEach(function(b){b.classList.toggle('on',(b.getAttribute('onclick')||'').indexOf("'"+changes+"'")>-1)});
     var va=el('apVibe');if(va&&va.value!==vibe&&document.activeElement!==va)va.value=vibe;var vr=el('apVibeRead');if(vr)vr.textContent=vibeText(vb);
+    var am=el('apMatch'),av=el('vApMatch');if(am&&+am.value!==match)am.value=match;if(av)av.textContent=match+'%';
     syncAutoDots();
     var p=el('apParams');if(p)p.style.display=on?'flex':'none';
     var lr=el('apLayersRow');if(lr)lr.style.display=changes==='everything'?'':'none';
     document.querySelectorAll('#apLayersRow .mbtn').forEach(function(b){b.classList.toggle('on',(b.getAttribute('onclick')||'').indexOf("'"+layersPref+"'")>-1)});
   }
   function setLayers(m){layersPref=/^(auto|1|2|3)$/.test(String(m))?String(m):'auto';try{localStorage.setItem('audiograph_ap_layers',layersPref)}catch(e){}sync()}
+  function setMatch(m){match=Math.max(0,Math.min(100,Math.round(+m||0)));try{localStorage.setItem('audiograph_ap_match',String(match))}catch(e){}var a=el('apMatch'),v=el('vApMatch');if(a)a.value=match;if(v)v.textContent=match+'%'}
   function setChanges(m){changes=m;localStorage.setItem('audiograph_ap_changes',m);sync()}
-  function setVibe(t){vibe=String(t||'');vb=readVibe(vibe);try{localStorage.setItem('audiograph_ap_vibe',vibe)}catch(e){}var vr=el('apVibeRead');if(vr)vr.textContent=vibeText(vb)}
+  function setVibe(t){vibe=String(t||'');vb=readVibe(vibe);layoutCursor=shapeCursor=0;try{localStorage.setItem('audiograph_ap_vibe',vibe)}catch(e){}var vr=el('apVibeRead');if(vr)vr.textContent=vibeText(vb)}
   vb=readVibe(vibe);
-  return{start:start,stop:stop,on:function(){return on},step:step,change:change,setChanges:setChanges,setLayers:setLayers,setVibe:setVibe,vibe:function(){return vb},spec:spec,sync:sync,
-    state:function(){return{on:on,section:section,level:level,fading:!!fade,pending:pending,changes:changes,layers:layersPref,vibe:vibe,events:events.slice()}},_reset:reset};
+  return{start:start,stop:stop,on:function(){return on},step:step,change:change,setChanges:setChanges,setLayers:setLayers,setMatch:setMatch,setVibe:setVibe,vibe:function(){return vb},spec:spec,sync:sync,
+    state:function(){return{on:on,section:section,level:level,fading:!!fade,pending:pending,changes:changes,layers:layersPref,vibe:vibe,match:match,events:events.slice()}},_reset:reset};
 })();
 
 agAuto.sync();
 setAutoTab(localStorage.getItem('audiograph_auto_tab')||'pilot');syncAutoDots();setInterval(syncAutoDots,600);
 document.addEventListener('keydown',function(e){
-  var t=e.target,tag=(t&&t.tagName)||'';if(e.defaultPrevented||e.altKey||(t&&t.isContentEditable)||/^(INPUT|TEXTAREA|SELECT)$/.test(tag))return;
+  var t=e.target,tag=(t&&t.tagName)||'';
+  var isUndo=(e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='z';
+  var typing=tag==='TEXTAREA'||(tag==='INPUT'&&!/^(range|checkbox|radio|button|color)$/.test(t.type))||(t&&t.isContentEditable);
+  if(isUndo&&!typing&&!(t&&t.closest&&t.closest('#mapEditor'))){e.preventDefault();undo();return}
+  if(e.defaultPrevented||e.altKey||(t&&t.isContentEditable)||/^(INPUT|TEXTAREA|SELECT)$/.test(tag))return;
   var help=document.getElementById('helpOverlay');
   if(e.key==='Escape'&&help.style.display==='block'){help.style.display='none';return}
   if(t&&t.closest&&t.closest('#mapEditor,[role="slider"],[role="switch"]'))return;
@@ -10068,15 +10403,16 @@ try{loadFromHash()}catch(e){}
 <div class="help-modal-overlay" id="helpOverlay" onclick="if(event.target===this)toggleHelp()">
 <div class="help-modal">
 <button class="close-help" onclick="toggleHelp()">&times;</button>
-<h2>Audiograph — Guide <span style="font-size:.5em;font-weight:400;letter-spacing:.08em;color:var(--tx3);vertical-align:middle">v64</span></h2>
+<h2>Audiograph — Guide <span style="font-size:.5em;font-weight:400;letter-spacing:.08em;color:var(--tx3);vertical-align:middle">v81</span></h2>
 <p>Audiograph turns sound into moving images. Pick a source, pick a layout, and shape the look while the music plays. Everything reacts to audio, and nearly everything can be undone.</p>
 <nav class="help-toc" aria-label="Guide contents">
-<a href="#g-start">Quick start</a><a href="#g-auto">Automation</a><a href="#g-audio">Audio</a><a href="#g-layers">Layers</a><a href="#g-layout">Layout</a><a href="#g-style">Style &amp; Outline</a><a href="#g-color">Color</a><a href="#g-geo">Geometry &amp; Motion</a><a href="#g-deform">Deformers</a><a href="#g-particles">Particles</a><a href="#g-postfx">Post FX</a><a href="#g-presets">Presets &amp; Morph</a><a href="#g-live">Live output</a><a href="#g-mapping">Projection mapping</a><a href="#g-perf">Resolution &amp; renderer</a><a href="#g-export">Export</a><a href="#g-controls">Knobs, touch &amp; keys</a>
+<a href="#g-start">Quick start</a><a href="#g-audio">Audio</a><a href="#g-layers">Layers</a><a href="#g-layout">Layout</a><a href="#g-style">Style &amp; Outline</a><a href="#g-color">Color</a><a href="#g-geo">Geometry &amp; Motion</a><a href="#g-deform">Deformers</a><a href="#g-particles">Particles</a><a href="#g-postfx">Post FX</a><a href="#g-presets">Presets &amp; Morph</a><a href="#g-live">Live output</a><a href="#g-mapping">Projection mapping</a><a href="#g-perf">Resolution &amp; renderer</a><a href="#g-export">Export</a><a href="#g-auto">Automation</a><a href="#g-controls">Knobs, touch &amp; keys</a>
 </nav>
 
 <div class="help-section" id="g-start">
 <h3>1 · Quick start</h3>
 <ol>
+<li>New here? Press <strong>Tutorial</strong> in the top bar: it builds a look step by step (audio, layout, style, geometry, color, particles, deformers, Post FX) and plays a demo beat if nothing is loaded.</li>
 <li><strong>Load audio</strong> (or drop a file on the timeline), then press <strong>Play</strong>. Mic and System work too.</li>
 <li>In <strong>Appearance</strong>, click a <strong>Layout</strong> — this is the biggest change to the picture.</li>
 <li>Pick a <strong>Style</strong> and a <strong>Color</strong> ramp.</li>
@@ -10084,21 +10420,6 @@ try{loadFromHash()}catch(e){}
 <li><span class="hk">⌘/Ctrl Z</span> undoes anything. <strong>Reset</strong> returns every look setting to default.</li>
 </ol>
 <p>Panels only show controls that matter for the selected layout, so the sidebar changes as you switch layouts.</p>
-</div>
-
-<div class="help-section" id="g-auto">
-<h3>🎛 Automation: Autopilot, Mixer &amp; Reactive</h3>
-<ul>
-<li>Three hands-free modes share one panel. Pick a tab; a dot on a tab means that mode is running, even while you look at another tab.</li>
-<li><strong>Autopilot</strong>: turn it <strong>On</strong> and play music. It listens for the song's structure: <strong>Build-up</strong>, <strong>Drop</strong>, <strong>Breakdown</strong> and <strong>Groove</strong>. The bar shows the current energy. At each moment it slowly crossfades to a fitting variation (about 2–3 s on drops, 7–10 s otherwise, at least 8 s apart except for drops), and a fresh variation at least every <strong>Every</strong> seconds. Spin stays subtle and keeps one direction, the background stays black, and it never uses the Linear layout.</li>
-<li><strong>Describe</strong> the show in the text box: tempo (<em>slow</em>, <em>fast</em>, <em>90 bpm</em>), vibe (<em>dreamy</em>, <em>dark</em>, <em>aggressive</em>), energy, colors (<em>deep blue and gold</em>, <em>sunset</em>), layouts (<em>spirals and flowers</em>) and line styles (<em>thin dotted lines</em>). The line under the box shows what it understood. Leave it empty to let Autopilot roam freely.</li>
-<li><strong>Scale loud</strong> is paused while Autopilot runs, so the picture doesn't pump in and out; your setting returns when you stop it.</li>
-<li><strong>Changes</strong>: <strong>Colors</strong> only changes palettes. <strong>Mood</strong> also changes motion, glow and trails on your own layers (Linear layers never get spin). <strong>Everything</strong> builds its own stack of 1–3 layers: a main layer plus lighter supporting layers that share its palette and drift the other way. Regular changes swap one layer at a time while the rest glide to the new colors; drops rebuild the whole stack in a quick ripple.</li>
-<li><strong>Layers</strong> (Everything only): <strong>Auto</strong> uses 1–2 layers in breakdowns, 2 in grooves and up to 3 on build-ups and drops; or fix it at 1, 2 or 3.</li>
-<li>Works with files, Mic and System audio. Turning it Off keeps the current look; <span class="hk">⌘/Ctrl Z</span> returns to the look from before you turned it on. Preset Morph Play turns Autopilot off and vice versa.</li>
-<li><strong>Mixer</strong>: gentle hands-free variation. <em>Drift</em> slowly wanders Colors, Effects and Particles (Speed, Amount); <em>Drop</em> adds a punch On Beat.</li>
-<li><strong>Reactive</strong>: <strong>+ Add Rule</strong> links an audio feature (Bass, Mid, Treble, Energy, Beat) to a parameter (Height, Twist, Zoom, Hue shift…) with a strength. Rules stack. Example: Beat → Bulge.</li>
-</ul>
 </div>
 
 <div class="help-section" id="g-audio">
@@ -10126,7 +10447,7 @@ try{loadFromHash()}catch(e){}
 <h3>4 · Layout</h3>
 <p>The Layout row in <strong>Appearance</strong> decides how sound becomes shape. Each layout's own settings appear in the framed box right under the picker.</p>
 <ul>
-<li><strong>General</strong> — Linear, Circle, Concentric, Spiral, Phyllotaxis, Fractal (audio-driven tree), Scatter, <strong>Sacred</strong> (Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, Star 64, Vector Equilibrium, Torus: audio lines follow the figure's circles and edges; <em>Map</em> Along flows the spectrum through it, Shapes gives each circle/edge its own band; <em>Lines</em> Across or Along the paths; <em>Outline</em> shows the figure underneath, <em>Breathe</em> swells each ring with its band, <em>Bloom</em> unfolds the figure from the middle as the music gets louder), <strong>Graph</strong> (an Obsidian-style network: hubs, clusters and loose notes in a live force layout; audio lines run along the links, nodes are sized by their links and swell with their band; <em>Pulse</em> makes kicks push the graph apart, <em>Drift</em> keeps it moving, <em>Shuffle</em> builds a new network; Nodes, Hubs, Links, Loose, Map, Lines, Outline and Bloom), and <strong>Growth</strong>: living Vine, Neuron or Coral simulations with Life, Trail, line type, Thickness, vine Direction (Bottom / Top / Center) and Neuron count. <strong>Noise</strong> shapes the linework: Coral branches meander with rough, organic edges, swell and pinch along their length, grow small knobs and fork unevenly — while the coral still grows from the same spot; Vine and Neuron get a gentle wobble. Set it to 0 for the old, perfectly regular coral.</li>
+<li><strong>General</strong> — Linear, Circle, Concentric, Spiral, Phyllotaxis, Fractal (audio-driven tree), Scatter, <strong>Harmonic</strong> (Lissajous figure), <strong>Rose</strong> (rhodonea petals), <strong>Spiro</strong> (spirograph), <strong>Sacred</strong> (Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, Star 64, Vector Equilibrium, Torus: audio lines follow the figure's circles and edges; <em>Map</em> Along flows the spectrum through it, Shapes gives each circle/edge its own band; <em>Lines</em> Across or Along the paths; <em>Outline</em> shows the figure underneath, <em>Breathe</em> swells each ring with its band, <em>Bloom</em> unfolds the figure from the middle as the music gets louder), <strong>Graph</strong> (an Obsidian-style network: hubs, clusters and loose notes in a live force layout; audio lines run along the links, nodes are sized by their links and swell with their band; <em>Pulse</em> makes kicks push the graph apart, <em>Drift</em> keeps it moving, <em>Shuffle</em> builds a new network; Nodes, Hubs, Links, Loose, Map, Lines, Outline and Bloom), and <strong>Growth</strong>: living Vine, Neuron or Coral simulations with Life, Trail, line type, Thickness, vine Direction (Bottom / Top / Center) and Neuron count. <strong>Noise</strong> shapes the linework: Coral branches meander with rough, organic edges, swell and pinch along their length, grow small knobs and fork unevenly — while the coral still grows from the same spot; Vine and Neuron get a gentle wobble. Set it to 0 for the old, perfectly regular coral.</li>
 <li><strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus. Drag the visuals to orbit; 3D Tilt / Rotate are in Geometry. Every 3D layout has a <strong>Signal</strong> switch: <em>Shape</em> pushes the mesh with the audio, while <em>Surface</em> keeps the geometry fixed and moves the audio over its skin as lines in any Style. Flow sets the pattern (Rings, Sweep, Spiral, Scatter), Lines sets the direction (Across or Along), and Travel, Count, Wire and Back tune it. On Terrain, Elevation and Noise shape the fixed landscape. In Shape mode, marker styles (Pins, Numbers, …) keep a faint wire underneath and stand out of the surface on every 3D layout.</li>
 <li><strong>Input</strong> — <strong>Image</strong>: <em>Import raster</em> (PNG/JPG) becomes a brightness map drawn as Grid lines, Edge scans or an <em>LED</em> equalizer inside the picture (like Text LED); <em>Import vector</em> (SVG) traces the drawing's paths with audio lines exactly like Sacred (Map, Lines, Outline, Breathe, Bloom). <strong>Video</strong> (file or camera) becomes a brightness map drawn with lines; <strong>Pixel Warp</strong> keeps the real image colours and pushes pixels or a mesh with the music; <strong>Text</strong> (LED equalizer or scan lines); <strong>Math</strong> (your own formula); <strong>3D Object</strong> (load an .OBJ).</li>
 </ul>
@@ -10134,7 +10455,7 @@ try{loadFromHash()}catch(e){}
 
 <div class="help-section" id="g-style">
 <h3>5 · Style &amp; Outline</h3>
-<p><strong>Style</strong> sets how each line is drawn: Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, Cascade, Feather, Circles, Braille, Arrows, Slash, Needles, Diamonds — or <strong>Off</strong>. Size, Density and Angle appear when the style uses them.</p>
+<p><strong>Style</strong> sets how each line is drawn: Straight, Rounded, Dotted, Dashed, Pins, Tapered, Caps, Cross, Numbers, Symbols, Words, Cascade, Feather, Circles, Braille, Arrows, Slash, Needles, Diamonds, <strong>Ink in Water</strong> — or <strong>Off</strong>. Size, Density and Angle appear when the style uses them.</p>
 <p><strong>Outline</strong> traces the shape: Solid, Dotted, Dashed, Connected (network lines) or Fill. Style Off + Outline shows the outline alone.</p>
 </div>
 
@@ -10186,7 +10507,7 @@ try{loadFromHash()}catch(e){}
 <div class="help-section" id="g-presets">
 <h3>12 · Presets &amp; Morph</h3>
 <ul>
-<li><strong>★ Built-in presets</strong> — click to load. <strong>Save</strong> stores the active layer; <strong>Save All</strong> stores the whole scene (◈).</li>
+<li><strong>★ Built-in presets</strong> — click to load. <strong>Save</strong> stores your look.</li>
 <li><strong>Export / Import</strong> — preset files to share or back up. <strong>🔗 Link</strong> copies a URL that recreates your scene.</li>
 <li><strong>✨ Surprise</strong> — a fresh, coherent random scene.</li>
 <li><strong>Preset Morph</strong> — build a playlist (<strong>+ Add preset…</strong> or <strong>All</strong>) and press <strong>Play</strong> to blend through it over the chosen Duration. <strong>Random</strong> shuffles, <strong>On Beat</strong> advances with the music, <strong>Ping-pong</strong> goes back and forth, <strong>Apply</strong> keeps the current blend.</li>
@@ -10224,6 +10545,22 @@ try{loadFromHash()}catch(e){}
 <div class="help-section" id="g-export">
 <h3>16 · Export</h3>
 <p><strong>Download PNG</strong> saves the current frame with its background or transparent. <strong>REC</strong> (top bar) records video with audio.</p>
+</div>
+
+<div class="help-section" id="g-auto">
+<h3>🎛 Automation: Autopilot, Mixer &amp; Reactive</h3>
+<ul>
+<li>Three hands-free modes share one panel. Pick a tab; a dot on a tab means that mode is running, even while you look at another tab.</li>
+<li><strong>Autopilot</strong>: turn it <strong>On</strong> and play music. It listens for the song's structure: <strong>Build-up</strong>, <strong>Drop</strong>, <strong>Breakdown</strong> and <strong>Groove</strong>. The bar shows the current energy. At each moment it slowly crossfades to a fitting variation (about 2–3 s on drops, 7–10 s otherwise, at least 8 s apart except for drops), and a fresh variation at least every <strong>Every</strong> seconds. Spin stays subtle and keeps one direction, the background stays black, and it never uses the Linear layout.</li>
+<li><strong>Describe</strong> the show in the text box: tempo (<em>slow</em>, <em>fast</em>, <em>90 bpm</em>), vibe (<em>dreamy</em>, <em>dark</em>, <em>aggressive</em>), colors, layouts and styles. The line below shows what it understood. <strong>Prompt match</strong> at 100% sticks to and cycles through the layouts/styles you named; lower settings explore more freely. Leave the description empty for free roaming.</li>
+<li>Styles include <strong>Ink in Water</strong>; you can name it directly in the prompt.</li>
+<li><strong>Scale loud</strong> is paused while Autopilot runs, so the picture doesn't pump in and out; your setting returns when you stop it.</li>
+<li><strong>Changes</strong>: <strong>Colors</strong> only changes palettes. <strong>Mood</strong> also changes motion, glow and trails on your own layers (Linear layers never get spin). <strong>Everything</strong> builds its own stack of 1–3 layers: a main layer plus lighter supporting layers that share its palette and drift the other way. Regular changes swap one layer at a time while the rest glide to the new colors; drops rebuild the whole stack in a quick ripple.</li>
+<li><strong>Layers</strong> (Everything only): <strong>Auto</strong> uses 1–2 layers in breakdowns, 2 in grooves and up to 3 on build-ups and drops; or fix it at 1, 2 or 3.</li>
+<li>Works with files, Mic and System audio. Turning it Off keeps the current look; <span class="hk">⌘/Ctrl Z</span> returns to the look from before you turned it on. Preset Morph Play turns Autopilot off and vice versa.</li>
+<li><strong>Mixer</strong>: gentle hands-free variation. <em>Drift</em> slowly wanders Colors, Effects and Particles (Speed, Amount); <em>Drop</em> adds a punch On Beat.</li>
+<li><strong>Reactive</strong>: <strong>+ Add Rule</strong> links an audio feature (Bass, Mid, Treble, Energy, Beat) to a parameter (Height, Twist, Zoom, Hue shift…) with a strength. Rules stack. Example: Beat → Bulge.</li>
+</ul>
 </div>
 
 <div class="help-section" id="g-controls">
