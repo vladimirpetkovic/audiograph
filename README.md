@@ -94,7 +94,7 @@ A signature feature — smoothly blend through a **playlist** of presets:
 ## Presets & Sharing
 
 - **15 built-in presets**: cell · echo · firepit · flares · glass · globe · magnet · organica · sacred_circle · sacred_geometry · spiral_planes · tree · universe · waves · zodiac
-- **Save / Save All / Export / Import** your own.
+- **Save / Export / Import** your own.
 - **✨ Surprise Me** — composes a fresh, coherent random scene (tasteful layout + harmonious palette + matching style).
 - **🔗 Copy Link** — encodes the entire current look into a URL. Open the link anywhere to reproduce the composition exactly (just load your own audio).
 
@@ -262,6 +262,10 @@ Covered by `cd tests && npm run test:styles`.
 ## Autopilot Prompt Match Preview (v66)
 
 **[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
+
+## Presets Simplified Preview (v78)
+
+**[Try v78](versions/audiograph_78.html)**. Removed the Save All button from Presets; Save is enough.
 
 ## Tutorial Outline Step Preview (v77)
 
