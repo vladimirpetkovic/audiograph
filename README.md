@@ -253,6 +253,12 @@ Covered by `tests/builtin-presets.cjs`.
 
 Covered by `tests/builtin-presets.cjs`.
 
+## Expressive Line Styles Preview (v65)
+
+**[Try v65](versions/audiograph_65.html)**. Adds three render styles that can be applied to existing layouts: **Guilloché** (interlaced engraved curves), **Stained Glass** (faceted colored panes with dark leading), and **Ink in Water** (soft spreading blooms with fine tendrils). They share the existing Style Size, Density and Angle controls and render through Canvas 2D for consistent output across layouts and 3D markers.
+
+Covered by `cd tests && npm run test:styles`.
+
 ## Post FX Performance Preview (v62)
 
 **[Try v62](versions/audiograph_62.html)**. Fixes a slowdown and jitter when layer or composition **Post FX** (especially Bloom) were combined with **Scale loud**. The layer canvas used to change size on every frame, so the WebGL FX pipeline reallocated its textures each frame and layer Trails/Feedback kept resetting. The layer is now padded onto a fixed-size canvas before the FX run, so frame rate holds at 60 fps and Trails persist. Covered by `tests/pfx-loud.cjs`.
