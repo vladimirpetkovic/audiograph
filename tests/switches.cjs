@@ -94,7 +94,7 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
         inactiveRadius: parseFloat(inactive.borderTopLeftRadius),
       };
     });
-    assert.equal(chips.presetButtons, 7, 'preset action buttons in one row');
+    assert.equal(chips.presetButtons, 6, 'preset action buttons in one row');
     assert.ok(chips.presetOneLine && !chips.presetOverflow, 'preset actions fit: ' + JSON.stringify(chips));
     const activeBg = rgb(chips.activeBg), inactiveBg = rgb(chips.inactiveBg);
     assert.ok(activeBg[1] > 170 && activeBg[0] < 40, 'active chip filled green: ' + chips.activeBg);

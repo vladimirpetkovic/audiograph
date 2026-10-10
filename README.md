@@ -263,6 +263,10 @@ Covered by `cd tests && npm run test:styles`.
 
 **[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
 
+## Automation Placement Preview (v79)
+
+**[Try v79](versions/audiograph_79.html)**. The Automation (Autopilot) panel now sits just above Presets.
+
 ## Presets Simplified Preview (v78)
 
 **[Try v78](versions/audiograph_78.html)**. Removed the Save All button from Presets; Save is enough.
