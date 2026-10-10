@@ -1,5 +1,5 @@
 // v72: guided tour builds the look step by step and plays a demo beat when no audio is loaded.
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TOUR_BUILD || 'versions/audiograph_76.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TOUR_BUILD || 'versions/audiograph_77.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
