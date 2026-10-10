@@ -263,6 +263,10 @@ Covered by `cd tests && npm run test:styles`.
 
 **[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
 
+## Interactive Tutorial Preview (v73)
+
+**[Try v73](versions/audiograph_73.html)**. The top bar now has **Tutorial** and **Guide** buttons; Undo, Reset and Play/Stop moved to the bottom-right of the visuals window. The tutorial scrolls and highlights each right-panel section, with an on-canvas banner such as "Pick your Layout". It builds the saved **Tutorial** preset (read from `builtinPresets` or the browser's saved presets; falls back to the stand-in Spiral) and skips groups the preset leaves at defaults. In the Guide, Automation moved near the bottom.
+
 ## Guided Tour Preview (v72)
 
 **[Try v72](versions/audiograph_72.html)**. A **Tour** button (and a first-visit invitation) walks through audio source, layout, style, geometry, color, particles, deformers and Post FX, building a look live and playing a generated demo beat if no audio is loaded. The look comes from `agTour.recipe` in the page, currently a stand-in Spiral; swap in a saved preset's layer to change it.

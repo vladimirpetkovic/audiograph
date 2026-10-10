@@ -26,7 +26,7 @@ const SHOTS = process.env.AG_SHOTS || '';
     assert.equal(g.shown, 'block', 'Guide opens');
     assert.match(g.title, /Guide .*v(4[3-9]|[5-9][0-9])/);
     const automation = g.heads[1] && g.heads[1].includes('Automation');
-    const order = ['Quick start', ...(automation ? ['Automation'] : []), ...(g.heads[1] && g.heads[1].includes('AI Look') ? ['AI Look'] : []), ...(g.heads[2] && g.heads[2].includes('Autopilot') ? ['Autopilot'] : []), 'Audio', 'Layers', 'Layout', 'Style', 'Color', 'Geometry', 'Deformers', 'Particles', 'Post FX', ...(automation ? [] : ['Reactive']), 'Presets', 'Live output', 'Projection mapping', 'Resolution', 'Export', 'Knobs'];
+    const order = ['Quick start', 'Audio', 'Layers', 'Layout', 'Style', 'Color', 'Geometry', 'Deformers', 'Particles', 'Post FX', 'Presets', 'Live output', 'Projection mapping', 'Resolution', 'Export', 'Automation', 'Knobs'];
     order.forEach((w, i) => assert.ok(g.heads[i] && g.heads[i].includes(w), `section ${i + 1} is ${w}: ${g.heads[i]}`));
     assert.equal(g.links.length, g.heads.length, 'one contents link per section');
     assert.deepEqual(g.missing, [], 'every contents link has a target');

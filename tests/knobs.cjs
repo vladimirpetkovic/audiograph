@@ -174,7 +174,7 @@ const MISMATCH = () => [...document.querySelectorAll('.knob')].filter(k => {
     });
     await frames(page);
     assert.deepEqual(await page.evaluate(MISMATCH), [], 'after reactive playback');
-    await page.evaluate(() => [...document.querySelectorAll('.top-actions .btn')].find(b => b.textContent.trim() === 'Reset').click()); await frames(page);
+    await page.evaluate(() => [...document.querySelectorAll('.top-actions .btn, .frame-actions .btn')].find(b => b.textContent.trim() === 'Reset').click()); await frames(page);
     assert.deepEqual(await page.evaluate(MISMATCH), [], 'after Reset');
     assert.equal(await page.locator('#pLines + .knob').getAttribute('aria-valuenow'), '350');
     await page.evaluate(() => undo()); await frames(page);
