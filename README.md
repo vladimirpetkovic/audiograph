@@ -263,6 +263,10 @@ Covered by `cd tests && npm run test:styles`.
 
 **[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
 
+## Curve Layouts Preview (v69)
+
+**[Try v69](versions/audiograph_69.html)**. Three new parametric-curve layouts where audio lines stand along a closed curve: **Harmonic** (Lissajous), **Rose** (rhodonea petals) and **Spiro** (spirograph), each with its own sliders and Autopilot keywords. Removes the Guilloché and Stained Glass styles (Ink in Water stays).
+
 ## Growth Resize Fix Preview (v68)
 
 **[Try v68](versions/audiograph_68.html)**. Fixes stretched gray Growth trails after entering or leaving fullscreen (seen on iPad with the Tree preset). When the canvas aspect ratio changes, Growth now starts its drawing fresh instead of stretching the old bitmap.

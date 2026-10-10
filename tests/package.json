@@ -6,6 +6,7 @@
     "test:styles": "node new-styles.cjs",
     "test:ipad": "node ipad-ui.cjs",
     "test:growth-resize": "node growth-resize.cjs",
+    "test:curves": "node curves.cjs",
     "bench:particles": "node particles-benchmark.cjs",
     "bench:knobs": "node knobs-bench.cjs"
   },

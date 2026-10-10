@@ -8,7 +8,7 @@ const g=require('./gpu-common.cjs');
  try{
   await g.deterministic(page);
   await page.evaluate(()=>{setLayout('circle',[...document.querySelectorAll('[onclick]')].find(b=>(b.getAttribute('onclick')||'').startsWith("setLayout('circle'")));agGpu.setMode('canvas');renderDensity()});
-  for(const name of ['guilloche','stainedglass','inkwater']){
+  for(const name of ['inkwater']){
    const button=page.locator(`#styleBtns button[onclick="setShape('${name}',this)"]`);
    assert.equal(await button.count(),1,`${name} style button exists`);
    await button.click();
