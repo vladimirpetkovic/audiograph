@@ -1,5 +1,5 @@
 // v72: guided tour builds the look step by step and plays a demo beat when no audio is loaded.
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TOUR_BUILD || 'versions/audiograph_79.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TOUR_BUILD || 'versions/audiograph_80.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -46,12 +46,11 @@ const SHOTS = process.env.TOUR_SHOTS;
     assert.equal(await page.evaluate(() => agTour.live), true);
     assert.equal(await page.evaluate(() => layoutMode), 'spiral', 'Back keeps the layout');
     const ui = await page.evaluate(() => {
-      const r = id => document.getElementById(id).getBoundingClientRect(), f = document.getElementById('frameWrap').getBoundingClientRect(), g = document.querySelector('.top-actions .help-q');
-      const a = r('frameActions'), q = g.getBoundingClientRect();
-      return { insideFrame: a.right <= f.right + 1 && a.bottom <= f.bottom + 1 && a.left >= f.left, bottomRight: f.right - a.right < 30 && f.bottom - a.bottom < 30, undoInside: document.getElementById('frameActions').contains(document.getElementById('undoBtn')) && document.getElementById('frameActions').contains(document.getElementById('stopAudioBtn')), guideText: g.textContent.trim(), tutorial: document.getElementById('tourBtn').textContent.trim(), tutorialInTop: !!document.querySelector('.top-actions #tourBtn'), banner: document.getElementById('agTourBanner').textContent };
+      const tr = document.querySelector('.transport').getBoundingClientRect(), f = document.getElementById('frameWrap').getBoundingClientRect(), g = document.querySelector('.top-actions .help-q'), q = g.getBoundingClientRect();
+      const inRow = id => { const b = document.getElementById(id).getBoundingClientRect(); return b.top >= tr.top - 1 && b.bottom <= tr.bottom + 1 && b.top >= f.bottom - 1; };
+      return { below: ['undoBtn', 'stopAudioBtn'].every(inRow), noFrameActions: !document.getElementById('frameActions'), guideText: g.textContent.trim(), tutorial: document.getElementById('tourBtn').textContent.trim(), tutorialInTop: !!document.querySelector('.top-actions #tourBtn'), banner: document.getElementById('agTourBanner').textContent };
     });
-    assert.ok(ui.insideFrame && ui.undoInside, 'Undo/Reset/Play live inside the visuals window');
-    if (w > 900) assert.ok(ui.bottomRight, 'controls sit in the bottom-right corner');
+    assert.ok(ui.below && ui.noFrameActions, 'Undo/Reset/Play sit below the visuals in the transport row');
     assert.equal(ui.guideText, '?Guide'); assert.equal(ui.tutorial, 'Tutorial'); assert.ok(ui.tutorialInTop);
     assert.match(ui.banner, /Layout|Style|Post FX|Presets|Geometry|Colors|Video|make your own/, 'banner explains the step');
     await page.click('#agTourSkip');

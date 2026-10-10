@@ -263,6 +263,10 @@ Covered by `cd tests && npm run test:styles`.
 
 **[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
 
+## Transport Row Preview (v80)
+
+**[Try v80](versions/audiograph_80.html)**. Play/Stop, Undo and Reset sit in one row below the visuals next to Project visuals; the separate Play button is gone. Stop is temporary: Play resumes the loaded file (including the tutorial demo beat) without choosing a source again. Finishing the tutorial resets everything, Post FX included. Cmd/Ctrl+Z undoes even while a slider or button has focus.
+
 ## Automation Placement Preview (v79)
 
 **[Try v79](versions/audiograph_79.html)**. The Automation (Autopilot) panel now sits just above Presets.

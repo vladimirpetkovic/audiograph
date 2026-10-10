@@ -66,7 +66,7 @@ function diff(a, b, path = '') {
     const changed = await page.evaluate(SNAP);
     const nChanged = diff(fresh, changed).length;
     const pre = await page.evaluate(() => JSON.stringify(getState()));
-    await page.evaluate(() => { [...document.querySelectorAll('.top-actions .btn, .frame-actions .btn')].find(b => b.textContent.trim() === 'Reset').click(); });
+    await page.evaluate(() => { [...document.querySelectorAll('.top-actions .btn, .transport .btn')].find(b => b.textContent.trim() === 'Reset').click(); });
     await page.waitForTimeout(400);
     // Keep playing for a second: no morph, mixer, reactive rule or drop may keep driving the defaults.
     await page.evaluate(async () => { if (!playing) togglePlay(); await new Promise(r => setTimeout(r, 1000)); if (playing) togglePlay(); globalFrame++; renderDensity(); });

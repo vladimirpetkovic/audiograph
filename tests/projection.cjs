@@ -109,7 +109,7 @@ async function openOutput(page) {
     await matchingFrame(page);
     console.log('PASS: fullscreen, automatic UI/cursor hiding, keyboard exit');
 
-    await page.click('#playBtn');
+    await page.click('#playBtn, #stopAudioBtn');
     await nextFrames(page);
     await matchingFrame(page);
     await page.evaluate(() => { setPlayMode('equalizer', document.querySelector('[onclick*="setPlayMode(\'equalizer\'"]')); });
@@ -150,7 +150,7 @@ async function openOutput(page) {
     assert.deepEqual(await page.evaluate(() => [frameCv.width, frameCv.height]), [800, 450]);
     console.log('PASS: recording remains fixed-size while output resizes and restores afterward');
 
-    await page.click('#playBtn');
+    await page.click('#playBtn, #stopAudioBtn');
     await page.evaluate(() => { bakeMorph(); setPostFx(false); });
     await page.click('#btnMic');
     await page.waitForFunction(() => liveMode);

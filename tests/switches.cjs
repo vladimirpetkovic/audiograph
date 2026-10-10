@@ -50,7 +50,7 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
     await frames(page);
     const afterPreset = await page.evaluate(() => ({ checked: document.querySelector('.switch-cell .ag-switch[aria-label="Vary height"]').getAttribute('aria-checked') === 'true', varyHeight }));
     assert.equal(afterPreset.checked, afterPreset.varyHeight, 'preset load resyncs switch');
-    await page.evaluate(() => [...document.querySelectorAll('.top-actions .btn, .frame-actions .btn')].find(b => b.textContent.trim() === 'Reset').click());
+    await page.evaluate(() => [...document.querySelectorAll('.top-actions .btn, .transport .btn')].find(b => b.textContent.trim() === 'Reset').click());
     await frames(page);
     assert.deepEqual(await page.evaluate(() => ({ checked: document.querySelector('.switch-cell .ag-switch[aria-label="Vary height"]').getAttribute('aria-checked'), varyHeight })), { checked: 'true', varyHeight: true }, 'Reset resyncs switch');
 

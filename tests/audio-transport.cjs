@@ -14,7 +14,7 @@ const { open, wav, sine, load } = require('./audio-common.cjs');
     const top = () => page.evaluate(() => {
       const b = document.getElementById('stopAudioBtn');
       return { label: b.textContent.trim(), visible: b.offsetParent !== null, disabled: b.disabled, aria: b.getAttribute('aria-label'), title: b.title,
-        live: liveMode, playing, active: activeAudioSource, last: lastAudioSource, lower: document.getElementById('playLbl').textContent };
+        live: liveMode, playing, active: activeAudioSource, last: lastAudioSource };
     });
     let t = await top();
     assert.ok(t.visible && t.label === 'Play' && t.disabled && /Load audio, Mic or System/.test(t.aria), 'never-selected: disabled Play with guidance');
@@ -43,18 +43,18 @@ const { open, wav, sine, load } = require('./audio-common.cjs');
     await load(page, wav([[3, sine(110, 0.5)]], 'transport.wav'));
     t = await top(); assert.ok(t.label === 'Play' && !t.disabled && t.last === 'file' && /Play audio file/.test(t.title), 'loaded file: Play');
     await page.click('#stopAudioBtn'); await page.waitForFunction(() => playing && audio.currentTime > 0.6);
-    t = await top(); assert.ok(t.label === 'Stop' && t.lower === 'Pause' && /Stop audio file/.test(t.aria), 'file playing: Stop + lower Pause');
+    t = await top(); assert.ok(t.label === 'Stop' && /Stop audio file/.test(t.aria), 'file playing: Stop + lower Pause');
     await page.click('#stopAudioBtn');
     const at = await page.evaluate(() => audio.currentTime);
-    t = await top(); assert.ok(t.label === 'Play' && !t.playing && t.lower === 'Play' && t.active === null && t.last === 'file', 'stop file: Play');
+    t = await top(); assert.ok(t.label === 'Play' && !t.playing && t.active === null && t.last === 'file', 'stop file: Play');
     const f0 = await page.evaluate(() => globalFrame); await page.waitForTimeout(200);
     assert.equal(await page.evaluate(() => globalFrame), f0, 'stopped file does not animate');
     await page.click('#stopAudioBtn'); await page.waitForFunction(() => playing);
     assert.ok(await page.evaluate(() => audio.currentTime) >= at - 0.05, 'Play resumes the file, not from zero');
     t = await top(); assert.ok(t.label === 'Stop' && t.active === 'file');
-    // Lower Pause/Play keeps the top button in step.
-    await page.click('#playBtn'); t = await top(); assert.ok(t.label === 'Play' && t.lower === 'Play');
-    await page.click('#playBtn'); t = await top(); assert.ok(t.label === 'Stop' && t.lower === 'Pause');
+    // Stop is temporary: Play resumes without choosing a source again.
+    await page.click('#stopAudioBtn'); t = await top(); assert.ok(t.label === 'Play' && !t.disabled);
+    await page.click('#stopAudioBtn'); t = await top(); assert.ok(t.label === 'Stop');
     // Ended file: Play; Play restarts from the range start.
     await page.waitForFunction(() => !playing, null, { timeout: 8000 });
     t = await top(); assert.ok(t.label === 'Play' && !t.disabled, 'ended file: Play');
