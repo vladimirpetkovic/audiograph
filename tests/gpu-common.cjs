@@ -20,7 +20,7 @@ function audioFile(seconds = 12) {
   return { name: 'gpu.wav', mimeType: 'audio/wav', buffer: wav };
 }
 
-async function open({ headless = process.env.AUDIOGRAPH_HEADED ? false : true, viewport = { width: 1440, height: 900 }, query = '' } = {}) {
+async function open({ headless = process.env.AUDIOGRAPH_HEADED ? false : true, viewport = { width: 1440, height: 900 }, query = '', hasTouch = false } = {}) {
   const html = fs.readFileSync(path.join(__dirname, '..', build));
   const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html);
@@ -33,7 +33,7 @@ async function open({ headless = process.env.AUDIOGRAPH_HEADED ? false : true, v
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
       args: ['--ignore-gpu-blocklist', '--enable-gpu-rasterization', '--autoplay-policy=no-user-gesture-required'],
     });
-    const context = await browser.newContext({ viewport }), errors = [];
+    const context = await browser.newContext({ viewport, hasTouch }), errors = [];
     context.on('page', page => page.on('pageerror', e => errors.push(e.message)));
     await context.route('https://fonts.googleapis.com/**', route => route.abort());
     const page = await context.newPage();

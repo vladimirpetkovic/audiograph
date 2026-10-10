@@ -263,6 +263,10 @@ Covered by `cd tests && npm run test:styles`.
 
 **[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
 
+## iPad Touch UI Preview (v67)
+
+**[Try v67](versions/audiograph_67.html)**. Improves the tablet experience with larger toolbar and panel tap targets, more legible controls and sliders, a wrapping top bar for portrait, and a shorter, scroll-friendly preview on touch tablets. Desktop sizing remains unchanged.
+
 The match setting is saved between visits. Tests: `tests/autopilot.cjs` verifies exact-vs-exploratory selection, style recognition and existing section detection/fades.
 
 ## Post FX Performance Preview (v62)
