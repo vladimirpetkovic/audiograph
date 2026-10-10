@@ -263,6 +263,10 @@ Covered by `cd tests && npm run test:styles`.
 
 **[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
 
+## Tutorial Save Steps Preview (v75)
+
+**[Try v75](versions/audiograph_75.html)**. The tutorial now also explains saving a Preset (explanation only, nothing is saved) and recording a Video, then ends with a short send-off.
+
 ## Tutorial Polish Preview (v74)
 
 **[Try v74](versions/audiograph_74.html)**. The tutorial no longer darkens the screen (only a glowing ring marks the active panel) and the step text no longer repeats the layout/style name.
