@@ -1,5 +1,5 @@
 // v72: guided tour builds the look step by step and plays a demo beat when no audio is loaded.
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TOUR_BUILD || 'versions/audiograph_80.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TOUR_BUILD || 'versions/audiograph_81.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -40,7 +40,8 @@ const SHOTS = process.env.TOUR_SHOTS;
     assert.ok(seen[5].twist === 0 && seen[6].twist === 18, 'deformers appear at the deformers step');
     assert.ok(seen[6].bloom === 0 && seen[7].bloom === 45, 'Post FX appear last');
     assert.ok(seen[1].hasAudio && seen[1].playing, 'demo beat loaded and playing after step 1');
-    assert.equal(seen[8].title, 'Save it as a Preset'); assert.equal(seen[9].title, 'Save a Video');
+    assert.equal(seen[8].title, 'Save it as a Preset'); assert.equal(seen[9].title, 'Save a Video'); assert.equal(seen[10].title, 'Stack Layers');
+    assert.deepEqual(await page.evaluate(() => stackLayouts.map(l => l.layout)), ['spiral', 'circle'], 'last step adds a Circle layer');
     await page.click('#agTourBack');
     await page.waitForTimeout(300);
     assert.equal(await page.evaluate(() => agTour.live), true);
@@ -53,6 +54,10 @@ const SHOTS = process.env.TOUR_SHOTS;
     assert.ok(ui.below && ui.noFrameActions, 'Undo/Reset/Play sit below the visuals in the transport row');
     assert.equal(ui.guideText, '?Guide'); assert.equal(ui.tutorial, 'Tutorial'); assert.ok(ui.tutorialInTop);
     assert.match(ui.banner, /Layout|Style|Post FX|Presets|Geometry|Colors|Video|make your own/, 'banner explains the step');
+    await page.evaluate(() => agTour.go(10)); await page.waitForTimeout(300);
+    await page.click('#agTourNext'); await page.waitForTimeout(300);
+    assert.deepEqual(await page.evaluate(() => stackLayouts.map(l => l.layout)), ['spiral', 'circle'], 'Finish keeps the layers (no reset)');
+    await page.evaluate(() => agTour.start()); await page.waitForTimeout(300);
     await page.click('#agTourSkip');
     assert.equal(await page.evaluate(() => agTour.live), false, 'Skip closes the tour');
     assert.deepEqual(errors, [], 'no page errors');
