@@ -259,6 +259,12 @@ Covered by `tests/builtin-presets.cjs`.
 
 Covered by `cd tests && npm run test:styles`.
 
+## Autopilot Prompt Match Preview (v66)
+
+**[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
+
+The match setting is saved between visits. Tests: `tests/autopilot.cjs` verifies exact-vs-exploratory selection, style recognition and existing section detection/fades.
+
 ## Post FX Performance Preview (v62)
 
 **[Try v62](versions/audiograph_62.html)**. Fixes a slowdown and jitter when layer or composition **Post FX** (especially Bloom) were combined with **Scale loud**. The layer canvas used to change size on every frame, so the WebGL FX pipeline reallocated its textures each frame and layer Trails/Feedback kept resetting. The layer is now padded onto a fixed-size canvas before the FX run, so frame rate holds at 60 fps and Trails persist. Covered by `tests/pfx-loud.cjs`.
