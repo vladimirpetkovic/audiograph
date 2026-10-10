@@ -263,6 +263,10 @@ Covered by `cd tests && npm run test:styles`.
 
 **[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
 
+## UI & Autopilot Polish Preview (v71)
+
+**[Try v71](versions/audiograph_71.html)**. Audio source panel centred over the controls column and pulsing until a source is chosen; Guide shortened to a prominent ? icon; phone (iPhone) layout with full-width source buttons and touch-sized controls; Autopilot varies layouts more evenly (DNA no longer dominates, new curve layouts included) and fades the quiet colour stop more often.
+
 ## 3D Camera Fix Preview (v70)
 
 **[Try v70](versions/audiograph_70.html)**. 3D objects no longer swing into the camera with exaggerated perspective: the camera distance is clamped in Terrain, Sphere, Tetrahedron/Octahedron, DNA and Object layouts, and Autopilot keeps height and deformers moderate on 3D layouts.
