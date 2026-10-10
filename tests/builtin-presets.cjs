@@ -1,11 +1,11 @@
-// v63: Tree and Sacred Geometry are built-in presets that load their full 3-layer compositions
-process.env.AUDIOGRAPH_PARTICLE_BUILD=process.env.AUDIOGRAPH_PRESET_BUILD||'versions/audiograph_63.html';
+// v64: saved compositions are built-in presets and Rorschach is removed
+process.env.AUDIOGRAPH_PARTICLE_BUILD=process.env.AUDIOGRAPH_PRESET_BUILD||'versions/audiograph_64.html';
 const assert=(c,m)=>{if(!c){console.error('FAIL: '+m);process.exit(1)}console.log('ok - '+m)};
 const { open, wav, sine, kicks, load } = require('./audio-common.cjs');
 (async()=>{const t=await open({viewport:{width:1280,height:800}});const {page,errors}=t;
  const tone=wav([[30,s=>kicks(0.6)(s)+sine(220,0.25)(s)]],'s.wav');await load(page,{name:tone.name,mimeType:tone.mimeType,buffer:tone.buffer});
  await page.evaluate(()=>{if(!playing)togglePlay()});
- for(const [name,lays] of [['tree',['growth','phyllotaxis','object']],['sacred_geometry',['sacred','sacred','sacred']]]){
+ for(const [name,lays] of [['tree',['growth','phyllotaxis','object']],['sacred_geometry',['sacred','sacred','sacred']],['universe',['object','sacred','graph','circle']]]){
   const btn=page.locator('#presetList button',{hasText:name});
   assert(await btn.count()===1,name+' built-in button listed');
   await btn.click();await page.waitForTimeout(1200);
@@ -15,4 +15,5 @@ const { open, wav, sine, kicks, load } = require('./audio-common.cjs');
   assert(ink>200,name+' renders ('+ink+' lit px)');
   if(process.env.SHOT)await page.screenshot({path:'/tmp/ap/preset-'+name+'.png'});
  }
+ assert(await page.locator('#presetList button',{hasText:'rorschach'}).count()===0,'Rorschach built-in removed');
  assert(errors.length===0,'no page errors '+JSON.stringify(errors));process.exit(0)})();
