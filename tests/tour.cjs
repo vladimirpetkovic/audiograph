@@ -1,5 +1,5 @@
 // v72: guided tour builds the look step by step and plays a demo beat when no audio is loaded.
-process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TOUR_BUILD || 'versions/audiograph_82.html';
+process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TOUR_BUILD || 'versions/audiograph_83.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -16,7 +16,8 @@ const SHOTS = process.env.TOUR_SHOTS;
     page.on('pageerror', e => errors.push(e.message));
     await page.evaluate(() => agTour.start());
     const seen = [];
-    for (let i = 0; i < 11; i++) {
+    const N = await page.evaluate(() => agTour.steps.length);
+    for (let i = 0; i < N; i++) {
       await page.waitForTimeout(500);
       const s = await page.evaluate(() => ({
         title: document.getElementById('agTourTitle').textContent,
@@ -31,16 +32,18 @@ const SHOTS = process.env.TOUR_SHOTS;
       if (SHOTS) await page.screenshot({ path: `/tmp/tour_${w}_${i}.png` });
       assert.ok(s.cardVisible && s.ring > 20, `step ${i} shows card and ring`);
       assert.ok(!s.overflow, `step ${i} has no horizontal overflow at ${w}`);
-      if (i < 10) await page.click('#agTourNext');
+      if (i < N - 1) await page.click('#agTourNext');
     }
+    const T = t => seen.find(x => x.title === t);
     assert.equal(seen[0].layout, 'linear', 'starts from a clean linear layer');
-    assert.equal(seen[1].layout, 'spiral', 'layout step applies the layout');
-    assert.equal(seen[2].shape, 'tapered', 'style step applies the style');
-    assert.ok(!seen[3].particles && seen[5].particles, 'particles appear only at the particles step');
-    assert.ok(seen[5].twist === 0 && seen[6].twist === 18, 'deformers appear at the deformers step');
-    assert.ok(seen[6].bloom === 0 && seen[7].bloom === 45, 'Post FX appear last');
+    assert.equal(T('Pick your Layout').layout, 'spiral', 'layout step applies the layout');
+    assert.equal(T('Pick a Style').shape, 'pins', 'style step applies the style');
+    assert.ok(!T('Pick a Style').particles && T('Add Particles').particles, 'particles appear only at the particles step');
+    assert.ok(T('Add Particles').twist === 0 && T('Bend it with Deformers').twist === 0, 'deformers step present');
+    assert.ok(T('Bend it with Deformers').bloom === 0 && T('Finish with Post FX').bloom === 30, 'Post FX appear last');
     assert.ok(seen[1].hasAudio && seen[1].playing, 'demo beat loaded and playing after step 1');
-    assert.equal(seen[8].title, 'Save it as a Preset'); assert.equal(seen[9].title, 'Save a Video'); assert.equal(seen[10].title, 'Stack Layers');
+    assert.equal(await page.evaluate(() => document.getElementById('pIntensity').value), '50', 'intensity set to 50%');
+    assert.equal(seen[seen.length - 3].title, 'Save it as a Preset'); assert.equal(seen[seen.length - 2].title, 'Save a Video'); assert.equal(seen[seen.length - 1].title, 'Stack Layers');
     assert.deepEqual(await page.evaluate(() => stackLayouts.map(l => l.layout)), ['spiral', 'circle'], 'last step adds a Circle layer');
     await page.click('#agTourBack');
     await page.waitForTimeout(300);

@@ -203,7 +203,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .btn.rec-stop:hover{background:#ef4444}
 .rec-timer{font-size:.55rem;color:var(--hot);font-variant-numeric:tabular-nums}
 
-#agTourRing{position:fixed;z-index:9000;display:none;pointer-events:none;border:2px solid var(--accent2);border-radius:8px;box-shadow:0 0 18px 2px rgba(110,231,183,.6);transition:left .25s,top .25s,width .25s,height .25s}
+#agTourRing{position:fixed;z-index:9000;display:none;pointer-events:none;border:2px solid var(--accent2);border-radius:8px;box-shadow:0 0 18px 2px rgba(110,231,183,.6)}
 #agTourCard{position:fixed;z-index:9001;display:none;background:var(--surface);border:1px solid var(--accent2);border-radius:10px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,.6);color:var(--tx);font-family:'Inter','Helvetica Neue',Arial,sans-serif;max-width:420px}
 @media(max-width:900px){#agTourCard{max-width:none}}
 #agTourCard .tour-step{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2)}
@@ -9985,12 +9985,7 @@ function syncAutoDots(){
 // v73: interactive tutorial (was the v72 tour). Uses the saved "Tutorial" preset when present. Builds one look step by step (audio -> layout -> style -> geometry -> color -> particles -> deformers -> Post FX).
 // To use your own look, set agTour.recipe to {layout:'id',params:{...layer params}} (e.g. a saved preset's stackLayouts[0]).
 var agTour=(function(){
-  var recipe={layout:'spiral',params:{
-    _lines:260,_height:95,_lineShape:'tapered',_thick:3,_varyThick:true,_spin:0.4,_spinDir:1,_speed:1.2,
-    _colorMode:'toneramp',_toneStops:['#0b1d3a00','#4f46e5','#ec4899','#fde68a'],_simpleStops:['#4f46e5','#ec4899','#fde68a'],
-    _particlesOn:true,pPartDensity:30,pPartLife:110,pPartSize:10,
-    _twist:18,_wave:14,_waveFreq:4,_bulge:6,
-    _postFx:{enabled:true,pfxBloom:45,pfxTrails:35}}};
+  var recipe={"layout":"spiral","params":{"pSineWaves":2,"pSineAmp":80,"customFnX":"W/2 + Math.sin(t * Math.PI * 6) * W/3","customFnY":"Math.cos(i*137.508*Math.PI/180) * v * H/2 + H/2","pCircleInner":25,"pKalSegments":6,"pKalInner":15,"pSpiralTurns":5,"pSpiralInner":8,"pSpiralSpread":88,"pFibDensity":90,"pFibInner":5,"pPhylDiv":0,"pPhylDensity":88,"pPhylInner":4,"pWaveRows":8,"pWaveAmp2":50,"pConcRings":5,"pConcInner":10,"pImgVSkel":35,"pImgVBreathe":40,"pImgVBloom":0,"pImgThreshold":15,"pImgCols":80,"pImgGap":22,"pImgFloor":35,"pVidThreshold":15,"pVidCols":60,"pVidSpeed":1,"pPwRes":192,"pPwSize":82,"pPwDisplace":52,"pPwBass":115,"pPwMid":34,"pPwTreble":38,"pPwLuma":25,"pPwFlow":24,"pPwFlowSpeed":35,"pPwElastic":65,"pPwDepth":0,"pPwSat":108,"pPwBright":100,"pPwContrast":104,"pPwFlash":18,"textLayoutInput":"SOUND","pTextSlant":15,"pTextGap":22,"pTextFloor":35,"pTextThreshold":15,"pTextRes":80,"pScatterSpreadH":80,"pScatterSpreadV":80,"pScatterCluster":50,"pTerrainGrid":40,"pTerrainDepth":40,"pTerrainPersp":200,"pTerrainCam":35,"pTerrainElev":80,"pTerrainNoise":40,"pTerrainBend":0,"pTerrainTwist":0,"pSphereGrid":30,"pSpherePersp":250,"pSphereTilt":15,"pSphereElev":60,"pSphereNoise":50,"pSphereRotate":5,"pTetDetail":8,"pTetPersp":250,"pTetTilt":15,"pTetElev":60,"pTetNoise":50,"pTetRotate":5,"pFracDepth":7,"pFracAngle":30,"pFracDecay":65,"pGrowNeurons":6,"pGrowSpeed":100,"pGrowBranch":50,"pGrowCurl":40,"pGrowNoise":45,"pGrowTrail":70,"pGrowLife":3,"pGrowThick":100,"pGrowMax":240,"pLisA":3,"pLisB":2,"pLisDrift":30,"pRoseN":5,"pRoseD":2,"pRoseDrift":30,"pSpiR":7,"pSpiW":3,"pSpiPen":80,"pSpiDrift":30,"pSacSkel":35,"pSacBreathe":40,"pSacBloom":0,"pGraphNodes":160,"pGraphHubs":5,"pGraphLinks":45,"pGraphLoose":16,"pGraphPulse":50,"pGraphDrift":30,"pGraphSize":100,"pGraphTwinkle":50,"pGraphSkel":45,"pGraphBloom":0,"pRidgeRows":40,"pRidgeAmp":80,"pRidgeSmooth":3,"pDnaTurns":4,"pDnaRadius":30,"pDnaPersp":250,"pDnaTilt":15,"pDnaElev":60,"pDnaNoise":50,"pDnaRotate":5,"pObjTravel":35,"pObjCount":35,"pObjWire":30,"pObjBack":15,"pObjMaxFaces":2000,"pObjPersp":250,"pObjTilt":15,"pObjElev":60,"pObjNoise":50,"pObjRotate":5,"_lines":290,"_contrast":75,"_sensitivity":100,"_height":70,"_thick":1.5,"_zoom":100,"_offX":0,"_offY":0,"_rotation":0,"_varyHeight":true,"_varyThick":false,"_fadeEdge":0,"_lineShape":"pins","_styleSize":100,"_styleDensity":100,"_styleAngle":0,"_colorMode":"toneramp","_solidColor":"#dddde0","_toneStops":["#0a102800","#3b5bdb80","#c2255c","#ff922b","#ffe066"],"_simpleStops":["#e94560","#f5a623","#6ee7b7"],"_showOutline":true,"_outlineStyle":"solid","_imgDir":"up","_imgSrc":"raster","_imgStyle":"led","_imgVMap":"along","_imgVTick":"along","_objModel":"knot","_objSignal":"shape","_objFlow":"rings","_objTick":"across","_sacredPat":"flower","_sacredMap":"along","_sacredTick":"along","_graphMap":"along","_graphTick":"along","_graphSeed":1,"_growType":"vine","_growDir":"bottom","_growLine":"solid","_textStyle":"led","_textLedCol":"eq","_textSlant":15,"_textGap":22,"_textFloor":35,"_pwSource":"image","_pwMode":"pixels","_pwDir":"noise","_pwFit":"contain","_pwShape":"square","_outlineOpacity":60,"_outlineWeight":2,"_outlineDist":0,"_outlineCount":1,"_outlineSpace":4,"_spin":0.4,"_spinDir":-1,"_speed":1,"_amplify":1,"_twist":0,"_bulge":-3,"_wave":0,"_waveFreq":5,"_shear":0,"_depth":0,"_ripple":7,"_jitter":0,"_rGlobal":0,"_rDist":0,"_rAppear":0,"_rOutline":0,"_rColor":0,"_rDisorder":0,"_flipH":false,"_flipV":false,"_mirrorOn":false,"_symmetryMode":"none","_symGap":0,"_particleShape":"circle","_particlesOn":true,"pPartDensity":20,"pPartEnergy":1.3,"pPartSpeed":3,"pPartLife":120,"pPartSize":7,"pPartSpread":50,"pPartGravity":0,"pPartDamping":97,"pPartTrail":0,"pNoisePerlin":9,"pNoiseCurl":14,"pNoiseBrownian":0,"pNoiseVortex":0,"pNoiseScale":30,"pNoiseSpeed":20,"_zoomLoud":false,"_dragRotX":0,"_dragRotY":0,"_playMode":"equalizer","_postFx":{"enabled":true,"pfxFracture":false,"pfxFracCells":44,"pfxFracGap":30,"pfxFracDisp":58,"pfxFracRot":34,"pfxFracBass":125,"pfxFracBeat":150,"pfxFracRecover":48,"pfxFracGlow":62,"pfxFracSeed":17,"pfxFracSize":65,"pfxFracDrift":45,"pfxFracNoise":35,"pfxFracMode":"flow","pfxBloom":30,"pfxChroma":0,"pfxContrast":0,"pfxVignette":0,"pfxScanlines":0,"pfxSharpen":0,"pfxInvert":0,"pfxReflect":0,"pfxBlurX":0,"pfxBlurY":0,"pfxBlurRadial":0,"pfxFocal":0,"pfxTrails":68,"pfxFeedback":0,"pfxEdgeGlow":0,"pfxKaleido":0}}};
   var ALL=[
     {t:'Choose your Audio source',sel:'.audio-source-group',txt:'Everything starts with sound: load a file, use the Mic, or capture System audio. Press Next and a demo beat plays if nothing is loaded.',grp:null,ban:'Pick your <b>Audio source</b>'},
     {t:'Pick your Layout',sel:'#panelAppear .panel-body .prow-stack',panel:'panelAppear',txt:'The layout decides where the audio lines stand: lines, circles, spirals, 3D shapes and more.',grp:'layout',ban:'Pick your <b>Layout</b>'},
@@ -10089,7 +10084,7 @@ var agTour=(function(){
   }
   function place(){
     if(!live)return;var s=STEPS[idx],t=s&&document.querySelector(s.sel);if(!t)return;
-    var r=t.getBoundingClientRect(),vh=innerHeight,vw=innerWidth;
+    var vvp=window.visualViewport,r=t.getBoundingClientRect(),vh=vvp?vvp.height+vvp.offsetTop:innerHeight,vw=innerWidth;
     var ca=document.querySelector('.controls-area'),cr=ca?ca.getBoundingClientRect():{top:0,bottom:vh};
     var top=Math.max(r.top,Math.min(cr.top,r.bottom)),bot=Math.min(r.bottom,Math.max(cr.bottom,r.top));
     if(r.top<0)top=Math.max(top,0);
@@ -10106,7 +10101,7 @@ var agTour=(function(){
     if(stackLayouts.length>1){stackLayouts.splice(1);applyingState=true;try{selectLayer(0)}finally{applyingState=false}}
     applyPresetToLayer({stackLayouts:[layerFor(idx)]});
     if(s.addCircle){addLayer();setLayout('circle')}
-    var t=document.querySelector(s.sel);if(t&&t.scrollIntoView)t.scrollIntoView({block:'center',behavior:'smooth'});
+    var t=document.querySelector(s.sel);if(t&&t.scrollIntoView)t.scrollIntoView({block:'center',behavior:'auto'});
     $('agTourStep').textContent='Step '+(idx+1)+' of '+STEPS.length;$('agTourTitle').textContent=s.t;$('agTourTxt').textContent=fill(s.txt);
     var bn=$('agTourBanner');bn.innerHTML=fill(s.ban||s.t);bn.style.display='block';
     $('agTourDots').innerHTML=STEPS.map(function(_,n){return'<i'+(n===idx?' class="on"':'')+'></i>'}).join('');
@@ -10121,7 +10116,7 @@ var agTour=(function(){
   }
   function start(){
     build();try{localStorage.setItem('agTourSeen','1')}catch(e){}
-    loadRecipe();buildSteps();resetAll();go(0);
+    loadRecipe();buildSteps();resetAll();var pi=$('pIntensity');if(pi){pi.value=50;pi.oninput&&pi.oninput()}go(0);
   }
   function stop(){
     live=false;cancelAnimationFrame(timer);if(els.card){els.card.style.display='none';els.ring.style.display='none';var bn=$('agTourBanner');if(bn)bn.style.display='none'}
