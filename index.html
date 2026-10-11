@@ -4909,20 +4909,21 @@ agAudio.load();
 (function(){try{var d=localStorage.getItem('audiograph_dyn');if(d!=null){var e=document.getElementById('pDynamics');if(e){e.value=+d;document.getElementById('vDynamics').textContent=(+d)+'%'}}}catch(ex){}})();
 
 // --- LIVE INPUT (Mic / System) ---
-var liveStream=null,liveSource=null,liveMode=false;
+var liveStream=null,liveSource=null,liveMode=false,livePaused=false;
 var activeAudioSource=null; // 'file','mic','system'
 // Top transport (v31): always visible. Stop while a source actually sounds (live input connected or file playing);
 // otherwise Play for the last selected source. lastAudioSource survives Stop so Play can resume the file or reconnect
 // Mic/System; live tracks are ended on Stop, so reconnecting asks for permission again from the click gesture.
 var lastAudioSource=null;
-function audioTransportActive(){return !!(liveMode||(playing&&audio))}
+function audioTransportActive(){return !!((liveMode&&!livePaused)||(playing&&audio))}
 function syncAudioTransport(){
   var b=document.getElementById('stopAudioBtn');if(!b)return;
-  var on=audioTransportActive(),src=on?(liveMode?activeAudioSource:'file'):lastAudioSource,
+  var on=audioTransportActive(),src=on?(liveMode?activeAudioSource:'file'):lastAudioSource,paused=liveMode&&livePaused,
     name,lbl,title;
   if(!src&&audio)src='file';
   name={file:'audio file',mic:'Mic',system:'System audio'}[src]||'';
   if(on){lbl='Stop';title='Stop '+name}
+  else if(paused){lbl='Play';title='Resume '+name+' (stays connected)'}
   else if(!src){lbl='Play';title='Choose Load audio, Mic or System first'}
   else{lbl='Play';title=src==='file'?'Play audio file':'Reconnect '+name+' (asks for permission again)'}
   document.getElementById('stopAudioLbl').textContent=lbl;
@@ -4933,8 +4934,22 @@ function syncAudioTransport(){
   var g=document.querySelector('.audio-source-group');if(g)g.classList.toggle('needs-src',!on&&!src);
 }
 document.addEventListener('DOMContentLoaded',function(){syncAudioTransport()});
+function pauseLive(){
+  livePaused=true;
+  if(rafId){cancelVisualFrame(rafId);rafId=null}
+  document.getElementById('frameBadge').textContent='PAUSED';
+  syncAudioTransport();
+}
+function resumeLive(){
+  livePaused=false;
+  document.getElementById('frameBadge').textContent='LIVE';
+  if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+  if(!rafId)liveAnimLoop();
+  syncAudioTransport();
+}
 function audioTransportClick(){
-  if(audioTransportActive()){stopAudioSource();return}
+  if(audioTransportActive()){if(liveMode)pauseLive();else stopAudioSource();return}
+  if(liveMode&&livePaused){resumeLive();return}
   if(lastAudioSource==='mic')startMic();
   else if(lastAudioSource==='system')startSystem();
   else if(audio){if(!playing)togglePlay();highlightAudioSource('file')}
@@ -4964,7 +4979,7 @@ function stopAudioSource(){
 function stopLive(){
   if(liveStream){liveStream.getTracks().forEach(function(t){t.stop()});liveStream=null}
   if(liveSource){try{liveSource.disconnect()}catch(e){}}
-  liveSource=null;liveMode=false;
+  liveSource=null;liveMode=false;livePaused=false;
   if(rafId){cancelVisualFrame(rafId);rafId=null}
   syncAudioTransport();
 }
@@ -5043,7 +5058,7 @@ async function startSystem(){
   }
 }
 function liveAnimLoop(){
-  if(!liveMode){rafId=null;return}
+  if(!liveMode||livePaused){rafId=null;return}
   globalFrame++;
   rafId=requestVisualFrame(liveAnimLoop);
   if(!analyser)return;

@@ -62,44 +62,34 @@ const { open, wav, sine, load } = require('./audio-common.cjs');
     assert.ok(await page.evaluate(() => audio.currentTime) < 1, 'Play after end restarts');
     await page.click('#stopAudioBtn');
 
-    // Mic: Stop ends the tracks; Play reconnects through a fresh getUserMedia (never reuses ended tracks).
-    await page.click('#btnMic'); await page.waitForFunction(() => liveMode && activeAudioSource === 'mic');
-    t = await top(); assert.ok(t.label === 'Stop' && /Stop Mic/.test(t.aria) && !t.playing);
-    await page.click('#stopAudioBtn');
-    t = await top(); assert.ok(t.label === 'Play' && !t.live && t.last === 'mic' && /Reconnect Mic.*permission/.test(t.title));
-    assert.ok(await page.evaluate(() => captures[captures.length - 1].getTracks().every(x => x.readyState === 'ended')));
-    const n = await page.evaluate(() => captures.length);
-    await page.click('#stopAudioBtn'); await page.waitForFunction(() => liveMode && activeAudioSource === 'mic');
-    assert.equal(await page.evaluate(() => captures.length), n + 1, 'Play requested a new mic stream');
-    const g0 = await page.evaluate(() => globalFrame); await page.waitForFunction(g => globalFrame > g + 3, g0);
-    // Denied reconnect: back to Play with status, no live state.
-    await page.click('#stopAudioBtn'); await page.evaluate(() => { denyMode = 'NotAllowedError'; });
-    await page.click('#stopAudioBtn'); await page.waitForFunction(() => /Microphone was not connected/.test(document.getElementById('systemAudioHint').textContent));
-    t = await top(); assert.ok(t.label === 'Play' && !t.live && t.active === null && !t.disabled);
-    await page.evaluate(() => { denyMode = null; });
-
-    // System: connect, Stop, Play reconnects via getDisplayMedia; cancel leaves Play + status; ended share -> Play.
+    // Mic/System: Stop only pauses the visuals; the capture stays connected, so Play never asks for permission again.
+    for (const [btn, src] of [['#btnMic', 'mic'], ['#btnSystem', 'system']]) {
+      await page.click(btn); await page.waitForFunction(s => liveMode && activeAudioSource === s, src);
+      t = await top(); assert.ok(t.label === 'Stop' && !t.playing);
+      const n = await page.evaluate(() => captures.length);
+      await page.click('#stopAudioBtn');
+      t = await top(); assert.ok(t.label === 'Play' && t.live && t.last === src && /Resume.*stays connected/.test(t.title), src + ' paused');
+      assert.ok(await page.evaluate(() => captures[captures.length - 1].getAudioTracks().every(x => x.readyState === 'live')), 'tracks stay live');
+      await page.waitForFunction(() => rafId === null);
+      await page.click('#stopAudioBtn'); await page.waitForFunction(() => liveMode && !livePaused);
+      assert.equal(await page.evaluate(() => captures.length), n, src + ' Play did not re-request capture');
+      const g0 = await page.evaluate(() => globalFrame); await page.waitForFunction(g => globalFrame > g + 3, g0);
+      t = await top(); assert.ok(t.label === 'Stop');
+      // Share ended while paused: Play falls back to Play (reconnect) with no live state.
+      await page.click('#stopAudioBtn');
+      if (src === 'system') await page.evaluate(() => { const tr = liveStream.getAudioTracks()[0]; tr.stop(); tr.dispatchEvent(new Event('ended')); });
+      else await page.click(btn);
+      t = await top(); assert.ok(t.label === 'Play' && !t.live && t.last === src, src + ' ended while paused');
+    }
     await page.click('#btnSystem'); await page.waitForFunction(() => liveMode && activeAudioSource === 'system');
-    t = await top(); assert.ok(t.label === 'Stop' && /Stop System audio/.test(t.aria));
-    await page.click('#stopAudioBtn');
-    t = await top(); assert.ok(t.label === 'Play' && t.last === 'system' && /Reconnect System audio/.test(t.title));
-    await page.evaluate(() => { denyMode = 'AbortError'; });
-    await page.click('#stopAudioBtn'); await page.waitForFunction(() => !systemCapturePending);
-    t = await top(); assert.ok(t.label === 'Play' && !t.live && t.active === null);
-    assert.match(await page.locator('#systemAudioHint').textContent(), /not connected.*retry/);
-    await page.evaluate(() => { denyMode = null; });
-    await page.click('#stopAudioBtn'); await page.waitForFunction(() => liveMode && activeAudioSource === 'system');
-    await page.evaluate(() => { const tr = liveStream.getAudioTracks()[0]; tr.stop(); tr.dispatchEvent(new Event('ended')); });
-    t = await top(); assert.ok(t.label === 'Play' && !t.live && t.last === 'system', 'ended share: Play');
 
     // Reset is artistic only: it neither starts nor stops the source.
-    await page.click('#stopAudioBtn'); await page.waitForFunction(() => liveMode);
     await page.click('button[onclick="resetAll()"]');
     t = await top(); assert.ok(t.label === 'Stop' && t.live && t.active === 'system', 'Reset keeps the live source');
     await page.click('#stopAudioBtn');
     await page.click('button[onclick="resetAll()"]');
-    t = await top(); assert.ok(t.label === 'Play' && !t.live && t.last === 'system', 'Reset keeps a stopped source stopped');
+    t = await top(); assert.ok(t.label === 'Play' && t.live && t.last === 'system', 'Reset keeps a paused source paused');
     assert.deepEqual(errors, []);
-    console.log('audio-transport: PASS (never-selected, file stop/resume/end, lower Play sync, mic+system reconnect/cancel, Reset)');
+    console.log('audio-transport: PASS (never-selected, file stop/resume/end, lower Play sync, mic+system pause/resume without reconnect, Reset)');
   } finally { await s.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

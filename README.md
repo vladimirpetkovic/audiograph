@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-83-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-84-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -116,7 +116,7 @@ Keep the controller tab in the foreground and the laptop awake during a show: br
 
 ## Versions and Rollback
 
-The live entry point is `index.html` (**v83**, released from the v44–v83 previews below). Each release is also preserved as `versions/audiograph_N.html`; [v21](versions/audiograph_21.html), [v22](versions/audiograph_22.html), [v34](versions/audiograph_34.html), [v42](versions/audiograph_42.html), [v43](versions/audiograph_43.html), [v61](versions/audiograph_61.html), [v62](versions/audiograph_62.html), [v63](versions/audiograph_63.html) (the previous main app) and every preview remain independently runnable. Git release tags provide a second rollback path. Before updating the live entry point, archive its exact contents under the previous version number; never overwrite an existing archive. New features are published at separate numbered preview links for hands-on testing before promotion to the main app.
+The live entry point is `index.html` (**v84**, released from the v44–v84 previews below). Each release is also preserved as `versions/audiograph_N.html`; [v21](versions/audiograph_21.html), [v22](versions/audiograph_22.html), [v34](versions/audiograph_34.html), [v42](versions/audiograph_42.html), [v43](versions/audiograph_43.html), [v61](versions/audiograph_61.html), [v62](versions/audiograph_62.html), [v63](versions/audiograph_63.html) (the previous main app) and every preview remain independently runnable. Git release tags provide a second rollback path. Before updating the live entry point, archive its exact contents under the previous version number; never overwrite an existing archive. New features are published at separate numbered preview links for hands-on testing before promotion to the main app.
 
 ## Projection Mapping Preview (v23)
 
@@ -262,6 +262,10 @@ Covered by `cd tests && npm run test:styles`.
 ## Autopilot Prompt Match Preview (v66)
 
 **[Try v66](versions/audiograph_66.html)**. Adds a **Prompt match** control to Autopilot: at 100%, generated looks use only the requested layouts and styles, cycle through named choices in order, and remove random jitter from prompt-driven numeric settings. Lower values let Autopilot explore beyond the prompt more often. Prompt parsing also recognizes the new Guilloché, Stained Glass and Ink in Water styles; “ink in water” no longer accidentally selects Linear.
+
+## Pause Without Reconnect (v84)
+
+**[Try v84](versions/audiograph_84.html)**. Stop/Play on a Mic or System source now only pauses the visuals; the capture stays connected, so Play resumes instantly with no new share prompt. Click the Mic/System button to disconnect for real.
 
 ## Tutorial Preset Preview (v83)
 
