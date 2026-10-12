@@ -291,6 +291,13 @@ async function unsupportedCase() {
       }
     }
     assert.equal((await st(page)).errors.filter(e => !/synthetic|burst /.test(e)).length, 0, 'no GPU errors from presets'); ok('all simulation presets apply, render and stay in range');
+    // emitter rotation moves the emitters (image changes) without breaking rendering
+    for (const m of ['simparticles', 'simfluid', 'simsmoke']) {
+      const shot = async deg => { await page.evaluate(({ m, deg }) => { setLayout(m); simResetSettings(); const e = document.getElementById('pSimRot'); e.value = deg; e.dispatchEvent(new Event('input', { bubbles: true })); const sm = document.getElementById('pSmSpeed'); if (m === 'simsmoke' && sm) { sm.value = 100; sm.dispatchEvent(new Event('input', { bubbles: true })); } agSim.reset(); }, { m, deg });
+        await page.evaluate(() => agSim.ready()); await grab(page); await feed(page, 220, 0.55, 28); return grab(page); };
+      const r0 = await shot(0), r1 = await shot(180); assert.ok(r1.lit > 0.003, m + " draws rotated " + r0.lit + " " + r1.lit); assert.ok(mad(r0, r1) > 1, `${m} emitter rotation changes the image (mad=${mad(r0, r1)})`);
+    }
+    await page.evaluate(() => simResetSettings()); ok('emitter rotation changes the image on every simulation layout');
     for (const [m, q] of [['simparticles', 'med'], ['simparticles', 'high'], ['simfluid', 'med'], ['simfluid', 'high'], ['simsmoke', 'med'], ['simsmoke', 'high']]) {
       const r = await page.evaluate(async ({ m, q }) => { setLayout(m); setSimOpt('q', q); agSim.reset(); agSim.inject({ spec: 0.5, onset: 0 }); renderDensity(); agSim.advance(10); await agSim.sync();
         const t0 = performance.now(), N = 60; agSim.advance(N, 1 / 60); await agSim.sync(); const dt = (performance.now() - t0) / N; renderDensity(); const L = Object.values(agSim.stats().layers)[0];

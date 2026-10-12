@@ -812,3 +812,7 @@ MIT
 ## Simulation Presets Preview (v91)
 
 `versions/audiograph_91.html`: 6-7 presets per simulation layout (Particles: Aurora ribbons, Fireworks, Fountain, Galaxy orbit, Rising embers, Dust storm, Pulse rings; Fluid: Ink in water, Vortex storm, Lava lamp, Neon ripples, Silk, Spectrum fountain; Smoke: Campfire, Incense, Storm cloud, Dragon breath, Windswept, Volcano, Fog bank). Particles are dimmer (less glow blow-out). Exposure is now a neutral-at-0% adjustment and Bloom defaults to 0%.
+
+## Emitter Rotation Preview (v92)
+
+`versions/audiograph_92.html`: every simulation layout has **Emitter rotation** (0-360°) and **Emitter spin** (continuous, either direction) in the Sound & quality section; they rotate the ring, line, fountain or plume arrangement around the centre.
