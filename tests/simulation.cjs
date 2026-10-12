@@ -281,6 +281,16 @@ async function unsupportedCase() {
 
     // 10) modest measured benchmark (this machine only)
     const bench = [];
+    // presets: every preset applies cleanly, renders, and stays in the exposure limits
+    for (const m of ['simparticles', 'simfluid', 'simsmoke']) {
+      const n = await page.evaluate(m => { setLayout(m); return AG_SIM_PRESETS[m].length; }, m); assert.ok(n >= 6, m + ' has presets');
+      for (let i = 0; i < n; i++) {
+        await page.evaluate(i => simApplyPreset(i), i); await page.evaluate(() => agSim.ready());
+        await feed(page, 200, 0.55, 28); const g = await grab(page);
+        assert.ok(g.lit > 0.003, `${m} preset ${i} draws (lit=${g.lit})`); assert.ok(g.mean < 200, `${m} preset ${i} not blown out (mean=${g.mean})`);
+      }
+    }
+    assert.equal((await st(page)).errors.filter(e => !/synthetic|burst /.test(e)).length, 0, 'no GPU errors from presets'); ok('all simulation presets apply, render and stay in range');
     for (const [m, q] of [['simparticles', 'med'], ['simparticles', 'high'], ['simfluid', 'med'], ['simfluid', 'high'], ['simsmoke', 'med'], ['simsmoke', 'high']]) {
       const r = await page.evaluate(async ({ m, q }) => { setLayout(m); setSimOpt('q', q); agSim.reset(); agSim.inject({ spec: 0.5, onset: 0 }); renderDensity(); agSim.advance(10); await agSim.sync();
         const t0 = performance.now(), N = 60; agSim.advance(N, 1 / 60); await agSim.sync(); const dt = (performance.now() - t0) / N; renderDensity(); const L = Object.values(agSim.stats().layers)[0];

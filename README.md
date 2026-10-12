@@ -808,3 +808,7 @@ MIT
 ## Flowing Particles Preview (v89)
 
 `versions/audiograph_89.html`: particles flow with sound-driven curl currents and bass waves instead of mostly rotating; the spectrum is mapped symmetrically around the ring, removing a dark seam. Smoke reacts more strongly (velocity impulse, shear, spectrum glow).
+
+## Simulation Presets Preview (v91)
+
+`versions/audiograph_91.html`: 6-7 presets per simulation layout (Particles: Aurora ribbons, Fireworks, Fountain, Galaxy orbit, Rising embers, Dust storm, Pulse rings; Fluid: Ink in water, Vortex storm, Lava lamp, Neon ripples, Silk, Spectrum fountain; Smoke: Campfire, Incense, Storm cloud, Dragon breath, Windswept, Volcano, Fog bank). Particles are dimmer (less glow blow-out). Exposure is now a neutral-at-0% adjustment and Bloom defaults to 0%.
