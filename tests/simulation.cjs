@@ -235,17 +235,24 @@ async function unsupportedCase() {
 
     // 16) still export renders at the requested resolution without stepping or disturbing live state
     const ex = {};
+    await page.setViewportSize({ width: 1920, height: 1080 });
     for (const m of ['simfluid', 'simparticles', 'simsmoke']) {
-      await page.evaluate(m => { stackLayouts.splice(1); selectLayer(0); setLayout(m); simOpt.q = 'low'; agSim.reset(); renderDensity(); }, m); await loudFeed(150); await page.evaluate(() => renderDensity()); await page.evaluate(() => agSim.sync());
+      await page.evaluate(m => { stackLayouts.splice(1); selectLayer(0); setLayout(m); setSimOpt('q', 'low'); agSim.reset(); renderDensity(); }, m); await loudFeed(150); await page.evaluate(() => renderDensity()); await page.evaluate(() => agSim.sync());
       const b0 = await st(page), Lb = Object.values(b0.layers)[0];
-      const shot = await page.evaluate(() => new Promise(res => { const orig = HTMLCanvasElement.prototype.toBlob; HTMLCanvasElement.prototype.toBlob = function (cb, ...a) { HTMLCanvasElement.prototype.toBlob = orig;
+      for (const withBg of [false, true]) {
+      const shot = await page.evaluate(withBg => new Promise(res => { const orig = HTMLCanvasElement.prototype.toBlob, cap = dprCap; dprCap = 2; sizeCanvas(frameCv);
+        HTMLCanvasElement.prototype.toBlob = function (cb, ...a) { HTMLCanvasElement.prototype.toBlob = orig; dprCap = cap;
         const c = document.createElement('canvas'); c.width = this.width; c.height = this.height; const x = c.getContext('2d'); x.drawImage(this, 0, 0); const d = x.getImageData(0, 0, c.width, c.height).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
-        res({ w: this.width, h: this.height, mean: s / (d.length / 4) / 3, fw: frameCv.width, fh: frameCv.height }); }; exportWithBg = false; doExport(); }));
+        res({ w: this.width, h: this.height, mean: s / (d.length / 4) / 3, fw: frameCv.width, fh: frameCv.height }); }; exportWithBg = withBg; doExport(); }), withBg);
       const b1 = await st(page), Lc = Object.values(b1.layers)[0];
-      assert.equal(shot.w, shot.fw); assert.equal(shot.h, shot.fh); assert.ok(shot.w >= Lb.out[0], `export is not below the Low preview cap (${shot.w} > ${Lb.out[0]})`); assert.ok(shot.mean > 5, `${m} export image not blank (${shot.mean.toFixed(1)})`);
-      assert.equal(Lc.steps, Lb.steps, 'export does not advance the simulation'); assert.deepEqual(Lc.out, Lb.out, 'preview targets are untouched'); assert.deepEqual(Lc.exportOut, [shot.w, shot.h]); assert.equal(b1.exports, b0.exports + 1);
-      ex[m] = `${shot.w}x${shot.h} vs preview ${Lb.out.join('x')}`; await page.evaluate(() => { simOpt.q = 'med'; });
+      assert.equal(shot.w, shot.fw); assert.equal(shot.h, shot.fh); assert.ok(shot.w > Lb.out[0] * 1.5, `export exceeds the Low preview cap (${shot.w} > ${Lb.out[0]})`); assert.ok(shot.mean > 5, `${m} export image not blank (${shot.mean.toFixed(1)})`);
+      assert.equal(Lc.steps, Lb.steps, 'export does not advance the simulation'); assert.deepEqual(Lc.out, Lb.out, 'preview targets are untouched'); assert.deepEqual(Lc.exportOut, [shot.w, shot.h]); assert.equal(b1.exports, b0.exports + (withBg ? 2 : 1));
+      if (m === 'simparticles') assert.ok(shot.mean > 20, 'particle export preserves accumulated trails: ' + shot.mean);
+      ex[m] = `${shot.w}x${shot.h} vs preview ${Lb.out.join('x')}`;
+      }
+      await page.evaluate(() => { simOpt.q = 'med'; exportWithBg = false; sizeCanvas(frameCv); });
     }
+    await page.setViewportSize({ width: 1440, height: 900 });
     ok('still export renders at exact requested size from existing state, no stepping', JSON.stringify(ex));
     const fresh = await page.evaluate(() => new Promise(res => { setLayout('simfluid'); agSim.inject(null); agSim.reset(); const orig = HTMLCanvasElement.prototype.toBlob; HTMLCanvasElement.prototype.toBlob = function () { HTMLCanvasElement.prototype.toBlob = orig;
       const c = document.createElement('canvas'); c.width = this.width; c.height = this.height; const x = c.getContext('2d'); x.drawImage(this, 0, 0); const d = x.getImageData(0, 0, c.width, c.height).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; res(s / (d.length / 4) / 3); }; exportWithBg = false; doExport(); }));
@@ -270,9 +277,11 @@ async function unsupportedCase() {
     // 10) modest measured benchmark (this machine only)
     const bench = [];
     for (const [m, q] of [['simparticles', 'med'], ['simparticles', 'high'], ['simfluid', 'med'], ['simfluid', 'high'], ['simsmoke', 'med'], ['simsmoke', 'high']]) {
-      const r = await page.evaluate(async ({ m, q }) => { setLayout(m); simOpt.q = q; agSim.reset(); agSim.inject({ spec: 0.5, onset: 0 }); renderDensity(); agSim.advance(10); await agSim.sync();
+      const r = await page.evaluate(async ({ m, q }) => { setLayout(m); setSimOpt('q', q); agSim.reset(); agSim.inject({ spec: 0.5, onset: 0 }); renderDensity(); agSim.advance(10); await agSim.sync();
         const t0 = performance.now(), N = 60; agSim.advance(N, 1 / 60); await agSim.sync(); const dt = (performance.now() - t0) / N; renderDensity(); const L = Object.values(agSim.stats().layers)[0];
         agSim.inject(null); return { ms: dt, grid: L.grid, n: L.particles }; }, { m, q });
+      if (m === 'simparticles') assert.equal(r.n, q === 'high' ? 500000 : 200000);
+      else assert.equal(r.grid[1], q === 'high' ? 384 : 256);
       bench.push(`${m.slice(3)}/${q} ${r.ms.toFixed(2)} ms/step (${r.n ? r.n + ' particles' : r.grid.join('x')})`); assert.ok(isFinite(r.ms) && r.ms > 0);
     }
     console.log('  benchmark (steps incl. GPU completion, headless Chrome, ' + s0.adapter + ', not a universal FPS claim):\n    ' + bench.join('\n    '));

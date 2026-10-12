@@ -2225,6 +2225,8 @@ fn rampC(x:f32)->vec3f{return textureSampleLevel(tC,smp,vec2f(clamp(x,0.0,1.0),0
   let a=clamp(alpha+0.5*lum(em)*min(1.0,rho*1.5+T*0.3),0.0,1.0);
   return vec4f(col,a);}
 fn bw(i:i32)->f32{var w=array<f32,5>(0.227027,0.1945946,0.1216216,0.054054,0.016216);return w[i];}
+@fragment fn fCopy(@builtin(position) pos:vec4f)->@location(0) vec4f{
+  return textureSampleLevel(tA,smp,pos.xy/vec2f(u.ow,u.oh),0.0);}
 @fragment fn fBright(@builtin(position) pos:vec4f)->@location(0) vec4f{ // tA=hdr -> half res
   let uv=pos.xy/(vec2f(textureDimensions(tA))*0.5);let ts=0.5/vec2f(textureDimensions(tA));
   var c=vec3f(0.0);
@@ -2417,7 +2419,7 @@ var agSim=(function(){
     P.pDraw=dev.createRenderPipeline({layout:PL(L.rend),vertex:{module:mr,entryPoint:'pVS'},fragment:{module:mr,entryPoint:'pFS',targets:[{format:'rgba16float',blend:add}]},primitive:{topology:'triangle-list'}});
     P.pFade=dev.createRenderPipeline({layout:PL(L.rend),vertex:{module:mr,entryPoint:'fadeVS'},fragment:{module:mr,entryPoint:'fadeFS',targets:[{format:'rgba16float',blend:fade}]},primitive:{topology:'triangle-list'}});
     var full=function(fs,fmt){return dev.createRenderPipeline({layout:PL(L.post),vertex:{module:mo,entryPoint:'vsFull'},fragment:{module:mo,entryPoint:fs,targets:[{format:fmt}]},primitive:{topology:'triangle-list'}})};
-    ['fFluid','fSmoke','fBright','fBlurH','fBlurV'].forEach(function(n){P[n]=full(n,'rgba16float')});
+    ['fFluid','fSmoke','fCopy','fBright','fBlurH','fBlurV'].forEach(function(n){P[n]=full(n,'rgba16float')});
     P.fComp=full('fComp',G.fmt);
     G.P=P;
     G.smp=dev.createSampler({magFilter:'linear',minFilter:'linear',addressModeU:'clamp-to-edge',addressModeV:'clamp-to-edge'});
@@ -2512,10 +2514,19 @@ var agSim=(function(){
     var tr=st.tr,sc=Math.min(1,tr.o/Math.max(W,H));
     var ow=Math.max(64,Math.round(W*sc)),oh=Math.max(64,Math.round(H*sc));
     if(st.ow===ow&&st.oh===oh)return;
-    if(st.hdr){st.hdr.t.destroy();st.bl1.t.destroy();st.bl2.t.destroy();st.res=st.res.filter(function(t){return t!==st.hdr.t&&t!==st.bl1.t&&t!==st.bl2.t})}
+    var old=st.hdr?[st.hdr,st.bl1,st.bl2]:null;
     st.ow=ow;st.oh=oh;st.cv.width=ow;st.cv.height=oh;
     st.hdr=rt(st,ow,oh);st.bl1=rt(st,Math.ceil(ow/2),Math.ceil(oh/2));st.bl2=rt(st,Math.ceil(ow/2),Math.ceil(oh/2));
-    st.bgc={};st.dirty=true;st.accumClear=true}
+    st.bgc={};st.dirty=true;st.accumClear=true;
+    if(old){
+      if(st.kind==='particles'){
+        setU(st,{ow:ow,oh:oh});upload(st);
+        var enc=G.dev.createCommandEncoder();fp(st,enc,'fCopy',st.hdr.v,old[0]);G.dev.queue.submit([enc.finish()]);
+        st.accumClear=false;st.bgc={};
+      }
+      old.forEach(function(o){o.t.destroy()});
+      st.res=st.res.filter(function(t){return !old.some(function(o){return o.t===t})});
+    }}
   function disposeState(st,lost){
     delete ST[st.id];S.disposed++;
     if(lost)return;
@@ -2649,6 +2660,11 @@ var agSim=(function(){
       ecx.configure({device:G.dev,format:G.fmt,alphaMode:'premultiplied'});
       st.cv=ecv;st.cx=ecx;st.ow=ow;st.oh=oh;st.bgc={};st.accumClear=true;st.dirty=true;
       st.hdr=T(ow,oh);st.bl1=T(Math.ceil(ow/2),Math.ceil(oh/2));st.bl2=T(Math.ceil(ow/2),Math.ceil(oh/2));
+      if(st.kind==='particles'&&sv.hdr&&!sv.ac){
+        setU(st,{ow:ow,oh:oh});upload(st);
+        var enc=G.dev.createCommandEncoder();fp(st,enc,'fCopy',st.hdr.v,sv.hdr);G.dev.queue.submit([enc.finish()]);
+        st.accumClear=false;st.dirty=false;
+      }
       render(st,k);ctx.drawImage(ecv,0,0,W,H);st.lastExport=[ow,oh];
     }finally{
       st.hdr=sv.hdr;st.bl1=sv.bl1;st.bl2=sv.bl2;st.cv=sv.cv;st.cx=sv.cx;st.ow=sv.ow;st.oh=sv.oh;st.bgc=sv.bgc;st.accumClear=sv.ac;st.dirty=sv.dirty;
@@ -10303,7 +10319,8 @@ function setExportBg(v,btn){exportWithBg=v;btn.parentElement.querySelectorAll('.
 function doExport(){agSim.expMode(true);try{agSim.dedupe();return _agDoExport()}finally{agSim.expMode(false)}}
 function _agDoExport(){
   var cv=document.getElementById('frameCv');
-  if(exportWithBg){
+  var hasSimulation=_agIsSim(layoutMode)||(stackMode&&stackLayouts.some(function(l){return _agIsSim(l.layout)}));
+  if(exportWithBg&&!hasSimulation){
     // Copy canvas and add background behind it
     var expCv=document.createElement('canvas');expCv.width=cv.width;expCv.height=cv.height;
     var expCtx=expCv.getContext('2d');
@@ -10315,10 +10332,11 @@ function _agDoExport(){
     var sz=sizeCanvas(cv);
     var expCv=document.createElement('canvas');expCv.width=cv.width;expCv.height=cv.height;
     var expCtx=expCv.getContext('2d');expCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
+    if(exportWithBg){expCtx.fillStyle=canvasBg;expCtx.fillRect(0,0,sz.W,sz.H)}
     // Draw density directly (no bg fill)
     var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
     var vals=audioBuffer?getRangeRMS(sT,eT):[];
-    if(vals.length){
+    if(vals.length||hasSimulation){
       if(stackMode&&stackLayouts.length>=1){
         var origLayout=layoutMode;
         var origParams=getLayoutParams();
