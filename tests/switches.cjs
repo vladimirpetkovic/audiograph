@@ -73,11 +73,14 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
       const offenders = [...area.querySelectorAll('.knob-grid,.switch-grid,.knob-cell,.switch-cell,.ag-switch')].filter(el => {
         const r = el.getBoundingClientRect(); return r.width && (r.left < ar.left - 1 || r.right > ar.right + 1);
       }).map(el => el.className || el.tagName);
-      return { scroll: area.scrollWidth - area.clientWidth, offenders, height: area.scrollHeight };
+      const simulation = document.getElementById('simulationLayouts');
+      return { scroll: area.scrollWidth - area.clientWidth, offenders, height: area.scrollHeight,
+        simulationHeight: simulation ? simulation.getBoundingClientRect().height : 0 };
     });
     assert.ok(overflow.scroll <= 1, 'sidebar has no horizontal scroll: ' + JSON.stringify(overflow));
     // v45 adds the ✨ AI Look panel (~200px) above Layers.
-    assert.ok(overflow.height <= 6250, 'expanded sidebar stays compact: ' + JSON.stringify(overflow));
+    assert.ok(overflow.simulationHeight <= 48, 'Simulation layout group stays compact');
+    assert.ok(overflow.height <= 6250 + overflow.simulationHeight + (overflow.simulationHeight ? 8 : 0), 'expanded sidebar stays compact: ' + JSON.stringify(overflow));
     assert.deepEqual(overflow.offenders, []);
     const chips = await page.evaluate(() => {
       const row = document.querySelector('#panelPresets .preset-actions'), rr = row.getBoundingClientRect(), buttons = [...row.querySelectorAll('.mbtn')];

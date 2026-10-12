@@ -701,6 +701,16 @@ Preview: [`versions/audiograph_85.html`](versions/audiograph_85.html). The publi
 
 **References** (concepts only; no code copied): [Stam, *Stable Fluids* (SIGGRAPH 1999)](https://www.dgp.toronto.edu/public_user/stam/reality/Research/pdf/ns.pdf); [Fedkiw, Stam, Jensen, *Visual Simulation of Smoke* (SIGGRAPH 2001)](https://graphics.stanford.edu/courses/cs448-01-spring/papers/fedkiw.pdf); Selle, Fedkiw, Kim, Liu, Rossignac, *An Unconditionally Stable MacCormack Method* (J. Sci. Comput. 2008); [Harris, *Fast Fluid Dynamics Simulation on the GPU* (GPU Gems, ch. 38)](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu); Bridson, Hourihan, Nordenstam, *Curl-Noise for Procedural Fluid Flow* (SIGGRAPH 2007); [official WebGPU compute samples](https://github.com/webgpu/webgpu-samples/tree/main/src/sample/computeBoids); W3C *WebGPU* and *WGSL* specifications.
 
+## Clearer Audio Response & Slow Smoke Preview (v86)
+
+**[Try v86](versions/audiograph_86.html)**. Particles, Fluid and Smoke now have their own **Simulation** layout section, separate from General. The main app remains v84; v85 is preserved.
+
+Bass onsets from the app's existing low-pass audio detector now complement spectral-flux detection. Shorter beat accents separate successive hits: particles emit bursts against a quieter continuous stream, fluid jets inject stronger dye/force on hits, and smoke responds with heat/output pulses and a brief lighting accent while its billowing stays slow. **Audio contrast** (0-100%, default 100%) adjusts the additional accents; **Beat burst** controls beat strength and **Attack/Release** control sustained spectrum response. Silence still stops emission and global Intensity still scales all sound response.
+
+Smoke has a dedicated **Smoke speed** control (5-150%, default 25%). Its default transport runs at one-quarter speed, independently of the real-time audio attack/release and beat timing. Smoke speed multiplies the shared Time scale and is saved per layer in presets, import/export and undo. Existing v85 smoke presets acquire the slow default when they lack this new control.
+
+Run `node tests/simulation-response.cjs` for actual audio beat-timing, visible beat accents, the 4:1 smoke transport-speed ratio, independent audio envelopes and per-layer persistence. The shared GPU suite can target v86 with `AUDIOGRAPH_SIM_BUILD=versions/audiograph_86.html AUDIOGRAPH_REQUIRE_WEBGPU=1 node tests/simulation.cjs`.
+
 ## Quick Start
 
 1. Open the [live app](https://vladimirpetkovic.github.io/audiograph/) (Chrome/Edge recommended) or `index.html` locally.
