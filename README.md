@@ -852,3 +852,7 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 ## v100 – Sound & quality knobs no longer freeze in layer stacks
 
 `versions/audiograph_100.html`: with several layers, the per-frame layer swap moved the shared "Sound & quality" box between layout panels every frame, which dropped the mouse drag (the knob lit up but would not turn). The box now follows the layer being edited. Tests added to `tests/auto.cjs`.
+
+## v100 is now the main app
+
+`index.html` is now v100 (previously v84). v84 stays archived at `versions/audiograph_84.html`.

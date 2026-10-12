@@ -109,6 +109,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .ag-na{display:none!important}
 .knob-grid:not(:has(>.knob-cell:not([style*="display: none"]):not(.ag-na))){display:none}
 .prow.knob-cell,.morph-duration-cell.knob-cell{flex:0 0 calc((100% - 20px)/3);max-width:calc((100% - 20px)/3);flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;position:relative;padding:2px 0}
+.knob-auto{pointer-events:none;position:absolute;left:50%;top:50%;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;padding:0;border:0;border-radius:50%;background:#3a3a42;box-shadow:inset 0 1px 2px rgba(0,0,0,.5);cursor:pointer;opacity:.8;transition:background .15s,box-shadow .15s,opacity .15s}
+.knob-auto.on{background:var(--knob-accent,#6ee7b7);box-shadow:0 0 6px var(--knob-accent,#6ee7b7);opacity:1}
 .knob-cell .prow-label{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.5rem;letter-spacing:.12em}
 .knob-cell .prow-val{min-width:0;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.62rem;font-weight:600}
 .knob-cell .prow-val-input{width:56px;text-align:center}
@@ -327,6 +329,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
   .preview-area{overflow:visible;padding:12px;gap:10px}
   .frame-view{height:min(42vh,440px);height:min(42svh,440px);min-height:240px;flex-shrink:0}
 }
+.mode-btns.dense{gap:3px}.mode-btns.dense .mbtn{padding:4px 5px;letter-spacing:0}.sim-status{font-size:.62rem;line-height:1.35;color:var(--muted,#8a8a96);word-break:break-word}.sim-status:not(.bad){display:none}.sim-status.bad{color:#ff8a80}
 </style>
 </head>
 <body>
@@ -514,7 +517,8 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><button class="panel-rand" onclick="event.stopPropagation();randAppearance()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow prow-stack"><span class="prow-label">Layout</span><div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:420px;min-width:0">
-          <div><div class="sublabel">General</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('rose',this)" title="Rose curve (rhodonea): petals set by Petals and Denominator.">Rose</button><button class="mbtn amber" onclick="setLayout('spiro',this)" title="Spirograph: a pen on a rolling wheel inside a ring.">Spiro</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
+          <div><div class="sublabel">General</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('rose',this)" title="Rose curve (rhodonea): petals set by Petals and Denominator.">Rose</button><button class="mbtn amber" onclick="setLayout('spiro',this)" title="Spirograph: a pen on a rolling wheel inside a ring.">Spiro</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
+          <div id="simulationLayouts"><div class="sublabel">Simulation</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particles</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button></div></div>
           <div><div class="sublabel">3D</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" data-objm="knot" onclick="setObjLayout('knot',this)">Knot</button><button class="mbtn amber" data-objm="cube" onclick="setObjLayout('cube',this)">Cube</button><button class="mbtn amber" data-objm="torus" onclick="setObjLayout('torus',this)">Torus</button></div></div>
           <div><div class="sublabel">Input</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('pixelwarp',this)">Pixel Warp</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" data-objm="file" onclick="setObjLayout('file',this)">3D Object</button></div></div>
         </div></div>
@@ -787,12 +791,12 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     <div class="panel" id="panelGeo">
       <div class="panel-head" onclick="togglePanel('panelGeo')"><span class="panel-title">Geometry &amp; Motion</span><button class="panel-rand" onclick="event.stopPropagation();randGeometry()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow"><span class="prow-label">Density</span><input type="range" min="80" max="800" value="350" step="10" id="pLines" oninput="upP()"><span class="prow-val" id="vLines">350</span></div>
+        <div class="prow" id="rowLines"><span class="prow-label">Density</span><input type="range" min="80" max="800" value="350" step="10" id="pLines" oninput="upP()"><span class="prow-val" id="vLines">350</span></div>
         <div class="prow" id="rowContrast"><span class="prow-label">Contrast</span><input type="range" min="5" max="100" value="75" step="1" id="pContrast" oninput="upP()"><span class="prow-val" id="vContrast">75%</span></div>
-        <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="5" max="200" value="100" step="5" id="pSensitivity" oninput="upP()"><span class="prow-val" id="vSensitivity">100%</span></div>
+        <div class="prow" id="rowSens"><span class="prow-label">Sensitivity</span><input type="range" min="5" max="200" value="100" step="5" id="pSensitivity" oninput="upP()"><span class="prow-val" id="vSensitivity">100%</span></div>
         <div class="prow" id="rowHeight"><span class="prow-label">Height</span><input type="range" min="5" max="300" value="80" step="5" id="pHeight" oninput="upP()"><span class="prow-val" id="vHeight">80%</span></div>
         <div class="prow" id="rowThick"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="15" value="1" step="0.25" id="pThick" oninput="upP()"><span class="prow-val" id="vThick">1px</span></div>
-        <div class="prow"><span class="prow-label">Fade edges</span><input type="range" min="0" max="100" value="0" step="5" id="pFadeEdge" oninput="upP()"><span class="prow-val" id="vFadeEdge">0%</span></div>
+        <div class="prow" id="rowFadeEdge"><span class="prow-label">Fade edges</span><input type="range" min="0" max="100" value="0" step="5" id="pFadeEdge" oninput="upP()"><span class="prow-val" id="vFadeEdge">0%</span></div>
         <div class="prow" id="rowVaryH"><span class="prow-label">Vary height</span><div class="mode-btns"><button class="mbtn on" onclick="setVH(true,this)">Yes</button><button class="mbtn" onclick="setVH(false,this)">No</button></div></div>
         <div class="prow" id="rowVaryT"><span class="prow-label">Vary thick</span><div class="mode-btns"><button class="mbtn" onclick="setVT(true,this)">Yes</button><button class="mbtn on" onclick="setVT(false,this)">No</button></div></div>
         <div class="prow"><span class="prow-label">Scale→loud</span><div class="mode-btns"><button class="mbtn" onclick="setZoomLoud(true,this)">On</button><button class="mbtn on" onclick="setZoomLoud(false,this)">Off</button></div></div>
@@ -821,6 +825,11 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-body">
         <div class="prow"><div class="mode-btns"><button class="mbtn" onclick="setC('solid',this)">Solid</button><button class="mbtn on" onclick="setC('toneramp',this)">Tone ramp</button><button class="mbtn" onclick="setC('simpleramp',this)">Simple ramp</button></div></div>
         <div id="colorPanel"></div>
+        <div class="sublabel" style="margin-top:6px">Automation</div>
+        <div class="prow prow-stack" title="Rotates every color of the gradient through the whole spectrum, continuously."><span class="prow-label">Auto color shift</span><div class="mode-btns"><button class="mbtn on" onclick="agKnobAuto.setHue(false,this)">Off</button><button class="mbtn" onclick="agKnobAuto.setHue(true,this)">On</button></div></div>
+        <div class="prow" title="How fast the colors travel through the spectrum, in degrees per second."><span class="prow-label">Shift speed</span><input type="range" min="1" max="120" value="20" step="1" id="pAutoHueSpeed" oninput="agKnobAuto.setHueSpeed(this.value);document.getElementById('vAutoHueSpeed').textContent=this.value+'\u00b0/s'"><span class="prow-val" id="vAutoHueSpeed">20&deg;/s</span></div>
+        <div class="prow" title="Speed of every knob that has its auto (round dot in the middle: click it to toggle) button switched on."><span class="prow-label">Knob auto speed</span><input type="range" min="10" max="400" value="100" step="5" id="pAutoKnobSpeed" oninput="agKnobAuto.setSpeed(+this.value);document.getElementById('vAutoKnobSpeed').textContent=this.value+'%'"><span class="prow-val" id="vAutoKnobSpeed">100%</span></div>
+        <div class="prow prow-stack"><span class="prow-label">Auto knobs</span><div class="mode-btns grow-btns"><button class="mbtn" onclick="agKnobAuto.stopAll()" title="Switch every knob's auto mode off.">Stop all</button></div></div>
       </div>
     </div>
     <!-- OUTLINE -->
@@ -860,7 +869,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     <div class="panel" id="panelFx">
       <div class="panel-head" onclick="togglePanel('panelFx')"><span class="panel-title">Deformers</span><button class="panel-rand" onclick="event.stopPropagation();randEffects()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body" id="fxBody">
-        <div class="prow"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
+        <div class="prow" id="rowAmp"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
         <div class="prow" title="Bass punch: kicks and bass hits push lines, particles and beat morphs harder, and the image relaxes between hits. Measured from a 140 Hz low-pass tap; 0 = v30 response."><span class="prow-label">Bass punch</span><input type="range" min="0" max="100" value="60" step="1" id="pBassPunch" oninput="agAudio.ui()"><span class="prow-val" id="vBassPunch">60%</span></div>
         <div class="prow" title="How long a bass hit keeps pushing before the image relaxes (release time)."><span class="prow-label">Bass release</span><input type="range" min="60" max="800" value="220" step="10" id="pBassRelease" oninput="agAudio.ui()"><span class="prow-val" id="vBassRelease">220 ms</span></div>
         <div class="prow"><span class="prow-label">Drop</span><div class="mode-btns"><button class="mbtn" onclick="setDrop(true,this)">On</button><button class="mbtn on" onclick="setDrop(false,this)">Off</button></div></div>
@@ -1989,9 +1998,825 @@ function updateStyleOpts(s){
 }
 function setOutline(v,btn){pushUndo();showOutline=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');document.getElementById('outlineParams').style.display=v?'flex':'none';renderDensity()}
 function setOutlineStyle(s,btn){pushUndo();outlineStyle=s;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on');renderDensity()}
+
+// ---- v85 WebGPU simulation: WGSL (original; Stable-Fluids-style advect/project, vorticity confinement, light-marched smoke, ring-buffer particles) ----
+var AG_SIM_UF=['dt','time','vw','vh','sw','sh','asp','bmode','visc','dyeDecay','vort','buoy','cool','heat','turb','windx','windy',
+'sub','bass','lowmid','mid','himid','treb','level','onset','onsetAge','emitN','emitType','jet','radius','swirl','spin','kick','dyeAmt',
+'expo','bloom','shade','lightx','lighty','lightI','opac','shadow','ember','tintMode','colorBy','ow','oh','compMode','tintMix',
+'pn','pcursor','pemit','plife','pdrag','pgrav','pcurl','pcscale','pattract','pvort','psize','pbounds','pseed','pglow','ptrail','response','torque','sphase','sstr','rate','erot','bpun'];
+var AG_SIM_NF=Math.ceil((64+AG_SIM_UF.length)/4)*4;
+var AG_SIM_HEAD='struct U{spec:array<vec4f,16>,'+AG_SIM_UF.map(function(n){return n+':f32'}).join(',')+'};\n'+`
+@group(0) @binding(0) var<uniform> u:U;
+@group(0) @binding(1) var smp:sampler;
+const PI=3.14159265;
+fn S(i:u32)->f32{return u.spec[i>>2u][i&3u];}
+fn specAt(x:f32)->f32{let f=clamp(x,0.0,1.0)*63.0;let i=u32(floor(f));let j=min(i+1u,63u);return mix(S(i),S(j),fract(f));}
+fn pcg(v:u32)->u32{let s=v*747796405u+2891336197u;let w=((s>>((s>>28u)+4u))^s)*277803737u;return (w>>22u)^w;}
+fn h2(p:vec2f)->vec2f{let q=vec2f(dot(p,vec2f(127.1,311.7)),dot(p,vec2f(269.5,183.3)));return -1.0+2.0*fract(sin(q)*43758.5453123);}
+fn pnoise(p:vec2f)->f32{let i=floor(p);let f=fract(p);let w=f*f*f*(f*(f*6.0-15.0)+10.0);
+  return mix(mix(dot(h2(i),f),dot(h2(i+vec2f(1.0,0.0)),f-vec2f(1.0,0.0)),w.x),mix(dot(h2(i+vec2f(0.0,1.0)),f-vec2f(0.0,1.0)),dot(h2(i+vec2f(1.0,1.0)),f-vec2f(1.0,1.0)),w.x),w.y);}
+fn psi(p:vec2f)->f32{return pnoise(p)+0.5*pnoise(p*2.03+vec2f(17.1,5.3));}
+fn curlN(p:vec2f)->vec2f{let e=0.05;return vec2f(psi(p+vec2f(0.0,e))-psi(p-vec2f(0.0,e)),-(psi(p+vec2f(e,0.0))-psi(p-vec2f(e,0.0))))/(2.0*e);}
+fn lum(c:vec3f)->f32{return dot(c,vec3f(0.2126,0.7152,0.0722));}
+`;
+var AG_SIM_GRID=AG_SIM_HEAD+`
+@group(0) @binding(2) var tA:texture_2d<f32>;
+@group(0) @binding(3) var tB:texture_2d<f32>;
+@group(0) @binding(4) var tC:texture_2d<f32>;
+@group(0) @binding(5) var outT:texture_storage_2d<rgba16float,write>;
+fn wrapUV(uv:vec2f)->vec2f{if(u.bmode>0.5&&u.bmode<1.5){return fract(uv);}return uv;}
+fn sT(t:texture_2d<f32>,uv:vec2f)->vec4f{return textureSampleLevel(t,smp,wrapUV(uv),0.0);}
+fn texel(t:texture_2d<f32>,c:vec2i)->vec4f{let sz=vec2i(textureDimensions(t));var q=c;if(u.bmode>0.5&&u.bmode<1.5){q=(c+sz)%sz;}else{q=clamp(c,vec2i(0),sz-vec2i(1));}return textureLoad(t,q,0);}
+fn loadV(t:texture_2d<f32>,c:vec2i,d:vec2i)->vec2f{
+  let sz=vec2i(textureDimensions(t));var q=c+d;var fx=1.0;var fy=1.0;
+  if(u.bmode<0.5){if(q.x<0||q.x>=sz.x){q.x=clamp(q.x,0,sz.x-1);fx=-1.0;}if(q.y<0||q.y>=sz.y){q.y=clamp(q.y,0,sz.y-1);fy=-1.0;}}
+  else if(u.bmode<1.5){q=(q+sz)%sz;}else{q=clamp(q,vec2i(0),sz-vec2i(1));}
+  let v=textureLoad(t,q,0).xy;return vec2f(v.x*fx,v.y*fy);}
+fn loadP(t:texture_2d<f32>,c:vec2i,d:vec2i)->f32{
+  let sz=vec2i(textureDimensions(t));var q=c+d;
+  if(u.bmode<0.5){q=clamp(q,vec2i(0),sz-vec2i(1));}
+  else if(u.bmode<1.5){q=(q+sz)%sz;}
+  else{if(q.x<0||q.y<0||q.x>=sz.x||q.y>=sz.y){return 0.0;}}
+  return textureLoad(t,q,0).x;}
+fn rampOf(x:f32)->vec3f{return textureSampleLevel(tB,smp,vec2f(clamp(x,0.0,1.0),0.5),0.0).rgb;}
+struct Em{pos:vec2f,dir:vec2f,amp:f32,t:f32};
+fn emitter(i:u32)->Em{
+  let n=max(u.emitN,1.0);let a=(f32(i)+0.5)/n;var e:Em;e.t=a;
+  let band=specAt(a);e.amp=band*(1.0+select(3.2,0.7,u.tintMode>0.5)*u.onset*u.response)*(1.0+u.bpun*u.bass*2.2*(1.0-smoothstep(0.0,0.45,a)*0.7)*u.response);
+  let smoke=u.tintMode>0.5;let et=u32(u.emitType);let sw=u.swirl;
+  let ang=a*2.0*PI+u.time*u.spin+u.sphase*0.5+u.erot;let rad=vec2f(cos(ang),sin(ang));let tn=vec2f(-rad.y,rad.x);
+  let sw2=sw+u.torque*select(1.4,0.5,smoke);
+  if(et==0u){
+    let R=select(0.30,0.27,smoke)*(1.0-0.3*u.bass*u.sstr)*(1.0+0.12*u.treb*u.sstr);
+    e.pos=vec2f(0.5+rad.x*R/u.asp,0.5+rad.y*R);
+    if(smoke){e.dir=normalize(vec2f(0.0,-1.0)+tn*sw2*0.35);}else{e.dir=normalize(-rad+tn*sw2*1.6);}
+  }else if(et==1u){
+    e.pos=vec2f(0.08+a*0.84,select(0.9,0.95,smoke));
+    e.pos.x=e.pos.x+0.06*sin(a*9.0+u.sphase)*u.sstr*(0.4+u.mid);e.dir=normalize(vec2f(sw2*0.5,-1.0));
+  }else{
+    if(smoke){e.pos=vec2f(0.5+(a-0.5)*0.34,0.93);e.dir=normalize(vec2f((a-0.5)*sw2*0.6,-1.0));}
+    else{e.pos=vec2f(0.5+rad.x*0.05/u.asp,0.5+rad.y*0.05);e.dir=normalize(rad+tn*sw2*1.6);}
+  }
+  if(et>0u){let ce=cos(u.erot);let se=sin(u.erot);let q=(e.pos-vec2f(0.5))*vec2f(u.asp,1.0);e.pos=vec2f(0.5)+vec2f(q.x*ce-q.y*se,q.x*se+q.y*ce)/vec2f(u.asp,1.0);e.dir=vec2f(e.dir.x*ce-e.dir.y*se,e.dir.x*se+e.dir.y*ce);}
+  return e;}
+fn shock(uv:vec2f)->vec4f{ // xy: outward direction (height units), z: ring weight
+  let c=select(vec2f(0.5,0.5),vec2f(0.5,0.86),u.tintMode>0.5);
+  let d=(uv-c)*vec2f(u.asp,1.0);let r=length(d);
+  let R=0.04+u.onsetAge*0.85;let w=0.05+u.onsetAge*0.06;
+  let q=(r-R)/w;let ring=exp(-q*q)*exp(-u.onsetAge*2.4);
+  return vec4f(d/max(r,1e-4),ring,r);}
+@compute @workgroup_size(8,8) fn kSplatVel(@builtin(global_invocation_id) g:vec3u){
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}
+  let uv=(vec2f(g.xy)+0.5)/vec2f(sz);var v=textureLoad(tA,vec2i(g.xy),0).xy;
+  let rr=u.radius*u.radius;let n=u32(u.emitN);
+  for(var i=0u;i<n;i=i+1u){let e=emitter(i);let d=(uv-e.pos)*vec2f(u.asp,1.0);let gs=exp(-dot(d,d)/rr);
+    v=v+e.dir*(e.amp*u.jet)*gs*u.dt*select(1.0,sqrt(u.rate)*(0.4+2.2*e.amp),u.tintMode>0.5);}
+  let s=shock(uv);
+  {let dd=(uv-vec2f(0.5,select(0.5,0.62,u.tintMode>0.5)))*vec2f(u.asp,1.0);let rr2=length(dd)+1e-3;let fall=exp(-rr2*rr2/0.16);let tg=vec2f(-dd.y,dd.x)/rr2;
+   if(u.tintMode>0.5){v=v+vec2f(sin(uv.y*8.0+u.sphase*1.3)*u.torque*0.9+(pnoise(vec2f(uv.y*5.0,u.time*0.4))*u.treb*3.0),0.0)*u.sstr*u.dt*(0.5+u.level)*2.5;}
+   else{v=v+(tg*u.torque*3.0*rr2*fall+curlN(uv*5.0+vec2f(u.time*0.3,0.0))*u.treb*14.0*u.sstr)*u.dt;}}
+  if(u.tintMode>0.5){let d=(uv-vec2f(0.5,0.86))*vec2f(u.asp,1.0);v=v+vec2f(0.0,-1.0)*u.onset*u.kick*0.7*exp(-dot(d,d)/0.03)*u.dt;}
+  else{v=v+s.xy*u.onset*u.kick*s.z*u.dt;}
+  textureStore(outT,vec2i(g.xy),vec4f(v,0.0,1.0));}
+@compute @workgroup_size(8,8) fn kSplatDye(@builtin(global_invocation_id) g:vec3u){ // tA=scalar, tB=ramp
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}
+  let uv=(vec2f(g.xy)+0.5)/vec2f(sz);var q=textureLoad(tA,vec2i(g.xy),0);
+  let rr=u.radius*u.radius;let n=u32(u.emitN);let smoke=u.tintMode>0.5;
+  for(var i=0u;i<n;i=i+1u){let e=emitter(i);let d=(uv-e.pos)*vec2f(u.asp,1.0);let rb=select(1.0,0.9+0.2*clamp(e.amp,0.0,1.4),smoke&&u.response>0.0);let gs=exp(-dot(d,d)/(rr*rb*rb))*e.amp*u.dt*select(1.0,pow(u.rate,0.25)*(0.56+0.1*e.amp),smoke);
+    if(smoke){let add=gs*u.dyeAmt;q.x=q.x+add;q.y=q.y+gs*u.heat*(1.0+u.onset*u.response*0.5);q.z=q.z+add*(0.15+0.85*e.t);}
+    else{q=vec4f(q.xyz+rampOf(e.t)*gs*u.dyeAmt,1.0);}}
+  let s=shock(uv);
+  if(smoke){let d=(uv-vec2f(0.5,0.86))*vec2f(u.asp,1.0);let gs=exp(-dot(d,d)/0.02)*u.onset*u.dt*u.dyeAmt*0.9;q.x=q.x+gs;q.y=q.y+gs*u.heat*1.2;q.z=q.z+gs*0.6;}
+  textureStore(outT,vec2i(g.xy),q);}
+@compute @workgroup_size(8,8) fn kBuoy(@builtin(global_invocation_id) g:vec3u){ // tA=vel tB=smoke
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}
+  let uv=(vec2f(g.xy)+0.5)/vec2f(sz);var v=textureLoad(tA,vec2i(g.xy),0).xy;let s=sT(tB,uv);
+  let lift=u.buoy*(s.y*1.4-s.x*0.18);v.y=v.y-lift*u.dt;
+  v.x=v.x+(u.windx*(0.25+s.x))*u.dt;
+  let w=curlN(uv*vec2f(u.asp,1.0)*3.2+vec2f(u.time*0.07,-u.time*0.21));
+  v=v+w*u.turb*smoothstep(0.0,0.6,s.x)*u.dt*(1.0+u.treb*2.0);
+  textureStore(outT,vec2i(g.xy),vec4f(v,0.0,1.0));}
+@compute @workgroup_size(8,8) fn kCurl(@builtin(global_invocation_id) g:vec3u){
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}let c=vec2i(g.xy);
+  let l=loadV(tA,c,vec2i(-1,0));let r=loadV(tA,c,vec2i(1,0));let t=loadV(tA,c,vec2i(0,1));let b=loadV(tA,c,vec2i(0,-1));
+  textureStore(outT,c,vec4f(0.5*((r.y-l.y)-(t.x-b.x)),0.0,0.0,1.0));}
+@compute @workgroup_size(8,8) fn kVort(@builtin(global_invocation_id) g:vec3u){ // tA=vel tB=curl
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}let c=vec2i(g.xy);
+  let l=abs(texel(tB,c+vec2i(-1,0)).x);let r=abs(texel(tB,c+vec2i(1,0)).x);let t=abs(texel(tB,c+vec2i(0,1)).x);let b=abs(texel(tB,c+vec2i(0,-1)).x);
+  let w=textureLoad(tB,c,0).x;var gr=0.5*vec2f(r-l,t-b);let m=length(gr);if(m>1e-5){gr=gr/m;}else{gr=vec2f(0.0);}
+  var v=textureLoad(tA,c,0).xy;v=v+vec2f(gr.y,-gr.x)*w*u.vort*u.dt;
+  textureStore(outT,c,vec4f(v,0.0,1.0));}
+@compute @workgroup_size(8,8) fn kAdvVel(@builtin(global_invocation_id) g:vec3u){
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}
+  let uv=(vec2f(g.xy)+0.5)/vec2f(sz);let v=textureLoad(tA,vec2i(g.xy),0).xy;
+  var r=sT(tA,uv-vec2f(v.x/u.asp,v.y)*u.dt).xy*exp(-u.visc*u.dt);
+  if(u.bmode>1.5){let e=min(min(uv.x,1.0-uv.x),min(uv.y,1.0-uv.y));r=r*exp(-6.0*(1.0-smoothstep(0.0,0.08,e))*u.dt);}
+  textureStore(outT,vec2i(g.xy),vec4f(r,0.0,1.0));}
+fn velUV(uv:vec2f)->vec2f{let v=sT(tB,uv).xy;return vec2f(v.x/u.asp,v.y);}
+@compute @workgroup_size(8,8) fn kAdvDye(@builtin(global_invocation_id) g:vec3u){ // MacCormack, tA=scalar tB=vel
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}
+  let fs=vec2f(sz);let uv=(vec2f(g.xy)+0.5)/fs;let dt=u.dt;
+  let p1=uv-velUV(uv)*dt;let fwd=sT(tA,p1);
+  let y=uv+velUV(uv)*dt;let back=sT(tA,y-velUV(y)*dt);
+  var r=fwd+0.5*(textureLoad(tA,vec2i(g.xy),0)-back);
+  let b=vec2i(floor(wrapUV(p1)*fs-0.5));
+  let a0=texel(tA,b);let a1=texel(tA,b+vec2i(1,0));let a2=texel(tA,b+vec2i(0,1));let a3=texel(tA,b+vec2i(1,1));
+  r=clamp(r,min(min(a0,a1),min(a2,a3)),max(max(a0,a1),max(a2,a3)));
+  var dec=vec4f(exp(-u.dyeDecay*dt));if(u.tintMode>0.5){dec=vec4f(dec.x,exp(-u.cool*dt),dec.z,1.0);}
+  if(u.bmode>1.5){let e=min(min(uv.x,1.0-uv.x),min(uv.y,1.0-uv.y));dec=dec*exp(-4.0*(1.0-smoothstep(0.0,0.06,e))*dt);}
+  textureStore(outT,vec2i(g.xy),vec4f(max(r.xyz*dec.xyz,vec3f(0.0)),1.0));}
+@compute @workgroup_size(8,8) fn kDiv(@builtin(global_invocation_id) g:vec3u){
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}let c=vec2i(g.xy);
+  let l=loadV(tA,c,vec2i(-1,0));let r=loadV(tA,c,vec2i(1,0));let t=loadV(tA,c,vec2i(0,1));let b=loadV(tA,c,vec2i(0,-1));
+  textureStore(outT,c,vec4f(0.5*((r.x-l.x)+(t.y-b.y)),0.0,0.0,1.0));}
+@compute @workgroup_size(8,8) fn kJacobi(@builtin(global_invocation_id) g:vec3u){ // tA=pressure tB=div
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}let c=vec2i(g.xy);
+  let p=(loadP(tA,c,vec2i(-1,0))+loadP(tA,c,vec2i(1,0))+loadP(tA,c,vec2i(0,1))+loadP(tA,c,vec2i(0,-1))-textureLoad(tB,c,0).x)*0.25;
+  textureStore(outT,c,vec4f(p,0.0,0.0,1.0));}
+@compute @workgroup_size(8,8) fn kProject(@builtin(global_invocation_id) g:vec3u){ // tA=pressure tB=vel
+  let sz=vec2i(textureDimensions(tA));if(g.x>=u32(sz.x)||g.y>=u32(sz.y)){return;}let c=vec2i(g.xy);
+  var v=textureLoad(tB,c,0).xy;
+  let gp=0.5*vec2f(loadP(tA,c,vec2i(1,0))-loadP(tA,c,vec2i(-1,0)),loadP(tA,c,vec2i(0,1))-loadP(tA,c,vec2i(0,-1)));
+  v=v-gp;
+  if(u.bmode<0.5){if(c.x==0||c.x==sz.x-1){v.x=0.0;}if(c.y==0||c.y==sz.y-1){v.y=0.0;}}
+  textureStore(outT,c,vec4f(v,0.0,1.0));}
+@compute @workgroup_size(8,8) fn kLight(@builtin(global_invocation_id) g:vec3u){ // tA=smoke -> transmittance toward the light
+  let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}
+  let uv=(vec2f(g.xy)+0.5)/vec2f(sz);var tau=0.0;let L=vec2f(u.lightx,u.lighty);
+  for(var k=1;k<=14;k=k+1){let s=f32(k)/14.0*0.42;let p=uv+vec2f(L.x/u.asp,L.y)*s;
+    if(p.x<0.0||p.x>1.0||p.y<0.0||p.y>1.0){break;}tau=tau+textureSampleLevel(tA,smp,p,0.0).x*0.03*u.opac;}
+  textureStore(outT,vec2i(g.xy),vec4f(exp(-tau*u.shadow*14.0),0.0,0.0,1.0));}
+`;
+var AG_SIM_PSTRUCT='struct Part{pos:vec2f,vel:vec2f,life:f32,maxl:f32,seed:f32,col:f32};\n';
+var AG_SIM_PART=AG_SIM_HEAD+AG_SIM_PSTRUCT+`
+@group(0) @binding(2) var<storage,read_write> parts:array<Part>;
+fn rn(i:u32,k:u32)->f32{return f32(pcg(i*9781u+k*6271u+u32(u.pseed)*26699u+911u))/4294967295.0;}
+@compute @workgroup_size(64) fn pStep(@builtin(global_invocation_id) g:vec3u){
+  let i=g.x;let n=u32(u.pn);if(i>=n){return;}
+  var p=parts[i];let dt=u.dt;let A=u.asp;
+  let rel=(i+n-u32(u.pcursor))%n;
+  let a0=rn(i,1u);let acc0=mix(1.0,0.7+0.3*min(1.0,specAt(1.0-abs(2.0*a0-1.0))*2.0),0.8*u.response);
+  if(rel<u32(u.pemit)&&rn(i,5u)<acc0){
+    let a=a0;let b=rn(i,2u);let c=rn(i,3u);let d=rn(i,4u);
+    let et=u32(u.emitType);var pos=vec2f(0.0);var vel=vec2f(0.0);var col=a;
+    let bin=specAt(1.0-abs(2.0*a-1.0));let sp=u.jet*(0.25+1.6*bin+0.5*u.onset)*(0.6+0.8*d);
+    let ang=a*2.0*PI+u.time*u.spin+u.sphase*0.5+u.erot;let dir=vec2f(cos(ang),sin(ang));let ce=cos(u.erot);let se=sin(u.erot);let tn=vec2f(-dir.y,dir.x);let sw2=u.swirl+u.torque;
+    if(et==0u){pos=dir*(0.42+0.1*bin)*(1.0-0.3*u.bass*u.sstr);vel=dir*sp+tn*sp*sw2*0.5;}
+    else if(et==1u){pos=vec2f((a*2.0-1.0)*A*0.92,0.96);vel=vec2f((b-0.5)*0.5*sp,-sp*(0.5+1.0*bin));pos=vec2f(pos.x*ce-pos.y*se,pos.x*se+pos.y*ce);vel=vec2f(vel.x*ce-vel.y*se,vel.x*se+vel.y*ce);}
+    else if(et==2u){let r0=0.03*sqrt(b);pos=dir*r0;vel=vec2f(cos(c*6.2831853),sin(c*6.2831853))*sp;col=c;}
+    else{let r=0.18+0.6*c;pos=dir*r;vel=tn*(0.35+0.9*bin)/sqrt(r+0.25)*u.jet*0.6;col=c;}
+    p.pos=pos;p.vel=vel;p.maxl=u.plife*(0.55+0.9*b);p.life=p.maxl;p.seed=d;p.col=col;
+  }else if(p.life>0.0){
+    var v=p.vel;var x=p.pos;let r=length(x)+1e-3;let rd=x/r;
+    var acc=vec2f(0.0,u.pgrav);
+    acc=acc-rd*u.pattract*(1.0+u.bass*1.5)*(r/(0.15+r*r));
+    acc=acc+vec2f(-rd.y,rd.x)*(u.pvort+u.torque*0.3)*(r/(0.2+r*r));
+    acc=acc+curlN(x*3.0+vec2f(0.0,u.time*0.5))*u.treb*u.sstr*5.0;
+    let af=abs(atan2(x.y,x.x))/PI;acc=acc+rd*(specAt(af)*4.5-0.9)*u.response*exp(-r*0.8);
+    acc=acc+curlN(x*1.7+vec2f(u.time*0.3,-u.time*0.2))*(0.5+5.0*u.level+3.0*u.mid)*u.response*u.sstr;
+    acc=acc+rd*u.bass*u.bpun*u.response*(7.0*sin(r*7.0-u.time*6.0)+9.0*u.onset)*exp(-r*0.6);
+    acc=acc+curlN(x*u.pcscale+vec2f(u.time*0.15,-u.time*0.11))*u.pcurl*(1.0+u.mid*1.5+u.treb);
+    let R=u.onsetAge*1.1;let q=(r-R)/0.14;acc=acc+rd*u.onset*u.jet*6.0*exp(-q*q)*exp(-u.onsetAge*1.8);
+    v=(v+acc*dt)*exp(-u.pdrag*dt);let sl=length(v);if(sl>7.0){v=v*7.0/sl;}
+    x=x+v*dt;
+    if(u.pbounds<0.5){if(x.x>A){x.x=x.x-2.0*A;}if(x.x<-A){x.x=x.x+2.0*A;}if(x.y>1.0){x.y=x.y-2.0;}if(x.y<-1.0){x.y=x.y+2.0;}}
+    else if(u.pbounds<1.5){if(x.x>A){x.x=A;v.x=-abs(v.x)*0.7;}if(x.x<-A){x.x=-A;v.x=abs(v.x)*0.7;}if(x.y>1.0){x.y=1.0;v.y=-abs(v.y)*0.7;}if(x.y<-1.0){x.y=-1.0;v.y=abs(v.y)*0.7;}}
+    else{if(abs(x.x)>A*1.2||abs(x.y)>1.2){p.life=0.0;}}
+    p.pos=x;p.vel=v;p.life=max(p.life-dt,0.0);
+  }
+  parts[i]=p;}
+`;
+var AG_SIM_PREND=AG_SIM_HEAD+AG_SIM_PSTRUCT+`
+@group(0) @binding(2) var<storage,read> parts:array<Part>;
+@group(0) @binding(3) var rampT:texture_2d<f32>;
+struct VO{@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) col:vec3f};
+var<private> corners:array<vec2f,6>=array<vec2f,6>(vec2f(-1.0,-1.0),vec2f(1.0,-1.0),vec2f(-1.0,1.0),vec2f(-1.0,1.0),vec2f(1.0,-1.0),vec2f(1.0,1.0));
+@vertex fn pVS(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->VO{
+  var o:VO;o.uv=vec2f(0.0);o.col=vec3f(0.0);o.pos=vec4f(2.0,2.0,0.0,1.0);
+  let p=parts[ii];if(p.life<=0.0){return o;}
+  let age=1.0-p.life/max(p.maxl,1e-3);let fade=smoothstep(0.0,0.06,age)*(1.0-smoothstep(0.55,1.0,age));
+  let sp=length(p.vel);
+  var t=p.col;if(u.colorBy>0.5&&u.colorBy<1.5){t=age;}else if(u.colorBy>1.5){t=clamp(sp*0.45,0.0,1.0);}
+  let c=textureSampleLevel(rampT,smp,vec2f(clamp(t,0.0,1.0),0.5),0.0).rgb;
+  let af=abs(atan2(p.pos.y,p.pos.x))/PI;let bnd=specAt(af);let bm=mix(1.0,0.7+0.5*bnd,0.8*u.response)*(1.0+0.9*u.bass*u.bpun*u.response);
+  let cr=corners[vi];let szp=u.psize*(0.55+0.65*fade)*(0.7+0.6*p.seed)*mix(1.0,0.6+0.6*bnd,0.7*u.response)*(1.0+0.7*u.bass*u.bpun*u.response);
+  let cl=vec2f(p.pos.x/u.asp,-p.pos.y)+cr*szp*2.0/vec2f(u.ow,u.oh);
+  o.pos=vec4f(cl,0.0,1.0);o.uv=cr;o.col=c*u.pglow*bm*fade*(0.45+0.55*clamp(sp,0.0,2.0))*(0.6+0.8*p.seed)*(1.0+0.5*u.onset*exp(-u.onsetAge*4.0));
+  return o;}
+@fragment fn pFS(i:VO)->@location(0) vec4f{let d=dot(i.uv,i.uv);if(d>1.0){discard;}let k=exp(-d*4.5)+0.12*(1.0-d);return vec4f(i.col*k,k);}
+@vertex fn fadeVS(@builtin(vertex_index) vi:u32)->@builtin(position) vec4f{var p=array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));return vec4f(p[vi],0.0,1.0);}
+@fragment fn fadeFS()->@location(0) vec4f{return vec4f(0.0);}
+`;
+var AG_SIM_POST=AG_SIM_HEAD+`
+@group(0) @binding(2) var tA:texture_2d<f32>;
+@group(0) @binding(3) var tB:texture_2d<f32>;
+@group(0) @binding(4) var tC:texture_2d<f32>;
+@vertex fn vsFull(@builtin(vertex_index) vi:u32)->@builtin(position) vec4f{var p=array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));return vec4f(p[vi],0.0,1.0);}
+fn rampC(x:f32)->vec3f{return textureSampleLevel(tC,smp,vec2f(clamp(x,0.0,1.0),0.5),0.0).rgb;}
+@fragment fn fFluid(@builtin(position) pos:vec4f)->@location(0) vec4f{ // tA=dye tB=vel tC=curl
+  let uv=pos.xy/vec2f(u.ow,u.oh);let ds=1.0/vec2f(textureDimensions(tA));
+  let d=textureSampleLevel(tA,smp,uv,0.0).rgb;let l0=lum(d);
+  let hx=lum(textureSampleLevel(tA,smp,uv+vec2f(ds.x*1.5,0.0),0.0).rgb)-lum(textureSampleLevel(tA,smp,uv-vec2f(ds.x*1.5,0.0),0.0).rgb);
+  let hy=lum(textureSampleLevel(tA,smp,uv+vec2f(0.0,ds.y*1.5),0.0).rgb)-lum(textureSampleLevel(tA,smp,uv-vec2f(0.0,ds.y*1.5),0.0).rgb);
+  let n=normalize(vec3f(-hx*5.0,-hy*5.0,1.0));let L=normalize(vec3f(u.lightx,u.lighty,0.8));
+  let dif=clamp(dot(n,L),0.0,1.0);let hv=normalize(L+vec3f(0.0,0.0,1.0));let spc=pow(max(dot(n,hv),0.0),36.0);
+  let hue=d/max(l0,1e-3);let cv=abs(textureSampleLevel(tC,smp,uv,0.0).x);
+  var c=d*(1.0+u.shade*(dif-0.55)*1.6);
+  c=c+u.shade*spc*mix(vec3f(1.0),hue,0.35)*smoothstep(0.02,0.5,l0)*1.4;
+  c=c+u.shade*0.05*cv*hue*smoothstep(0.02,0.4,l0);
+  return vec4f(max(c,vec3f(0.0)),0.0);}
+@fragment fn fSmoke(@builtin(position) pos:vec4f)->@location(0) vec4f{ // tA=smoke tB=light tC=ramp
+  let uv=pos.xy/vec2f(u.ow,u.oh);let ds=1.0/vec2f(textureDimensions(tA));
+  let s=textureSampleLevel(tA,smp,uv,0.0);let rho=max(s.x,0.0)*u.opac;let T=max(s.y,0.0);
+  let tint=rampC(clamp(s.z/max(s.x,1e-4),0.0,1.0));
+  let tau=rho*3.2;let alpha=1.0-exp(-tau);
+  let tr=textureSampleLevel(tB,smp,uv,0.0).x;
+  let rx=textureSampleLevel(tA,smp,uv+vec2f(ds.x*2.0,0.0),0.0).x-textureSampleLevel(tA,smp,uv-vec2f(ds.x*2.0,0.0),0.0).x;
+  let ry=textureSampleLevel(tA,smp,uv+vec2f(0.0,ds.y*2.0),0.0).x-textureSampleLevel(tA,smp,uv-vec2f(0.0,ds.y*2.0),0.0).x;
+  let gr=vec2f(rx,ry)*u.opac;let Ld=normalize(vec2f(u.lightx,u.lighty));
+  let facing=clamp(dot(-normalize(gr+vec2f(1e-5)),Ld),0.0,1.0);let edge=clamp(length(gr)*3.0,0.0,1.0);
+  let powder=1.0-exp(-2.0*tau);let albedo=mix(vec3f(0.78,0.8,0.84),tint,u.tintMix);
+  let irr=(vec3f(0.16,0.18,0.24)+u.lightI*vec3f(1.0,0.93,0.82)*tr*(0.55+0.45*powder))*(1.0+u.onset*u.response*0.75)*mix(1.0,0.5+1.4*specAt(uv.x),0.7*u.response);
+  var col=albedo*irr*alpha;
+  col=col+albedo*u.lightI*edge*facing*0.55*tr*alpha;
+  let em=u.ember*pow(min(T,3.0),1.5)*mix(vec3f(1.0,0.42,0.1),tint*1.6,0.45);
+  col=col+em*min(1.0,rho*1.5+T*0.3);
+  let a=clamp(alpha+0.5*lum(em)*min(1.0,rho*1.5+T*0.3),0.0,1.0);
+  return vec4f(col,a);}
+fn bw(i:i32)->f32{var w=array<f32,5>(0.227027,0.1945946,0.1216216,0.054054,0.016216);return w[i];}
+@fragment fn fCopy(@builtin(position) pos:vec4f)->@location(0) vec4f{
+  return textureSampleLevel(tA,smp,pos.xy/vec2f(u.ow,u.oh),0.0);}
+@fragment fn fBright(@builtin(position) pos:vec4f)->@location(0) vec4f{ // tA=hdr -> half res
+  let uv=pos.xy/(vec2f(textureDimensions(tA))*0.5);let ts=0.5/vec2f(textureDimensions(tA));
+  var c=vec3f(0.0);
+  c=c+textureSampleLevel(tA,smp,uv+vec2f(-ts.x,-ts.y),0.0).rgb+textureSampleLevel(tA,smp,uv+vec2f(ts.x,-ts.y),0.0).rgb;
+  c=c+textureSampleLevel(tA,smp,uv+vec2f(-ts.x,ts.y),0.0).rgb+textureSampleLevel(tA,smp,uv+vec2f(ts.x,ts.y),0.0).rgb;
+  c=c*0.25;let l=lum(c);return vec4f(c*(0.2+0.8*smoothstep(0.3,1.2,l)),1.0);}
+@fragment fn fBlurH(@builtin(position) pos:vec4f)->@location(0) vec4f{
+  let ts=1.0/vec2f(textureDimensions(tA));let uv=pos.xy*ts;var c=textureSampleLevel(tA,smp,uv,0.0).rgb*bw(0);
+  for(var i=1;i<5;i=i+1){let o=vec2f(f32(i)*2.0*ts.x,0.0);c=c+(textureSampleLevel(tA,smp,uv+o,0.0).rgb+textureSampleLevel(tA,smp,uv-o,0.0).rgb)*bw(i);}
+  return vec4f(c,1.0);}
+@fragment fn fBlurV(@builtin(position) pos:vec4f)->@location(0) vec4f{
+  let ts=1.0/vec2f(textureDimensions(tA));let uv=pos.xy*ts;var c=textureSampleLevel(tA,smp,uv,0.0).rgb*bw(0);
+  for(var i=1;i<5;i=i+1){let o=vec2f(0.0,f32(i)*2.0*ts.y);c=c+(textureSampleLevel(tA,smp,uv+o,0.0).rgb+textureSampleLevel(tA,smp,uv-o,0.0).rgb)*bw(i);}
+  return vec4f(c,1.0);}
+fn aces(x:vec3f)->vec3f{return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),vec3f(0.0),vec3f(1.0));}
+@fragment fn fComp(@builtin(position) pos:vec4f)->@location(0) vec4f{ // tA=hdr tB=bloom
+  let uv=pos.xy/vec2f(u.ow,u.oh);let h=textureSampleLevel(tA,smp,uv,0.0);let b=textureSampleLevel(tB,smp,uv,0.0).rgb*u.bloom*1.3;
+  if(u.compMode>0.5){ // smoke is premultiplied: tone-map the straight colour, then re-premultiply so edges keep their tint
+    let a=clamp(h.a+lum(b)*1.2,0.0,1.0);let sc=max(h.rgb+b-vec3f(0.01)*a,vec3f(0.0))/max(a,0.03);
+    let c2=pow(aces(sc*u.expo),vec3f(1.0/2.2));return vec4f(c2*a,a);}
+  let col=pow(aces(max(h.rgb+b-vec3f(0.03),vec3f(0.0))*u.expo),vec3f(1.0/2.2));
+  return vec4f(col,max(col.r,max(col.g,col.b)));}
+`;
+
+// ---- v85 WebGPU simulation layouts: Particle Field, Fluid, Smoke ----
+var AG_SIM_LAYOUTS=['simparticles','simfluid','simsmoke'];
+function _agIsSim(m){return AG_SIM_LAYOUTS.indexOf(m)>=0}
+var AG_SIM_DEF_OPT={q:'med',step:'normal',auto:'on',pEmit:'ring',pBounds:'wrap',pColor:'spectrum',fEmit:'ring',fBounds:'wall',sEmit:'floor',sBounds:'open'};
+var simOpt=Object.assign({},AG_SIM_DEF_OPT),simUid=0,simIdMax=0;
+var AG_SIM_UI={
+  common:[['pSimSens','Sensitivity',0,200,100,5,'%','How strongly the sound drives the simulation. Silence always emits nothing.'],
+    ['pSimAttack','Attack',5,400,40,5,'ms','How fast the simulation reacts when a band gets louder.'],
+    ['pSimRelease','Release',50,2000,350,10,'ms','How slowly it lets go when a band gets quieter.'],
+    ['pSimReact','Audio contrast',0,100,30,5,'%','Separates quieter passages from loud ones and accents beat-driven jets, particle bursts and smoke lighting. 0% restores smooth continuous response.'],
+    ['pSimSwirlSnd','Swirl by sound',0,200,100,5,'%','How strongly the sound steers rotation: mids set the spin strength, bass pulls inward, treble scatters and every third beat reverses the direction. 0% disables it.'],
+    ['pSimRot','Emitter rotation',0,360,0,5,'deg','Rotates the emitter arrangement (ring, line, fountain or plume) around the centre.'],
+    ['pSimBass','Bass reaction',0,300,100,5,'%','How hard the bass hits: kicks the emitters, swells and pulses the whole picture on low frequencies.'],
+    ['pSimEnergy','Energy',0,200,100,5,'%','Overall energy of the motion: scales jet force, beat bursts, vorticity and turbulence together. Quiet at 0%, wild at 200%.'],
+    ['pSimBurst','Beat burst',0,200,100,5,'%','Strength of the shockwave and burst on detected beats (onsets).'],
+    ['pSimTilt','Spectrum tilt',-100,100,0,5,'','Negative favours bass, positive favours treble.'],
+    ['pSimSpeed','Time scale',25,200,100,5,'%','Simulation speed relative to real time. The step is always stable and delta-time based.'],
+    ['pSimExpo','Exposure',-100,200,-100,5,'%','Brightness of the lit result on a doubling scale: -100% is half, 0% is normal, +100% is double.'],
+    ['pSimBloom','Bloom',0,100,0,1,'%','Soft glow around bright areas.']],
+  simparticles:[['pSpAmount','Amount',10,200,100,5,'%','Emission rate multiplier (scaled by the sound level).'],
+    ['pSpLife','Lifetime',5,80,30,1,'s1','How long a particle lives, in seconds.'],
+    ['pSpSize','Size',1,30,3,1,'','Particle size.'],
+    ['pSpSpeed','Launch speed',10,200,10,5,'%','Initial speed from the emitter (louder bands launch faster).'],
+    ['pSpDrag','Drag',0,100,100,1,'%','Air resistance. Higher stops particles sooner when the music stops.'],
+    ['pSpGravity','Gravity',-100,100,-3,1,'','Positive pulls down, negative lifts up.'],
+    ['pSpAttract','Centre pull',-100,100,0,1,'','Positive pulls particles to the centre, negative pushes them away.'],
+    ['pSpSwirl','Swirl',-100,100,43,1,'','Rotation around the centre and sideways emission.'],
+    ['pSpSpin','Emitter spin',-100,100,0,5,'','Continuous emitter rotation. Negative turns the other way; 0 keeps it still.'],
+    ['pSpTurb','Turbulence',0,100,46,1,'%','Curl-noise force field.'],
+    ['pSpTurbScale','Turbulence scale',10,100,66,1,'%','Size of the turbulent eddies.'],
+    ['pSpTrail','Trails',0,100,55,1,'%','Light persistence (0 = none).']],
+  simfluid:[['pSfJets','Jets',4,24,12,1,'','Number of injectors; each follows a part of the spectrum.'],
+    ['pSfForce','Jet force',0,200,100,5,'%','How hard the jets push the fluid.'],
+    ['pSfDye','Dye',0,200,100,5,'%','Amount of coloured dye injected.'],
+    ['pSfRadius','Splat size',2,30,8,1,'%','Size of each injector, in % of the height.'],
+    ['pSfSwirl','Swirl',-100,100,40,1,'','Sideways component of the jets.'],
+    ['pSfSpin','Emitter spin',-100,100,0,5,'','Continuous emitter rotation. Negative turns the other way; 0 keeps it still.'],
+    ['pSfVisc','Viscosity',0,100,15,1,'%','Velocity damping.'],
+    ['pSfFade','Dye fade',0,100,40,1,'%','How quickly dye dissolves.'],
+    ['pSfVort','Vorticity',0,100,45,1,'%','Vorticity confinement keeps small eddies alive.'],
+    ['pSfIter','Pressure iterations',8,48,24,2,'','Jacobi iterations of the pressure projection (more = less compressible, slower).'],
+    ['pSfShade','Shading',0,100,55,1,'%','Relief lighting and swirl highlights on the dye.']],
+  simsmoke:[['pSmSpeed','Smoke speed',5,150,25,5,'%','Speed of the smoke transport. 25% is slow billowing; audio attack, release and beat timing remain real-time. Multiplies Time scale.'],
+    ['pSmJets','Burners',3,24,10,1,'','Number of burners; each follows a part of the spectrum.'],
+    ['pSmEmit','Output',0,200,100,5,'%','Amount of smoke released.'],
+    ['pSmHeat','Heat',0,200,100,5,'%','Temperature of the released smoke (drives buoyancy and embers).'],
+    ['pSmBuoy','Buoyancy',0,200,100,5,'%','How strongly hot smoke rises.'],
+    ['pSmCool','Cooling',0,100,35,1,'%','How fast smoke loses heat.'],
+    ['pSmDiss','Dissipation',0,100,32,1,'%','How fast smoke thins out.'],
+    ['pSmVort','Vorticity',0,100,55,1,'%','Billowing curls.'],
+    ['pSmTurb','Turbulence',0,100,30,1,'%','Noise-driven disturbance inside the smoke.'],
+    ['pSmSpin','Emitter spin',-100,100,0,5,'','Continuous emitter rotation. Negative turns the other way; 0 keeps it still.'],
+    ['pSmWind','Wind',-100,100,0,1,'','Sideways wind.'],
+    ['pSmIter','Pressure iterations',8,48,24,2,'','Jacobi iterations of the pressure projection.'],
+    ['pSmLight','Light angle',0,360,135,5,'deg','Direction the light comes from.'],
+    ['pSmLightI','Light',0,200,100,5,'%','Light intensity.'],
+    ['pSmOpac','Density',20,300,100,5,'%','How opaque the smoke is.'],
+    ['pSmShadow','Self-shadow',0,100,70,1,'%','Smoke shadows itself along the light direction.'],
+    ['pSmEmber','Glow',0,100,40,1,'%','Hot smoke emits light.']]};
+var AG_SIM_OPTS={
+  common:[['q','Quality',[['low','Low'],['med','Medium'],['high','High'],['ultra','Ultra']],'Grid resolution, particle count and render scale.'],
+    ['step','Precision',[['fast','Fast'],['normal','Normal'],['fine','Fine']],'Largest time step: 1/30, 1/60 or 1/120 s (sub-stepped when a frame is longer).'],
+    ['auto','Budget',[['on','Auto'],['off','Fixed']],'Auto lowers work when the GPU falls behind.']],
+  simparticles:[['pEmit','Emitter',[['ring','Ring'],['fountain','Fountain'],['center','Burst'],['orbit','Orbit']],'Where particles are born; the spectrum shapes their launch.'],
+    ['pBounds','Bounds',[['wrap','Wrap'],['bounce','Bounce'],['open','Open']],'Wrap around, bounce off the frame, or leave it.'],
+    ['pColor','Colour by',[['spectrum','Spectrum'],['age','Age'],['speed','Speed']],'What picks the colour from the ramp.']],
+  simfluid:[['fEmit','Injectors',[['ring','Ring'],['line','Line'],['center','Centre']],'Jet arrangement.'],
+    ['fBounds','Bounds',[['wall','Wall'],['wrap','Wrap'],['open','Open']],'Solid walls, periodic wrap or open edges.']],
+  simsmoke:[['sEmit','Burners',[['floor','Floor'],['ring','Ring'],['center','Plume']],'Burner arrangement.'],
+    ['sBounds','Bounds',[['open','Open'],['wall','Wall'],['wrap','Wrap']],'Open edges let smoke leave; Wall keeps it in.']]};
+var AG_SIM_PRESETS={
+  simparticles:[
+    ['Aurora ribbons',{pSpTurb:70,pSpTurbScale:25,pSpSwirl:15,pSpAttract:0,pSpDrag:20,pSpLife:40,pSpSize:4,pSpTrail:75},{pEmit:'ring',pBounds:'wrap',pColor:'spectrum'}],
+    ['Fireworks',{pSpSpeed:160,pSpGravity:30,pSpDrag:25,pSpLife:22,pSpAttract:0,pSpSwirl:0,pSpTurb:15,pSpSize:5,pSpTrail:55,pSimBurst:180},{pEmit:'center',pBounds:'open',pColor:'spectrum'}],
+    ['Fountain',{pSpGravity:60,pSpSpeed:120,pSpDrag:10,pSpLife:35,pSpSwirl:0,pSpTurb:20,pSpAttract:0,pSpSize:6,pSpTrail:30},{pEmit:'fountain',pBounds:'bounce',pColor:'speed'}],
+    ['Galaxy orbit',{pSpAttract:55,pSpSwirl:70,pSpDrag:15,pSpTurb:25,pSpSize:4,pSpTrail:60,pSpLife:50},{pEmit:'orbit',pBounds:'wrap',pColor:'age'}],
+    ['Rising embers',{pSpGravity:-50,pSpSpeed:35,pSpDrag:40,pSpTurb:60,pSpTurbScale:30,pSpSize:5,pSpTrail:50,pSpAmount:80,pSpLife:45,pSpAttract:0},{pEmit:'fountain',pBounds:'open',pColor:'age'}],
+    ['Dust storm',{pSpAmount:200,pSpSize:2,pSpSwirl:25,pSpTurb:90,pSpTurbScale:60,pSpDrag:50,pSpTrail:20,pSpLife:25},{pEmit:'ring',pBounds:'wrap',pColor:'spectrum'}],
+    ['Pulse rings',{pSpAttract:40,pSpSwirl:0,pSpTurb:10,pSpSpeed:140,pSpDrag:30,pSpSize:5,pSpTrail:45,pSimBurst:200},{pEmit:'ring',pBounds:'wrap',pColor:'spectrum'}]],
+  simfluid:[
+    ['Ink in water',{pSfJets:8,pSfForce:70,pSfDye:120,pSfRadius:7,pSfSwirl:30,pSfVisc:35,pSfFade:15,pSfVort:40,pSfShade:70},{fEmit:'ring',fBounds:'wall'}],
+    ['Vortex storm',{pSfJets:16,pSfForce:160,pSfSwirl:90,pSfVort:90,pSfVisc:5,pSfFade:45,pSfRadius:6},{fEmit:'center',fBounds:'wrap'}],
+    ['Lava lamp',{pSfJets:6,pSfForce:40,pSfDye:140,pSfRadius:14,pSfSwirl:10,pSfVisc:55,pSfFade:10,pSfVort:25},{fEmit:'line',fBounds:'wall'}],
+    ['Neon ripples',{pSfJets:20,pSfForce:120,pSfRadius:4,pSfSwirl:0,pSfFade:55,pSfVort:60,pSfShade:80},{fEmit:'ring',fBounds:'open'}],
+    ['Silk',{pSfJets:12,pSfForce:60,pSfSwirl:60,pSfVisc:25,pSfFade:20,pSfVort:70,pSfShade:40,pSfRadius:5},{fEmit:'line',fBounds:'wrap'}],
+    ['Spectrum fountain',{pSfJets:24,pSfForce:140,pSfDye:100,pSfRadius:3,pSfSwirl:0,pSfFade:50},{fEmit:'line',fBounds:'wall'}]],
+  simsmoke:[
+    ['Campfire',{pSmSpeed:40,pSmJets:8,pSmHeat:140,pSmBuoy:130,pSmCool:45,pSmDiss:40,pSmTurb:40,pSmWind:0,pSmEmber:70},{sEmit:'floor',sBounds:'open'}],
+    ['Incense',{pSmSpeed:15,pSmJets:3,pSmEmit:60,pSmHeat:60,pSmBuoy:60,pSmCool:20,pSmDiss:20,pSmVort:70,pSmTurb:20,pSmOpac:80},{sEmit:'center',sBounds:'open'}],
+    ['Storm cloud',{pSmSpeed:30,pSmJets:14,pSmEmit:150,pSmHeat:80,pSmBuoy:80,pSmCool:25,pSmDiss:15,pSmVort:80,pSmTurb:50,pSmOpac:160,pSmShadow:90,pSmEmber:10},{sEmit:'floor',sBounds:'wall'}],
+    ['Dragon breath',{pSmSpeed:60,pSmHeat:190,pSmBuoy:160,pSmCool:60,pSmEmber:90,pSmWind:30,pSmVort:65},{sEmit:'center',sBounds:'open'}],
+    ['Windswept',{pSmWind:70,pSmSpeed:45,pSmJets:12,pSmTurb:55},{sEmit:'floor',sBounds:'open'}],
+    ['Volcano',{pSmHeat:180,pSmBuoy:150,pSmEmit:160,pSmSpeed:50,pSmEmber:85,pSmCool:50,pSmLightI:130},{sEmit:'center',sBounds:'open'}],
+    ['Fog bank',{pSmSpeed:12,pSmEmit:130,pSmHeat:20,pSmBuoy:20,pSmCool:10,pSmDiss:8,pSmOpac:150,pSmVort:30,pSmTurb:20,pSmEmber:0,pSmShadow:40},{sEmit:'floor',sBounds:'wrap'}]]};
+function simApplyPreset(i){
+  if(!_agIsSim(layoutMode))return;var pr=(AG_SIM_PRESETS[layoutMode]||[])[i];if(!pr)return;pushUndo();
+  AG_SIM_UI.common.concat(AG_SIM_UI[layoutMode]||[]).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=pr[1][d[0]]!==undefined?pr[1][d[0]]:d[4]});
+  var keep=simOpt;simOpt=Object.assign({},AG_SIM_DEF_OPT,pr[2]);if(keep&&keep.q)simOpt.q=keep.q;
+  syncSimUI();_simStore();agSim.reset();upP();renderDensity()}
+function _simPresetRow(k){return '<div class="prow prow-stack"><span class="prow-label">Presets</span><div class="mode-btns grow-btns" style="flex-wrap:wrap">'+(AG_SIM_PRESETS[k]||[]).map(function(p,i){return '<button class="mbtn" data-simpreset="'+i+'" onclick="simApplyPreset('+i+')">'+p[0]+'</button>'}).join('')+'</div></div>'}
+var AG_SIM_TITLE={simparticles:'Particle field',simfluid:'Fluid',simsmoke:'Smoke'};
+function _simFmt(v,u){v=+v;return u==='%'?v+'%':u==='ms'?v+' ms':u==='s1'?(v/10).toFixed(1)+' s':u==='deg'?v+'\u00b0':String(v)}
+function _simStore(){if(stackMode&&stackLayouts.length>0){var i=getActiveLayerIdx();if(i>=0&&stackLayouts[i]){stackLayouts[i].params=getLayoutParams();stackLayouts[i].layout=layoutMode}}}
+function simKnob(el){var d=_simSpecById(el.id);var l=document.getElementById(el.id.replace(/^p/,'v'));if(l&&d)l.textContent=_simFmt(el.value,d[6]);upP()}
+function setSimOpt(k,v,btn){pushUndo();simOpt[k]=v;syncSimUI();_simStore();renderDensity()}
+function simRestart(){agSim.reset();renderDensity()}
+function simResetSettings(){
+  if(!_agIsSim(layoutMode))return;pushUndo();
+  AG_SIM_UI.common.concat(AG_SIM_UI[layoutMode]||[]).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=d[4]});
+  var keep=simOpt;simOpt=Object.assign({},AG_SIM_DEF_OPT);if(keep&&keep.q)simOpt.q=keep.q;
+  syncSimUI();_simStore();agSim.reset();upP();renderDensity()}
+function simReinit(){agSim.reinit();renderDensity()}
+var _simSpecIdx=null;
+function _simSpecById(id){if(!_simSpecIdx){_simSpecIdx={};for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){_simSpecIdx[d[0]]=d})}return _simSpecIdx[id]}
+function _simRow(d){return '<div class="prow" title="'+d[7]+'"><span class="prow-label">'+d[1]+'</span><input type="range" min="'+d[2]+'" max="'+d[3]+'" value="'+d[4]+'" step="'+d[5]+'" id="'+d[0]+'" oninput="simKnob(this)"><span class="prow-val" id="'+d[0].replace(/^p/,'v')+'">'+_simFmt(d[4],d[6])+'</span></div>'}
+function _simOptRow(o){return '<div class="prow prow-stack" title="'+o[3]+'"><span class="prow-label">'+o[1]+'</span><div class="mode-btns grow-btns">'+o[2].map(function(b){return '<button class="mbtn" data-simk="'+o[0]+'" data-simv="'+b[0]+'" onclick="setSimOpt(\''+o[0]+'\',\''+b[0]+'\',this)">'+b[1]+'</button>'}).join('')+'</div></div>'}
+function buildSimPanels(){
+  var ref=document.getElementById('layoutOpts_graph');if(!ref||document.getElementById('layoutOpts_simfluid'))return;
+  var html='';AG_SIM_LAYOUTS.forEach(function(k){
+    html+='<div id="layoutOpts_'+k+'" class="layout-opts" style="display:none">'+
+      '<div class="prow prow-stack"><span class="prow-label">'+AG_SIM_TITLE[k]+'</span><div id="simStatus_'+k+'" class="sim-status" role="status">WebGPU simulation</div></div>'+
+      _simPresetRow(k)+AG_SIM_OPTS[k].map(_simOptRow).join('')+AG_SIM_UI[k].map(_simRow).join('')+'</div>'});
+  var wrap=document.createElement('div');wrap.innerHTML=html;
+  var anchor=ref.nextSibling;while(wrap.firstChild)ref.parentNode.insertBefore(wrap.firstChild,anchor);
+  var box=document.createElement('div');box.id='simCommonBox';box.style.cssText='display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:6px;margin-top:2px';
+  box.innerHTML='<div class="sublabel">Sound &amp; quality</div>'+AG_SIM_UI.common.map(_simRow).join('')+AG_SIM_OPTS.common.map(_simOptRow).join('')+
+    '<div class="prow prow-stack"><span class="prow-label">Simulation</span><div class="mode-btns grow-btns"><button class="mbtn" onclick="simRestart()" title="Clear this layer\'s simulation state and start again.">Restart</button><button class="mbtn" onclick="simResetSettings()" title="Return every control of this simulation layout to its default (keeps the quality tier).">Reset settings</button><button class="mbtn" id="simReinitBtn" onclick="simReinit()" style="display:none" title="Try to create the WebGPU device again.">Reinitialize GPU</button></div></div>';
+  document.getElementById('layoutOpts_simparticles').appendChild(box);
+}
+function agSimHost(){var b=document.getElementById('simCommonBox');if(!b)return;
+  // The per-frame layer swap changes layoutMode; follow the layer being edited, or the box (and its knobs) would be re-parented mid-drag
+  var ul=layoutMode;if(typeof stackMode!=='undefined'&&stackMode&&stackLayouts.length){var ai=getActiveLayerIdx();if(ai>=0&&ai<stackLayouts.length)ul=stackLayouts[ai].layout}
+  var m=_agIsSim(ul)?ul:'simparticles';var h=document.getElementById('layoutOpts_'+m);if(h&&b.parentNode!==h)h.appendChild(b)}
+function syncSimUI(){
+  document.querySelectorAll('.mbtn[data-simk]').forEach(function(b){b.classList.toggle('on',simOpt[b.getAttribute('data-simk')]===b.getAttribute('data-simv'))});
+  for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){var e=document.getElementById(d[0]),l=document.getElementById(d[0].replace(/^p/,'v'));if(e&&l)l.textContent=_simFmt(e.value,d[6])});
+  agSimHost();if(typeof agSim!=='undefined')agSim.refreshUI()}
+buildSimPanels();
+function simNewId(){return 1+Math.floor(Math.random()*2147483646)}
+function agSimDefaults(){var o={};if(typeof AG_SIM_UI==='undefined')return o;for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){o[d[0]]=d[4]});return o}
+function agSimApplyParams(p){
+  if(typeof AG_SIM_UI==='undefined')return;
+  simOpt=Object.assign({},AG_SIM_DEF_OPT,p._sim||{});
+  simUid=p._simId||0;
+  if(_agIsSim(layoutMode)){
+    var d=agSimDefaults();for(var id in d){if(!(id in p)){var e=document.getElementById(id);if(e)e.value=d[id]}}
+    if(!simUid){simUid=simNewId();p._simId=simUid}
+  }
+  // The per-frame layer swap re-applies params constantly; only touch the DOM when something actually changed
+  var sig=layoutMode+'|'+simUid+'|'+JSON.stringify(simOpt);
+  if(sig!==_simSyncSig){_simSyncSig=sig;syncSimUI()}}
+var _simSyncSig='';
+
+var agSim=(function(){
+  var TIERS={low:{g:160,p:60000,o:720},med:{g:256,p:200000,o:1100},high:{g:384,p:500000,o:1600},ultra:{g:512,p:1000000,o:2200}};
+  var STEPS={fast:1/30,normal:1/60,fine:1/120};
+  var G={status:'idle',msg:'',dev:null,ad:null,adInfo:'',fmt:'rgba8unorm',P:null,smp:null,dummy:null,initP:null,gen:0,gov:1,gpuMs:0,selfTest:''};
+  var ST={},tick=0,idN=0,pendTO=0;
+  var S={dispatches:0,submits:0,created:0,disposed:0,errors:[],frames:0,steps:0,inits:0};
+  var raw={frame:-1,t:0,spec:new Float32Array(64),prev:new Float32Array(64),flux:0,thr:0.08,onsetId:0,onsetStr:0,lastOn:-1e9,active:false,bassOnsets:0};
+  var api={fixedDt:0,injected:null,noPrewarm:false};
+  function now(){return performance.now()}
+  function err(m){S.errorCount=(S.errorCount||0)+1;S.errors.push(String(m));if(S.errors.length>30)S.errors.shift()}
+  function K(id,d){var e=document.getElementById(id);return e?+e.value:d}
+  function fail(status,msg){G.status=status;G.msg=msg;disposeAll();refreshUI()}
+  // ---------- device ----------
+  function init(){
+    if(G.initP)return G.initP;
+    G.status='init';G.msg='Starting WebGPU\u2026';S.inits++;var gen=++G.gen;
+    G.initP=(async function(){
+      try{
+        if(!navigator.gpu){fail('unsupported','WebGPU is not available in this browser (navigator.gpu is missing). Use a recent Chrome, Edge or Safari 26 on a GPU-capable device.');return}
+        var ad=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
+        if(!ad){fail('noadapter','No WebGPU adapter was found. The GPU or driver is not supported or WebGPU is disabled.');return}
+        if(ad.isFallbackAdapter){fail('unsupported','Only a software (fallback) WebGPU adapter is available; the simulations need a real GPU.');return}
+        var info=ad.info||{};G.adInfo=[info.vendor,info.architecture,info.device,info.description].filter(Boolean).join(' ')||'unknown adapter';
+        G.ad=ad;
+        if(ad.limits.maxStorageTexturesPerShaderStage<1||ad.limits.maxComputeInvocationsPerWorkgroup<64){fail('unsupported','The GPU does not meet the minimum compute limits.');return}
+        var dev=await ad.requestDevice({requiredLimits:{maxStorageBufferBindingSize:Math.min(ad.limits.maxStorageBufferBindingSize,256*1048576),maxBufferSize:Math.min(ad.limits.maxBufferSize,256*1048576)}});
+        if(gen!==G.gen){dev.destroy();return}
+        G.dev=dev;G.fmt=navigator.gpu.getPreferredCanvasFormat();
+        dev.lost.then(function(i){if(G.dev!==dev)return;G.dev=null;G.P=null;G.initP=null;disposeAll(true);G.status='lost';G.msg='WebGPU device lost ('+(i.reason||'unknown')+'): '+(i.message||'no details')+'. Press Reinitialize GPU.';refreshUI();try{renderDensity()}catch(e){}});
+        dev.onuncapturederror=function(e){noteErr(e.error.message)};
+        await build(dev);
+        await selfTest(dev);
+        if(gen!==G.gen)return;
+        G.status='ready';G.msg='';refreshUI();try{renderDensity()}catch(e){}
+      }catch(e){err(e&&e.stack||e);fail('error','WebGPU initialisation failed: '+(e&&e.message||e))}
+    })();
+    return G.initP;
+  }
+  function noteErr(m){err('uncaptured: '+m);if(G.status==='ready'){var tn=now();G.errT=(G.errT||[]).filter(function(x){return tn-x<4000});G.errT.push(tn);if(G.errT.length>20){fail('error','Repeated WebGPU validation errors: '+m)}}}
+  async function mod(dev,name,code){
+    var m=dev.createShaderModule({label:name,code:code});var ci=await m.getCompilationInfo();
+    var bad=ci.messages.filter(function(x){return x.type==='error'});
+    if(bad.length)throw new Error('WGSL '+name+' compile error: '+bad.slice(0,3).map(function(x){return x.lineNum+':'+x.message}).join(' | '));
+    return m;
+  }
+  async function build(dev){
+    var C=GPUShaderStage.COMPUTE,F=GPUShaderStage.FRAGMENT,V=GPUShaderStage.VERTEX;
+    var tex=function(b,vis){return{binding:b,visibility:vis,texture:{sampleType:'float'}}};
+    var ub=function(vis){return{binding:0,visibility:vis,buffer:{type:'uniform'}}};
+    var sm=function(vis){return{binding:1,visibility:vis,sampler:{type:'filtering'}}};
+    var L={};
+    L.grid=dev.createBindGroupLayout({entries:[ub(C),sm(C),tex(2,C),tex(3,C),tex(4,C),{binding:5,visibility:C,storageTexture:{access:'write-only',format:'rgba16float',viewDimension:'2d'}}]});
+    L.part=dev.createBindGroupLayout({entries:[ub(C),sm(C),{binding:2,visibility:C,buffer:{type:'storage'}}]});
+    L.rend=dev.createBindGroupLayout({entries:[ub(V|F),sm(V|F),{binding:2,visibility:V,buffer:{type:'read-only-storage'}},tex(3,V|F)]});
+    L.post=dev.createBindGroupLayout({entries:[ub(V|F),sm(F),tex(2,F),tex(3,F),tex(4,F)]});
+    var PL=function(l){return dev.createPipelineLayout({bindGroupLayouts:[l]})};
+    var P={L:L};
+    var mg=await mod(dev,'grid',AG_SIM_GRID),mp=await mod(dev,'pstep',AG_SIM_PART),mr=await mod(dev,'prend',AG_SIM_PREND),mo=await mod(dev,'post',AG_SIM_POST);
+    ['kSplatVel','kSplatDye','kBuoy','kCurl','kVort','kAdvVel','kAdvDye','kDiv','kJacobi','kProject','kLight'].forEach(function(n){P[n]=dev.createComputePipeline({layout:PL(L.grid),compute:{module:mg,entryPoint:n}})});
+    P.pStep=dev.createComputePipeline({layout:PL(L.part),compute:{module:mp,entryPoint:'pStep'}});
+    var add={color:{srcFactor:'one',dstFactor:'one',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one',operation:'add'}};
+    var fade={color:{srcFactor:'zero',dstFactor:'constant',operation:'add'},alpha:{srcFactor:'zero',dstFactor:'constant',operation:'add'}};
+    P.pDraw=dev.createRenderPipeline({layout:PL(L.rend),vertex:{module:mr,entryPoint:'pVS'},fragment:{module:mr,entryPoint:'pFS',targets:[{format:'rgba16float',blend:add}]},primitive:{topology:'triangle-list'}});
+    P.pFade=dev.createRenderPipeline({layout:PL(L.rend),vertex:{module:mr,entryPoint:'fadeVS'},fragment:{module:mr,entryPoint:'fadeFS',targets:[{format:'rgba16float',blend:fade}]},primitive:{topology:'triangle-list'}});
+    var full=function(fs,fmt){return dev.createRenderPipeline({layout:PL(L.post),vertex:{module:mo,entryPoint:'vsFull'},fragment:{module:mo,entryPoint:fs,targets:[{format:fmt}]},primitive:{topology:'triangle-list'}})};
+    ['fFluid','fSmoke','fCopy','fBright','fBlurH','fBlurV'].forEach(function(n){P[n]=full(n,'rgba16float')});
+    P.fComp=full('fComp',G.fmt);
+    G.P=P;
+    G.smp=dev.createSampler({magFilter:'linear',minFilter:'linear',addressModeU:'clamp-to-edge',addressModeV:'clamp-to-edge'});
+    G.dummy=dev.createTexture({size:[1,1],format:'rgba16float',usage:GPUTextureUsage.TEXTURE_BINDING});
+    G.dummyV=G.dummy.createView();
+  }
+  async function selfTest(dev){
+    var m=dev.createShaderModule({code:'@group(0) @binding(0) var<storage,read_write> o:array<u32>;@compute @workgroup_size(8) fn main(@builtin(global_invocation_id) g:vec3u){o[g.x]=g.x*3u+7u;}'});
+    var p=await dev.createComputePipelineAsync({layout:'auto',compute:{module:m,entryPoint:'main'}});
+    var b=dev.createBuffer({size:32,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC}),r=dev.createBuffer({size:32,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.COPY_DST});
+    var bg=dev.createBindGroup({layout:p.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:b}}]});
+    var e=dev.createCommandEncoder(),c=e.beginComputePass();c.setPipeline(p);c.setBindGroup(0,bg);c.dispatchWorkgroups(1);c.end();e.copyBufferToBuffer(b,0,r,0,32);dev.queue.submit([e.finish()]);
+    await r.mapAsync(GPUMapMode.READ);var a=new Uint32Array(r.getMappedRange().slice(0));r.unmap();b.destroy();r.destroy();
+    if(a[0]!==7||a[7]!==28)throw new Error('GPU compute self-test returned wrong data ('+a[0]+','+a[7]+')');
+    G.selfTest='ok';
+  }
+  // ---------- audio ----------
+  var EDGE=(function(){var e=[];for(var i=0;i<=64;i++)e.push(30*Math.pow(16000/30,i/64));return e})();
+  var BANDS=[[30,60],[60,150],[150,500],[500,2000],[2000,6000],[6000,16000]];
+  function rawAudio(){
+    if(raw.frame===globalFrame&&!api._force)return raw;
+    raw.frame=globalFrame;var t=now(),dt=raw.t?Math.min(0.1,Math.max(0.001,(t-raw.t)/1000)):1/60;raw.t=t;
+    var inj=api.injected;
+    if(inj){
+      for(var i=0;i<64;i++){raw.spec[i]=typeof inj.spec==='number'?inj.spec:(inj.spec?(+inj.spec[i]||0):0)}
+      raw.active=true;if(inj.onset){raw.onsetId++;raw.onsetStr=+inj.onset||1;inj.onset=0}
+      return raw}
+    var an=(typeof analyser!=='undefined')?analyser:null;
+    if(!an||!audioTransportActive()){raw.spec.fill(0);raw.prev.fill(0);raw.active=false;return raw}
+    raw.active=true;
+    var n=an.frequencyBinCount,buf=raw.buf&&raw.buf.length===n?raw.buf:(raw.buf=new Uint8Array(n));an.getByteFrequencyData(buf);
+    var hz=an.context.sampleRate/an.fftSize;
+    for(var i=0;i<64;i++){
+      var a=Math.max(1,Math.floor(EDGE[i]/hz)),b=Math.max(a+1,Math.ceil(EDGE[i+1]/hz)),s=0,c=0;
+      for(var j=a;j<b&&j<n;j++){s+=buf[j];c++}
+      var v=c?s/c/255:0;raw.spec[i]=Math.max(0,(v-0.22)/0.7);
+    }
+    var fl=0;for(var i=0;i<40;i++){var d=raw.spec[i]-raw.prev[i];if(d>0)fl+=d}
+    raw.prev.set(raw.spec);
+    var threshold=raw.thr;
+    raw.thr+=(fl-raw.thr)*(1-Math.exp(-dt/0.3));
+    var bass=typeof agAudio!=='undefined'?agAudio.features():null;
+    var bassHit=bass&&bass.onsets!==raw.bassOnsets;
+    if(bass)raw.bassOnsets=bass.onsets;
+    if((fl>threshold*1.5+0.12||bassHit)&&t-raw.lastOn>140){
+      raw.lastOn=t;raw.onsetId++;raw.onsetStr=Math.min(1,Math.max(bassHit?bass.strength:0,0.35+fl*0.18));
+    }
+    return raw}
+  function synth(t,k){ // gentle synthetic music-like input used only to warm up an idle preview
+    var s=new Float32Array(64);var env=Math.max(0,1-t/1.8);
+    for(var i=0;i<64;i++){var f=i/63;s[i]=env*Math.max(0,(0.75-0.55*f)*(0.55+0.45*Math.sin(t*5+i*0.37))+0.25*Math.sin(t*2.3+i*0.9)*(1-f))}
+    return s}
+  function smoothAudio(st,dt,k,r){
+    var A=Math.max(0.005,k.attack),R=Math.max(0.03,k.release),sens=k.sens*k.gain,tilt=k.tilt;
+    var ca=1-Math.exp(-dt/A),cr=1-Math.exp(-dt/R);
+    for(var i=0;i<64;i++){var f=i/63,tg=Math.min(1.6,r.spec[i]*sens*Math.max(0.05,1+tilt*(f-0.5)*1.6)),c=st.spec[i];st.spec[i]=c+(tg-c)*(tg>c?ca:cr)}
+    var bs=st.bands;
+    for(var b=0;b<6;b++){var s=0,c=0;for(var i=0;i<64;i++){var m=(EDGE[i]+EDGE[i+1])*0.5;if(m>=BANDS[b][0]&&m<BANDS[b][1]){s+=st.spec[i];c++}}bs[b]=c?s/c:0}
+    var lv=(bs[0]*0.12+bs[1]*0.3+bs[2]*0.2+bs[3]*0.16+bs[4]*0.12+bs[5]*0.1)*1.5;st.level=1.1*Math.tanh(lv*0.9);
+    if(r.onsetId!==st.oid){st.oid=r.onsetId;st.kick=Math.min(1.5,r.onsetStr*k.burst*k.gain);st.since=0;st.onN=(st.onN||0)+1;if(st.onN%3===0)st.sdir=-(st.sdir||1)}
+    else{st.kick*=Math.exp(-dt/0.14);st.since=Math.min(6,st.since+dt)}
+    // Sound-driven rotation: mids set the spin strength, every third beat reverses its direction
+    var sd=st.sdir||1,mm=Math.min(1.3,(bs[2]+bs[3]+bs[4])/3),tt=sd*k.swirlSnd*(0.15+2.2*mm+0.8*st.kick*k.react);
+    st.torque=(st.torque||0)+(tt-(st.torque||0))*(1-Math.exp(-dt/0.18));
+    st.sphase=((st.sphase||0)+dt*st.torque*0.9)%(Math.PI*400);
+    st.erot=((st.erot||0)+dt*K({particles:'pSpSpin',fluid:'pSfSpin',smoke:'pSmSpin'}[st.kind],0)/100*1.2)%(Math.PI*2);
+  }
+  // ---------- ramp ----------
+  function rampData(){
+    var hz=(_reactiveHueOffset||0)+(_mixerHueShift||0)+(_autoHue||0),out=new Uint8Array(256*4),stops=colorMode==='toneramp'?toneStops:(colorMode==='simpleramp'?simpleStops:null);
+    for(var i=0;i<256;i++){var t=i/255,c;
+      if(stops){c=lerpColor(stops,colorMode==='toneramp'?0.12+0.88*t:t)}
+      else{var s=hexToRgb(solidColor);var d=[s[0]*0.35,s[1]*0.35,s[2]*0.35],l=[Math.min(255,s[0]*1.25+30),Math.min(255,s[1]*1.25+30),Math.min(255,s[2]*1.25+30)];
+        c=t<0.5?[d[0]+(s[0]-d[0])*t*2,d[1]+(s[1]-d[1])*t*2,d[2]+(s[2]-d[2])*t*2]:[s[0]+(l[0]-s[0])*(t-0.5)*2,s[1]+(l[1]-s[1])*(t-0.5)*2,s[2]+(l[2]-s[2])*(t-0.5)*2]}
+      if(hz){c=shiftHue(c,hz)}
+      out[i*4]=c[0];out[i*4+1]=c[1];out[i*4+2]=c[2];out[i*4+3]=255}
+    return out}
+  function rampKey(){return colorMode+'|'+Math.round(((_reactiveHueOffset||0)+(_mixerHueShift||0)+(_autoHue||0))*2)/2+'|'+(colorMode==='toneramp'?toneStops.join(','):colorMode==='simpleramp'?simpleStops.join(','):solidColor)}
+  // ---------- resources ----------
+  var TU=function(){return GPUTextureUsage};
+  function mk(st,w,h,fmt,usage){
+    w=Math.max(1,Math.min(w|0,8192));h=Math.max(1,Math.min(h|0,8192));
+    var t=G.dev.createTexture({size:[w,h],format:fmt,usage:usage});var o={t:t,v:t.createView(),id:++idN,w:w,h:h};st.res.push(t);return o}
+  function grid(st,w,h){return mk(st,w,h,'rgba16float',GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING)}
+  function pp(st,w,h){var o={a:grid(st,w,h),b:grid(st,w,h)};o.swap=function(){var t=o.a;o.a=o.b;o.b=t};return o}
+  function rt(st,w,h){return mk(st,w,h,'rgba16float',GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.RENDER_ATTACHMENT)}
+  function createState(id,kind,W,H,asp){
+    var tr=TIERS[simOpt.q]||TIERS.med,dev=G.dev;
+    var st={id:id,kind:kind,q:simOpt.q,asp:asp,gAsp:asp,res:[],bgc:{},seen:tick,time:0,steps:0,lastT:0,stepFrame:-1,spec:new Float32Array(64),bands:new Float32Array(6),level:0,kick:0,since:6,oid:raw.onsetId,carry:0,cursor:0,emitted:0,dirty:true,ramp:'',lastDt:0,subs:0,tr:tr,t0:now()};
+    st.U=new Float32Array(AG_SIM_NF);st.ub=dev.createBuffer({size:AG_SIM_NF*4,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+    st.rampTex=dev.createTexture({size:[256,1],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST});st.rampV=st.rampTex.createView();
+    st.cv=document.createElement('canvas');st.cx=st.cv.getContext('webgpu');
+    st.cx.configure({device:dev,format:G.fmt,alphaMode:'premultiplied'});
+    var gh=tr.g,gw=Math.max(32,Math.min(1024,Math.round(gh*asp)));
+    if(kind==='particles'){
+      st.pn=tr.p;st.pbuf=dev.createBuffer({size:st.pn*32,usage:GPUBufferUsage.STORAGE});st.bufs=[st.pbuf,st.ub];
+    }else{
+      st.gw=gw;st.gh=gh;st.vel=pp(st,gw,gh);st.p=pp(st,gw,gh);st.div=grid(st,gw,gh);st.curl=grid(st,gw,gh);
+      if(kind==='fluid'){st.dye=pp(st,Math.min(2048,gw*2),Math.min(2048,gh*2))}
+      else{st.sm=pp(st,Math.round(gw*1.5),Math.round(gh*1.5));st.light=grid(st,Math.round(gw*0.75),Math.round(gh*0.75))}
+    }
+    ST[id]=st;S.created++;return st}
+  function ensureOut(st,W,H){
+    var tr=st.tr,sc=Math.min(1,tr.o/Math.max(W,H));
+    var ow=Math.max(64,Math.round(W*sc)),oh=Math.max(64,Math.round(H*sc));
+    if(st.ow===ow&&st.oh===oh)return;
+    var old=st.hdr?[st.hdr,st.bl1,st.bl2]:null;
+    st.ow=ow;st.oh=oh;st.cv.width=ow;st.cv.height=oh;
+    st.hdr=rt(st,ow,oh);st.bl1=rt(st,Math.ceil(ow/2),Math.ceil(oh/2));st.bl2=rt(st,Math.ceil(ow/2),Math.ceil(oh/2));
+    st.bgc={};st.dirty=true;st.accumClear=true;
+    if(old){
+      if(st.kind==='particles'){
+        setU(st,{ow:ow,oh:oh});upload(st);
+        var enc=G.dev.createCommandEncoder();fp(st,enc,'fCopy',st.hdr.v,old[0]);G.dev.queue.submit([enc.finish()]);
+        st.accumClear=false;st.bgc={};
+      }
+      old.forEach(function(o){o.t.destroy()});
+      st.res=st.res.filter(function(t){return !old.some(function(o){return o.t===t})});
+    }}
+  function disposeState(st,lost){
+    delete ST[st.id];S.disposed++;
+    if(lost)return;
+    try{st.res.forEach(function(t){t.destroy()});if(st.pbuf)st.pbuf.destroy();st.ub.destroy();st.rampTex.destroy();st.cx.unconfigure()}catch(e){err(e)}
+    st.res=[];st.cv.width=st.cv.height=1}
+  function disposeAll(lost){Object.keys(ST).forEach(function(k){disposeState(ST[k],lost)})}
+  function sweep(){Object.keys(ST).forEach(function(k){if(ST[k].seen<tick)disposeState(ST[k])})}
+  function dedupe(){
+    if(typeof stackLayouts==='undefined')return 0;var seen={},fixed=0,order=[],ai=(typeof activeLayerIdx==='number')?activeLayerIdx:-1;
+    if(ai>=0&&ai<stackLayouts.length)order.push(ai);
+    for(var i=0;i<stackLayouts.length;i++)if(i!==ai)order.push(i);
+    order.forEach(function(i){var l=stackLayouts[i],p=l&&l.params;if(!l||!_agIsSim(l.layout)||!p)return;
+      var id=i===ai&&simUid?simUid:p._simId;
+      if(!id||seen[id]){id=simNewId();while(seen[id])id=simNewId();fixed++}
+      seen[id]=1;p._simId=id;if(i===ai)simUid=id});
+    return fixed}
+  function beginFrame(){dedupe();sweep();tick++}
+  function reset(){disposeAll()}
+  function reinit(){var d=G.dev;G.gen++;G.dev=null;G.P=null;disposeAll(!d);if(d){try{d.destroy()}catch(e){}}G.initP=null;G.status='idle';G.errT=[];G.msg='';init();refreshUI()}
+  // ---------- passes ----------
+  function bgG(st,a,b,c,o){
+    var key=[a&&a.id,b&&b.id,c&&c.id,o.id].join(',');if(st.bgc[key])return st.bgc[key];
+    var V=function(x){return x?x.v:G.dummyV};
+    return st.bgc[key]=G.dev.createBindGroup({layout:G.P.L.grid,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:V(a)},{binding:3,resource:V(b)},{binding:4,resource:V(c)},{binding:5,resource:o.v}]})}
+  function dg(st,enc,name,a,b,c,o,w,h){
+    var bg=bgG(st,a,b,c,o),p=enc.beginComputePass();p.setPipeline(G.P[name]);p.setBindGroup(0,bg);p.dispatchWorkgroups(Math.ceil((w||o.w)/8),Math.ceil((h||o.h)/8));p.end();S.dispatches++}
+  function bgP(st,x,y,z){
+    var key='P'+[x&&x.id,y&&y.id,z&&z.id].join(',');if(st.bgc[key])return st.bgc[key];
+    var V=function(q){return q?q.v:G.dummyV};
+    return st.bgc[key]=G.dev.createBindGroup({layout:G.P.L.post,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:V(x)},{binding:3,resource:V(y)},{binding:4,resource:V(z)}]})}
+  function fp(st,enc,name,tgtView,x,y,z){
+    var p=enc.beginRenderPass({colorAttachments:[{view:tgtView,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]});
+    p.setPipeline(G.P[name]);p.setBindGroup(0,bgP(st,x,y,z));p.draw(3);p.end();S.dispatches++}
+  function setU(st,o){for(var k in o){var i=AG_SIM_UF.indexOf(k);if(i<0){err('bad uniform '+k);continue}st.U[64+i]=o[k]}}
+  function upload(st){st.U.set(st.spec,0);G.dev.queue.writeBuffer(st.ub,0,st.U)}
+  // ---------- knobs ----------
+  function knobs(st){
+    var k={sens:K('pSimSens',100)/100,attack:K('pSimAttack',40)/1000,release:K('pSimRelease',350)/1000,burst:K('pSimBurst',100)/100,react:K('pSimReact',30)/100,tilt:K('pSimTilt',0)/100,speed:K('pSimSpeed',100)/100,expo:Math.pow(2,K('pSimExpo',-100)/100),bloom:K('pSimBloom',0)/100,gain:Math.max(0,getIntensity()),swirlSnd:K('pSimSwirlSnd',100)/100};
+    k.maxStep=STEPS[simOpt.step]||STEPS.normal;return k}
+  function baseUniforms(st,k,dt){
+    var kd=st.kind,r=st.since,gov=simOpt.auto==='on'?G.gov:1;
+    var o={dt:dt,time:st.time,vw:st.gw||0,vh:st.gh||0,sw:st.gw||0,sh:st.gh||0,asp:st.asp,sub:st.bands[0],bass:st.bands[1],lowmid:st.bands[2],mid:st.bands[3],himid:st.bands[4],treb:st.bands[5],level:st.level,onset:st.kick,onsetAge:Math.min(r,4),expo:k.expo,bloom:k.bloom*(gov<0.55?0:1),ow:st.ow,oh:st.oh,pseed:(st.steps*7919)%65521,rate:1,bpun:K('pSimBass',100)/100,erot:(st.erot||0)+K('pSimRot',0)*Math.PI/180,response:k.react,torque:st.torque||0,sphase:st.sphase||0,sstr:k.swirlSnd};
+    if(kd==='fluid'){
+      var bm={wall:0,wrap:1,open:2}[simOpt.fBounds]||0,em={ring:0,line:1,center:2}[simOpt.fEmit]||0;
+      Object.assign(o,{bmode:bm,visc:0.25+K('pSfVisc',15)*0.05,dyeDecay:0.15+K('pSfFade',40)*0.03,vort:K('pSfVort',45)*0.35,emitN:K('pSfJets',12),emitType:em,jet:18*K('pSfForce',100)/100,radius:K('pSfRadius',8)/100,swirl:K('pSfSwirl',40)/100,spin:0.08*K('pSfSwirl',40)/100*(1+st.level),kick:11*k.burst,dyeAmt:1.6*K('pSfDye',100)/100,shade:K('pSfShade',55)/100,lightx:-0.55,lighty:-0.7,tintMode:0,compMode:0});
+    }else if(kd==='smoke'){
+      var bm2={open:2,wall:0,wrap:1}[simOpt.sBounds],em2={floor:1,ring:0,center:2}[simOpt.sEmit];
+      var th=K('pSmLight',135)*Math.PI/180;
+      Object.assign(o,{bmode:bm2==null?2:bm2,visc:0.2,dyeDecay:0.02+K('pSmDiss',32)*0.02,vort:K('pSmVort',55)*0.35,buoy:2.4*K('pSmBuoy',100)/100,cool:0.1+K('pSmCool',35)*0.035,heat:11*K('pSmHeat',100)/100,turb:K('pSmTurb',30)*0.012,windx:K('pSmWind',0)*0.012,emitN:K('pSmJets',10),emitType:em2==null?1:em2,jet:12,radius:0.055,swirl:0.3,spin:0,kick:9*k.burst,dyeAmt:0.85*K('pSmEmit',100)/100,lightx:Math.cos(th),lighty:-Math.sin(th),lightI:K('pSmLightI',100)/100*1.5,opac:K('pSmOpac',100)/100,shadow:K('pSmShadow',70)/100,ember:K('pSmEmber',40)/100*1.2,tintMode:1,tintMix:0.75,compMode:1,rate:Math.min(4,1/Math.max(0.25,k.speed*K('pSmSpeed',25)/100))});
+    }else{
+      var bm3={wrap:0,bounce:1,open:2}[simOpt.pBounds]||0,em3={ring:0,fountain:1,center:2,orbit:3}[simOpt.pEmit]||0,cb={spectrum:0,age:1,speed:2}[simOpt.pColor]||0;
+      var szs=K('pSpSize',3)*st.oh/1700;
+      Object.assign(o,{bmode:bm3,pn:st.pn,pbounds:bm3,emitType:em3,jet:0.75*K('pSpSpeed',10)/100,swirl:K('pSpSwirl',43)/100,spin:0.12*K('pSpSwirl',43)/100,plife:K('pSpLife',30)/10,pdrag:0.08+K('pSpDrag',100)/100*2.4,pgrav:K('pSpGravity',-3)/100*1.6,pcurl:K('pSpTurb',46)/100*1.1,pcscale:1+K('pSpTurbScale',66)/100*5,pattract:K('pSpAttract',0)/100*1.2,pvort:K('pSpSwirl',43)/100*0.5,psize:szs,pglow:0.17*Math.pow(60000/st.pn,0.5),colorBy:cb,compMode:0});
+    }
+    var E=K('pSimEnergy',100)/100;o.jet*=E;o.kick=(o.kick||0)*E;if(o.vort!=null)o.vort*=E;if(o.pcurl!=null)o.pcurl*=E;if(o.turb!=null)o.turb*=E;
+    return o}
+  // ---------- stepping ----------
+  function stepOnce(st,h,k,gov){
+    var dev=G.dev,P=G.P,enc=dev.createCommandEncoder(),kd=st.kind;
+    var o=baseUniforms(st,k,h);
+    if(kd==='particles'){
+      var amt=K('pSpAmount',100)/100,levelDrive=Math.pow(st.level,0.7)*(1-k.react)+Math.pow(st.level,1.6)*k.react;
+      var rate=st.pn/o.plife*0.05*amt*Math.min(1.2,levelDrive*1.05)*gov;
+      st.carry+=rate*h+st.kick*h*0*0;
+      if(st.burstN){st.carry+=st.burstN;st.burstN=0}
+      var n=Math.min(st.pn,Math.floor(st.carry));st.carry-=n;
+      o.pemit=n;o.pcursor=st.cursor;st.cursor=(st.cursor+n)%st.pn;st.emitted+=n;
+      setU(st,o);upload(st);
+      var bg=dev.createBindGroup({layout:P.L.part,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:{buffer:st.pbuf}}]});
+      var p=enc.beginComputePass();p.setPipeline(P.pStep);p.setBindGroup(0,bg);p.dispatchWorkgroups(Math.ceil(st.pn/64));p.end();S.dispatches++;
+    }else{
+      var it=Math.max(6,Math.round((kd==='fluid'?K('pSfIter',24):K('pSmIter',24))*(0.5+0.5*gov)));
+      setU(st,o);upload(st);
+      var v=st.vel,pr=st.p,rampTex={v:st.rampV,id:-1};
+      dg(st,enc,'kSplatVel',v.a,null,null,v.b);v.swap();
+      if(kd==='fluid'){dg(st,enc,'kSplatDye',st.dye.a,rampTex,null,st.dye.b);st.dye.swap()}
+      else{dg(st,enc,'kSplatDye',st.sm.a,rampTex,null,st.sm.b);st.sm.swap();dg(st,enc,'kBuoy',v.a,st.sm.a,null,v.b);v.swap()}
+      dg(st,enc,'kCurl',v.a,null,null,st.curl);
+      dg(st,enc,'kVort',v.a,st.curl,null,v.b);v.swap();
+      dg(st,enc,'kAdvVel',v.a,null,null,v.b);v.swap();
+      dg(st,enc,'kDiv',v.a,null,null,st.div);
+      for(var i=0;i<it;i++){dg(st,enc,'kJacobi',pr.a,st.div,null,pr.b);pr.swap()}
+      dg(st,enc,'kProject',pr.a,v.a,null,v.b);v.swap();
+      var d=kd==='fluid'?st.dye:st.sm;dg(st,enc,'kAdvDye',d.a,v.a,null,d.b);d.swap();
+    }
+    dev.queue.submit([enc.finish()]);S.submits++;S.steps++;st.steps++;st.time+=h}
+  function stepState(st,dtReal,k,r){
+    var rt=Math.min(0.05,Math.max(0.001,api.fixedDt||dtReal)),smokeSpeed=st.kind==='smoke'?K('pSmSpeed',25)/100:1;
+    var dt=Math.min(rt*k.speed*smokeSpeed,4*k.maxStep);
+    smoothAudio(st,rt,k,r);
+    if(st.kind==='particles'&&st.kick>0.05&&st.since===0)st.burstN=(st.burstN||0)+st.pn*0.006*Math.min(1.5,st.kick)*(K('pSpAmount',100)/100);
+    var n=Math.min(4,Math.ceil(dt/k.maxStep-1e-6)),h=dt/n,gov=simOpt.auto==='on'?G.gov:1;
+    for(var i=0;i<n;i++)stepOnce(st,h,k,gov);
+    st.lastDt=h;st.subs=n;st.dirty=true;
+    if(!st.pend){st.pend=true;var t0=now();G.dev.queue.onSubmittedWorkDone().then(function(){st.pend=false;var ms=now()-t0;G.gpuMs=G.gpuMs?G.gpuMs*0.9+ms*0.1:ms;
+      if(simOpt.auto==='on'){if(G.gpuMs>24)G.gov=Math.max(0.35,G.gov*0.93);else if(G.gpuMs<12)G.gov=Math.min(1,G.gov+0.01)}}).catch(function(){st.pend=false})}
+  }
+  function prewarm(st,k){
+    var r={spec:null,onsetId:raw.onsetId,onsetStr:0.9};var n=60,h=1/30;var oidSave=raw.onsetId;
+    for(var i=0;i<n;i++){r.spec=synth(i*h,k);if(i%12===1){r.onsetId=++raw.onsetId;r.onsetStr=0.85}
+      var kk=Object.assign({},k,{speed:1});stepState(st,h,kk,r)}
+    st.oid=raw.onsetId;st.kick=0;st.since=3;st.warm=true}
+  // ---------- render ----------
+  function render(st,k){
+    var dev=G.dev,P=G.P,enc=dev.createCommandEncoder(),kd=st.kind;
+    var o=baseUniforms(st,k,st.lastDt||1/60);setU(st,o);upload(st);
+    if(kd==='particles'){
+      var fadeK=0,tr=K('pSpTrail',55)/100;if(tr>0)fadeK=Math.exp(-(st.lastDt||1/60)*st.subs*(0.4+(1-tr)*(1-tr)*18));
+      var bgR=dev.createBindGroup({layout:P.L.rend,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:{buffer:st.pbuf}},{binding:3,resource:st.rampV}]});
+      var rp=enc.beginRenderPass({colorAttachments:[{view:st.hdr.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:st.accumClear?'clear':'load',storeOp:'store'}]});
+      st.accumClear=false;
+      if(st.dirty){rp.setPipeline(P.pFade);rp.setBindGroup(0,bgR);rp.setBlendConstant({r:fadeK,g:fadeK,b:fadeK,a:fadeK});rp.draw(3);
+        rp.setPipeline(P.pDraw);rp.setBindGroup(0,bgR);rp.draw(6,st.pn);S.dispatches+=2}
+      rp.end();
+    }else if(kd==='fluid'){
+      fp(st,enc,'fFluid',st.hdr.v,st.dye.a,st.vel.a,st.curl);
+    }else{
+      dg(st,enc,'kLight',st.sm.a,null,null,st.light);
+      fp(st,enc,'fSmoke',st.hdr.v,st.sm.a,st.light,{v:st.rampV,id:-1});
+    }
+    var gov=simOpt.auto==='on'?G.gov:1;
+    if(k.bloom>0.001&&gov>=0.55){fp(st,enc,'fBright',st.bl1.v,st.hdr);fp(st,enc,'fBlurH',st.bl2.v,st.bl1);fp(st,enc,'fBlurV',st.bl1.v,st.bl2)}
+    else{var c=enc.beginRenderPass({colorAttachments:[{view:st.bl1.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]});c.end()}
+    fp(st,enc,'fComp',st.cx.getCurrentTexture().createView(),st.hdr,st.bl1);
+    dev.queue.submit([enc.finish()]);S.submits++;st.dirty=false}
+  // Still export: draws the current state once into temporary targets at the requested pixel size (no stepping, preview targets untouched).
+  function exportRender(st,k,ctx,W,H){
+    var dpr=1;try{dpr=ctx.getTransform().a||1}catch(e){}
+    var ow=Math.min(4096,Math.max(64,Math.round(W*dpr))),oh=Math.min(4096,Math.max(64,Math.round(H*dpr)));
+    var sv={hdr:st.hdr,bl1:st.bl1,bl2:st.bl2,cv:st.cv,cx:st.cx,ow:st.ow,oh:st.oh,bgc:st.bgc,ac:st.accumClear,dirty:st.dirty},tmp=[],ecv=document.createElement('canvas');
+    var T=function(w,h){var t=G.dev.createTexture({size:[w,h],format:'rgba16float',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.RENDER_ATTACHMENT});tmp.push(t);return{t:t,v:t.createView(),id:++idN,w:w,h:h}};
+    ecv.width=ow;ecv.height=oh;var ecx=ecv.getContext('webgpu');
+    try{
+      ecx.configure({device:G.dev,format:G.fmt,alphaMode:'premultiplied'});
+      st.cv=ecv;st.cx=ecx;st.ow=ow;st.oh=oh;st.bgc={};st.accumClear=true;st.dirty=true;
+      st.hdr=T(ow,oh);st.bl1=T(Math.ceil(ow/2),Math.ceil(oh/2));st.bl2=T(Math.ceil(ow/2),Math.ceil(oh/2));
+      if(st.kind==='particles'&&sv.hdr&&!sv.ac){
+        setU(st,{ow:ow,oh:oh});upload(st);
+        var enc=G.dev.createCommandEncoder();fp(st,enc,'fCopy',st.hdr.v,sv.hdr);G.dev.queue.submit([enc.finish()]);
+        st.accumClear=false;st.dirty=false;
+      }
+      render(st,k);ctx.drawImage(ecv,0,0,W,H);st.lastExport=[ow,oh];
+    }finally{
+      st.hdr=sv.hdr;st.bl1=sv.bl1;st.bl2=sv.bl2;st.cv=sv.cv;st.cx=sv.cx;st.ow=sv.ow;st.oh=sv.oh;st.bgc=sv.bgc;st.accumClear=sv.ac;st.dirty=sv.dirty;
+      try{ecx.unconfigure()}catch(e){}tmp.forEach(function(t){t.destroy()});ecv.width=ecv.height=1}}
+  function paintMsg(ctx,W,H,msg,title){
+    ctx.save();ctx.fillStyle='rgba(20,10,12,0.72)';ctx.fillRect(0,0,W,H);
+    var fs=Math.max(13,Math.round(Math.min(W,H)/34));ctx.font='600 '+fs+'px system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle='#ff8a80';
+    ctx.fillText(title||'WebGPU simulation unavailable',W/2,H/2-fs*1.2);ctx.font=fs*0.82+'px system-ui,sans-serif';ctx.fillStyle='#f3d2cf';
+    var words=String(msg).split(' '),line='',y=H/2+fs*0.4,max=W*0.78;
+    words.forEach(function(w){var t=line?line+' '+w:w;if(ctx.measureText(t).width>max&&line){ctx.fillText(line,W/2,y);y+=fs*1.2;line=w}else line=t});
+    if(line)ctx.fillText(line,W/2,y);ctx.restore()}
+  function draw(ctx,W,H,values,lp,isExport){
+    var kind=layoutMode.slice(3);
+    if(!simUid)simUid=simNewId();
+    if(G.status==='idle')init();
+    if(G.status==='init'){paintMsg(ctx,W,H,'Starting the GPU\u2026','Initialising WebGPU');return}
+    if(G.status!=='ready'){paintMsg(ctx,W,H,G.msg,G.status==='lost'?'WebGPU device lost':'WebGPU simulation unavailable');return}
+    try{
+      var asp=W/H,st=ST[simUid];
+      if(st&&(st.kind!==kind||st.q!==simOpt.q)){disposeState(st);st=null}
+      else if(st){
+        if(st.kind==='particles')st.asp=asp;
+        else{var rr=asp/st.gAsp;if(rr<0.6||rr>1.67){if(!st.aspT)st.aspT=now();else if(now()-st.aspT>1500){disposeState(st);st=null}}else st.aspT=0}
+      }
+      var k=knobs();
+      if(!st){st=createState(simUid,kind,W,H,asp)}
+      st.seen=tick;
+      var xp=!!(isExport||api.exporting);
+      ensureOut(st,W,H);
+      var rk=rampKey();if(st.ramp!==rk){st.ramp=rk;G.dev.queue.writeTexture({texture:st.rampTex},rampData(),{bytesPerRow:1024},[256,1]);st.dirty=true}
+      if(!st.warm&&!api.noPrewarm&&!api.injected&&(xp||!rawAudio().active)){prewarm(st,k);st.lastT=now();st.stepFrame=globalFrame}
+      else if(!st.warm){st.warm=true}
+      if(!xp&&st.stepFrame!==globalFrame){
+        var t=now(),r=rawAudio(),dt=st.lastT?(t-st.lastT)/1000:1/60;if(dt>0.25)dt=1/60;
+        if(st.stepFrame>=0||st.steps===0){stepState(st,dt,k,r)}
+        st.lastT=t;st.stepFrame=globalFrame}
+      if(xp){exportRender(st,k,ctx,W,H);S.exports=(S.exports||0)+1}
+      else{render(st,k);ctx.drawImage(st.cv,0,0,W,H);S.frames++;st.fr=(st.fr||0)+1}
+    }catch(e){err(e&&e.stack||e);fail('error','Simulation failed: '+(e&&e.message||e));paintMsg(ctx,W,H,G.msg,'WebGPU simulation error')}
+  }
+  function advance(n,dt){var k=knobs();var r=rawAudio();var old=api.fixedDt;api.fixedDt=dt||old||1/60;for(var i=0;i<n;i++){api._force=true;globalFrame++;var rr=rawAudio();Object.keys(ST).forEach(function(id){var s=ST[id];stepState(s,1/60,k,rr);if(s.kind==='particles'&&s.hdr)render(s,k)})}api._force=false;api.fixedDt=old}
+  function statusText(){
+    if(G.status==='ready'){var st=ST[simUid];var a=(G.adInfo||'GPU')+' \u00b7 ';
+      if(!st)return 'WebGPU ready \u00b7 '+a.slice(0,-3);
+      var g=st.kind==='particles'?(st.pn.toLocaleString()+' particles'):(st.gw+'\u00d7'+st.gh+' grid'+(st.kind==='fluid'?' \u00b7 dye '+st.dye.a.w+'\u00d7'+st.dye.a.h:''));
+      return 'WebGPU \u00b7 '+(st.kind==='particles'?'particles (curl noise is a decorative force field, not a fluid)':st.kind==='fluid'?'2D Navier\u2013Stokes, Jacobi pressure':'2D smoke, buoyancy + light march (2.5D, not volumetric)')+' \u00b7 '+g+' \u00b7 '+st.ow+'\u00d7'+st.oh+' \u00b7 dt '+(st.lastDt*1000).toFixed(1)+' ms \u00d7'+st.subs+(G.gov<1?' \u00b7 budget '+Math.round(G.gov*100)+'%':'')}
+    return G.status==='init'?'Starting WebGPU\u2026':(G.status==='idle'?'WebGPU idle':'\u26a0 '+G.msg)}
+  var uiT=0;
+  function refreshUI(){
+    var s=statusText(),bad=G.status!=='ready'&&G.status!=='init'&&G.status!=='idle';
+    AG_SIM_LAYOUTS.forEach(function(k){var e=document.getElementById('simStatus_'+k);if(e){e.textContent=s;e.classList.toggle('bad',bad)}});
+    var b=document.getElementById('simReinitBtn');if(b)b.style.display=bad?'':'none'}
+  function stats(){
+    var L={};Object.keys(ST).forEach(function(id){var s=ST[id];L[id]={kind:s.kind,q:s.q,grid:s.gw?[s.gw,s.gh]:null,particles:s.pn||0,out:[s.ow,s.oh],exportOut:s.lastExport||null,aspect:s.asp,steps:s.steps,time:s.time,dt:s.lastDt,sub:s.subs,emitted:s.emitted,level:s.level,kick:s.kick,frames:s.fr||0,dye:s.dye?[s.dye.a.w,s.dye.a.h]:null}});
+    return{status:G.status,msg:G.msg,adapter:G.adInfo,selfTest:G.selfTest,format:G.fmt,gov:G.gov,gpuMs:G.gpuMs,dispatches:S.dispatches,submits:S.submits,steps:S.steps,frames:S.frames,created:S.created,disposed:S.disposed,live:Object.keys(ST).length,errors:S.errors.slice(),errorCount:S.errorCount||0,exports:S.exports||0,inits:S.inits,layers:L,simUid:simUid}}
+  api.init=init;api.draw=draw;api.beginFrame=beginFrame;api.reset=reset;api.reinit=reinit;api.stats=stats;api.refreshUI=refreshUI;api.advance=advance;api.status=function(){return G.status};api.expMode=function(v){api.exporting=!!v};api.dedupe=dedupe;api.testError=noteErr;
+  api.inject=function(o){api.injected=o;raw.frame=-1};
+  api.loseDevice=function(){if(G.dev)G.dev.destroy()};
+  api.ready=function(){return init().then(function(){return G.status})};
+  api.sync=function(){return G.dev?G.dev.queue.onSubmittedWorkDone():Promise.resolve()};
+  api.has=function(id){return !!ST[id]};
+  api.pixels=function(id){var s=ST[id];if(!s)return null;var c=document.createElement('canvas');c.width=s.ow;c.height=s.oh;var x=c.getContext('2d');x.drawImage(s.cv,0,0);return x.getImageData(0,0,s.ow,s.oh)};
+  return api})();
+
 function getLayoutParams(){
   var p={};
   document.querySelectorAll('.layout-opts input').forEach(function(inp){if(inp.type==='file')return;p[inp.id]=inp.type==='text'?inp.value:+inp.value});
+  if(simUid||_agIsSim(layoutMode))p._simId=simUid;p._sim=JSON.parse(JSON.stringify(simOpt));
   p._lines=+document.getElementById('pLines').value;
   p._contrast=+document.getElementById('pContrast').value;
   p._sensitivity=+document.getElementById('pSensitivity').value;
@@ -2074,6 +2899,7 @@ function setLayoutParams(p){
   layerFx=pfxNorm(p._postFx);
   for(var id in p){if(id.charAt(0)==='_')continue;var el=document.getElementById(id);if(el){if(el.type==='file')continue;if(el.type==='text')el.value=p[id];else el.value=p[id]}}
   if('_lines' in p)document.getElementById('pLines').value=p._lines;
+  agSimApplyParams(p);
   if('_contrast' in p)document.getElementById('pContrast').value=p._contrast;
   if('_sensitivity' in p)document.getElementById('pSensitivity').value=p._sensitivity;
   if('_height' in p)document.getElementById('pHeight').value=p._height;
@@ -2167,7 +2993,8 @@ function initLayers(){
   }
   buildLayersUI();
 }
-function getDefaultLayerParams(){
+function getDefaultLayerParams(){return Object.assign(_agDLP0(),agSimDefaults())}
+function _agDLP0(){
   return JSON.parse(JSON.stringify({
     pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,
     pFibDensity:90,pFibInner:5,pPhylDiv:0,pPhylDensity:88,pPhylInner:4,pSineWaves:2,pSineAmp:80,
@@ -2321,7 +3148,7 @@ function buildLayersUI(){
     var row=document.createElement('div');
     row.className='layer-row';row.id='layerRow_'+idx;
     if(idx===activeLayerIdx)row.classList.add('layer-active');
-    row.innerHTML='<span class="layer-name" style="cursor:pointer" onclick="selectLayer('+idx+')">'+layer.layout+'</span>'+
+    row.innerHTML='<span class="layer-name" style="cursor:pointer" onclick="selectLayer('+idx+')">'+(AG_SIM_TITLE[layer.layout]||layer.layout)+'</span>'+
       '<input type="range" min="5" max="100" value="'+layer.opacity+'" step="5" oninput="setLayerOpacity('+idx+',this.value)">'+
       '<span class="layer-val" id="layerVal_'+idx+'">'+layer.opacity+'%</span>'+
       (stackLayouts.length>1?'<span class="layer-mv'+(idx===0?' off':'')+'" title="Move up" onclick="moveLayer('+idx+',-1)">▲</span><span class="layer-mv'+(idx===stackLayouts.length-1?' off':'')+'" title="Move down" onclick="moveLayer('+idx+',1)">▼</span><span class="layer-rm" onclick="removeLayer('+idx+')">✕</span>':'');
@@ -2352,7 +3179,7 @@ function setLayout(m,btn){pushUndo();
     stackLayouts[activeIdx].layout=m;
     // Don't save params here — they'll be saved when we switch away from this layer
   }
-  layoutMode=m;
+  layoutMode=m;if(_agIsSim(m)){if(!simUid)simUid=simNewId();syncSimUI()}
   // Clear the active state across ALL layout buttons (they live in separate General/3D/Input
   // groups now), then highlight only the current one.
   document.querySelectorAll('.mbtn.amber').forEach(function(b){b.classList.remove('on')});
@@ -2600,7 +3427,7 @@ function _agResetEngines(){
   postFxEnabled=false;trailCv=null;trailCtx=null;document.getElementById('postFxCv').style.display='none';
   compFx=pfxDefault();layerFx=pfxDefault();pfxTarget='layer';_layerTrails={};
   // Particles: drop CPU and GPU particle state; bass envelope restarts.
-  particleLayers={};if(typeof agParticles!=='undefined')agParticles.reset();agAudio.reset();
+  particleLayers={};if(typeof agParticles!=='undefined')agParticles.reset();agAudio.reset();simOpt=Object.assign({},AG_SIM_DEF_OPT);simUid=0;agSim.reset();syncSimUI();
 }
 function resetAll(){
   // Reset is undoable as one step, including state outside getState() (rules, mixer, drop, post-FX switches).
@@ -3044,6 +3871,7 @@ function applyPresetToLayer(st){
     if(st.playMode)legacyParams._playMode=st.playMode;
     presetLayer={layout:st.layoutMode||'linear',opacity:100,params:legacyParams};
   }
+  if(presetLayer&&presetLayer.params)delete presetLayer.params._simId; // presets never carry a simulation id
   // Also migrate old global sliders into preset layer params if they exist and layer doesn't have them
   if(st.sliders&&presetLayer.params){
     var pm=presetLayer.params;
@@ -3368,7 +4196,7 @@ var MIXER_PARAMS={
     {id:'pPartTrail',min:0,max:40,speed:0.15}
   ]
 };
-var _mixerHueShift=0;
+var _mixerHueShift=0,_autoHue=0;
 
 function setMixer(on,btn){
   mixerEnabled=on;
@@ -4363,7 +5191,7 @@ var agKnobs=(function(){
   var dirty=new Set(),scheduled=false,stats={knobs:0,flushes:0,renders:0,flushMs:0};
   function queue(k){dirty.add(k);if(!scheduled){scheduled=true;requestAnimationFrame(flush)}}
   function flush(){scheduled=false;var t=performance.now();dirty.forEach(render);dirty.clear();stats.flushes++;stats.flushMs+=performance.now()-t}
-  Object.defineProperty(proto,'value',{configurable:true,enumerable:dV.enumerable,get:dV.get,set:function(v){dV.set.call(this,v);if(this._knob)queue(this._knob)}});
+  Object.defineProperty(proto,'value',{configurable:true,enumerable:dV.enumerable,get:dV.get,set:function(v){var o=dV.get.call(this);dV.set.call(this,v);if(this._knob&&dV.get.call(this)!==o)queue(this._knob)}});
   if(dN&&dN.set)Object.defineProperty(proto,'valueAsNumber',{configurable:true,enumerable:dN.enumerable,get:dN.get,set:function(v){dN.set.call(this,v);if(this._knob)queue(this._knob)}});
   function lim(inp){var mn=parseFloat(inp.min),mx=parseFloat(inp.max),s=parseFloat(inp.step);if(!isFinite(mn))mn=0;if(!isFinite(mx))mx=100;if(!(mx>mn))mx=mn+1;if(!(s>0))s=1;return{mn:mn,mx:mx,s:s}}
   function cur(inp){return parseFloat(dV.get.call(inp))}
@@ -4386,6 +5214,7 @@ var agKnobs=(function(){
   // User edits: write the input (browser clamps/snaps to step), fire 'input' so the existing handlers run.
   function setVal(k,raw){
     var inp=k.inp,L=lim(inp),before=dV.get.call(inp);
+    if(k.auto&&!k.autoWrite){k.auto.home=Math.max(L.mn,Math.min(L.mx,raw));k.auto.hold=performance.now()+1200}
     dV.set.call(inp,String(Math.max(L.mn,Math.min(L.mx,raw))));
     var changed=dV.get.call(inp)!==before;
     if(changed){k.changed=true;inp.dispatchEvent(new Event('input',{bubbles:true}))}
@@ -4412,6 +5241,7 @@ var agKnobs=(function(){
       def:inp.hasAttribute('value')?inp.defaultValue:dV.get.call(inp),v:NaN,mn:NaN,mx:NaN,txt:null,drag:null,changed:false,wraw:null,wt:0};
     inp._knob=k;el._knob=k;inp.classList.add('knob-src');inp.tabIndex=-1;inp.setAttribute('aria-hidden','true');
     inp.insertAdjacentElement('afterend',el);
+    if(m==='cell'&&!AUTO_EXCL.test(inp.id)){var ab=document.createElement('button');ab.type='button';ab.className='knob-auto';ab.setAttribute('aria-pressed','false');ab.setAttribute('aria-label','Auto: let this knob drift by itself');ab.title='Auto: this knob drifts by itself around its current value. Click again to stop. Turning the knob yourself re-centres it. Speed: Color > Knob auto speed.';ab.addEventListener('click',function(e){e.stopPropagation();toggleAuto(k)});el.appendChild(ab);k.autoBtn=ab}
     if(m==='cell')row.classList.add('knob-cell');
     if(m==='morph')row.classList.add('knob-cell');
     el.addEventListener('pointerdown',function(e){
@@ -4419,6 +5249,7 @@ var agKnobs=(function(){
       try{el.setPointerCapture(e.pointerId)}catch(_){}
       // Rotary drag: the value follows the pointer's angle around the knob centre (270deg = full range).
       var r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+      k.dot=!!k.autoBtn&&Math.hypot(e.clientX-cx,e.clientY-cy)<=8;
       k.drag={id:e.pointerId,cx:cx,cy:cy,a:Math.atan2(e.clientY-cy,e.clientX-cx),raw:cur(inp)};k.changed=false;el.classList.add('drag');document.body.classList.add('knob-dragging');
     });
     el.addEventListener('pointermove',function(e){
@@ -4430,7 +5261,7 @@ var agKnobs=(function(){
       var L=lim(inp);
       d.raw=Math.max(L.mn,Math.min(L.mx,d.raw+da*180/Math.PI/270*(L.mx-L.mn)/(e.shiftKey?5:1)));setVal(k,d.raw);
     });
-    function end(){if(!k.drag)return;k.drag=null;el.classList.remove('drag');document.body.classList.remove('knob-dragging');commit(k)}
+    function end(e){if(!k.drag)return;var dot=k.dot&&!k.changed&&e&&e.type==='pointerup'&&Math.hypot(e.clientX-k.drag.cx,e.clientY-k.drag.cy)<=8;k.dot=false;k.drag=null;if(dot)toggleAuto(k);el.classList.remove('drag');document.body.classList.remove('knob-dragging');commit(k)}
     el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);el.addEventListener('lostpointercapture',end);
     el.addEventListener('dblclick',function(e){e.preventDefault();k.changed=false;setVal(k,parseFloat(k.def));commit(k)});
     el.addEventListener('wheel',function(e){
@@ -4457,6 +5288,42 @@ var agKnobs=(function(){
     attrObs.observe(inp,{attributes:true,attributeFilter:['min','max','step','value']});
     stats.knobs++;render(k);return k;
   }
+  // Per-knob auto mode: the knob drifts smoothly around the value it had when auto was switched on.
+  var AUTO_EXCL=/^(eq\d|eqSmoothing|camSmooth|pDynamics|pAmplify|pBassRelease|pDropSens|pSimAttack|pSimRelease|pSimSens|pSfIter|pSmIter|pAuto|mix|ap[A-Z]|morph|pPwRes|pTextRes)/;
+  var autoSet=new Set(),autoRaf=0,autoLast=0,autoSpeed=1,autoHueOn=false,autoHueSpd=20,autoRedrawT=0;
+  function autoStart(){if(!autoRaf){autoLast=0;autoRaf=requestAnimationFrame(autoTick)}}
+  function autoTick(ts){
+    autoRaf=0;var dt=autoLast?Math.min(0.1,(ts-autoLast)/1000):0.016;autoLast=ts;var now=performance.now();
+    if(autoHueOn){_autoHue=(_autoHue+dt*autoHueSpd)%360;if(!audioTransportActive()&&now-autoRedrawT>100&&typeof renderDensity==='function'){autoRedrawT=now;renderDensity()}}
+    autoSet.forEach(function(k){
+      var a=k.auto;if(!a||k.drag||now<a.hold)return;var inp=k.inp;if(!inp.isConnected||inp.offsetParent===null)return;
+      var L=lim(inp),c=cur(inp);
+      if(a.sent!==undefined&&Math.abs(c-a.sent)>L.s*0.51)a.home=c;
+      a.ph1+=dt*a.w1*autoSpeed;a.ph2+=dt*a.w2*autoSpeed;
+      var u=0.6*Math.sin(a.ph1)+0.4*Math.sin(a.ph2),v=Math.max(L.mn,Math.min(L.mx,a.home+u*(L.mx-L.mn)*0.35));
+      v=Math.max(L.mn,Math.min(L.mx,Math.round((v-L.mn)/L.s)*L.s+L.mn));
+      if(v===c){a.sent=c;return}
+      k.autoWrite=true;setVal(k,v);k.autoWrite=false;k.changed=false;a.sent=cur(inp);
+    });
+    if(autoSet.size||autoHueOn)autoRaf=requestAnimationFrame(autoTick);
+  }
+  function toggleAuto(k,force){
+    var on=force!==undefined?force:!k.auto;
+    if(on&&!k.auto){k.auto={home:cur(k.inp),ph1:Math.random()*6.283,ph2:Math.random()*6.283,w1:6.283/(16+Math.random()*14),w2:6.283/(7+Math.random()*6),sent:undefined,hold:0};autoSet.add(k);autoStart()}
+    else if(!on&&k.auto){k.auto=null;autoSet.delete(k)}
+    if(k.autoBtn){k.autoBtn.classList.toggle('on',!!k.auto);k.autoBtn.setAttribute('aria-pressed',k.auto?'true':'false')}
+  }
+  var auto={
+    toggle:function(inp,force){if(inp&&inp._knob)toggleAuto(inp._knob,force)},
+    isOn:function(inp){return !!(inp&&inp._knob&&inp._knob.auto)},
+    stopAll:function(){Array.from(autoSet).forEach(function(k){toggleAuto(k,false)})},
+    count:function(){return autoSet.size},
+    setSpeed:function(pct){autoSpeed=Math.max(0.05,pct/100)},
+    setHueSpeed:function(d){autoHueSpd=+d||0},
+    setHue:function(on,btn){autoHueOn=!!on;if(btn&&btn.parentElement)btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.toggle('on',b===btn)});
+      if(on)autoStart();else{_autoHue=0;if(typeof renderDensity==='function')renderDensity()}},
+    hueOn:function(){return autoHueOn}
+  };
   // Wrap consecutive knob cells into centered rows. Explicit data-knob-row groups create deliberate
   // two-knob rows without changing the source inputs or their handlers.
   function rkey(row){return row.getAttribute('data-knob-row')||''}
@@ -4493,8 +5360,9 @@ var agKnobs=(function(){
     defs();enhance(document);
     document.querySelectorAll('#reactiveRules,[data-knob-host]').forEach(function(h){hostObs.observe(h,{childList:true})});
   }
-  return{init:init,enhance:enhance,stats:function(){return Object.assign({},stats)},knobOf:function(inp){return inp&&inp._knob?inp._knob.el:null},sync:function(){flush()}};
+  return{init:init,enhance:enhance,stats:function(){return Object.assign({},stats)},knobOf:function(inp){return inp&&inp._knob?inp._knob.el:null},sync:function(){flush()},auto:auto};
 })();
+var agKnobAuto=agKnobs.auto;
 agKnobs.init();
 
 // v33 switches: progressively enhance true binary .mode-btns controls. The original buttons remain the
@@ -4823,14 +5691,14 @@ function lerpColor(st,t){if(!st.length)return[200,200,200,1];if(st.length===1)re
 function lineCol(v,pr,idx,total){
   if(camActive&&camUseColors&&camColors){var cc=getCamColor(pr,idx||0,total||1);if(cc)return cc}
   var hueShift=idx!==undefined?getRand(idx+3000,'rColor')*180:0;
-  hueShift+=(_reactiveHueOffset||0)+(_mixerHueShift||0);
+  hueShift+=(_reactiveHueOffset||0)+(_mixerHueShift||0)+(_autoHue||0);
   if(colorMode==='solid'){var c=shiftHue(hexToRgb(solidColor),hueShift);return rgbaStr(c)}
   if(colorMode==='toneramp'){var c=shiftHue(lerpColor(toneStops,v),hueShift);return rgbaStr(c)}
   if(colorMode==='simpleramp'){var c=shiftHue(lerpColor(simpleStops,pr),hueShift);return rgbaStr(c)}return solidColor}
 function lineColHex(v,pr,idx,total){
   if(camActive&&camUseColors&&camColors){var cc=getCamColorHex(pr,idx||0,total||1);if(cc)return cc}
   var hueShift=idx!==undefined?getRand(idx+3000,'rColor')*180:0;
-  hueShift+=(_reactiveHueOffset||0)+(_mixerHueShift||0);
+  hueShift+=(_reactiveHueOffset||0)+(_mixerHueShift||0)+(_autoHue||0);
   if(colorMode==='solid'){var c=shiftHue(hexToRgb(solidColor),hueShift);return rgbToHex(c[0],c[1],c[2])}
   if(colorMode==='toneramp'){var c=shiftHue(lerpColor(toneStops,v),hueShift);return rgbToHex(c[0],c[1],c[2])}
   if(colorMode==='simpleramp'){var c=shiftHue(lerpColor(simpleStops,pr),hueShift);return rgbToHex(c[0],c[1],c[2])}return solidColor}
@@ -5103,7 +5971,7 @@ function liveAnimLoop(){
     zoom=maxZoomL;
   }
   var drawW=sz.W*zoom,drawH=sz.H*zoom;
-  agGpu.beginFrame();var offCv=_offCanvas(Math.round(drawW*sz.dpr),Math.round(drawH*sz.dpr));
+  agGpu.beginFrame();agSim.beginFrame();var offCv=_offCanvas(Math.round(drawW*sz.dpr),Math.round(drawH*sz.dpr));
   var offCtx=offCv.getContext('2d');offCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
   if(stackMode&&stackLayouts.length>=1){
     var aIdxL=getActiveLayerIdx();
@@ -5190,7 +6058,7 @@ function liveAnimLoop(){
       offCtx.drawImage(lCv,oxL,oyL);offCtx.restore();
     }
     setLayoutParams(origParamsL);
-    layoutMode=origLayoutL;
+    layoutMode=origLayoutL;syncLayoutRelevance();
   }else{
     _objSpinRot=spin>0&&(layoutMode==='object'||layoutMode==='growth')?spinAngle:0;if(spin>0&&layoutMode!=='linear'&&layoutMode!=='object'&&layoutMode!=='growth'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
     agPixelWarp.setLayer(0);agDrawDensity(offCtx,drawW,drawH,applyFadeEdge(modVals),p,false);
@@ -5660,7 +6528,7 @@ var agParticles=(function(){
       if(texS){gl.bindTexture(gl.TEXTURE_2D,texS);gl.texSubImage2D(gl.TEXTURE_2D,0,x,y,run,1,gl.RGBA,gl.FLOAT,L.stageS,done*4)}
       done+=run}}
   function kill(L,slot){var d=L.deathU[slot];if(d<0)return;L.alive--;var c=L.bucket.get(d);if(c>1)L.bucket.set(d,c-1);else L.bucket.delete(d);L.deathU[slot]=-1}
-  function lutFor(L){var hue=(_reactiveHueOffset||0)+(_mixerHueShift||0);
+  function lutFor(L){var hue=(_reactiveHueOffset||0)+(_mixerHueShift||0)+(_autoHue||0);
     var sig=colorMode+'|'+solidColor+'|'+(colorMode==='toneramp'?toneStops.join(','):colorMode==='simpleramp'?simpleStops.join(','):'')+'|'+hue;
     if(sig!==L.lutSig){var d=new Uint8Array(4096),c;
       for(var i=0;i<1024;i++){var x=i/1023;
@@ -6346,7 +7214,7 @@ var agGpu=(function(){
     if(unavailable)return compat(unavailable,ctx,W,H,values,p,forExport);
     if(lost||!prog||gl.isContextLost())return compat('GPU context lost',ctx,W,H,values,p,forExport);
     if(forExport)return compat('export',ctx,W,H,values,p,forExport);
-    if(layoutMode==='image'||layoutMode==='video'||layoutMode==='text'||layoutMode==='pixelwarp'||layoutMode==='growth'||layoutMode==='sacred'||layoutMode==='graph'||layoutMode==='lissajous'||layoutMode==='rose'||layoutMode==='spiro'||_ag3dSurf())return compat(layoutMode+' layout',ctx,W,H,values,p,forExport);
+    if(layoutMode==='image'||layoutMode==='video'||layoutMode==='text'||layoutMode==='pixelwarp'||layoutMode==='growth'||layoutMode==='sacred'||layoutMode==='graph'||_agIsSim(layoutMode)||layoutMode==='lissajous'||layoutMode==='rose'||layoutMode==='spiro'||_ag3dSurf())return compat(layoutMode+' layout',ctx,W,H,values,p,forExport);
     var w=ctx.canvas.width,h=ctx.canvas.height;
     if(w>maxDim||h>maxDim||w*h>MAX_PIXELS)return compat('layer above GPU surface budget',ctx,W,H,values,p,forExport);
     var k=sig(),skip=compatUntil[k];if(skip&&skip.until>stats.frames)return compat(skip.reason,ctx,W,H,values,p,forExport);
@@ -6405,6 +7273,7 @@ function drawDensity(ctx,W,H,values,p,forExport){
   if(layoutMode==='growth')return agGrowth.draw(ctx,W,H,values,p,forExport);
   if(layoutMode==='sacred')return agSacred.draw(ctx,W,H,values,p,forExport);
   if(layoutMode==='graph')return agGraph.draw(ctx,W,H,values,p,forExport);
+  if(_agIsSim(layoutMode))return agSim.draw(ctx,W,H,values,p,forExport);
   if(layoutMode==='lissajous'||layoutMode==='rose'||layoutMode==='spiro')return agCurves.draw(layoutMode,ctx,W,H,values,p,forExport);
   var spacings=[],total=0;for(var i=0;i<n;i++){var d=1+values[i]*p.contrast*6,sp=1/Math.max(d,.05);sp*=(1+getRand(i,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);total+=sp}
   var scale=W/total,mLH=H*p.height,lines=[],x=0;
@@ -8565,13 +9434,14 @@ function _objActiveModel(){
 var AG_LAYOUT_NA=(function(){var G=['growth','pixelwarp'],F=['growth','pixelwarp','fractal'],D3=['terrain','sphere','tetrahedron','dna','object'],DEF=F.concat(['sacred','graph','lissajous','rose','spiro']),
   OUT=G.concat(['scatter','image','video','text','sacred','graph','lissajous','rose','spiro'],D3),m={rowStyle:G,styleOpts:G,rowOutline:OUT,outlineParams:OUT,divOutline:OUT,
   rowContrast:F.concat(D3),rowHeight:['growth','dna'],rowThick:['pixelwarp'],rowVaryH:F.concat(['scatter','image','video','text'],D3),rowVaryT:F.concat(D3),rowDisorder:F.concat(D3)};
-  ['rowTwist','rowBulge','rowWave','rowWaveFreq','rowShear','rowDepth','rowRipple','rowJitter'].forEach(function(id){m[id]=DEF});return m})();
+  ['rowTwist','rowBulge','rowWave','rowWaveFreq','rowShear','rowDepth','rowRipple','rowJitter'].forEach(function(id){m[id]=DEF});
+  ['rowStyle','styleOpts','rowOutline','outlineParams','divOutline','rowContrast','rowHeight','rowThick','rowVaryH','rowVaryT','rowDisorder','rowTwist','rowBulge','rowWave','rowWaveFreq','rowShear','rowDepth','rowRipple','rowJitter','rowLines','rowFadeEdge','rowSens','rowAmp','panelParticles'].forEach(function(id){m[id]=(m[id]||[]).concat(AG_SIM_LAYOUTS)});return m})();
 var AG_OBJ_SURF_OK={rowContrast:1,rowVaryH:1,rowVaryT:1,rowDisorder:1};
 var AG_3D_SURF=['terrain','sphere','tetrahedron','dna','object'];
 function _ag3dSurf(){return objSignal==='surface'&&AG_3D_SURF.indexOf(layoutMode)>=0}
 // v60: one Signal block shared by every 3D layout; it lives at the top of the active 3D panel
 function _ag3dSignalHost(){var b=document.getElementById('ag3dSignalBox');if(!b)return;var host=document.getElementById('layoutOpts_'+(AG_3D_SURF.indexOf(layoutMode)>=0?layoutMode:'object'));if(host&&b.parentNode!==host)host.insertBefore(b,host.firstChild)}
-function syncLayoutRelevance(){_ag3dSignalHost();var sf=_ag3dSurf();for(var id in AG_LAYOUT_NA){var el=document.getElementById(id);if(el)el.classList.toggle('ag-na',AG_LAYOUT_NA[id].indexOf(layoutMode)>=0&&!(sf&&AG_OBJ_SURF_OK[id]))}}
+function syncLayoutRelevance(){_ag3dSignalHost();agSimHost();var sf=_ag3dSurf();for(var id in AG_LAYOUT_NA){var el=document.getElementById(id);if(el)el.classList.toggle('ag-na',AG_LAYOUT_NA[id].indexOf(layoutMode)>=0&&!(sf&&AG_OBJ_SURF_OK[id]))}}
 // v59: Signal Shape (audio displaces the mesh) or Surface (fixed mesh, audio lines travel over it)
 function setObjSignal(m,btn){pushUndo();objSignal=m==='surface'?'surface':'shape';syncObjModelUI();renderDensity()}
 function setObjFlow(m,btn){pushUndo();objFlow=['rings','sweep','spiral','scatter'].indexOf(m)>=0?m:'rings';syncObjModelUI();renderDensity()}
@@ -9212,7 +10082,7 @@ function renderDensity(){
   }
   var drawW=sz.W*zoom;
   var drawH=sz.H*zoom;
-  agGpu.beginFrame();var offCv=_offCanvas(Math.round(drawW*sz.dpr),Math.round(drawH*sz.dpr));
+  agGpu.beginFrame();agSim.beginFrame();var offCv=_offCanvas(Math.round(drawW*sz.dpr),Math.round(drawH*sz.dpr));
   var offCtx=offCv.getContext('2d');offCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
   var spin=+document.getElementById('pSpin').value;
   if(stackMode&&stackLayouts.length>=1){
@@ -9300,7 +10170,7 @@ function renderDensity(){
       offCtx.restore();
     }
     setLayoutParams(origParams);
-    layoutMode=origLayout;
+    layoutMode=origLayout;syncLayoutRelevance();
   }else{
     _objSpinRot=spin>0&&(layoutMode==='object'||layoutMode==='growth')?spinAngle:0;if(spin>0&&layoutMode!=='linear'&&layoutMode!=='object'&&layoutMode!=='growth'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
     agPixelWarp.setLayer(0);agDrawDensity(offCtx,drawW,drawH,applyFadeEdge(vals),P(),false);
@@ -9430,7 +10300,7 @@ function animLoop(){if(!playing){rafId=null;return}
   }
   var drawW=sz.W*zoom;
   var drawH=sz.H*zoom;
-  agGpu.beginFrame();var offCv=_offCanvas(Math.round(drawW*sz.dpr),Math.round(drawH*sz.dpr));
+  agGpu.beginFrame();agSim.beginFrame();var offCv=_offCanvas(Math.round(drawW*sz.dpr),Math.round(drawH*sz.dpr));
   var offCtx=offCv.getContext('2d');offCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
   if(stackMode&&stackLayouts.length>=1){
     var aIdx2=getActiveLayerIdx();
@@ -9525,7 +10395,7 @@ function animLoop(){if(!playing){rafId=null;return}
       offCtx.drawImage(lCv,ox2,oy2);offCtx.restore();
     }
     setLayoutParams(origParams);
-    layoutMode=origLayout;
+    layoutMode=origLayout;syncLayoutRelevance();
   }else{
     _objSpinRot=spin>0&&(layoutMode==='object'||layoutMode==='growth')?spinAngle:0;if(spin>0&&layoutMode!=='linear'&&layoutMode!=='object'&&layoutMode!=='growth'){offCtx.save();offCtx.translate(drawW/2,drawH/2);offCtx.rotate(spinAngle);offCtx.translate(-drawW/2,-drawH/2)}
     agPixelWarp.setLayer(0);agDrawDensity(offCtx,drawW,drawH,applyFadeEdge(modVals),p,false);
@@ -9570,9 +10440,11 @@ window.addEventListener('mouseup',function(){if(!dragging)return;if(dragging==='
 // Export
 var exportWithBg=false;
 function setExportBg(v,btn){exportWithBg=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
-function doExport(){
+function doExport(){agSim.expMode(true);try{agSim.dedupe();return _agDoExport()}finally{agSim.expMode(false)}}
+function _agDoExport(){
   var cv=document.getElementById('frameCv');
-  if(exportWithBg){
+  var hasSimulation=_agIsSim(layoutMode)||(stackMode&&stackLayouts.some(function(l){return _agIsSim(l.layout)}));
+  if(exportWithBg&&!hasSimulation){
     // Copy canvas and add background behind it
     var expCv=document.createElement('canvas');expCv.width=cv.width;expCv.height=cv.height;
     var expCtx=expCv.getContext('2d');
@@ -9584,10 +10456,11 @@ function doExport(){
     var sz=sizeCanvas(cv);
     var expCv=document.createElement('canvas');expCv.width=cv.width;expCv.height=cv.height;
     var expCtx=expCv.getContext('2d');expCtx.setTransform(sz.dpr,0,0,sz.dpr,0,0);
+    if(exportWithBg){expCtx.fillStyle=canvasBg;expCtx.fillRect(0,0,sz.W,sz.H)}
     // Draw density directly (no bg fill)
     var sT,eT;if(selStart!==null&&selEnd!==null){sT=Math.min(selStart,selEnd);eT=Math.max(selStart,selEnd)}else{sT=cropStart;eT=cropEnd}
     var vals=audioBuffer?getRangeRMS(sT,eT):[];
-    if(vals.length){
+    if(vals.length||hasSimulation){
       if(stackMode&&stackLayouts.length>=1){
         var origLayout=layoutMode;
         var origParams=getLayoutParams();
@@ -9605,7 +10478,7 @@ function doExport(){
           if(eRot){expCtx.translate(expCv.width/2+eOffX,expCv.height/2+eOffY);expCtx.rotate(eRot);expCtx.translate(-(expCv.width/2+eOffX),-(expCv.height/2+eOffY))}
           expCtx.drawImage(lCv2,Math.round(eOffX),Math.round(eOffY));expCtx.restore();
         }
-        setLayoutParams(origParams);layoutMode=origLayout;
+        setLayoutParams(origParams);layoutMode=origLayout;syncLayoutRelevance();
       }else{drawDensity(expCtx,sz.W,sz.H,vals,P(),false)}
     }
     expCv.toBlob(function(blob){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='audiograph.png';a.click();setTimeout(function(){URL.revokeObjectURL(u)},1000)},'image/png');
