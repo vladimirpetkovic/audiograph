@@ -860,3 +860,7 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 ## v101 – Save preset stores the whole composition
 
 `versions/audiograph_101.html` (also the main `index.html`): **Save** and **Export** now always store every layer (previously a single-layer composition was saved as an "active layer only" preset, which loaded onto just the current layer). Presets saved before v101 behave as before. Test in `tests/auto.cjs`.
+
+## v102 – Built-in Ink and Ripples presets
+
+`versions/audiograph_102.html` (also the main `index.html`): the user-designed multi-layer presets **Ink** (Fluid + Phyllotaxis + Circle) and **Ripples** (Particles + Phyllotaxis + Circle) are now built in and appear at the top of the Presets list.
