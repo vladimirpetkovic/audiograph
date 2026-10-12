@@ -832,3 +832,7 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 ## v95 – Better auto icon
 
 `versions/audiograph_95.html`: the per-knob auto button is now a circular-arrows icon instead of the letter A. Otherwise identical to v94.
+
+## v96 – Stopwatch icon
+
+`versions/audiograph_96.html`: the per-knob auto button is now a stopwatch icon. Otherwise identical to v95.
