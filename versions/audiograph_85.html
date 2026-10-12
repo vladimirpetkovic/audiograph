@@ -327,7 +327,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
   .preview-area{overflow:visible;padding:12px;gap:10px}
   .frame-view{height:min(42vh,440px);height:min(42svh,440px);min-height:240px;flex-shrink:0}
 }
-.sim-status{font-size:.62rem;line-height:1.35;color:var(--muted,#8a8a96);word-break:break-word}.sim-status.bad{color:#ff8a80}
+.mode-btns.dense{gap:3px}.mode-btns.dense .mbtn{padding:4px 5px;letter-spacing:0}.sim-status{font-size:.62rem;line-height:1.35;color:var(--muted,#8a8a96);word-break:break-word}.sim-status.bad{color:#ff8a80}
 </style>
 </head>
 <body>
@@ -515,8 +515,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><button class="panel-rand" onclick="event.stopPropagation();randAppearance()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow prow-stack"><span class="prow-label">Layout</span><div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:420px;min-width:0">
-          <div><div class="sublabel">General</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('rose',this)" title="Rose curve (rhodonea): petals set by Petals and Denominator.">Rose</button><button class="mbtn amber" onclick="setLayout('spiro',this)" title="Spirograph: a pen on a rolling wheel inside a ring.">Spiro</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
-          <div><div class="sublabel">Simulation &middot; WebGPU</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particle field</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button></div></div>
+          <div><div class="sublabel">General</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('rose',this)" title="Rose curve (rhodonea): petals set by Petals and Denominator.">Rose</button><button class="mbtn amber" onclick="setLayout('spiro',this)" title="Spirograph: a pen on a rolling wheel inside a ring.">Spiro</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particles</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button></div></div>
           <div><div class="sublabel">3D</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" data-objm="knot" onclick="setObjLayout('knot',this)">Knot</button><button class="mbtn amber" data-objm="cube" onclick="setObjLayout('cube',this)">Cube</button><button class="mbtn amber" data-objm="torus" onclick="setObjLayout('torus',this)">Torus</button></div></div>
           <div><div class="sublabel">Input</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('pixelwarp',this)">Pixel Warp</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" data-objm="file" onclick="setObjLayout('file',this)">3D Object</button></div></div>
         </div></div>
@@ -791,7 +790,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-body">
         <div class="prow" id="rowLines"><span class="prow-label">Density</span><input type="range" min="80" max="800" value="350" step="10" id="pLines" oninput="upP()"><span class="prow-val" id="vLines">350</span></div>
         <div class="prow" id="rowContrast"><span class="prow-label">Contrast</span><input type="range" min="5" max="100" value="75" step="1" id="pContrast" oninput="upP()"><span class="prow-val" id="vContrast">75%</span></div>
-        <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="5" max="200" value="100" step="5" id="pSensitivity" oninput="upP()"><span class="prow-val" id="vSensitivity">100%</span></div>
+        <div class="prow" id="rowSens"><span class="prow-label">Sensitivity</span><input type="range" min="5" max="200" value="100" step="5" id="pSensitivity" oninput="upP()"><span class="prow-val" id="vSensitivity">100%</span></div>
         <div class="prow" id="rowHeight"><span class="prow-label">Height</span><input type="range" min="5" max="300" value="80" step="5" id="pHeight" oninput="upP()"><span class="prow-val" id="vHeight">80%</span></div>
         <div class="prow" id="rowThick"><span class="prow-label">Thickness</span><input type="range" min="0.5" max="15" value="1" step="0.25" id="pThick" oninput="upP()"><span class="prow-val" id="vThick">1px</span></div>
         <div class="prow" id="rowFadeEdge"><span class="prow-label">Fade edges</span><input type="range" min="0" max="100" value="0" step="5" id="pFadeEdge" oninput="upP()"><span class="prow-val" id="vFadeEdge">0%</span></div>
@@ -862,7 +861,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     <div class="panel" id="panelFx">
       <div class="panel-head" onclick="togglePanel('panelFx')"><span class="panel-title">Deformers</span><button class="panel-rand" onclick="event.stopPropagation();randEffects()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body" id="fxBody">
-        <div class="prow"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
+        <div class="prow" id="rowAmp"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
         <div class="prow" title="Bass punch: kicks and bass hits push lines, particles and beat morphs harder, and the image relaxes between hits. Measured from a 140 Hz low-pass tap; 0 = v30 response."><span class="prow-label">Bass punch</span><input type="range" min="0" max="100" value="60" step="1" id="pBassPunch" oninput="agAudio.ui()"><span class="prow-val" id="vBassPunch">60%</span></div>
         <div class="prow" title="How long a bass hit keeps pushing before the image relaxes (release time)."><span class="prow-label">Bass release</span><input type="range" min="60" max="800" value="220" step="10" id="pBassRelease" oninput="agAudio.ui()"><span class="prow-val" id="vBassRelease">220 ms</span></div>
         <div class="prow"><span class="prow-label">Drop</span><div class="mode-btns"><button class="mbtn" onclick="setDrop(true,this)">On</button><button class="mbtn on" onclick="setDrop(false,this)">Off</button></div></div>
@@ -2183,7 +2182,7 @@ var<private> corners:array<vec2f,6>=array<vec2f,6>(vec2f(-1.0,-1.0),vec2f(1.0,-1
   let c=textureSampleLevel(rampT,smp,vec2f(clamp(t,0.0,1.0),0.5),0.0).rgb;
   let cr=corners[vi];let szp=u.psize*(0.55+0.65*fade)*(0.7+0.6*p.seed);
   let cl=vec2f(p.pos.x/u.asp,-p.pos.y)+cr*szp*2.0/vec2f(u.ow,u.oh);
-  o.pos=vec4f(cl,0.0,1.0);o.uv=cr;o.col=c*u.pglow*fade*(0.45+0.55*clamp(sp,0.0,2.0))*(0.6+0.8*p.seed);
+  o.pos=vec4f(cl,0.0,1.0);o.uv=cr;o.col=c*u.pglow*fade*(0.45+0.55*clamp(sp,0.0,2.0))*(0.6+0.8*p.seed)*(1.0+0.8*u.onset*exp(-u.onsetAge*4.0));
   return o;}
 @fragment fn pFS(i:VO)->@location(0) vec4f{let d=dot(i.uv,i.uv);if(d>1.0){discard;}let k=exp(-d*4.5)+0.12*(1.0-d);return vec4f(i.col*k,k);}
 @vertex fn fadeVS(@builtin(vertex_index) vi:u32)->@builtin(position) vec4f{var p=array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));return vec4f(p[vi],0.0,1.0);}
@@ -2243,10 +2242,11 @@ fn bw(i:i32)->f32{var w=array<f32,5>(0.227027,0.1945946,0.1216216,0.054054,0.016
 fn aces(x:vec3f)->vec3f{return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),vec3f(0.0),vec3f(1.0));}
 @fragment fn fComp(@builtin(position) pos:vec4f)->@location(0) vec4f{ // tA=hdr tB=bloom
   let uv=pos.xy/vec2f(u.ow,u.oh);let h=textureSampleLevel(tA,smp,uv,0.0);let b=textureSampleLevel(tB,smp,uv,0.0).rgb*u.bloom*1.3;
-  let col=pow(aces((h.rgb+b)*u.expo),vec3f(1.0/2.2));
-  var a=max(col.r,max(col.g,col.b));
-  if(u.compMode>0.5){a=clamp(h.a+lum(b)*1.2,0.0,1.0);return vec4f(min(col,vec3f(a)),a);}
-  return vec4f(col,a);}
+  if(u.compMode>0.5){ // smoke is premultiplied: tone-map the straight colour, then re-premultiply so edges keep their tint
+    let a=clamp(h.a+lum(b)*1.2,0.0,1.0);let sc=max(h.rgb+b-vec3f(0.01)*a,vec3f(0.0))/max(a,0.03);
+    let c2=pow(aces(sc*u.expo),vec3f(1.0/2.2));return vec4f(c2*a,a);}
+  let col=pow(aces(max(h.rgb+b-vec3f(0.03),vec3f(0.0))*u.expo),vec3f(1.0/2.2));
+  return vec4f(col,max(col.r,max(col.g,col.b)));}
 `;
 
 // ---- v85 WebGPU simulation layouts: Particle Field, Fluid, Smoke ----
@@ -2265,7 +2265,7 @@ var AG_SIM_UI={
     ['pSimBloom','Bloom',0,100,40,1,'%','Soft glow around bright areas.']],
   simparticles:[['pSpAmount','Amount',10,200,100,5,'%','Emission rate multiplier (scaled by the sound level).'],
     ['pSpLife','Lifetime',5,80,28,1,'s1','How long a particle lives, in seconds.'],
-    ['pSpSize','Size',1,30,8,1,'','Particle size.'],
+    ['pSpSize','Size',1,30,6,1,'','Particle size.'],
     ['pSpSpeed','Launch speed',10,200,100,5,'%','Initial speed from the emitter (louder bands launch faster).'],
     ['pSpDrag','Drag',0,100,35,1,'%','Air resistance. Higher stops particles sooner when the music stops.'],
     ['pSpGravity','Gravity',-100,100,0,1,'','Positive pulls down, negative lifts up.'],
@@ -2273,14 +2273,14 @@ var AG_SIM_UI={
     ['pSpSwirl','Swirl',-100,100,35,1,'','Rotation around the centre and sideways emission.'],
     ['pSpTurb','Turbulence',0,100,45,1,'%','Curl-noise force field.'],
     ['pSpTurbScale','Turbulence scale',10,100,40,1,'%','Size of the turbulent eddies.'],
-    ['pSpTrail','Trails',0,100,55,1,'%','Light persistence (0 = none).']],
+    ['pSpTrail','Trails',0,100,40,1,'%','Light persistence (0 = none).']],
   simfluid:[['pSfJets','Jets',4,24,12,1,'','Number of injectors; each follows a part of the spectrum.'],
     ['pSfForce','Jet force',0,200,100,5,'%','How hard the jets push the fluid.'],
     ['pSfDye','Dye',0,200,100,5,'%','Amount of coloured dye injected.'],
     ['pSfRadius','Splat size',2,30,8,1,'%','Size of each injector, in % of the height.'],
     ['pSfSwirl','Swirl',-100,100,40,1,'','Sideways component of the jets.'],
     ['pSfVisc','Viscosity',0,100,15,1,'%','Velocity damping.'],
-    ['pSfFade','Dye fade',0,100,30,1,'%','How quickly dye dissolves.'],
+    ['pSfFade','Dye fade',0,100,40,1,'%','How quickly dye dissolves.'],
     ['pSfVort','Vorticity',0,100,45,1,'%','Vorticity confinement keeps small eddies alive.'],
     ['pSfIter','Pressure iterations',8,48,24,2,'','Jacobi iterations of the pressure projection (more = less compressible, slower).'],
     ['pSfShade','Shading',0,100,55,1,'%','Relief lighting and swirl highlights on the dye.']],
@@ -2289,7 +2289,7 @@ var AG_SIM_UI={
     ['pSmHeat','Heat',0,200,100,5,'%','Temperature of the released smoke (drives buoyancy and embers).'],
     ['pSmBuoy','Buoyancy',0,200,100,5,'%','How strongly hot smoke rises.'],
     ['pSmCool','Cooling',0,100,35,1,'%','How fast smoke loses heat.'],
-    ['pSmDiss','Dissipation',0,100,25,1,'%','How fast smoke thins out.'],
+    ['pSmDiss','Dissipation',0,100,32,1,'%','How fast smoke thins out.'],
     ['pSmVort','Vorticity',0,100,55,1,'%','Billowing curls.'],
     ['pSmTurb','Turbulence',0,100,30,1,'%','Noise-driven disturbance inside the smoke.'],
     ['pSmWind','Wind',-100,100,0,1,'','Sideways wind.'],
@@ -2361,7 +2361,7 @@ var agSim=(function(){
   var raw={frame:-1,t:0,spec:new Float32Array(64),prev:new Float32Array(64),flux:0,thr:0.08,onsetId:0,onsetStr:0,lastOn:-1e9,active:false};
   var api={fixedDt:0,injected:null,noPrewarm:false};
   function now(){return performance.now()}
-  function err(m){if(S.errors.length<30)S.errors.push(String(m))}
+  function err(m){S.errorCount=(S.errorCount||0)+1;S.errors.push(String(m));if(S.errors.length>30)S.errors.shift()}
   function K(id,d){var e=document.getElementById(id);return e?+e.value:d}
   function fail(status,msg){G.status=status;G.msg=msg;disposeAll();refreshUI()}
   // ---------- device ----------
@@ -2381,7 +2381,7 @@ var agSim=(function(){
         if(gen!==G.gen){dev.destroy();return}
         G.dev=dev;G.fmt=navigator.gpu.getPreferredCanvasFormat();
         dev.lost.then(function(i){if(G.dev!==dev)return;G.dev=null;G.P=null;G.initP=null;disposeAll(true);G.status='lost';G.msg='WebGPU device lost ('+(i.reason||'unknown')+'): '+(i.message||'no details')+'. Press Reinitialize GPU.';refreshUI();try{renderDensity()}catch(e){}});
-        dev.onuncapturederror=function(e){err('uncaptured: '+e.error.message);if(G.status==='ready'){G.errN=(G.errN||0)+1;if(G.errN>20){fail('error','Repeated WebGPU validation errors: '+e.error.message)}}};
+        dev.onuncapturederror=function(e){noteErr(e.error.message)};
         await build(dev);
         await selfTest(dev);
         if(gen!==G.gen)return;
@@ -2390,6 +2390,7 @@ var agSim=(function(){
     })();
     return G.initP;
   }
+  function noteErr(m){err('uncaptured: '+m);if(G.status==='ready'){var tn=now();G.errT=(G.errT||[]).filter(function(x){return tn-x<4000});G.errT.push(tn);if(G.errT.length>20){fail('error','Repeated WebGPU validation errors: '+m)}}}
   async function mod(dev,name,code){
     var m=dev.createShaderModule({label:name,code:code});var ci=await m.getCompilationInfo();
     var bad=ci.messages.filter(function(x){return x.type==='error'});
@@ -2463,13 +2464,13 @@ var agSim=(function(){
     for(var i=0;i<64;i++){var f=i/63;s[i]=env*Math.max(0,(0.75-0.55*f)*(0.55+0.45*Math.sin(t*5+i*0.37))+0.25*Math.sin(t*2.3+i*0.9)*(1-f))}
     return s}
   function smoothAudio(st,dt,k,r){
-    var A=Math.max(0.005,k.attack),R=Math.max(0.03,k.release),sens=k.sens,tilt=k.tilt;
+    var A=Math.max(0.005,k.attack),R=Math.max(0.03,k.release),sens=k.sens*k.gain,tilt=k.tilt;
     var ca=1-Math.exp(-dt/A),cr=1-Math.exp(-dt/R);
     for(var i=0;i<64;i++){var f=i/63,tg=Math.min(1.6,r.spec[i]*sens*Math.max(0.05,1+tilt*(f-0.5)*1.6)),c=st.spec[i];st.spec[i]=c+(tg-c)*(tg>c?ca:cr)}
     var bs=st.bands;
     for(var b=0;b<6;b++){var s=0,c=0;for(var i=0;i<64;i++){var m=(EDGE[i]+EDGE[i+1])*0.5;if(m>=BANDS[b][0]&&m<BANDS[b][1]){s+=st.spec[i];c++}}bs[b]=c?s/c:0}
-    st.level=Math.min(1.5,(bs[0]*0.12+bs[1]*0.3+bs[2]*0.2+bs[3]*0.16+bs[4]*0.12+bs[5]*0.1)*1.5);
-    if(r.onsetId!==st.oid){st.oid=r.onsetId;st.kick=Math.min(1.5,r.onsetStr*k.burst);st.since=0}
+    var lv=(bs[0]*0.12+bs[1]*0.3+bs[2]*0.2+bs[3]*0.16+bs[4]*0.12+bs[5]*0.1)*1.5;st.level=1.1*Math.tanh(lv*0.9);
+    if(r.onsetId!==st.oid){st.oid=r.onsetId;st.kick=Math.min(1.5,r.onsetStr*k.burst*k.gain);st.since=0}
     else{st.kick*=Math.exp(-dt/0.22);st.since=Math.min(6,st.since+dt)}
   }
   // ---------- ramp ----------
@@ -2493,7 +2494,7 @@ var agSim=(function(){
   function rt(st,w,h){return mk(st,w,h,'rgba16float',GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.RENDER_ATTACHMENT)}
   function createState(id,kind,W,H,asp){
     var tr=TIERS[simOpt.q]||TIERS.med,dev=G.dev;
-    var st={id:id,kind:kind,q:simOpt.q,asp:asp,res:[],bgc:{},seen:tick,time:0,steps:0,lastT:0,stepFrame:-1,spec:new Float32Array(64),bands:new Float32Array(6),level:0,kick:0,since:6,oid:raw.onsetId,carry:0,cursor:0,emitted:0,dirty:true,ramp:'',lastDt:0,subs:0,tr:tr,t0:now()};
+    var st={id:id,kind:kind,q:simOpt.q,asp:asp,gAsp:asp,res:[],bgc:{},seen:tick,time:0,steps:0,lastT:0,stepFrame:-1,spec:new Float32Array(64),bands:new Float32Array(6),level:0,kick:0,since:6,oid:raw.onsetId,carry:0,cursor:0,emitted:0,dirty:true,ramp:'',lastDt:0,subs:0,tr:tr,t0:now()};
     st.U=new Float32Array(AG_SIM_NF);st.ub=dev.createBuffer({size:AG_SIM_NF*4,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
     st.rampTex=dev.createTexture({size:[256,1],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST});st.rampV=st.rampTex.createView();
     st.cv=document.createElement('canvas');st.cx=st.cv.getContext('webgpu');
@@ -2507,10 +2508,9 @@ var agSim=(function(){
       else{st.sm=pp(st,Math.round(gw*1.5),Math.round(gh*1.5));st.light=grid(st,Math.round(gw*0.75),Math.round(gh*0.75))}
     }
     ST[id]=st;S.created++;return st}
-  function ensureOut(st,W,H,isExport){
-    var tr=st.tr,sc=Math.min(1,tr.o/Math.max(W,H),(isExport&&st.ow)?9:1);
+  function ensureOut(st,W,H){
+    var tr=st.tr,sc=Math.min(1,tr.o/Math.max(W,H));
     var ow=Math.max(64,Math.round(W*sc)),oh=Math.max(64,Math.round(H*sc));
-    if(isExport&&st.ow){ow=st.ow;oh=st.oh}
     if(st.ow===ow&&st.oh===oh)return;
     if(st.hdr){st.hdr.t.destroy();st.bl1.t.destroy();st.bl2.t.destroy();st.res=st.res.filter(function(t){return t!==st.hdr.t&&t!==st.bl1.t&&t!==st.bl2.t})}
     st.ow=ow;st.oh=oh;st.cv.width=ow;st.cv.height=oh;
@@ -2523,9 +2523,18 @@ var agSim=(function(){
     st.res=[];st.cv.width=st.cv.height=1}
   function disposeAll(lost){Object.keys(ST).forEach(function(k){disposeState(ST[k],lost)})}
   function sweep(){Object.keys(ST).forEach(function(k){if(ST[k].seen<tick)disposeState(ST[k])})}
-  function beginFrame(){sweep();tick++}
+  function dedupe(){
+    if(typeof stackLayouts==='undefined')return 0;var seen={},fixed=0,order=[],ai=(typeof activeLayerIdx==='number')?activeLayerIdx:-1;
+    if(ai>=0&&ai<stackLayouts.length)order.push(ai);
+    for(var i=0;i<stackLayouts.length;i++)if(i!==ai)order.push(i);
+    order.forEach(function(i){var l=stackLayouts[i],p=l&&l.params;if(!l||!_agIsSim(l.layout)||!p)return;
+      var id=i===ai&&simUid?simUid:p._simId;
+      if(!id||seen[id]){id=simNewId();while(seen[id])id=simNewId();fixed++}
+      seen[id]=1;p._simId=id;if(i===ai)simUid=id});
+    return fixed}
+  function beginFrame(){dedupe();sweep();tick++}
   function reset(){disposeAll()}
-  function reinit(){var d=G.dev;G.gen++;G.dev=null;G.P=null;disposeAll(!d);if(d){try{d.destroy()}catch(e){}}G.initP=null;G.status='idle';G.errN=0;G.msg='';init();refreshUI()}
+  function reinit(){var d=G.dev;G.gen++;G.dev=null;G.P=null;disposeAll(!d);if(d){try{d.destroy()}catch(e){}}G.initP=null;G.status='idle';G.errT=[];G.msg='';init();refreshUI()}
   // ---------- passes ----------
   function bgG(st,a,b,c,o){
     var key=[a&&a.id,b&&b.id,c&&c.id,o.id].join(',');if(st.bgc[key])return st.bgc[key];
@@ -2544,22 +2553,22 @@ var agSim=(function(){
   function upload(st){st.U.set(st.spec,0);G.dev.queue.writeBuffer(st.ub,0,st.U)}
   // ---------- knobs ----------
   function knobs(st){
-    var k={sens:K('pSimSens',100)/100,attack:K('pSimAttack',40)/1000,release:K('pSimRelease',350)/1000,burst:K('pSimBurst',100)/100,tilt:K('pSimTilt',0)/100,speed:K('pSimSpeed',100)/100,expo:K('pSimExpo',100)/100,bloom:K('pSimBloom',40)/100};
+    var k={sens:K('pSimSens',100)/100,attack:K('pSimAttack',40)/1000,release:K('pSimRelease',350)/1000,burst:K('pSimBurst',100)/100,tilt:K('pSimTilt',0)/100,speed:K('pSimSpeed',100)/100,expo:K('pSimExpo',100)/100,bloom:K('pSimBloom',40)/100,gain:Math.max(0,getIntensity())};
     k.maxStep=STEPS[simOpt.step]||STEPS.normal;return k}
   function baseUniforms(st,k,dt){
     var kd=st.kind,r=st.since,gov=simOpt.auto==='on'?G.gov:1;
     var o={dt:dt,time:st.time,vw:st.gw||0,vh:st.gh||0,sw:st.gw||0,sh:st.gh||0,asp:st.asp,sub:st.bands[0],bass:st.bands[1],lowmid:st.bands[2],mid:st.bands[3],himid:st.bands[4],treb:st.bands[5],level:st.level,onset:st.kick,onsetAge:Math.min(r,4),expo:k.expo,bloom:k.bloom*(gov<0.55?0:1),ow:st.ow,oh:st.oh,pseed:(st.steps*7919)%65521};
     if(kd==='fluid'){
       var bm={wall:0,wrap:1,open:2}[simOpt.fBounds]||0,em={ring:0,line:1,center:2}[simOpt.fEmit]||0;
-      Object.assign(o,{bmode:bm,visc:0.25+K('pSfVisc',15)*0.05,dyeDecay:0.06+K('pSfFade',30)*0.022,vort:K('pSfVort',45)*0.35,emitN:K('pSfJets',12),emitType:em,jet:18*K('pSfForce',100)/100,radius:K('pSfRadius',8)/100,swirl:K('pSfSwirl',40)/100,spin:0.08*K('pSfSwirl',40)/100*(1+st.level),kick:11*k.burst,dyeAmt:1.7*K('pSfDye',100)/100,shade:K('pSfShade',55)/100,lightx:-0.55,lighty:-0.7,tintMode:0,compMode:0});
+      Object.assign(o,{bmode:bm,visc:0.25+K('pSfVisc',15)*0.05,dyeDecay:0.15+K('pSfFade',40)*0.03,vort:K('pSfVort',45)*0.35,emitN:K('pSfJets',12),emitType:em,jet:18*K('pSfForce',100)/100,radius:K('pSfRadius',8)/100,swirl:K('pSfSwirl',40)/100,spin:0.08*K('pSfSwirl',40)/100*(1+st.level),kick:11*k.burst,dyeAmt:1.1*K('pSfDye',100)/100,shade:K('pSfShade',55)/100,lightx:-0.55,lighty:-0.7,tintMode:0,compMode:0});
     }else if(kd==='smoke'){
       var bm2={open:2,wall:0,wrap:1}[simOpt.sBounds],em2={floor:1,ring:0,center:2}[simOpt.sEmit];
       var th=K('pSmLight',135)*Math.PI/180;
-      Object.assign(o,{bmode:bm2==null?2:bm2,visc:0.2,dyeDecay:0.02+K('pSmDiss',25)*0.02,vort:K('pSmVort',55)*0.35,buoy:2.4*K('pSmBuoy',100)/100,cool:0.1+K('pSmCool',35)*0.035,heat:11*K('pSmHeat',100)/100,turb:K('pSmTurb',30)*0.012,windx:K('pSmWind',0)*0.012,emitN:K('pSmJets',10),emitType:em2==null?1:em2,jet:12,radius:0.055,swirl:0.3,spin:0,kick:9*k.burst,dyeAmt:1.6*K('pSmEmit',100)/100,lightx:Math.cos(th),lighty:-Math.sin(th),lightI:K('pSmLightI',100)/100*1.5,opac:K('pSmOpac',100)/100,shadow:K('pSmShadow',70)/100,ember:K('pSmEmber',40)/100*1.2,tintMode:1,tintMix:0.6,compMode:1});
+      Object.assign(o,{bmode:bm2==null?2:bm2,visc:0.2,dyeDecay:0.02+K('pSmDiss',32)*0.02,vort:K('pSmVort',55)*0.35,buoy:2.4*K('pSmBuoy',100)/100,cool:0.1+K('pSmCool',35)*0.035,heat:11*K('pSmHeat',100)/100,turb:K('pSmTurb',30)*0.012,windx:K('pSmWind',0)*0.012,emitN:K('pSmJets',10),emitType:em2==null?1:em2,jet:12,radius:0.055,swirl:0.3,spin:0,kick:9*k.burst,dyeAmt:0.85*K('pSmEmit',100)/100,lightx:Math.cos(th),lighty:-Math.sin(th),lightI:K('pSmLightI',100)/100*1.5,opac:K('pSmOpac',100)/100,shadow:K('pSmShadow',70)/100,ember:K('pSmEmber',40)/100*1.2,tintMode:1,tintMix:0.75,compMode:1});
     }else{
       var bm3={wrap:0,bounce:1,open:2}[simOpt.pBounds]||0,em3={ring:0,fountain:1,center:2,orbit:3}[simOpt.pEmit]||0,cb={spectrum:0,age:1,speed:2}[simOpt.pColor]||0;
-      var szs=K('pSpSize',8)*st.oh/1700;
-      Object.assign(o,{bmode:bm3,pn:st.pn,pbounds:bm3,emitType:em3,jet:0.75*K('pSpSpeed',100)/100,swirl:K('pSpSwirl',35)/100,spin:0.12*K('pSpSwirl',35)/100,plife:K('pSpLife',28)/10,pdrag:0.08+K('pSpDrag',35)/100*2.4,pgrav:K('pSpGravity',0)/100*1.6,pcurl:K('pSpTurb',45)/100*1.1,pcscale:1+K('pSpTurbScale',40)/100*5,pattract:K('pSpAttract',20)/100*1.2,pvort:K('pSpSwirl',35)/100*0.5,psize:szs,pglow:0.5*Math.pow(60000/st.pn,0.5),colorBy:cb,compMode:0});
+      var szs=K('pSpSize',6)*st.oh/1700;
+      Object.assign(o,{bmode:bm3,pn:st.pn,pbounds:bm3,emitType:em3,jet:0.75*K('pSpSpeed',100)/100,swirl:K('pSpSwirl',35)/100,spin:0.12*K('pSpSwirl',35)/100,plife:K('pSpLife',28)/10,pdrag:0.08+K('pSpDrag',35)/100*2.4,pgrav:K('pSpGravity',0)/100*1.6,pcurl:K('pSpTurb',45)/100*1.1,pcscale:1+K('pSpTurbScale',40)/100*5,pattract:K('pSpAttract',20)/100*1.2,pvort:K('pSpSwirl',35)/100*0.5,psize:szs,pglow:0.2*Math.pow(60000/st.pn,0.5),colorBy:cb,compMode:0});
     }
     return o}
   // ---------- stepping ----------
@@ -2567,7 +2576,7 @@ var agSim=(function(){
     var dev=G.dev,P=G.P,enc=dev.createCommandEncoder(),kd=st.kind;
     var o=baseUniforms(st,k,h);
     if(kd==='particles'){
-      var amt=K('pSpAmount',100)/100,rate=st.pn/o.plife*0.2*amt*Math.min(1.4,Math.pow(st.level,0.85)*1.25)*gov;
+      var amt=K('pSpAmount',100)/100,rate=st.pn/o.plife*0.05*amt*Math.min(1.2,Math.pow(st.level,0.7)*1.05)*gov;
       st.carry+=rate*h+st.kick*h*0*0;
       if(st.burstN){st.carry+=st.burstN;st.burstN=0}
       var n=Math.min(st.pn,Math.floor(st.carry));st.carry-=n;
@@ -2592,9 +2601,9 @@ var agSim=(function(){
     }
     dev.queue.submit([enc.finish()]);S.submits++;S.steps++;st.steps++;st.time+=h}
   function stepState(st,dtReal,k,r){
-    var dt=Math.min(0.05,Math.max(0.001,dtReal))*k.speed;if(api.fixedDt)dt=api.fixedDt*k.speed;
-    smoothAudio(st,dt,k,r);
-    if(st.kind==='particles'&&st.kick>0.05&&st.since===0)st.burstN=(st.burstN||0)+st.pn*0.012*Math.min(1.5,st.kick)*(K('pSpAmount',100)/100);
+    var rt=Math.min(0.05,Math.max(0.001,api.fixedDt||dtReal)),dt=Math.min(rt*k.speed,4*k.maxStep);
+    smoothAudio(st,rt,k,r);
+    if(st.kind==='particles'&&st.kick>0.05&&st.since===0)st.burstN=(st.burstN||0)+st.pn*0.006*Math.min(1.5,st.kick)*(K('pSpAmount',100)/100);
     var n=Math.min(4,Math.ceil(dt/k.maxStep-1e-6)),h=dt/n,gov=simOpt.auto==='on'?G.gov:1;
     for(var i=0;i<n;i++)stepOnce(st,h,k,gov);
     st.lastDt=h;st.subs=n;st.dirty=true;
@@ -2611,7 +2620,7 @@ var agSim=(function(){
     var dev=G.dev,P=G.P,enc=dev.createCommandEncoder(),kd=st.kind;
     var o=baseUniforms(st,k,st.lastDt||1/60);setU(st,o);upload(st);
     if(kd==='particles'){
-      var fadeK=0,tr=K('pSpTrail',55)/100;if(tr>0)fadeK=Math.exp(-(st.lastDt||1/60)*st.subs*(0.4+(1-tr)*(1-tr)*18));
+      var fadeK=0,tr=K('pSpTrail',40)/100;if(tr>0)fadeK=Math.exp(-(st.lastDt||1/60)*st.subs*(0.4+(1-tr)*(1-tr)*18));
       var bgR=dev.createBindGroup({layout:P.L.rend,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:{buffer:st.pbuf}},{binding:3,resource:st.rampV}]});
       var rp=enc.beginRenderPass({colorAttachments:[{view:st.hdr.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:st.accumClear?'clear':'load',storeOp:'store'}]});
       st.accumClear=false;
@@ -2629,6 +2638,21 @@ var agSim=(function(){
     else{var c=enc.beginRenderPass({colorAttachments:[{view:st.bl1.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]});c.end()}
     fp(st,enc,'fComp',st.cx.getCurrentTexture().createView(),st.hdr,st.bl1);
     dev.queue.submit([enc.finish()]);S.submits++;st.dirty=false}
+  // Still export: draws the current state once into temporary targets at the requested pixel size (no stepping, preview targets untouched).
+  function exportRender(st,k,ctx,W,H){
+    var dpr=1;try{dpr=ctx.getTransform().a||1}catch(e){}
+    var ow=Math.min(4096,Math.max(64,Math.round(W*dpr))),oh=Math.min(4096,Math.max(64,Math.round(H*dpr)));
+    var sv={hdr:st.hdr,bl1:st.bl1,bl2:st.bl2,cv:st.cv,cx:st.cx,ow:st.ow,oh:st.oh,bgc:st.bgc,ac:st.accumClear,dirty:st.dirty},tmp=[],ecv=document.createElement('canvas');
+    var T=function(w,h){var t=G.dev.createTexture({size:[w,h],format:'rgba16float',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.RENDER_ATTACHMENT});tmp.push(t);return{t:t,v:t.createView(),id:++idN,w:w,h:h}};
+    ecv.width=ow;ecv.height=oh;var ecx=ecv.getContext('webgpu');
+    try{
+      ecx.configure({device:G.dev,format:G.fmt,alphaMode:'premultiplied'});
+      st.cv=ecv;st.cx=ecx;st.ow=ow;st.oh=oh;st.bgc={};st.accumClear=true;st.dirty=true;
+      st.hdr=T(ow,oh);st.bl1=T(Math.ceil(ow/2),Math.ceil(oh/2));st.bl2=T(Math.ceil(ow/2),Math.ceil(oh/2));
+      render(st,k);ctx.drawImage(ecv,0,0,W,H);st.lastExport=[ow,oh];
+    }finally{
+      st.hdr=sv.hdr;st.bl1=sv.bl1;st.bl2=sv.bl2;st.cv=sv.cv;st.cx=sv.cx;st.ow=sv.ow;st.oh=sv.oh;st.bgc=sv.bgc;st.accumClear=sv.ac;st.dirty=sv.dirty;
+      try{ecx.unconfigure()}catch(e){}tmp.forEach(function(t){t.destroy()});ecv.width=ecv.height=1}}
   function paintMsg(ctx,W,H,msg,title){
     ctx.save();ctx.fillStyle='rgba(20,10,12,0.72)';ctx.fillRect(0,0,W,H);
     var fs=Math.max(13,Math.round(Math.min(W,H)/34));ctx.font='600 '+fs+'px system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle='#ff8a80';
@@ -2638,27 +2662,31 @@ var agSim=(function(){
     if(line)ctx.fillText(line,W/2,y);ctx.restore()}
   function draw(ctx,W,H,values,lp,isExport){
     var kind=layoutMode.slice(3);
-    if(!simUid)simUid=++simIdMax;
+    if(!simUid)simUid=simNewId();
     if(G.status==='idle')init();
     if(G.status==='init'){paintMsg(ctx,W,H,'Starting the GPU\u2026','Initialising WebGPU');return}
     if(G.status!=='ready'){paintMsg(ctx,W,H,G.msg,G.status==='lost'?'WebGPU device lost':'WebGPU simulation unavailable');return}
     try{
       var asp=W/H,st=ST[simUid];
-      if(st&&(st.kind!==kind||st.q!==simOpt.q||Math.abs(st.asp/asp-1)>0.04)){disposeState(st);st=null}
+      if(st&&(st.kind!==kind||st.q!==simOpt.q)){disposeState(st);st=null}
+      else if(st){
+        if(st.kind==='particles')st.asp=asp;
+        else{var rr=asp/st.gAsp;if(rr<0.6||rr>1.67){if(!st.aspT)st.aspT=now();else if(now()-st.aspT>1500){disposeState(st);st=null}}else st.aspT=0}
+      }
       var k=knobs();
       if(!st){st=createState(simUid,kind,W,H,asp)}
       st.seen=tick;
-      ensureOut(st,W,H,isExport);
+      var xp=!!(isExport||api.exporting);
+      ensureOut(st,W,H);
       var rk=rampKey();if(st.ramp!==rk){st.ramp=rk;G.dev.queue.writeTexture({texture:st.rampTex},rampData(),{bytesPerRow:1024},[256,1]);st.dirty=true}
-      if(!st.warm&&!api.noPrewarm&&!api.injected&&!rawAudio().active&&!isExport){prewarm(st,k);st.lastT=now();st.stepFrame=globalFrame}
+      if(!st.warm&&!api.noPrewarm&&!api.injected&&(xp||!rawAudio().active)){prewarm(st,k);st.lastT=now();st.stepFrame=globalFrame}
       else if(!st.warm){st.warm=true}
-      if(!isExport&&st.stepFrame!==globalFrame){
+      if(!xp&&st.stepFrame!==globalFrame){
         var t=now(),r=rawAudio(),dt=st.lastT?(t-st.lastT)/1000:1/60;if(dt>0.25)dt=1/60;
         if(st.stepFrame>=0||st.steps===0){stepState(st,dt,k,r)}
         st.lastT=t;st.stepFrame=globalFrame}
-      render(st,k);
-      ctx.drawImage(st.cv,0,0,W,H);
-      S.frames++;st.fr=(st.fr||0)+1;
+      if(xp){exportRender(st,k,ctx,W,H);S.exports=(S.exports||0)+1}
+      else{render(st,k);ctx.drawImage(st.cv,0,0,W,H);S.frames++;st.fr=(st.fr||0)+1}
     }catch(e){err(e&&e.stack||e);fail('error','Simulation failed: '+(e&&e.message||e));paintMsg(ctx,W,H,G.msg,'WebGPU simulation error')}
   }
   function advance(n,dt){var k=knobs();var r=rawAudio();var old=api.fixedDt;api.fixedDt=dt||old||1/60;for(var i=0;i<n;i++){api._force=true;globalFrame++;var rr=rawAudio();Object.keys(ST).forEach(function(id){var s=ST[id];stepState(s,1/60,k,rr);if(s.kind==='particles'&&s.hdr)render(s,k)})}api._force=false;api.fixedDt=old}
@@ -2674,9 +2702,9 @@ var agSim=(function(){
     AG_SIM_LAYOUTS.forEach(function(k){var e=document.getElementById('simStatus_'+k);if(e){e.textContent=s;e.classList.toggle('bad',bad)}});
     var b=document.getElementById('simReinitBtn');if(b)b.style.display=bad?'':'none'}
   function stats(){
-    var L={};Object.keys(ST).forEach(function(id){var s=ST[id];L[id]={kind:s.kind,q:s.q,grid:s.gw?[s.gw,s.gh]:null,particles:s.pn||0,out:[s.ow,s.oh],steps:s.steps,dt:s.lastDt,sub:s.subs,emitted:s.emitted,level:s.level,kick:s.kick,frames:s.fr||0,dye:s.dye?[s.dye.a.w,s.dye.a.h]:null}});
-    return{status:G.status,msg:G.msg,adapter:G.adInfo,selfTest:G.selfTest,format:G.fmt,gov:G.gov,gpuMs:G.gpuMs,dispatches:S.dispatches,submits:S.submits,steps:S.steps,frames:S.frames,created:S.created,disposed:S.disposed,live:Object.keys(ST).length,errors:S.errors.slice(),inits:S.inits,layers:L,simUid:simUid}}
-  api.init=init;api.draw=draw;api.beginFrame=beginFrame;api.reset=reset;api.reinit=reinit;api.stats=stats;api.refreshUI=refreshUI;api.advance=advance;api.status=function(){return G.status};
+    var L={};Object.keys(ST).forEach(function(id){var s=ST[id];L[id]={kind:s.kind,q:s.q,grid:s.gw?[s.gw,s.gh]:null,particles:s.pn||0,out:[s.ow,s.oh],exportOut:s.lastExport||null,aspect:s.asp,steps:s.steps,dt:s.lastDt,sub:s.subs,emitted:s.emitted,level:s.level,kick:s.kick,frames:s.fr||0,dye:s.dye?[s.dye.a.w,s.dye.a.h]:null}});
+    return{status:G.status,msg:G.msg,adapter:G.adInfo,selfTest:G.selfTest,format:G.fmt,gov:G.gov,gpuMs:G.gpuMs,dispatches:S.dispatches,submits:S.submits,steps:S.steps,frames:S.frames,created:S.created,disposed:S.disposed,live:Object.keys(ST).length,errors:S.errors.slice(),errorCount:S.errorCount||0,exports:S.exports||0,inits:S.inits,layers:L,simUid:simUid}}
+  api.init=init;api.draw=draw;api.beginFrame=beginFrame;api.reset=reset;api.reinit=reinit;api.stats=stats;api.refreshUI=refreshUI;api.advance=advance;api.status=function(){return G.status};api.expMode=function(v){api.exporting=!!v};api.dedupe=dedupe;api.testError=noteErr;
   api.inject=function(o){api.injected=o;raw.frame=-1};
   api.loseDevice=function(){if(G.dev)G.dev.destroy()};
   api.ready=function(){return init().then(function(){return G.status})};
@@ -3020,7 +3048,7 @@ function buildLayersUI(){
     var row=document.createElement('div');
     row.className='layer-row';row.id='layerRow_'+idx;
     if(idx===activeLayerIdx)row.classList.add('layer-active');
-    row.innerHTML='<span class="layer-name" style="cursor:pointer" onclick="selectLayer('+idx+')">'+layer.layout+'</span>'+
+    row.innerHTML='<span class="layer-name" style="cursor:pointer" onclick="selectLayer('+idx+')">'+(AG_SIM_TITLE[layer.layout]||layer.layout)+'</span>'+
       '<input type="range" min="5" max="100" value="'+layer.opacity+'" step="5" oninput="setLayerOpacity('+idx+',this.value)">'+
       '<span class="layer-val" id="layerVal_'+idx+'">'+layer.opacity+'%</span>'+
       (stackLayouts.length>1?'<span class="layer-mv'+(idx===0?' off':'')+'" title="Move up" onclick="moveLayer('+idx+',-1)">▲</span><span class="layer-mv'+(idx===stackLayouts.length-1?' off':'')+'" title="Move down" onclick="moveLayer('+idx+',1)">▼</span><span class="layer-rm" onclick="removeLayer('+idx+')">✕</span>':'');
@@ -3743,6 +3771,7 @@ function applyPresetToLayer(st){
     if(st.playMode)legacyParams._playMode=st.playMode;
     presetLayer={layout:st.layoutMode||'linear',opacity:100,params:legacyParams};
   }
+  if(presetLayer&&presetLayer.params)delete presetLayer.params._simId; // presets never carry a simulation id
   // Also migrate old global sliders into preset layer params if they exist and layer doesn't have them
   if(st.sliders&&presetLayer.params){
     var pm=presetLayer.params;
@@ -9266,7 +9295,7 @@ var AG_LAYOUT_NA=(function(){var G=['growth','pixelwarp'],F=['growth','pixelwarp
   OUT=G.concat(['scatter','image','video','text','sacred','graph','lissajous','rose','spiro'],D3),m={rowStyle:G,styleOpts:G,rowOutline:OUT,outlineParams:OUT,divOutline:OUT,
   rowContrast:F.concat(D3),rowHeight:['growth','dna'],rowThick:['pixelwarp'],rowVaryH:F.concat(['scatter','image','video','text'],D3),rowVaryT:F.concat(D3),rowDisorder:F.concat(D3)};
   ['rowTwist','rowBulge','rowWave','rowWaveFreq','rowShear','rowDepth','rowRipple','rowJitter'].forEach(function(id){m[id]=DEF});
-  ['rowStyle','styleOpts','rowOutline','outlineParams','divOutline','rowContrast','rowHeight','rowThick','rowVaryH','rowVaryT','rowDisorder','rowTwist','rowBulge','rowWave','rowWaveFreq','rowShear','rowDepth','rowRipple','rowJitter','rowLines','rowFadeEdge','panelParticles'].forEach(function(id){m[id]=(m[id]||[]).concat(AG_SIM_LAYOUTS)});return m})();
+  ['rowStyle','styleOpts','rowOutline','outlineParams','divOutline','rowContrast','rowHeight','rowThick','rowVaryH','rowVaryT','rowDisorder','rowTwist','rowBulge','rowWave','rowWaveFreq','rowShear','rowDepth','rowRipple','rowJitter','rowLines','rowFadeEdge','rowSens','rowAmp','panelParticles'].forEach(function(id){m[id]=(m[id]||[]).concat(AG_SIM_LAYOUTS)});return m})();
 var AG_OBJ_SURF_OK={rowContrast:1,rowVaryH:1,rowVaryT:1,rowDisorder:1};
 var AG_3D_SURF=['terrain','sphere','tetrahedron','dna','object'];
 function _ag3dSurf(){return objSignal==='surface'&&AG_3D_SURF.indexOf(layoutMode)>=0}
@@ -10271,7 +10300,8 @@ window.addEventListener('mouseup',function(){if(!dragging)return;if(dragging==='
 // Export
 var exportWithBg=false;
 function setExportBg(v,btn){exportWithBg=v;btn.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});btn.classList.add('on')}
-function doExport(){
+function doExport(){agSim.expMode(true);try{agSim.dedupe();return _agDoExport()}finally{agSim.expMode(false)}}
+function _agDoExport(){
   var cv=document.getElementById('frameCv');
   if(exportWithBg){
     // Copy canvas and add background behind it

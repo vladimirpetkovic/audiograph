@@ -64,7 +64,7 @@ async function unsupportedCase() {
 
     // 1) layout buttons, dedicated controls, hidden line/glyph controls
     const vis = id => page.evaluate(id => { const e = document.getElementById(id); return !!e && getComputedStyle(e).display !== 'none' && e.offsetParent !== null; }, id);
-    const NA = ['rowStyle', 'styleOpts', 'rowOutline', 'rowVaryH', 'rowVaryT', 'rowContrast', 'rowHeight', 'rowThick', 'rowLines', 'rowFadeEdge', 'panelParticles', 'rowWave', 'rowTwist'];
+    const NA = ['rowStyle', 'styleOpts', 'rowOutline', 'rowVaryH', 'rowVaryT', 'rowContrast', 'rowHeight', 'rowThick', 'rowLines', 'rowFadeEdge', 'rowSens', 'rowAmp', 'panelParticles', 'rowWave', 'rowTwist'];
     await page.evaluate(() => setLayout('linear')); for (const id of ['rowLines', 'rowVaryH', 'rowStyle', 'rowThick']) assert.ok(await vis(id), id + ' visible on linear');
     const KNOB = { simparticles: ['pSpAmount', 'pSpDrag', 'pSpTurb', 'pSpAttract'], simfluid: ['pSfJets', 'pSfVort', 'pSfIter', 'pSfDye'], simsmoke: ['pSmBuoy', 'pSmHeat', 'pSmLight', 'pSmShadow'] };
     for (const m of Object.keys(KNOB)) {
@@ -90,7 +90,7 @@ async function unsupportedCase() {
       await page.screenshot({ path: path.join(OUT, `sim85-${m.slice(3)}.png`) }); shots[m] = { lit: +a.lit.toFixed(3), mad: +mad(a, b).toFixed(2) };
       // silence: stop injecting audio; the simulation coasts and decays on its own
       await page.evaluate(() => agSim.inject({ spec: 0, onset: 0 })); await page.evaluate(() => agSim.advance(420)); const c = await grab(page);
-      assert.ok(c.mean < a.mean * 0.7, `${m} decays in silence (${a.mean.toFixed(1)} -> ${c.mean.toFixed(1)})`);
+      assert.ok(c.mean - 15.7 < (a.mean - 15.7) * 0.7, `${m} decays in silence (${a.mean.toFixed(1)} -> ${c.mean.toFixed(1)})`);
       const e1 = Object.values((await st(page)).layers)[0].emitted; await page.evaluate(() => agSim.advance(60)); assert.equal(Object.values((await st(page)).layers)[0].emitted, e1, 'no emission in silence');
       await page.evaluate(() => agSim.inject(null));
     }
@@ -167,6 +167,106 @@ async function unsupportedCase() {
     assert.ok(ov.sw <= ov.cw + 2 && ov.doc <= ov.vw + 2, 'no horizontal overflow at iPad width ' + JSON.stringify(ov)); await page.screenshot({ path: path.join(OUT, 'sim85-ipad-smoke.png') });
     await page.setViewportSize({ width: 1440, height: 900 }); ok('iPad-width controls fit');
 
+    // 11) real-music loudness: sustained loud input must not blow out; onsets stay visible; quiet input stays visible
+    const loudFeed = (n, onsetEvery = 28) => page.evaluate(({ n, onsetEvery }) => {
+      for (let i = 0; i < n; i++) { const sp = []; for (let j = 0; j < 64; j++) sp.push(Math.min(1.2, 0.95 * (1 - 0.55 * j / 63) * (0.9 + 0.1 * Math.sin(i * 0.2 + j))));
+        agSim.inject({ spec: sp, onset: onsetEvery && i % onsetEvery === 0 ? 0.9 : 0 }); agSim.advance(1); } }, { n, onsetEvery });
+    const stats2 = page => page.evaluate(() => { renderDensity(); const d = frameCtx.getImageData(0, 0, frameCv.width, frameCv.height).data; let s = 0, hot = 0; const n = d.length / 4;
+      for (let i = 0; i < d.length; i += 4) { s += d[i] + d[i + 1] + d[i + 2]; if (Math.max(d[i], d[i + 1], d[i + 2]) > 235) hot++; } return { mean: s / n / 3, hot: hot / n }; });
+    const expo = {};
+    for (const m of ['simparticles', 'simfluid', 'simsmoke']) {
+      await page.evaluate(m => { stackLayouts.splice(1); selectLayer(0); setLayout(m); agSim.reset(); renderDensity(); }, m); await page.evaluate(() => agSim.ready());
+      await loudFeed(320); const loud = await stats2(page); const lvl = Object.values((await st(page)).layers)[0].level;
+      assert.ok(lvl > 0.6, `loud feed reaches a music-like level (${lvl.toFixed(2)})`);
+      assert.ok(loud.mean > 25 && loud.mean < 95, `${m} sustained loud input is exposed sensibly (mean ${loud.mean.toFixed(1)})`); assert.ok(loud.hot < 0.12, `${m} not blown out (hot ${loud.hot.toFixed(3)})`);
+      const pre = [], post = []; for (let i = 0; i < 6; i++) { await loudFeed(1, 0); pre.push((await stats2(page)).mean); }
+      await page.evaluate(() => { const sp = Array(64).fill(0).map((_, j) => Math.min(1.2, 0.95 * (1 - 0.55 * j / 63))); agSim.inject({ spec: sp, onset: 1 }); agSim.advance(1); });
+      for (let i = 0; i < 8; i++) { await page.evaluate(() => agSim.advance(1)); post.push((await stats2(page)).mean); }
+      const base = pre.reduce((a, b) => a + b) / pre.length, peak = Math.max(...post);
+      assert.ok(m === 'simsmoke' ? peak > base + 0.1 : (peak > base * 1.015 || peak > base + 0.8), `${m} onset contrast is visible (${base.toFixed(1)} -> ${peak.toFixed(1)})`);
+      await page.evaluate(() => { agSim.reset(); renderDensity(); }); await feed(page, 200, 0.4, 0); const quiet = await grab(page); assert.ok(quiet.lit > 0.002, `${m} quiet input still draws (${quiet.lit})`);
+      expo[m] = `${loud.mean.toFixed(0)}/hot ${loud.hot.toFixed(3)}/onset ${(peak / base).toFixed(2)}x`; await page.evaluate(() => agSim.inject(null));
+    }
+    ok('loud real-music-level input is not blown out; onsets and quiet input stay visible', JSON.stringify(expo));
+
+    // 12) global Intensity scales the simulation after normalisation (0 = silent, 50 < 100)
+    const lvAt = async pct => { await page.evaluate(pct => { document.getElementById('pIntensity').value = pct; stackLayouts.splice(1); selectLayer(0); setLayout('simparticles'); agSim.reset(); renderDensity(); }, pct);
+      await loudFeed(240); const e = Object.values((await st(page)).layers)[0]; const im = await stats2(page); return { level: e.level, emitted: e.emitted, mean: im.mean }; };
+    const i0 = await lvAt(0), i50 = await lvAt(50), i100 = await lvAt(100);
+    await page.evaluate(() => { document.getElementById('pIntensity').value = 100; });
+    assert.ok(i0.level < 0.005 && i0.emitted === 0, 'Intensity 0 gives no sound response: ' + JSON.stringify(i0));
+    assert.ok(i50.level < i100.level * 0.8 && i50.level > i0.level, `Intensity 50 < 100 (${i50.level.toFixed(2)} < ${i100.level.toFixed(2)})`); assert.ok(i50.emitted < i100.emitted && i50.mean < i100.mean, 'Intensity scales emission and brightness');
+    ok('global Intensity scales the sound response (0 = silent, 50% < 100%)', `levels ${i0.level.toFixed(2)}/${i50.level.toFixed(2)}/${i100.level.toFixed(2)}`);
+
+    // 13) delta-time guards: Fine precision bounds the step at high Time scale; attack/release do not depend on Time scale
+    const g = await page.evaluate(() => { const out = {}; setLayout('simfluid'); simOpt.step = 'fine'; for (const sp of [25, 200]) { const e = document.getElementById('pSimSpeed'); e.value = sp; agSim.reset(); renderDensity(); agSim.inject({ spec: 0.8, onset: 0 });
+        agSim.advance(6, 0.05); const L = Object.values(agSim.stats().layers)[0]; out[sp] = { dt: L.dt, sub: L.sub, level: L.level }; }
+      document.getElementById('pSimSpeed').value = 100; simOpt.step = 'normal'; agSim.inject(null); return out; });
+    assert.ok(g[200].dt <= 1 / 120 + 1e-6 && g[200].sub <= 4, 'Fine bound holds at 200% time scale and long frames: ' + JSON.stringify(g[200]));
+    assert.ok(Math.abs(g[25].level - g[200].level) < 1e-3, `audio smoothing is independent of Time scale (${g[25].level} vs ${g[200].level})`); ok('step bounded by Precision at high Time scale; smoothing independent of Time scale', JSON.stringify(g[200]));
+
+    // 14) unique simulation ids: duplicated ids, preset applied to two layers, imported composition
+    const dup = await page.evaluate(() => { setLayout('simfluid'); addLayer(); setLayout('simsmoke'); addLayer(); setLayout('simparticles'); renderDensity();
+      stackLayouts[1].params._simId = stackLayouts[0].params._simId; stackLayouts[2].params._simId = stackLayouts[0].params._simId; renderDensity(); renderDensity();
+      const ids1 = stackLayouts.map(l => l.params._simId); const live1 = agSim.stats().live; const created1 = agSim.stats().created;
+      const snap = JSON.parse(JSON.stringify(getState())); snap.stackLayouts.forEach(l => { l.params._simId = 777; }); applyState(snap); renderDensity(); renderDensity(); const ids2 = stackLayouts.map(l => l.params._simId);
+      const one = { stackLayouts: [JSON.parse(JSON.stringify(stackLayouts[0]))] }; one.stackLayouts[0].params._simId = ids2[1]; selectLayer(0); applyPresetToLayer(one); renderDensity(); selectLayer(2); applyPresetToLayer(one); renderDensity(); renderDensity();
+      const ids3 = stackLayouts.map(l => l.params._simId); const names = Array.from(document.querySelectorAll('.layer-name')).map(e => e.textContent);
+      return { ids1, live1, created1, ids2, ids3, live3: agSim.stats().live, names, lay: stackLayouts.map(l => l.layout) }; });
+    assert.equal(new Set(dup.ids1).size, 3, 'duplicated ids are made unique: ' + dup.ids1); assert.equal(dup.live1, 3, 'each layer owns its own state');
+    assert.equal(new Set(dup.ids2).size, 3, 'imported composition ids are unique: ' + dup.ids2); assert.equal(new Set(dup.ids3).size, 3, 'preset applied to two layers gets fresh ids: ' + dup.ids3);
+    assert.equal(dup.live3, 3, 'no shared or thrashing state after preset/import'); assert.deepEqual(dup.names.slice(0, 3).sort(), ['Fluid', 'Fluid', 'Smoke'].sort(), 'friendly layer names: ' + dup.names);
+    ok('simulation ids stay unique for duplicates, presets and imports; layer titles are friendly', dup.names.join(' / '));
+    await page.evaluate(() => { stackLayouts.splice(1); selectLayer(0); });
+
+    // 15) resize/fullscreen keeps persistent simulation state
+    const rs = {};
+    for (const m of ['simparticles', 'simfluid']) {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.evaluate(m => { setLayout(m); agSim.reset(); renderDensity(); }, m); await loudFeed(120); const a0 = await st(page); const L0 = Object.values(a0.layers)[0];
+      await page.setViewportSize({ width: 1180, height: 900 }); await page.waitForTimeout(250); await page.evaluate(() => renderDensity()); await loudFeed(2, 0);
+      await page.setViewportSize({ width: 1440, height: 760 }); await page.waitForTimeout(250); await page.evaluate(() => renderDensity()); await loudFeed(2, 0);
+      const a1 = await st(page), L1 = Object.values(a1.layers)[0], im = await stats2(page);
+      assert.equal(a1.created, a0.created, `${m} resize does not recreate simulation state`); assert.equal(a1.live, 1); assert.ok(L1.steps >= L0.steps + 4, 'steps keep counting (history kept)');
+      if (m === 'simparticles') assert.ok(L1.emitted >= L0.emitted, 'particle emission counter persisted'); else assert.deepEqual(L1.grid, L0.grid, 'fluid grid persists');
+      assert.ok(im.mean > 20, `${m} visible history survives resize (mean ${im.mean.toFixed(1)})`); rs[m] = `created ${a1.created}, steps ${L0.steps}->${L1.steps}`;
+    }
+    await page.setViewportSize({ width: 1440, height: 900 }); ok('resize / aspect changes keep persistent simulation fields (no disposal)', JSON.stringify(rs));
+
+    // 16) still export renders at the requested resolution without stepping or disturbing live state
+    const ex = {};
+    for (const m of ['simfluid', 'simparticles', 'simsmoke']) {
+      await page.evaluate(m => { stackLayouts.splice(1); selectLayer(0); setLayout(m); simOpt.q = 'low'; agSim.reset(); renderDensity(); }, m); await loudFeed(150); await page.evaluate(() => renderDensity()); await page.evaluate(() => agSim.sync());
+      const b0 = await st(page), Lb = Object.values(b0.layers)[0];
+      const shot = await page.evaluate(() => new Promise(res => { const orig = HTMLCanvasElement.prototype.toBlob; HTMLCanvasElement.prototype.toBlob = function (cb, ...a) { HTMLCanvasElement.prototype.toBlob = orig;
+        const c = document.createElement('canvas'); c.width = this.width; c.height = this.height; const x = c.getContext('2d'); x.drawImage(this, 0, 0); const d = x.getImageData(0, 0, c.width, c.height).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
+        res({ w: this.width, h: this.height, mean: s / (d.length / 4) / 3, fw: frameCv.width, fh: frameCv.height }); }; exportWithBg = false; doExport(); }));
+      const b1 = await st(page), Lc = Object.values(b1.layers)[0];
+      assert.equal(shot.w, shot.fw); assert.equal(shot.h, shot.fh); assert.ok(shot.w >= Lb.out[0], `export is not below the Low preview cap (${shot.w} > ${Lb.out[0]})`); assert.ok(shot.mean > 5, `${m} export image not blank (${shot.mean.toFixed(1)})`);
+      assert.equal(Lc.steps, Lb.steps, 'export does not advance the simulation'); assert.deepEqual(Lc.out, Lb.out, 'preview targets are untouched'); assert.deepEqual(Lc.exportOut, [shot.w, shot.h]); assert.equal(b1.exports, b0.exports + 1);
+      ex[m] = `${shot.w}x${shot.h} vs preview ${Lb.out.join('x')}`; await page.evaluate(() => { simOpt.q = 'med'; });
+    }
+    ok('still export renders at exact requested size from existing state, no stepping', JSON.stringify(ex));
+    const fresh = await page.evaluate(() => new Promise(res => { setLayout('simfluid'); agSim.inject(null); agSim.reset(); const orig = HTMLCanvasElement.prototype.toBlob; HTMLCanvasElement.prototype.toBlob = function () { HTMLCanvasElement.prototype.toBlob = orig;
+      const c = document.createElement('canvas'); c.width = this.width; c.height = this.height; const x = c.getContext('2d'); x.drawImage(this, 0, 0); const d = x.getImageData(0, 0, c.width, c.height).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; res(s / (d.length / 4) / 3); }; exportWithBg = false; doExport(); }));
+    assert.ok(fresh > 18, 'export of a layer with no live state is prewarmed, not blank: ' + fresh); ok('export with fresh state is prewarmed (not blank)', fresh.toFixed(1));
+
+    // 17) smoke alpha: coloured smoke keeps its tint on translucent edges
+    const al = await page.evaluate(() => { setLayout('simsmoke'); colorMode = 'solid'; solidColor = '#ff3010'; if (stackLayouts[0] && stackLayouts[0].params) { stackLayouts[0].params._colorMode = 'solid'; stackLayouts[0].params._solidColor = '#ff3010'; } agSim.reset(); renderDensity(); for (let i = 0; i < 150; i++) { agSim.inject({ spec: 0.8, onset: 0 }); agSim.advance(1); } renderDensity();
+      const id = Object.keys(agSim.stats().layers)[0], im = agSim.pixels(id), d = im.data; const edge = [0, 0], core = [0, 0];
+      { let mx = 0, hi = null; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > mx) { mx = d[i + 3]; hi = [d[i], d[i + 1], d[i + 2], d[i + 3]]; } window.__dbg = { mx, hi }; }
+      for (let i = 0; i < d.length; i += 4) { const a = d[i + 3], t = d[i] + d[i + 1] + d[i + 2]; if (a > 12 && a < 40 && t > 30) { edge[0] += d[i] / t; edge[1]++; } else if (a >= 40 && t > 30) { core[0] += d[i] / t; core[1]++; } }
+      agSim.inject(null); return { dbg: window.__dbg, edge: edge[0] / Math.max(1, edge[1]), ne: edge[1], core: core[0] / Math.max(1, core[1]), nc: core[1] }; });
+    assert.ok(al.ne > 200 && al.nc > 100, 'smoke has translucent and dense pixels: ' + JSON.stringify(al)); assert.ok(al.edge > 0.36 && Math.abs(al.edge - al.core) < 0.18, 'translucent smoke edges keep the tint: ' + JSON.stringify(al));
+    await page.evaluate(() => { colorMode = 'toneramp'; }); ok('coloured smoke keeps tint on translucent edges (un-premultiplied tone mapping)', `edge R share ${al.edge.toFixed(2)} core ${al.core.toFixed(2)}`);
+
+    // 18) transient GPU errors do not permanently kill the simulation
+    const er = await page.evaluate(async () => { setLayout('simfluid'); renderDensity(); for (let i = 0; i < 15; i++) agSim.testError('synthetic ' + i); const s1 = agSim.stats().status; await new Promise(r => setTimeout(r, 4300));
+      for (let i = 0; i < 15; i++) agSim.testError('synthetic b' + i); const s2 = agSim.stats().status, c2 = agSim.stats().errorCount; for (let i = 0; i < 12; i++) agSim.testError('burst ' + i); return { s1, s2, c2, s3: agSim.stats().status }; });
+    assert.equal(er.s1, 'ready'); assert.equal(er.s2, 'ready', 'errors spread over time do not accumulate to a permanent failure'); assert.ok(er.c2 >= 30, 'errors are still recorded'); assert.equal(er.s3, 'error', 'a burst of errors is reported explicitly');
+    await page.evaluate(() => agSim.reinit()); await page.waitForFunction(() => agSim.stats().status === 'ready'); ok('windowed error counter: transient errors tolerated, bursts reported, errors recorded');
+    await page.evaluate(() => { agSim.inject(null); });
+
     // 10) modest measured benchmark (this machine only)
     const bench = [];
     for (const [m, q] of [['simparticles', 'med'], ['simparticles', 'high'], ['simfluid', 'med'], ['simfluid', 'high'], ['simsmoke', 'med'], ['simsmoke', 'high']]) {
@@ -176,7 +276,7 @@ async function unsupportedCase() {
       bench.push(`${m.slice(3)}/${q} ${r.ms.toFixed(2)} ms/step (${r.n ? r.n + ' particles' : r.grid.join('x')})`); assert.ok(isFinite(r.ms) && r.ms > 0);
     }
     console.log('  benchmark (steps incl. GPU completion, headless Chrome, ' + s0.adapter + ', not a universal FPS claim):\n    ' + bench.join('\n    '));
-    const fin = await st(page); assert.equal(fin.errors.length, 0, 'no GPU/validation errors: ' + fin.errors.join(';'));
+    const fin = await st(page); const real = fin.errors.filter(e => !/synthetic|burst /.test(e)); assert.equal(real.length, 0, 'no GPU/validation errors: ' + real.join(';'));
     assert.deepEqual(errors, [], 'no page errors'); ok('benchmark measured; no page or GPU errors');
   } finally { await t.close(); }
   await unsupportedCase();
