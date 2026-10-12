@@ -844,3 +844,7 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 ## v98 – Outline switch no longer disappears
 
 `versions/audiograph_98.html`: with a layer stack containing a simulation layer, rendering temporarily switched the layout and left layout-specific controls (e.g. Outline) hidden for the layer you were editing. The control relevance is now re-synced after every stack render. Test added to `tests/auto.cjs`.
+
+## v99 – Knob centre no longer blocks turning
+
+`versions/audiograph_99.html`: the v97 centre auto dot swallowed presses in the middle of a knob, so grabbing a knob there did nothing. The dot is now click-through: press-and-drag from anywhere turns the knob, and a click (no movement) on the centre dot toggles auto. Test added to `tests/auto.cjs`.

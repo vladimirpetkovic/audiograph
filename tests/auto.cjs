@@ -1,5 +1,5 @@
 // v94: per-knob auto mode and automatic colour shifting.
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_98.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_99.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 (async () => {
@@ -55,6 +55,16 @@ const { open } = require('./gpu-common.cjs');
     });
     assert.ok(ol[0] === 'circle' && ol[1] === false && ol[2] > 0 && ol[3] === false && ol[4] > 0, 'outline row visible: ' + ol.join());
     console.log('  ok  Outline switch stays visible with a simulation layer in the stack');
+    // v99: pressing the knob centre must still turn the knob; a click (no movement) toggles auto
+    await page.evaluate(() => { setLayout('simfluid'); document.getElementById('pSimEnergy')._knob.el.scrollIntoView({ block: 'center' }); });
+    const c = await page.evaluate(() => { const k = document.getElementById('pSimEnergy')._knob, r = k.el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, v: +document.getElementById('pSimEnergy').value }; });
+    await page.mouse.move(c.x, c.y); await page.mouse.down(); await page.mouse.move(c.x + 20, c.y - 25, { steps: 6 }); await page.mouse.move(c.x + 30, c.y, { steps: 6 }); await page.mouse.up();
+    const turned = await page.evaluate(() => ({ v: +document.getElementById('pSimEnergy').value, on: agKnobAuto.isOn(document.getElementById('pSimEnergy')) }));
+    assert.ok(turned.v !== c.v && !turned.on, 'drag from centre turns knob: ' + JSON.stringify(turned));
+    await page.mouse.click(c.x, c.y); const on1 = await page.evaluate(() => agKnobAuto.isOn(document.getElementById('pSimEnergy')));
+    await page.mouse.click(c.x, c.y); const on2 = await page.evaluate(() => agKnobAuto.isOn(document.getElementById('pSimEnergy')));
+    assert.ok(on1 && !on2, 'centre click toggles auto: ' + on1 + on2);
+    console.log('  ok  centre of the knob still turns it; a click toggles auto');
     assert.deepEqual(t.errors, [], 'no page errors: ' + t.errors.join(';'));
     console.log('PASS auto.cjs');
   } finally { await t.close(); }
