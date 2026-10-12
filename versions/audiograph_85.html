@@ -2666,7 +2666,7 @@ var agSim=(function(){
     if(G.status==='ready'){var st=ST[simUid];var a=(G.adInfo||'GPU')+' \u00b7 ';
       if(!st)return 'WebGPU ready \u00b7 '+a.slice(0,-3);
       var g=st.kind==='particles'?(st.pn.toLocaleString()+' particles'):(st.gw+'\u00d7'+st.gh+' grid'+(st.kind==='fluid'?' \u00b7 dye '+st.dye.a.w+'\u00d7'+st.dye.a.h:''));
-      return 'WebGPU \u00b7 '+g+' \u00b7 '+st.ow+'\u00d7'+st.oh+' \u00b7 dt '+(st.lastDt*1000).toFixed(1)+' ms \u00d7'+st.subs+(G.gov<1?' \u00b7 budget '+Math.round(G.gov*100)+'%':'')}
+      return 'WebGPU \u00b7 '+(st.kind==='particles'?'particles (curl noise is a decorative force field, not a fluid)':st.kind==='fluid'?'2D Navier\u2013Stokes, Jacobi pressure':'2D smoke, buoyancy + light march (2.5D, not volumetric)')+' \u00b7 '+g+' \u00b7 '+st.ow+'\u00d7'+st.oh+' \u00b7 dt '+(st.lastDt*1000).toFixed(1)+' ms \u00d7'+st.subs+(G.gov<1?' \u00b7 budget '+Math.round(G.gov*100)+'%':'')}
     return G.status==='init'?'Starting WebGPU\u2026':(G.status==='idle'?'WebGPU idle':'\u26a0 '+G.msg)}
   var uiT=0;
   function refreshUI(){
