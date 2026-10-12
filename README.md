@@ -864,3 +864,6 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 ## v102 – Built-in Ink and Ripples presets
 
 `versions/audiograph_102.html` (also the main `index.html`): the user-designed multi-layer presets **Ink** (Fluid + Phyllotaxis + Circle) and **Ripples** (Particles + Phyllotaxis + Circle) are now built in and appear at the top of the Presets list.
+
+## v103 — continuous spin during Preset Morph
+Spiral/Circle layers froze (spin stopped) while Preset Morph played, so the camera appeared to stop at every keyframe. Spin now keeps integrating through Morph at a constant rate. Parameter interpolation between keyframes was already linear.
