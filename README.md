@@ -816,3 +816,7 @@ MIT
 ## Emitter Rotation Preview (v92)
 
 `versions/audiograph_92.html`: every simulation layout has **Emitter rotation** (0-360°) and **Emitter spin** (continuous, either direction) in the Sound & quality section; they rotate the ring, line, fountain or plume arrangement around the centre.
+
+## Simulation Defaults, Energy and Bass Preview (v93)
+
+`versions/audiograph_93.html`: particle defaults taken from the user's tuned panel; Emitter spin sits next to Swirl on each layout; new **Energy** (scales jets, bursts, vorticity, turbulence) and **Bass reaction** (kicks emitters and pulses particle radius, size and brightness on bass) knobs; Exposure now works on a doubling scale and defaults to -100% (half brightness); Audio contrast defaults to 30%.
