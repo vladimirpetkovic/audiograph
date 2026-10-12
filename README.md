@@ -828,3 +828,7 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 - **Auto color shift** (Color panel > Automation): rotates every gradient colour through the spectrum; works on all layouts and the simulations. Speed in °/s.
 - **A button on knobs**: the knob drifts by itself around its current value. Turning it manually re-centres it. Speed: *Knob auto speed*; *Stop all* clears them. Excluded: EQ, smoothing, audio-response plumbing, Mixer/Autopilot. Auto state is not saved in presets.
 - Test: `tests/auto.cjs`.
+
+## v95 – Better auto icon
+
+`versions/audiograph_95.html`: the per-knob auto button is now a circular-arrows icon instead of the letter A. Otherwise identical to v94.
