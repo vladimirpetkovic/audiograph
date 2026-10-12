@@ -1,0 +1,7 @@
+single ¼ beat: settle 0.67 s, end 0.2500, max step 0.0154/frame, max dv 0.249, backsteps 0
+retrigger at 0.2 s: end 0.5000, max step 0.0221, max dv 0.309 (no restart from 0)
+40 beats @50 ms: lead max 0.359 (cap 0.375), advance 3.550 segments (40 beats x0.25 = 10 if queued), max step 0.0283
+glide 1/beat x5 over 3-preset loop: end s 1.999 (5 mod 3 = 2), max step 0.0542, backsteps 0
+live 120 bpm kicks glide4: onsets 12, advance 2.75 presets in 5.5 s, max frame step 0.019, max 2nd diff 0.0077, frames 325
+live 120 bpm kicks snap  : onsets 12, advance 5.00 presets in 5.5 s, max frame step 0.044, max 2nd diff 0.0444, frames 321
+morph-beat: PASS

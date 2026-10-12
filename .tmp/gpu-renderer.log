@@ -1,0 +1,12 @@
+build versions/audiograph_32.html; renderer: ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)
+cell           mean 4.04 big 0.38% gpu layers 7
+zodiac         mean 1.58 big 0.03% gpu layers 4
+organica       mean 1.31 big 0.01% gpu layers 4
+sacred_circle  mean 1.58 big 0.02% gpu layers 5
+globe          mean 1.46 big 0.37% gpu layers 3
+dotted analytic/atlas parity mean 0.48, big 0.00%
+numbers analytic/atlas parity mean 0.10, big 0.00%
+symbols analytic/atlas parity mean 0.07, big 0.00%
+words analytic/atlas parity mean 0.17, big 0.00%
+fallback: GPU 4/6 layers; Canvas 2D: gradient/pattern style, image layout
+gpu-renderer: PASS

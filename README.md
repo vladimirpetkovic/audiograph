@@ -797,3 +797,10 @@ MIT
 - The "WebGPU ..." status line is hidden unless the GPU reports an error.
 - Fixed controls freezing while visuals play: knob redraws and simulation UI syncs no longer run every frame when nothing changed.
 - Tests: `node tests/simulation.cjs`, `node tests/simulation-response.cjs` (set `AUDIOGRAPH_SIM_BUILD=versions/audiograph_87.html`), plus the usual switches, ipad-ui, tour, layer-order, audio-transport and knobs suites.
+
+## Smoke and Particle Sound Response Preview (v88)
+
+`versions/audiograph_88.html` (Fluid unchanged from v87):
+
+- **Smoke:** slow smoke speed no longer weakens the audio input (injection compensated for the slower step); burner size and velocity impulse follow each band's level, and the glow follows the spectrum across the width.
+- **Particles:** emission is gated per spectrum band, each angle of the ring is pushed in or out by its own band, and brightness and size follow the band.
