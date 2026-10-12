@@ -840,3 +840,7 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 ## v97 – Auto button in the knob centre
 
 `versions/audiograph_97.html`: the per-knob auto button is now a small round dot in the middle of the knob. Grey when off; when on it takes the knob's current colour (and glows). Double-click still resets the knob.
+
+## v98 – Outline switch no longer disappears
+
+`versions/audiograph_98.html`: with a layer stack containing a simulation layer, rendering temporarily switched the layout and left layout-specific controls (e.g. Outline) hidden for the layer you were editing. The control relevance is now re-synced after every stack render. Test added to `tests/auto.cjs`.

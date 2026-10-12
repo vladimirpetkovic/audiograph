@@ -1,5 +1,5 @@
 // v94: per-knob auto mode and automatic colour shifting.
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_97.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_98.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 (async () => {
@@ -45,6 +45,16 @@ const { open } = require('./gpu-common.cjs');
     for (const m of Object.keys(col)) assert.ok(col[m].hue > 20 && col[m].resetHue === 0, m + ' hue advances then resets ' + JSON.stringify(col[m]));
     assert.ok(col.simparticles.diff > 1, 'simulation colours shift: ' + JSON.stringify(col));
     console.log('  ok  auto colour shift advances hue, recolours simulations, resets on Off', JSON.stringify(col));
+    // v98: the Outline switch must stay visible after a stack with a simulation layer is rendered
+    const ol = await page.evaluate(async () => {
+      const e = document.getElementById('rowOutline'), r = [];
+      setLayout('circle'); addLayer(); setLayout('simfluid'); selectLayer(0); await new Promise(x => setTimeout(x, 300));
+      r.push(layoutMode, e.classList.contains('ag-na'), e.offsetHeight);
+      selectLayer(1); selectLayer(0); await new Promise(x => setTimeout(x, 300)); r.push(e.classList.contains('ag-na'), e.offsetHeight);
+      return r;
+    });
+    assert.ok(ol[0] === 'circle' && ol[1] === false && ol[2] > 0 && ol[3] === false && ol[4] > 0, 'outline row visible: ' + ol.join());
+    console.log('  ok  Outline switch stays visible with a simulation layer in the stack');
     assert.deepEqual(t.errors, [], 'no page errors: ' + t.errors.join(';'));
     console.log('PASS auto.cjs');
   } finally { await t.close(); }
