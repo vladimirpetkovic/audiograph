@@ -1,5 +1,5 @@
 // v94: per-knob auto mode and automatic colour shifting.
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_99.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_100.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 (async () => {
@@ -65,6 +65,16 @@ const { open } = require('./gpu-common.cjs');
     await page.mouse.click(c.x, c.y); const on2 = await page.evaluate(() => agKnobAuto.isOn(document.getElementById('pSimEnergy')));
     assert.ok(on1 && !on2, 'centre click toggles auto: ' + on1 + on2);
     console.log('  ok  centre of the knob still turns it; a click toggles auto');
+    // v100: knobs in the Sound & quality box keep working in a layer stack (the box must not be re-parented every frame)
+    const stk = await page.evaluate(async () => {
+      setLayout('circle'); addLayer(); setLayout('simfluid'); await new Promise(x => setTimeout(x, 400));
+      const box = document.getElementById('simCommonBox'); let moves = 0; const host0 = box.parentNode;
+      const mo = new MutationObserver(m => { moves += m.filter(r => [...r.addedNodes].includes(box)).length }); document.querySelectorAll('.layout-opts').forEach(h => mo.observe(h, { childList: true }));
+      for (let i = 0; i < 20; i++) { renderDensity(); await new Promise(x => setTimeout(x, 30)) }
+      mo.disconnect(); return { moves, same: box.parentNode === host0 };
+    });
+    assert.ok(stk.moves === 0 && stk.same, 'sim common box not re-parented in stack: ' + JSON.stringify(stk));
+    console.log('  ok  Sound & quality box stays put during stacked rendering');
     assert.deepEqual(t.errors, [], 'no page errors: ' + t.errors.join(';'));
     console.log('PASS auto.cjs');
   } finally { await t.close(); }

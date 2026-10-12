@@ -848,3 +848,7 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 ## v99 – Knob centre no longer blocks turning
 
 `versions/audiograph_99.html`: the v97 centre auto dot swallowed presses in the middle of a knob, so grabbing a knob there did nothing. The dot is now click-through: press-and-drag from anywhere turns the knob, and a click (no movement) on the centre dot toggles auto. Test added to `tests/auto.cjs`.
+
+## v100 – Sound & quality knobs no longer freeze in layer stacks
+
+`versions/audiograph_100.html`: with several layers, the per-frame layer swap moved the shared "Sound & quality" box between layout panels every frame, which dropped the mouse drag (the knob lit up but would not turn). The box now follows the layer being edited. Tests added to `tests/auto.cjs`.
