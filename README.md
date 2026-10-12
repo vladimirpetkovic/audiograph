@@ -804,3 +804,7 @@ MIT
 
 - **Smoke:** slow smoke speed no longer weakens the audio input (injection compensated for the slower step); burner size and velocity impulse follow each band's level, and the glow follows the spectrum across the width.
 - **Particles:** emission is gated per spectrum band, each angle of the ring is pushed in or out by its own band, and brightness and size follow the band.
+
+## Flowing Particles Preview (v89)
+
+`versions/audiograph_89.html`: particles flow with sound-driven curl currents and bass waves instead of mostly rotating; the spectrum is mapped symmetrically around the ring, removing a dark seam. Smoke reacts more strongly (velocity impulse, shear, spectrum glow).
