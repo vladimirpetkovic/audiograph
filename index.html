@@ -3933,7 +3933,7 @@ function applyPresetToLayer(st){
 function savePreset(){
   var name=prompt('Preset name:');if(!name)return;
   try{var presets=JSON.parse(localStorage.getItem('audiograph_presets')||'{}');
-  presets[name]=getState();presets[name]._saveAll=(stackLayouts.length>1);
+  presets[name]=getState();presets[name]._saveAll=true;
   localStorage.setItem('audiograph_presets',JSON.stringify(presets));}catch(e){}
   refreshPresetList();
 }
@@ -3957,7 +3957,7 @@ function loadPreset(){
 function clearPresets(){try{localStorage.removeItem('audiograph_presets')}catch(e){}refreshPresetList()}
 function exportPreset(){
   var name=prompt('Export preset name:');if(!name)return;
-  var st=getState();st._saveAll=(stackLayouts.length>1);
+  var st=getState();st._saveAll=true;
   var obj={};obj[name]=st;
   var blob=new Blob([JSON.stringify(obj)],{type:'application/json'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name.replace(/[^a-z0-9]/gi,'_')+'.json';a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000);

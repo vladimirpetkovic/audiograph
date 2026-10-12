@@ -1,5 +1,5 @@
 // v94: per-knob auto mode and automatic colour shifting.
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_100.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_101.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 (async () => {
@@ -75,6 +75,21 @@ const { open } = require('./gpu-common.cjs');
     });
     assert.ok(stk.moves === 0 && stk.same, 'sim common box not re-parented in stack: ' + JSON.stringify(stk));
     console.log('  ok  Sound & quality box stays put during stacked rendering');
+    // v101: Save always stores the whole composition and loading it restores every layer
+    const sv = await page.evaluate(async () => {
+      window.prompt = () => 'p101'; localStorage.removeItem('audiograph_presets');
+      while (stackLayouts.length > 1) removeLayer(stackLayouts.length - 1);
+      setLayout('circle'); addLayer(); setLayout('simfluid'); addLayer(); setLayout('spiral'); savePreset();
+      const saved = JSON.parse(localStorage.getItem('audiograph_presets')).p101;
+      removeLayer(2); removeLayer(1); await new Promise(x => setTimeout(x, 200));
+      [...document.querySelectorAll('#presetList button')].find(b => b.textContent.includes('p101')).click(); await new Promise(x => setTimeout(x, 400));
+      const back = stackLayouts.map(l => l.layout).join();
+      const one = (setLayout('linear'), savePreset(), JSON.parse(localStorage.getItem('audiograph_presets')).p101._saveAll);
+      localStorage.removeItem('audiograph_presets');
+      return { n: saved.stackLayouts.length, all: saved._saveAll, back, one };
+    });
+    assert.ok(sv.n === 3 && sv.all && sv.back === 'circle,simfluid,spiral' && sv.one === true, 'preset save/load all layers: ' + JSON.stringify(sv));
+    console.log('  ok  Save stores and restores all layers');
     assert.deepEqual(t.errors, [], 'no page errors: ' + t.errors.join(';'));
     console.log('PASS auto.cjs');
   } finally { await t.close(); }
