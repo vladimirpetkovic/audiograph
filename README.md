@@ -820,3 +820,11 @@ MIT
 ## Simulation Defaults, Energy and Bass Preview (v93)
 
 `versions/audiograph_93.html`: particle defaults taken from the user's tuned panel; Emitter spin sits next to Swirl on each layout; new **Energy** (scales jets, bursts, vorticity, turbulence) and **Bass reaction** (kicks emitters and pulses particle radius, size and brightness on bass) knobs; Exposure now works on a doubling scale and defaults to -100% (half brightness); Audio contrast defaults to 30%.
+
+## v94 – Auto colour shift and per-knob auto
+
+Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
+
+- **Auto color shift** (Color panel > Automation): rotates every gradient colour through the spectrum; works on all layouts and the simulations. Speed in °/s.
+- **A button on knobs**: the knob drifts by itself around its current value. Turning it manually re-centres it. Speed: *Knob auto speed*; *Stop all* clears them. Excluded: EQ, smoothing, audio-response plumbing, Mixer/Autopilot. Auto state is not saved in presets.
+- Test: `tests/auto.cjs`.
