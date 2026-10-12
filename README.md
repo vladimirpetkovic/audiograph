@@ -786,3 +786,14 @@ v30's `gpu-renderer.cjs` checks the following on the default `versions/audiograp
 ## License
 
 MIT
+
+## Sound-Steered Swirl Preview (v87)
+
+`versions/audiograph_87.html` (preview; `index.html` stays v84).
+
+- **Swirl by sound** (Sound & quality, 0-200%): mids set the rotation strength and every third beat reverses the direction. Bass contracts the particle ring and treble scatters. Fluid, Smoke and Particles all use it; 0% turns it off.
+- **Reset settings** restores every control of the active simulation layout to its default (the quality tier is kept).
+- Fluid: removed the bass pull and beat-ring dye that formed a disc in the middle; stronger beat jets and more dye.
+- The "WebGPU ..." status line is hidden unless the GPU reports an error.
+- Fixed controls freezing while visuals play: knob redraws and simulation UI syncs no longer run every frame when nothing changed.
+- Tests: `node tests/simulation.cjs`, `node tests/simulation-response.cjs` (set `AUDIOGRAPH_SIM_BUILD=versions/audiograph_87.html`), plus the usual switches, ipad-ui, tour, layer-order, audio-transport and knobs suites.
