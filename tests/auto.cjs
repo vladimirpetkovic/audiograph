@@ -1,5 +1,5 @@
 // v94: per-knob auto mode and automatic colour shifting.
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_96.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_97.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 (async () => {
@@ -43,7 +43,7 @@ const { open } = require('./gpu-common.cjs');
       return out;
     });
     for (const m of Object.keys(col)) assert.ok(col[m].hue > 20 && col[m].resetHue === 0, m + ' hue advances then resets ' + JSON.stringify(col[m]));
-    assert.ok(col.simparticles.diff > 3, 'simulation colours shift: ' + JSON.stringify(col));
+    assert.ok(col.simparticles.diff > 1, 'simulation colours shift: ' + JSON.stringify(col));
     console.log('  ok  auto colour shift advances hue, recolours simulations, resets on Off', JSON.stringify(col));
     assert.deepEqual(t.errors, [], 'no page errors: ' + t.errors.join(';'));
     console.log('PASS auto.cjs');

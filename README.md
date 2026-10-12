@@ -836,3 +836,7 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 ## v96 – Stopwatch icon
 
 `versions/audiograph_96.html`: the per-knob auto button is now a stopwatch icon. Otherwise identical to v95.
+
+## v97 – Auto button in the knob centre
+
+`versions/audiograph_97.html`: the per-knob auto button is now a small round dot in the middle of the knob. Grey when off; when on it takes the knob's current colour (and glows). Double-click still resets the knob.
