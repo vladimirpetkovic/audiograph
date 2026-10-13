@@ -879,3 +879,12 @@ Spiral/Circle layers froze (spin stopped) while Preset Morph played, so the came
 
 ## v106 — Autopilot no longer uses Terrain
 - Terrain is removed from Autopilot's layout choices and from the prompt keywords (mountain, landscape…). It is still available manually.
+
+## v107 — five new simulations
+New WebGPU simulation layouts, each with presets, audio response, Autopilot picks and Guide text:
+- **Reaction** (Gray-Scott reaction-diffusion): coral, labyrinth, spots and more.
+- **Automata**: Lenia, Conway's Life and cyclic automaton.
+- **Slime** (slime mould): agent trail networks with food and rival species.
+- **Lightning**: branching bolts that strike on beats.
+- **Field**: magnetic field lines and iron filings around moving poles.
+Test: `tests/sim-new.cjs`.
