@@ -876,3 +876,6 @@ Spiral/Circle layers froze (spin stopped) while Preset Morph played, so the came
 
 ## v105 — Neuron growth type removed
 - Growth layout now offers Vine and Coral only. Old presets that used Neuron load as Vine; Autopilot no longer picks it.
+
+## v106 — Autopilot no longer uses Terrain
+- Terrain is removed from Autopilot's layout choices and from the prompt keywords (mountain, landscape…). It is still available manually.
