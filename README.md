@@ -873,3 +873,6 @@ Spiral/Circle layers froze (spin stopped) while Preset Morph played, so the came
 - **Colours in the prompt**: Autopilot now turns off the Color panel's *Auto color shift* (it was rotating the palette away). More colour words (gold, bronze, copper, sky, emerald, …) and plurals/-ish forms ("blues", "reddish").
 - **Rotation fills the frame**: the Rotation setting no longer turns a finished picture. Linear, Custom, Sine, Wave and Ridge plot redraw on a covering canvas (same line density and size); Image, Video, Pixel Warp, Terrain and Scatter scale just enough to cover. Also applied to PNG export.
 - **Rose and Spiro**: line/style elements are rotated 90° so they follow the curve.
+
+## v105 — Neuron growth type removed
+- Growth layout now offers Vine and Coral only. Old presets that used Neuron load as Vine; Autopilot no longer picks it.
