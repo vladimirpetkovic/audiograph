@@ -1,12 +1,12 @@
-// v107: Reaction-diffusion, Cellular automata, Slime mould, Lightning and Field lines on real WebGPU.
-// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_107.html node tests/sim-new.cjs
+// v108: Reaction-diffusion, Cellular automata, Slime mould, Lightning and Field lines on real WebGPU.
+// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_108.html node tests/sim-new.cjs
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && fs.existsSync(chrome)) process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chrome;
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_107.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_108.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
-const KINDS = ['simrd', 'simlife', 'simslime', 'simbolt', 'simfield'];
+const KINDS = ['simrd', 'simslime'];
 const feed = (page, n) => page.evaluate(n => {
   for (let i = 0; i < n; i++) {
     const sp = []; for (let j = 0; j < 64; j++) sp.push(0.6 * Math.max(0, (0.8 - 0.6 * j / 63) * (0.5 + 0.5 * Math.sin(i * 0.21 + j * 0.5))));
@@ -37,13 +37,13 @@ const lit = page => page.evaluate(() => { renderDensity(); const d = frameCtx.ge
       console.log('  ok  ' + k + ' (' + np + ' presets, low/ultra, resize)');
     }
     // stack: two new sims at once, then back to a plain layout (state disposed)
-    await page.evaluate(() => { setLayout('simslime'); addLayer(); setLayout('simbolt'); renderDensity(); });
+    await page.evaluate(() => { setLayout('simslime'); addLayer(); setLayout('simrd'); renderDensity(); });
     await feed(page, 20); assert.ok((await page.evaluate(() => agSim.stats())).live >= 2);
     await page.evaluate(() => { setLayout('circle'); renderDensity(); });
     // restart keeps working
-    await page.evaluate(() => { setLayout('simlife'); simRestart(); }); await feed(page, 20); assert.ok(await lit(page) > 0.0005);
+    await page.evaluate(() => { setLayout('simrd'); simRestart(); }); await feed(page, 20); assert.ok(await lit(page) > 0.0005);
     // export a still
-    const ex = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 640; c.height = 400; agSim.expMode(true); try { const x = c.getContext('2d'); setLayout('simfield'); renderDensity(); return agSim.stats().errorCount; } finally { agSim.expMode(false); } });
+    const ex = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 640; c.height = 400; agSim.expMode(true); try { const x = c.getContext('2d'); setLayout('simslime'); renderDensity(); return agSim.stats().errorCount; } finally { agSim.expMode(false); } });
     assert.equal(ex, 0);
     assert.deepEqual(errors, [], 'page errors');
     const fin = await page.evaluate(() => agSim.stats()); assert.equal(fin.errorCount, 0, JSON.stringify(fin.errors));

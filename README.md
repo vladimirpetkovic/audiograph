@@ -888,3 +888,6 @@ New WebGPU simulation layouts, each with presets, audio response, Autopilot pick
 - **Lightning**: branching bolts that strike on beats.
 - **Field**: magnetic field lines and iron filings around moving poles.
 Test: `tests/sim-new.cjs`.
+
+## v108 — Automata, Lightning and Field removed
+- Removed the Automata, Lightning and Field simulation buttons, their Autopilot picks and prompt keywords, and their Guide text. Reaction and Slime stay.
