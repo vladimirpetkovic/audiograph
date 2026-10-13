@@ -1,5 +1,5 @@
 // v94: per-knob auto mode and automatic colour shifting.
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_103.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_104.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 (async () => {
@@ -90,6 +90,27 @@ const { open } = require('./gpu-common.cjs');
     });
     assert.ok(sv.n === 3 && sv.all && sv.back === 'circle,simfluid,spiral' && sv.one === true, 'preset save/load all layers: ' + JSON.stringify(sv));
     console.log('  ok  Save stores and restores all layers');
+    // v104: Autopilot overrides auto colour shift, understands named colours and can build (at most one) simulation
+    const ap = await page.evaluate(async () => {
+      agKnobAuto.setHue(true); agAuto.setChanges('everything'); agAuto.setLayers('3'); agAuto.setVibe('red and gold fluid');
+      agAuto.start(); const hueOff = !agKnobAuto.hueOn();
+      agAuto._reset(); agAuto.change('groove', 0.3); await new Promise(x => setTimeout(x, 1500));
+      const L = getState().stackLayouts, sims = L.filter(l => l.layout.startsWith('sim'));
+      const stops = (L[0].params._toneStops || []).join(); agAuto.stop();
+      return { hueOff, kinds: L.map(l => l.layout), sims: sims.length, low: sims.every(l => l.params._sim.q === 'low'), stops };
+    });
+    assert.ok(ap.hueOff && ap.sims === 1 && ap.low && /#ffc933/.test(ap.stops) && /#ff2e3b/.test(ap.stops), 'autopilot sims/colours: ' + JSON.stringify(ap));
+    console.log('  ok  Autopilot releases auto colour shift, builds one light simulation and honours named colours');
+    // v104: Rotation redraws rectangular sources on a covering canvas instead of turning the finished picture
+    const rot = await page.evaluate(async () => {
+      const a = agRotPlan('linear', Math.PI / 4, 1600, 900), b = agRotPlan('image', Math.PI / 4, 1600, 900), c = agRotPlan('linear', 0, 1600, 900), d = agRotPlan('circle', 1, 1600, 900);
+      while (stackLayouts.length > 1) removeLayer(stackLayouts.length - 1);
+      setLayout('linear'); document.getElementById('pRotation').value = 40; upP(); await new Promise(x => setTimeout(x, 600)); renderDensity();
+      document.getElementById('pRotation').value = 0; upP();
+      return { aw: Math.round(a.W), ah: Math.round(a.H), an: +a.n.toFixed(2), bk: +b.k.toFixed(2), c: c.W === 1600 && c.k === 1, d: d.W === 1600 && d.k === 1 };
+    });
+    assert.ok(rot.aw === 1768 && rot.ah === 1768 && rot.an >= 1.1 && rot.bk > 1.4 && rot.c && rot.d, 'rotation cover plan: ' + JSON.stringify(rot));
+    console.log('  ok  Rotation covers the frame (source redrawn / scaled, not just the canvas turned)');
     assert.deepEqual(t.errors, [], 'no page errors: ' + t.errors.join(';'));
     console.log('PASS auto.cjs');
   } finally { await t.close(); }

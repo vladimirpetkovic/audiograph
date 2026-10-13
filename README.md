@@ -867,3 +867,9 @@ Preview: `versions/audiograph_94.html` (stable `index.html` stays v84).
 
 ## v103 — continuous spin during Preset Morph
 Spiral/Circle layers froze (spin stopped) while Preset Morph played, so the camera appeared to stop at every keyframe. Spin now keeps integrating through Morph at a constant rate. Parameter interpolation between keyframes was already linear.
+
+## v104 — Autopilot simulations, colour fixes, true rotation, Rose/Spiro style
+- **Autopilot builds simulations** (Fluid, Smoke, Particle field) in Everything mode and when you name them in the prompt (fluid, smoke, fog, fireworks, embers…). At most one simulation per stack, Low quality when stacked (Particles always Low), Auto budget on, reduced pressure iterations, no overlay particles. Never on phones or without a real WebGPU adapter.
+- **Colours in the prompt**: Autopilot now turns off the Color panel's *Auto color shift* (it was rotating the palette away). More colour words (gold, bronze, copper, sky, emerald, …) and plurals/-ish forms ("blues", "reddish").
+- **Rotation fills the frame**: the Rotation setting no longer turns a finished picture. Linear, Custom, Sine, Wave and Ridge plot redraw on a covering canvas (same line density and size); Image, Video, Pixel Warp, Terrain and Scatter scale just enough to cover. Also applied to PNG export.
+- **Rose and Spiro**: line/style elements are rotated 90° so they follow the curve.
