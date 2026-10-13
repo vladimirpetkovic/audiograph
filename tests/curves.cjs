@@ -13,7 +13,7 @@ const { open } = require('./audio-common.cjs');
   const ink = () => page.evaluate(() => { const c = document.getElementById('frameCv'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 16) if (d[i] > 20) n++; return n; });
   const sig = () => page.evaluate(() => { const c = document.getElementById('frameCv'); return c.toDataURL().length + ':' + c.toDataURL().slice(-200); });
   try {
-    for (const [id, slider, a, b] of [['lissajous', 'pLisA', 2, 5], ['rose', 'pRoseN', 3, 7], ['spiro', 'pSpiW', 2, 4]]) {
+    for (const [id, slider, a, b] of [['lissajous', 'pLisA', 2, 5]]) {
       await page.evaluate(id => { if (playing) togglePlay(); setLayout(id, [...document.querySelectorAll('.mbtn')].find(b => (b.getAttribute('onclick') || '').includes("setLayout('" + id + "'"))); renderDensity(); }, id);
       assert.ok(await page.evaluate(id => document.getElementById('layoutOpts_' + id).style.display !== 'none', id), id + ' options shown');
       const n0 = await ink(); assert.ok(n0 > 300, id + ' draws: ' + n0);
@@ -30,6 +30,6 @@ const { open } = require('./audio-common.cjs');
       assert.equal(await page.evaluate(s => +document.getElementById(s).value, slider), b, id + ' slider persists');
     }
     assert.deepEqual(errors, []);
-    console.log('curves: PASS (lissajous, rose, spiro)');
+    console.log('curves: PASS (lissajous)');
   } finally { await t.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

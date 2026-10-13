@@ -907,3 +907,7 @@ All are available in Autopilot and the Guide.
 - Removed the Ripples, Cloth and Gravity simulations from the UI, Autopilot and Guide.
 - Particle and Fluid presets are more subtle (lower amount, energy, sensitivity and beat burst).
 - Smoke presets react harder to sound (higher sensitivity, audio contrast, beat burst and bass, faster attack).
+
+## v111 — Rose and Spiro removed
+
+Rose and Spiro layouts are gone from the buttons, Autopilot and Guide. Harmonic (Lissajous) stays.
