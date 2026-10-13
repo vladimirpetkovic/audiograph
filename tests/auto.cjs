@@ -1,5 +1,5 @@
 // v94: per-knob auto mode and automatic colour shifting.
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_111.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_AUTO_BUILD || 'versions/audiograph_112.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 (async () => {
