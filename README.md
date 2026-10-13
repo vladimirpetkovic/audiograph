@@ -901,3 +901,9 @@ Three new WebGPU/CPU simulation layouts:
 - **Gravity** — N-body (figure-8, binary, ring, cluster) with thousands of streaking test particles; bass strengthens gravity, beats burst outward.
 
 All are available in Autopilot and the Guide.
+
+## v110 — Ripples, Cloth and Gravity removed; calmer presets
+
+- Removed the Ripples, Cloth and Gravity simulations from the UI, Autopilot and Guide.
+- Particle and Fluid presets are more subtle (lower amount, energy, sensitivity and beat burst).
+- Smoke presets react harder to sound (higher sensitivity, audio contrast, beat burst and bass, faster attack).
