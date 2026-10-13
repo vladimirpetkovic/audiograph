@@ -891,3 +891,13 @@ Test: `tests/sim-new.cjs`.
 
 ## v108 — Automata, Lightning and Field removed
 - Removed the Automata, Lightning and Field simulation buttons, their Autopilot picks and prompt keywords, and their Guide text. Reaction and Slime stay.
+
+## v109 — Ripples, Cloth and Gravity simulations
+
+Three new WebGPU/CPU simulation layouts:
+
+- **Ripples** — a 2D wave equation; beats drop stones whose position follows pitch.
+- **Cloth** — 3D Verlet cloth (pin modes: top, flag, corners, frame); each column is blown by a spectral bin.
+- **Gravity** — N-body (figure-8, binary, ring, cluster) with thousands of streaking test particles; bass strengthens gravity, beats burst outward.
+
+All are available in Autopilot and the Guide.
