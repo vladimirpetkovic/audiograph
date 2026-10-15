@@ -3152,19 +3152,19 @@ var AG_KNOB_GROUPS={
   'g3-m-b':['pG3Rough','pG3Metal','pG3Reflect'],'g3-m-c':['pG3Rim','pG3Emit','pG3EmitSnd'],'g3-c-a':['pG3Orbit','pG3OrbitSnd'],'g3-c-b':['pG3Tilt','pG3Zoom','pG3Light'],'g3-fx':['pG3Ao','pG3AoRad','pG3Mb'],'g3-dof':['pG3Dof','pG3Focus'],'g3-l-a':['pG3Links','pG3LinkDist'],'g3-l-b':['pG3LinkW','pG3LinkA']};
 function agApplyKnobGroups(){Object.keys(AG_KNOB_GROUPS).forEach(function(k){AG_KNOB_GROUPS[k].forEach(function(id){var e=document.getElementById(id),r=e&&e.parentElement;if(r&&r.classList.contains('prow')&&!r.hasAttribute('data-knob-row'))r.setAttribute('data-knob-row',k)})})}
 AG_SIM_PRESETS.simcloner=[
-  ['Grid pulse',{},{}],
-  ['Twisted tower',{pG3Nx:30,pG3SpX:0,pG3SpY:100,pG3SpZ:0,pG3Size:110,pG3Detail:2,pG3StRotY:9,pG3StScale:35,pG3EfScale:50,pG3EfRotY:60,pG3Spin:0,pG3RndSpin:0,pG3Indep:0,pG3Gain:0,pG3Tilt:15,pG3Orbit:8,pG3Rough:45},{g3Shape:'cube',g3Mode:'linear',g3Shade:'flat',g3Map:'index',g3CBy:'clone'}],
-  ['Cube wall',{pG3Ao:70,pG3AoRad:90,pG3Nx:9,pG3Ny:9,pG3Nz:1,pG3SpX:130,pG3SpY:130,pG3Detail:2,pG3Size:55,pG3EfZ:160,pG3EfScale:60,pG3EfRotX:90,pG3Spin:0,pG3RndSpin:0,pG3Tilt:12,pG3Orbit:6,pG3Rough:55,pG3Metal:10},{g3Shape:'cube',g3Shade:'flat',g3Map:'distance',g3CBy:'clone'}],
-  ['Torus tunnel',{pG3Nx:1,pG3Ny:1,pG3Nz:14,pG3SpZ:70,pG3Size:90,pG3EfScale:35,pG3EfRotZ:50,pG3Tilt:5,pG3Spin:0,pG3RndSpin:0,pG3Orbit:6,pG3Detail:4},{g3Shape:'torus',g3Map:'z',g3CBy:'clone'}],
-  ['Cloud sphere',{pG3Ao:60,pG3Nx:12,pG3Ny:12,pG3Nz:2,pG3SpX:70,pG3Size:45,pG3Detail:3,pG3EfScale:120,pG3Spin:0,pG3RndSpin:0,pG3Orbit:10,pSimBloom:15},{g3Mode:'sphere',g3Map:'distance',g3CBy:'clone'}],
-  ['Ring of cones',{pG3Nx:24,pG3Ny:1,pG3Nz:1,pG3SpX:60,pG3Size:45,pG3Detail:4,pG3EfScale:150,pG3EfY:60,pG3Spin:0,pG3RndSpin:0,pG3Tilt:35},{g3Shape:'cone',g3Mode:'ring',g3Map:'index',g3CBy:'clone',g3Shade:'flat'}],
-  ['Wire lattice',{pG3Nx:6,pG3Ny:6,pG3Nz:6,pG3SpX:140,pG3SpY:140,pG3SpZ:140,pG3Size:55,pG3Detail:2,pG3EfRotY:120,pG3EfScale:50,pG3Spin:0,pG3RndSpin:0,pG3Emit:80,pG3Line:15,pSimBloom:30},{g3Shape:'cube',g3Style:'wire',g3Map:'distance',g3CBy:'clone',g3ESrc:'palette'}],
-  ['Glass pearls',{pG3Nx:5,pG3Ny:5,pG3Nz:5,pG3SpX:140,pG3SpY:140,pG3SpZ:140,pG3Size:60,pG3Detail:4,pG3Alpha:40,pG3Rough:10,pG3Metal:0,pG3Reflect:100,pG3Rim:70,pG3EfScale:50,pG3Spin:0,pG3RndSpin:0},{g3Map:'distance',g3CBy:'clone'}],
-  ['Random storm',{pG3Mb:40,pG3Nx:8,pG3Ny:6,pG3Nz:6,pG3SpX:110,pG3SpY:110,pG3SpZ:110,pG3Size:40,pG3Detail:3,pG3RndPosX:60,pG3RndPosY:60,pG3RndPosZ:60,pG3RndRotX:180,pG3RndRotY:180,pG3RndRotZ:180,pG3RndScale:50,pG3RndCol:40,pG3RndSnd:70,pG3Indep:100,pG3Gain:60,pG3Flip:30,pG3EfScale:90,pG3EfRotX:120,pG3Spin:30,pG3RndSpin:80,pG3Metal:30,pSimBloom:15},{g3Shape:'ico',g3Mode:'scatter',g3CBy:'clone',g3Shade:'flat'}],
-  ['Confetti',{pG3Mb:30,pG3Nx:12,pG3Ny:12,pG3Nz:3,pG3SpX:100,pG3SpY:100,pG3SpZ:100,pG3Size:22,pG3Detail:2,pG3RndRotX:180,pG3RndRotY:180,pG3RndRotZ:180,pG3RndScale:40,pG3RndCol:80,pG3RndSnd:100,pG3RndAnim:40,pG3RndPosX:60,pG3RndPosY:60,pG3RndPosZ:60,pG3Indep:100,pG3Gain:50,pG3EfScale:80,pG3Spin:0,pG3RndSpin:100,pG3Orbit:10,pG3Rough:40,pSimBloom:12},{g3Shape:'cube',g3Mode:'scatter',g3CBy:'clone',g3Shade:'flat'}],
-  ['Dancing cubes',{pG3Mb:30,pG3Nx:7,pG3Ny:1,pG3Nz:7,pG3SpX:130,pG3SpZ:130,pG3Size:50,pG3Detail:2,pG3EfY:200,pG3EfScale:30,pG3EfRotY:90,pG3RndRotY:90,pG3RndAnim:30,pG3Indep:100,pG3Gain:50,pG3Spin:0,pG3Tilt:35,pG3Rough:45},{g3Shape:'cube',g3Shade:'flat',g3Map:'random',g3CBy:'clone'}],
-  ['Chrome orbs',{pG3Nx:3,pG3Ny:3,pG3Nz:3,pG3SpX:160,pG3SpY:160,pG3SpZ:160,pG3Size:80,pG3Detail:7,pG3Metal:100,pG3Rough:12,pG3Reflect:100,pG3EfY:60,pG3EfScale:30,pG3Spin:0,pG3RndSpin:0,pG3Col:'#d8dde6'},{g3CSrc:'custom',g3CBy:'clone'}],
-  ['Neural network',{pG3Nx:10,pG3Ny:10,pG3Nz:8,pG3SpX:900,pG3Size:3,pG3Detail:3,pG3Links:5,pG3LinkDist:130,pG3LinkW:1.4,pG3LinkA:140,pG3Emit:90,pG3EfScale:25,pG3Spin:0,pG3RndSpin:0,pG3RndPosX:25,pG3RndPosY:25,pG3RndPosZ:25,pG3RndAnim:35,pG3Orbit:6,pG3Tilt:10,pG3Dof:35,pG3Focus:50,pG3Ao:0,pG3Rough:60,pG3Metal:0,pG3Col:'#ffffff',pG3EdgeCol:'#5fb4ff',pG3Indep:60,pG3Gain:40},{g3Mode:'network',g3Shade:'smooth',g3CSrc:'custom',g3ESrc:'custom',g3Map:'distance'}]];
+  ['Grid pulse',{pG3Nx:9,pG3Ny:9,pG3Nz:9,pG3SpX:110,pG3Size:46,pG3Detail:4,pG3Ao:55,pG3AoRad:80,pG3Dof:35,pG3Focus:45,pG3Rim:45,pG3Rough:35,pG3Orbit:8,pG3Tilt:18,pG3EfScale:70,pG3Ny:9,pSimBloom:14},{}],
+  ['Twisted tower',{pG3Nx:30,pG3SpX:0,pG3SpY:100,pG3SpZ:0,pG3Size:110,pG3Detail:2,pG3StRotY:9,pG3StScale:35,pG3EfScale:50,pG3EfRotY:60,pG3Spin:0,pG3RndSpin:0,pG3Indep:0,pG3Gain:0,pG3Tilt:15,pG3Orbit:8,pG3Rough:45,pG3Nx:18,pG3SpY:22,pG3Size:100,pG3StRotY:11,pG3Tilt:24,pG3Ao:65,pG3AoRad:90,pG3Dof:25,pG3Focus:45,pG3Rim:35,pG3Rough:30,pG3Metal:25,pG3Orbit:10,pSimBloom:12},{g3Shape:'cube',g3Mode:'linear',g3Shade:'flat',g3Map:'index',g3CBy:'clone'}],
+  ['Cube wall',{pG3Ao:70,pG3AoRad:90,pG3Nx:9,pG3Ny:9,pG3Nz:1,pG3SpX:130,pG3SpY:130,pG3Detail:2,pG3Size:55,pG3EfZ:160,pG3EfScale:60,pG3EfRotX:90,pG3Spin:0,pG3RndSpin:0,pG3Tilt:12,pG3Orbit:6,pG3Rough:55,pG3Metal:10,pG3Nx:16,pG3Ny:12,pG3SpX:120,pG3SpY:120,pG3Size:60,pG3Ao:85,pG3AoRad:100,pG3Dof:40,pG3Focus:50,pG3Rim:30,pG3Rough:35,pG3Metal:20,pG3Tilt:22,pG3Orbit:7,pSimBloom:10},{g3Shape:'cube',g3Shade:'flat',g3Map:'distance',g3CBy:'clone'}],
+  ['Torus tunnel',{pG3Nx:1,pG3Ny:1,pG3Nz:14,pG3SpZ:70,pG3Size:90,pG3EfScale:35,pG3EfRotZ:50,pG3Tilt:5,pG3Spin:0,pG3RndSpin:0,pG3Orbit:6,pG3Detail:4,pG3Nz:14,pG3SpZ:38,pG3Size:100,pG3Tilt:20,pG3EfScale:30,pG3EfRotZ:40,pG3StRotZ:6,pG3Ao:50,pG3Dof:45,pG3Focus:30,pG3Rim:60,pG3Metal:55,pG3Rough:25,pG3Emit:25,pG3Orbit:10,pSimBloom:22},{g3Shape:'torus',g3Map:'z',g3CBy:'clone'}],
+  ['Cloud sphere',{pG3Ao:60,pG3Nx:12,pG3Ny:12,pG3Nz:2,pG3SpX:70,pG3Size:45,pG3Detail:3,pG3EfScale:120,pG3Spin:0,pG3RndSpin:0,pG3Orbit:10,pSimBloom:15,pG3Nx:30,pG3Ny:30,pG3Nz:2,pG3SpX:40,pG3Size:30,pG3Detail:3,pG3Ao:50,pG3Dof:35,pG3Focus:40,pG3Rim:60,pG3Rough:30,pG3Emit:30,pG3Orbit:10,pSimBloom:20},{g3Mode:'sphere',g3Map:'distance',g3CBy:'clone'}],
+  ['Ring of cones',{pG3Nx:24,pG3Ny:1,pG3Nz:1,pG3SpX:60,pG3Size:45,pG3Detail:4,pG3EfScale:150,pG3EfY:60,pG3Spin:0,pG3RndSpin:0,pG3Tilt:35,pG3Nx:48,pG3SpX:45,pG3Size:40,pG3Tilt:50,pG3Ao:50,pG3Dof:40,pG3Focus:50,pG3Rim:55,pG3Rough:30,pG3Metal:30,pG3Orbit:12,pSimBloom:18},{g3Shape:'cone',g3Mode:'ring',g3Map:'index',g3CBy:'clone',g3Shade:'flat'}],
+  ['Wire lattice',{pG3Nx:6,pG3Ny:6,pG3Nz:6,pG3SpX:140,pG3SpY:140,pG3SpZ:140,pG3Size:55,pG3Detail:2,pG3EfRotY:120,pG3EfScale:50,pG3Spin:0,pG3RndSpin:0,pG3Emit:80,pG3Line:15,pSimBloom:30,pG3Nx:8,pG3Ny:8,pG3Nz:8,pG3SpX:100,pG3SpY:100,pG3SpZ:100,pG3Size:60,pG3Line:8,pG3Emit:120,pG3Dof:45,pG3Focus:45,pG3Orbit:9,pSimBloom:45},{g3Shape:'cube',g3Style:'wire',g3Map:'distance',g3CBy:'clone',g3ESrc:'palette'}],
+  ['Glass pearls',{pG3Nx:5,pG3Ny:5,pG3Nz:5,pG3SpX:140,pG3SpY:140,pG3SpZ:140,pG3Size:60,pG3Detail:4,pG3Alpha:40,pG3Rough:10,pG3Metal:0,pG3Reflect:100,pG3Rim:70,pG3EfScale:50,pG3Spin:0,pG3RndSpin:0,pG3Nx:7,pG3Ny:7,pG3Nz:7,pG3SpX:100,pG3SpY:100,pG3SpZ:100,pG3Size:55,pG3Detail:5,pG3Alpha:35,pG3Rim:90,pG3Rough:6,pG3Ao:40,pG3Dof:45,pG3Focus:45,pG3Orbit:8,pSimBloom:22},{g3Map:'distance',g3CBy:'clone'}],
+  ['Random storm',{pG3Mb:40,pG3Nx:8,pG3Ny:6,pG3Nz:6,pG3SpX:110,pG3SpY:110,pG3SpZ:110,pG3Size:40,pG3Detail:3,pG3RndPosX:60,pG3RndPosY:60,pG3RndPosZ:60,pG3RndRotX:180,pG3RndRotY:180,pG3RndRotZ:180,pG3RndScale:50,pG3RndCol:40,pG3RndSnd:70,pG3Indep:100,pG3Gain:60,pG3Flip:30,pG3EfScale:90,pG3EfRotX:120,pG3Spin:30,pG3RndSpin:80,pG3Metal:30,pSimBloom:15,pG3Nx:12,pG3Ny:8,pG3Nz:8,pG3Size:28,pG3Mb:45,pG3Ao:45,pG3Dof:45,pG3Focus:50,pG3Rim:40,pG3Rough:35,pG3Metal:45,pG3Orbit:12,pSimBloom:18},{g3Shape:'ico',g3Mode:'scatter',g3CBy:'clone',g3Shade:'flat'}],
+  ['Confetti',{pG3Mb:30,pG3Nx:12,pG3Ny:12,pG3Nz:3,pG3SpX:100,pG3SpY:100,pG3SpZ:100,pG3Size:22,pG3Detail:2,pG3RndRotX:180,pG3RndRotY:180,pG3RndRotZ:180,pG3RndScale:40,pG3RndCol:80,pG3RndSnd:100,pG3RndAnim:40,pG3RndPosX:60,pG3RndPosY:60,pG3RndPosZ:60,pG3Indep:100,pG3Gain:50,pG3EfScale:80,pG3Spin:0,pG3RndSpin:100,pG3Orbit:10,pG3Rough:40,pSimBloom:12,pG3Nx:18,pG3Ny:14,pG3Nz:5,pG3Size:16,pG3Mb:35,pG3Ao:30,pG3Dof:55,pG3Focus:45,pG3Rim:40,pG3Orbit:10,pSimBloom:16},{g3Shape:'cube',g3Mode:'scatter',g3CBy:'clone',g3Shade:'flat'}],
+  ['Dancing cubes',{pG3Mb:30,pG3Nx:7,pG3Ny:1,pG3Nz:7,pG3SpX:130,pG3SpZ:130,pG3Size:50,pG3Detail:2,pG3EfY:200,pG3EfScale:30,pG3EfRotY:90,pG3RndRotY:90,pG3RndAnim:30,pG3Indep:100,pG3Gain:50,pG3Spin:0,pG3Tilt:35,pG3Rough:45,pG3Nx:12,pG3Nz:12,pG3SpX:110,pG3SpZ:110,pG3Size:60,pG3Mb:30,pG3Ao:75,pG3AoRad:90,pG3Dof:40,pG3Focus:50,pG3Rim:35,pG3Rough:30,pG3Metal:25,pG3Tilt:30,pG3Orbit:8,pSimBloom:12},{g3Shape:'cube',g3Shade:'flat',g3Map:'random',g3CBy:'clone'}],
+  ['Chrome orbs',{pG3Nx:3,pG3Ny:3,pG3Nz:3,pG3SpX:160,pG3SpY:160,pG3SpZ:160,pG3Size:80,pG3Detail:7,pG3Metal:100,pG3Rough:12,pG3Reflect:100,pG3EfY:60,pG3EfScale:30,pG3Spin:0,pG3RndSpin:0,pG3Col:'#d8dde6',pG3Nx:4,pG3Ny:4,pG3Nz:4,pG3SpX:130,pG3SpY:130,pG3SpZ:130,pG3Size:70,pG3Detail:7,pG3Metal:100,pG3Rough:8,pG3Rim:70,pG3Ao:55,pG3Dof:40,pG3Focus:45,pG3Orbit:8,pSimBloom:14},{g3CSrc:'custom',g3CBy:'clone'}],
+  ['Neural network',{pG3Nx:10,pG3Ny:10,pG3Nz:8,pG3SpX:900,pG3EfY:160,pG3Size:3,pG3Detail:3,pG3Links:5,pG3LinkDist:130,pG3LinkW:1.4,pG3LinkA:140,pG3Emit:90,pG3EfScale:25,pG3Spin:0,pG3RndSpin:0,pG3RndPosX:25,pG3RndPosY:25,pG3RndPosZ:25,pG3RndAnim:35,pG3Orbit:6,pG3Tilt:10,pG3Dof:35,pG3Focus:50,pG3Ao:0,pG3Rough:60,pG3Metal:0,pG3Col:'#ffffff',pG3EdgeCol:'#5fb4ff',pG3Indep:60,pG3Gain:40},{g3Mode:'network',g3Shade:'smooth',g3CSrc:'custom',g3ESrc:'custom',g3Map:'distance'}]];
 function _simFmt(v,u){v=+v;return u==='%'?v+'%':u==='ms'?v+' ms':u==='s1'?(v/10).toFixed(1)+' s':u==='deg'?v+'\u00b0':u==='p1'?(v/10).toFixed(1)+' px':String(v)}
 function _simStore(){if(stackMode&&stackLayouts.length>0){var i=getActiveLayerIdx();if(i>=0&&stackLayouts[i]){stackLayouts[i].params=getLayoutParams();stackLayouts[i].layout=layoutMode}}}
 function simKnob(el){var d=_simSpecById(el.id);var l=document.getElementById(el.id.replace(/^p/,'v'));if(l&&d)l.textContent=_simFmt(el.value,d[6]);upP()}
@@ -4279,6 +4279,14 @@ function _agDLP0(){
     pTerrainGrid:40,pTerrainDepth:40,pTerrainPersp:200,pTerrainCam:35,pTerrainElev:80,pTerrainNoise:40,pTerrainBend:0,pTerrainTwist:0,pSphereGrid:30,pSpherePersp:250,pSphereTilt:15,pSphereElev:60,pSphereNoise:50,pSphereRotate:5,pTetDetail:8,pTetPersp:250,pTetTilt:15,pTetElev:60,pTetNoise:50,pTetRotate:5,pDnaTurns:4,pDnaRadius:30,pDnaPersp:250,pDnaTilt:15,pDnaElev:60,pDnaNoise:50,pDnaRotate:5,pObjMaxFaces:2000,pObjPersp:250,pObjTilt:15,pObjElev:60,pObjNoise:50,pObjRotate:5
   }));
 }
+function _agFade(l){return l&&l._fade!==undefined?l._fade:1}
+function _agFadeTo(l,to,ms,done,start){
+  var from=start!==undefined?start:_agFade(l),t0=performance.now();
+  Object.defineProperty(l,'_fade',{value:from,writable:true,enumerable:false,configurable:true});
+  (function step(){var k=Math.min(1,(performance.now()-t0)/ms);k=k*k*(3-2*k);l._fade=from+(to-from)*k;
+    try{renderDensity()}catch(e){}
+    if(k<1)requestAnimationFrame(step);else{if(to>=1)delete l._fade;if(done)done()}})();
+}
 function addLayer(){pushUndo();
   // Save current active layer
   if(activeLayerIdx>=0&&activeLayerIdx<stackLayouts.length){
@@ -4286,8 +4294,10 @@ function addLayer(){pushUndo();
     stackLayouts[activeLayerIdx].layout=layoutMode;
   }
   // New layer with defaults
-  stackLayouts.push({layout:'linear',opacity:100,params:getDefaultLayerParams()});
+  var _nl={layout:'linear',opacity:100,params:getDefaultLayerParams()};
+  stackLayouts.push(_nl);
   selectLayer(stackLayouts.length-1);
+  _agFadeTo(stackLayouts[stackLayouts.length-1],1,450,null,0);
 }
 function multibandSplit(){pushUndo();
   // Save current
@@ -4321,6 +4331,11 @@ function multibandSplit(){pushUndo();
 function getActiveLayerIdx(){
   if(activeLayerIdx>=stackLayouts.length)activeLayerIdx=Math.max(0,stackLayouts.length-1);
   return activeLayerIdx;
+}
+function removeLayerFaded(idx){
+  var l=stackLayouts[idx];if(!l||stackLayouts.length<=1||l._fading)return;
+  Object.defineProperty(l,'_fading',{value:true,writable:true,enumerable:false,configurable:true});
+  _agFadeTo(l,0,350,function(){var j=stackLayouts.indexOf(l);if(j>=0)removeLayer(j)});
 }
 function removeLayer(idx){pushUndo();
   if(stackLayouts.length<=1)return;
@@ -4412,7 +4427,7 @@ function buildLayersUI(){
     row.innerHTML='<span class="layer-name" style="cursor:pointer" onclick="selectLayer('+idx+')">'+(AG_SIM_TITLE[layer.layout]||layer.layout)+'</span>'+
       '<input type="range" min="5" max="100" value="'+layer.opacity+'" step="5" oninput="setLayerOpacity('+idx+',this.value)">'+
       '<span class="layer-val" id="layerVal_'+idx+'">'+layer.opacity+'%</span>'+
-      (stackLayouts.length>1?'<span class="layer-mv'+(idx===0?' off':'')+'" title="Move up" onclick="moveLayer('+idx+',-1)">▲</span><span class="layer-mv'+(idx===stackLayouts.length-1?' off':'')+'" title="Move down" onclick="moveLayer('+idx+',1)">▼</span><span class="layer-rm" onclick="removeLayer('+idx+')">✕</span>':'');
+      (stackLayouts.length>1?'<span class="layer-mv'+(idx===0?' off':'')+'" title="Move up" onclick="moveLayer('+idx+',-1)">▲</span><span class="layer-mv'+(idx===stackLayouts.length-1?' off':'')+'" title="Move down" onclick="moveLayer('+idx+',1)">▼</span><span class="layer-rm" onclick="removeLayerFaded('+idx+')">✕</span>':'');
     list.appendChild(row);
   });
 }
@@ -7313,7 +7328,7 @@ function liveAnimLoop(){
         lCv=mCvL;
       }
       lCv=applyLayerFx(si,_pfxPadLoud(si,lCv,layer.params&&layer.params._postFx,(layer.params&&layer.params._zoom?layer.params._zoom:100)/100,sz),layer.params&&layer.params._postFx);
-      offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100;
+      offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100*_agFade(layer);
       var lOffX=(layer.params&&layer.params._offX||0)/100*sz.W*sz.dpr;
       var lOffY=(layer.params&&layer.params._offY||0)/100*sz.H*sz.dpr;
       var lRot=(layer.params&&layer.params._rotation||0)*Math.PI/180;
@@ -11426,7 +11441,7 @@ function renderDensity(){
       lCv=applyLayerFx(si,lCv,layer.params&&layer.params._postFx);
       offCtx.save();
       offCtx.setTransform(1,0,0,1,0,0);
-      offCtx.globalAlpha=layer.opacity/100;
+      offCtx.globalAlpha=layer.opacity/100*_agFade(layer);
       var rOffX=(layer.params&&layer.params._offX||0)/100*sz.W*sz.dpr;
       var rOffY=(layer.params&&layer.params._offY||0)/100*sz.H*sz.dpr;
       var rRot=(layer.params&&layer.params._rotation||0)*Math.PI/180;
@@ -11655,7 +11670,7 @@ function animLoop(){if(!playing){rafId=null;return}
         lCv=mCv2;
       }
       lCv=applyLayerFx(si,_pfxPadLoud(si,lCv,layer.params&&layer.params._postFx,(layer.params&&layer.params._zoom?layer.params._zoom:100)/100,sz),layer.params&&layer.params._postFx);
-      offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100;
+      offCtx.save();offCtx.setTransform(1,0,0,1,0,0);offCtx.globalAlpha=layer.opacity/100*_agFade(layer);
       var aOffX=(layer.params&&layer.params._offX||0)/100*sz.W*sz.dpr;
       var aOffY=(layer.params&&layer.params._offY||0)/100*sz.H*sz.dpr;
       var aRot=(layer.params&&layer.params._rotation||0)*Math.PI/180;
@@ -11743,7 +11758,7 @@ function _agDoExport(){
           lCv2=applyLayerFx(si,lCv2,layer.params&&layer.params._postFx,true);
           var eOffX=(layer.params&&layer.params._offX||0)/100*expCv.width;
           var eOffY=(layer.params&&layer.params._offY||0)/100*expCv.height;
-          expCtx.save();expCtx.setTransform(1,0,0,1,0,0);expCtx.globalAlpha=layer.opacity/100;
+          expCtx.save();expCtx.setTransform(1,0,0,1,0,0);expCtx.globalAlpha=layer.opacity/100*_agFade(layer);
           if(eRot&&!_agIsSim(layoutMode)){expCtx.translate(expCv.width/2+eOffX,expCv.height/2+eOffY);expCtx.rotate(eRot);if(_rp.k>1)expCtx.scale(_rp.k,_rp.k);expCtx.translate(-(expCv.width/2+eOffX),-(expCv.height/2+eOffY))}
           expCtx.drawImage(lCv2,Math.round((expCv.width-lCv2.width)/2+eOffX),Math.round((expCv.height-lCv2.height)/2+eOffY));expCtx.restore();
         }

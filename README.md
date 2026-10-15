@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-114-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-115-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -932,3 +932,8 @@ New **3D Cloner** simulation layout, built on the WebGPU engine:
 - **Render FX**: screen-space ambient occlusion, motion blur and depth of field (cloner and network).
 - Related knobs (X/Y/Z etc.) now always share one row across the app.
 - **Simulation spin/rotation**: Spin and Rotation now turn the emitter itself for Particles, Fluid and Smoke instead of rotating the canvas, so there is no cut-off corner.
+
+## v115 — Cloner preset polish, layer fades
+
+- All 12 older 3D Cloner presets rebuilt with denser arrays, ambient occlusion, depth of field, rim light and bloom; "Neural network" now uses Move Y 160%.
+- Adding a layer fades it in; removing one (the x button) fades it out before it is deleted.
