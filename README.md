@@ -937,3 +937,7 @@ New **3D Cloner** simulation layout, built on the WebGPU engine:
 
 - All 12 older 3D Cloner presets rebuilt with denser arrays, ambient occlusion, depth of field, rim light and bloom; "Neural network" now uses Move Y 160%.
 - Adding a layer fades it in; removing one (the x button) fades it out before it is deleted.
+
+## v115 — official release
+
+`index.html` is now v115 (previously v112). It carries everything from v113–v115: the WebGPU 3D Cloner (Network mode, AO, motion blur, depth of field), emitter-level spin for Particles/Fluid/Smoke, grouped knob rows, polished cloner presets and layer fade in/out.
