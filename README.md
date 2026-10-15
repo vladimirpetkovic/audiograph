@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-112-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-113-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -915,3 +915,12 @@ Rose and Spiro layouts are gone from the buttons, Autopilot and Guide. Harmonic 
 ## v112 — official release (v111 plus the Preset Morph spin fix)
 
 `index.html` is now v112 (previously v102). It carries everything from v104–v111 (Autopilot simulations, true rotation, Reaction and Slime, subtler Particle/Fluid presets, livelier Smoke) and re-applies the v103 continuous-spin fix that v104–v111 lacked. Rose, Spiro, Ripples, Cloth, Gravity, Automata, Lightning and Field are removed.
+
+## v113 — WebGPU 3D Cloner (preview)
+
+New **3D Cloner** simulation layout, built on the WebGPU engine:
+
+- **Cloner**: X/Y/Z grid, ring or sphere-cloud arrays (up to 40k instances by quality tier), laid out and animated by a compute shader. A sound effector maps spectrum to each clone's move, scale and rotation by index, distance, axis, height or random.
+- **Polygon animation**: shrink, spin, explode and ripple the individual faces of every object (sphere, cube, torus, icosphere, cone).
+- **Material editor**: solid, wireframe or shaded+edges; colour source (palette, custom, by face/height/sound), roughness, metallic, transparency, emission, rim and edge colour; flat or smooth shading.
+- 9 presets, automatic instance and triangle budgets, 4× MSAA. Test: `tests/sim-cloner.cjs`.

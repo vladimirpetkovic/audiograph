@@ -1,9 +1,9 @@
 // v109: Reaction-diffusion, Slime mould, Wave ripples, Cloth and Gravity on real WebGPU.
-// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_112.html node tests/sim-new.cjs
+// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_113.html node tests/sim-new.cjs
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && fs.existsSync(chrome)) process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chrome;
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_112.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_113.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 const KINDS = ['simrd', 'simslime'];
