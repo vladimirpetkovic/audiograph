@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-113-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-114-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -924,3 +924,11 @@ New **3D Cloner** simulation layout, built on the WebGPU engine:
 - **Polygon animation**: shrink, spin, explode and ripple the individual faces of every object (sphere, cube, torus, icosphere, cone).
 - **Material editor**: solid, wireframe or shaded+edges; colour source (palette, custom, by face/height/sound), roughness, metallic, transparency, emission, rim and edge colour; flat or smooth shading.
 - 9 presets, automatic instance and triangle budgets, 4× MSAA. Test: `tests/sim-cloner.cjs`.
+
+## v114 — Cloner reworked, Network graph, AO / motion blur / DoF, emitter spin
+
+- **Cloner panel** redesigned after Cinema 4D: Count/Spacing/Step rotation/End scale, Linear/Radial/Sphere/Grid/Scatter/**Network** modes, Sound and Random effectors, Material, Camera. Per-polygon animation removed; back faces are visible and darker; clones react independently. 13 presets.
+- **Network mode**: nodes joined to their nearest neighbours by glowing, sound-pulsing lines (Links, Link distance, width, brightness) - "Neural network" preset.
+- **Render FX**: screen-space ambient occlusion, motion blur and depth of field (cloner and network).
+- Related knobs (X/Y/Z etc.) now always share one row across the app.
+- **Simulation spin/rotation**: Spin and Rotation now turn the emitter itself for Particles, Fluid and Smoke instead of rotating the canvas, so there is no cut-off corner.

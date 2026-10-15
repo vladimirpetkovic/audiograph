@@ -1,9 +1,9 @@
 // v113: WebGPU 3D cloner (instancing, polygon animation, material editor) on real WebGPU.
-// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_113.html node tests/sim-cloner.cjs   (SHOTS=/dir saves screenshots)
+// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_114.html node tests/sim-cloner.cjs   (SHOTS=/dir saves screenshots)
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && fs.existsSync(chrome)) process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chrome;
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_113.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_114.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 const SHOTS = process.env.SHOTS;
@@ -24,7 +24,7 @@ const shot = async (page, name) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursiv
     await feed(page, 60);
     let info = await page.evaluate(() => agSim.cloner());
     assert.ok(info && !info.err, 'cloner info ' + JSON.stringify(info));
-    assert.equal(info.n, 1); assert.ok(info.tris > 100);
+    assert.equal(info.n, 125); assert.ok(info.tris > 100);
     assert.ok(await lit(page) > 0.01, 'default sphere drew nothing');
     await shot(page, 'default');
     // clone counts follow X/Y/Z
@@ -42,14 +42,35 @@ const shot = async (page, name) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursiv
       await shot(page, 'preset' + i);
     }
     await page.evaluate(() => simApplyPreset(0));
-    for (const [k, vals] of [['g3Shape', ['sphere', 'cube', 'torus', 'ico', 'cone']], ['g3Mode', ['grid', 'ring', 'sphere']], ['g3Map', ['index', 'distance', 'x', 'y', 'z', 'random']], ['g3PMap', ['height', 'angle', 'random']], ['g3Style', ['solid', 'wire', 'edges']], ['g3CBy', ['clone', 'face', 'height', 'sound']], ['g3CSrc', ['palette', 'custom']], ['g3Shade', ['flat', 'smooth']]]) {
+    for (const [k, vals] of [['g3Shape', ['sphere', 'cube', 'torus', 'ico', 'cone']], ['g3Mode', ['grid', 'linear', 'ring', 'sphere', 'scatter']], ['g3Map', ['index', 'distance', 'x', 'y', 'z', 'random']], ['g3Style', ['solid', 'wire', 'edges']], ['g3CBy', ['clone', 'face', 'height', 'sound']], ['g3CSrc', ['palette', 'custom']], ['g3Shade', ['flat', 'smooth']]]) {
       for (const v of vals) { await page.evaluate(([k, v]) => setSimOpt(k, v), [k, v]); await feed(page, 6); assert.ok(await lit(page) > 0.001, `${k}=${v} drew nothing`); }
     }
+    // randomisation: seed changes the layout, independent listening and random offsets keep rendering
+    await page.evaluate(() => { setSimOpt('g3Mode', 'scatter'); const set = (id, v) => { const e = document.getElementById(id); e.value = v; simKnob(e); }; set('pG3Indep', 100); set('pG3RndPosX', 80); set('pG3RndRotY', 120); set('pG3RndScale', 50); set('pG3RndCol', 50); set('pG3RndSnd', 60); set('pG3RndAnim', 40); set('pG3Flip', 40); set('pG3Inner', 10); set('pG3StRotY', 20); set('pG3StScale', 50); });
+    await feed(page, 20); const a = await lit(page);
+    await page.evaluate(() => { const e = document.getElementById('pG3Seed'); e.value = 77; simKnob(e); }); await feed(page, 20);
+    assert.ok(await lit(page) > 0.001 && a > 0.001, 'random layout drew nothing');
+    await page.evaluate(() => { setSimOpt('g3Mode', 'grid'); simApplyPreset(0); });
     // material editor: transparency switches to the blended pipeline, colours persist into layer params
     await page.evaluate(() => { setSimOpt('g3Style', 'solid'); const a = document.getElementById('pG3Alpha'); a.value = 40; simKnob(a); const c = document.getElementById('pG3Col'); c.value = '#ff2200'; setSimOpt('g3CSrc', 'custom'); });
     await feed(page, 8); info = await page.evaluate(() => agSim.cloner()); assert.equal(info.pipe, 'blend');
     const params = await page.evaluate(() => getLayoutParams()); assert.equal(params.pG3Col, '#ff2200'); assert.equal(params._sim.g3CSrc, 'custom');
     await page.evaluate(p => { setLayoutParams(p); }, params); assert.equal(await page.evaluate(() => document.getElementById('pG3Col').value), '#ff2200');
+    // ambient occlusion and motion blur: both run the post pass and still draw; off draws straight to the layer
+    await page.evaluate(() => { simApplyPreset(0); const set = (id, v) => { const e = document.getElementById(id); e.value = v; simKnob(e); }; set('pG3Ao', 100); set('pG3Mb', 100); set('pG3EfX', 80); });
+    await feed(page, 40); assert.ok(await lit(page) > 0.002, 'ao+blur drew nothing'); assert.equal(await page.evaluate(() => agSim.cloner().err), '');
+    const withAo = await lit(page);
+    await page.evaluate(() => { const set = (id, v) => { const e = document.getElementById(id); e.value = v; simKnob(e); }; set('pG3Ao', 0); set('pG3Mb', 0); });
+    await feed(page, 20); const noAo = await lit(page); assert.ok(noAo > 0.002, 'fx off drew nothing');
+    await shot(page, 'fxoff');
+    // network mode with links, depth of field and every FX together
+    await page.evaluate(() => { simApplyPreset(AG_SIM_PRESETS.simcloner.findIndex(p => p[0] === 'Neural network')); const set = (id, v) => { const e = document.getElementById(id); e.value = v; simKnob(e); }; set('pG3Dof', 100); set('pG3Focus', 10); set('pG3Ao', 60); set('pG3Mb', 60); });
+    await feed(page, 40); assert.ok(await lit(page) > 0.002, 'network drew nothing'); assert.equal(await page.evaluate(() => agSim.cloner().err), '');
+    await page.evaluate(() => { const e = document.getElementById('pG3Links'); e.value = 8; simKnob(e); setSimOpt('g3Mode', 'grid'); });
+    await feed(page, 20); assert.ok(await lit(page) > 0.002, 'grid links drew nothing');
+    // related knobs share one knob row
+    const bad = await page.evaluate(() => { const out = []; for (const [k, ids] of Object.entries(AG_KNOB_GROUPS)) { const rows = ids.map(id => document.getElementById(id)).filter(Boolean).map(e => e.closest('.knob-grid')); if (rows.length !== ids.length) { out.push(k + ' missing'); continue; } if (new Set(rows).size !== 1) out.push(k + ' split'); } return out; });
+    assert.deepEqual(bad, [], 'knob groups');
     // quality tiers, resize, restart
     for (const q of ['low', 'ultra', 'med']) { await page.evaluate(q => setSimOpt('q', q), q); await feed(page, 20); assert.ok(await lit(page) > 0.001, q + ' empty'); }
     await page.setViewportSize({ width: 800, height: 900 }); await feed(page, 20);
