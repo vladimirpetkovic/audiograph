@@ -1,9 +1,9 @@
 // v113: WebGPU 3D cloner (instancing, polygon animation, material editor) on real WebGPU.
-// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_116.html node tests/sim-cloner.cjs   (SHOTS=/dir saves screenshots)
+// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_117.html node tests/sim-cloner.cjs   (SHOTS=/dir saves screenshots)
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && fs.existsSync(chrome)) process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chrome;
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_116.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_117.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 const SHOTS = process.env.SHOTS;
@@ -42,7 +42,7 @@ const shot = async (page, name) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursiv
       await shot(page, 'preset' + i);
     }
     await page.evaluate(() => simApplyPreset(0));
-    for (const [k, vals] of [['g3Shape', ['sphere', 'cube', 'cylinder', 'pyramid', 'frame', 'torus', 'ico', 'cone']], ['g3Shape2', ['cube', 'frame', 'none']], ['g3Shape3', ['cone', 'none']], ['g3Field', ['noise', 'wave', 'ripple', 'none']], ['g3Mode', ['grid', 'linear', 'ring', 'sphere', 'scatter', 'spiral', 'helix']], ['g3Map', ['index', 'distance', 'x', 'y', 'z', 'random']], ['g3Style', ['solid', 'wire', 'edges']], ['g3CBy', ['clone', 'face', 'height', 'sound']], ['g3CSrc', ['palette', 'custom']], ['g3Shade', ['flat', 'smooth']]]) {
+    for (const [k, vals] of [['g3Shape', ['sphere', 'cube', 'cylinder', 'pyramid', 'frame', 'torus', 'ico', 'cone']], ['g3Shape', ['cube,frame', 'sphere,cube,cone']], ['g3Field', ['noise', 'wave', 'ripple', 'none']], ['g3Mode', ['grid', 'linear', 'ring', 'sphere', 'scatter', 'spiral', 'helix']], ['g3Map', ['index', 'distance', 'x', 'y', 'z', 'random']], ['g3Style', ['solid', 'wire', 'edges']], ['g3CBy', ['clone', 'face', 'height', 'sound']], ['g3CSrc', ['palette', 'custom']], ['g3Shade', ['flat', 'smooth']]]) {
       for (const v of vals) { await page.evaluate(([k, v]) => setSimOpt(k, v), [k, v]); await feed(page, 6); assert.ok(await lit(page) > 0.001, `${k}=${v} drew nothing`); }
     }
     // randomisation: seed changes the layout, independent listening and random offsets keep rendering

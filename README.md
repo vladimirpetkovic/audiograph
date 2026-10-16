@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-116-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-117-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -941,6 +941,13 @@ New **3D Cloner** simulation layout, built on the WebGPU engine:
 ## v115 — official release
 
 `index.html` is now v115 (previously v112). It carries everything from v113–v115: the WebGPU 3D Cloner (Network mode, AO, motion blur, depth of field), emitter-level spin for Particles/Fluid/Smoke, grouped knob rows, polished cloner presets and layer fade in/out.
+
+## v117 — Cloner: 3D rotate, stretch, multi-object, grouped panel
+
+- **Rotate cloner (3D):** Rotate X / Y / Z turns the whole array in space.
+- **Stretch X / Y / Z:** non-uniform object scale for tiles, bars and beams.
+- **Multi-select objects:** pick any number of the 8 shapes; they are mixed across the array (Variety shares them equally).
+- **Grouped panel:** collapsible sections (Objects, Cloner layout, Rotate, Sound / Field / Random effectors, Links, Material, Light, Camera, Render FX). Option rows now wrap inside the panel.
 
 ## v116 — Cloner 2.0 (MoGraph-style)
 
