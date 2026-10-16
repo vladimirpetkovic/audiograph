@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-120-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-121-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -941,6 +941,10 @@ New **3D Cloner** simulation layout, built on the WebGPU engine:
 ## v115 — official release
 
 `index.html` is now v115 (previously v112). It carries everything from v113–v115: the WebGPU 3D Cloner (Network mode, AO, motion blur, depth of field), emitter-level spin for Particles/Fluid/Smoke, grouped knob rows, polished cloner presets and layer fade in/out.
+
+## v121 — 3D objects as point clouds
+
+- The Gaussian Splat layout has a new **3D object** cloud: Knot, Cube, Torus or your own `.obj` is scattered into 140k points over its surface and reacts to the sound with every splat interaction, size and colour control. The 3D Object layout has an **Open as splat cloud** button.
 
 ## v120 — Balanced splat interactions, roomier knob rows
 

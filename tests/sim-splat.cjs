@@ -38,6 +38,13 @@ const shot = async (page, n) => { if (shotDir) await page.screenshot({ path: `${
     await page.waitForFunction(() => AG_SPLAT.name === 'scene.ply');
     assert.equal(await page.evaluate(() => document.getElementById('pGsRX').value), '180', '3DGS file should load upright-flipped');
     await feed(page, 10); assert.ok(await lit(page) > 0.0002, '3DGS cloud drew nothing');
+    // 3D object as a point cloud (built-in models and a loaded .obj)
+    await page.evaluate(() => { setLayout('object', null); objToPointCloud(); });
+    for (const m of ['knot', 'cube', 'torus']) { await page.evaluate(m => setSimOpt('spMesh', m), m); await feed(page, 8); assert.ok(await lit(page) > 0.0003, `mesh ${m} drew nothing`); }
+    await page.evaluate(() => setSimOpt('spMesh', 'obj'));
+    await page.locator('#pObjFile').setInputFiles({ name: 't.obj', mimeType: 'text/plain', buffer: Buffer.from('v -1 -1 -1\nv 1 -1 -1\nv 0 1 -1\nv 0 0 1\nf 1 2 3\nf 1 2 4\nf 2 3 4\nf 1 3 4\n') });
+    await page.waitForFunction(() => objModelData && simOpt.spMesh === 'obj' && layoutMode === 'simsplat');
+    await feed(page, 8); assert.ok(await lit(page) > 0.0003, 'loaded .obj point cloud drew nothing');
     // viewport camera: drag orbits, shift-drag pans, wheel zooms, double-click resets
     const box = await page.locator('#frameCv').boundingBox();
     for (const k of ['simsplat', 'simcloner']) {
