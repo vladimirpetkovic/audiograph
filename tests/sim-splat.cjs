@@ -38,6 +38,19 @@ const shot = async (page, n) => { if (shotDir) await page.screenshot({ path: `${
     await page.waitForFunction(() => AG_SPLAT.name === 'scene.ply');
     assert.equal(await page.evaluate(() => document.getElementById('pGsRX').value), '180', '3DGS file should load upright-flipped');
     await feed(page, 10); assert.ok(await lit(page) > 0.0002, '3DGS cloud drew nothing');
+    // viewport camera: drag orbits, shift-drag pans, wheel zooms, double-click resets
+    const box = await page.locator('#frameCv').boundingBox();
+    for (const k of ['simsplat', 'simcloner']) {
+      await page.evaluate(k => { setLayout(k); renderDensity(); }, k);
+      await page.mouse.move(box.x + 300, box.y + 300); await page.mouse.down(); await page.mouse.move(box.x + 380, box.y + 340, { steps: 4 }); await page.mouse.up();
+      await page.mouse.wheel(0, -300);
+      await page.keyboard.down('Shift'); await page.mouse.move(box.x + 300, box.y + 300); await page.mouse.down(); await page.mouse.move(box.x + 350, box.y + 300, { steps: 4 }); await page.mouse.up(); await page.keyboard.up('Shift');
+      const v = await page.evaluate(() => ({ y: simOpt.vYaw, p: simOpt.vPit, z: simOpt.vZm, x: simOpt.vPx }));
+      assert.ok(v.y < 0 && v.p > 0 && v.z > 1 && v.x > 0, `${k} mouse camera ${JSON.stringify(v)}`);
+      await feed(page, 4); assert.ok(await lit(page) > 0.0003, `${k} drew nothing after moving the camera`);
+      await page.mouse.dblclick(box.x + 300, box.y + 300);
+      assert.equal(await page.evaluate(() => simOpt.vZm), 1, `${k} double-click resets view`);
+    }
     // webcam: colours + displacement run the extra pass on a simulation layout
     await page.evaluate(() => simApplyPreset(0));
     await page.evaluate(() => toggleCam()); await page.waitForFunction(() => camActive);
