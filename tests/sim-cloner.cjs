@@ -1,9 +1,9 @@
 // v113: WebGPU 3D cloner (instancing, polygon animation, material editor) on real WebGPU.
-// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_114.html node tests/sim-cloner.cjs   (SHOTS=/dir saves screenshots)
+// Run: AUDIOGRAPH_GPU_BUILD=versions/audiograph_116.html node tests/sim-cloner.cjs   (SHOTS=/dir saves screenshots)
 const fs = require('node:fs');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && fs.existsSync(chrome)) process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chrome;
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_114.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_GPU_BUILD || 'versions/audiograph_116.html';
 const assert = require('node:assert/strict');
 const { open } = require('./gpu-common.cjs');
 const SHOTS = process.env.SHOTS;
@@ -42,11 +42,11 @@ const shot = async (page, name) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursiv
       await shot(page, 'preset' + i);
     }
     await page.evaluate(() => simApplyPreset(0));
-    for (const [k, vals] of [['g3Shape', ['sphere', 'cube', 'torus', 'ico', 'cone']], ['g3Mode', ['grid', 'linear', 'ring', 'sphere', 'scatter']], ['g3Map', ['index', 'distance', 'x', 'y', 'z', 'random']], ['g3Style', ['solid', 'wire', 'edges']], ['g3CBy', ['clone', 'face', 'height', 'sound']], ['g3CSrc', ['palette', 'custom']], ['g3Shade', ['flat', 'smooth']]]) {
+    for (const [k, vals] of [['g3Shape', ['sphere', 'cube', 'cylinder', 'pyramid', 'frame', 'torus', 'ico', 'cone']], ['g3Shape2', ['cube', 'frame', 'none']], ['g3Shape3', ['cone', 'none']], ['g3Field', ['noise', 'wave', 'ripple', 'none']], ['g3Mode', ['grid', 'linear', 'ring', 'sphere', 'scatter', 'spiral', 'helix']], ['g3Map', ['index', 'distance', 'x', 'y', 'z', 'random']], ['g3Style', ['solid', 'wire', 'edges']], ['g3CBy', ['clone', 'face', 'height', 'sound']], ['g3CSrc', ['palette', 'custom']], ['g3Shade', ['flat', 'smooth']]]) {
       for (const v of vals) { await page.evaluate(([k, v]) => setSimOpt(k, v), [k, v]); await feed(page, 6); assert.ok(await lit(page) > 0.001, `${k}=${v} drew nothing`); }
     }
     // randomisation: seed changes the layout, independent listening and random offsets keep rendering
-    await page.evaluate(() => { setSimOpt('g3Mode', 'scatter'); const set = (id, v) => { const e = document.getElementById(id); e.value = v; simKnob(e); }; set('pG3Indep', 100); set('pG3RndPosX', 80); set('pG3RndRotY', 120); set('pG3RndScale', 50); set('pG3RndCol', 50); set('pG3RndSnd', 60); set('pG3RndAnim', 40); set('pG3Flip', 40); set('pG3Inner', 10); set('pG3StRotY', 20); set('pG3StScale', 50); });
+    await page.evaluate(() => { setSimOpt('g3Mode', 'scatter'); const set = (id, v) => { const e = document.getElementById(id); e.value = v; simKnob(e); }; set('pG3Indep', 100); set('pG3RndPosX', 80); set('pG3RndRot', 120); set('pG3RndScale', 50); set('pG3RndCol', 50); set('pG3Mix', 80); set('pG3RndH', 60); set('pG3Anchor', 100); set('pG3ScY', 300); set('pG3Delay', 60); set('pG3FieldAmt', 80); set('pG3LitAz', 30); set('pG3LitEl', 60); set('pG3Amb', 80); set('pG3StRotY', 20); set('pG3StScale', 50); });
     await feed(page, 20); const a = await lit(page);
     await page.evaluate(() => { const e = document.getElementById('pG3Seed'); e.value = 77; simKnob(e); }); await feed(page, 20);
     assert.ok(await lit(page) > 0.001 && a > 0.001, 'random layout drew nothing');

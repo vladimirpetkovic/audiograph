@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-115-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-116-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -941,3 +941,13 @@ New **3D Cloner** simulation layout, built on the WebGPU engine:
 ## v115 — official release
 
 `index.html` is now v115 (previously v112). It carries everything from v113–v115: the WebGPU 3D Cloner (Network mode, AO, motion blur, depth of field), emitter-level spin for Particles/Fluid/Smoke, grouped knob rows, polished cloner presets and layer fade in/out.
+
+## v116 — Cloner 2.0 (MoGraph-style)
+
+- **Mixed models**: new Cylinder, Pyramid and Frame shapes; mix up to three shapes in one array (Mix in / And, Variety slider).
+- **Per-axis sound scale** (Scale X/Y/Z) and **Grow from base**, so clones become equalizer bars or a city skyline; Random height.
+- **New distributions**: Spiral (sunflower disc) and Helix (coil) modes.
+- **New effectors**: Delay (the sound travels through the array like a wave) and Field (Noise / Wave / Ripple, like the Shader effector).
+- **Lighting**: key light angle and height, Ambient and a cool fill; softer, tinted, stronger ambient occlusion.
+- **Fewer, stronger knobs**: removed step-rotation X/Z, per-axis random rotation, Reverse chance, Drift, Only-when-loud, Line width, Inside, Reflection and other low-impact controls.
+- **13 new presets**: Cube wall and Neural network kept; Pink spiral, Dot wave, Bar ring, Tube disc, City skyline, Toy blocks, Frames & orbs, Torus vortex, Pearl cloud, Chrome swarm, Random storm.
