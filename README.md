@@ -4,7 +4,7 @@
 
 Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
-![version](https://img.shields.io/badge/version-121-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![version](https://img.shields.io/badge/version-122-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
@@ -941,6 +941,10 @@ New **3D Cloner** simulation layout, built on the WebGPU engine:
 ## v115 — official release
 
 `index.html` is now v115 (previously v112). It carries everything from v113–v115: the WebGPU 3D Cloner (Network mode, AO, motion blur, depth of field), emitter-level spin for Particles/Fluid/Smoke, grouped knob rows, polished cloner presets and layer fade in/out.
+
+## v122 — Gaussian Splat walkthrough
+
+- New **Walkthrough** camera for the Gaussian Splat layout: **Fly through** (weaves inside the cloud), **Spiral** (circles in and out) and **Glide** (strafes while looking forward). **Walk speed** and **Beat push** (bass and kicks surge the camera forward) are in the Camera group, and dragging the mouse looks around while it travels. New *Walkthrough* preset.
 
 ## v121 — 3D objects as point clouds
 

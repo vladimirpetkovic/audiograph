@@ -45,6 +45,10 @@ const shot = async (page, n) => { if (shotDir) await page.screenshot({ path: `${
     await page.locator('#pObjFile').setInputFiles({ name: 't.obj', mimeType: 'text/plain', buffer: Buffer.from('v -1 -1 -1\nv 1 -1 -1\nv 0 1 -1\nv 0 0 1\nf 1 2 3\nf 1 2 4\nf 2 3 4\nf 1 3 4\n') });
     await page.waitForFunction(() => objModelData && simOpt.spMesh === 'obj' && layoutMode === 'simsplat');
     await feed(page, 8); assert.ok(await lit(page) > 0.0003, 'loaded .obj point cloud drew nothing');
+    // walkthrough camera
+    await page.evaluate(() => { setLayout('simsplat', null); setSimOpt('spSrc', 'galaxy'); });
+    for (const w of ['fly', 'spiral', 'glide']) { await page.evaluate(w => setSimOpt('spWalk', w), w); await feed(page, 40); assert.ok(await lit(page) > 0.0003, `walk ${w} drew nothing`); }
+    await page.evaluate(() => setSimOpt('spWalk', 'off'));
     // viewport camera: drag orbits, shift-drag pans, wheel zooms, double-click resets
     const box = await page.locator('#frameCv').boundingBox();
     for (const k of ['simsplat', 'simcloner']) {
