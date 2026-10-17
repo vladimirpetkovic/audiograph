@@ -942,6 +942,10 @@ New **3D Cloner** simulation layout, built on the WebGPU engine:
 
 `index.html` is now v115 (previously v112). It carries everything from v113–v115: the WebGPU 3D Cloner (Network mode, AO, motion blur, depth of field), emitter-level spin for Particles/Fluid/Smoke, grouped knob rows, polished cloner presets and layer fade in/out.
 
+## v122 — official release
+
+`index.html` is now v122 (previously v115). It carries everything from v116–v122: the 3D Cloner redesign, Gaussian Splat input with 8 interaction methods, 3D objects as point clouds, webcam colour and warp on all simulation layouts, the mouse viewport camera and the splat walkthrough camera.
+
 ## v122 — Gaussian Splat walkthrough
 
 - New **Walkthrough** camera for the Gaussian Splat layout: **Fly through** (weaves inside the cloud), **Spiral** (circles in and out) and **Glide** (strafes while looking forward). **Walk speed** and **Beat push** (bass and kicks surge the camera forward) are in the Camera group, and dragging the mouse looks around while it travels. New *Walkthrough* preset.

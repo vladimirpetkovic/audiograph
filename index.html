@@ -106,6 +106,8 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .pfx-group>.prow:first-child{margin-bottom:0}
 #pfxFracBody{padding-top:6px;margin-top:4px;border-top:1px solid var(--border)}
 .knob-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 10px;min-width:0;overflow:hidden}
+.layout-opts .g3sec{align-self:stretch;box-sizing:border-box}
+.g3sec>.knob-grid{width:100%;box-sizing:border-box}
 .layout-opts .knob-grid{align-self:stretch}
 .ag-na{display:none!important}
 .knob-grid:not(:has(>.knob-cell:not([style*="display: none"]):not(.ag-na))){display:none}
@@ -163,7 +165,8 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .prow.prow-stack{flex-direction:column;align-items:center;gap:6px}
 .prow-stack>.prow-label{min-width:0;text-align:center}
 .prow-stack .mode-btns,.layout-opts .mode-btns{justify-content:center}
-.prow-stack .sublabel{text-align:center}
+.prow-stack .g3sec{border-top:1px solid var(--border);margin-top:8px;padding-top:2px}.g3sec>summary{cursor:pointer;list-style:none;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--tx2,#c9c9d2);font-weight:600;padding:6px 2px;display:flex;align-items:center;gap:6px}.g3sec>summary::-webkit-details-marker{display:none}.g3sec>summary::before{content:'\25BE';color:var(--accent,#5fd99a);font-size:.6rem}.g3sec:not([open])>summary::before{content:'\25B8'}
+.sublabel{text-align:center}
 .prow-stack .grow-btns{flex-wrap:nowrap;flex:none;max-width:none}
 .prow-stack .grow-btns.wrap-btns{flex-wrap:wrap;flex:1 1 auto;max-width:100%;justify-content:center}
 .layout-opts{align-items:center;margin:8px 0 6px;padding:10px 6px 8px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,.015)}
@@ -521,7 +524,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
           <div><div class="sublabel">General</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
           <div id="simulationLayouts"><div class="sublabel">Simulation</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particles</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button><button class="mbtn amber" onclick="setLayout('simrd',this)" title="GPU reaction-diffusion (Gray-Scott): chemicals react and spread into corals, mazes, spots and dividing cells.">Reaction</button><button class="mbtn amber" onclick="setLayout('simslime',this)" title="GPU slime mould (Physarum): thousands of agents lay and follow trails that grow into living networks.">Slime</button><button class="mbtn amber" onclick="setLayout('simcloner',this)" title="WebGPU 3D cloner: instanced 3D objects in a grid, ring or sphere cloud with a sound effector (move, scale, rotate), animated polygons (explode, shrink, spin, ripple) and a material editor (wireframe, shaded, colours, roughness, metallic, transparency).">3D Cloner</button></div></div>
           <div><div class="sublabel">3D</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" data-objm="knot" onclick="setObjLayout('knot',this)">Knot</button><button class="mbtn amber" data-objm="cube" onclick="setObjLayout('cube',this)">Cube</button><button class="mbtn amber" data-objm="torus" onclick="setObjLayout('torus',this)">Torus</button></div></div>
-          <div><div class="sublabel">Input</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('pixelwarp',this)">Pixel Warp</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" data-objm="file" onclick="setObjLayout('file',this)">3D Object</button></div></div>
+          <div><div class="sublabel">Input</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('simsplat',this)" title="WebGPU Gaussian splat viewer: load a .ply / .splat point cloud (or use a demo) and let the music push, ripple, twist and explode it.">Gaussian Splat</button><button class="mbtn amber" onclick="setLayout('pixelwarp',this)">Pixel Warp</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" data-objm="file" onclick="setObjLayout('file',this)">3D Object</button></div></div>
         </div></div>
         <!-- Per-layout settings -->
         <div id="layoutOpts_sine" class="layout-opts" style="display:none">
@@ -759,6 +762,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
           <div class="prow obj-surf-only" title="Faint mesh under the audio lines."><span class="prow-label">Wire</span><input type="range" min="0" max="100" value="30" step="1" id="pObjWire" oninput="upP()"><span class="prow-val" id="vObjWire">30%</span></div>
           <div class="prow obj-surf-only" title="Visibility of the audio lines on the far side of the object."><span class="prow-label">Back</span><input type="range" min="0" max="100" value="15" step="1" id="pObjBack" oninput="upP()"><span class="prow-val" id="vObjBack">15%</span></div>
           </div>
+          <div class="prow" title="Turn this model into a cloud of glowing points that react to the sound, like a Gaussian splat."><span class="prow-label">Point cloud</span><div class="mode-btns"><button class="mbtn" onclick="objToPointCloud()">Open as splat cloud</button></div></div>
           <div class="prow" id="objFileRow"><span class="prow-label">OBJ file</span><input type="file" id="pObjFile" accept=".obj" onchange="loadObjFile(event)" style="font-size:10px;max-width:140px"></div>
           <div class="prow"><span class="prow-label">Max Faces</span><input type="range" min="200" max="10000" value="2000" step="100" id="pObjMaxFaces" oninput="upP()"><span class="prow-val" id="vObjMaxFaces">2000</span></div>
           <div class="prow"><span class="prow-label">Perspective</span><input type="range" min="50" max="500" value="250" step="10" id="pObjPersp" oninput="upP()"><span class="prow-val" id="vObjPersp">250</span></div>
@@ -2287,14 +2291,111 @@ fn aces(x:vec3f)->vec3f{return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),ve
   return vec4f(col,max(col.r,max(col.g,col.b)));}
 `;
 
+// ---- v118 shader: Gaussian-splat cloud (billboard gaussians, sound displacement computed per splat in the vertex stage)
+var AG_SPL=`
+struct U{vp:mat4x4f,cam:vec4f,a:vec4f,b:vec4f,c:vec4f,d:vec4f,f0:vec4f,f1:vec4f,pf:vec4f,m0:vec4f,m1:vec4f,m2:vec4f,e:vec4f,spec:array<vec4f,16>,rh:array<vec4f,8>};
+struct Sp{p:vec4f,c:vec4f};
+@group(0) @binding(0) var<uniform> u:U;
+@group(0) @binding(1) var<storage,read> src:array<Sp>;
+@group(0) @binding(2) var ramp:texture_2d<f32>;
+@group(0) @binding(3) var smp:sampler;
+struct VO{@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) col:vec4f};
+fn hsh(n:u32)->f32{var x=n*747796405u+2891336453u;x=((x>>((x>>28u)+4u))^x)*277803737u;x=(x>>22u)^x;return f32(x)/4294967295.0;}
+fn bandAt(t:f32)->f32{let x=clamp(t,0.0,0.999)*63.0;let i=u32(x);let f=x-f32(i);let j=min(i+1u,63u);return mix(u.spec[i>>2u][i&3u],u.spec[j>>2u][j&3u],f);}
+fn histAt(x:f32)->f32{let y=clamp(x,0.0,30.999);let i=u32(y);let f=y-f32(i);let j=min(i+1u,31u);return mix(u.rh[i>>2u][i&3u],u.rh[j>>2u][j&3u],f);}
+fn flowAt(p:vec3f,t:f32)->vec3f{return vec3f(sin(p.y*3.1+t)+sin(p.z*2.3-t*0.7),sin(p.z*3.3+t*1.1)+sin(p.x*2.1+t*0.5),sin(p.x*3.7-t*0.9)+sin(p.y*2.7+t*0.6))*0.5;}
+@vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->VO{
+  var o:VO;o.pos=vec4f(2.0,2.0,2.0,1.0);o.uv=vec2f(0.0);o.col=vec4f(0.0);
+  let s=src[ii];let h=hsh(ii);
+  if(h>u.b.w){return o;}
+  var p=vec3f(dot(u.m0.xyz,s.p.xyz),dot(u.m1.xyz,s.p.xyz),dot(u.m2.xyz,s.p.xyz));
+  let t=u.cam.w;let amt=u.b.z;let lev=u.c.x;let kick=u.c.y;let bass=u.c.z;
+  let h2=hsh(ii*7u+11u);
+  var sz=s.p.w*u.b.x;var al=s.c.a;sz*=1.0+u.e.z*(lev*0.5+bass*0.8+kick*0.6);
+  var off=vec3f(0.0);var glow=0.0;var vis=1.0;
+  if(u.f1.y>0.5){let ang=(p.y*1.4+length(p.xz)*1.0)*(0.12+bass*1.5)*amt;let c=cos(ang);let sn=sin(ang);p=vec3f(p.x*c-p.z*sn,p.y,p.x*sn+p.z*c);glow+=bass*0.4;}
+  let r=length(p);let nr=p/max(r,1e-4);
+  if(u.f0.x>0.5){off+=nr*r*bass*0.17*amt;sz*=1.0+bass*0.6*amt;glow+=bass;}
+  if(u.f0.y>0.5){let hv=histAt(r*u.e.x);off+=nr*hv*0.34*amt;sz*=1.0+hv*0.8*amt;glow+=hv;}
+  if(u.f0.z>0.5){let bv=bandAt(p.y*0.4+0.5);off+=vec3f(p.x,0.0,p.z)*bv*0.45*amt+vec3f(0.0,bv*0.12*amt,0.0);sz*=1.0+bv*0.5*amt;glow+=bv;}
+  if(u.f0.w>0.5){let d=normalize(vec3f(hsh(ii*3u+1u),hsh(ii*3u+2u),hsh(ii*3u+3u))-vec3f(0.5)+vec3f(0.0001));off+=(d*0.8+nr*0.5)*min(kick,1.0)*(0.3+h2)*0.32*amt;glow+=kick*0.4;}
+  if(u.f1.x>0.5){off+=flowAt(p*1.4,t*u.e.y)*lev*0.55*amt;glow+=lev*0.3;}
+  if(u.f1.w>0.5){off.y+=sin(p.x*3.5+p.z*2.0-t*3.0*u.e.y)*(0.05+lev*0.42)*amt;glow+=lev*0.2;}
+  if(u.f1.z>0.5){let dis=clamp(1.0-lev*1.0,0.0,0.98)*min(1.0,amt);vis=smoothstep(dis,dis+0.12,h2);}
+  if(vis<0.02){return o;}
+  var col=s.c.rgb;let lum=dot(col,vec3f(0.299,0.587,0.114));
+  let cm=u.d.y;
+  if(cm>0.5){
+    var tt=clamp(p.y*0.4+0.5,0.0,1.0);
+    if(cm>1.5&&cm<2.5){tt=clamp(r/1.3,0.0,1.0);}
+    if(cm>2.5){tt=clamp(glow*0.8+h2*0.15,0.0,1.0);}
+    col=textureSampleLevel(ramp,smp,vec2f(tt,0.5),0.0).rgb*(0.55+0.9*lum);
+  }
+  let l2=dot(col,vec3f(0.299,0.587,0.114));col=mix(vec3f(l2),col,u.c.w);
+  col*=u.d.x*(1.0+glow*u.d.w);
+  var clip=u.vp*vec4f(p+off,1.0);
+  var cr=vec2f(-1.0,-1.0);
+  switch(vi){case 1u:{cr=vec2f(1.0,-1.0);}case 2u:{cr=vec2f(1.0,1.0);}case 3u:{cr=vec2f(-1.0,-1.0);}case 4u:{cr=vec2f(1.0,1.0);}case 5u:{cr=vec2f(-1.0,1.0);}default:{}}
+  let w=max(clip.w,0.001);let rad=sz*3.0*vis;
+  let nd=cr*max(vec2f(rad*u.pf.x,rad*u.pf.y)/w,u.pf.zw);
+  clip=vec4f(clip.xy+nd*clip.w,clip.z,clip.w);
+  o.pos=clip;o.uv=cr;
+  o.col=vec4f(col,al*vis*select(u.b.y,1.0,u.d.z>0.5));
+  return o;}
+@fragment fn fs(i:VO)->@location(0) vec4f{
+  let d2=dot(i.uv,i.uv);if(d2>1.0){discard;}
+  let a=exp(-4.5*d2)*i.col.a;
+  if(u.d.z>0.5){if(a<0.25){discard;}return vec4f(i.col.rgb,1.0);}
+  return vec4f(i.col.rgb*a,a);}
+`;
+
+// ---- v118 shader: webcam pass for simulation layouts (colour from the camera, shape warped by camera brightness)
+var AG_CAM_SH=`
+struct CU{a:vec4f,b:vec4f};
+@group(0) @binding(0) var<uniform> c:CU;
+@group(0) @binding(1) var smp:sampler;
+@group(0) @binding(2) var tH:texture_2d<f32>;
+@group(0) @binding(3) var tW:texture_2d<f32>;
+@vertex fn vs(@builtin(vertex_index) vi:u32)->@builtin(position) vec4f{var p=array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));return vec4f(p[vi],0.0,1.0);}
+fn camAt(uv:vec2f)->vec3f{return textureSampleLevel(tW,smp,vec2f(1.0-uv.x,uv.y),0.0).rgb;}
+@fragment fn fs(@builtin(position) pos:vec4f)->@location(0) vec4f{
+  let uv=pos.xy/c.a.xy;
+  let lw=dot(camAt(uv),vec3f(0.299,0.587,0.114));
+  let d=(lw-0.5)*2.0*c.a.z;
+  var dv=vec2f(d,d);
+  if(c.a.w<0.5){dv=normalize(uv-vec2f(0.5)+vec2f(0.0001))*d;}
+  else if(c.a.w<1.5){dv=vec2f(0.0,d);}
+  else{dv=vec2f(d,0.0);}
+  let uv2=uv-dv*vec2f(0.10,0.10*c.a.x/c.a.y);
+  let s=textureSampleLevel(tH,smp,uv2,0.0);
+  var rgb=s.rgb;
+  if(c.b.x>0.001){
+    let cam=camAt(uv2);let mx=max(max(cam.r,cam.g),max(cam.b,0.12));
+    let l0=dot(cam/mx,vec3f(0.299,0.587,0.114));
+    let cn=mix(vec3f(l0),cam/mx,1.35);
+    let ls=dot(rgb,vec3f(0.299,0.587,0.114));
+    rgb=mix(rgb,max(cn,vec3f(0.0))*ls*1.5,c.b.x);
+  }
+  return vec4f(rgb,s.a);}
+`;
+
 // ---- v113 shaders: 3D cloner (compute-driven instancing + per-polygon vertex animation + PBR-lite fragment) ----
 var AG_G3_HEAD=`
-struct C{vp:mat4x4f,cam:vec4f,lit:vec4f,grid:vec4f,sp:vec4f,ef:vec4f,er:vec4f,fx:vec4f,fx2:vec4f,mt:vec4f,mt2:vec4f,mt3:vec4f,col:vec4f,ecol:vec4f,env:vec4f,rp:vec4f,rr:vec4f,rm:vec4f,rs:vec4f,rx:vec4f,st:vec4f,spec:array<vec4f,16>,pvp:mat4x4f,vx:vec4f,vy:vec4f,vz:vec4f,nk:vec4f};
+struct C{vp:mat4x4f,cam:vec4f,lit:vec4f,grid:vec4f,sp:vec4f,ef:vec4f,er:vec4f,fx:vec4f,fx2:vec4f,mt:vec4f,mt2:vec4f,mt3:vec4f,col:vec4f,ecol:vec4f,env:vec4f,rp:vec4f,rr:vec4f,rm:vec4f,rs:vec4f,rx:vec4f,st:vec4f,spec:array<vec4f,16>,pvp:mat4x4f,vx:vec4f,vy:vec4f,vz:vec4f,nk:vec4f,sx:vec4f,rz:vec4f,lt:vec4f,l2:vec4f,hist:array<vec4f,256>};
 @group(0) @binding(0) var<uniform> c:C;
 struct Inst{pos:vec4f,rot:vec4f,dat:vec4f};
 fn specAt(x:f32)->f32{let q=clamp(x,0.0,1.0);let f=q*63.0;let i=u32(floor(f));let j=min(i+1u,63u);let t=f-floor(f);
   let a=c.spec[i>>2u][i&3u];let b=c.spec[j>>2u][j&3u];return mix(a,b,t)*(0.9+1.1*q);}
 fn hash11(n:f32)->f32{return fract(sin(n*127.1+311.7)*43758.5453);}
+fn bandF(f:u32,j:u32)->f32{return c.hist[f*16u+(j>>2u)][j&3u];}
+fn specAtD(x:f32,lag:f32)->f32{let q=clamp(x,0.0,1.0);let f=q*63.0;let i=u32(floor(f));let j=min(i+1u,63u);let t=f-floor(f);
+  let fa=u32(clamp(floor(lag),0.0,14.0));let fb=fa+1u;let tl=clamp(lag-f32(fa),0.0,1.0);
+  let a=mix(bandF(fa,i),bandF(fa,j),t);let b=mix(bandF(fb,i),bandF(fb,j),t);return mix(a,b,tl)*(0.9+1.1*q);}
+fn h3(q:vec3f)->f32{return fract(sin(dot(q,vec3f(127.1,311.7,74.7)))*43758.5453);}
+fn vnoise(p:vec3f)->f32{let i=floor(p);let f=fract(p);let w=f*f*(3.0-2.0*f);
+  let a=mix(mix(h3(i),h3(i+vec3f(1.0,0.0,0.0)),w.x),mix(h3(i+vec3f(0.0,1.0,0.0)),h3(i+vec3f(1.0,1.0,0.0)),w.x),w.y);
+  let b=mix(mix(h3(i+vec3f(0.0,0.0,1.0)),h3(i+vec3f(1.0,0.0,1.0)),w.x),mix(h3(i+vec3f(0.0,1.0,1.0)),h3(i+vec3f(1.0,1.0,1.0)),w.x),w.y);
+  return mix(a,b,w.z);}
 fn pcg(v:u32)->u32{let s=v*747796405u+2891336453u;let w=((s>>((s>>28u)+4u))^s)*277803737u;return (w>>22u)^w;}
 fn hr(i:u32,k:u32)->f32{return f32(pcg(i*9781u+k*6271u+u32(c.rp.w)*26699u+1u))/4294967295.0;}
 fn rotM(e:vec3f)->mat3x3f{
@@ -2317,8 +2418,10 @@ var AG_G3_C=AG_G3_HEAD+`
   if(nz>1u){gz=f32(iz)/f32(nz-1u);}
   var p=vec3f(0.0);
   if(n>1u){
-    if(mode>4.5){let dr=vec3f(hr(i,20u),hr(i,21u),hr(i,22u))-0.5;let nr=max(length(dr),0.0001);p=dr/nr*s.x*pow(tot,0.3333)*0.55*pow(hr(i,23u),0.6);}
-    else if(mode>3.5){p=(f32(i)-0.5*(tot-1.0))*s;}
+    if(mode>6.5){let tn=max(f32(nx),1.0);let R=tn*s.x/6.2831853;let a=f32(i)/tn*6.2831853;p=vec3f(cos(a)*R,(f32(i)/tn-0.5*tot/tn)*s.y,sin(a)*R);}
+    else if(mode>5.5){let k=f32(i)+0.5;let a=2.399963*k;let R=s.x*0.565*sqrt(k);p=vec3f(cos(a)*R,0.0,sin(a)*R);}
+    else if(mode>4.5&&mode<5.5){let dr=vec3f(hr(i,20u),hr(i,21u),hr(i,22u))-0.5;let nr=max(length(dr),0.0001);p=dr/nr*s.x*pow(tot,0.3333)*0.55*pow(hr(i,23u),0.6);}
+    else if(mode>3.5&&mode<4.5){p=(f32(i)-0.5*(tot-1.0))*s;}
     else if(mode<0.5){p=(vec3f(f32(ix),f32(iy),f32(iz))-0.5*vec3f(f32(nx-1u),f32(ny-1u),f32(nz-1u)))*s;}
     else if(mode<1.5){let R=f32(nx)*s.x/6.2831853+f32(iz)*s.z;let a=f32(ix)/f32(nx)*6.2831853;p=vec3f(cos(a)*R,(f32(iy)-0.5*f32(ny-1u))*s.y,sin(a)*R);}
     else if(mode<2.5){let k=f32(i)+0.5;let ph=acos(1.0-2.0*k/tot);let th=2.399963*k;let R=s.x*sqrt(tot/12.566371);p=R*vec3f(cos(th)*sin(ph),cos(ph),sin(th)*sin(ph));}
@@ -2337,7 +2440,8 @@ var AG_G3_C=AG_G3_HEAD+`
   // every clone can listen to its own random band, with its own gain and drift, like a Cinema 4D random effector driven by the sound
   let u2=mix(u,hr(i,1u),c.rm.x);
   let gain=max(0.0,1.0+c.rm.y*(2.0*hr(i,2u)-1.0));
-  let v=specAt(u2)*gain+0.35*c.fx2.z*(1.0-0.6*c.rm.x*hr(i,3u));
+  var sv=specAt(u2);if(c.lt.w>0.001){sv=specAtD(u2,c.lt.w*idx*14.0);}
+  let v=sv*gain+0.35*c.fx2.z*(1.0-0.6*c.rm.x*hr(i,3u));
   let flip=select(1.0,-1.0,hr(i,4u)<c.rs.w);
   let fol=mix(1.0,clamp(v*1.6,0.0,1.4),c.rs.x);
   let tt=c.rs.z*c.rs.y;
@@ -2346,12 +2450,25 @@ var AG_G3_C=AG_G3_HEAD+`
     let r=hr(i,30u+q);var w=2.0*r-1.0;
     if(c.rs.y>0.001){w=sin(6.2831853*r+tt*(0.4+hr(i,40u+q)));}
     if(q<3u){rn[q]=w;}else if(q<6u){rq[q-3u]=w;}else{rsc=w;}}
-  p=p+rn*c.rp.xyz*s*fol+c.ef.xyz*s*v*flip;
-  let sc=max(0.02,(1.0+c.ef.w*v+c.fx2.w)*(1.0+c.rr.w*rsc*fol)*mix(1.0,c.st.w,idx));
+  var fld=0.0;let ft=c.rz.x;
+  if(ft>0.5){
+    let L=max(c.rz.z*s.x*3.0,0.001);let tm=c.cam.w*c.rz.w;
+    if(ft<1.5){fld=2.0*vnoise(p/L*2.0+vec3f(0.0,tm*0.6,tm*0.3))-1.0;}
+    else if(ft<2.5){fld=sin(6.2831853*(p.x/L*0.5+p.z/L*0.25)-tm*2.0);}
+    else{fld=sin(6.2831853*length(p.xz)/L*0.5-tm*2.0);}
+  }
+  let fa=c.rz.y*(0.35+v);
+  p=p+rn*c.rp.xyz*s*fol+c.ef.xyz*s*v*flip+vec3f(0.0,fld*fa*s.y*0.6,0.0);
+  let sc=max(0.02,(1.0+c.ef.w*v+c.fx2.w)*(1.0+c.rr.w*rsc*fol)*mix(1.0,c.st.w,idx)*max(0.25,1.0+0.35*fld*fa));
   let spinF=1.0+c.rm.z*(2.0*hr(i,5u)-1.0)*2.0;
   let e=c.er.xyz*v*flip+rq*c.rr.xyz*fol+c.st.xyz*f32(i)+vec3f(0.0,c.er.w*spinF,0.0);
   let ct=clamp(idx+c.rm.w*(2.0*hr(i,6u)-1.0),0.0,1.0);
-  inst[i]=Inst(vec4f(p,v),vec4f(e,sc),vec4f(u,hr(i,7u),ct,clamp(length(p)/ext,0.0,1.0)));
+  var sid=0.0;let ns=c.lt.z;
+  if(ns>1.5){
+    let r=hr(i,8u);let w0=1.0-c.lt.y*(ns-1.0)/ns;
+    if(r>=w0){sid=min(1.0+floor((r-w0)/max(c.lt.y/ns,0.0001)),ns-1.0);}
+  }
+  inst[i]=Inst(vec4f(p,v),vec4f(e,sc),vec4f(u,sid,ct,clamp(length(p)/ext,0.0,1.0)));
 }
 `;
 var AG_G3_R=AG_G3_HEAD+`
@@ -2362,23 +2479,29 @@ var AG_G3_R=AG_G3_HEAD+`
 struct VIn{@location(0) pos:vec3f,@location(1) ctr:vec3f,@location(2) nf:vec3f,@location(3) ns:vec3f,@location(4) ew:vec3f,@location(5) fid:f32};
 struct VOut{@builtin(position) pos:vec4f,@location(0) nrm:vec3f,@location(1) wp:vec3f,@location(2) bary:vec3f,@location(3) ew:vec3f,@location(4) ct:f32,@location(5) fv:f32,@location(6) cp:vec4f,@location(7) pp:vec4f};
 struct FOut{@location(0) col:vec4f,@location(1) fx:vec4f,@location(2) nm:vec2f};
+fn cloneS(I:Inst,ii:u32)->vec3f{
+  let v=I.pos.w;var S=max(vec3f(0.02),vec3f(1.0)+c.sx.xyz*v)*c.rx.yzw;
+  S.y=S.y*exp(c.lt.x*1.6*(2.0*hr(ii,60u)-1.0));return S;}
+fn anch(p:vec3f,S:vec3f)->vec3f{let a=c.sx.w*0.7;return vec3f(p.x*S.x,(p.y+a)*S.y-a,p.z*S.z);}
 @vertex fn vs(vin:VIn,@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->VOut{
   let I=inst[ii];let R=rotM(I.rot.xyz);let sc=I.rot.w;
-  let pv=clamp(I.pos.w,0.0,1.5);
-  let p=vin.pos;
-  let wp=I.pos.xyz+R*(p*c.sp.w*sc);
   var o:VOut;
+  if(abs(floor(vin.fid+0.001)-I.dat.y)>0.5){o.pos=vec4f(2.0,2.0,2.0,1.0);return o;}
+  let pv=clamp(I.pos.w,0.0,1.5);
+  let S=cloneS(I,ii);
+  let p=anch(vin.pos,S);
+  let wp=I.pos.xyz+R*(p*c.sp.w*sc);
   o.pos=c.vp*vec4f(wp,1.0);
   o.wp=wp;
-  let J=pinst[ii];let wq=J.pos.xyz+rotM(J.rot.xyz)*(p*c.sp.w*J.rot.w);
+  let J=pinst[ii];let wq=J.pos.xyz+rotM(J.rot.xyz)*(anch(vin.pos,cloneS(J,ii))*c.sp.w*J.rot.w);
   o.cp=o.pos;o.pp=c.pvp*vec4f(wq,1.0);
-  o.nrm=R*mix(vin.nf,vin.ns,c.mt2.w);
+  o.nrm=R*(mix(vin.nf,vin.ns,c.mt2.w)/S);
   let b=vi%3u;
   o.bary=vec3f(select(0.0,1.0,b==0u),select(0.0,1.0,b==1u),select(0.0,1.0,b==2u));
   o.ew=vin.ew;
   let cb=c.mt2.z;var ct=0.5;
   if(cb<0.5){ct=I.dat.z;}
-  else if(cb<1.5){ct=fract(vin.fid*0.6180339);}
+  else if(cb<1.5){ct=fract(fract(vin.fid)*7.0*0.6180339+I.dat.y*0.31);}
   else if(cb<2.5){ct=clamp(0.5+0.5*vin.pos.y,0.0,1.0);}
   else{ct=clamp(pv*0.9+0.1+0.3*I.pos.w,0.0,1.0);}
   o.ct=ct;o.fv=pv;
@@ -2409,7 +2532,10 @@ fn envC(r:vec3f,rough:f32)->vec3f{
   let spc=D*Gv*F/(4.0*nv);
   let dif=base*(1.0-met)*nl/3.14159265*3.0;
   var col=c.lit.w*(dif+spc*3.0);
-  col=col+base*(1.0-met)*envC(n,1.0)*0.35;
+  let hemi=mix(vec3f(0.07,0.06,0.09),vec3f(0.85,0.9,1.05),n.y*0.5+0.5);
+  col=col+base*(1.0-met)*(hemi*c.l2.x+envC(n,1.0)*0.12);
+  let Lf=normalize(vec3f(-L.x,0.15,-L.z));
+  col=col+base*(1.0-met)*max(dot(n,Lf),0.0)*c.l2.y*vec3f(0.5,0.62,1.0);
   let Fe=F0+(max(vec3f(1.0-rough),F0)-F0)*pow(1.0-nv,5.0);
   col=col+envC(reflect(-V,n),rough)*Fe*c.env.y;
   col=col+mix(base,vec3f(1.0),0.4)*pow(1.0-nv,3.0)*c.env.x*1.5;
@@ -2503,14 +2629,14 @@ fn cocOf(z:f32)->f32{return clamp(u.c.y*abs(z-u.c.w)/max(z,0.01),0.0,u.c.y*2.0);
   let nn=textureLoad(tn,px,0).xy;let n=vec3f(nn.x,nn.y,sqrt(max(1.0-dot(nn,nn),0.0)));
   let R=u.a.w;let rpx=clamp(R*u.a.y*0.5/(u.b.y*z),2.0,180.0);
   let a0=6.2831853*ign(fp.xy);var occ=0.0;
-  for(var k=0u;k<16u;k=k+1u){
-    let t=(f32(k)+0.5)/16.0;let a=a0+f32(k)*2.399963;
+  for(var k=0u;k<24u;k=k+1u){
+    let t=(f32(k)+0.5)/24.0;let a=a0+f32(k)*2.399963;
     let o=vec2i(round(vec2f(cos(a),sin(a))*sqrt(t)*rpx));
     let s=ld(px+o);if(s.z>5.0e4){continue;}
     let dv=vp(px+o,s.z+u.c.x)-P;let dd=dot(dv,dv);let len=sqrt(dd);
     occ=occ+max(dot(n,dv)-max(0.08*R,0.002*z),0.0)/(dd+0.02*R*R)*R*(1.0-smoothstep(R,3.0*R,len));
   }
-  return vec4f(1.0-str*clamp(occ/16.0*2.2,0.0,1.0));}
+  return vec4f(1.0-str*clamp(occ/24.0*2.8,0.0,1.0));}
 // pass B: depth-aware AO blur, motion blur along the strongest nearby velocity, depth of field by circle of confusion
 @fragment fn fs(@builtin(position) fp:vec4f)->@location(0) vec4f{
   let px=vec2i(fp.xy);let f0=ld(px);let z0=zOf(f0);var res=lc(px);
@@ -2551,7 +2677,7 @@ fn cocOf(z:f32)->f32{return clamp(u.c.y*abs(z-u.c.w)/max(z,0.01),0.0,u.c.y*2.0);
       let w=exp(-abs(zOf(fz)-z0)*8.0/max(u.a.w,0.05))*select(0.0,1.0,fz.z<5.0e4);
       s=s+textureLoad(ta,clamp(q,vec2i(0),vec2i(u.a.xy)-vec2i(1)),0).x*w;ws=ws+w;}}
     let ao=s/max(ws,0.0001);
-    res=vec4f(res.rgb*ao,res.a);
+    let ao2=ao*ao*(3.0-2.0*ao);res=vec4f(res.rgb*pow(vec3f(ao2),vec3f(0.9,1.0,1.12)),res.a);
   }
   return res;}
 `;
@@ -2989,7 +3115,7 @@ function simApplyPreset(i){
   if(!_agIsSim(layoutMode))return;var pr=(AG_SIM_PRESETS[layoutMode]||[])[i];if(!pr)return;pushUndo();
   AG_SIM_UI.common.concat(AG_SIM_UI[layoutMode]||[]).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=pr[1][d[0]]!==undefined?pr[1][d[0]]:d[4]});
   (AG_SIM_COL[layoutMode]||[]).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=pr[1][d[0]]!==undefined?pr[1][d[0]]:d[2]});
-  var keep=simOpt;simOpt=Object.assign({},AG_SIM_DEF_OPT,pr[2]);if(keep&&keep.q)simOpt.q=keep.q;
+  var keep=simOpt;simOpt=Object.assign({},AG_SIM_DEF_OPT,pr[2]);if(keep&&keep.q)simOpt.q=keep.q;if(keep&&keep.spSrc&&pr[2].spSrc===undefined)simOpt.spSrc=keep.spSrc;
   syncSimUI();_simStore();agSim.reset();upP();renderDensity()}
 function _simPresetRow(k){return '<div class="prow prow-stack"><span class="prow-label">Presets</span><div class="mode-btns grow-btns" style="flex-wrap:wrap">'+(AG_SIM_PRESETS[k]||[]).map(function(p,i){return '<button class="mbtn" data-simpreset="'+i+'" onclick="simApplyPreset('+i+')">'+p[0]+'</button>'}).join('')+'</div></div>'}
 var AG_SIM_TITLE={simparticles:'Particle field',simfluid:'Fluid',simsmoke:'Smoke',simrd:'Reaction-diffusion',simlife:'Cellular automata',simslime:'Slime mould',simbolt:'Lightning',simfield:'Magnetic field lines'};
@@ -3054,70 +3180,72 @@ Object.assign(AG_SIM_TITLE,{simwave:'Wave ripples',simcloth:'Cloth',simgrav:'Gra
 // ---- v113: 3D cloner (WebGPU instanced meshes with per-polygon animation and a material editor) ----
 AG_SIM_LAYOUTS.push('simcloner');
 AG_SIM_TITLE.simcloner='3D cloner';
-Object.assign(AG_SIM_DEF_OPT,{g3Shape:'sphere',g3Mode:'grid',g3Map:'index',g3Style:'solid',g3CSrc:'palette',g3CBy:'height',g3ESrc:'custom',g3Shade:'smooth'});
+Object.assign(AG_SIM_DEF_OPT,{g3Shape:'sphere',g3Mode:'grid',g3Map:'index',g3Style:'solid',g3CSrc:'palette',g3CBy:'height',g3ESrc:'custom',g3Shade:'smooth',g3Field:'none'});
 AG_SIM_UI.simcloner=[
-  ['pG3Size','Object size',2,300,60,5,'%','Size of every clone. At 100% with 100% spacing neighbouring spheres just touch.'],
-  ['pG3Detail','Mesh detail',1,10,4,1,'','Polygon density of the object (higher is smoother).'],
-  ['pG3Nx','Count X',1,40,5,1,'','Number of clones along X. In Linear mode this is the total count; in Radial mode it is the number around the circle.'],
-  ['pG3Ny','Count Y',1,40,5,1,'','Number of clones along Y (stacked rings in Radial mode). Ignored in Linear mode.'],
-  ['pG3Nz','Count Z',1,40,5,1,'','Number of clones along Z (nested rings in Radial mode). Ignored in Linear mode. The total is capped by your quality tier and triangle budget.'],
-  ['pG3SpX','Spacing X',20,1000,150,5,'%','Distance between clones along X, in object diameters. In Linear mode X, Y and Z together set the direction and step of the line.'],
-  ['pG3SpY','Spacing Y',0,400,150,5,'%','Distance between clones along Y, in object diameters.'],
-  ['pG3SpZ','Spacing Z',0,400,150,5,'%','Distance between clones along Z, in object diameters.'],
-  ['pG3StRotX','Step rot X',-45,45,0,1,'deg','Each clone is tilted this many degrees more about X than the one before it (like the Step rotation of a C4D cloner).'],
-  ['pG3StRotY','Step rot Y',-45,45,0,1,'deg','Each clone is turned this many degrees more about Y than the one before it.'],
-  ['pG3StRotZ','Step rot Z',-45,45,0,1,'deg','Each clone is rolled this many degrees more about Z than the one before it.'],
+  ['pG3Mix','Variety',0,100,100,5,'%','Only matters when several objects are selected. 100 shares the clones equally between all selected objects; lower values favour the first selected one.'],
+  ['pG3ObjX','Stretch X',10,500,100,5,'%','Width of every object. Set X, Y and Z separately for flat tiles, tall bars or long beams.'],
+  ['pG3ObjY','Stretch Y',10,500,100,5,'%','Height of every object.'],
+  ['pG3ObjZ','Stretch Z',10,500,100,5,'%','Depth of every object.'],
+  ['pG3GrX','Rotate X',-180,180,0,1,'deg','Tilt the whole cloner about the X axis, in 3D.'],
+  ['pG3GrY','Rotate Y',-180,180,0,1,'deg','Turn the whole cloner about the vertical axis.'],
+  ['pG3GrZ','Rotate Z',-180,180,0,1,'deg','Roll the whole cloner about the Z axis.'],
+  ['pG3Size','Object size',2,300,60,5,'%','Size of every clone. Spacing is measured in object diameters, so a small object with wide spacing gives sparse, scattered clones.'],
+  ['pG3Detail','Mesh detail',1,10,4,1,'','Polygon density of the objects (higher is smoother).'],
+  ['pG3Nx','Count X',1,60,5,1,'','Clones along X. Linear: the total count. Radial and Helix: the number around one turn.'],
+  ['pG3Ny','Count Y',1,60,5,1,'','Clones along Y (stacked rings in Radial mode).'],
+  ['pG3Nz','Count Z',1,60,5,1,'','Clones along Z (nested rings in Radial mode). The total is capped by your quality tier and triangle budget.'],
+  ['pG3SpX','Spacing X',20,1000,150,5,'%','Distance between clones along X, in object diameters. In Spiral, Sphere and Scatter it sets the overall spread.'],
+  ['pG3SpY','Spacing Y',0,600,150,5,'%','Distance between clones along Y, in object diameters (the rise per turn in Helix mode).'],
+  ['pG3SpZ','Spacing Z',0,600,150,5,'%','Distance between clones along Z, in object diameters.'],
+  ['pG3StRotY','Twist',-45,45,0,1,'deg','Each clone is turned this many degrees more than the one before it, which twists towers and spirals.'],
   ['pG3StScale','End scale',10,300,100,5,'%','Size of the last clone relative to the first. 100% keeps all clones the same size.'],
   ['pG3Spin','Spin',-100,100,15,5,'','Continuous spin of every clone about its own Y axis. 0 keeps them still.'],
   ['pG3EfX','Move X',-300,300,0,5,'%','Loud clones move along X by this fraction of their spacing.'],
   ['pG3EfY','Move Y',-300,300,0,5,'%','Loud clones move along Y by this fraction of their spacing.'],
   ['pG3EfZ','Move Z',-300,300,0,5,'%','Loud clones move along Z by this fraction of their spacing.'],
-  ['pG3EfRotX','Rotate X',-360,360,0,5,'deg','Loud clones tilt about X by up to this angle.'],
-  ['pG3EfRotY','Rotate Y',-360,360,0,5,'deg','Loud clones turn about Y by up to this angle.'],
-  ['pG3EfRotZ','Rotate Z',-360,360,0,5,'deg','Loud clones roll about Z by up to this angle.'],
-  ['pG3EfScale','Scale',-100,300,40,5,'%','How much loud clones grow (negative shrinks them).'],
-  ['pG3Indep','Spread',0,100,35,5,'%','0: neighbouring clones react alike (see Listen by). 100: every clone listens to its own random part of the spectrum, so they all move differently.'],
-  ['pG3Gain','Strength variation',0,100,30,5,'%','Each clone reacts with its own strength, from weak to strong.'],
-  ['pG3Flip','Reverse chance',0,100,0,5,'%','Share of clones whose sound move and rotation run in the opposite direction.'],
+  ['pG3ScX','Scale X',-100,800,40,5,'%','How much loud clones grow in width. Set X, Y and Z separately to stretch clones into bars and slabs.'],
+  ['pG3ScY','Scale Y',-100,800,40,5,'%','How much loud clones grow in height. Negative shrinks them.'],
+  ['pG3ScZ','Scale Z',-100,800,40,5,'%','How much loud clones grow in depth.'],
+  ['pG3EfRot','Rotate',-360,360,0,5,'deg','Loud clones tumble by up to this angle.'],
+  ['pG3Anchor','Grow from base',0,100,0,5,'%','Scaling stays fixed at the bottom of each clone, so bars grow upwards from the floor like an equalizer or a skyline.'],
+  ['pG3Indep','Spread',0,100,35,5,'%','0: neighbouring clones react alike (see Listen by). 100: every clone listens to its own random part of the spectrum.'],
+  ['pG3Delay','Delay',0,100,0,5,'%','Like the Cinema 4D Delay effector: later clones react a moment after earlier ones, so the sound travels through the array as a wave.'],
+  ['pG3FieldAmt','Field strength',0,200,0,5,'%','How strongly the animated field lifts and scales the clones. It swells with the sound. Pick a field type above.'],
+  ['pG3FieldSize','Field size',20,400,100,5,'%','Scale of the field pattern: wavelength of waves and ripples, grain of the noise.'],
+  ['pG3FieldSpd','Field speed',0,300,50,5,'%','How fast the field pattern moves.'],
   ['pG3Seed','Seed',0,999,1,1,'','Random seed: every value gives a different but repeatable random layout.'],
-  ['pG3RndScale','Scale',0,100,0,5,'%','Random size variation per clone.'],
-  ['pG3RndCol','Colour',0,100,0,5,'%','Shifts each clone along the palette at random.'],
+  ['pG3RndScale','Random size',0,100,0,5,'%','Random size variation per clone.'],
+  ['pG3RndH','Random height',0,100,0,5,'%','Random stretch along Y: a skyline of towers with different heights.'],
+  ['pG3RndCol','Random colour',0,100,0,5,'%','Shifts each clone along the palette at random.'],
+  ['pG3RndRot','Random tilt',0,180,0,5,'deg','Random orientation of each clone.'],
   ['pG3RndPosX','Random X',0,300,0,5,'%','Random offset of each clone along X, as a fraction of its spacing.'],
   ['pG3RndPosY','Random Y',0,300,0,5,'%','Random offset of each clone along Y, as a fraction of its spacing.'],
   ['pG3RndPosZ','Random Z',0,300,0,5,'%','Random offset of each clone along Z, as a fraction of its spacing.'],
-  ['pG3RndRotX','Random rot X',0,180,0,5,'deg','Random tilt of each clone about X.'],
-  ['pG3RndRotY','Random rot Y',0,180,0,5,'deg','Random turn of each clone about Y.'],
-  ['pG3RndRotZ','Random rot Z',0,180,0,5,'deg','Random roll of each clone about Z.'],
-  ['pG3RndSpin','Random spin',0,100,40,5,'%','Each clone spins at its own speed and direction.'],
-  ['pG3RndSnd','Only when loud',0,100,0,5,'%','0: the random offsets are fixed. 100: each clone\u2019s random offsets, rotation and scale only open up while that clone is loud.'],
-  ['pG3RndAnim','Drift',0,100,0,5,'','Makes the random offsets drift continuously instead of staying fixed.'],
-  ['pG3Alpha','Opacity',5,100,100,5,'%','Transparency of the material. Below 100% the object turns into see-through glass.'],
-  ['pG3Line','Line width',5,80,15,1,'p1','Thickness of wireframe and edge lines, in pixels at 1080p.'],
-  ['pG3Inner','Inside',0,100,30,5,'%','Brightness of the inside faces, which you see through glass or open shapes like the cone and torus.'],
+  ['pG3Alpha','Opacity',5,100,100,5,'%','Transparency of the material. Below 100% the objects turn into see-through glass.'],
   ['pG3Rough','Roughness',0,100,35,5,'%','Low is mirror-like and glossy, high is matte.'],
   ['pG3Metal','Metallic',0,100,20,5,'%','0 is plastic or glass-like, 100 is polished metal that tints its reflections with the colour.'],
-  ['pG3Reflect','Reflection',0,100,50,5,'%','Strength of the studio reflections.'],
   ['pG3Rim','Fresnel rim',0,100,30,5,'%','Glow on grazing edges.'],
-  ['pG3Emit','Emission',0,300,0,5,'%','Self-illumination; feeds the Bloom.'],
-  ['pG3EmitSnd','Glow by sound',0,100,40,5,'%','Clones light up more when they are loud.'],
+  ['pG3Emit','Emission',0,300,0,5,'%','Self-illumination; feeds the Bloom. Clones also glow brighter when loud.'],
   ['pG3Orbit','Auto orbit',-100,100,12,1,'','Camera orbit speed. 0 keeps the camera still.'],
-  ['pG3OrbitSnd','Orbit by sound',0,200,50,5,'%','The sound steers the camera: mids set the speed, every few beats it reverses.'],
   ['pG3Tilt','Camera tilt',-80,80,18,1,'deg','Camera elevation above the horizon.'],
   ['pG3Zoom','Zoom',30,300,100,5,'%','100% frames the whole array.'],
-  ['pG3Links','Links per clone',0,8,0,1,'','Connects every clone to its nearest neighbours with glowing lines, so the array becomes a graph. Works with any mode; Network mode scatters the clones into a cloud first. 0 turns links off.'],
-  ['pG3LinkDist','Link distance',20,400,150,5,'%','Longest link, in clone spacings. Longer links connect the cloud more densely.'],
-  ['pG3LinkW','Link width',0.3,6,1.2,0.1,'px','Thickness of the lines.'],
-  ['pG3LinkA','Link brightness',0,200,80,5,'%','Brightness of the lines; they also glow with the sound of the clones they join.'],
-  ['pG3Ao','Ambient occlusion',0,100,40,5,'%','Darkens creases and contact areas between clones. Screen-space, runs on the GPU. 0 turns it off.'],
+  ['pG3Light','Key light',0,200,100,5,'%','Key light intensity.'],
+  ['pG3Amb','Ambient',0,150,35,5,'%','Soft sky light that fills the shadows with the colour of each object.'],
+  ['pG3LitAz','Light angle',-180,180,-42,1,'deg','Direction of the key light around the camera: 0 is straight from the camera, negative from the left.'],
+  ['pG3LitEl','Light height',-20,89,45,1,'deg','Elevation of the key light.'],
+  ['pG3Links','Links per clone',0,8,0,1,'','Connects every clone to its nearest neighbours with glowing lines, so the array becomes a graph. 0 turns links off.'],
+  ['pG3LinkDist','Link distance',20,400,150,5,'%','Longest link, in clone spacings.'],
+  ['pG3Ao','Ambient occlusion',0,100,50,5,'%','Darkens creases and contact areas between clones, with a soft tinted shadow. Runs on the GPU. 0 turns it off.'],
   ['pG3AoRad','AO radius',10,300,60,5,'%','How far occlusion reaches, relative to a clone. Larger values darken the gaps between clones.'],
-  ['pG3Dof','Depth of field',0,100,0,5,'%','Blurs what is in front of or behind the focus plane, like a camera lens. Bright points turn into soft bokeh. 0 turns it off.'],
+  ['pG3Dof','Depth of field',0,100,0,5,'%','Blurs what is in front of or behind the focus plane. Bright points turn into soft bokeh. 0 turns it off.'],
   ['pG3Focus','Focus distance',0,100,50,5,'%','Where the picture is sharp: 0 is the near side of the array, 50 the centre, 100 the far side.'],
-  ['pG3Mb','Motion blur',0,100,0,5,'%','Smears fast-moving clones along their motion, from the change since the previous frame. Also blurs camera orbit. 0 turns it off.'],
-  ['pG3Light','Light',0,200,100,5,'%','Key light intensity (the light follows the camera).']];
+  ['pG3Mb','Motion blur',0,100,0,5,'%','Smears fast-moving clones along their motion. 0 turns it off.']];
+var AG_G3_SHAPES=[['sphere','Sphere'],['cube','Cube'],['cylinder','Cylinder'],['pyramid','Pyramid'],['frame','Frame'],['torus','Torus'],['ico','Icosphere'],['cone','Cone']];
 AG_SIM_OPTS.simcloner=[
-  ['g3Shape','Object',[['sphere','Sphere'],['cube','Cube'],['torus','Torus'],['ico','Icosphere'],['cone','Cone']],'The 3D object that gets cloned.'],
-  ['g3Mode','Mode',[['grid','Grid'],['linear','Linear'],['ring','Radial'],['sphere','Sphere'],['scatter','Scatter'],['network','Network']],'Grid: X \u00d7 Y \u00d7 Z array. Linear: one line of clones (Count X) stepped by the Spacing vector. Radial: clones around a circle, stacked and nested. Sphere: clones spread over a sphere. Scatter: clones placed at random inside a box (see Seed).'],
+  ['g3Shape','Objects',AG_G3_SHAPES,'Pick one or several objects. With several selected they are mixed across the array.','multi'],
+  ['g3Mode','Mode',[['grid','Grid'],['linear','Linear'],['ring','Radial'],['sphere','Sphere'],['scatter','Scatter'],['spiral','Spiral'],['helix','Helix'],['network','Network']],'Grid: X \u00d7 Y \u00d7 Z array. Linear: one line. Radial: rings around a circle. Sphere: clones over a sphere. Scatter: random inside a box. Spiral: a sunflower disc. Helix: a coil rising along Y. Network: a cloud for links.'],
   ['g3Map','Listen by',[['index','Order'],['distance','Distance'],['x','X'],['y','Y'],['z','Z'],['random','Random']],'Which part of the spectrum each clone listens to (bass first): by order in the array, distance from the centre, position on an axis, or at random.'],
+  ['g3Field','Field',[['none','Off'],['noise','Noise'],['wave','Wave'],['ripple','Ripple']],'An animated field, like a Cinema 4D Shader effector. It lifts and scales the clones in a moving pattern.'],
   ['g3Style','Display',[['solid','Shaded'],['wire','Wireframe'],['edges','Shaded + edges']],'Shaded solid, pure wireframe, or a solid with its polygon edges drawn on top.'],
   ['g3CSrc','Surface colour',[['palette','Palette'],['custom','Picked']],'Palette: the layer colour ramp. Picked: the colour chosen below.'],
   ['g3CBy','Palette by',[['clone','Clone'],['face','Polygon'],['height','Height'],['sound','Sound']],'How the palette is spread over the clones.'],
@@ -3128,14 +3256,17 @@ var AG_SIM_COL={simcloner:[
   ['pG3EdgeCol','Picked edges','#ffffff','Line colour used when Edge colour is set to Picked.']]};
 // Panel layout follows a Cinema 4D cloner: the object, the Cloner object, a Sound effector and a Random effector, then material and camera
 var AG_G3_GROUPS=[
-  ['1 \u00b7 Object',['o:g3Shape','pG3Size','pG3Detail']],
-  ['2 \u00b7 Cloner',['o:g3Mode','pG3Nx','pG3Ny','pG3Nz','pG3SpX','pG3SpY','pG3SpZ','pG3StRotX','pG3StRotY','pG3StRotZ','pG3StScale','pG3Spin']],
-  ['3 \u00b7 Links',['pG3Links','pG3LinkDist','pG3LinkW','pG3LinkA']],
-  ['4 \u00b7 Sound effector',['o:g3Map','pG3EfX','pG3EfY','pG3EfZ','pG3EfRotX','pG3EfRotY','pG3EfRotZ','pG3EfScale','pG3Indep','pG3Gain','pG3Flip']],
-  ['5 \u00b7 Random effector',['pG3Seed','pG3RndScale','pG3RndCol','pG3RndPosX','pG3RndPosY','pG3RndPosZ','pG3RndRotX','pG3RndRotY','pG3RndRotZ','pG3RndSpin','pG3RndSnd','pG3RndAnim']],
-  ['6 \u00b7 Material',['o:g3Style','o:g3Shade','pG3Alpha','pG3Line','pG3Inner','o:g3CSrc','c:pG3Col','o:g3CBy','o:g3ESrc','c:pG3EdgeCol','pG3Rough','pG3Metal','pG3Reflect','pG3Rim','pG3Emit','pG3EmitSnd']],
-  ['7 \u00b7 Camera & light',['pG3Orbit','pG3OrbitSnd','pG3Tilt','pG3Zoom','pG3Light']],
-  ['8 \u00b7 Render FX',['pG3Ao','pG3AoRad','pG3Mb','pG3Dof','pG3Focus']]];
+  ['Objects',['o:g3Shape','pG3Mix','pG3Size','pG3Detail','pG3ObjX','pG3ObjY','pG3ObjZ']],
+  ['Cloner layout',['o:g3Mode','pG3Nx','pG3Ny','pG3Nz','pG3SpX','pG3SpY','pG3SpZ','pG3StRotY','pG3StScale','pG3Spin']],
+  ['Rotate cloner (3D)',['pG3GrX','pG3GrY','pG3GrZ']],
+  ['Effector \u00b7 Sound',['o:g3Map','pG3EfX','pG3EfY','pG3EfZ','pG3ScX','pG3ScY','pG3ScZ','pG3EfRot','pG3Anchor','pG3Indep','pG3Delay']],
+  ['Effector \u00b7 Field',['o:g3Field','pG3FieldAmt','pG3FieldSize','pG3FieldSpd']],
+  ['Effector \u00b7 Random',['pG3Seed','pG3RndScale','pG3RndH','pG3RndCol','pG3RndRot','pG3RndPosX','pG3RndPosY','pG3RndPosZ']],
+  ['Links',['pG3Links','pG3LinkDist']],
+  ['Material',['o:g3Style','o:g3Shade','pG3Alpha','pG3Rough','pG3Metal','pG3Rim','pG3Emit','o:g3CSrc','c:pG3Col','o:g3CBy','o:g3ESrc','c:pG3EdgeCol']],
+  ['Light',['pG3Light','pG3Amb','pG3LitAz','pG3LitEl']],
+  ['Camera',['pG3Orbit','pG3Tilt','pG3Zoom']],
+  ['Render FX',['pG3Ao','pG3AoRad','pG3Mb','pG3Dof','pG3Focus']]];
 // Related knobs share one knob row (consecutive rows with the same key are wrapped into one centred grid)
 var AG_KNOB_GROUPS={
   'sim-env':['pSimAttack','pSimRelease'],'smoke-light':['pSmLight','pSmLightI'],'slime-sensor':['pSlSA','pSlSD','pSlTurn'],
@@ -3144,31 +3275,34 @@ var AG_KNOB_GROUPS={
   'pfx-blur':['pfxBlurX','pfxBlurY','pfxBlurRadial'],'bass-env':['pBassPunch','pBassRelease'],'deform-wave':['pWave','pWaveFreq'],
   'terrain-view':['pTerrainPersp','pTerrainCam','pTerrainElev'],'sphere-view':['pSpherePersp','pSphereTilt','pSphereElev'],
   'tet-view':['pTetPersp','pTetTilt','pTetElev'],'dna-view':['pDnaPersp','pDnaTilt','pDnaElev'],'obj-view':['pObjPersp','pObjTilt','pObjElev'],
-  'g3-shape':['pG3Size','pG3Detail'],'g3-clones':['pG3Nx','pG3Ny','pG3Nz'],'g3-spacing':['pG3SpX','pG3SpY','pG3SpZ'],
-  'g3-step':['pG3StRotX','pG3StRotY','pG3StRotZ'],'g3-step2':['pG3StScale','pG3Spin'],
-  'g3-move':['pG3EfX','pG3EfY','pG3EfZ'],'g3-rot':['pG3EfRotX','pG3EfRotY','pG3EfRotZ'],'g3-fx-a':['pG3EfScale','pG3Indep'],'g3-fx-b':['pG3Gain','pG3Flip'],
-  'g3-r-a':['pG3Seed','pG3RndScale','pG3RndCol'],'g3-rpos':['pG3RndPosX','pG3RndPosY','pG3RndPosZ'],'g3-rrot':['pG3RndRotX','pG3RndRotY','pG3RndRotZ'],
-  'g3-r-b':['pG3RndSpin','pG3RndSnd','pG3RndAnim'],'g3-m-a':['pG3Alpha','pG3Line','pG3Inner'],
-  'g3-m-b':['pG3Rough','pG3Metal','pG3Reflect'],'g3-m-c':['pG3Rim','pG3Emit','pG3EmitSnd'],'g3-c-a':['pG3Orbit','pG3OrbitSnd'],'g3-c-b':['pG3Tilt','pG3Zoom','pG3Light'],'g3-fx':['pG3Ao','pG3AoRad','pG3Mb'],'g3-dof':['pG3Dof','pG3Focus'],'g3-l-a':['pG3Links','pG3LinkDist'],'g3-l-b':['pG3LinkW','pG3LinkA']};
+  'g3-shape':['pG3Mix','pG3Size','pG3Detail'],'g3-obj':['pG3ObjX','pG3ObjY','pG3ObjZ'],'g3-gr':['pG3GrX','pG3GrY','pG3GrZ'],'g3-clones':['pG3Nx','pG3Ny','pG3Nz'],'g3-spacing':['pG3SpX','pG3SpY','pG3SpZ'],
+  'g3-step':['pG3StRotY','pG3StScale','pG3Spin'],
+  'g3-move':['pG3EfX','pG3EfY','pG3EfZ'],'g3-sc':['pG3ScX','pG3ScY','pG3ScZ'],'g3-fx-a':['pG3EfRot','pG3Anchor'],'g3-fx-b':['pG3Indep','pG3Delay'],
+  'g3-fld':['pG3FieldAmt','pG3FieldSize','pG3FieldSpd'],
+  'g3-r-a':['pG3Seed','pG3RndScale','pG3RndH'],'g3-r-b':['pG3RndCol','pG3RndRot'],'g3-rpos':['pG3RndPosX','pG3RndPosY','pG3RndPosZ'],
+  'g3-m-a':['pG3Alpha','pG3Rough','pG3Metal'],'g3-m-b':['pG3Rim','pG3Emit'],
+  'g3-c-a':['pG3Orbit','pG3Tilt','pG3Zoom'],'g3-c-b':['pG3Light','pG3Amb'],'g3-c-c':['pG3LitAz','pG3LitEl'],
+  'g3-fx':['pG3Ao','pG3AoRad','pG3Mb'],'g3-dof':['pG3Dof','pG3Focus'],'g3-l-a':['pG3Links','pG3LinkDist']};
 function agApplyKnobGroups(){Object.keys(AG_KNOB_GROUPS).forEach(function(k){AG_KNOB_GROUPS[k].forEach(function(id){var e=document.getElementById(id),r=e&&e.parentElement;if(r&&r.classList.contains('prow')&&!r.hasAttribute('data-knob-row'))r.setAttribute('data-knob-row',k)})})}
 AG_SIM_PRESETS.simcloner=[
-  ['Grid pulse',{pG3Nx:9,pG3Ny:9,pG3Nz:9,pG3SpX:110,pG3Size:46,pG3Detail:4,pG3Ao:55,pG3AoRad:80,pG3Dof:35,pG3Focus:45,pG3Rim:45,pG3Rough:35,pG3Orbit:8,pG3Tilt:18,pG3EfScale:70,pG3Ny:9,pSimBloom:14},{}],
-  ['Twisted tower',{pG3Nx:30,pG3SpX:0,pG3SpY:100,pG3SpZ:0,pG3Size:110,pG3Detail:2,pG3StRotY:9,pG3StScale:35,pG3EfScale:50,pG3EfRotY:60,pG3Spin:0,pG3RndSpin:0,pG3Indep:0,pG3Gain:0,pG3Tilt:15,pG3Orbit:8,pG3Rough:45,pG3Nx:18,pG3SpY:22,pG3Size:100,pG3StRotY:11,pG3Tilt:24,pG3Ao:65,pG3AoRad:90,pG3Dof:25,pG3Focus:45,pG3Rim:35,pG3Rough:30,pG3Metal:25,pG3Orbit:10,pSimBloom:12},{g3Shape:'cube',g3Mode:'linear',g3Shade:'flat',g3Map:'index',g3CBy:'clone'}],
-  ['Cube wall',{pG3Ao:70,pG3AoRad:90,pG3Nx:9,pG3Ny:9,pG3Nz:1,pG3SpX:130,pG3SpY:130,pG3Detail:2,pG3Size:55,pG3EfZ:160,pG3EfScale:60,pG3EfRotX:90,pG3Spin:0,pG3RndSpin:0,pG3Tilt:12,pG3Orbit:6,pG3Rough:55,pG3Metal:10,pG3Nx:16,pG3Ny:12,pG3SpX:120,pG3SpY:120,pG3Size:60,pG3Ao:85,pG3AoRad:100,pG3Dof:40,pG3Focus:50,pG3Rim:30,pG3Rough:35,pG3Metal:20,pG3Tilt:22,pG3Orbit:7,pSimBloom:10},{g3Shape:'cube',g3Shade:'flat',g3Map:'distance',g3CBy:'clone'}],
-  ['Torus tunnel',{pG3Nx:1,pG3Ny:1,pG3Nz:14,pG3SpZ:70,pG3Size:90,pG3EfScale:35,pG3EfRotZ:50,pG3Tilt:5,pG3Spin:0,pG3RndSpin:0,pG3Orbit:6,pG3Detail:4,pG3Nz:14,pG3SpZ:38,pG3Size:100,pG3Tilt:20,pG3EfScale:30,pG3EfRotZ:40,pG3StRotZ:6,pG3Ao:50,pG3Dof:45,pG3Focus:30,pG3Rim:60,pG3Metal:55,pG3Rough:25,pG3Emit:25,pG3Orbit:10,pSimBloom:22},{g3Shape:'torus',g3Map:'z',g3CBy:'clone'}],
-  ['Cloud sphere',{pG3Ao:60,pG3Nx:12,pG3Ny:12,pG3Nz:2,pG3SpX:70,pG3Size:45,pG3Detail:3,pG3EfScale:120,pG3Spin:0,pG3RndSpin:0,pG3Orbit:10,pSimBloom:15,pG3Nx:30,pG3Ny:30,pG3Nz:2,pG3SpX:40,pG3Size:30,pG3Detail:3,pG3Ao:50,pG3Dof:35,pG3Focus:40,pG3Rim:60,pG3Rough:30,pG3Emit:30,pG3Orbit:10,pSimBloom:20},{g3Mode:'sphere',g3Map:'distance',g3CBy:'clone'}],
-  ['Ring of cones',{pG3Nx:24,pG3Ny:1,pG3Nz:1,pG3SpX:60,pG3Size:45,pG3Detail:4,pG3EfScale:150,pG3EfY:60,pG3Spin:0,pG3RndSpin:0,pG3Tilt:35,pG3Nx:48,pG3SpX:45,pG3Size:40,pG3Tilt:50,pG3Ao:50,pG3Dof:40,pG3Focus:50,pG3Rim:55,pG3Rough:30,pG3Metal:30,pG3Orbit:12,pSimBloom:18},{g3Shape:'cone',g3Mode:'ring',g3Map:'index',g3CBy:'clone',g3Shade:'flat'}],
-  ['Wire lattice',{pG3Nx:6,pG3Ny:6,pG3Nz:6,pG3SpX:140,pG3SpY:140,pG3SpZ:140,pG3Size:55,pG3Detail:2,pG3EfRotY:120,pG3EfScale:50,pG3Spin:0,pG3RndSpin:0,pG3Emit:80,pG3Line:15,pSimBloom:30,pG3Nx:8,pG3Ny:8,pG3Nz:8,pG3SpX:100,pG3SpY:100,pG3SpZ:100,pG3Size:60,pG3Line:8,pG3Emit:120,pG3Dof:45,pG3Focus:45,pG3Orbit:9,pSimBloom:45},{g3Shape:'cube',g3Style:'wire',g3Map:'distance',g3CBy:'clone',g3ESrc:'palette'}],
-  ['Glass pearls',{pG3Nx:5,pG3Ny:5,pG3Nz:5,pG3SpX:140,pG3SpY:140,pG3SpZ:140,pG3Size:60,pG3Detail:4,pG3Alpha:40,pG3Rough:10,pG3Metal:0,pG3Reflect:100,pG3Rim:70,pG3EfScale:50,pG3Spin:0,pG3RndSpin:0,pG3Nx:7,pG3Ny:7,pG3Nz:7,pG3SpX:100,pG3SpY:100,pG3SpZ:100,pG3Size:55,pG3Detail:5,pG3Alpha:35,pG3Rim:90,pG3Rough:6,pG3Ao:40,pG3Dof:45,pG3Focus:45,pG3Orbit:8,pSimBloom:22},{g3Map:'distance',g3CBy:'clone'}],
-  ['Random storm',{pG3Mb:40,pG3Nx:8,pG3Ny:6,pG3Nz:6,pG3SpX:110,pG3SpY:110,pG3SpZ:110,pG3Size:40,pG3Detail:3,pG3RndPosX:60,pG3RndPosY:60,pG3RndPosZ:60,pG3RndRotX:180,pG3RndRotY:180,pG3RndRotZ:180,pG3RndScale:50,pG3RndCol:40,pG3RndSnd:70,pG3Indep:100,pG3Gain:60,pG3Flip:30,pG3EfScale:90,pG3EfRotX:120,pG3Spin:30,pG3RndSpin:80,pG3Metal:30,pSimBloom:15,pG3Nx:12,pG3Ny:8,pG3Nz:8,pG3Size:28,pG3Mb:45,pG3Ao:45,pG3Dof:45,pG3Focus:50,pG3Rim:40,pG3Rough:35,pG3Metal:45,pG3Orbit:12,pSimBloom:18},{g3Shape:'ico',g3Mode:'scatter',g3CBy:'clone',g3Shade:'flat'}],
-  ['Confetti',{pG3Mb:30,pG3Nx:12,pG3Ny:12,pG3Nz:3,pG3SpX:100,pG3SpY:100,pG3SpZ:100,pG3Size:22,pG3Detail:2,pG3RndRotX:180,pG3RndRotY:180,pG3RndRotZ:180,pG3RndScale:40,pG3RndCol:80,pG3RndSnd:100,pG3RndAnim:40,pG3RndPosX:60,pG3RndPosY:60,pG3RndPosZ:60,pG3Indep:100,pG3Gain:50,pG3EfScale:80,pG3Spin:0,pG3RndSpin:100,pG3Orbit:10,pG3Rough:40,pSimBloom:12,pG3Nx:18,pG3Ny:14,pG3Nz:5,pG3Size:16,pG3Mb:35,pG3Ao:30,pG3Dof:55,pG3Focus:45,pG3Rim:40,pG3Orbit:10,pSimBloom:16},{g3Shape:'cube',g3Mode:'scatter',g3CBy:'clone',g3Shade:'flat'}],
-  ['Dancing cubes',{pG3Mb:30,pG3Nx:7,pG3Ny:1,pG3Nz:7,pG3SpX:130,pG3SpZ:130,pG3Size:50,pG3Detail:2,pG3EfY:200,pG3EfScale:30,pG3EfRotY:90,pG3RndRotY:90,pG3RndAnim:30,pG3Indep:100,pG3Gain:50,pG3Spin:0,pG3Tilt:35,pG3Rough:45,pG3Nx:12,pG3Nz:12,pG3SpX:110,pG3SpZ:110,pG3Size:60,pG3Mb:30,pG3Ao:75,pG3AoRad:90,pG3Dof:40,pG3Focus:50,pG3Rim:35,pG3Rough:30,pG3Metal:25,pG3Tilt:30,pG3Orbit:8,pSimBloom:12},{g3Shape:'cube',g3Shade:'flat',g3Map:'random',g3CBy:'clone'}],
-  ['Chrome orbs',{pG3Nx:3,pG3Ny:3,pG3Nz:3,pG3SpX:160,pG3SpY:160,pG3SpZ:160,pG3Size:80,pG3Detail:7,pG3Metal:100,pG3Rough:12,pG3Reflect:100,pG3EfY:60,pG3EfScale:30,pG3Spin:0,pG3RndSpin:0,pG3Col:'#d8dde6',pG3Nx:4,pG3Ny:4,pG3Nz:4,pG3SpX:130,pG3SpY:130,pG3SpZ:130,pG3Size:70,pG3Detail:7,pG3Metal:100,pG3Rough:8,pG3Rim:70,pG3Ao:55,pG3Dof:40,pG3Focus:45,pG3Orbit:8,pSimBloom:14},{g3CSrc:'custom',g3CBy:'clone'}],
-  ['Neural network',{pG3Nx:10,pG3Ny:10,pG3Nz:8,pG3SpX:900,pG3EfY:160,pG3Size:3,pG3Detail:3,pG3Links:5,pG3LinkDist:130,pG3LinkW:1.4,pG3LinkA:140,pG3Emit:90,pG3EfScale:25,pG3Spin:0,pG3RndSpin:0,pG3RndPosX:25,pG3RndPosY:25,pG3RndPosZ:25,pG3RndAnim:35,pG3Orbit:6,pG3Tilt:10,pG3Dof:35,pG3Focus:50,pG3Ao:0,pG3Rough:60,pG3Metal:0,pG3Col:'#ffffff',pG3EdgeCol:'#5fb4ff',pG3Indep:60,pG3Gain:40},{g3Mode:'network',g3Shade:'smooth',g3CSrc:'custom',g3ESrc:'custom',g3Map:'distance'}]];
+  ['Cube wall',{pG3Nx:16,pG3Ny:12,pG3Nz:1,pG3SpX:120,pG3SpY:120,pG3Size:60,pG3Detail:2,pG3EfZ:160,pG3ScX:60,pG3ScY:60,pG3ScZ:60,pG3EfRot:60,pG3Spin:0,pG3Ao:85,pG3AoRad:100,pG3Dof:40,pG3Focus:50,pG3Rim:30,pG3Rough:35,pG3Metal:20,pG3Tilt:22,pG3Orbit:7,pSimBloom:10},{g3Shape:'cube',g3Shade:'flat',g3Map:'distance',g3CBy:'clone'}],
+  ['Neural network',{pG3Nx:10,pG3Ny:10,pG3Nz:8,pG3SpX:900,pG3EfY:160,pG3Size:3,pG3Detail:3,pG3Links:5,pG3LinkDist:130,pG3Emit:90,pG3ScX:25,pG3ScY:25,pG3ScZ:25,pG3Spin:0,pG3RndPosX:25,pG3RndPosY:25,pG3RndPosZ:25,pG3Orbit:6,pG3Tilt:10,pG3Dof:35,pG3Focus:50,pG3Ao:0,pG3Rough:60,pG3Metal:0,pG3Col:'#ffffff',pG3EdgeCol:'#5fb4ff',pG3Indep:60},{g3Mode:'network',g3Shade:'smooth',g3CSrc:'custom',g3ESrc:'custom',g3Map:'distance'}],
+  ['Pink spiral',{pG3Nx:30,pG3Ny:30,pG3Nz:1,pG3SpX:170,pG3Size:60,pG3Detail:3,pG3ScX:140,pG3ScY:140,pG3ScZ:140,pG3EfY:60,pG3Delay:70,pG3Spin:0,pG3Emit:110,pG3Rough:30,pG3Metal:0,pG3Rim:60,pG3Col:'#ff3d9a',pG3Tilt:52,pG3Orbit:6,pG3Dof:55,pG3Focus:45,pG3Ao:40,pG3Amb:50,pSimBloom:28},{g3Mode:'spiral',g3Map:'distance',g3CSrc:'custom',g3CBy:'sound'}],
+  ['Dot wave',{pG3Nx:44,pG3Ny:1,pG3Nz:30,pG3SpX:220,pG3SpZ:220,pG3Size:60,pG3Detail:2,pG3ScX:60,pG3ScY:60,pG3ScZ:60,pG3FieldAmt:140,pG3FieldSize:70,pG3FieldSpd:70,pG3Spin:0,pG3Emit:60,pG3Rough:40,pG3Metal:0,pG3Rim:50,pG3Col:'#9ad7ff',pG3Tilt:24,pG3Orbit:5,pG3Dof:60,pG3Focus:35,pG3Ao:30,pSimBloom:26},{g3Shape:'ico',g3Mode:'grid',g3Field:'wave',g3Map:'x',g3CSrc:'custom',g3CBy:'sound'}],
+  ['Bar ring',{pG3Nx:64,pG3Ny:1,pG3Nz:3,pG3SpX:170,pG3SpZ:450,pG3Size:60,pG3Detail:3,pG3ScX:0,pG3ScY:700,pG3ScZ:0,pG3Anchor:100,pG3RndH:15,pG3Spin:0,pG3Emit:80,pG3Rough:25,pG3Metal:15,pG3Rim:55,pG3Tilt:30,pG3Orbit:8,pG3Dof:40,pG3Focus:50,pG3Ao:60,pG3AoRad:80,pSimBloom:22},{g3Shape:'cylinder',g3Mode:'ring',g3Map:'index',g3CBy:'sound'}],
+  ['Tube disc',{pG3Nx:30,pG3Ny:20,pG3Nz:1,pG3SpX:190,pG3Size:60,pG3Detail:3,pG3ScX:20,pG3ScY:220,pG3ScZ:20,pG3Anchor:100,pG3RndH:60,pG3RndScale:40,pG3Spin:0,pG3Rough:30,pG3Metal:25,pG3Rim:40,pG3Tilt:42,pG3Orbit:7,pG3Dof:35,pG3Focus:45,pG3Ao:75,pG3AoRad:90,pG3Indep:20,pG3Delay:40,pSimBloom:14},{g3Shape:'cylinder',g3Mode:'spiral',g3Map:'distance',g3CBy:'clone'}],
+  ['City skyline',{pG3Nx:24,pG3Ny:1,pG3Nz:24,pG3SpX:170,pG3SpZ:170,pG3Size:60,pG3Detail:2,pG3ScX:0,pG3ScY:260,pG3ScZ:0,pG3Anchor:100,pG3RndH:70,pG3Spin:0,pG3Indep:70,pG3Rough:45,pG3Metal:10,pG3Rim:25,pG3Tilt:38,pG3Orbit:6,pG3Ao:90,pG3AoRad:100,pG3Dof:30,pG3Focus:50,pG3LitAz:-55,pG3LitEl:38,pSimBloom:10},{g3Shape:'cube',g3Mode:'grid',g3Shade:'flat',g3Map:'random',g3CBy:'clone'}],
+  ['Toy blocks',{pG3Nx:7,pG3Ny:4,pG3Nz:7,pG3SpX:300,pG3SpY:300,pG3SpZ:300,pG3Size:60,pG3Detail:4,pG3Mix:70,pG3RndPosX:70,pG3RndPosY:70,pG3RndPosZ:70,pG3RndRot:180,pG3RndScale:50,pG3RndCol:50,pG3ScX:40,pG3ScY:40,pG3ScZ:40,pG3EfRot:70,pG3Indep:90,pG3Spin:15,pG3Rough:55,pG3Metal:5,pG3Rim:25,pG3Tilt:22,pG3Orbit:8,pG3Dof:45,pG3Focus:50,pG3Ao:85,pG3AoRad:110,pG3Amb:55,pSimBloom:8},{g3Shape:'cube,sphere,pyramid',g3Mode:'scatter',g3CBy:'clone',g3Shade:'smooth'}],
+  ['Frames & orbs',{pG3Nx:6,pG3Ny:4,pG3Nz:6,pG3SpX:340,pG3SpY:340,pG3SpZ:340,pG3Size:60,pG3Detail:4,pG3Mix:60,pG3RndPosX:60,pG3RndPosY:60,pG3RndPosZ:60,pG3RndRot:180,pG3RndScale:45,pG3ScX:70,pG3ScY:70,pG3ScZ:70,pG3EfRot:110,pG3Delay:35,pG3Indep:70,pG3Spin:25,pG3Rough:25,pG3Metal:50,pG3Rim:50,pG3Tilt:20,pG3Orbit:9,pG3Dof:50,pG3Focus:50,pG3Ao:70,pG3Amb:50,pSimBloom:14},{g3Shape:'frame,sphere,cube',g3Mode:'scatter',g3CBy:'clone'}],
+  ['Torus vortex',{pG3Nx:20,pG3Ny:10,pG3Nz:1,pG3SpX:200,pG3SpY:170,pG3Size:60,pG3Detail:4,pG3ScX:60,pG3ScY:60,pG3ScZ:60,pG3EfRot:120,pG3StRotY:6,pG3Delay:80,pG3Indep:0,pG3Spin:20,pG3Emit:50,pG3Rough:25,pG3Metal:50,pG3Rim:60,pG3Tilt:28,pG3Orbit:10,pG3Dof:40,pG3Focus:50,pG3Ao:55,pSimBloom:20},{g3Shape:'torus',g3Mode:'helix',g3Map:'index',g3CBy:'clone'}],
+  ['Pearl cloud',{pG3Nx:20,pG3Ny:15,pG3Nz:1,pG3SpX:200,pG3Size:60,pG3Detail:5,pG3Zoom:80,pG3Alpha:45,pG3Rough:6,pG3Metal:0,pG3Rim:85,pG3ScX:40,pG3ScY:40,pG3ScZ:40,pG3Spin:0,pG3RndScale:35,pG3Orbit:8,pG3Tilt:14,pG3Dof:50,pG3Focus:50,pG3Ao:35,pSimBloom:22},{g3Mode:'sphere',g3Map:'distance',g3CBy:'clone'}],
+  ['Chrome swarm',{pG3Nx:7,pG3Ny:6,pG3Nz:6,pG3SpX:320,pG3SpY:320,pG3SpZ:320,pG3Size:60,pG3Detail:5,pG3Mix:60,pG3Metal:100,pG3Rough:10,pG3Rim:70,pG3Col:'#d8dde6',pG3RndScale:55,pG3RndRot:180,pG3ScX:50,pG3ScY:50,pG3ScZ:50,pG3EfRot:90,pG3Indep:80,pG3Spin:20,pG3Orbit:9,pG3Tilt:16,pG3Dof:45,pG3Focus:50,pG3Ao:55,pSimBloom:14},{g3Shape:'sphere,cube,cone',g3Mode:'scatter',g3CSrc:'custom',g3CBy:'clone'}],
+  ['Random storm',{pG3Nx:10,pG3Ny:8,pG3Nz:8,pG3SpX:260,pG3SpY:260,pG3SpZ:260,pG3Size:60,pG3Detail:3,pG3Mix:80,pG3RndPosX:60,pG3RndPosY:60,pG3RndPosZ:60,pG3RndRot:180,pG3RndScale:55,pG3RndCol:60,pG3Indep:100,pG3ScX:90,pG3ScY:90,pG3ScZ:90,pG3EfRot:120,pG3Spin:30,pG3Mb:45,pG3Metal:40,pG3Rough:35,pG3Rim:40,pG3Orbit:12,pG3Dof:45,pG3Focus:50,pG3Ao:45,pSimBloom:18},{g3Shape:'ico,cube,cone',g3Mode:'scatter',g3CBy:'clone',g3Shade:'flat'}]];
+
 function _simFmt(v,u){v=+v;return u==='%'?v+'%':u==='ms'?v+' ms':u==='s1'?(v/10).toFixed(1)+' s':u==='deg'?v+'\u00b0':u==='p1'?(v/10).toFixed(1)+' px':String(v)}
 function _simStore(){if(stackMode&&stackLayouts.length>0){var i=getActiveLayerIdx();if(i>=0&&stackLayouts[i]){stackLayouts[i].params=getLayoutParams();stackLayouts[i].layout=layoutMode}}}
 function simKnob(el){var d=_simSpecById(el.id);var l=document.getElementById(el.id.replace(/^p/,'v'));if(l&&d)l.textContent=_simFmt(el.value,d[6]);upP()}
-function setSimOpt(k,v,btn){pushUndo();simOpt[k]=v;syncSimUI();_simStore();renderDensity()}
+function setSimOpt(k,v,btn){if(k==='spMesh'&&v==='obj'&&!objModelData){var of=document.getElementById('pObjFile');if(of)of.click();return}if(k==='spSrc'&&v==='mesh'&&simOpt.spMesh==='obj'&&!objModelData)simOpt.spMesh='knot';if(k==='spSrc'&&v==='file'&&!AG_SPLAT.file){var sf=document.getElementById('splatFile');if(sf)sf.click();return}pushUndo();simOpt[k]=v;syncSimUI();_simStore();renderDensity()}
 function simRestart(){agSim.reset();renderDensity()}
 function simResetSettings(){
   if(!_agIsSim(layoutMode))return;pushUndo();
@@ -3179,13 +3313,167 @@ function simResetSettings(){
 function simReinit(){agSim.reinit();renderDensity()}
 var _simSpecIdx=null;
 function _simSpecById(id){if(!_simSpecIdx){_simSpecIdx={};for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){_simSpecIdx[d[0]]=d})}return _simSpecIdx[id]}
+// ---- v118: Gaussian splat input (point cloud that reacts to the sound)
+AG_SIM_LAYOUTS.push('simsplat');
+AG_SIM_TITLE.simsplat='Gaussian splat';
+Object.assign(AG_SIM_DEF_OPT,{spSrc:'galaxy',spMesh:'knot',spWalk:'off',spMeth:'pulse,ripple',spCol:'orig',spBlend:'glow'});
+AG_SIM_UI.simsplat=[
+  ['pGsSize','Point size',5,500,35,5,'%','Size of every point. 100% is the original splat size; the default is small so the cloud stays crisp. Combine with Size by sound to make the points breathe with the music.'],
+  ['pGsSzSnd','Size by sound',0,400,60,5,'%','How much the music scales each point: bass and loudness swell them, kicks snap them bigger. 0% keeps them a fixed size.'],
+  ['pGsDens','Density',5,100,100,5,'%','Share of the splats that are drawn. Lower it for speed or for a sparser, dustier look.'],
+  ['pGsOpac','Opacity',5,100,12,1,'%','How see-through each splat is in Glow mode. Overlapping splats add up, so dense clouds need a lower value.'],
+  ['pGsAmt','Strength',0,300,100,5,'%','How hard the sound pushes the cloud. Every interaction method scales with this.'],
+  ['pGsFlow','Flow speed',10,300,100,5,'%','Speed of the travelling ripples, the flow field and the wave.'],
+  ['pGsSat','Saturation',0,200,110,5,'%','Colour saturation.'],
+  ['pGsBri','Brightness',20,300,55,5,'%','Overall brightness of the splats.'],
+  ['pGsGlow','Sound glow',0,300,80,5,'%','Splats that are being pushed by the sound light up brighter.'],
+  ['pGsRX','Rotate X',-180,180,0,1,'deg','Tilt the cloud about the X axis. Many scanned scenes load upside-down: set 180 to flip them.'],
+  ['pGsRY','Rotate Y',-180,180,0,1,'deg','Turn the cloud about the vertical axis.'],
+  ['pGsRZ','Rotate Z',-180,180,0,1,'deg','Roll the cloud about the Z axis.'],
+  ['pGsOrbit','Orbit',0,100,15,1,'%','Automatic camera orbit speed.'],
+  ['pGsWalkSpd','Walk speed',10,300,100,5,'%','How fast the camera travels along the walkthrough path.'],
+  ['pGsWalkSnd','Beat push',0,200,60,5,'%','Bass and kicks make the camera surge forward along the path.'],
+  ['pGsTilt','Tilt',-80,80,12,1,'deg','Camera height above the cloud.'],
+  ['pGsZoom','Zoom',30,300,100,5,'%','Camera distance.']];
+AG_SIM_OPTS.simsplat=[
+  ['spSrc','Cloud',[['galaxy','Galaxy'],['knot','Knot'],['nebula','Nebula'],['mesh','3D object'],['file','Loaded file']],'Built-in demo clouds, a 3D object turned into a point cloud, or the .ply / .splat file you loaded.'],
+  ['spWalk','Walkthrough',[['off','Off'],['fly','Fly through'],['spiral','Spiral'],['glide','Glide']],'Fly the camera through the inside of the cloud. Fly through weaves along a winding path, Spiral circles in and out around the centre, Glide strafes sideways while looking forward. Drag with the mouse to look around while it travels.'],
+  ['spMesh','3D object model',[['knot','Knot'],['cube','Cube'],['torus','Torus'],['obj','Load .obj\u2026']],'Which model becomes the point cloud (3D object cloud). Points are scattered evenly over the surface of the mesh, so any OBJ works.'],
+  ['spMeth','Interaction',[['pulse','Pulse'],['ripple','Ripple'],['eq','Equalizer'],['explode','Explode'],['flow','Flow'],['twist','Twist'],['wave','Wave'],['reveal','Reveal']],'How the music moves the cloud. Pick any number and they stack. Pulse: breathes with the bass. Ripple: shock waves leave the centre on every beat. Equalizer: bands of height follow the spectrum. Explode: splats burst outwards on kicks. Flow: a swirling field driven by loudness. Twist: the cloud winds up around its vertical axis. Wave: a travelling sine wave. Reveal: the cloud dissolves in quiet parts and re-forms when loud.','multi'],
+  ['spCol','Colour',[['orig','Original'],['height','Palette \u00b7 height'],['dist','Palette \u00b7 distance'],['sound','Palette \u00b7 sound']],'The colours stored in the file, or the layer palette spread by height, distance from the centre, or how hard the sound pushes each splat.'],
+  ['spBlend','Blend',[['glow','Glow'],['solid','Solid']],'Glow: soft additive light, no sorting artefacts. Solid: opaque, depth-tested splats.']];
+AG_SIM_COL.simsplat=[];
+AG_SIM_PRESETS.simsplat=[
+  ['Galaxy pulse',{pGsAmt:110,pGsOpac:12,pGsOrbit:14,pGsTilt:30,pSimBloom:30},{spMeth:'pulse,ripple',spCol:'orig'}],
+  ['Equalizer dust',{pGsAmt:120,pGsSize:32,pGsOpac:16,pGsTilt:10,pGsOrbit:10,pSimBloom:25},{spMeth:'eq,wave',spCol:'height'}],
+  ['Beat burst',{pGsAmt:140,pGsSize:28,pGsOpac:18,pGsGlow:160,pGsOrbit:20,pSimBloom:35},{spMeth:'explode,pulse',spCol:'sound'}],
+  ['Twister',{pGsAmt:130,pGsOpac:12,pGsOrbit:6,pGsTilt:18,pSimBloom:25},{spMeth:'twist,ripple',spCol:'dist'}],
+  ['Walkthrough',{pGsAmt:110,pGsSize:30,pGsOpac:16,pGsWalkSpd:100,pGsWalkSnd:80,pSimBloom:30},{spWalk:'fly',spMeth:'pulse,flow',spCol:'orig'}],
+  ['Ghost reveal',{pGsAmt:100,pGsSize:36,pGsOpac:14,pGsFlow:70,pGsOrbit:10,pSimBloom:30},{spMeth:'reveal,flow',spCol:'orig'}]];
+Object.assign(AG_KNOB_GROUPS,{'sp-look':['pGsSat','pGsBri','pGsGlow'],'sp-rot':['pGsRX','pGsRY','pGsRZ'],'sp-cam':['pGsOrbit','pGsTilt','pGsZoom'],'sp-walk':['pGsWalkSpd','pGsWalkSnd'],'sp-cloud':['pGsSize','pGsDens','pGsOpac'],'sp-inter':['pGsAmt','pGsFlow','pGsSzSnd']});
+var AG_SIM_GROUPS={simsplat:[
+  ['Splat cloud',['f:splat','pGsSize','pGsDens','pGsOpac','o:spSrc','o:spMesh']],
+  ['Interaction',['o:spMeth','pGsAmt','pGsFlow','pGsSzSnd']],
+  ['Look',['o:spCol','o:spBlend','pGsSat','pGsBri','pGsGlow']],
+  ['Rotate cloud (3D)',['pGsRX','pGsRY','pGsRZ']],
+  ['Camera',['o:spWalk','pGsOrbit','pGsTilt','pGsZoom','pGsWalkSpd','pGsWalkSnd']]]};
+var AG_SPLAT={meshVer:0,ver:0,file:null,name:'',demo:{}};
+function _agRng(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function _agGauss(r){return Math.sqrt(-2*Math.log(Math.max(1e-9,r())))*Math.cos(6.2831853*r())}
+function _agHsv(h,s,v){h=((h%1)+1)%1*6;var i=Math.floor(h),f=h-i,p=v*(1-s),q=v*(1-s*f),t=v*(1-s*(1-f));return [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i%6]}
+function agSplatDemo(kind){
+  if(AG_SPLAT.demo[kind])return AG_SPLAT.demo[kind];
+  var r=_agRng(kind==='knot'?7:kind==='nebula'?21:3),n=kind==='galaxy'?150000:130000,d=new Float32Array(n*8),i,o;
+  for(i=0;i<n;i++){
+    o=i*8;var x,y,z,c,sz=0.005+r()*0.006,a=0.5+r()*0.5;
+    if(kind==='galaxy'){
+      if(r()<0.2){var q=Math.pow(r(),0.7)*0.32,u=r()*6.2832,v=Math.acos(2*r()-1);x=q*Math.sin(v)*Math.cos(u);y=q*Math.cos(v)*0.7;z=q*Math.sin(v)*Math.sin(u);c=[1,0.72+0.2*r(),0.4+0.2*r()]}
+      else{var rr=Math.pow(r(),0.62)*1.35,arm=Math.floor(r()*3),th=arm*2.0944+rr*3.1+_agGauss(r)*(0.1+0.13*rr);x=rr*Math.cos(th);z=rr*Math.sin(th);y=_agGauss(r)*0.045*(1.15-rr*0.5);var k=Math.min(1,rr/1.3);c=[0.95-0.6*k+0.1*r(),0.7-0.2*k+0.15*r(),0.45+0.55*k]}
+    }else if(kind==='knot'){
+      var t=r()*6.2832,rad=2+Math.cos(3*t);x=rad*Math.cos(2*t)/3.1;y=rad*Math.sin(2*t)/3.1;z=-Math.sin(3*t)/3.1*1.4;
+      x+=_agGauss(r)*0.06;y+=_agGauss(r)*0.06;z+=_agGauss(r)*0.06;var tmp=y;y=z;z=tmp;c=_agHsv(t/6.2832+0.05*r(),0.75,1);sz=0.005+r()*0.004
+    }else{
+      var cl=Math.floor(r()*6),cx=[-0.6,0.5,0.1,-0.2,0.7,-0.5][cl],cy=[0.2,-0.3,0.6,-0.5,0.4,-0.1][cl],cz=[0.3,0.4,-0.5,-0.4,-0.2,0.6][cl],s=[0.34,0.26,0.3,0.22,0.28,0.24][cl];
+      x=cx+_agGauss(r)*s;y=cy+_agGauss(r)*s*0.8;z=cz+_agGauss(r)*s;c=_agHsv(cl/6+0.08*r(),0.55+0.3*r(),0.9);sz=0.006+r()*0.009;a=0.3+r()*0.5
+    }
+    d[o]=x;d[o+1]=y;d[o+2]=z;d[o+3]=sz;d[o+4]=c[0];d[o+5]=c[1];d[o+6]=c[2];d[o+7]=a}
+  return AG_SPLAT.demo[kind]=d}
+// 3D object -> point cloud: points scattered evenly over the mesh surface (area-weighted), coloured by position
+function agSplatMesh(name){
+  var key='mesh:'+name+':'+AG_SPLAT.meshVer;if(AG_SPLAT.demo[key])return AG_SPLAT.demo[key];
+  var m=name==='obj'&&objModelData?objModelData:null;
+  if(!m){var sv=objBuiltin;objBuiltin=name==='obj'?'knot':name;m=_objActiveModel();objBuiltin=sv}
+  var V=m.verts,F=m.faces,nF=F.length,cum=new Float32Array(nF),tot=0,i,j;
+  for(i=0;i<nF;i++){var f=F[i],a=V[f[0]],b=V[f[1]],c=V[f[2]];if(a&&b&&c){var e1x=b[0]-a[0],e1y=b[1]-a[1],e1z=b[2]-a[2],e2x=c[0]-a[0],e2y=c[1]-a[1],e2z=c[2]-a[2],cx=e1y*e2z-e1z*e2y,cy=e1z*e2x-e1x*e2z,cz=e1x*e2y-e1y*e2x;tot+=Math.sqrt(cx*cx+cy*cy+cz*cz)}cum[i]=tot}
+  var n=140000,d=new Float32Array(n*8),r=_agRng(11);
+  for(i=0;i<n;i++){
+    var t=r()*tot,lo=0,hi=nF-1;while(lo<hi){var mid=(lo+hi)>>1;if(cum[mid]<t)lo=mid+1;else hi=mid}
+    var fc=F[lo],A=V[fc[0]],B=V[fc[1]],C=V[fc[2]];if(!A||!B||!C){A=B=C=[0,0,0]}
+    var u=r(),v=r();if(u+v>1){u=1-u;v=1-v}var w=1-u-v,o=i*8;
+    var x=A[0]*w+B[0]*u+C[0]*v,y=-(A[1]*w+B[1]*u+C[1]*v),z=A[2]*w+B[2]*u+C[2]*v;
+    var col=_agHsv(0.55+0.28*(y*0.5+0.5)+0.12*Math.atan2(z,x)/6.2832,0.6,1);
+    d[o]=x;d[o+1]=y;d[o+2]=z;d[o+3]=0.004+r()*0.003;d[o+4]=col[0];d[o+5]=col[1];d[o+6]=col[2];d[o+7]=0.6+r()*0.4}
+  return AG_SPLAT.demo[key]=d}
+// Reads a 3D-Gaussian-splat .ply, a plain point-cloud .ply (ASCII or binary) or an antimatter15 .splat file
+function agSplatParse(buf,name){
+  var u8=new Uint8Array(buf),n,i,P={cnt:0},out,pos=[],isSplat=/\.splat$/i.test(name||'');
+  var C0=0.28209479177387814;
+  if(isSplat){
+    n=Math.floor(buf.byteLength/32);var dv=new DataView(buf);out=new Float32Array(n*8);
+    for(i=0;i<n;i++){var b=i*32,o=i*8;out[o]=dv.getFloat32(b,true);out[o+1]=dv.getFloat32(b+4,true);out[o+2]=dv.getFloat32(b+8,true);
+      out[o+3]=Math.exp((Math.log(Math.max(1e-6,dv.getFloat32(b+12,true)))+Math.log(Math.max(1e-6,dv.getFloat32(b+16,true)))+Math.log(Math.max(1e-6,dv.getFloat32(b+20,true))))/3);
+      out[o+4]=u8[b+24]/255;out[o+5]=u8[b+25]/255;out[o+6]=u8[b+26]/255;out[o+7]=u8[b+27]/255}
+    return agSplatNormalize(out,n,false,true)}
+  var head=''.concat.apply('',Array.prototype.map.call(u8.subarray(0,Math.min(u8.length,16384)),function(c){return String.fromCharCode(c)}));
+  var he=head.indexOf('end_header');if(head.slice(0,3)!=='ply'||he<0)throw new Error('Not a PLY or .splat file');
+  var ds=he+10;while(u8[ds]!==10&&ds<u8.length)ds++;ds++;
+  var lines=head.slice(0,he).split(/\r?\n/),fmt='ascii',props=[],inV=false,cnt=0;
+  lines.forEach(function(l){var t=l.trim().split(/\s+/);
+    if(t[0]==='format')fmt=t[1];
+    else if(t[0]==='element'){inV=t[1]==='vertex';if(inV)cnt=+t[2]}
+    else if(t[0]==='property'&&inV&&t[1]!=='list')props.push({type:t[1],name:t[2]})});
+  if(!cnt||!props.length)throw new Error('PLY has no vertices');
+  var SZ={char:1,uchar:1,int8:1,uint8:1,short:2,ushort:2,int16:2,uint16:2,int:4,uint:4,int32:4,uint32:4,float:4,float32:4,double:8,float64:8},offs={},row=0;
+  props.forEach(function(p){p.o=row;row+=SZ[p.type]||4;offs[p.name]=p});
+  var has=function(k){return !!offs[k]};
+  var keep=Math.ceil(cnt/1500000);out=new Float32Array(Math.ceil(cnt/keep)*8);var m=0;
+  var rd;
+  if(fmt==='ascii'){
+    var txt=new TextDecoder().decode(u8.subarray(ds)).split('\n'),names=props.map(function(p){return p.name});
+    rd=function(i,nm){return rd.cur[names.indexOf(nm)]};
+    var emit=function(i){rd.cur=txt[i].trim().split(/\s+/).map(Number);return true};
+    rd.row=emit;
+  }else{
+    var le=fmt!=='binary_big_endian',dv2=new DataView(buf,ds);
+    var get=function(base,p){switch(p.type){case 'float':case 'float32':return dv2.getFloat32(base+p.o,le);case 'double':case 'float64':return dv2.getFloat64(base+p.o,le);case 'uchar':case 'uint8':return dv2.getUint8(base+p.o);case 'char':case 'int8':return dv2.getInt8(base+p.o);case 'short':case 'int16':return dv2.getInt16(base+p.o,le);case 'ushort':case 'uint16':return dv2.getUint16(base+p.o,le);case 'int':case 'int32':return dv2.getInt32(base+p.o,le);default:return dv2.getUint32(base+p.o,le)}};
+    rd=function(i,nm){return get(i*row,offs[nm])};rd.row=function(){return true}}
+  var isU8=function(k){return has(k)&&(offs[k].type==='uchar'||offs[k].type==='uint8')};
+  var gs=has('f_dc_0'),hasSc=has('scale_0'),hasOp=has('opacity');
+  for(i=0;i<cnt;i+=keep){
+    if(!rd.row(i))continue;var o=m*8,al=1;
+    out[o]=rd(i,'x');out[o+1]=rd(i,'y');out[o+2]=rd(i,'z');
+    if(hasOp)al=1/(1+Math.exp(-rd(i,'opacity')));else if(has('alpha'))al=rd(i,'alpha')/(isU8('alpha')?255:1);
+    if(al<0.03||!isFinite(out[o])||!isFinite(out[o+1])||!isFinite(out[o+2]))continue;
+    if(hasSc){var s0=rd(i,'scale_0'),s1=rd(i,'scale_1'),s2=rd(i,'scale_2'),mn=Math.min(s0,s1,s2);out[o+3]=Math.exp((s0+s1+s2-mn)/2)}else out[o+3]=0;
+    if(gs){out[o+4]=0.5+C0*rd(i,'f_dc_0');out[o+5]=0.5+C0*rd(i,'f_dc_1');out[o+6]=0.5+C0*rd(i,'f_dc_2')}
+    else if(has('red')){var dv3=isU8('red')?255:1;out[o+4]=rd(i,'red')/dv3;out[o+5]=rd(i,'green')/dv3;out[o+6]=rd(i,'blue')/dv3}
+    else{out[o+4]=out[o+5]=out[o+6]=0.85}
+    out[o+7]=al;m++}
+  if(m<10)throw new Error('No usable points in this file');
+  return agSplatNormalize(out.subarray(0,m*8),m,gs,hasSc)}
+function agSplatNormalize(d,n,is3dgs,hasSc){
+  var smp=Math.min(n,20000),st=Math.max(1,Math.floor(n/smp)),xs=[],ys=[],zs=[],i;
+  for(i=0;i<n;i+=st){xs.push(d[i*8]);ys.push(d[i*8+1]);zs.push(d[i*8+2])}
+  var med=function(a){a.sort(function(p,q){return p-q});return a[a.length>>1]};
+  var cx=med(xs),cy=med(ys),cz=med(zs),ds=[];
+  for(i=0;i<n;i+=st)ds.push(Math.hypot(d[i*8]-cx,d[i*8+1]-cy,d[i*8+2]-cz));
+  ds.sort(function(p,q){return p-q});var R=ds[Math.floor(ds.length*0.92)]||1,k=1/Math.max(R,1e-6);
+  var dflt=Math.min(0.02,Math.max(0.002,0.7*Math.cbrt(4/n)));
+  var res=new Float32Array(n*8);
+  for(i=0;i<n;i++){var o=i*8;res[o]=(d[o]-cx)*k;res[o+1]=(d[o+1]-cy)*k;res[o+2]=(d[o+2]-cz)*k;
+    res[o+3]=hasSc&&d[o+3]>0?Math.min(0.05,Math.max(0.0015,d[o+3]*k)):dflt;
+    res[o+4]=Math.min(1,Math.max(0,d[o+4]));res[o+5]=Math.min(1,Math.max(0,d[o+5]));res[o+6]=Math.min(1,Math.max(0,d[o+6]));res[o+7]=d[o+7]}
+  return {data:res,n:n,flip:!!is3dgs}}
+function loadSplatFile(ev){
+  var f=ev.target.files&&ev.target.files[0];if(!f)return;var inf=document.getElementById('splatInfo');if(inf)inf.textContent='Reading '+f.name+'\u2026';
+  f.arrayBuffer().then(function(buf){
+    var r=agSplatParse(buf,f.name);AG_SPLAT.file=r.data;AG_SPLAT.n=r.n;AG_SPLAT.name=f.name;AG_SPLAT.ver++;
+    pushUndo();simOpt.spSrc='file';
+    if(r.flip){var e=document.getElementById('pGsRX');if(e){e.value=180;simKnob(e)}}
+    if(layoutMode!=='simsplat')setLayout('simsplat',null);
+    syncSimUI();_simStore();renderDensity()
+  }).catch(function(e){AG_SPLAT.err=String(e&&e.message||e);var inf2=document.getElementById('splatInfo');if(inf2)inf2.textContent='Could not load: '+AG_SPLAT.err});
+  ev.target.value=''}
+function _agSplatInfo(){document.querySelectorAll('.mbtn[data-simk="spMesh"]').forEach(function(b){var r=b.closest('.prow');if(r)r.style.display=simOpt.spSrc==='mesh'?'':'none'});var e=document.getElementById('splatInfo');if(!e)return;e.textContent=AG_SPLAT.file?AG_SPLAT.name+' \u00b7 '+AG_SPLAT.n.toLocaleString()+' splats':'No file loaded \u2014 showing a demo cloud'}
 function _simRow(d){return '<div class="prow" title="'+d[7]+'"><span class="prow-label">'+d[1]+'</span><input type="range" min="'+d[2]+'" max="'+d[3]+'" value="'+d[4]+'" step="'+d[5]+'" id="'+d[0]+'" oninput="simKnob(this)"><span class="prow-val" id="'+d[0].replace(/^p/,'v')+'">'+_simFmt(d[4],d[6])+'</span></div>'}
-function _simOptRow(o){return '<div class="prow prow-stack" title="'+o[3]+'"><span class="prow-label">'+o[1]+'</span><div class="mode-btns grow-btns">'+o[2].map(function(b){return '<button class="mbtn" data-simk="'+o[0]+'" data-simv="'+b[0]+'" onclick="setSimOpt(\''+o[0]+'\',\''+b[0]+'\',this)">'+b[1]+'</button>'}).join('')+'</div></div>'}
+function _simOptRow(o){var mu=o[4]==='multi';return '<div class="prow prow-stack" title="'+o[3]+'"><span class="prow-label">'+o[1]+(mu?' (pick any)':'')+'</span><div class="mode-btns grow-btns'+(o[2].length>3?' wrap-btns':'')+'">'+o[2].map(function(b){return '<button class="mbtn" data-simk="'+o[0]+'" data-simv="'+b[0]+'"'+(mu?' data-simmulti="1"':'')+' onclick="'+(mu?'simToggleOpt':'setSimOpt')+'(\''+o[0]+'\',\''+b[0]+'\',this)">'+b[1]+'</button>'}).join('')+'</div></div>'}
+function simToggleOpt(k,v){pushUndo();var l=String(simOpt[k]||'').split(',').filter(Boolean),i=l.indexOf(v);if(i>=0){if(l.length>1)l.splice(i,1)}else l.push(v);simOpt[k]=l.join(',');syncSimUI();_simStore();renderDensity()}
 function _simColRow(d){return '<div class="prow" title="'+d[3]+'"><span class="prow-label">'+d[1]+'</span><input type="color" id="'+d[0]+'" value="'+d[2]+'" oninput="upP()" style="width:46px;height:24px;padding:0;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer"></div>'}
-function _simGroups(k){return AG_G3_GROUPS.map(function(g){return '<div class="sublabel">'+g[0]+'</div>'+g[1].map(function(id){
+function _simGroups(k){return (AG_SIM_GROUPS[k]||AG_G3_GROUPS).map(function(g,gi){return '<details class="g3sec" open><summary>'+g[0]+'</summary>'+g[1].map(function(id){
   if(id.slice(0,2)==='o:')return _simOptRow(AG_SIM_OPTS[k].filter(function(o){return o[0]===id.slice(2)})[0]);
+  if(id.slice(0,2)==='f:')return '<div class="prow prow-stack" title="Load a 3D Gaussian Splat (.ply from a 3DGS training run), a point-cloud .ply or an antimatter15 .splat file. Large files are thinned to fit the quality tier."><span class="prow-label">Splat file</span><div class="mode-btns grow-btns wrap-btns"><button class="mbtn" onclick="document.getElementById(\'splatFile\').click()">Load .ply / .splat\u2026</button></div><div id="splatInfo" class="sim-status" style="text-align:center">No file loaded</div><input type="file" id="splatFile" accept=".ply,.splat" onchange="loadSplatFile(event)" style="display:none"></div>';
   if(id.slice(0,2)==='c:')return _simColRow(AG_SIM_COL[k].filter(function(o){return o[0]===id.slice(2)})[0]);
-  return _simRow(AG_SIM_UI[k].filter(function(o){return o[0]===id})[0])}).join('')}).join('')}
+  return _simRow(AG_SIM_UI[k].filter(function(o){return o[0]===id})[0])}).join('')+'</details>'}).join('')}
 function buildSimPanels(){
   var ref=document.getElementById('layoutOpts_graph');if(!ref||document.getElementById('layoutOpts_simfluid'))return;
   var html='';AG_SIM_LAYOUTS.forEach(function(k){
@@ -3204,12 +3492,12 @@ function agSimHost(){var b=document.getElementById('simCommonBox');if(!b)return;
   var ul=layoutMode;if(typeof stackMode!=='undefined'&&stackMode&&stackLayouts.length){var ai=getActiveLayerIdx();if(ai>=0&&ai<stackLayouts.length)ul=stackLayouts[ai].layout}
   var m=_agIsSim(ul)?ul:'simparticles';var h=document.getElementById('layoutOpts_'+m);if(h&&b.parentNode!==h)h.appendChild(b);
   // The 3D cloner has no fluid-style swirl, emitter rotation, audio contrast or step size
-  ['pSimSwirlSnd','pSimRot','pSimReact'].forEach(function(id){var e=document.getElementById(id),r=e&&e.closest('.prow');if(r)r.style.display=m==='simcloner'?'none':''});
-  var sb=b.querySelector('.mbtn[data-simk="step"]'),sr=sb&&sb.closest('.prow');if(sr)sr.style.display=m==='simcloner'?'none':''}
+  ['pSimSwirlSnd','pSimRot','pSimReact'].forEach(function(id){var e=document.getElementById(id),r=e&&e.closest('.prow');if(r)r.style.display=(m==='simcloner'||m==='simsplat')?'none':''});
+  var sb=b.querySelector('.mbtn[data-simk="step"]'),sr=sb&&sb.closest('.prow');if(sr)sr.style.display=(m==='simcloner'||m==='simsplat')?'none':''}
 function syncSimUI(){
-  document.querySelectorAll('.mbtn[data-simk]').forEach(function(b){b.classList.toggle('on',simOpt[b.getAttribute('data-simk')]===b.getAttribute('data-simv'))});
+  document.querySelectorAll('.mbtn[data-simk]').forEach(function(b){var sv=simOpt[b.getAttribute('data-simk')];b.classList.toggle('on',b.hasAttribute('data-simmulti')?String(sv||'').split(',').indexOf(b.getAttribute('data-simv'))>=0:sv===b.getAttribute('data-simv'))});
   for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){var e=document.getElementById(d[0]),l=document.getElementById(d[0].replace(/^p/,'v'));if(e&&l)l.textContent=_simFmt(e.value,d[6])});
-  agSimHost();if(typeof agSim!=='undefined')agSim.refreshUI()}
+  agSimHost();if(typeof _agSplatInfo==='function')_agSplatInfo();if(typeof agSim!=='undefined')agSim.refreshUI()}
 buildSimPanels();agApplyKnobGroups();
 function simNewId(){return 1+Math.floor(Math.random()*2147483646)}
 function agSimDefaults(){var o={};if(typeof AG_SIM_UI==='undefined')return o;for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){o[d[0]]=d[4]});for(var c in AG_SIM_COL)AG_SIM_COL[c].forEach(function(d){o[d[0]]=d[2]});return o}
@@ -3300,6 +3588,8 @@ var agSim=(function(){
     ['fFluid','fSmoke','fCopy','fBright','fBlurH','fBlurV','fRD','fLife','fSlime','fField','fWave'].forEach(function(n){P[n]=full(n,'rgba16float')});
     P.fComp=full('fComp',G.fmt);
     try{await g3Build(dev,P)}catch(e){P.g3err=String(e&&e.message||e);err(e)}
+    try{await splBuild(dev,P)}catch(e){P.splerr=String(e&&e.message||e);err(e)}
+    try{await camBuild(dev,P)}catch(e){P.camerr=String(e&&e.message||e);err(e)}
     G.g3m={};
     G.P=P;
     G.smp=dev.createSampler({magFilter:'linear',minFilter:'linear',addressModeU:'clamp-to-edge',addressModeV:'clamp-to-edge'});
@@ -3423,6 +3713,7 @@ var agSim=(function(){
   function disposeState(st,lost){
     delete ST[st.id];S.disposed++;
     if(lost)return;
+    try{if(st.spbuf)st.spbuf.destroy();if(st.spdp)st.spdp.destroy();if(st.camU)st.camU.destroy();if(st.camT)st.camT.t.destroy()}catch(e){}
     try{st.res.forEach(function(t){t.destroy()});if(st.pbuf)st.pbuf.destroy();if(st.sbuf)st.sbuf.destroy();if(st.ibuf)st.ibuf.destroy();if(st.cub)st.cub.destroy();if(st.g3ms)st.g3ms.destroy();if(st.g3dp)st.g3dp.destroy();if(st.g3fm)st.g3fm.destroy();if(st.g3c)st.g3c.destroy();if(st.g3f)st.g3f.destroy();if(st.g3nm)st.g3nm.destroy();if(st.g3nt)st.g3nt.destroy();if(st.g3ao)st.g3ao.destroy();if(st.ipv)st.ipv.destroy();if(st.ebuf)st.ebuf.destroy();if(st.g3pu)st.g3pu.destroy();st.ub.destroy();st.rampTex.destroy();st.cx.unconfigure()}catch(e){err(e)}
     st.res=[];st.cv.width=st.cv.height=1}
   function disposeAll(lost){Object.keys(ST).forEach(function(k){disposeState(ST[k],lost)})}
@@ -3477,7 +3768,7 @@ var agSim=(function(){
     var E=K('pSimEnergy',100)/100;o.jet*=E;o.kick=(o.kick||0)*E;if(o.vort!=null)o.vort*=E;if(o.pcurl!=null)o.pcurl*=E;if(o.turb!=null)o.turb*=E;
     return o}
   // ---------- v107: reaction-diffusion, automata, slime mould, lightning, field lines ----------
-  var XK={rd:1,life:1,slime:1,bolt:1,field:1,wave:1,cloth:1,grav:1,cloner:1};
+  var XK={rd:1,life:1,slime:1,bolt:1,field:1,wave:1,cloth:1,grav:1,cloner:1,splat:1};
   var SEG_CAP={low:2000,med:3500,high:5000,ultra:6500};
   function xCreate(st,kind,asp,tr,dev){
     var TUx=GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING|GPUTextureUsage.RENDER_ATTACHMENT;
@@ -3493,7 +3784,7 @@ var agSim=(function(){
       st.cap=SEG_CAP[simOpt.q]||SEG_CAP.med;st.sbuf=dev.createBuffer({size:st.cap*32,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
       st.segData=new Float32Array(st.cap*8);st.bolts=[];st.nseg=0;st.sc=0;st.burstN=0;
       if(kind==='cloth')clothInit(st);else if(kind==='grav')gravInit(st)
-    }else if(kind==='cloner'){g3Create(st,dev)}}
+    }else if(kind==='cloner'){g3Create(st,dev)}else if(kind==='splat'){splCreate(st,dev)}}
   function setPoles(st,k,o){
     var n=Math.max(2,Math.min(12,Math.round(K('pFlPoles',6)))),asp=st.asp,t=st.time,sp=K('pFlSpin',30)/100,pul=K('pFlPulse',50)/100;
     var lay=simOpt.flLayout,pol=simOpt.flPol,ph=st.sphase||0,b=st.bands,P=st.U,base=AG_SIM_NF;
@@ -3689,6 +3980,7 @@ var agSim=(function(){
     if(kd==='cloth'){clothStep(st,h,k,gov);st.time+=h;st.steps++;S.steps++;return}
     if(kd==='grav'){gravStep(st,h,k,gov);st.time+=h;st.steps++;S.steps++;return}
     if(kd==='cloner'){g3Step(st,h);st.time+=h;st.steps++;S.steps++;return}
+    if(kd==='splat'){splStep(st,h);st.time+=h;st.steps++;S.steps++;return}
     setU(st,o);upload(st);var enc=dev.createCommandEncoder(),first=st.fn===0;
     if(kd==='rd'){var n=first?1:st.it;for(var i=0;i<n;i++){dg(st,enc,'kRD',st.rd.a,null,null,st.rd.b);st.rd.swap()}}
     else if(kd==='wave'){var wn=first?1:st.it;for(var wi=0;wi<wn;wi++){dg(st,enc,'kWave',st.wv.a,null,null,st.wv.b);st.wv.swap()}st.stoneN=0}
@@ -3707,6 +3999,7 @@ var agSim=(function(){
     else if(kd==='wave')fp(st,enc,'fWave',st.hdr.v,st.wv.a,null,rampTex);
     else if(kd==='field')fp(st,enc,'fField',st.hdr.v,null,null,rampTex);
     else if(kd==='cloner')g3Render(st,enc);
+    else if(kd==='splat')splRender(st,enc);
     else{
       var rp=enc.beginRenderPass({colorAttachments:[{view:st.hdr.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]});
       if(st.nseg>0){var bg=st.bgc.B||(st.bgc.B=dev.createBindGroup({layout:P.L.rend,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:{buffer:st.sbuf}},{binding:3,resource:st.rampV}]}));
@@ -3720,11 +4013,12 @@ var agSim=(function(){
     if(kd==='wave')return 'wave equation \u00b7 '+st.gw+'\u00d7'+st.gh+' grid';
     if(kd==='cloth')return 'cloth \u00b7 '+(st.cl?st.cl.nx+'\u00d7'+st.cl.ny:'')+' nodes (CPU Verlet, 3D)';
     if(kd==='grav')return 'gravity \u00b7 '+(st.gn||0).toLocaleString()+' particles, '+(st.bd?st.bd.length:0)+' bodies (CPU)';
+    if(kd==='splat')return 'Gaussian splats \u00b7 '+(st.spn||0).toLocaleString()+' gaussians \u00b7 sound displacement computed per splat on the GPU';
     if(kd==='cloner')return '3D cloner \u00b7 '+(st.g3n||0).toLocaleString()+(st.g3req>st.g3n?' of '+st.g3req.toLocaleString():'')+' clones \u00d7 '+(st.g3tris||0).toLocaleString()+' triangles \u00b7 compute-driven instancing, 4\u00d7 MSAA';
     if(kd==='bolt')return 'lightning \u00b7 '+(st.nseg||0)+' segments (generated on the CPU, drawn on the GPU)';
     return 'analytic magnetic field lines (point-pole model) \u00b7 '+(st.U?st.U[64+AG_SIM_UF.indexOf('poleN')]:0)+' poles'}
   // ---------- 3D cloner ----------
-  var G3CAP={low:4000,med:10000,high:20000,ultra:40000},G3TRI={low:1.2e6,med:2.5e6,high:5e6,ultra:9e6},G3UF=192,G3NET=3000;
+  var G3CAP={low:4000,med:10000,high:20000,ultra:40000},G3TRI={low:1.2e6,med:2.5e6,high:5e6,ultra:9e6},G3UF=1232,G3NET=3000;
   function g3Build(dev,P){return (async function(){
     var C=GPUShaderStage.COMPUTE,V=GPUShaderStage.VERTEX,F=GPUShaderStage.FRAGMENT;
     var Lc=dev.createBindGroupLayout({entries:[{binding:0,visibility:C,buffer:{type:'uniform'}},{binding:1,visibility:C,buffer:{type:'storage'}}]});
@@ -3791,17 +4085,41 @@ var agSim=(function(){
       var lv=D<=2?0:D<=5?1:D<=8?2:3;
       for(var l=0;l<lv;l++){var nf=[];fs.forEach(function(f){var a=f[0],b=f[1],c=f[2],ab=nrm([a[0]+b[0],a[1]+b[1],a[2]+b[2]]),bc=nrm([b[0]+c[0],b[1]+c[1],b[2]+c[2]]),ca=nrm([c[0]+a[0],c[1]+a[1],c[2]+a[2]]);nf.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca])});fs=nf}
       fs.forEach(function(f){poly([V(f[0]),V(f[1]),V(f[2])])})
+    }else if(shape==='cylinder'){
+      var cs=8+D*2,cr=0.55,ch=0.7,ct=[],cb=[];
+      for(var i=0;i<cs;i++){
+        var a0=i/cs*Math.PI*2,a1=(i+1)/cs*Math.PI*2,n0=[Math.cos(a0),0,Math.sin(a0)],n1=[Math.cos(a1),0,Math.sin(a1)];
+        poly([V([cr*n0[0],ch,cr*n0[2]],n0),V([cr*n0[0],-ch,cr*n0[2]],n0),V([cr*n1[0],-ch,cr*n1[2]],n1),V([cr*n1[0],ch,cr*n1[2]],n1)]);
+        ct.push(V([cr*n0[0],ch,cr*n0[2]],[0,1,0]));cb.push(V([cr*n0[0],-ch,cr*n0[2]],[0,-1,0]))}
+      poly(ct);poly(cb.reverse())
+    }else if(shape==='frame'){
+      var fh=0.7,ft=0.17;
+      var box=function(c,hx,hy,hz){
+        [[0,1],[0,-1],[1,1],[1,-1],[2,1],[2,-1]].forEach(function(a){
+          var u=(a[0]+1)%3,v=(a[0]+2)%3,hh=[hx,hy,hz],q=[];
+          [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(function(k){var p=c.slice();p[a[0]]+=hh[a[0]]*a[1];p[u]+=hh[u]*k[0];p[v]+=hh[v]*k[1];var nn=[0,0,0];nn[a[0]]=a[1];q.push(V(p,nn))});
+          poly(q)})};
+      for(var ax=0;ax<3;ax++)[[-1,-1],[1,-1],[1,1],[-1,1]].forEach(function(k){
+        var c0=[0,0,0],hs=[ft,ft,ft];hs[ax]=fh;c0[(ax+1)%3]=k[0]*(fh-ft);c0[(ax+2)%3]=k[1]*(fh-ft);box(c0,hs[0],hs[1],hs[2])})
     }else{
-      var sg=6+D*2,top=[0,0.9,0],cap=[];
+      var pyr=shape==='pyramid',sg=pyr?4:6+D*2,top=[0,0.9,0],cap=[],rr=pyr?0.95:0.8,off=pyr?Math.PI/4:0;
       for(var i=0;i<sg;i++){
-        var a0=i/sg*Math.PI*2,a1=(i+1)/sg*Math.PI*2,am=(a0+a1)/2,p0=[0.8*Math.cos(a0),-0.6,0.8*Math.sin(a0)],p1=[0.8*Math.cos(a1),-0.6,0.8*Math.sin(a1)];
+        var a0=i/sg*Math.PI*2+off,a1=(i+1)/sg*Math.PI*2+off,am=(a0+a1)/2,p0=[rr*Math.cos(a0),-0.6,rr*Math.sin(a0)],p1=[rr*Math.cos(a1),-0.6,rr*Math.sin(a1)];
         var sn=function(a){return nrm([1.5*Math.cos(a),0.8,1.5*Math.sin(a)])};
         poly([V(top,sn(am)),V(p1,sn(a1)),V(p0,sn(a0))]);cap.push(V(p0,[0,-1,0]))}
       poly(cap.reverse())
     }
-    var arr=new Float32Array(out);for(var q=15;q<arr.length;q+=16)arr[q]=arr[q]/faces;
+    var arr=new Float32Array(out);for(var q=15;q<arr.length;q+=16)arr[q]=arr[q]/faces;if(!arr.length)arr=new Float32Array(16);
     var buf=G.dev.createBuffer({size:arr.byteLength,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});G.dev.queue.writeBuffer(buf,0,arr);
-    return G.g3m[key]={buf:buf,verts:arr.length/16,tris:arr.length/48,faces:faces}}
+    return G.g3m[key]={buf:buf,verts:arr.length/16,tris:arr.length/48,faces:faces,arr:arr}}
+  // several shapes share one vertex buffer; the shape index rides in the integer part of the face id
+  function g3MeshMix(list,D){
+    if(list.length<2)return g3Mesh(list[0],D);
+    var key='mix:'+list.join(',')+'|'+D,m=G.g3m[key];if(m)return m;
+    var parts=list.map(function(sh,ix){var a=g3Mesh(sh,D).arr.slice();for(var q=15;q<a.length;q+=16)a[q]+=ix;return a}),len=0;parts.forEach(function(a){len+=a.length});
+    var arr=new Float32Array(len),o=0,fc=0;parts.forEach(function(a,ix){arr.set(a,o);o+=a.length;fc=Math.max(fc,g3Mesh(list[ix],D).faces)});
+    var buf=G.dev.createBuffer({size:arr.byteLength,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});G.dev.queue.writeBuffer(buf,0,arr);
+    return G.g3m[key]={buf:buf,verts:arr.length/16,tris:arr.length/48,faces:fc,arr:arr}}
   function g3Create(st,dev){
     st.cap=G3CAP[simOpt.q]||G3CAP.med;
     st.ibuf=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC});st.ipv=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});st.ebuf=dev.createBuffer({size:G3NET*8*16,usage:GPUBufferUsage.STORAGE});st.g3pu=dev.createBuffer({size:48,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});st.g3vp=new Float32Array(16);st.g3ln=-1;
@@ -3820,7 +4138,9 @@ var agSim=(function(){
     var dev=G.dev,P=G.P,k=knobs(),U=st.cu,i;
     if(P.g3err||!st.g3bgR)return;
     var shape=simOpt.g3Shape||'sphere',D=Math.max(1,Math.min(10,Math.round(K('pG3Detail',5))));
-    var m=g3Mesh(shape,D);
+    var shl=String(shape).split(',').filter(function(x){return AG_G3_SHAPES.some(function(q){return q[0]===x})});if(!shl.length)shl=['sphere'];
+    var mixV=shl.length>1?K('pG3Mix',100)/100:0;
+    var m=g3MeshMix(shl,D);shape=shl.join('+');
     var nx=Math.max(1,Math.round(K('pG3Nx',1))),ny=Math.max(1,Math.round(K('pG3Ny',1))),nz=Math.max(1,Math.round(K('pG3Nz',1)));
     var mode=simOpt.g3Mode||'grid';if(mode==='linear'){ny=1;nz=1}
     var req=nx*ny*nz,lim=Math.min(mode==='network'?Math.min(st.cap,G3NET):st.cap,Math.max(1,Math.floor((G3TRI[simOpt.q]||G3TRI.med)/m.tris))),n=Math.min(req,lim);
@@ -3830,7 +4150,7 @@ var agSim=(function(){
     st.g3n=n;st.g3req=req;st.g3tris=m.tris;st.g3verts=m.verts;st.g3shape=shape;
     var rad=K('pG3Size',100)/100,sx=K('pG3SpX',150)/100*2*rad/1,sy=K('pG3SpY',150)/100*2*rad,sz=K('pG3SpZ',150)/100*2*rad;
     sx=K('pG3SpX',150)/100*2*rad;
-    var mdi={grid:0,ring:1,sphere:2,scatter:3,linear:4,network:5}[mode]||0;
+    var mdi={grid:0,ring:1,sphere:2,scatter:3,linear:4,network:5,spiral:6,helix:7}[mode]||0;
     var B=0;
     if(n>1){
       if(mdi===0)B=Math.hypot((nx-1)/2*sx,(ny-1)/2*sy,(nz-1)/2*sz);
@@ -3838,27 +4158,38 @@ var agSim=(function(){
       else if(mdi===2)B=sx*Math.sqrt(n/12.566371);
       else if(mdi===3)B=Math.hypot(nx*sx,ny*sy,nz*sz)/2;
       else if(mdi===5)B=sx*Math.cbrt(n)*0.55;
+      else if(mdi===6)B=sx*0.565*Math.sqrt(n);
+      else if(mdi===7)B=Math.hypot(nx*sx/6.2831853,n/nx*sy/2);
       else B=Math.hypot(sx,sy,sz)*(n-1)/2}
-    var enr=K('pSimEnergy',100)/100,efS=K('pG3EfScale',40)/100*enr,mv=[K('pG3EfX',0)/100*enr,K('pG3EfY',0)/100*enr,K('pG3EfZ',0)/100*enr];
+    var enr=K('pSimEnergy',100)/100,scA=[K('pG3ScX',40)/100*enr,K('pG3ScY',40)/100*enr,K('pG3ScZ',40)/100*enr],efS=Math.max(scA[0],scA[1],scA[2]),rndH=K('pG3RndH',0)/100,fAmt=K('pG3FieldAmt',0)/100,mv=[K('pG3EfX',0)/100*enr,K('pG3EfY',0)/100*enr,K('pG3EfZ',0)/100*enr];
     var dg=Math.PI/180;
-    var bnd=B+rad*(1+Math.max(0,efS)*0.8+0.3+Math.max(0,K('pG3StScale',100)/100-1)+K('pG3RndScale',0)/100)+Math.max(K('pG3RndPosX',0)*sx,K('pG3RndPosY',0)*sy,K('pG3RndPosZ',0)*sz)/100*0.9+Math.max(Math.abs(mv[0])*sx,Math.abs(mv[1])*sy,Math.abs(mv[2])*sz)*0.8;
+    var bnd=B+rad*Math.max(K('pG3ObjX',100),K('pG3ObjY',100),K('pG3ObjZ',100))/100*(1+Math.max(0,efS)*0.8+0.3+Math.max(0,K('pG3StScale',100)/100-1)+K('pG3RndScale',0)/100)+Math.max(K('pG3RndPosX',0)*sx,K('pG3RndPosY',0)*sy,K('pG3RndPosZ',0)*sz)/100*0.9+Math.max(Math.abs(mv[0])*sx,Math.abs(mv[1])*sy,Math.abs(mv[2])*sz)*0.8+rad*(Math.exp(1.6*rndH)-1)*0.8+(simOpt.g3Field&&simOpt.g3Field!=='none'?fAmt*1.4*sy*0.6:0);
     var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=0.8,half=Math.min(fovY/2,Math.atan(Math.tan(fovY/2)*asp));
-    var dist=bnd/Math.sin(half)/Math.max(0.3,K('pG3Zoom',100)/100)*0.92;st.g3dist=dist;
-    var pit=K('pG3Tilt',18)*dg,yaw=st.g3yaw,ey=Math.sin(pit)*dist,er=Math.cos(pit)*dist;
+    var dist=bnd/Math.sin(half)/Math.max(0.3,K('pG3Zoom',100)/100)*0.92/(simOpt.vZm||1);st.g3dist=dist;
+    var pit=Math.max(-1.5,Math.min(1.5,K('pG3Tilt',18)*dg+(simOpt.vPit||0)*dg)),yaw=st.g3yaw+(simOpt.vYaw||0)*dg,ey=Math.sin(pit)*dist,er=Math.cos(pit)*dist;
     var eye=[Math.sin(yaw)*er,ey,Math.cos(yaw)*er],zA=nrm3(eye),xA=nrm3([zA[2],0,-zA[0]]),yA=[zA[1]*xA[2]-zA[2]*xA[1],zA[2]*xA[0]-zA[0]*xA[2],zA[0]*xA[1]-zA[1]*xA[0]];
+    // turning the whole cloner is the same as turning the camera the opposite way round the centre
+    var gX=K('pG3GrX',0)*dg,gY=K('pG3GrY',0)*dg,gZ=K('pG3GrZ',0)*dg;
+    if(gX||gY||gZ){
+      var inv=function(v){var c=Math.cos(-gZ),s2=Math.sin(-gZ),x=v[0]*c-v[1]*s2,y=v[0]*s2+v[1]*c,z=v[2];
+        c=Math.cos(-gX);s2=Math.sin(-gX);var y2=y*c-z*s2,z2=y*s2+z*c;y=y2;z=z2;
+        c=Math.cos(-gY);s2=Math.sin(-gY);return [x*c+z*s2,y,-x*s2+z*c]};
+      eye=inv(eye);xA=inv(xA);yA=inv(yA);zA=inv(zA)}
     function nrm3(a){var l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l]}
     var view=new Float32Array([xA[0],yA[0],zA[0],0,xA[1],yA[1],zA[1],0,xA[2],yA[2],zA[2],0,-(xA[0]*eye[0]+xA[1]*eye[1]+xA[2]*eye[2]),-(yA[0]*eye[0]+yA[1]*eye[1]+yA[2]*eye[2]),-(zA[0]*eye[0]+zA[1]*eye[1]+zA[2]*eye[2]),1]);
+    view[12]+=(simOpt.vPx||0)*dist*Math.tan(fovY/2)*asp;view[13]+=(simOpt.vPy||0)*dist*Math.tan(fovY/2);
     var near=Math.max(0.02,dist-bnd*1.6),far=dist+bnd*2.5,fl=1/Math.tan(fovY/2);
     var pr=new Float32Array(16);pr[0]=fl/asp;pr[5]=fl;pr[10]=far/(near-far);pr[11]=-1;pr[14]=near*far/(near-far);
     U.set(g3Mul(pr,view),0);
-    var l=nrm3([-0.55*xA[0]+0.75*yA[0]+0.6*zA[0],-0.55*xA[1]+0.75*yA[1]+0.6*zA[1],-0.55*xA[2]+0.75*yA[2]+0.6*zA[2]]);
+    var laz=K('pG3LitAz',-42)*dg,lel=K('pG3LitEl',45)*dg,lx=Math.sin(laz)*Math.cos(lel),ly=Math.sin(lel),lz=Math.cos(laz)*Math.cos(lel);
+    var l=nrm3([lx*xA[0]+ly*yA[0]+lz*zA[0],lx*xA[1]+ly*yA[1]+lz*zA[1],lx*xA[2]+ly*yA[2]+lz*zA[2]]);
     var set=function(o,a,b,c,d){U[o]=a;U[o+1]=b;U[o+2]=c;U[o+3]=d};
     set(16,eye[0],eye[1],eye[2],st.time);
     set(20,l[0],l[1],l[2],K('pG3Light',100)/100*1.1);
     set(24,nx,ny,nz,n);
     set(28,sx,sy,sz,rad);
-    set(32,mv[0],mv[1],mv[2],efS);
-    set(36,K('pG3EfRotX',0)*dg*enr,K('pG3EfRotY',0)*dg*enr,K('pG3EfRotZ',0)*dg*enr,st.g3spin);
+    set(32,mv[0],mv[1],mv[2],0);
+    var efr=K('pG3EfRot',0)*dg*enr;set(36,efr*0.5,efr,0,st.g3spin);
     set(44,0,st.level,st.kick,st.bands[1]*K('pSimBass',100)/100*0.22*enr);
     var alpha=K('pG3Alpha',100)/100,style={solid:0,wire:1,edges:2}[simOpt.g3Style]||0;
     set(48,K('pG3Rough',35)/100,K('pG3Metal',20)/100,alpha,K('pG3Emit',0)/100*1.4);
@@ -3870,11 +4201,19 @@ var agSim=(function(){
     set(68,K('pG3Rim',30)/100,K('pG3Reflect',50)/100*1.2,Math.max(B,0.001),m.faces);
     var rpX=K('pG3RndPosX',0)/100,rpY=K('pG3RndPosY',0)/100,rpZ=K('pG3RndPosZ',0)/100;
     set(72,rpX,rpY,rpZ,Math.round(K('pG3Seed',1)));
-    set(76,K('pG3RndRotX',0)*dg,K('pG3RndRotY',0)*dg,K('pG3RndRotZ',0)*dg,K('pG3RndScale',0)/100);
-    set(80,K('pG3Indep',0)/100,K('pG3Gain',0)/100,K('pG3RndSpin',0)/100,K('pG3RndCol',0)/100);
+    var rr=K('pG3RndRot',0)*dg;set(76,rr,rr,rr,K('pG3RndScale',0)/100);
+    set(80,K('pG3Indep',0)/100,K('pG3Gain',30)/100,K('pG3RndSpin',30)/100,K('pG3RndCol',0)/100);
     set(84,K('pG3RndSnd',0)/100,K('pG3RndAnim',0)/100*2,st.time,K('pG3Flip',0)/100);
-    set(88,K('pG3Inner',30)/100,0,0,0);
-    set(92,K('pG3StRotX',0)*dg,K('pG3StRotY',0)*dg,K('pG3StRotZ',0)*dg,K('pG3StScale',100)/100);
+    var oX=K('pG3ObjX',100)/100,oY=K('pG3ObjY',100)/100,oZ=K('pG3ObjZ',100)/100;set(88,0.3,oX,oY,oZ);
+    set(92,0,K('pG3StRotY',0)*dg,0,K('pG3StScale',100)/100);
+    set(192,scA[0],scA[1],scA[2],K('pG3Anchor',0)/100);
+    set(196,{none:0,noise:1,wave:2,ripple:3}[simOpt.g3Field]||0,fAmt,K('pG3FieldSize',100)/100,K('pG3FieldSpd',50)/100);
+    set(200,rndH,mixV,shl.length,K('pG3Delay',0)/100);
+    set(204,K('pG3Amb',35)/100,K('pG3Fill',25)/100,0,0);
+    if(!st.g3hist){st.g3hist=new Float32Array(1024);st.g3ht=-9}
+    if(st.time-st.g3ht>1/24||st.time<st.g3ht){st.g3hist.copyWithin(64,0,960);st.g3ht=st.time}
+    for(i=0;i<64;i++)st.g3hist[i]=st.spec[i];
+    U.set(st.g3hist,208);
     for(i=0;i<64;i++)U[96+i]=st.spec[i];
     var nlk=Math.min(8,Math.round(K('pG3Links',0)));set(40,asp,0,0,0);set(188,nlk,K('pG3LinkDist',150)/100*sx,K('pG3LinkW',1.2)*2/oh*(oh/1080+0.5)/1.5,K('pG3LinkA',80)/100*1.6);
     var aoS=K('pG3Ao',40)/100,aoR=rad*K('pG3AoRad',60)/60,mbA=K('pG3Mb',0)/100*1.2;
@@ -3915,6 +4254,109 @@ var agSim=(function(){
       if(aoS>0.001){var pa=enc.beginRenderPass({colorAttachments:[{view:st.g3aoV,clearValue:{r:1,g:1,b:1,a:1},loadOp:'clear',storeOp:'store'}]});pa.setPipeline(P.g3pa);pa.setBindGroup(0,st.g3pabg);pa.draw(3);pa.end();S.dispatches++}
       var pp=enc.beginRenderPass({colorAttachments:[{view:st.hdr.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]});
       pp.setPipeline(P.g3p);pp.setBindGroup(0,st.g3pbg);pp.draw(3);pp.end();S.dispatches++}}
+  // ---------- Gaussian splat cloud + webcam pass ----------
+  var SPCAP={low:150000,med:400000,high:1000000,ultra:2000000};
+  function splBuild(dev,P){return (async function(){
+    var V=GPUShaderStage.VERTEX,F=GPUShaderStage.FRAGMENT;
+    var L=dev.createBindGroupLayout({entries:[{binding:0,visibility:V|F,buffer:{type:'uniform'}},{binding:1,visibility:V,buffer:{type:'read-only-storage'}},{binding:2,visibility:V,texture:{sampleType:'float'}},{binding:3,visibility:V,sampler:{type:'filtering'}}]});
+    var m=await mod(dev,'spl',AG_SPL),pl=dev.createPipelineLayout({bindGroupLayouts:[L]});
+    var add={color:{srcFactor:'one',dstFactor:'one',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}};
+    P.splL=L;
+    P.splA=await dev.createRenderPipelineAsync({layout:pl,vertex:{module:m,entryPoint:'vs'},fragment:{module:m,entryPoint:'fs',targets:[{format:'rgba16float',blend:add}]},primitive:{topology:'triangle-list'}});
+    P.splS=await dev.createRenderPipelineAsync({layout:pl,vertex:{module:m,entryPoint:'vs'},fragment:{module:m,entryPoint:'fs',targets:[{format:'rgba16float'}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'}});
+  })()}
+  function camBuild(dev,P){return (async function(){
+    var F=GPUShaderStage.FRAGMENT;
+    var L=dev.createBindGroupLayout({entries:[{binding:0,visibility:F,buffer:{type:'uniform'}},{binding:1,visibility:F,sampler:{type:'filtering'}},{binding:2,visibility:F,texture:{sampleType:'float'}},{binding:3,visibility:F,texture:{sampleType:'float'}}]});
+    var m=await mod(dev,'cam',AG_CAM_SH);
+    P.camL=L;P.camP=await dev.createRenderPipelineAsync({layout:dev.createPipelineLayout({bindGroupLayouts:[L]}),vertex:{module:m,entryPoint:'vs'},fragment:{module:m,entryPoint:'fs',targets:[{format:'rgba16float'}]},primitive:{topology:'triangle-list'}});
+  })()}
+  // Returns the view the later passes should read: the layer's HDR image, or a warped / re-coloured copy when the webcam is on
+  function camApply(st,enc){
+    var P=G.P,dev=G.dev;
+    var disp=document.getElementById('camDisplace'),dAmt=disp?+disp.value/100:0;
+    if(!P||!P.camP||typeof camActive==='undefined'||!camActive||!camCanvas||(!camUseColors&&dAmt<=0.001))return st.hdr;
+    var cw=camCanvas.width,ch=camCanvas.height;
+    if(!G.camTex||G.camW!==cw||G.camH!==ch){if(G.camTex)G.camTex.destroy();G.camTex=dev.createTexture({size:[cw,ch],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});G.camV=G.camTex.createView();G.camW=cw;G.camH=ch;G.camTick=-1}
+    if(G.camTick!==tick){try{dev.queue.copyExternalImageToTexture({source:camCanvas},{texture:G.camTex},[cw,ch])}catch(e){return st.hdr}G.camTick=tick}
+    if(!st.camT||st.camT.w!==st.ow||st.camT.h!==st.oh){if(st.camT)st.camT.t.destroy();st.camT=rt(st,st.ow,st.oh);st.camT.w=st.ow;st.camT.h=st.oh;st.camBG=null}
+    if(!st.camU){st.camU=dev.createBuffer({size:32,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST})}
+    if(!st.camBG||st.camBGh!==st.hdr){st.camBG=dev.createBindGroup({layout:P.camL,entries:[{binding:0,resource:{buffer:st.camU}},{binding:1,resource:G.smp},{binding:2,resource:st.hdr.v},{binding:3,resource:G.camV}]});st.camBGh=st.hdr}
+    var dir=camDispDir==='vertical'?1:camDispDir==='horizontal'?2:0;
+    dev.queue.writeBuffer(st.camU,0,new Float32Array([st.ow,st.oh,dAmt,dir,camUseColors?1:0,0,0,0]));
+    var p=enc.beginRenderPass({colorAttachments:[{view:st.camT.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]});
+    p.setPipeline(P.camP);p.setBindGroup(0,st.camBG);p.draw(3);p.end();S.dispatches++;
+    return st.camT}
+  function splCreate(st,dev){
+    st.spu=dev.createBuffer({size:160*4,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});st.spU=new Float32Array(160);
+    st.spyaw=0.5;st.spkey='';st.sprh=new Float32Array(32);st.sprt=-9;st.spn=0}
+  function splStep(st,h){st.spyaw+=h*K('pGsOrbit',15)/100*1.2;
+    var w=simOpt.spWalk||'off';if(w!=='off'){var enr=K('pSimEnergy',100)/100;st.spwt=(st.spwt||0)+h*K('pGsWalkSpd',100)/100*0.5*(1+K('pGsWalkSnd',60)/100*Math.min(2.5,st.bands[1]*enr*1.5+st.kick*enr))}}
+  function splWalkPath(m,t){
+    if(m==='spiral'){var r=1.05+0.75*Math.sin(t*0.35),a=t*0.6;return [Math.sin(a)*r,0.55*Math.sin(t*0.27),Math.cos(a)*r]}
+    if(m==='glide')return [2.0*Math.sin(t*0.22),0.25*Math.sin(t*0.5),0.45*Math.sin(t*0.17)];
+    return [0.85*Math.sin(t*0.7),0.55*Math.sin(t*0.53+1),0.85*Math.sin(t*0.45+2)]}
+  function splData(){
+    var want=simOpt.spSrc||'galaxy';
+    if(want==='file'&&!AG_SPLAT.file)want='galaxy';
+    if(want==='mesh'){var mn=simOpt.spMesh||'knot';if(mn==='obj'&&!objModelData)mn='knot';return {want:'mesh:'+mn,data:agSplatMesh(mn),ver:AG_SPLAT.meshVer}}
+    return {want:want,data:want==='file'?AG_SPLAT.file:agSplatDemo(want),ver:want==='file'?AG_SPLAT.ver:0}}
+  function splRender(st,enc){
+    var dev=G.dev,P=G.P,k=knobs(),U=st.spU,i,dg=Math.PI/180;
+    var rp0=null;
+    if(P.splerr||!P.splA){enc.beginRenderPass({colorAttachments:[{view:st.hdr.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]}).end();return}
+    var sd=splData(),key=sd.want+'|'+sd.ver+'|'+st.q;
+    if(st.spkey!==key){
+      var tot=sd.data.length/8,cap=SPCAP[simOpt.q]||SPCAP.med,stp=Math.max(1,Math.ceil(tot/cap)),n=Math.floor(tot/stp),arr=sd.data;
+      if(stp>1){arr=new Float32Array(n*8);for(i=0;i<n;i++)arr.set(sd.data.subarray(i*stp*8,i*stp*8+8),i*8)}
+      if(st.spbuf)st.spbuf.destroy();
+      st.spbuf=dev.createBuffer({size:Math.max(32,n*32),usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});dev.queue.writeBuffer(st.spbuf,0,arr,0,n*8);
+      st.spn=n;st.spkey=key;st.spbg=dev.createBindGroup({layout:P.splL,entries:[{binding:0,resource:{buffer:st.spu}},{binding:1,resource:{buffer:st.spbuf}},{binding:2,resource:st.rampV},{binding:3,resource:G.smp}]})}
+    var n2=st.spn,enr=K('pSimEnergy',100)/100,asp=st.ow/st.oh,fovY=0.8,half=Math.min(fovY/2,Math.atan(Math.tan(fovY/2)*asp));
+    var bnd=1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom',100)/100)*0.92/(simOpt.vZm||1),pit=Math.max(-1.5,Math.min(1.5,K('pGsTilt',12)*dg+(simOpt.vPit||0)*dg)),yaw=st.spyaw+(simOpt.vYaw||0)*dg,ey=Math.sin(pit)*dist,er=Math.cos(pit)*dist;
+    var nrm=function(a){var l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l]};
+    var walk=simOpt.spWalk&&simOpt.spWalk!=='off'?simOpt.spWalk:null,eye,zA;
+    if(walk){
+      var wt=st.spwt||0,we=splWalkPath(walk,wt),wl=splWalkPath(walk,wt+0.6),wf;
+      if(walk==='spiral')wl=[we[0]*0.15+wl[0]*0.1,0,we[2]*0.15+wl[2]*0.1],wf=nrm([wl[0]-we[0],wl[1]-we[1],wl[2]-we[2]]);
+      else if(walk==='glide')wf=nrm([-we[0]*0.25,-we[1]*0.5,-1]);
+      else{var tf=nrm([wl[0]-we[0],wl[1]-we[1],wl[2]-we[2]]),tc=nrm([-we[0],-we[1],-we[2]]);wf=nrm([tf[0]+tc[0]*0.9,tf[1]+tc[1]*0.9,tf[2]+tc[2]*0.9])}
+      var fy=Math.atan2(wf[0],-wf[2])-(simOpt.vYaw||0)*dg,fp=Math.max(-1.45,Math.min(1.45,Math.asin(Math.max(-1,Math.min(1,wf[1])))+(simOpt.vPit||0)*dg*-1));
+      wf=[Math.sin(fy)*Math.cos(fp),Math.sin(fp),-Math.cos(fy)*Math.cos(fp)];
+      eye=we;zA=[-wf[0],-wf[1],-wf[2]];dist=2.5;
+    }else{eye=[Math.sin(yaw)*er,ey,Math.cos(yaw)*er];zA=nrm(eye)}
+    var xA=nrm([zA[2],0,-zA[0]]),yA=[zA[1]*xA[2]-zA[2]*xA[1],zA[2]*xA[0]-zA[0]*xA[2],zA[0]*xA[1]-zA[1]*xA[0]];
+    var view=new Float32Array([xA[0],yA[0],zA[0],0,xA[1],yA[1],zA[1],0,xA[2],yA[2],zA[2],0,-(xA[0]*eye[0]+xA[1]*eye[1]+xA[2]*eye[2]),-(yA[0]*eye[0]+yA[1]*eye[1]+yA[2]*eye[2]),-(zA[0]*eye[0]+zA[1]*eye[1]+zA[2]*eye[2]),1]);
+    view[12]+=(simOpt.vPx||0)*dist*Math.tan(fovY/2)*asp;view[13]+=(simOpt.vPy||0)*dist*Math.tan(fovY/2);
+    var near=Math.max(0.02,dist-bnd*1.6),far=dist+bnd*2.5,fl=1/Math.tan(fovY/2),pr=new Float32Array(16);
+    pr[0]=fl/asp;pr[5]=fl;pr[10]=far/(near-far);pr[11]=-1;pr[14]=near*far/(near-far);
+    U.set(g3Mul(pr,view),0);
+    var set=function(o,a,b,c,d){U[o]=a;U[o+1]=b;U[o+2]=c;U[o+3]=d};
+    var meth=String(simOpt.spMeth||'').split(','),has=function(m){return meth.indexOf(m)>=0?1:0};
+    var rx=K('pGsRX',0)*dg,ry=K('pGsRY',0)*dg,rz=K('pGsRZ',0)*dg;
+    var cx=Math.cos(rx),sx=Math.sin(rx),cy=Math.cos(ry),sy=Math.sin(ry),cz=Math.cos(rz),sz=Math.sin(rz);
+    // R = Rz * Ry * Rx
+    var m00=cz*cy,m01=cz*sy*sx-sz*cx,m02=cz*sy*cx+sz*sx,m10=sz*cy,m11=sz*sy*sx+cz*cx,m12=sz*sy*cx-cz*sx,m20=-sy,m21=cy*sx,m22=cy*cx;
+    var bassK=K('pSimBass',100)/100*enr,bass=Math.min(1.6,st.bands[1]*bassK*1.2),lev=Math.min(1.6,st.level*enr),spd=K('pGsFlow',100)/100;
+    set(16,eye[0],eye[1],eye[2],st.time);
+    set(20,asp,st.ow,st.oh,n2);
+    set(24,K('pGsSize',35)/100,K('pGsOpac',12)/100*(simOpt.spBlend==='solid'?1:1),K('pGsAmt',100)/100,K('pGsDens',100)/100);
+    set(28,lev,Math.min(1.6,st.kick*enr),bass,K('pGsSat',110)/100);
+    set(32,K('pGsBri',55)/100,{orig:0,height:1,dist:2,sound:3}[simOpt.spCol]||0,simOpt.spBlend==='solid'?1:0,K('pGsGlow',80)/100);
+    set(36,has('pulse'),has('ripple'),has('eq'),has('explode'));
+    set(40,has('flow'),has('twist'),has('reveal'),has('wave'));
+    set(44,fl/asp,fl,1.4*2/st.ow,1.4*2/st.oh);
+    set(48,m00,m01,m02,0);set(52,m10,m11,m12,0);set(56,m20,m21,m22,0);
+    set(60,14/Math.max(0.3,spd),spd,K('pGsSzSnd',60)/100,0);
+    for(i=0;i<64;i++)U[64+i]=st.spec[i]*bassK;
+    if(st.time-st.sprt>1/30||st.time<st.sprt){st.sprh.copyWithin(1,0,31);st.sprh[0]=Math.min(1.6,Math.max(bass,st.kick*enr*0.8));st.sprt=st.time}
+    U.set(st.sprh,128);
+    dev.queue.writeBuffer(st.spu,0,U);
+    var solid=simOpt.spBlend==='solid',att={colorAttachments:[{view:st.hdr.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]};
+    if(solid){
+      if(!st.spdp||st.spdw!==st.ow||st.spdh!==st.oh){if(st.spdp)st.spdp.destroy();st.spdp=dev.createTexture({size:[st.ow,st.oh],format:'depth24plus',usage:GPUTextureUsage.RENDER_ATTACHMENT});st.spdpV=st.spdp.createView();st.spdw=st.ow;st.spdh=st.oh}
+      att.depthStencilAttachment={view:st.spdpV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}}
+    var rp=enc.beginRenderPass(att);rp.setPipeline(solid?P.splS:P.splA);rp.setBindGroup(0,st.spbg);rp.draw(6,n2);rp.end();S.dispatches++}
   // ---------- stepping ----------
   function stepOnce(st,h,k,gov){
     var dev=G.dev,P=G.P,kd=st.kind;
@@ -3987,9 +4429,10 @@ var agSim=(function(){
       fp(st,enc,'fSmoke',st.hdr.v,st.sm.a,st.light,{v:st.rampV,id:-1});
     }
     var gov=simOpt.auto==='on'?G.gov:1;
-    if(k.bloom>0.001&&gov>=0.55){fp(st,enc,'fBright',st.bl1.v,st.hdr);fp(st,enc,'fBlurH',st.bl2.v,st.bl1);fp(st,enc,'fBlurV',st.bl1.v,st.bl2)}
+    var HS=camApply(st,enc);
+    if(k.bloom>0.001&&gov>=0.55){fp(st,enc,'fBright',st.bl1.v,HS);fp(st,enc,'fBlurH',st.bl2.v,st.bl1);fp(st,enc,'fBlurV',st.bl1.v,st.bl2)}
     else{var c=enc.beginRenderPass({colorAttachments:[{view:st.bl1.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]});c.end()}
-    fp(st,enc,'fComp',st.cx.getCurrentTexture().createView(),st.hdr,st.bl1);
+    fp(st,enc,'fComp',st.cx.getCurrentTexture().createView(),HS,st.bl1);
     dev.queue.submit([enc.finish()]);S.submits++;st.dirty=false}
   // Still export: draws the current state once into temporary targets at the requested pixel size (no stepping, preview targets untouched).
   function exportRender(st,k,ctx,W,H){
@@ -4025,11 +4468,12 @@ var agSim=(function(){
     if(G.status==='init'){paintMsg(ctx,W,H,'Starting the GPU\u2026','Initialising WebGPU');return}
     if(G.status!=='ready'){paintMsg(ctx,W,H,G.msg,G.status==='lost'?'WebGPU device lost':'WebGPU simulation unavailable');return}
     if(kind==='cloner'&&G.P&&G.P.g3err){paintMsg(ctx,W,H,G.P.g3err,'3D cloner unavailable');return}
+    if(kind==='splat'&&G.P&&G.P.splerr){paintMsg(ctx,W,H,G.P.splerr,'Gaussian splat unavailable');return}
     try{
       var asp=W/H,st=ST[simUid];
       if(st&&(st.kind!==kind||st.q!==simOpt.q)){disposeState(st);st=null}
       else if(st){
-        if(st.kind==='particles'||st.kind==='bolt'||st.kind==='field'||st.kind==='grav'||st.kind==='cloner')st.asp=asp;
+        if(st.kind==='particles'||st.kind==='bolt'||st.kind==='field'||st.kind==='grav'||st.kind==='cloner'||st.kind==='splat')st.asp=asp;
         else{var rr=asp/st.gAsp;if(rr<0.6||rr>1.67){if(!st.aspT)st.aspT=now();else if(now()-st.aspT>1500){disposeState(st);st=null}}else st.aspT=0}
       }
       var k=knobs();
@@ -4070,6 +4514,8 @@ var agSim=(function(){
   api.ready=function(){return init().then(function(){return G.status})};
   api.sync=function(){return G.dev?G.dev.queue.onSubmittedWorkDone():Promise.resolve()};
   api.has=function(id){return !!ST[id]};
+  api.splat=function(){var s=ST[simUid];return s&&s.kind==='splat'?{n:s.spn,walk:s.spwt||0,key:s.spkey,err:G.P&&G.P.splerr||''}:null};
+  api.camfx=function(){var s=ST[simUid];return {camP:!!(G.P&&G.P.camP),err:G.P&&G.P.camerr||'',applied:!!(s&&s.camT)}};
   api.cloner=function(){var s=ST[simUid];return s&&s.kind==='cloner'?{n:s.g3n,req:s.g3req,tris:s.g3tris,verts:s.g3verts,shape:s.g3shape,pipe:s.g3pipe,dist:s.g3dist,err:G.P&&G.P.g3err||''}:null};
   api.pixels=function(id){var s=ST[id];if(!s)return null;var c=document.createElement('canvas');c.width=s.ow;c.height=s.oh;var x=c.getContext('2d');x.drawImage(s.cv,0,0);return x.getImageData(0,0,s.ow,s.oh)};
   return api})();
@@ -10659,7 +11105,7 @@ function loadObjFile(ev){
     if(verts.length<3||faces.length<1){alert('No geometry found in OBJ');return}
     var _m=_objNormalizeModel(verts,faces);verts=_m.verts;faces=_m.faces;var normals=_m.normals;
     objModelData={verts:verts,faces:faces,normals:normals};
-    objBuiltin='file';syncObjModelUI();if(layoutMode!=='object')setLayout('object',null);
+    objBuiltin='file';AG_SPLAT.meshVer++;syncObjModelUI();if(layoutMode==='simsplat'){simOpt.spSrc='mesh';simOpt.spMesh='obj';syncSimUI();_simStore()}else if(layoutMode!=='object')setLayout('object',null);
     renderDensity();
   };
   reader.readAsText(file);
@@ -10728,6 +11174,7 @@ function setObjTick(m,btn){pushUndo();objTick=m==='along'?'along':'across';syncO
 function syncObjSignalUI(){_ag3dSignalHost();var sf=objSignal==='surface';document.querySelectorAll('.obj-surf-only').forEach(function(e){e.style.display=sf?'':'none'});document.querySelectorAll('.obj-shape-only').forEach(function(e){e.style.display=sf?'none':''});
   [['setObjSignal',objSignal],['setObjFlow',objFlow],['setObjTick',objTick]].forEach(function(o){document.querySelectorAll('.mbtn[onclick^="'+o[0]+'"]').forEach(function(b){b.classList.toggle('on',b.getAttribute('onclick').indexOf("'"+o[1]+"'")>=0)})})}
 function syncObjModelUI(){syncObjSignalUI();var _om=layoutMode==='object';var _fr=document.getElementById('objFileRow');if(_fr)_fr.style.display=objBuiltin==='file'?'':'none';document.querySelectorAll('.mbtn[data-objm]').forEach(function(b){b.classList.toggle('on',_om&&b.getAttribute('data-objm')===objBuiltin)});document.querySelectorAll('.mbtn[onclick^="setObjModel"]').forEach(function(b){b.classList.toggle('on',b.getAttribute('onclick').indexOf("'"+objBuiltin+"'")>=0)});var fb=document.getElementById('objModelFileBtn');if(fb){fb.disabled=!objModelData;fb.style.opacity=objModelData?'':'0.4'}syncLayoutRelevance()}
+function objToPointCloud(){var m=objBuiltin==='file'&&objModelData?'obj':(objBuiltin==='cube'||objBuiltin==='torus'?objBuiltin:'knot');setLayout('simsplat',null);simOpt.spSrc='mesh';simOpt.spMesh=m;syncSimUI();_simStore();renderDensity()}
 function setObjLayout(m,btn){objBuiltin=m;setLayout('object',btn);syncObjModelUI();renderDensity()}
 function setObjModel(m,btn){if(m==='file'&&!objModelData){var f=document.getElementById('pObjFile');if(f)f.click();return}pushUndo();objBuiltin=m;syncObjModelUI();renderDensity()}
 function _objWire(model,maxFaces){
@@ -11885,6 +12332,28 @@ function toggleFullscreen(){
 document.addEventListener('fullscreenchange',function(){resizeAll()});
 document.addEventListener('webkitfullscreenchange',function(){resizeAll()});
 function resizeAll(){setTimeout(function(){sizeCanvas(frameCv);renderDensity()},100)}
+// --- VIEWPORT CAMERA for the 3D cloner and Gaussian splat: drag orbits, Shift/right/middle-drag pans, wheel zooms, double-click resets ---
+(function(){
+  var cv=document.getElementById('frameCv'),d=null;
+  function on(){var m=layoutMode;if(typeof stackMode!=='undefined'&&stackMode&&stackLayouts.length){var i=getActiveLayerIdx();if(i>=0&&i<stackLayouts.length)m=stackLayouts[i].layout}return m==='simcloner'||m==='simsplat'}
+  function upd(){_simStore();renderDensity()}
+  cv.addEventListener('mousedown',function(e){
+    if(!on())return;
+    d={x:e.clientX,y:e.clientY,pan:e.button!==0||e.shiftKey,yaw:simOpt.vYaw||0,pit:simOpt.vPit||0,px:simOpt.vPx||0,py:simOpt.vPy||0,u:false};
+    cv.style.cursor=d.pan?'move':'grabbing';e.preventDefault();e.stopImmediatePropagation()},true);
+  window.addEventListener('mousemove',function(e){
+    if(!d)return;var r=cv.getBoundingClientRect(),dx=e.clientX-d.x,dy=e.clientY-d.y;
+    if(!d.u){pushUndo();d.u=true}
+    if(d.pan){simOpt.vPx=d.px+dx/r.width*2;simOpt.vPy=d.py-dy/r.height*2}
+    else{simOpt.vYaw=d.yaw-dx*0.4;simOpt.vPit=Math.max(-85,Math.min(85,d.pit+dy*0.4))}
+    upd()});
+  window.addEventListener('mouseup',function(){if(d){d=null;cv.style.cursor='grab'}});
+  cv.addEventListener('contextmenu',function(e){if(on())e.preventDefault()});
+  cv.addEventListener('wheel',function(e){
+    if(!on())return;e.preventDefault();
+    simOpt.vZm=Math.max(0.2,Math.min(6,(simOpt.vZm||1)*Math.exp(-e.deltaY*(e.deltaMode?0.05:0.0015))));upd()},{passive:false});
+  cv.addEventListener('dblclick',function(e){if(!on())return;pushUndo();simOpt.vYaw=simOpt.vPit=simOpt.vPx=simOpt.vPy=0;simOpt.vZm=1;upd()});
+})();
 // --- LAYER DRAG ---
 (function(){
   var dragging=false,startX=0,startY=0,startOffX=0,startOffY=0;
@@ -12662,7 +13131,7 @@ try{loadFromHash()}catch(e){}
 <li><strong>General</strong> — Linear, Circle, Concentric, Spiral, Phyllotaxis, Fractal (audio-driven tree), Scatter, <strong>Harmonic</strong> (Lissajous figure), <strong>Sacred</strong> (Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, Star 64, Vector Equilibrium, Torus: audio lines follow the figure's circles and edges; <em>Map</em> Along flows the spectrum through it, Shapes gives each circle/edge its own band; <em>Lines</em> Across or Along the paths; <em>Outline</em> shows the figure underneath, <em>Breathe</em> swells each ring with its band, <em>Bloom</em> unfolds the figure from the middle as the music gets louder), <strong>Graph</strong> (an Obsidian-style network: hubs, clusters and loose notes in a live force layout; audio lines run along the links, nodes are sized by their links and swell with their band; <em>Pulse</em> makes kicks push the graph apart, <em>Drift</em> keeps it moving, <em>Shuffle</em> builds a new network; Nodes, Hubs, Links, Loose, Map, Lines, Outline and Bloom), and <strong>Growth</strong>: living Vine or Coral simulations with Life, Trail, line type, Thickness, vine Direction (Bottom / Top / Center) and Neuron count. <strong>Noise</strong> shapes the linework: Coral branches meander with rough, organic edges, swell and pinch along their length, grow small knobs and fork unevenly — while the coral still grows from the same spot; Vine gets a gentle wobble. Set it to 0 for the old, perfectly regular coral.</li>
 <li><strong>Simulation</strong> (WebGPU) — Particles, Fluid, Smoke, <strong>Reaction</strong> (Gray–Scott chemistry: corals, mazes, spots), <strong>Slime</strong> (Physarum agents growing trail networks, up to 3 colonies), and <strong>3D Cloner</strong> (WebGPU-instanced 3D objects in X/Y/Z arrays, rings or sphere clouds; sound drives each clone's move, scale and rotation and animates the polygons themselves; material editor with solid, wireframe or edges, colours, roughness, metallic and transparency). Sound injects energy at seed points; each layout has presets, a Quality tier and an automatic budget.</li>
 <li><strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus. Drag the visuals to orbit; 3D Tilt / Rotate are in Geometry. Every 3D layout has a <strong>Signal</strong> switch: <em>Shape</em> pushes the mesh with the audio, while <em>Surface</em> keeps the geometry fixed and moves the audio over its skin as lines in any Style. Flow sets the pattern (Rings, Sweep, Spiral, Scatter), Lines sets the direction (Across or Along), and Travel, Count, Wire and Back tune it. On Terrain, Elevation and Noise shape the fixed landscape. In Shape mode, marker styles (Pins, Numbers, …) keep a faint wire underneath and stand out of the surface on every 3D layout.</li>
-<li><strong>Input</strong> — <strong>Image</strong>: <em>Import raster</em> (PNG/JPG) becomes a brightness map drawn as Grid lines, Edge scans or an <em>LED</em> equalizer inside the picture (like Text LED); <em>Import vector</em> (SVG) traces the drawing's paths with audio lines exactly like Sacred (Map, Lines, Outline, Breathe, Bloom). <strong>Video</strong> (file or camera) becomes a brightness map drawn with lines; <strong>Pixel Warp</strong> keeps the real image colours and pushes pixels or a mesh with the music; <strong>Text</strong> (LED equalizer or scan lines); <strong>Math</strong> (your own formula); <strong>3D Object</strong> (load an .OBJ).</li>
+<li><strong>Input</strong> — <strong>Gaussian Splat</strong>: load a 3DGS <code>.ply</code> / <code>.splat</code> (or a plain point-cloud .ply) use a demo cloud, or turn any 3D object (Knot, Cube, Torus or your own .obj) into a point cloud; set <strong>Walkthrough</strong> (Fly through, Spiral, Glide) to fly the camera through the inside of the cloud; pick any mix of interactions (Pulse, Ripple, Equalizer, Explode, Flow, Twist, Wave, Reveal) and colour by original, height, distance or sound. <strong>Image</strong>: <em>Import raster</em> (PNG/JPG) becomes a brightness map drawn as Grid lines, Edge scans or an <em>LED</em> equalizer inside the picture (like Text LED); <em>Import vector</em> (SVG) traces the drawing's paths with audio lines exactly like Sacred (Map, Lines, Outline, Breathe, Bloom). <strong>Video</strong> (file or camera) becomes a brightness map drawn with lines; <strong>Pixel Warp</strong> keeps the real image colours and pushes pixels or a mesh with the music; <strong>Text</strong> (LED equalizer or scan lines); <strong>Math</strong> (your own formula); <strong>3D Object</strong> (load an .OBJ).</li>
 </ul>
 </div>
 
@@ -12732,7 +13201,8 @@ try{loadFromHash()}catch(e){}
 <ul>
 <li><strong>Project visuals</strong> opens a visuals-only window. Drag it to the projector or second screen, then press <span class="hk">F</span> or double-click it for fullscreen. Allow pop-ups if blocked.</li>
 <li>Keep the controller window on your laptop — audio plays from there. <strong>Close output</strong> stops projecting without stopping the music.</li>
-<li><strong>Webcam</strong> panel — use camera colours for the lines, or let brightness displace them.</li>
+<li><strong>3D Cloner &amp; Gaussian Splat viewport</strong> — drag in the preview to orbit, Shift- or right-drag to move, scroll to zoom, double-click to reset the view.</li>
+<li><strong>Webcam</strong> panel — use camera colours for the lines, or let brightness displace them. On simulation layouts (Particles, Fluid, Smoke, 3D Cloner, Gaussian Splat…) the camera re-colours the image and its brightness warps the shape.</li>
 </ul>
 </div>
 
