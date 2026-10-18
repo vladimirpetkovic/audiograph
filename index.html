@@ -104,6 +104,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 /* v33 direct controls: source inputs/buttons stay in the DOM; knobs/switches mirror them */
 .pfx-group{margin:8px 0 10px;padding:4px 6px 6px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,.015)}
 .pfx-group>.prow:first-child{margin-bottom:0}
+.pfx-group-title{font-size:.6rem;font-weight:500;color:var(--tx2);padding:5px 3px 7px}
 #pfxFracBody{padding-top:6px;margin-top:4px;border-top:1px solid var(--border)}
 .knob-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 10px;min-width:0;overflow:hidden}
 .layout-opts .g3sec{align-self:stretch;box-sizing:border-box}
@@ -900,6 +901,13 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-body">
         <div class="prow" id="pfxScopeRow" style="display:none"><span class="prow-label">Applies to</span><div class="mode-btns"><button class="mbtn on" id="pfxTgtLayer" onclick="setPfxTarget('layer')">Active layer</button><button class="mbtn" id="pfxTgtComp" onclick="setPfxTarget('comp')">Whole composition</button></div></div>
         <div class="prow" id="pfxEnableRow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="setPostFx(true,this)">On</button><button class="mbtn on" onclick="setPostFx(false,this)">Off</button></div></div>
+        <div class="pfx-group" id="pfxColorGroup" role="group" aria-labelledby="pfxColorTitle">
+          <div class="pfx-group-title" id="pfxColorTitle">Color correction</div>
+          <div class="prow" data-knob-row="pfx-color-tone"><span class="prow-label">Brightness</span><input type="range" min="-100" max="100" value="0" step="1" id="pfxBrightness" oninput="upPostFx()" title="Darken or brighten the image. 0% leaves brightness unchanged."><span class="prow-val" id="vPfxBrightness">0%</span></div>
+          <div class="prow" data-knob-row="pfx-color-tone"><span class="prow-label">Contrast</span><input type="range" min="-100" max="100" value="0" step="1" id="pfxContrast" oninput="upPostFx()" title="Soften or increase contrast. 0% leaves contrast unchanged."><span class="prow-val" id="vPfxContrast">0%</span></div>
+          <div class="prow" data-knob-row="pfx-color-chroma"><span class="prow-label">Saturation</span><input type="range" min="-100" max="200" value="0" step="1" id="pfxSaturation" oninput="upPostFx()" title="Reduce or boost color intensity. -100% is grayscale; 0% leaves saturation unchanged."><span class="prow-val" id="vPfxSaturation">0%</span></div>
+          <div class="prow" data-knob-row="pfx-color-chroma"><span class="prow-label">Hue</span><input type="range" min="-180" max="180" value="0" step="1" id="pfxHue" oninput="upPostFx()" title="Rotate the colors around the color wheel. 0 degrees leaves hues unchanged."><span class="prow-val" id="vPfxHue">0°</span></div>
+        </div>
         <div class="pfx-group" id="pfxFracGroup">
         <div class="prow" id="pfxFractureRow"><span class="prow-label">Fracture</span><div class="mode-btns"><button class="mbtn" onclick="setFractureFx(true,this)">On</button><button class="mbtn on" onclick="setFractureFx(false,this)">Off</button></div></div>
           <div id="pfxFracBody" style="display:none">
@@ -925,7 +933,6 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         <div class="prow"><span class="prow-label">Sharpen</span><input type="range" min="0" max="100" value="0" step="1" id="pfxSharpen" oninput="upPostFx()"><span class="prow-val" id="vPfxSharpen">0%</span></div>
         <div class="prow"><span class="prow-label">Invert</span><input type="range" min="0" max="100" value="0" step="1" id="pfxInvert" oninput="upPostFx()"><span class="prow-val" id="vPfxInvert">0%</span></div>
         <div class="prow"><span class="prow-label">Reflect</span><input type="range" min="0" max="100" value="0" step="1" id="pfxReflect" oninput="upPostFx()"><span class="prow-val" id="vPfxReflect">0%</span></div>
-        <div class="prow"><span class="prow-label">Contrast</span><input type="range" min="0" max="100" value="0" step="1" id="pfxContrast" oninput="upPostFx()"><span class="prow-val" id="vPfxContrast">0%</span></div>
         <div class="prow"><span class="prow-label">Blur X</span><input type="range" min="0" max="100" value="0" step="1" id="pfxBlurX" oninput="upPostFx()"><span class="prow-val" id="vPfxBlurX">0%</span></div>
         <div class="prow"><span class="prow-label">Blur Y</span><input type="range" min="0" max="100" value="0" step="1" id="pfxBlurY" oninput="upPostFx()"><span class="prow-val" id="vPfxBlurY">0%</span></div>
         <div class="prow"><span class="prow-label">Blur Radial</span><input type="range" min="0" max="100" value="0" step="1" id="pfxBlurRadial" oninput="upPostFx()"><span class="prow-val" id="vPfxBlurRadial">0%</span></div>
@@ -1863,13 +1870,13 @@ var styleSize=1,styleDensity=1,styleAngle=0; // styleAngle in radians
 // v32 Post FX scope: each layer owns params._postFx; compFx is the legacy whole-composition FX
 // (old saves/built-in presets) whose on/off state stays in postFxEnabled. layerFx mirrors the
 // layer currently loaded into the controls, like the DOM sliders do for the other layer params.
-function _pfxIds(){return['pfxBloom','pfxChroma','pfxContrast','pfxVignette','pfxScanlines','pfxSharpen','pfxInvert','pfxReflect','pfxBlurX','pfxBlurY','pfxBlurRadial','pfxFocal','pfxTrails','pfxFeedback','pfxEdgeGlow','pfxKaleido','pfxFracCells','pfxFracGap','pfxFracDisp','pfxFracRot','pfxFracBass','pfxFracBeat','pfxFracRecover','pfxFracGlow','pfxFracSeed','pfxFracSize','pfxFracDrift','pfxFracNoise']}
+function _pfxIds(){return['pfxBloom','pfxChroma','pfxContrast','pfxBrightness','pfxSaturation','pfxHue','pfxVignette','pfxScanlines','pfxSharpen','pfxInvert','pfxReflect','pfxBlurX','pfxBlurY','pfxBlurRadial','pfxFocal','pfxTrails','pfxFeedback','pfxEdgeGlow','pfxKaleido','pfxFracCells','pfxFracGap','pfxFracDisp','pfxFracRot','pfxFracBass','pfxFracBeat','pfxFracRecover','pfxFracGlow','pfxFracSeed','pfxFracSize','pfxFracDrift','pfxFracNoise']}
 function _pfxFractIds(){return['pfxFracCells','pfxFracGap','pfxFracDisp','pfxFracRot','pfxFracBass','pfxFracBeat','pfxFracRecover','pfxFracGlow','pfxFracSeed','pfxFracSize','pfxFracDrift','pfxFracNoise']}
 function _pfxBaseIds(){return _pfxIds().filter(function(id){return _pfxFractIds().indexOf(id)<0})}
 function pfxDefault(){var o={enabled:false,pfxFracture:false,pfxFracCells:44,pfxFracGap:30,pfxFracDisp:58,pfxFracRot:34,pfxFracBass:125,pfxFracBeat:150,pfxFracRecover:48,pfxFracGlow:62,pfxFracSeed:17,pfxFracSize:65,pfxFracDrift:45,pfxFracNoise:35,pfxFracMode:'flow'};_pfxBaseIds().forEach(function(id){o[id]=0});return o}
 function _pfxClamp(id,v){var el=document.getElementById(id),mn=el?+el.min:0,mx=el?+el.max:100;if(!isFinite(v))v=0;return Math.max(mn,Math.min(mx,Math.round(v)))}
 function pfxNorm(src){var o=pfxDefault();if(src&&typeof src==='object'){o.enabled=!!src.enabled;o.pfxFracture=!!src.pfxFracture;o.pfxFracMode=src.pfxFracMode==='shatter'?'shatter':'flow';_pfxIds().forEach(function(id){if(src[id]!=null)o[id]=_pfxClamp(id,+src[id])})}return o}
-function pfxActive(fx){if(!fx||!fx.enabled)return false;if(fx.pfxFracture)return true;var ids=_pfxBaseIds();for(var i=0;i<ids.length;i++)if(+fx[ids[i]]>0)return true;return false}
+function pfxActive(fx){if(!fx||!fx.enabled)return false;if(fx.pfxFracture)return true;var ids=_pfxBaseIds();for(var i=0;i<ids.length;i++)if(Math.abs(+fx[ids[i]])>0)return true;return false}
 var layerFx=pfxDefault(),compFx=pfxDefault(),pfxTarget='layer';
 var _layerTrails={};
 var stackMode=true,stackLayouts=[],activeLayerIdx=0;
@@ -5523,8 +5530,8 @@ function applyState(st){
   _layerTrails={};
   if(st.postFx){
     var pfx=st.postFx;
-    // Like v31 (sliders kept their value), keys missing from older saves keep the current composition value.
-    compFx=pfxNorm(Object.assign({},compFx,pfx));
+    // Preserve legacy omitted FX values, but default new color controls to neutral for older saves.
+    compFx=pfxNorm(Object.assign({},compFx,{pfxBrightness:0,pfxSaturation:0,pfxHue:0},pfx));
     var wasOn=!!postFxEnabled;
     var shouldOn=!!pfx.enabled;
     if(wasOn!==shouldOn){
@@ -6076,7 +6083,7 @@ function _pfxRerender(){
   setTimeout(function(){_pfxRenderPending=false;if(!playing&&!liveMode)renderDensity()},0);
 }
 function _pfxLabelId(id){return 'v'+id.charAt(0).toUpperCase()+id.slice(1)}
-function _pfxFmt(id,v){v=Math.round(+v||0);if(id==='pfxFracCells'||id==='pfxFracSeed')return String(v);return v+'%'}
+function _pfxFmt(id,v){v=Math.round(+v||0);if(id==='pfxFracCells'||id==='pfxFracSeed')return String(v);return v+(id==='pfxHue'?'°':'%')}
 function _pfxSyncFractureSwitch(fx){var _sh=fx&&fx.pfxFracMode==='shatter';document.querySelectorAll('#pfxFracModeRow .mbtn').forEach(function(b){b.classList.toggle('on',(b.getAttribute('onclick')||'').indexOf(_sh?"'shatter'":"'flow'")>-1)});document.querySelectorAll('.frac-flow-only').forEach(function(el){el.style.display=_sh?'none':''});var fb=document.getElementById('pfxFracBody');if(fb)fb.style.display=fx&&fx.pfxFracture?'':'none';document.querySelectorAll('#pfxFractureRow .mbtn').forEach(function(b){var oc=b.getAttribute('onclick')||'';b.classList.toggle('on',oc.indexOf('setFractureFx(true')>-1?!!fx.pfxFracture:!fx.pfxFracture)})}
 function syncPfxPanel(){
   var comp=pfxTarget==='comp',fx=_pfxEditFx(),on=comp?!!postFxEnabled:!!layerFx.enabled;
@@ -6145,6 +6152,9 @@ uniform float uBlurX;
 uniform float uBlurY;
 uniform float uBlurRadial;
 uniform float uContrast;
+uniform float uBrightness;
+uniform float uSaturation;
+uniform float uHue;
 uniform float uFocal;
 uniform float uEdgeGlow;
 uniform float uKaleido;
@@ -6162,6 +6172,24 @@ uniform float uFracMode;
 uniform float uFracNoise;
 uniform float uTime;
 uniform vec2 uRes;
+
+vec3 correctColor(vec3 c){
+  if(uBrightness!=0.0)c+=vec3(uBrightness);
+  if(uContrast!=0.0){
+    float gain=uContrast>0.0?1.0+uContrast*3.0:1.0+uContrast;
+    c=max((c-0.5)*gain+0.5,vec3(0.0));
+  }
+  if(uHue!=0.0){
+    vec3 axis=vec3(0.577350269);
+    float cs=cos(uHue),sn=sin(uHue);
+    c=c*cs+cross(axis,c)*sn+axis*dot(axis,c)*(1.0-cs);
+  }
+  if(uSaturation!=0.0){
+    float lum=dot(c,vec3(0.299,0.587,0.114));
+    c=mix(vec3(lum),c,1.0+uSaturation);
+  }
+  return max(c,vec3(0.0));
+}
 
 float rand(vec2 co){return fract(sin(dot(co,vec2(12.9898,78.233)))*43758.5453);}
 float hash11(float p){return fract(sin(p*127.1+uFracSeed*19.19)*43758.5453123);}
@@ -6291,13 +6319,13 @@ void main(){
   // Premultiplied layer: added light (bloom, glow, reflect) also adds coverage; tone ops act on straight colour.
   col.a=clamp(max(col.a,max(col.r,max(col.g,col.b))),0.0,1.0);
   vec3 sc=col.a>0.0001?col.rgb/col.a:vec3(0.0);
-  if(uContrast>0.0){sc=(sc-0.5)*(1.0+uContrast*3.0)+0.5;sc=max(sc,vec3(0.0));}
+  sc=correctColor(sc);
   if(uInvert>0.0){sc=mix(sc,1.0-sc,uInvert);}
   vec3 outRgb=clamp(sc,0.0,1.0)*col.a;
   outRgb+=vec3(1.0,0.92,0.78)*fracGlow*col.a;
   gl_FragColor=vec4(outRgb*fracAlpha,col.a*fracAlpha);
 #else
-  if(uContrast>0.0){col.rgb=(col.rgb-0.5)*(1.0+uContrast*3.0)+0.5;col.rgb=max(col.rgb,vec3(0.0));}
+  col.rgb=correctColor(col.rgb);
   if(uInvert>0.0){
     col.rgb=mix(col.rgb,1.0-col.rgb,uInvert);
   }
@@ -6367,7 +6395,7 @@ function createShaderProg(gl,vsSrc,fsSrc){
   if(!gl.getProgramParameter(p,gl.LINK_STATUS))console.warn('Link:',gl.getProgramInfoLog(p));
   return p;
 }
-// Runs the shader chain of one pipe on srcCv, leaving the result in pipe.cv. fx holds 0-100 slider values.
+// Runs the shader chain of one pipe on srcCv, leaving the result in pipe.cv.
 function _pfxRun(pipe,srcCv,fx){
   var gl=pipe.gl,pfxCv=pipe.cv;
   var postFxProgram=pipe.prog,postFxThreshProg=pipe.thresh,postFxBloomProg=pipe.blur,postFxTexture=pipe.tex;
@@ -6455,6 +6483,9 @@ function _pfxRun(pipe,srcCv,fx){
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uInvert'),invert);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uReflect'),reflect);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uContrast'),contrast);
+  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBrightness'),v('pfxBrightness'));
+  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uSaturation'),v('pfxSaturation'));
+  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uHue'),(+fx.pfxHue||0)*Math.PI/180);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBlurX'),blurX);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBlurY'),blurY);
   gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBlurRadial'),blurRadial);
@@ -6496,7 +6527,7 @@ function applyPostFx(){
 
 // Per-layer FX: trails/feedback history per layer, then the GL chain on the layer canvas. Returns the canvas to
 // composite (the shared layer GL canvas — composite it before the next layer is processed). Off = no cost.
-function _pfxNeedsShader(fx){if(fx&&fx.pfxFracture)return true;var ids=_pfxBaseIds();for(var i=0;i<ids.length;i++){if(ids[i]==='pfxTrails'||ids[i]==='pfxFeedback')continue;if(+fx[ids[i]]>0)return true}return false}
+function _pfxNeedsShader(fx){if(fx&&fx.pfxFracture)return true;var ids=_pfxBaseIds();for(var i=0;i<ids.length;i++){if(ids[i]==='pfxTrails'||ids[i]==='pfxFeedback')continue;if(Math.abs(+fx[ids[i]])>0)return true}return false}
 function _pfxFractureDrive(pipe,fx){
   if(!fx||!fx.pfxFracture)return 0;var now=performance.now(),dt=pipe._fracT?Math.min(0.1,Math.max(0.001,(now-pipe._fracT)/1000)):1/60;pipe._fracT=now;
   var o=window.__agFractureDrive,feat=o?{env:o.bass||0,trans:o.beat||0,onset:(o.beat||0)>0,strength:o.beat||0}:agAudio.frame(analyser);

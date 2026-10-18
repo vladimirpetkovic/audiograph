@@ -80,6 +80,12 @@ Optional per-layer particle overlay that spawns from the actual layout positions
 
 Real-time WebGL shader stack: Bloom · Chromatic Aberration · Vignette · Scanlines · Sharpen · Invert · Reflect · Contrast · Blur (X / Y / Radial) · Focal · Trails · Feedback · Edge Glow · Kaleido.
 
+The **Color correction** section groups Brightness (−100% to +100%), Contrast
+(−100% to +100%), Saturation (−100% grayscale to +200% boost), and Hue (−180° to
++180°). All four default to zero for an unchanged image. They follow the Post FX
+layer/composition scope and are preserved in presets, shared links, undo, and
+morphs. Existing presets keep their original contrast.
+
 ## Preset Morph ★
 
 A signature feature — smoothly blend through a **playlist** of presets:
