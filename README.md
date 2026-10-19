@@ -86,6 +86,22 @@ The **Color correction** section groups Brightness (−100% to +100%), Contrast
 layer/composition scope and are preserved in presets, shared links, undo, and
 morphs. Existing presets keep their original contrast.
 
+## 3D Surface Emitters
+
+In the WebGPU **Particles**, **Fluid**, or **Smoke** layout, choose **Sphere** or
+**3D object** under Emitter / Injectors / Burners. For a custom object, select
+**Load OBJ** (up to 10 MiB). Sampling is weighted by triangle area so dense
+triangulation does not receive more emission than larger faces.
+
+The **3D surface emitter** section controls size and X/Y/Z rotation. Fluid and
+smoke also have **Surface jets**, which controls the number of injection points.
+Existing emitter rotation and emitter spin continue to work.
+
+These are projected 3D surfaces feeding the existing **2D** solvers, not
+volumetric simulations. Particles launch along projected surface normals. The
+sampled OBJ surface is stored per layer with presets, exports, and undo, so
+reopening a composition does not require uploading the original file again.
+
 ## Preset Morph ★
 
 A signature feature — smoothly blend through a **playlist** of presets:

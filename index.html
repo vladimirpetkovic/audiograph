@@ -334,7 +334,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
   .preview-area{overflow:visible;padding:12px;gap:10px}
   .frame-view{height:min(42vh,440px);height:min(42svh,440px);min-height:240px;flex-shrink:0}
 }
-.mode-btns.dense{gap:3px}.mode-btns.dense .mbtn{padding:4px 5px;letter-spacing:0}.sim-status{font-size:.62rem;line-height:1.35;color:var(--muted,#8a8a96);word-break:break-word}.sim-status:not(.bad){display:none}.sim-status.bad{color:#ff8a80}
+.mode-btns.dense{gap:3px}.mode-btns.dense .mbtn{padding:4px 5px;letter-spacing:0}.sim-status,.sim-emitter-note{font-size:.62rem;line-height:1.35;color:var(--muted,#8a8a96);word-break:break-word}.sim-status:not(.bad){display:none}.sim-status.bad,.sim-emitter-note.bad{color:#ff8a80}
 </style>
 </head>
 <body>
@@ -2031,7 +2031,7 @@ function setOutlineStyle(s,btn){pushUndo();outlineStyle=s;btn.parentElement.quer
 var AG_SIM_UF=['dt','time','vw','vh','sw','sh','asp','bmode','visc','dyeDecay','vort','buoy','cool','heat','turb','windx','windy',
 'sub','bass','lowmid','mid','himid','treb','level','onset','onsetAge','emitN','emitType','jet','radius','swirl','spin','kick','dyeAmt',
 'expo','bloom','shade','lightx','lighty','lightI','opac','shadow','ember','tintMode','colorBy','ow','oh','compMode','tintMix',
-'pn','pcursor','pemit','plife','pdrag','pgrav','pcurl','pcscale','pattract','pvort','psize','pbounds','pseed','pglow','ptrail','response','torque','sphase','sstr','rate','erot','bpun','x1','x2','x3','x4','x5','x6','x7','x8','x9','x10','x11','x12','frameN','poleN'];
+'pn','pcursor','pemit','plife','pdrag','pgrav','pcurl','pcscale','pattract','pvort','psize','pbounds','pseed','pglow','ptrail','response','torque','sphase','sstr','rate','erot','bpun','x1','x2','x3','x4','x5','x6','x7','x8','x9','x10','x11','x12','frameN','poleN','emitScale','emitRX','emitRY','emitRZ','surfaceN'];
 var AG_SIM_NF=Math.ceil((64+AG_SIM_UF.length)/4)*4;
 var AG_SIM_HEAD='struct U{spec:array<vec4f,16>,'+AG_SIM_UF.map(function(n){return n+':f32'}).join(',')+',pole:array<vec4f,12>};\n'+`
 @group(0) @binding(0) var<uniform> u:U;
@@ -2047,11 +2047,38 @@ fn psi(p:vec2f)->f32{return pnoise(p)+0.5*pnoise(p*2.03+vec2f(17.1,5.3));}
 fn curlN(p:vec2f)->vec2f{let e=0.05;return vec2f(psi(p+vec2f(0.0,e))-psi(p-vec2f(0.0,e)),-(psi(p+vec2f(e,0.0))-psi(p-vec2f(e,0.0))))/(2.0*e);}
 fn lum(c:vec3f)->f32{return dot(c,vec3f(0.2126,0.7152,0.0722));}
 `;
+var AG_SIM_SURFACE=`
+struct SurfacePoint{pos:vec4f,normal:vec4f};
+fn emitRotate(v:vec3f)->vec3f{
+  let cx=cos(u.emitRX);let sx=sin(u.emitRX);let cy=cos(u.emitRY);let sy=sin(u.emitRY);
+  let cz=cos(u.emitRZ+u.erot);let sz=sin(u.emitRZ+u.erot);
+  let a=vec3f(v.x,v.y*cx-v.z*sx,v.y*sx+v.z*cx);
+  let b=vec3f(a.x*cy+a.z*sy,a.y,-a.x*sy+a.z*cy);
+  return vec3f(b.x*cz-b.y*sz,b.x*sz+b.y*cz,b.z);}
+fn surfacePoint(a:f32,b:f32)->SurfacePoint{
+  var p:vec3f;var n:vec3f;
+  if(u.emitType<4.5){
+    let y=1.0-2.0*b;let r=sqrt(max(0.0,1.0-y*y));let ang=a*2.0*PI;
+    p=vec3f(r*cos(ang),y,r*sin(ang));n=p;
+  }else{
+    if(u.surfaceN<1.0){return SurfacePoint(vec4f(0.0),vec4f(0.0));}
+    let i=min(u32(a*u.surfaceN),u32(u.surfaceN)-1u);
+    p=surfacePts[i].pos.xyz;n=surfacePts[i].normal.xyz;
+  }
+  return SurfacePoint(vec4f(emitRotate(p)*u.emitScale,1.0),vec4f(emitRotate(n),0.0));}
+fn surfaceDir(p:SurfacePoint)->vec2f{
+  var n=p.normal.xy;
+  if(length(n)<0.0001){n=p.pos.xy;}
+  if(length(n)<0.0001){n=vec2f(0.0,-1.0);}
+  return normalize(n);}
+`;
 var AG_SIM_GRID=AG_SIM_HEAD+`
 @group(0) @binding(2) var tA:texture_2d<f32>;
 @group(0) @binding(3) var tB:texture_2d<f32>;
 @group(0) @binding(4) var tC:texture_2d<f32>;
 @group(0) @binding(5) var outT:texture_storage_2d<rgba16float,write>;
+@group(0) @binding(6) var<storage,read> surfacePts:array<SurfacePoint>;
+`+AG_SIM_SURFACE+`
 fn wrapUV(uv:vec2f)->vec2f{if(u.bmode>0.5&&u.bmode<1.5){return fract(uv);}return uv;}
 fn sT(t:texture_2d<f32>,uv:vec2f)->vec4f{return textureSampleLevel(t,smp,wrapUV(uv),0.0);}
 fn texel(t:texture_2d<f32>,c:vec2i)->vec4f{let sz=vec2i(textureDimensions(t));var q=c;if(u.bmode>0.5&&u.bmode<1.5){q=(c+sz)%sz;}else{q=clamp(c,vec2i(0),sz-vec2i(1));}return textureLoad(t,q,0);}
@@ -2072,6 +2099,11 @@ fn emitter(i:u32)->Em{
   let n=max(u.emitN,1.0);let a=(f32(i)+0.5)/n;var e:Em;e.t=a;
   let band=specAt(a);e.amp=band*(1.0+select(3.2,0.7,u.tintMode>0.5)*u.onset*u.response)*(1.0+u.bpun*u.bass*2.2*(1.0-smoothstep(0.0,0.45,a)*0.7)*u.response);
   let smoke=u.tintMode>0.5;let et=u32(u.emitType);let sw=u.swirl;
+  if(et>=4u){
+    let p=surfacePoint(a,fract((f32(i)+0.5)*0.618033989));
+    e.pos=vec2f(0.5)+p.pos.xy*0.5/vec2f(u.asp,1.0);e.dir=surfaceDir(p);
+    e.amp=e.amp*p.pos.w;return e;
+  }
   let ang=a*2.0*PI+u.time*u.spin+u.sphase*0.5+u.erot;let rad=vec2f(cos(ang),sin(ang));let tn=vec2f(-rad.y,rad.x);
   let sw2=sw+u.torque*select(1.4,0.5,smoke);
   if(et==0u){
@@ -2103,8 +2135,8 @@ fn shock(uv:vec2f)->vec4f{ // xy: outward direction (height units), z: ring weig
   {let dd=(uv-vec2f(0.5,select(0.5,0.62,u.tintMode>0.5)))*vec2f(u.asp,1.0);let rr2=length(dd)+1e-3;let fall=exp(-rr2*rr2/0.16);let tg=vec2f(-dd.y,dd.x)/rr2;
    if(u.tintMode>0.5){v=v+vec2f(sin(uv.y*8.0+u.sphase*1.3)*u.torque*0.9+(pnoise(vec2f(uv.y*5.0,u.time*0.4))*u.treb*3.0),0.0)*u.sstr*u.dt*(0.5+u.level)*2.5;}
    else{v=v+(tg*u.torque*3.0*rr2*fall+curlN(uv*5.0+vec2f(u.time*0.3,0.0))*u.treb*14.0*u.sstr)*u.dt;}}
-  if(u.tintMode>0.5){let d=(uv-vec2f(0.5,0.86))*vec2f(u.asp,1.0);v=v+vec2f(0.0,-1.0)*u.onset*u.kick*0.7*exp(-dot(d,d)/0.03)*u.dt;}
-  else{v=v+s.xy*u.onset*u.kick*s.z*u.dt;}
+  if(u.tintMode>0.5&&u.emitType<4.0){let d=(uv-vec2f(0.5,0.86))*vec2f(u.asp,1.0);v=v+vec2f(0.0,-1.0)*u.onset*u.kick*0.7*exp(-dot(d,d)/0.03)*u.dt;}
+  else if(u.tintMode<=0.5){v=v+s.xy*u.onset*u.kick*s.z*u.dt;}
   textureStore(outT,vec2i(g.xy),vec4f(v,0.0,1.0));}
 @compute @workgroup_size(8,8) fn kSplatDye(@builtin(global_invocation_id) g:vec3u){ // tA=scalar, tB=ramp
   let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}
@@ -2114,7 +2146,7 @@ fn shock(uv:vec2f)->vec4f{ // xy: outward direction (height units), z: ring weig
     if(smoke){let add=gs*u.dyeAmt;q.x=q.x+add;q.y=q.y+gs*u.heat*(1.0+u.onset*u.response*0.5);q.z=q.z+add*(0.15+0.85*e.t);}
     else{q=vec4f(q.xyz+rampOf(e.t)*gs*u.dyeAmt,1.0);}}
   let s=shock(uv);
-  if(smoke){let d=(uv-vec2f(0.5,0.86))*vec2f(u.asp,1.0);let gs=exp(-dot(d,d)/0.02)*u.onset*u.dt*u.dyeAmt*0.9;q.x=q.x+gs;q.y=q.y+gs*u.heat*1.2;q.z=q.z+gs*0.6;}
+  if(smoke&&u.emitType<4.0){let d=(uv-vec2f(0.5,0.86))*vec2f(u.asp,1.0);let gs=exp(-dot(d,d)/0.02)*u.onset*u.dt*u.dyeAmt*0.9;q.x=q.x+gs;q.y=q.y+gs*u.heat*1.2;q.z=q.z+gs*0.6;}
   textureStore(outT,vec2i(g.xy),q);}
 @compute @workgroup_size(8,8) fn kBuoy(@builtin(global_invocation_id) g:vec3u){ // tA=vel tB=smoke
   let sz=textureDimensions(tA);if(g.x>=sz.x||g.y>=sz.y){return;}
@@ -2178,6 +2210,8 @@ fn velUV(uv:vec2f)->vec2f{let v=sT(tB,uv).xy;return vec2f(v.x/u.asp,v.y);}
 var AG_SIM_PSTRUCT='struct Part{pos:vec2f,vel:vec2f,life:f32,maxl:f32,seed:f32,col:f32};\n';
 var AG_SIM_PART=AG_SIM_HEAD+AG_SIM_PSTRUCT+`
 @group(0) @binding(2) var<storage,read_write> parts:array<Part>;
+@group(0) @binding(3) var<storage,read> surfacePts:array<SurfacePoint>;
+`+AG_SIM_SURFACE+`
 fn rn(i:u32,k:u32)->f32{return f32(pcg(i*9781u+k*6271u+u32(u.pseed)*26699u+911u))/4294967295.0;}
 @compute @workgroup_size(64) fn pStep(@builtin(global_invocation_id) g:vec3u){
   let i=g.x;let n=u32(u.pn);if(i>=n){return;}
@@ -2189,7 +2223,8 @@ fn rn(i:u32,k:u32)->f32{return f32(pcg(i*9781u+k*6271u+u32(u.pseed)*26699u+911u)
     let et=u32(u.emitType);var pos=vec2f(0.0);var vel=vec2f(0.0);var col=a;
     let bin=specAt(1.0-abs(2.0*a-1.0));let sp=u.jet*(0.25+1.6*bin+0.5*u.onset)*(0.6+0.8*d);
     let ang=a*2.0*PI+u.time*u.spin+u.sphase*0.5+u.erot;let dir=vec2f(cos(ang),sin(ang));let ce=cos(u.erot);let se=sin(u.erot);let tn=vec2f(-dir.y,dir.x);let sw2=u.swirl+u.torque;
-    if(et==0u){pos=dir*(0.42+0.1*bin)*(1.0-0.3*u.bass*u.sstr);vel=dir*sp+tn*sp*sw2*0.5;}
+    if(et>=4u){let p0=surfacePoint(a,b);pos=p0.pos.xy;let nd=surfaceDir(p0);vel=nd*sp+vec2f(-nd.y,nd.x)*sp*sw2*0.5;if(p0.pos.w<0.5){parts[i].life=0.0;return;}}
+    else if(et==0u){pos=dir*(0.42+0.1*bin)*(1.0-0.3*u.bass*u.sstr);vel=dir*sp+tn*sp*sw2*0.5;}
     else if(et==1u){pos=vec2f((a*2.0-1.0)*A*0.92,0.96);vel=vec2f((b-0.5)*0.5*sp,-sp*(0.5+1.0*bin));pos=vec2f(pos.x*ce-pos.y*se,pos.x*se+pos.y*ce);vel=vec2f(vel.x*ce-vel.y*se,vel.x*se+vel.y*ce);}
     else if(et==2u){let r0=0.03*sqrt(b);pos=dir*r0;vel=vec2f(cos(c*6.2831853),sin(c*6.2831853))*sp;col=c;}
     else{let r=0.18+0.6*c;pos=dir*r;vel=tn*(0.35+0.9*bin)/sqrt(r+0.25)*u.jet*0.6;col=c;}
@@ -2928,7 +2963,9 @@ AG_SIM_POST+=`
 var AG_SIM_LAYOUTS=['simparticles','simfluid','simsmoke'];
 function _agIsSim(m){return AG_SIM_LAYOUTS.indexOf(m)>=0}
 var AG_SIM_DEF_OPT={q:'med',step:'normal',auto:'on',pEmit:'ring',pBounds:'wrap',pColor:'spectrum',fEmit:'ring',fBounds:'wall',sEmit:'floor',sBounds:'open'};
-var simOpt=Object.assign({},AG_SIM_DEF_OPT),simUid=0,simIdMax=0;
+var simOpt=Object.assign({},AG_SIM_DEF_OPT),simUid=0,simIdMax=0,simEmitterData=null,simEmitterError='';
+function _simSurfaceLayout(m){return m==='simparticles'||m==='simfluid'||m==='simsmoke'}
+function _simEmitterKey(m){return {simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit'}[m]}
 var AG_SIM_UI={
   common:[['pSimSens','Sensitivity',0,200,100,5,'%','How strongly the sound drives the simulation. Silence always emits nothing.'],
     ['pSimAttack','Attack',5,400,40,5,'ms','How fast the simulation reacts when a band gets louder.'],
@@ -2983,16 +3020,22 @@ var AG_SIM_UI={
     ['pSmOpac','Density',20,300,100,5,'%','How opaque the smoke is.'],
     ['pSmShadow','Self-shadow',0,100,70,1,'%','Smoke shadows itself along the light direction.'],
     ['pSmEmber','Glow',0,100,40,1,'%','Hot smoke emits light.']]};
+AG_SIM_UI.surface=[
+  ['pEmitScale','Emitter size',5,150,65,1,'%','Size of the projected 3D surface, relative to the simulation height.'],
+  ['pEmitRX','Rotate X',-180,180,0,1,'deg','Tilt the emitter surface around the X axis.'],
+  ['pEmitRY','Rotate Y',-180,180,0,1,'deg','Turn the emitter surface around the Y axis.'],
+  ['pEmitRZ','Rotate Z',-180,180,0,1,'deg','Roll the emitter surface in the simulation plane.'],
+  ['pEmitPoints','Surface jets',8,64,32,1,'','Number of surface injection points for fluid and smoke. Particles sample the whole surface.']];
 var AG_SIM_OPTS={
   common:[['q','Quality',[['low','Low'],['med','Medium'],['high','High'],['ultra','Ultra']],'Grid resolution, particle count and render scale.'],
     ['step','Precision',[['fast','Fast'],['normal','Normal'],['fine','Fine']],'Largest time step: 1/30, 1/60 or 1/120 s (sub-stepped when a frame is longer).'],
     ['auto','Budget',[['on','Auto'],['off','Fixed']],'Auto lowers work when the GPU falls behind.']],
-  simparticles:[['pEmit','Emitter',[['ring','Ring'],['fountain','Fountain'],['center','Burst'],['orbit','Orbit']],'Where particles are born; the spectrum shapes their launch.'],
+  simparticles:[['pEmit','Emitter',[['ring','Ring'],['fountain','Fountain'],['center','Burst'],['orbit','Orbit'],['sphere','Sphere'],['obj','3D object']],'Where particles are born; 3D surfaces are projected into the 2D simulation.'],
     ['pBounds','Bounds',[['wrap','Wrap'],['bounce','Bounce'],['open','Open']],'Wrap around, bounce off the frame, or leave it.'],
     ['pColor','Colour by',[['spectrum','Spectrum'],['age','Age'],['speed','Speed']],'What picks the colour from the ramp.']],
-  simfluid:[['fEmit','Injectors',[['ring','Ring'],['line','Line'],['center','Centre']],'Jet arrangement.'],
+  simfluid:[['fEmit','Injectors',[['ring','Ring'],['line','Line'],['center','Centre'],['sphere','Sphere'],['obj','3D object']],'Jet arrangement; 3D surfaces are projected into the 2D simulation.'],
     ['fBounds','Bounds',[['wall','Wall'],['wrap','Wrap'],['open','Open']],'Solid walls, periodic wrap or open edges.']],
-  simsmoke:[['sEmit','Burners',[['floor','Floor'],['ring','Ring'],['center','Plume']],'Burner arrangement.'],
+  simsmoke:[['sEmit','Burners',[['floor','Floor'],['ring','Ring'],['center','Plume'],['sphere','Sphere'],['obj','3D object']],'Burner arrangement; 3D surfaces are projected into the 2D simulation.'],
     ['sBounds','Bounds',[['open','Open'],['wall','Wall'],['wrap','Wrap']],'Open edges let smoke leave; Wall keeps it in.']]};
 var AG_SIM_PRESETS={
   simparticles:[
@@ -3120,7 +3163,7 @@ Object.assign(AG_SIM_PRESETS,{
     ['Line of force',{pFlPoles:8,pFlLines:10},{flMode:'both',flLayout:'line',flPol:'pairs'}]]});
 function simApplyPreset(i){
   if(!_agIsSim(layoutMode))return;var pr=(AG_SIM_PRESETS[layoutMode]||[])[i];if(!pr)return;pushUndo();
-  AG_SIM_UI.common.concat(AG_SIM_UI[layoutMode]||[]).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=pr[1][d[0]]!==undefined?pr[1][d[0]]:d[4]});
+  _simControls(layoutMode).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=pr[1][d[0]]!==undefined?pr[1][d[0]]:d[4]});
   (AG_SIM_COL[layoutMode]||[]).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=pr[1][d[0]]!==undefined?pr[1][d[0]]:d[2]});
   var keep=simOpt;simOpt=Object.assign({},AG_SIM_DEF_OPT,pr[2]);if(keep&&keep.q)simOpt.q=keep.q;if(keep&&keep.spSrc&&pr[2].spSrc===undefined)simOpt.spSrc=keep.spSrc;
   syncSimUI();_simStore();agSim.reset();upP();renderDensity()}
@@ -3276,6 +3319,7 @@ var AG_G3_GROUPS=[
   ['Render FX',['pG3Ao','pG3AoRad','pG3Mb','pG3Dof','pG3Focus']]];
 // Related knobs share one knob row (consecutive rows with the same key are wrapped into one centred grid)
 var AG_KNOB_GROUPS={
+  'emitter-rotation':['pEmitRX','pEmitRY','pEmitRZ'],
   'sim-env':['pSimAttack','pSimRelease'],'smoke-light':['pSmLight','pSmLightI'],'slime-sensor':['pSlSA','pSlSD','pSlTurn'],
   'rd-seed':['pRdSeed','pRdJets','pRdSize'],'wave-src':['pWvJets','pWvSize'],
   'geom-3d':['p3dTilt','p3dRotate'],'geom-spin':['pSpinL','pSpinR'],'lis-freq':['pLisA','pLisB'],'scatter-spread':['pScatterSpreadH','pScatterSpreadV'],
@@ -3309,11 +3353,12 @@ AG_SIM_PRESETS.simcloner=[
 function _simFmt(v,u){v=+v;return u==='%'?v+'%':u==='ms'?v+' ms':u==='s1'?(v/10).toFixed(1)+' s':u==='deg'?v+'\u00b0':u==='p1'?(v/10).toFixed(1)+' px':String(v)}
 function _simStore(){if(stackMode&&stackLayouts.length>0){var i=getActiveLayerIdx();if(i>=0&&stackLayouts[i]){stackLayouts[i].params=getLayoutParams();stackLayouts[i].layout=layoutMode}}}
 function simKnob(el){var d=_simSpecById(el.id);var l=document.getElementById(el.id.replace(/^p/,'v'));if(l&&d)l.textContent=_simFmt(el.value,d[6]);upP()}
+function _simControls(m){return AG_SIM_UI.common.concat(AG_SIM_UI[m]||[],_simSurfaceLayout(m)?AG_SIM_UI.surface:[])}
 function setSimOpt(k,v,btn){if(k==='spMesh'&&v==='obj'&&!objModelData){var of=document.getElementById('pObjFile');if(of)of.click();return}if(k==='spSrc'&&v==='mesh'&&simOpt.spMesh==='obj'&&!objModelData)simOpt.spMesh='knot';if(k==='spSrc'&&v==='file'&&!AG_SPLAT.file){var sf=document.getElementById('splatFile');if(sf)sf.click();return}pushUndo();simOpt[k]=v;syncSimUI();_simStore();renderDensity()}
 function simRestart(){agSim.reset();renderDensity()}
 function simResetSettings(){
   if(!_agIsSim(layoutMode))return;pushUndo();
-  AG_SIM_UI.common.concat(AG_SIM_UI[layoutMode]||[]).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=d[4]});
+  _simControls(layoutMode).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=d[4]});
   (AG_SIM_COL[layoutMode]||[]).forEach(function(d){var e=document.getElementById(d[0]);if(e)e.value=d[2]});
   var keep=simOpt;simOpt=Object.assign({},AG_SIM_DEF_OPT);if(keep&&keep.q)simOpt.q=keep.q;
   syncSimUI();_simStore();agSim.reset();upP();renderDensity()}
@@ -3385,19 +3430,68 @@ function agSplatDemo(kind){
     }
     d[o]=x;d[o+1]=y;d[o+2]=z;d[o+3]=sz;d[o+4]=c[0];d[o+5]=c[1];d[o+6]=c[2];d[o+7]=a}
   return AG_SPLAT.demo[kind]=d}
+function agSurfaceSampler(m){
+  var V=m.verts,F=m.faces,cum=new Float64Array(F.length),total=0;
+  F.forEach(function(f,i){
+    var a=V[f[0]],b=V[f[1]],c=V[f[2]];
+    if(!a||!b||!c)throw new Error('OBJ face references a missing vertex.');
+    var n=[(b[1]-a[1])*(c[2]-a[2])-(b[2]-a[2])*(c[1]-a[1]),(b[2]-a[2])*(c[0]-a[0])-(b[0]-a[0])*(c[2]-a[2]),(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])];
+    total+=Math.hypot(n[0],n[1],n[2]);cum[i]=total;
+  });
+  if(!(total>0)||!isFinite(total))throw new Error('OBJ has no usable surface area.');
+  return function(t,u,v){
+    var lo=0,hi=F.length-1;t*=total;
+    while(lo<hi){var mid=(lo+hi)>>1;if(cum[mid]<=t)lo=mid+1;else hi=mid}
+    var f=F[lo],a=V[f[0]],b=V[f[1]],c=V[f[2]];
+    if(u+v>1){u=1-u;v=1-v}var w=1-u-v;
+    var p=a.map(function(x,j){return x*w+b[j]*u+c[j]*v});
+    var n=[(b[1]-a[1])*(c[2]-a[2])-(b[2]-a[2])*(c[1]-a[1]),(b[2]-a[2])*(c[0]-a[0])-(b[0]-a[0])*(c[2]-a[2]),(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])];
+    var len=Math.hypot(n[0],n[1],n[2]);return {pos:p,normal:n.map(function(x){return x/len})};
+  };
+}
+function agEmitterAsset(mesh,name){
+  var sample=agSurfaceSampler(mesh),r=_agRng(71),points=[];
+  // OBJ normalization reflects Y, so reverse the reflected face winding to preserve outward normals.
+  for(var i=0;i<2048;i++){var p=sample(r(),r(),r());p.pos.concat(p.normal.map(function(x){return -x})).forEach(function(x){points.push(Math.round(x*100000)/100000)})}
+  return {name:String(name||'3D object').slice(0,160),points:points};
+}
+function _simEmitterInfo(){
+  var box=document.getElementById('simSurfaceBox');if(!box)return;
+  var mode=simOpt[_simEmitterKey(layoutMode)],show=_simSurfaceLayout(layoutMode)&&(mode==='sphere'||mode==='obj');
+  box.style.display=show?'':'none';
+  document.getElementById('simEmitterFileRow').style.display=mode==='obj'?'':'none';
+  var jets=document.getElementById('pEmitPoints');if(jets)jets.closest('.prow').style.display=layoutMode==='simparticles'?'none':'';
+  var info=document.getElementById('simEmitterInfo');
+  info.textContent=simEmitterError||(simEmitterData?simEmitterData.name+' \u00b7 '+(simEmitterData.points.length/6).toLocaleString()+' surface samples saved with this layer':'No OBJ loaded. Choose a file to start surface emission.');
+  info.classList.toggle('bad',!!simEmitterError||!simEmitterData);
+}
+async function loadSimEmitterFile(ev){
+  var file=ev.target.files&&ev.target.files[0];ev.target.value='';if(!file)return;
+  var owner=stackLayouts[getActiveLayerIdx()],mode=owner&&owner.layout;
+  if(!_simSurfaceLayout(mode))return;
+  try{
+    if(!/\.obj$/i.test(file.name))throw new Error('Choose an OBJ mesh (.obj).');
+    if(file.size>10*1048576)throw new Error('OBJ is over 10 MiB. Export a simplified mesh.');
+    var mesh=agParseObj(await file.text()),asset=agEmitterAsset(mesh,file.name);
+    if(stackLayouts.indexOf(owner)<0||owner.layout!==mode){_toast('Emitter upload cancelled: its layer changed.');return}
+    pushUndo();owner.params._simEmitter=asset;
+    owner.params._sim=Object.assign({},AG_SIM_DEF_OPT,owner.params._sim);owner.params._sim[_simEmitterKey(mode)]='obj';
+    if(stackLayouts[getActiveLayerIdx()]===owner){simEmitterData=asset;simEmitterError='';simOpt[_simEmitterKey(mode)]='obj';syncSimUI();_simStore()}
+    _captureClean();renderDensity();
+  }catch(e){
+    var message='Could not load emitter: '+e.message;
+    if(stackLayouts[getActiveLayerIdx()]===owner){simEmitterError=message;_simEmitterInfo()}
+    _toast(message);
+  }
+}
 // 3D object -> point cloud: points scattered evenly over the mesh surface (area-weighted), coloured by position
 function agSplatMesh(name){
   var key='mesh:'+name+':'+AG_SPLAT.meshVer;if(AG_SPLAT.demo[key])return AG_SPLAT.demo[key];
   var m=name==='obj'&&objModelData?objModelData:null;
   if(!m){var sv=objBuiltin;objBuiltin=name==='obj'?'knot':name;m=_objActiveModel();objBuiltin=sv}
-  var V=m.verts,F=m.faces,nF=F.length,cum=new Float32Array(nF),tot=0,i,j;
-  for(i=0;i<nF;i++){var f=F[i],a=V[f[0]],b=V[f[1]],c=V[f[2]];if(a&&b&&c){var e1x=b[0]-a[0],e1y=b[1]-a[1],e1z=b[2]-a[2],e2x=c[0]-a[0],e2y=c[1]-a[1],e2z=c[2]-a[2],cx=e1y*e2z-e1z*e2y,cy=e1z*e2x-e1x*e2z,cz=e1x*e2y-e1y*e2x;tot+=Math.sqrt(cx*cx+cy*cy+cz*cz)}cum[i]=tot}
-  var n=140000,d=new Float32Array(n*8),r=_agRng(11);
-  for(i=0;i<n;i++){
-    var t=r()*tot,lo=0,hi=nF-1;while(lo<hi){var mid=(lo+hi)>>1;if(cum[mid]<t)lo=mid+1;else hi=mid}
-    var fc=F[lo],A=V[fc[0]],B=V[fc[1]],C=V[fc[2]];if(!A||!B||!C){A=B=C=[0,0,0]}
-    var u=r(),v=r();if(u+v>1){u=1-u;v=1-v}var w=1-u-v,o=i*8;
-    var x=A[0]*w+B[0]*u+C[0]*v,y=-(A[1]*w+B[1]*u+C[1]*v),z=A[2]*w+B[2]*u+C[2]*v;
+  var sample=agSurfaceSampler(m),n=140000,d=new Float32Array(n*8),r=_agRng(11);
+  for(var i=0;i<n;i++){
+    var p=sample(r(),r(),r()).pos,o=i*8,x=p[0],y=-p[1],z=p[2];
     var col=_agHsv(0.55+0.28*(y*0.5+0.5)+0.12*Math.atan2(z,x)/6.2832,0.6,1);
     d[o]=x;d[o+1]=y;d[o+2]=z;d[o+3]=0.004+r()*0.003;d[o+4]=col[0];d[o+5]=col[1];d[o+6]=col[2];d[o+7]=0.6+r()*0.4}
   return AG_SPLAT.demo[key]=d}
@@ -3490,7 +3584,7 @@ function buildSimPanels(){
   var wrap=document.createElement('div');wrap.innerHTML=html;
   var anchor=ref.nextSibling;while(wrap.firstChild)ref.parentNode.insertBefore(wrap.firstChild,anchor);
   var box=document.createElement('div');box.id='simCommonBox';box.style.cssText='display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:6px;margin-top:2px';
-  box.innerHTML='<div class="sublabel">Sound &amp; quality</div>'+AG_SIM_UI.common.map(_simRow).join('')+AG_SIM_OPTS.common.map(_simOptRow).join('')+
+  box.innerHTML='<details class="g3sec" id="simSurfaceBox" open style="display:none"><summary>3D surface emitter</summary><div class="sim-emitter-note">Surface positions and normals are projected into the 2D simulation.</div><div class="prow prow-stack" id="simEmitterFileRow"><button class="mbtn" onclick="document.getElementById(\'simEmitterFile\').click()">Load OBJ\u2026</button><input type="file" id="simEmitterFile" accept=".obj" onchange="loadSimEmitterFile(event)" style="display:none"><div class="sim-emitter-note" id="simEmitterInfo" role="status"></div></div>'+AG_SIM_UI.surface.map(_simRow).join('')+'</details><div class="sublabel">Sound &amp; quality</div>'+AG_SIM_UI.common.map(_simRow).join('')+AG_SIM_OPTS.common.map(_simOptRow).join('')+
     '<div class="prow prow-stack"><span class="prow-label">Simulation</span><div class="mode-btns grow-btns"><button class="mbtn" onclick="simRestart()" title="Clear this layer\'s simulation state and start again.">Restart</button><button class="mbtn" onclick="simResetSettings()" title="Return every control of this simulation layout to its default (keeps the quality tier).">Reset settings</button><button class="mbtn" id="simReinitBtn" onclick="simReinit()" style="display:none" title="Try to create the WebGPU device again.">Reinitialize GPU</button></div></div>';
   document.getElementById('layoutOpts_simparticles').appendChild(box);
 }
@@ -3498,19 +3592,22 @@ function agSimHost(){var b=document.getElementById('simCommonBox');if(!b)return;
   // The per-frame layer swap changes layoutMode; follow the layer being edited, or the box (and its knobs) would be re-parented mid-drag
   var ul=layoutMode;if(typeof stackMode!=='undefined'&&stackMode&&stackLayouts.length){var ai=getActiveLayerIdx();if(ai>=0&&ai<stackLayouts.length)ul=stackLayouts[ai].layout}
   var m=_agIsSim(ul)?ul:'simparticles';var h=document.getElementById('layoutOpts_'+m);if(h&&b.parentNode!==h)h.appendChild(b);
+  var surface=document.getElementById('simSurfaceBox'),emitter=h&&h.querySelector('[data-simk="'+_simEmitterKey(m)+'"]');
+  if(surface&&emitter&&surface.previousElementSibling!==emitter.closest('.prow'))emitter.closest('.prow').insertAdjacentElement('afterend',surface);
   // The 3D cloner has no fluid-style swirl, emitter rotation, audio contrast or step size
   ['pSimSwirlSnd','pSimRot','pSimReact'].forEach(function(id){var e=document.getElementById(id),r=e&&e.closest('.prow');if(r)r.style.display=(m==='simcloner'||m==='simsplat')?'none':''});
   var sb=b.querySelector('.mbtn[data-simk="step"]'),sr=sb&&sb.closest('.prow');if(sr)sr.style.display=(m==='simcloner'||m==='simsplat')?'none':''}
 function syncSimUI(){
   document.querySelectorAll('.mbtn[data-simk]').forEach(function(b){var sv=simOpt[b.getAttribute('data-simk')];b.classList.toggle('on',b.hasAttribute('data-simmulti')?String(sv||'').split(',').indexOf(b.getAttribute('data-simv'))>=0:sv===b.getAttribute('data-simv'))});
   for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){var e=document.getElementById(d[0]),l=document.getElementById(d[0].replace(/^p/,'v'));if(e&&l)l.textContent=_simFmt(e.value,d[6])});
-  agSimHost();if(typeof _agSplatInfo==='function')_agSplatInfo();if(typeof agSim!=='undefined')agSim.refreshUI()}
+  agSimHost();_simEmitterInfo();if(typeof _agSplatInfo==='function')_agSplatInfo();if(typeof agSim!=='undefined')agSim.refreshUI()}
 buildSimPanels();agApplyKnobGroups();
 function simNewId(){return 1+Math.floor(Math.random()*2147483646)}
 function agSimDefaults(){var o={};if(typeof AG_SIM_UI==='undefined')return o;for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){o[d[0]]=d[4]});for(var c in AG_SIM_COL)AG_SIM_COL[c].forEach(function(d){o[d[0]]=d[2]});return o}
 function agSimApplyParams(p){
   if(typeof AG_SIM_UI==='undefined')return;
   simOpt=Object.assign({},AG_SIM_DEF_OPT,p._sim||{});
+  if(simEmitterData!==(p._simEmitter||null)){simEmitterError='';simEmitterData=p._simEmitter||null}
   simUid=p._simId||0;
   if(_agIsSim(layoutMode)){
     var d=agSimDefaults();for(var id in d){if(!(id in p)){var e=document.getElementById(id);if(e)e.value=d[id]}}
@@ -3572,8 +3669,8 @@ var agSim=(function(){
     var ub=function(vis){return{binding:0,visibility:vis,buffer:{type:'uniform'}}};
     var sm=function(vis){return{binding:1,visibility:vis,sampler:{type:'filtering'}}};
     var L={};
-    L.grid=dev.createBindGroupLayout({entries:[ub(C),sm(C),tex(2,C),tex(3,C),tex(4,C),{binding:5,visibility:C,storageTexture:{access:'write-only',format:'rgba16float',viewDimension:'2d'}}]});
-    L.part=dev.createBindGroupLayout({entries:[ub(C),sm(C),{binding:2,visibility:C,buffer:{type:'storage'}}]});
+    L.grid=dev.createBindGroupLayout({entries:[ub(C),sm(C),tex(2,C),tex(3,C),tex(4,C),{binding:5,visibility:C,storageTexture:{access:'write-only',format:'rgba16float',viewDimension:'2d'}},{binding:6,visibility:C,buffer:{type:'read-only-storage'}}]});
+    L.part=dev.createBindGroupLayout({entries:[ub(C),sm(C),{binding:2,visibility:C,buffer:{type:'storage'}},{binding:3,visibility:C,buffer:{type:'read-only-storage'}}]});
     L.rend=dev.createBindGroupLayout({entries:[ub(V|F),sm(V|F),{binding:2,visibility:V,buffer:{type:'read-only-storage'}},tex(3,V|F)]});
     L.post=dev.createBindGroupLayout({entries:[ub(V|F),sm(F),tex(2,F),tex(3,F),tex(4,F)]});
     L.slime=dev.createBindGroupLayout({entries:[ub(C),sm(C),{binding:2,visibility:C,buffer:{type:'storage'}},tex(3,C)]});
@@ -3687,6 +3784,7 @@ var agSim=(function(){
     var tr=TIERS[simOpt.q]||TIERS.med,dev=G.dev;
     var st={id:id,kind:kind,q:simOpt.q,asp:asp,gAsp:asp,res:[],bgc:{},seen:tick,time:0,steps:0,lastT:0,stepFrame:-1,spec:new Float32Array(64),bands:new Float32Array(6),level:0,kick:0,since:6,oid:raw.onsetId,carry:0,cursor:0,emitted:0,dirty:true,ramp:'',lastDt:0,subs:0,tr:tr,t0:now()};
     st.U=new Float32Array(AG_SIM_NF+48);st.ub=dev.createBuffer({size:(AG_SIM_NF+48)*4,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+    st.surfaceBuf=dev.createBuffer({size:32,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
     st.rampTex=dev.createTexture({size:[256,1],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST});st.rampV=st.rampTex.createView();
     st.cv=document.createElement('canvas');st.cx=st.cv.getContext('webgpu');
     st.cx.configure({device:dev,format:G.fmt,alphaMode:'premultiplied'});
@@ -3720,6 +3818,7 @@ var agSim=(function(){
   function disposeState(st,lost){
     delete ST[st.id];S.disposed++;
     if(lost)return;
+    st.surfaceBuf.destroy();
     try{if(st.spbuf)st.spbuf.destroy();if(st.spdp)st.spdp.destroy();if(st.camU)st.camU.destroy();if(st.camT)st.camT.t.destroy()}catch(e){}
     try{st.res.forEach(function(t){t.destroy()});if(st.pbuf)st.pbuf.destroy();if(st.sbuf)st.sbuf.destroy();if(st.ibuf)st.ibuf.destroy();if(st.cub)st.cub.destroy();if(st.g3ms)st.g3ms.destroy();if(st.g3dp)st.g3dp.destroy();if(st.g3fm)st.g3fm.destroy();if(st.g3c)st.g3c.destroy();if(st.g3f)st.g3f.destroy();if(st.g3nm)st.g3nm.destroy();if(st.g3nt)st.g3nt.destroy();if(st.g3ao)st.g3ao.destroy();if(st.ipv)st.ipv.destroy();if(st.ebuf)st.ebuf.destroy();if(st.g3pu)st.g3pu.destroy();st.ub.destroy();st.rampTex.destroy();st.cx.unconfigure()}catch(e){err(e)}
     st.res=[];st.cv.width=st.cv.height=1}
@@ -3741,7 +3840,7 @@ var agSim=(function(){
   function bgG(st,a,b,c,o){
     var key=[a&&a.id,b&&b.id,c&&c.id,o.id].join(',');if(st.bgc[key])return st.bgc[key];
     var V=function(x){return x?x.v:G.dummyV};
-    return st.bgc[key]=G.dev.createBindGroup({layout:G.P.L.grid,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:V(a)},{binding:3,resource:V(b)},{binding:4,resource:V(c)},{binding:5,resource:o.v}]})}
+    return st.bgc[key]=G.dev.createBindGroup({layout:G.P.L.grid,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:V(a)},{binding:3,resource:V(b)},{binding:4,resource:V(c)},{binding:5,resource:o.v},{binding:6,resource:{buffer:st.surfaceBuf}}]})}
   function dg(st,enc,name,a,b,c,o,w,h){
     var bg=bgG(st,a,b,c,o),p=enc.beginComputePass();p.setPipeline(G.P[name]);p.setBindGroup(0,bg);p.dispatchWorkgroups(Math.ceil((w||o.w)/8),Math.ceil((h||o.h)/8));p.end();S.dispatches++}
   function bgP(st,x,y,z){
@@ -3757,6 +3856,22 @@ var agSim=(function(){
   function knobs(st){
     var k={sens:K('pSimSens',100)/100,attack:K('pSimAttack',40)/1000,release:K('pSimRelease',350)/1000,burst:K('pSimBurst',100)/100,react:K('pSimReact',30)/100,tilt:K('pSimTilt',0)/100,speed:K('pSimSpeed',100)/100,expo:Math.pow(2,K('pSimExpo',-100)/100),bloom:K('pSimBloom',0)/100,gain:Math.max(0,getIntensity()),swirlSnd:K('pSimSwirlSnd',100)/100};
     k.maxStep=STEPS[simOpt.step]||STEPS.normal;return k}
+  function surfaceUniforms(st,o){
+    var key={particles:'pEmit',fluid:'fEmit',smoke:'sEmit'}[st.kind],mode=key&&simOpt[key],asset=mode==='obj'?simEmitterData:null;
+    if(asset&&st.surfaceAsset!==asset){
+      var pts=asset.points;
+      if(!Array.isArray(pts)||pts.length<6||pts.length%6||pts.length>2048*6||!pts.every(function(x){return typeof x==='number'&&isFinite(x)}))throw new Error('Invalid saved OBJ emitter surface. Load the OBJ again.');
+      var n=pts.length/6,d=new Float32Array(n*8);
+      for(var i=0;i<n;i++){d.set(pts.slice(i*6,i*6+3),i*8);d.set(pts.slice(i*6+3,i*6+6),i*8+4)}
+      var buf=G.dev.createBuffer({size:d.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+      G.dev.queue.writeBuffer(buf,0,d);st.surfaceBuf.destroy();st.surfaceBuf=buf;st.surfaceAsset=asset;st.bgc={};
+    }
+    o.surfaceN=asset?asset.points.length/6:0;
+    o.emitScale=K('pEmitScale',65)/100;
+    o.emitRX=K('pEmitRX',0)*Math.PI/180;o.emitRY=K('pEmitRY',0)*Math.PI/180;o.emitRZ=K('pEmitRZ',0)*Math.PI/180;
+    if(mode==='sphere'||mode==='obj'){o.emitType=mode==='sphere'?4:5;if(st.kind!=='particles')o.emitN=K('pEmitPoints',32)}
+    st.surfaceCount=o.surfaceN;st.emitType=o.emitType;
+  }
   function baseUniforms(st,k,dt){
     var kd=st.kind,r=st.since,gov=simOpt.auto==='on'?G.gov:1;
     var o={dt:dt,time:st.time,vw:st.gw||0,vh:st.gh||0,sw:st.gw||0,sh:st.gh||0,asp:st.asp,sub:st.bands[0],bass:st.bands[1],lowmid:st.bands[2],mid:st.bands[3],himid:st.bands[4],treb:st.bands[5],level:st.level,onset:st.kick,onsetAge:Math.min(r,4),expo:k.expo,bloom:k.bloom*(gov<0.55?0:1),ow:st.ow,oh:st.oh,pseed:(st.steps*7919)%65521,rate:1,bpun:K('pSimBass',100)/100,erot:(st.erot||0)+K('pSimRot',0)*Math.PI/180+(typeof _objSpinRot!=='undefined'?_objSpinRot:0)+_agSimLayerRot,response:k.react,torque:st.torque||0,sphase:st.sphase||0,sstr:k.swirlSnd};
@@ -3772,6 +3887,7 @@ var agSim=(function(){
       var szs=K('pSpSize',3)*st.oh/1700;
       Object.assign(o,{bmode:bm3,pn:st.pn,pbounds:bm3,emitType:em3,jet:0.75*K('pSpSpeed',10)/100,swirl:K('pSpSwirl',43)/100,spin:0.12*K('pSpSwirl',43)/100,plife:K('pSpLife',30)/10,pdrag:0.08+K('pSpDrag',100)/100*2.4,pgrav:K('pSpGravity',-3)/100*1.6,pcurl:K('pSpTurb',46)/100*1.1,pcscale:1+K('pSpTurbScale',66)/100*5,pattract:K('pSpAttract',0)/100*1.2,pvort:K('pSpSwirl',43)/100*0.5,psize:szs,pglow:0.17*Math.pow(60000/st.pn,0.5),colorBy:cb,compMode:0});
     }
+    surfaceUniforms(st,o);
     var E=K('pSimEnergy',100)/100;o.jet*=E;o.kick=(o.kick||0)*E;if(o.vort!=null)o.vort*=E;if(o.pcurl!=null)o.pcurl*=E;if(o.turb!=null)o.turb*=E;
     return o}
   // ---------- v107: reaction-diffusion, automata, slime mould, lightning, field lines ----------
@@ -4375,10 +4491,11 @@ var agSim=(function(){
       var rate=st.pn/o.plife*0.05*amt*Math.min(1.2,levelDrive*1.05)*gov;
       st.carry+=rate*h+st.kick*h*0*0;
       if(st.burstN){st.carry+=st.burstN;st.burstN=0}
+      if(o.emitType===5&&!o.surfaceN)st.carry=0;
       var n=Math.min(st.pn,Math.floor(st.carry));st.carry-=n;
       o.pemit=n;o.pcursor=st.cursor;st.cursor=(st.cursor+n)%st.pn;st.emitted+=n;
       setU(st,o);upload(st);
-      var bg=dev.createBindGroup({layout:P.L.part,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:{buffer:st.pbuf}}]});
+      var bg=dev.createBindGroup({layout:P.L.part,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:{buffer:st.pbuf}},{binding:3,resource:{buffer:st.surfaceBuf}}]});
       var p=enc.beginComputePass();p.setPipeline(P.pStep);p.setBindGroup(0,bg);p.dispatchWorkgroups(Math.ceil(st.pn/64));p.end();S.dispatches++;
     }else{
       var it=Math.max(6,Math.round((kd==='fluid'?K('pSfIter',24):K('pSmIter',24))*(0.5+0.5*gov)));
@@ -4529,6 +4646,7 @@ var agSim=(function(){
 
 function getLayoutParams(){
   var p={};
+  p._simEmitter=simEmitterData;
   document.querySelectorAll('.layout-opts input').forEach(function(inp){if(inp.type==='file')return;p[inp.id]=(inp.type==='text'||inp.type==='color')?inp.value:+inp.value});
   if(simUid||_agIsSim(layoutMode))p._simId=simUid;p._sim=JSON.parse(JSON.stringify(simOpt));
   p._lines=+document.getElementById('pLines').value;
@@ -4707,7 +4825,7 @@ function initLayers(){
   }
   buildLayersUI();
 }
-function getDefaultLayerParams(){return Object.assign(_agDLP0(),agSimDefaults())}
+function getDefaultLayerParams(){return Object.assign(_agDLP0(),agSimDefaults(),{_simEmitter:null})}
 function _agDLP0(){
   return JSON.parse(JSON.stringify({
     pCircleInner:25,pKalSegments:6,pKalInner:15,pSpiralTurns:5,pSpiralInner:8,pSpiralSpread:88,
@@ -11108,37 +11226,33 @@ var objModelData=null,objBuiltin='knot',_objBuiltinCache={},objSignal='shape',ob
 var _objSpinRot=0; // v35: turntable angle for the 3D object, fed from Spin
 var _objSpawnPts=[]; // {verts:[[x,y,z],...], faces:[[i,j,k],...], normals:[[nx,ny,nz],...]}
 
+function agParseObj(text){
+  var verts=[],faces=[];
+  text.split(/\r?\n/).forEach(function(line,i){
+    var p=line.split('#')[0].trim().split(/\s+/);
+    if(p[0]==='v'){
+      var v=p.slice(1,4).map(Number);
+      if(v.length!==3||!v.every(function(x){return isFinite(x)&&Math.abs(x)<=1e12}))throw new Error('Invalid vertex at OBJ line '+(i+1)+'.');
+      verts.push(v);
+    }else if(p[0]==='f'){
+      var ids=p.slice(1).map(function(s){var v=s.split('/')[0];if(!/^-?\d+$/.test(v)||+v===0)throw new Error('Invalid face at OBJ line '+(i+1)+'.');return +v<0?verts.length+(+v):+v-1});
+      if(ids.length<3)throw new Error('Face needs at least three vertices at OBJ line '+(i+1)+'.');
+      for(var j=1;j<ids.length-1;j++)faces.push([ids[0],ids[j],ids[j+1]]);
+    }
+  });
+  if(verts.length<3||!faces.length)throw new Error('No geometry found in OBJ.');
+  faces.forEach(function(f){if(!f.every(function(i){return i>=0&&i<verts.length}))throw new Error('OBJ face references a missing vertex.')});
+  return _objNormalizeModel(verts,faces);
+}
 function loadObjFile(ev){
   var file=ev.target.files[0];if(!file)return;
   var reader=new FileReader();
   reader.onload=function(e){
-    var text=e.target.result;
-    var verts=[],faces=[];
-    var lines=text.split('\n');
-    for(var i=0;i<lines.length;i++){
-      var parts=lines[i].trim().split(/\s+/);
-      if(parts[0]==='v'&&parts.length>=4){
-        verts.push([parseFloat(parts[1]),parseFloat(parts[2]),parseFloat(parts[3])]);
-      }else if(parts[0]==='f'&&parts.length>=4){
-        // Face indices (OBJ is 1-based, may have v/vt/vn format)
-        var ids=[];
-        for(var j=1;j<parts.length;j++){
-          var idx=parseInt(parts[j].split('/')[0]);
-          if(idx<0)idx=verts.length+idx+1; // relative indexing
-          ids.push(idx-1);
-        }
-        // Triangulate: fan from first vertex
-        for(var j=1;j<ids.length-1;j++){
-          faces.push([ids[0],ids[j],ids[j+1]]);
-        }
-      }
-    }
-    if(verts.length<3||faces.length<1){alert('No geometry found in OBJ');return}
-    var _m=_objNormalizeModel(verts,faces);verts=_m.verts;faces=_m.faces;var normals=_m.normals;
-    objModelData={verts:verts,faces:faces,normals:normals};
+    try{objModelData=agParseObj(e.target.result)}catch(error){alert('Could not load OBJ: '+error.message);return}
     objBuiltin='file';AG_SPLAT.meshVer++;syncObjModelUI();if(layoutMode==='simsplat'){simOpt.spSrc='mesh';simOpt.spMesh='obj';syncSimUI();_simStore()}else if(layoutMode!=='object')setLayout('object',null);
     renderDensity();
   };
+  reader.onerror=function(){alert('Could not read OBJ: '+(reader.error&&reader.error.message||'file read failed'))};
   reader.readAsText(file);
 }
 

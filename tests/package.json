@@ -8,6 +8,7 @@
     "test:growth-resize": "node growth-resize.cjs",
     "test:curves": "node curves.cjs",
     "test:color": "node color-correction.cjs",
+    "test:emitters": "node sim-emitters.cjs",
     "test:tour": "node tour.cjs",
     "bench:particles": "node particles-benchmark.cjs",
     "bench:knobs": "node knobs-bench.cjs"
