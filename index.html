@@ -523,7 +523,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-body">
         <div class="prow prow-stack"><span class="prow-label">Layout</span><div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:420px;min-width:0">
           <div><div class="sublabel">General</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
-          <div id="simulationLayouts"><div class="sublabel">Simulation</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particles</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button><button class="mbtn amber" onclick="setLayout('simrd',this)" title="GPU reaction-diffusion (Gray-Scott): chemicals react and spread into corals, mazes, spots and dividing cells.">Reaction</button><button class="mbtn amber" onclick="setLayout('simslime',this)" title="GPU slime mould (Physarum): thousands of agents lay and follow trails that grow into living networks.">Slime</button><button class="mbtn amber" onclick="setLayout('simcloner',this)" title="WebGPU 3D cloner: instanced 3D objects in a grid, ring or sphere cloud with a sound effector (move, scale, rotate), animated polygons (explode, shrink, spin, ripple) and a material editor (wireframe, shaded, colours, roughness, metallic, transparency).">3D Cloner</button></div></div>
+          <div id="simulationLayouts"><div class="sublabel">Simulation</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particles</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button><button class="mbtn amber" onclick="setLayout('simcloner',this)" title="WebGPU 3D cloner: instanced 3D objects in a grid, ring or sphere cloud with a sound effector (move, scale, rotate), animated polygons (explode, shrink, spin, ripple) and a material editor (wireframe, shaded, colours, roughness, metallic, transparency).">3D Cloner</button></div></div>
           <div><div class="sublabel">3D</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" data-objm="knot" onclick="setObjLayout('knot',this)">Knot</button><button class="mbtn amber" data-objm="cube" onclick="setObjLayout('cube',this)">Cube</button><button class="mbtn amber" data-objm="torus" onclick="setObjLayout('torus',this)">Torus</button></div></div>
           <div><div class="sublabel">Input</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('simsplat',this)" title="WebGPU Gaussian splat viewer: load a .ply / .splat point cloud (or use a demo) and let the music push, ripple, twist and explode it.">Gaussian Splat</button><button class="mbtn amber" onclick="setLayout('pixelwarp',this)">Pixel Warp</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" data-objm="file" onclick="setObjLayout('file',this)">3D Object</button></div></div>
         </div></div>
@@ -2962,6 +2962,12 @@ AG_SIM_POST+=`
 
 // ---- v85 WebGPU simulation layouts: Particle Field, Fluid, Smoke ----
 var AG_SIM_LAYOUTS=['simparticles','simfluid','simsmoke'];
+var agRetiredSimNotice=false;
+function agSimActiveLayout(m){
+  if(m!=='simrd'&&m!=='simslime')return m;
+  if(!agRetiredSimNotice){agRetiredSimNotice=true;_toast('Reaction and Slime were removed. Affected layers now use Particles.')}
+  return 'simparticles';
+}
 function _agIsSim(m){return AG_SIM_LAYOUTS.indexOf(m)>=0}
 var AG_SIM_DEF_OPT={q:'med',step:'normal',auto:'on',pEmit:'ring',pBounds:'wrap',pColor:'spectrum',fEmit:'ring',fBounds:'wall',sEmit:'floor',sBounds:'open',emitColor:'source'};
 var simOpt=Object.assign({},AG_SIM_DEF_OPT),simUid=0,simIdMax=0,simEmitterData=null,simEmitterError='';
@@ -3062,19 +3068,8 @@ var AG_SIM_PRESETS={
     ['Volcano',{pSmHeat:180,pSmBuoy:150,pSmEmit:160,pSmSpeed:50,pSmEmber:85,pSmCool:50,pSmLightI:130,pSimSens:140,pSimReact:60,pSimBurst:160,pSimBass:150,pSimAttack:20,pSimRelease:260,pSimEnergy:115},{sEmit:'center',sBounds:'open'}],
     ['Fog bank',{pSmSpeed:12,pSmEmit:130,pSmHeat:20,pSmBuoy:20,pSmCool:10,pSmDiss:8,pSmOpac:150,pSmVort:30,pSmTurb:20,pSmEmber:0,pSmShadow:40,pSimSens:140,pSimReact:60,pSimBurst:160,pSimBass:150,pSimAttack:20,pSimRelease:260,pSimEnergy:115},{sEmit:'floor',sBounds:'wrap'}]]};
 // ---- v107 simulations: Reaction-diffusion, Cellular automata, Slime mould, Lightning, Field lines ----
-AG_SIM_LAYOUTS.push('simrd','simslime');
-Object.assign(AG_SIM_DEF_OPT,{rdEmit:'ring',rdBounds:'wrap',lfRule:'lenia',lfEmit:'ring',slSpawn:'scatter',slEmit:'ring',boOrigin:'sky',flMode:'lines',flLayout:'ring',flPol:'alternate'});
+Object.assign(AG_SIM_DEF_OPT,{lfRule:'lenia',lfEmit:'ring',boOrigin:'sky',flMode:'lines',flLayout:'ring',flPol:'alternate'});
 Object.assign(AG_SIM_UI,{
-  simrd:[['pRdFeed','Feed',10,80,37,1,'','Gray-Scott feed rate (x0.001). Together with Kill it decides the pattern: spots, stripes, mazes or dividing cells.'],
-    ['pRdKill','Kill',40,75,65,1,'','Gray-Scott kill rate (x0.001).'],
-    ['pRdDiff','Diffusion ratio',20,70,50,1,'%','How fast the second chemical spreads relative to the first. Lower gives finer detail.'],
-    ['pRdSpeed','Speed',1,24,8,1,'','Reaction steps per simulation step.'],
-    ['pRdAudioF','Audio to feed',0,100,30,1,'%','Bass pushes the feed rate, so the pattern morphs with the music.'],
-    ['pRdSeed','Beat seeding',0,100,50,1,'%','How strongly sound drops new chemical seeds that grow into fresh patterns.'],
-    ['pRdJets','Seed points',0,24,6,1,'','Number of spots where sound can inject seeds.'],
-    ['pRdSize','Seed size',2,20,5,1,'%','Size of each injected seed.'],
-    ['pRdContrast','Contrast',20,200,100,5,'%','Tone range of the pattern.'],
-    ['pRdShade','Relief',0,100,60,1,'%','Embossed lighting on the pattern.']],
   simlife:[['pLiSpeed','Speed',1,60,14,1,'/s','Generations per second.'],
     ['pLiR','Lenia radius',3,12,9,1,'','Neighbourhood radius of the smooth Lenia rule.'],
     ['pLiMu','Lenia growth centre',8,40,15,1,'%','Neighbourhood density that makes a cell grow. Bass shifts it.'],
@@ -3087,23 +3082,6 @@ Object.assign(AG_SIM_UI,{
     ['pLiSize','Seed size',2,20,6,1,'%','Size of each seeded patch.'],
     ['pLiAudioMu','Audio to growth',0,100,40,1,'%','Bass shifts the Lenia growth centre.'],
     ['pLiShade','Relief',0,100,60,1,'%','Embossed lighting on Lenia.']],
-  simslime:[['pSlAmount','Agents',10,200,100,5,'%','How many agents crawl. Scales with the quality tier.'],
-    ['pSlSpeed','Agent speed',3,60,12,1,'','How far agents move per step (x0.1 px).'],
-    ['pSlSA','Sensor angle',10,90,40,1,'deg','Angle between the forward and side sensors.'],
-    ['pSlSD','Sensor distance',2,40,12,1,'px','How far ahead agents sniff the trail.'],
-    ['pSlTurn','Turn',5,90,35,1,'deg','How sharply agents steer toward the trail.'],
-    ['pSlEvap','Evaporation',0,100,25,1,'','How fast trails fade.'],
-    ['pSlDiff','Diffusion',0,100,60,1,'%','How much trails spread out.'],
-    ['pSlDep','Deposit',1,100,30,1,'','How much trail each agent leaves.'],
-    ['pSlSpecies','Species',1,3,1,1,'','Independent colonies, each with its own trail colour.'],
-    ['pSlRival','Rivalry',0,100,50,1,'%','How strongly a species avoids other species\u2019 trails.'],
-    ['pSlNoise','Wander',0,100,15,1,'%','Random wobble in the heading.'],
-    ['pSlFood','Audio food',0,100,60,1,'%','Sound drops trail at the food points; agents follow it.'],
-    ['pSlJets','Food points',0,24,8,1,'','Number of spots where sound feeds the colony.'],
-    ['pSlBass','Bass surge',0,100,60,1,'%','Bass speeds the agents up.'],
-    ['pSlKick','Beat push',0,100,40,1,'%','Beats push agents outward from the centre.'],
-    ['pSlSteps','Steps per frame',1,4,1,1,'','Simulation steps per rendered step.'],
-    ['pSlGain','Glow',20,300,100,5,'%','Brightness of the trail.']],
   simbolt:[['pBoRate','Strike rate',0,100,30,1,'','Background strikes per second while the music plays (x0.1).'],
     ['pBoStrikes','Bolts per beat',1,6,2,1,'','Bolts fired on each detected beat.'],
     ['pBoBranch','Branching',0,100,55,1,'%','How many forks each bolt grows.'],
@@ -3124,31 +3102,18 @@ Object.assign(AG_SIM_UI,{
     ['pFlGlow','Pole glow',0,200,100,5,'%','Glow around each magnet.'],
     ['pFlBright','Brightness',20,300,100,5,'%','Overall brightness.']]});
 Object.assign(AG_SIM_OPTS,{
-  simrd:[['rdEmit','Seeds',[['ring','Ring'],['line','Line'],['center','Centre']],'Where sound injects chemical.'],['rdBounds','Edges',[['wrap','Wrap'],['wall','Wall']],'Wrap around or reflect.']],
   simlife:[['lfRule','Rule',[['lenia','Lenia'],['life','Life'],['cyclic','Cyclic']],'Lenia: smooth artificial life. Life: Conway\u2019s Game of Life. Cyclic: spiral waves.'],['lfEmit','Seeds',[['ring','Ring'],['line','Line'],['center','Centre']],'Where sound seeds new cells.']],
-  simslime:[['slSpawn','Start',[['scatter','Scatter'],['ring','Ring'],['center','Centre']],'Where agents start (Restart to apply).'],['slEmit','Food',[['ring','Ring'],['line','Line'],['center','Centre']],'Where sound drops food.']],
   simbolt:[['boOrigin','Origin',[['sky','Sky'],['orb','Orb'],['across','Across']],'Sky: from the top. Orb: radiating from the centre. Across: side to side.']],
   simfield:[['flMode','Draw',[['lines','Lines'],['filings','Filings'],['both','Both']],'Field lines, iron filings or both.'],
     ['flLayout','Layout',[['ring','Ring'],['line','Line'],['orbit','Orbit']],'How the magnets are arranged.'],
     ['flPol','Polarity',[['alternate','Alternate'],['same','Same'],['pairs','Pairs']],'Alternate: N-S-N-S. Same: all repel. Pairs: half north, half south.']]});
 Object.assign(AG_SIM_PRESETS,{
-  simrd:[
-    ['Coral',{pRdFeed:54,pRdKill:62,pRdDiff:50},{rdEmit:'ring',rdBounds:'wrap'}],
-    ['Mitosis',{pRdFeed:37,pRdKill:65,pRdDiff:50},{rdEmit:'center',rdBounds:'wrap'}],
-    ['Labyrinth',{pRdFeed:29,pRdKill:57,pRdDiff:50},{rdEmit:'ring',rdBounds:'wrap'}],
-    ['Solitons',{pRdFeed:30,pRdKill:62,pRdDiff:50,pRdSpeed:10},{rdEmit:'line',rdBounds:'wall'}],
-    ['Leopard',{pRdFeed:26,pRdKill:61,pRdDiff:50,pRdContrast:120},{rdEmit:'ring',rdBounds:'wrap'}]],
   simlife:[
     ['Lenia garden',{pLiR:9,pLiMu:15,pLiSigma:20,pLiSpeed:20},{lfRule:'lenia',lfEmit:'ring'}],
     ['Lenia cells',{pLiR:7,pLiMu:28,pLiSigma:45,pLiSpeed:20},{lfRule:'lenia',lfEmit:'center'}],
     ['Conway bloom',{pLiSpeed:12,pLiTrail:88},{lfRule:'life',lfEmit:'ring'}],
     ['Cyclic spirals',{pLiStates:4,pLiThr:2,pLiSpeed:24},{lfRule:'cyclic',lfEmit:'ring'}],
     ['Cyclic waves',{pLiStates:5,pLiThr:2,pLiSpeed:30},{lfRule:'cyclic',lfEmit:'line'}]],
-  simslime:[
-    ['Neural web',{pSlAmount:100,pSlSA:40,pSlSD:12,pSlTurn:35,pSlEvap:25,pSlDiff:60},{slSpawn:'scatter',slEmit:'ring'}],
-    ['Veins',{pSlSA:25,pSlSD:20,pSlTurn:25,pSlEvap:18,pSlDiff:40,pSlNoise:8},{slSpawn:'ring',slEmit:'ring'}],
-    ['Rival colonies',{pSlSpecies:3,pSlRival:70,pSlSA:35,pSlSD:14,pSlEvap:30},{slSpawn:'scatter',slEmit:'line'}],
-    ['Mycelium bloom',{pSlSA:60,pSlSD:8,pSlTurn:50,pSlEvap:35,pSlDiff:80,pSlKick:70},{slSpawn:'center',slEmit:'center'}]],
   simbolt:[
     ['Thunderstorm',{pBoRate:40,pBoStrikes:2,pBoBranch:60,pBoJag:55},{boOrigin:'sky'}],
     ['Plasma orb',{pBoRate:50,pBoStrikes:3,pBoBranch:35,pBoJag:45,pBoLife:450},{boOrigin:'orb'}],
@@ -3168,7 +3133,7 @@ function simApplyPreset(i){
   var keep=simOpt;simOpt=Object.assign({},AG_SIM_DEF_OPT,pr[2]);if(keep&&keep.q)simOpt.q=keep.q;if(keep&&keep.spSrc&&pr[2].spSrc===undefined)simOpt.spSrc=keep.spSrc;
   syncSimUI();_simStore();agSim.reset();upP();renderDensity()}
 function _simPresetRow(k){return '<div class="prow prow-stack"><span class="prow-label">Presets</span><div class="mode-btns grow-btns" style="flex-wrap:wrap">'+(AG_SIM_PRESETS[k]||[]).map(function(p,i){return '<button class="mbtn" data-simpreset="'+i+'" onclick="simApplyPreset('+i+')">'+p[0]+'</button>'}).join('')+'</div></div>'}
-var AG_SIM_TITLE={simparticles:'Particle field',simfluid:'Fluid',simsmoke:'Smoke',simrd:'Reaction-diffusion',simlife:'Cellular automata',simslime:'Slime mould',simbolt:'Lightning',simfield:'Magnetic field lines'};
+var AG_SIM_TITLE={simparticles:'Particle field',simfluid:'Fluid',simsmoke:'Smoke',simlife:'Cellular automata',simbolt:'Lightning',simfield:'Magnetic field lines'};
 
 // ---- v109 simulations: Wave ripples, Cloth, Gravity ----
 AG_SIM_LAYOUTS.push('simwave','simcloth','simgrav');
@@ -3319,8 +3284,8 @@ var AG_G3_GROUPS=[
   ['Render FX',['pG3Ao','pG3AoRad','pG3Mb','pG3Dof','pG3Focus']]];
 // Related knobs share one knob row (consecutive rows with the same key are wrapped into one centred grid)
 var AG_KNOB_GROUPS={
-  'sim-env':['pSimAttack','pSimRelease'],'smoke-light':['pSmLight','pSmLightI'],'slime-sensor':['pSlSA','pSlSD','pSlTurn'],
-  'rd-seed':['pRdSeed','pRdJets','pRdSize'],'wave-src':['pWvJets','pWvSize'],
+  'sim-env':['pSimAttack','pSimRelease'],'smoke-light':['pSmLight','pSmLightI'],
+  'wave-src':['pWvJets','pWvSize'],
   'geom-3d':['p3dTilt','p3dRotate'],'geom-spin':['pSpinL','pSpinR'],'lis-freq':['pLisA','pLisB'],'scatter-spread':['pScatterSpreadH','pScatterSpreadV'],
   'pfx-blur':['pfxBlurX','pfxBlurY','pfxBlurRadial'],'bass-env':['pBassPunch','pBassRelease'],'deform-wave':['pWave','pWaveFreq'],
   'terrain-view':['pTerrainPersp','pTerrainCam','pTerrainElev'],'sphere-view':['pSpherePersp','pSphereTilt','pSphereElev'],
@@ -4999,6 +4964,7 @@ function selectLayer(idx){
   activeLayerIdx=idx;
   // Load selected layer's settings
   var layer=stackLayouts[idx];
+  layer.layout=agSimActiveLayout(layer.layout);
   layoutMode=layer.layout;
   setLayoutParams(layer.params);
   // Update layout buttons
@@ -5057,7 +5023,7 @@ function startLayoutFade(){
   ov.style.transition='none';ov.style.opacity='1';ov.offsetHeight; // reflow so the transition restarts
   ov.style.transition='opacity .38s ease-out';ov.style.opacity='0';
 }
-function setLayout(m,btn){pushUndo();
+function setLayout(m,btn){var active=agSimActiveLayout(m);if(active!==m)btn=null;m=active;pushUndo();
   if(btn&&!applyingState&&!pmActive&&layoutMode!==m)startLayoutFade();
   if(m==='text'&&typeof syncTextStyleUI==='function')syncTextStyleUI();if(m==='growth'&&typeof syncGrowUI==='function')syncGrowUI();if(m==='sacred'&&typeof syncSacredUI==='function')syncSacredUI();if(m==='graph'&&typeof syncGraphUI==='function')syncGraphUI();if(m==='image'&&typeof syncImgUI==='function')syncImgUI();if(m==='object'&&typeof syncObjModelUI==='function')syncObjModelUI();
   var _is3d=m==='terrain'||m==='sphere'||m==='tetrahedron'||m==='dna'||m==='object';document.getElementById('p3dTiltRow').style.display=_is3d?'':'none';document.getElementById('p3dRotateRow').style.display=_is3d?'':'none';
@@ -5639,6 +5605,7 @@ function getState(){
 }
 // v49: the Sine layout was removed; older saves, links and presets get Linear with the Wave deformer instead.
 function _desine(l){
+  if(l)l.layout=agSimActiveLayout(l.layout);
   if(l&&l.layout==='constellation'){l.layout='sacred';return l} // v58: Stars removed
   if(!l||l.layout!=='sine')return l;
   l.layout='linear';var p=l.params||(l.params={});
@@ -5760,6 +5727,7 @@ function applyPresetToLayer(st){
     presetLayer={layout:st.layoutMode||'linear',opacity:100,params:legacyParams};
   }
   if(presetLayer&&presetLayer.params)delete presetLayer.params._simId; // presets never carry a simulation id
+  _desine(presetLayer);
   // Also migrate old global sliders into preset layer params if they exist and layer doesn't have them
   if(st.sliders&&presetLayer.params){
     var pm=presetLayer.params;
@@ -13057,7 +13025,7 @@ var agAuto=(function(){
     if(v.dark)o.push('dark');
     return o.length?'Reads: '+o.join(' · '):'No keywords recognised yet: try a tempo, mood, colors or shapes.';
   }
-  var SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl)/],['simsmoke',/\b(smoke|smoky|fog|mist|steam|incense|campfire|cloud|plume)/],['simparticles',/\b(particle field|firework|embers?|sparks?|stardust|confetti|fountain|swarm)/],['simrd',/\b(reaction|diffusion|turing|coral reef|leopard|maze pattern|labyrinth)/],['simslime',/\b(slime|mould|mold|physarum|mycelium|fungus|fungal|veins)/]];
+  var SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl)/],['simsmoke',/\b(smoke|smoky|fog|mist|steam|incense|campfire|cloud|plume)/],['simparticles',/\b(particle field|firework|embers?|sparks?|stardust|confetti|fountain|swarm)/]];
   var LAYOUT_NAMES=['spiral','phyllotaxis','concentric','sphere','growth','circle','tetrahedron','dna','scatter','sacred','graph'];
   // ---- Simulations (WebGPU): at most one per stack, light quality, never on phones or without a real GPU ----
   function simOK(){
@@ -13099,7 +13067,7 @@ var agAuto=(function(){
     var shapes=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted'];
     s.layout=pick(v&&v.layouts,E>60?hotL:calmL,'layout');
     if(!(v&&v.layouts.length)&&simOK()&&Math.random()<(kind==='calm'?0.35:kind==='drop'?0.3:0.22)){
-      var sl=E>60?['simfluid','simparticles','simsmoke','simslime']:['simsmoke','simfluid','simrd','simslime'];s.layout=sl[Math.floor(Math.random()*sl.length)]}s.shape=pick(v&&v.shapes,shapes,'shape');
+      var sl=E>60?['simfluid','simparticles','simsmoke']:['simsmoke','simfluid','simparticles'];s.layout=sl[Math.floor(Math.random()*sl.length)]}s.shape=pick(v&&v.shapes,shapes,'shape');
     if(v){var kw=v.kw,h=v.hit;
       if(v.palette){s.colors=kw.colors.slice();if(match<100&&kind!=='calm'&&kind!=='drop'&&s.colors.length>2){var c=s.colors.slice(1);for(var n=Math.floor(r()*c.length);n>0;n--)c.push(c.shift());s.colors=[s.colors[0]].concat(c)}}
       if(h.growth)s.growth=kw.growth;if(h.symmetry)s.symmetry=kw.symmetry;if(h.particles)s.particles=kw.particles;
@@ -13327,7 +13295,7 @@ try{loadFromHash()}catch(e){}
 <p>The Layout row in <strong>Appearance</strong> decides how sound becomes shape. Each layout's own settings appear in the framed box right under the picker.</p>
 <ul>
 <li><strong>General</strong> — Linear, Circle, Concentric, Spiral, Phyllotaxis, Fractal (audio-driven tree), Scatter, <strong>Harmonic</strong> (Lissajous figure), <strong>Sacred</strong> (Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, Star 64, Vector Equilibrium, Torus: audio lines follow the figure's circles and edges; <em>Map</em> Along flows the spectrum through it, Shapes gives each circle/edge its own band; <em>Lines</em> Across or Along the paths; <em>Outline</em> shows the figure underneath, <em>Breathe</em> swells each ring with its band, <em>Bloom</em> unfolds the figure from the middle as the music gets louder), <strong>Graph</strong> (an Obsidian-style network: hubs, clusters and loose notes in a live force layout; audio lines run along the links, nodes are sized by their links and swell with their band; <em>Pulse</em> makes kicks push the graph apart, <em>Drift</em> keeps it moving, <em>Shuffle</em> builds a new network; Nodes, Hubs, Links, Loose, Map, Lines, Outline and Bloom), and <strong>Growth</strong>: living Vine or Coral simulations with Life, Trail, line type, Thickness, vine Direction (Bottom / Top / Center) and Neuron count. <strong>Noise</strong> shapes the linework: Coral branches meander with rough, organic edges, swell and pinch along their length, grow small knobs and fork unevenly — while the coral still grows from the same spot; Vine gets a gentle wobble. Set it to 0 for the old, perfectly regular coral.</li>
-<li><strong>Simulation</strong> (WebGPU) — Particles, Fluid, Smoke, <strong>Reaction</strong> (Gray–Scott chemistry: corals, mazes, spots), <strong>Slime</strong> (Physarum agents growing trail networks, up to 3 colonies), and <strong>3D Cloner</strong> (WebGPU-instanced 3D objects in X/Y/Z arrays, rings or sphere clouds; sound drives each clone's move, scale and rotation and animates the polygons themselves; material editor with solid, wireframe or edges, colours, roughness, metallic and transparency). Sound injects energy at seed points; each layout has presets, a Quality tier and an automatic budget.</li>
+<li><strong>Simulation</strong> (WebGPU) — Particles, Fluid, Smoke, and <strong>3D Cloner</strong> (WebGPU-instanced 3D objects in X/Y/Z arrays, rings or sphere clouds; sound drives each clone's move, scale and rotation and animates the polygons themselves; material editor with solid, wireframe or edges, colours, roughness, metallic and transparency). Particles, Fluid, and Smoke can emit from an image or webcam and pick up source colors. Each layout has presets, a Quality tier and an automatic budget.</li>
 <li><strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus. Drag the visuals to orbit; 3D Tilt / Rotate are in Geometry. Every 3D layout has a <strong>Signal</strong> switch: <em>Shape</em> pushes the mesh with the audio, while <em>Surface</em> keeps the geometry fixed and moves the audio over its skin as lines in any Style. Flow sets the pattern (Rings, Sweep, Spiral, Scatter), Lines sets the direction (Across or Along), and Travel, Count, Wire and Back tune it. On Terrain, Elevation and Noise shape the fixed landscape. In Shape mode, marker styles (Pins, Numbers, …) keep a faint wire underneath and stand out of the surface on every 3D layout.</li>
 <li><strong>Input</strong> — <strong>Gaussian Splat</strong>: load a 3DGS <code>.ply</code> / <code>.splat</code> (or a plain point-cloud .ply) use a demo cloud, or turn any 3D object (Knot, Cube, Torus or your own .obj) into a point cloud; set <strong>Walkthrough</strong> (Fly through, Spiral, Glide) to fly the camera through the inside of the cloud; pick any mix of interactions (Pulse, Ripple, Equalizer, Explode, Flow, Twist, Wave, Reveal) and colour by original, height, distance or sound. <strong>Image</strong>: <em>Import raster</em> (PNG/JPG) becomes a brightness map drawn as Grid lines, Edge scans or an <em>LED</em> equalizer inside the picture (like Text LED); <em>Import vector</em> (SVG) traces the drawing's paths with audio lines exactly like Sacred (Map, Lines, Outline, Breathe, Bloom). <strong>Video</strong> (file or camera) becomes a brightness map drawn with lines; <strong>Pixel Warp</strong> keeps the real image colours and pushes pixels or a mesh with the music; <strong>Text</strong> (LED equalizer or scan lines); <strong>Math</strong> (your own formula); <strong>3D Object</strong> (load an .OBJ).</li>
 </ul>

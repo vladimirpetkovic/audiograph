@@ -250,7 +250,7 @@ const { open } = require('./gpu-common.cjs');
     await page.evaluate(() => { simEmitterData = null; _simStore(); setSimOpt('pEmit', 'image'); agSim.reset(); renderDensity(); });
     await feed(20);
     assert.equal(await page.evaluate(() => Object.values(agSim.stats().layers)[0].emitted), 0, 'missing image never falls back');
-    for (const mode of ['simparticles', 'simfluid', 'simsmoke', 'simrd', 'simslime', 'simwave', 'simcloner', 'simsplat']) {
+    for (const mode of ['simparticles', 'simfluid', 'simsmoke', 'simwave', 'simcloner', 'simsplat']) {
       await page.evaluate(mode => { setLayout(mode); setSimOpt('q', 'low'); agSim.reset(); renderDensity(); }, mode);
       await feed(4); assert.deepEqual(await page.evaluate(() => agSim.stats().errors), [], mode + ' pipeline compatibility');
     }
