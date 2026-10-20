@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Audiograph Pro · Prototype</title>
+  <link rel="stylesheet" href="./studio.css">
+</head>
+<body>
+  <header>
+    <a class="wordmark" href="../">Audiograph <strong>Pro</strong></a>
+    <span class="badge">Prototype</span>
+    <div class="toolbar">
+      <button id="undo" title="Undo (⌘/Ctrl Z)">Undo</button>
+      <button id="redo" title="Redo (⌘/Ctrl Shift Z)">Redo</button>
+      <button id="save">Save browser</button>
+      <button id="restore">Restore</button>
+      <button id="export">Export JSON</button>
+      <label class="button">Import JSON<input id="import" type="file" accept=".json,application/json" hidden></label>
+      <button id="helpButton">Help</button>
+    </div>
+  </header>
+  <main>
+    <aside class="library">
+      <h2>Node library</h2>
+      <p>Drag into the graph, or click to add.</p>
+      <div id="library"></div>
+      <div class="legend"><span class="control-dot"></span> Number / control<br><span class="image-dot"></span> Image / texture</div>
+      <a class="normal-link" href="../">Open Audiograph</a>
+    </aside>
+    <section class="preview-region">
+      <div class="section-head"><h2>Preview</h2><span id="backend">Starting engine…</span><button id="pause">Pause</button></div>
+      <div class="preview-stage"><canvas id="preview" width="960" height="540" aria-label="Composited visual preview"></canvas></div>
+      <div class="transport">
+        <label class="button">Load audio<input id="audioFile" type="file" accept="audio/*" hidden></label>
+        <button id="play">Play</button><button id="stop">Stop</button>
+        <span id="audioName">Oscillator demo · no microphone access</span>
+        <meter id="audioMeter" min="0" max="1" value="0" aria-label="Shared audio level"></meter>
+      </div>
+    </section>
+    <aside class="inspector">
+      <h2>Selected node</h2><div id="properties"><p>Select a node to edit its properties.</p></div>
+      <section class="layers"><div class="section-head"><h2>Layer graphs</h2><button id="addLayer">+ Layer</button></div><div id="layers"></div></section>
+    </aside>
+    <section class="graph-region">
+      <div class="section-head"><h2 id="graphName">Layer graph</h2><span>Click an output, then an input to connect. Click a wire to remove.</span><button id="zoomOut" aria-label="Zoom out">−</button><button id="zoomIn" aria-label="Zoom in">+</button><button id="fit">Reset view</button></div>
+      <div id="graphViewport" tabindex="0" aria-label="Editable node graph. Drag empty space to pan. Delete removes selected node.">
+        <div id="graphWorld"><svg id="wires" aria-label="Graph connections"></svg><div id="nodes"></div></div>
+      </div>
+    </section>
+  </main>
+  <footer><span id="status" role="status" aria-live="polite">Ready</span><span id="selectionHint">Independent layer graphs · typed connections</span></footer>
+  <dialog id="help">
+    <h2>Audiograph Pro <span class="badge">Prototype</span></h2>
+    <p>A separate node-based studio, using the real Audiograph renderers. Each Emitter runs in an isolated same-origin engine frame. Simulations use native WebGPU; other emitters use Audiograph’s WebGL / Canvas renderer. Effects and final compositing use Canvas 2D, not a zero-copy GPU pipeline.</p>
+    <h3>Working in this slice</h3>
+    <p>Numeric controls, oscillators, shared audio bands, mapping, reusable Emitters, image effects, branching, blending, four layer graphs, opacity, visibility, undo / redo and validated JSON projects. Drag nodes, pan empty space and zoom with the buttons or wheel. Output must receive an image.</p>
+    <p>All current General, 3D, Input and Simulation emitters are reused. Emitter properties deliberately expose only a subset. Input files must be loaded explicitly; Gaussian Splat uses the built-in demo. Math uses Audiograph’s built-in expression only; custom code is not accepted.</p>
+    <h3>Not included</h3>
+    <p>Feedback connections, arbitrary solver internals, microphone / camera, MIDI / OSC, morphing, Autopilot, projection mapping, video export and full Audiograph control parity. Maximum four Emitters per project keeps isolated GPU contexts bounded.</p>
+    <p>Saved projects contain graphs and parameters, not audio, images, video or OBJ files. Reload external media after importing or reloading. Undoing an Emitter deletion also requires reloading its media. Pause freezes visuals, not audio; Stop stops audio.</p>
+    <p>The normal app stays independent. No uploads, remote services or automatic device permissions.</p>
+    <button id="closeHelp">Back to studio</button>
+  </dialog>
+  <div id="engines" aria-hidden="true"></div>
+  <script type="module" src="./studio.js"></script>
+</body>
+</html>
