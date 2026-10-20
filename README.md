@@ -86,21 +86,30 @@ The **Color correction** section groups Brightness (−100% to +100%), Contrast
 layer/composition scope and are preserved in presets, shared links, undo, and
 morphs. Existing presets keep their original contrast.
 
-## 3D Surface Emitters
+## Image and Webcam Emitters
 
-In the WebGPU **Particles**, **Fluid**, or **Smoke** layout, choose **Sphere** or
-**3D object** under Emitter / Injectors / Burners. For a custom object, select
-**Load OBJ** (up to 10 MiB). Sampling is weighted by triangle area so dense
-triangulation does not receive more emission than larger faces.
+In WebGPU **Particles**, **Fluid**, or **Smoke**, choose **Image** or **Webcam**
+under Emitter / Injectors / Burners. Image replaces the former Sphere and OBJ
+emitters; old compositions using those emitters restore the default arrangement
+with a notice. The separate 3D Object and Gaussian Splat layouts are unchanged.
 
-The **3D surface emitter** section controls size and X/Y/Z rotation. Fluid and
-smoke also have **Surface jets**, which controls the number of injection points.
-Existing emitter rotation and emitter spin continue to work.
+Select **Load image** for a raster image (up to 10 MiB). Brighter, non-transparent
+pixels emit more; black and transparent pixels emit nothing. Image aspect ratio
+is preserved. **Emitter size** sets the longest edge relative to the simulation
+height; **Rotation** turns the source in the simulation plane. Fluid and smoke
+also have **Source jets** to set their number of injection points.
 
-These are projected 3D surfaces feeding the existing **2D** solvers, not
-volumetric simulations. Particles launch along projected surface normals. The
-sampled OBJ surface is stored per layer with presets, exports, and undo, so
-reopening a composition does not require uploading the original file again.
+For **Webcam**, click **Start camera** and grant browser permission (HTTPS or
+localhost required). Shape and colors update from the live feed, sampled at up
+to 10 Hz. **Source colors** picks up the image/camera colors; **Palette** uses
+Audiograph's palette instead. Particles retain their sampled color as they move;
+fluid transports colored dye, and smoke transports its source tint.
+
+The emitter uses the existing shared Webcam feed, processed locally without
+uploading camera frames. **Stop camera** also stops other effects using that
+feed. Camera access is never started automatically by presets or imports.
+Sampled image positions and colors are saved per layer with presets, exports,
+and undo; live camera frames and camera permission are not saved.
 
 ## Preset Morph ★
 
