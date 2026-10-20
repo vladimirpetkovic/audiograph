@@ -203,9 +203,9 @@ const { open } = require('./gpu-common.cjs');
     await page.locator('#simEmitterCameraBtn').click();
     await page.waitForFunction(() => camActive && camVideo.readyState >= 2 && agEmitterCameraFrame()?.points[2] === 1);
     assert.ok(await page.evaluate(() => !__cameraConstraints.audio), 'camera never requests microphone input');
-    for (const mode of ['simparticles', 'simfluid', 'simsmoke']) {
+    for (const mode of ['simparticles', 'simfluid', 'simsmoke', 'simboids', 'simsand']) {
       await page.evaluate(mode => { setLayout(mode); setSimOpt('q', 'low'); setSimOpt(_simEmitterKey(mode), 'camera'); setSimOpt('emitColor', 'source'); }, mode);
-      await edit({ pSimEnergy: mode === 'simparticles' ? 0 : 100, pSimReact: 0, pSimSwirlSnd: 0, pSpGravity: 0, pSpSwirl: 0, pSpTrail: 0, pSpLife: 80, pSpAmount: 200, pSpSize: 8, pEmitRZ: 0, pEmitScale: 65, pSimExpo: 0 });
+      await edit({ pSimEnergy: mode === 'simparticles' ? 0 : 100, pSimReact: 0, pSimSwirlSnd: 0, pSpGravity: 0, pSpSwirl: 0, pSpTrail: 0, pSpLife: 80, pSpAmount: 200, pSpSize: 8, pBdSpeed: 0, pEmitRZ: 0, pEmitScale: 65, pSimExpo: 0 });
       await page.evaluate(() => { agSim.reset(); renderDensity(); });
       await feed(110); const red = await pixels();
       assert.ok(red.lit > 100 && red.red > 0.9, mode + ' camera red: ' + JSON.stringify(red));
@@ -239,7 +239,7 @@ const { open } = require('./gpu-common.cjs');
     await page.evaluate(() => { setLayout('simparticles'); setSimOpt('pEmit', 'camera'); agSim.reset(); renderDensity(); });
     await feed(20);
     assert.equal(await page.evaluate(() => Object.values(agSim.stats().layers)[0].emitted), 0, 'black camera frame emits nothing');
-    console.log('ok webcam: browser permission, denial, track cleanup, privacy, live RGB changes and palette overrides in all three sims');
+    console.log('ok webcam: browser permission, denial, track cleanup, privacy, live RGB changes and palette overrides in all five source-driven sims');
 
     await page.evaluate(() => {
       stopCam(); navigator.mediaDevices.getUserMedia = __getUserMedia;
@@ -250,7 +250,7 @@ const { open } = require('./gpu-common.cjs');
     await page.evaluate(() => { simEmitterData = null; _simStore(); setSimOpt('pEmit', 'image'); agSim.reset(); renderDensity(); });
     await feed(20);
     assert.equal(await page.evaluate(() => Object.values(agSim.stats().layers)[0].emitted), 0, 'missing image never falls back');
-    for (const mode of ['simparticles', 'simfluid', 'simsmoke', 'simwave', 'simcloner', 'simsplat']) {
+    for (const mode of ['simparticles', 'simfluid', 'simsmoke', 'simboids', 'simsand', 'simferro', 'simwave', 'simcloner', 'simsplat']) {
       await page.evaluate(mode => { setLayout(mode); setSimOpt('q', 'low'); agSim.reset(); renderDensity(); }, mode);
       await feed(4); assert.deepEqual(await page.evaluate(() => agSim.stats().errors), [], mode + ' pipeline compatibility');
     }

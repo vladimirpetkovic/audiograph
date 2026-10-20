@@ -419,7 +419,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         </div>
         <p class="map-help" id="mapSourceHelp"></p>
         <div class="map-controls" id="mapSpanLayouts" style="display:none">
-          <span class="map-help">Shared source layout</span>
+          <span class="map-help">Shared source emitter</span>
           <button class="mbtn" onclick="projectionMap.layoutSpan('horizontal')">Horizontal</button>
           <button class="mbtn" onclick="projectionMap.layoutSpan('vertical')">Vertical</button>
           <button class="mbtn" onclick="projectionMap.layoutSpan('seamlessCube')">Seamless cube</button>
@@ -521,9 +521,9 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     <div class="panel" id="panelAppear">
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><button class="panel-rand" onclick="event.stopPropagation();randAppearance()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
-        <div class="prow prow-stack"><span class="prow-label">Layout</span><div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:420px;min-width:0">
+        <div class="prow prow-stack"><span class="prow-label">Emitters</span><div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:420px;min-width:0">
           <div><div class="sublabel">General</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
-          <div id="simulationLayouts"><div class="sublabel">Simulation</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particles</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button><button class="mbtn amber" onclick="setLayout('simcloner',this)" title="WebGPU 3D cloner: instanced 3D objects in a grid, ring or sphere cloud with a sound effector (move, scale, rotate), animated polygons (explode, shrink, spin, ripple) and a material editor (wireframe, shaded, colours, roughness, metallic, transparency).">3D Cloner</button></div></div>
+          <div id="simulationLayouts"><div class="sublabel">Simulation</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particles</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button><button class="mbtn amber" onclick="setLayout('simboids',this)" title="GPU flocking: neighboring agents align, gather and avoid one another. Music steers the flock and scatters it on beats.">Boids</button><button class="mbtn amber" onclick="setLayout('simsand',this)" title="GPU falling sand: colored grains accumulate, slide into piles and scatter on beats. Supports image and webcam colors.">Granular Sand</button><button class="mbtn amber" onclick="setLayout('simferro',this)" title="GPU ferrofluid-inspired surface: a dynamic 2.5D height field with moving magnets, sound-driven spikes and metallic lighting. Not a volumetric fluid solver.">Ferrofluid</button><button class="mbtn amber" onclick="setLayout('simcloner',this)" title="WebGPU 3D cloner: instanced 3D objects in a grid, ring or sphere cloud with a sound effector (move, scale, rotate), animated polygons (explode, shrink, spin, ripple) and a material editor (wireframe, shaded, colours, roughness, metallic, transparency).">3D Cloner</button></div></div>
           <div><div class="sublabel">3D</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" data-objm="knot" onclick="setObjLayout('knot',this)">Knot</button><button class="mbtn amber" data-objm="cube" onclick="setObjLayout('cube',this)">Cube</button><button class="mbtn amber" data-objm="torus" onclick="setObjLayout('torus',this)">Torus</button></div></div>
           <div><div class="sublabel">Input</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('simsplat',this)" title="WebGPU Gaussian splat viewer: load a .ply / .splat point cloud (or use a demo) and let the music push, ripple, twist and explode it.">Gaussian Splat</button><button class="mbtn amber" onclick="setLayout('pixelwarp',this)">Pixel Warp</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" data-objm="file" onclick="setObjLayout('file',this)">3D Object</button></div></div>
         </div></div>
@@ -881,7 +881,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         <div id="dropParams" style="display:none;flex-direction:column;gap:8px">
           <div class="prow"><span class="prow-label">Sensitivity</span><input type="range" min="1" max="100" value="30" step="1" id="pDropSens" oninput="upP()"><span class="prow-val" id="vDropSens">30</span></div>
           <div class="prow"><span class="prow-label">Intensity</span><div class="mode-btns"><button class="mbtn" onclick="setDropIntensity('subtle',this)">Subtle</button><button class="mbtn on" onclick="setDropIntensity('medium',this)">Medium</button><button class="mbtn" onclick="setDropIntensity('wild',this)">Wild</button></div></div>
-          <div class="prow"><span class="prow-label">Switch</span><div class="mode-btns"><button class="mbtn" onclick="setDropSwitch('layout',this)">Layout</button><button class="mbtn" onclick="setDropSwitch('colors',this)">Colors</button><button class="mbtn" onclick="setDropSwitch('style',this)">Style</button><button class="mbtn" onclick="setDropSwitch('distort',this)">Distort</button></div></div>
+          <div class="prow"><span class="prow-label">Switch</span><div class="mode-btns"><button class="mbtn" onclick="setDropSwitch('layout',this)">Emitter</button><button class="mbtn" onclick="setDropSwitch('colors',this)">Colors</button><button class="mbtn" onclick="setDropSwitch('style',this)">Style</button><button class="mbtn" onclick="setDropSwitch('distort',this)">Distort</button></div></div>
           <div class="prow" style="justify-content:flex-end"><span id="dropIndicator" style="font-size:.5rem;color:var(--tx3)">waiting...</span></div>
         </div>
         <div class="prow" id="rowTwist"><span class="prow-label">Twist</span><input type="range" min="-100" max="100" value="0" step="1" id="pTwist" oninput="upP()"><span class="prow-val" id="vTwist">0</span></div>
@@ -958,9 +958,9 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         <div class="mode-btns auto-tabs" id="autoTabs"><button class="mbtn on" data-tab="pilot" onclick="setAutoTab('pilot')">Autopilot<i class="auto-dot"></i></button><button class="mbtn" data-tab="mixer" onclick="setAutoTab('mixer')">Mixer<i class="auto-dot"></i></button><button class="mbtn" data-tab="reactive" onclick="setAutoTab('reactive')">Reactive<i class="auto-dot"></i></button></div>
         <div class="auto-sec" id="autoSecPilot">
         <div class="prow" id="apEnableRow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="agAuto.start()">On</button><button class="mbtn on" onclick="agAuto.stop()">Off</button></div></div>
-        <textarea id="apVibe" class="ai-prompt" rows="2" placeholder="Describe mood, colors, layout, style and motion. e.g. slow dreamy, blue + gold, spirals, thin lines, gentle spin" oninput="agAuto.setVibe(this.value)"></textarea>
+        <textarea id="apVibe" class="ai-prompt" rows="2" placeholder="Describe mood, colors, emitter, style and motion. e.g. slow dreamy, blue + gold, spirals, thin lines, gentle spin" oninput="agAuto.setVibe(this.value)"></textarea>
         <div class="ap-last" id="apVibeRead"></div>
-        <div class="prow" title="At 100%, Autopilot uses only the layouts and styles you named, cycles them in order, and minimizes random changes. Lower values explore beyond your prompt more often."><span class="prow-label">Prompt match</span><input type="range" min="0" max="100" value="85" step="1" id="apMatch" oninput="agAuto.setMatch(this.value)"><span class="prow-val" id="vApMatch">85%</span></div>
+        <div class="prow" title="At 100%, Autopilot uses only the emitters and styles you named, cycles them in order, and minimizes random changes. Lower values explore beyond your prompt more often."><span class="prow-label">Prompt match</span><input type="range" min="0" max="100" value="85" step="1" id="apMatch" oninput="agAuto.setMatch(this.value)"><span class="prow-val" id="vApMatch">85%</span></div>
         <div class="ap-status"><span id="apSection">Off</span><span class="ap-bar"><span id="apMeter"></span></span><span id="apNext"></span></div>
         <div id="apParams" style="display:none;flex-direction:column;gap:8px">
           <div class="prow" id="apChangesRow" title="Colors: only the palette changes. Mood: palette plus motion, glow and trails on your own layers. Everything: a new generated look of 1–3 layers."><span class="prow-label">Changes</span><div class="mode-btns"><button class="mbtn" onclick="agAuto.setChanges('colors')">Colors</button><button class="mbtn on" onclick="agAuto.setChanges('mood')">Mood</button><button class="mbtn" onclick="agAuto.setChanges('everything')">Everything</button></div></div>
@@ -2031,7 +2031,7 @@ function setOutlineStyle(s,btn){pushUndo();outlineStyle=s;btn.parentElement.quer
 var AG_SIM_UF=['dt','time','vw','vh','sw','sh','asp','bmode','visc','dyeDecay','vort','buoy','cool','heat','turb','windx','windy',
 'sub','bass','lowmid','mid','himid','treb','level','onset','onsetAge','emitN','emitType','jet','radius','swirl','spin','kick','dyeAmt',
 'expo','bloom','shade','lightx','lighty','lightI','opac','shadow','ember','tintMode','colorBy','ow','oh','compMode','tintMix',
-'pn','pcursor','pemit','plife','pdrag','pgrav','pcurl','pcscale','pattract','pvort','psize','pbounds','pseed','pglow','ptrail','response','torque','sphase','sstr','rate','erot','bpun','x1','x2','x3','x4','x5','x6','x7','x8','x9','x10','x11','x12','frameN','poleN','emitScale','emitAngle','sourceN','emitColor'];
+'pn','pcursor','pemit','plife','pdrag','pgrav','pcurl','pcscale','pattract','pvort','psize','pbounds','pseed','pglow','ptrail','response','torque','sphase','sstr','rate','erot','bpun','x1','x2','x3','x4','x5','x6','x7','x8','x9','x10','x11','x12','frameN','poleN','emitScale','emitAngle','sourceN','emitColor','bcols','brows'];
 var AG_SIM_NF=Math.ceil((64+AG_SIM_UF.length)/4)*4;
 var AG_SIM_HEAD='struct U{spec:array<vec4f,16>,'+AG_SIM_UF.map(function(n){return n+':f32'}).join(',')+',pole:array<vec4f,12>};\n'+`
 @group(0) @binding(0) var<uniform> u:U;
@@ -2206,28 +2206,33 @@ fn advDye(g:vec3u,ink:bool){ // MacCormack, tA=scalar tB=vel
   textureStore(outT,vec2i(g.xy),vec4f(exp(-tau*u.shadow*14.0),0.0,0.0,1.0));}
 `;
 var AG_SIM_PSTRUCT='struct Part{pos:vec2f,vel:vec2f,life:f32,maxl:f32,seed:f32,col:f32,sourceColor:vec4f};\n';
+var AG_SIM_BIRTH=`
+fn rn(i:u32,k:u32)->f32{return f32(pcg(i*9781u+k*6271u+u32(u.pseed)*26699u+911u))/4294967295.0;}
+fn born(i:u32)->Part{
+  var p:Part;let A=u.asp;let a=rn(i,1u);let b=rn(i,2u);let c=rn(i,3u);let d=rn(i,4u);
+  let et=u32(u.emitType);var pos=vec2f(0.0);var vel=vec2f(0.0);var col=a;
+  let bin=specAt(1.0-abs(2.0*a-1.0));let sp=u.jet*(0.25+1.6*bin+0.5*u.onset)*(0.6+0.8*d);
+  let ang=a*2.0*PI+u.time*u.spin+u.sphase*0.5+u.erot;let dir=vec2f(cos(ang),sin(ang));let ce=cos(u.erot);let se=sin(u.erot);let tn=vec2f(-dir.y,dir.x);let sw2=u.swirl+u.torque;
+  p.sourceColor=vec4f(0.0);
+  if(et>=4u){let p0=emissionPoint(a);pos=p0.pos.xy;let nd=emissionDir(p0);vel=nd*sp+vec2f(-nd.y,nd.x)*sp*sw2*0.5;p.sourceColor=p0.color;if(p0.pos.w<0.5){return p;}}
+  else if(et==0u){pos=dir*(0.42+0.1*bin)*(1.0-0.3*u.bass*u.sstr);vel=dir*sp+tn*sp*sw2*0.5;}
+  else if(et==1u){pos=vec2f((a*2.0-1.0)*A*0.92,0.96);vel=vec2f((b-0.5)*0.5*sp,-sp*(0.5+1.0*bin));pos=vec2f(pos.x*ce-pos.y*se,pos.x*se+pos.y*ce);vel=vec2f(vel.x*ce-vel.y*se,vel.x*se+vel.y*ce);}
+  else if(et==2u){let r0=0.03*sqrt(b);pos=dir*r0;vel=vec2f(cos(c*6.2831853),sin(c*6.2831853))*sp;col=c;}
+  else{let r=0.18+0.6*c;pos=dir*r;vel=tn*(0.35+0.9*bin)/sqrt(r+0.25)*u.jet*0.6;col=c;}
+  p.pos=pos;p.vel=vel;p.maxl=u.plife*(0.55+0.9*b);p.life=p.maxl;p.seed=d;p.col=col;return p;
+}
+`;
 var AG_SIM_PART=AG_SIM_HEAD+AG_SIM_PSTRUCT+`
 @group(0) @binding(2) var<storage,read_write> parts:array<Part>;
 @group(0) @binding(3) var<storage,read> emitterPts:array<EmissionPoint>;
-`+AG_SIM_SOURCE+`
-fn rn(i:u32,k:u32)->f32{return f32(pcg(i*9781u+k*6271u+u32(u.pseed)*26699u+911u))/4294967295.0;}
+`+AG_SIM_SOURCE+AG_SIM_BIRTH+`
 @compute @workgroup_size(64) fn pStep(@builtin(global_invocation_id) g:vec3u){
   let i=g.x;let n=u32(u.pn);if(i>=n){return;}
   var p=parts[i];let dt=u.dt;let A=u.asp;
   let rel=(i+n-u32(u.pcursor))%n;
   let a0=rn(i,1u);let acc0=mix(1.0,0.7+0.3*min(1.0,specAt(1.0-abs(2.0*a0-1.0))*2.0),0.8*u.response);
   if(rel<u32(u.pemit)&&rn(i,5u)<acc0){
-    let a=a0;let b=rn(i,2u);let c=rn(i,3u);let d=rn(i,4u);
-    let et=u32(u.emitType);var pos=vec2f(0.0);var vel=vec2f(0.0);var col=a;
-    let bin=specAt(1.0-abs(2.0*a-1.0));let sp=u.jet*(0.25+1.6*bin+0.5*u.onset)*(0.6+0.8*d);
-    let ang=a*2.0*PI+u.time*u.spin+u.sphase*0.5+u.erot;let dir=vec2f(cos(ang),sin(ang));let ce=cos(u.erot);let se=sin(u.erot);let tn=vec2f(-dir.y,dir.x);let sw2=u.swirl+u.torque;
-    p.sourceColor=vec4f(0.0);
-    if(et>=4u){let p0=emissionPoint(a);pos=p0.pos.xy;let nd=emissionDir(p0);vel=nd*sp+vec2f(-nd.y,nd.x)*sp*sw2*0.5;p.sourceColor=p0.color;if(p0.pos.w<0.5){parts[i].life=0.0;return;}}
-    else if(et==0u){pos=dir*(0.42+0.1*bin)*(1.0-0.3*u.bass*u.sstr);vel=dir*sp+tn*sp*sw2*0.5;}
-    else if(et==1u){pos=vec2f((a*2.0-1.0)*A*0.92,0.96);vel=vec2f((b-0.5)*0.5*sp,-sp*(0.5+1.0*bin));pos=vec2f(pos.x*ce-pos.y*se,pos.x*se+pos.y*ce);vel=vec2f(vel.x*ce-vel.y*se,vel.x*se+vel.y*ce);}
-    else if(et==2u){let r0=0.03*sqrt(b);pos=dir*r0;vel=vec2f(cos(c*6.2831853),sin(c*6.2831853))*sp;col=c;}
-    else{let r=0.18+0.6*c;pos=dir*r;vel=tn*(0.35+0.9*bin)/sqrt(r+0.25)*u.jet*0.6;col=c;}
-    p.pos=pos;p.vel=vel;p.maxl=u.plife*(0.55+0.9*b);p.life=p.maxl;p.seed=d;p.col=col;
+    p=born(i);
   }else if(p.life>0.0){
     var v=p.vel;var x=p.pos;let r=length(x)+1e-3;let rd=x/r;
     var acc=vec2f(0.0,u.pgrav);
@@ -2248,6 +2253,66 @@ fn rn(i:u32,k:u32)->f32{return f32(pcg(i*9781u+k*6271u+u32(u.pseed)*26699u+911u)
   }
   parts[i]=p;}
 `;
+var AG_SIM_BOIDS=AG_SIM_HEAD+AG_SIM_PSTRUCT+`
+@group(0) @binding(2) var<storage,read> src:array<Part>;
+@group(0) @binding(3) var<storage,read_write> dst:array<Part>;
+@group(0) @binding(4) var<storage,read> emitterPts:array<EmissionPoint>;
+@group(0) @binding(5) var<storage,read_write> heads:array<atomic<u32>>;
+@group(0) @binding(6) var<storage,read_write> links:array<u32>;
+`+AG_SIM_SOURCE+AG_SIM_BIRTH+`
+fn bCell(p:vec2f)->vec2u{
+  let uv=clamp(p/vec2f(u.asp,1.0)*0.5+0.5,vec2f(0.0),vec2f(0.999999));
+  return vec2u(uv*vec2f(u.bcols,u.brows));
+}
+@compute @workgroup_size(64) fn bIndex(@builtin(global_invocation_id) g:vec3u){
+  let i=g.x;if(i>=u32(u.pn)||src[i].life<=0.0){return;}
+  let c=bCell(src[i].pos);links[i]=atomicExchange(&heads[c.y*u32(u.bcols)+c.x],i+1u);
+}
+@compute @workgroup_size(64) fn bStep(@builtin(global_invocation_id) g:vec3u){
+  let i=g.x;let n=u32(u.pn);if(i>=n){return;}
+  var p=src[i];let rel=(i+n-u32(u.pcursor))%n;
+  if(rel<u32(u.pemit)){dst[i]=born(i);return;}
+  if(p.life<=0.0){dst[i]=p;return;}
+  let cell=vec2i(bCell(p.pos));let dims=vec2i(i32(u.bcols),i32(u.brows));
+  var centre=vec2f(0.0);var alignment=vec2f(0.0);var separation=vec2f(0.0);var count=0.0;var checked=0u;
+  for(var y=-1;y<=1;y++){for(var x=-1;x<=1;x++){
+    var c=cell+vec2i(x,y);
+    if(u.pbounds<0.5){c=(c+dims)%dims;}else if(any(c<vec2i(0))||any(c>=dims)){continue;}
+    var link=atomicLoad(&heads[u32(c.y*dims.x+c.x)]);
+    loop{
+      if(link==0u||checked>=160u){break;}
+      let j=link-1u;link=links[j];checked++;
+      if(j==i){continue;}
+      let q=src[j];var d=q.pos-p.pos;
+      if(u.pbounds<0.5){d=d-round(d/vec2f(2.0*u.asp,2.0))*vec2f(2.0*u.asp,2.0);}
+      let r2=dot(d,d);
+      if(r2<u.x1*u.x1&&r2>1e-8){
+        centre=centre+d;alignment=alignment+q.vel;count=count+1.0;
+        if(r2<u.x1*u.x1*0.2){separation=separation-d/(r2+0.0003);}
+      }
+    }
+  }}
+  var acc=vec2f(0.0);
+  if(count>0.0){acc=centre/count*u.x2*12.0+(alignment/count-p.vel)*u.x3*5.0+separation/count*u.x4*0.06;}
+  acc=acc+curlN(p.pos*2.7+vec2f(u.time*0.25,0.0))*u.x7;
+  let r=length(p.pos)+0.001;let radial=p.pos/r;
+  acc=acc+vec2f(-radial.y,radial.x)*u.torque*u.sstr*0.16+radial*(u.onset*u.kick*4.0+u.bass*u.bpun*u.response*0.6);
+  if(u.pbounds>0.5&&u.pbounds<1.5){
+    let edge=vec2f(u.asp,1.0)-abs(p.pos);
+    acc=acc-sign(p.pos)*max(vec2f(0.0),vec2f(0.16)-edge)*14.0;
+  }
+  let force=length(acc);acc=acc*min(1.0,u.x5/max(force,0.0001))*u.x8;
+  var v=p.vel+acc*u.dt;let speed=length(v);let cruise=u.x6*(0.7+0.6*specAt(p.col)*u.response);
+  if(speed<0.001){v=vec2f(cos(p.seed*2.0*PI),sin(p.seed*2.0*PI))*cruise;}
+  else{v=v/speed*mix(clamp(speed,cruise*0.45,cruise),cruise,1.0-exp(-u.dt*2.5));}
+  p.pos=p.pos+v*u.dt;p.vel=v;p.life=max(0.0,p.life-u.dt);
+  let bounds=vec2f(u.asp,1.0);
+  if(u.pbounds<0.5){p.pos=fract((p.pos+bounds)/(2.0*bounds))*2.0*bounds-bounds;}
+  else if(u.pbounds<1.5){if(abs(p.pos.x)>bounds.x){p.pos.x=clamp(p.pos.x,-bounds.x,bounds.x);p.vel.x=-p.vel.x;}if(abs(p.pos.y)>1.0){p.pos.y=clamp(p.pos.y,-1.0,1.0);p.vel.y=-p.vel.y;}}
+  else if(any(abs(p.pos)>bounds*1.15)){p.life=0.0;}
+  dst[i]=p;
+}
+`;
 var AG_SIM_PREND=AG_SIM_HEAD+AG_SIM_PSTRUCT+`
 @group(0) @binding(2) var<storage,read> parts:array<Part>;
 @group(0) @binding(3) var rampT:texture_2d<f32>;
@@ -2256,16 +2321,18 @@ var<private> corners:array<vec2f,6>=array<vec2f,6>(vec2f(-1.0,-1.0),vec2f(1.0,-1
 @vertex fn pVS(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->VO{
   var o:VO;o.uv=vec2f(0.0);o.col=vec3f(0.0);o.pos=vec4f(2.0,2.0,0.0,1.0);
   let p=parts[ii];if(p.life<=0.0){return o;}
-  let age=1.0-p.life/max(p.maxl,1e-3);let fade=smoothstep(0.0,0.06,age)*(1.0-smoothstep(0.55,1.0,age));
+  let age=1.0-p.life/max(p.maxl,1e-3);let fade=select(smoothstep(0.0,0.06,age)*(1.0-smoothstep(0.55,1.0,age)),smoothstep(0.0,0.02,age)*(1.0-smoothstep(0.9,1.0,age)),u.x12>0.5);
   let sp=length(p.vel);
   var t=p.col;if(u.colorBy>0.5&&u.colorBy<1.5){t=age;}else if(u.colorBy>1.5){t=clamp(sp*0.45,0.0,1.0);}
   let c=select(textureSampleLevel(rampT,smp,vec2f(clamp(t,0.0,1.0),0.5),0.0).rgb,p.sourceColor.rgb,u.emitColor>0.5&&p.sourceColor.a>0.5);
   let af=abs(atan2(p.pos.y,p.pos.x))/PI;let bnd=specAt(af);let bm=mix(1.0,0.7+0.5*bnd,0.8*u.response)*(1.0+0.9*u.bass*u.bpun*u.response);
   let cr=corners[vi];let szp=u.psize*(0.55+0.65*fade)*(0.7+0.6*p.seed)*mix(1.0,0.6+0.6*bnd,0.7*u.response)*(1.0+0.7*u.bass*u.bpun*u.response);
-  let cl=vec2f(p.pos.x/u.asp,-p.pos.y)+cr*szp*2.0/vec2f(u.ow,u.oh);
+  var corner=cr;
+  if(u.x12>0.5){let dir=normalize(vec2f(p.vel.x,-p.vel.y)+vec2f(0.00001,0.0));corner=dir*cr.x*2.4+vec2f(-dir.y,dir.x)*cr.y*0.8;}
+  let cl=vec2f(p.pos.x/u.asp,-p.pos.y)+corner*szp*2.0/vec2f(u.ow,u.oh);
   o.pos=vec4f(cl,0.0,1.0);o.uv=cr;o.col=c*u.pglow*bm*fade*(0.45+0.55*clamp(sp,0.0,2.0))*(0.6+0.8*p.seed)*(1.0+0.5*u.onset*exp(-u.onsetAge*4.0));
   return o;}
-@fragment fn pFS(i:VO)->@location(0) vec4f{let d=dot(i.uv,i.uv);if(d>1.0){discard;}let k=exp(-d*4.5)+0.12*(1.0-d);return vec4f(i.col*k,k);}
+@fragment fn pFS(i:VO)->@location(0) vec4f{let d=dot(i.uv,i.uv);if(d>1.0){discard;}if(u.x12>0.5){if(abs(i.uv.y)>(1.0-i.uv.x)*0.55){discard;}return vec4f(i.col,1.0);}let k=exp(-d*4.5)+0.12*(1.0-d);return vec4f(i.col*k,k);}
 @vertex fn fadeVS(@builtin(vertex_index) vi:u32)->@builtin(position) vec4f{var p=array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));return vec4f(p[vi],0.0,1.0);}
 @fragment fn fadeFS()->@location(0) vec4f{return vec4f(0.0);}
 `;
@@ -2960,8 +3027,116 @@ AG_SIM_POST+=`
   return vec4f(max(c,vec3f(0.0)),0.0);}
 `;
 
-// ---- v85 WebGPU simulation layouts: Particle Field, Fluid, Smoke ----
-var AG_SIM_LAYOUTS=['simparticles','simfluid','simsmoke'];
+AG_SIM_GRID+=`
+fn sandCell(c:vec2i)->vec4f{
+  let sz=vec2i(textureDimensions(tA));
+  if(any(c<vec2i(0))||any(c>=sz)){return vec4f(0.0,0.0,0.0,2.0);}
+  return textureLoad(tA,c,0);
+}
+fn sandStep(g:vec3u,phase:i32){
+  let sz=vec2i(textureDimensions(tA));let c=vec2i(g.xy);if(any(c>=sz)){return;}
+  let base=vec2i(floor(vec2f(c+vec2i(phase))*0.5))*2-vec2i(phase);
+  var b=array<vec4f,4>(sandCell(base),sandCell(base+vec2i(1,0)),sandCell(base+vec2i(0,1)),sandCell(base+vec2i(1,1)));
+  let seed=u32(max(base.y+1,0)*sz.x+max(base.x+1,0))+u32(u.frameN)*7919u+u32(phase)*313u;
+  let r=f32(pcg(seed))/4294967295.0;
+  if(r<u.x2){
+    for(var j=0u;j<2u;j++){
+      if(b[j].a>0.5&&b[j].a<1.5&&b[j+2u].a<0.5){let tmp=b[j];b[j]=b[j+2u];b[j+2u]=tmp;}
+    }
+    if(f32(pcg(seed+31u))/4294967295.0>u.x3){
+      if((pcg(seed+9u)&1u)==0u){
+        if(b[0].a>0.5&&b[0].a<1.5&&b[3].a<0.5){let tmp=b[0];b[0]=b[3];b[3]=tmp;}
+      }else if(b[1].a>0.5&&b[1].a<1.5&&b[2].a<0.5){let tmp=b[1];b[1]=b[2];b[2]=tmp;}
+    }
+  }
+  if(f32(pcg(seed+43u))/4294967295.0<abs(u.x4)*0.45){
+    for(var row=0u;row<2u;row++){
+      let a=row*2u;let d=a+1u;
+      if((u.x4>0.0&&b[a].a>0.5&&b[a].a<1.5&&b[d].a<0.5)||(u.x4<0.0&&b[d].a>0.5&&b[d].a<1.5&&b[a].a<0.5)){let tmp=b[a];b[a]=b[d];b[d]=tmp;}
+    }
+  }
+  if(f32(pcg(seed+67u))/4294967295.0<min(0.45,u.onset*u.x5*u.bpun*0.2)&&all(base>=vec2i(0))&&all(base+vec2i(1)<sz)){
+    let tmp=b[0];b[0]=b[2];b[2]=b[3];b[3]=b[1];b[1]=tmp;
+  }
+  let offset=c-base;var q=b[u32(offset.y*2+offset.x)];
+  if(q.a<0.5&&u.level>0.0001){
+    let uv=(vec2f(c)+0.5)/vec2f(sz);var weight=0.0;var color=vec3f(0.0);
+    for(var i=0u;i<u32(u.emitN);i++){
+      let a=(f32(i)+0.5)/u.emitN;var pos=vec2f(0.12+0.76*a,0.08);var col=rampOf(a);var valid=1.0;
+      if(u.emitType>=4.0){
+        let ep=emissionPoint(fract(a+f32(u.frameN)*0.618034));pos=vec2f(0.5)+ep.pos.xy*0.5/vec2f(u.asp,1.0);
+        col=select(col,ep.color.rgb,u.emitColor>0.5);valid=ep.pos.w;
+      }else{
+        if(u.emitType>1.5){pos=vec2f(0.5,0.18);}
+        let d=(pos-0.5)*vec2f(u.asp,1.0);let cs=cos(u.erot);let sn=sin(u.erot);
+        pos=vec2f(0.5)+vec2f(d.x*cs-d.y*sn,d.x*sn+d.y*cs)/vec2f(u.asp,1.0);
+      }
+      let d=(uv-pos)*vec2f(u.asp,1.0);let w=exp(-dot(d,d)/max(0.00001,u.radius*u.radius))*valid;
+      if(w>weight){weight=w;color=col;}
+    }
+    let chance=1.0-exp(-u.dt*u.dyeAmt*u.level*weight);
+    if(f32(pcg(u32(c.y*sz.x+c.x)+u32(u.frameN)*6271u))/4294967295.0<chance){q=vec4f(color,1.0);}
+  }
+  if(u.bmode>1.5&&c.y==sz.y-1){q=vec4f(0.0);}
+  textureStore(outT,c,q);
+}
+@compute @workgroup_size(8,8) fn kSand0(@builtin(global_invocation_id) g:vec3u){sandStep(g,0);}
+@compute @workgroup_size(8,8) fn kSand1(@builtin(global_invocation_id) g:vec3u){sandStep(g,1);}
+@compute @workgroup_size(8,8) fn kFerro(@builtin(global_invocation_id) g:vec3u){
+  let sz=textureDimensions(tA);if(any(g.xy>=sz)){return;}
+  let c=vec2i(g.xy);let uv=(vec2f(g.xy)+0.5)/vec2f(sz);let p=(uv-0.5)*vec2f(u.asp,1.0);
+  var distance=length(p);
+  if(u.x6>0.5&&u.x6<1.5){distance=abs(distance-u.radius*0.63)+u.radius*0.48;}
+  else if(u.x6>1.5){distance=length(p/vec2f(1.65,0.55));}
+  let pool=1.0-smoothstep(u.radius*0.85,u.radius,distance);
+  var field=0.0;
+  for(var i=0u;i<u32(u.poleN);i++){let d=p-u.pole[i].xy;field=field+u.pole[i].z/(0.018+dot(d,d))*0.035;}
+  field=field*u.x1*(1.0+u.bass*u.bpun*u.response*1.2+u.onset*u.kick);
+  let spacing=u.x3;let row=i32(round(p.y/(spacing*0.8660254)));var closest=1e4;
+  for(var y=-1;y<=1;y++){
+    let j=row+y;let shift=f32(j&1)*0.5;let col=i32(round(p.x/spacing-shift));
+    for(var x=-1;x<=1;x++){
+      let centre=vec2f((f32(col+x)+shift)*spacing,f32(j)*spacing*0.8660254);
+      let delta=p-centre;closest=min(closest,dot(delta,delta));
+    }
+  }
+  let spike=exp(-closest/(spacing*spacing)*u.x4);
+  let restHeight=pool*(0.025+min(0.38,max(0.0,field-0.3)*0.09)*spike);
+  let old=textureLoad(tA,c,0);let lap=texel(tA,c+vec2i(1,0)).x+texel(tA,c-vec2i(1,0)).x+texel(tA,c+vec2i(0,1)).x+texel(tA,c-vec2i(0,1)).x-4.0*old.x;
+  let velocity=(old.y+((restHeight-old.x)*70.0+lap*u.x2*80.0)*u.dt)*exp(-u.x5*u.dt);
+  let h=clamp(old.x+velocity*u.dt,0.0,0.65);
+  textureStore(outT,c,vec4f(h,velocity,field,pool));
+}
+`;
+AG_SIM_POST+=`
+@fragment fn fSand(@builtin(position) pos:vec4f)->@location(0) vec4f{
+  let uv=pos.xy/vec2f(u.ow,u.oh);let size=vec2f(textureDimensions(tA));let c=vec2i(clamp(uv*size,vec2f(0.0),size-1.0));let q=textureLoad(tA,c,0);
+  if(q.a<0.5){return vec4f(0.0);}
+  let cell=fract(uv*size)-0.5;
+  let grain=0.66+0.34*max(0.0,1.0-length(cell)*1.25)+0.18*(cell.x-cell.y);
+  return vec4f(q.rgb*grain,1.0);
+}
+fn ferroH(uv:vec2f)->f32{return textureSampleLevel(tA,smp,clamp(uv,vec2f(0.0),vec2f(1.0)),0.0).x;}
+@fragment fn fFerro(@builtin(position) pos:vec4f)->@location(0) vec4f{
+  let uv=pos.xy/vec2f(u.ow,u.oh);let ds=1.0/vec2f(textureDimensions(tA));let q=textureSampleLevel(tA,smp,uv,0.0);
+  let alpha=smoothstep(0.01,0.3,q.a);if(alpha<0.001){return vec4f(0.0);}
+  let dx=(ferroH(uv+vec2f(ds.x,0.0))-ferroH(uv-vec2f(ds.x,0.0)))/(2.0*ds.x*u.asp);
+  let dy=(ferroH(uv+vec2f(0.0,ds.y))-ferroH(uv-vec2f(0.0,ds.y)))/(2.0*ds.y);
+  let n=normalize(vec3f(-dx*u.x7,-dy*u.x7,1.0));let L=normalize(vec3f(u.lightx,u.lighty,1.1));let V=normalize(vec3f(0.0,-0.5,1.0));
+  let H=normalize(L+V);let rough=u.x8;let spec=pow(max(0.0,dot(n,H)),mix(220.0,6.0,rough));
+  let reflection=reflect(-V,n);let strip=pow(max(0.0,1.0-abs(reflection.y-0.35)*1.5),mix(14.0,2.0,rough));
+  let fresnel=pow(1.0-max(0.0,dot(n,V)),4.0);
+  let tint=mix(vec3f(0.27,0.3,0.35),rampC(clamp(q.z*0.22,0.0,1.0)),u.tintMix);
+  var shadow=1.0;
+  for(var i=1;i<=6;i++){let ray=f32(i)*0.012;let sampleUV=uv+vec2f(L.x/u.asp,L.y)*ray;shadow=shadow*select(1.0,0.86,ferroH(sampleUV)>q.x+ray*L.z*0.7);}
+  let diffuse=0.12+0.65*max(0.0,dot(n,L))*shadow;
+  let color=tint*diffuse+mix(vec3f(0.9,0.96,1.0),tint,0.3)*(spec*2.4*shadow+strip*0.65+fresnel*0.55)*u.lightI;
+  return vec4f(color*alpha,alpha);
+}
+`;
+
+// ---- WebGPU simulation layouts ----
+var AG_SIM_LAYOUTS=['simparticles','simfluid','simsmoke','simboids','simsand','simferro'];
 var agRetiredSimNotice=false;
 function agSimActiveLayout(m){
   if(m!=='simrd'&&m!=='simslime')return m;
@@ -2972,8 +3147,8 @@ function _agIsSim(m){return AG_SIM_LAYOUTS.indexOf(m)>=0}
 var AG_SIM_DEF_OPT={q:'med',step:'normal',auto:'on',pEmit:'ring',pBounds:'wrap',pColor:'spectrum',fEmit:'ring',fBounds:'wall',sEmit:'floor',sBounds:'open',emitColor:'source'};
 var simOpt=Object.assign({},AG_SIM_DEF_OPT),simUid=0,simIdMax=0,simEmitterData=null,simEmitterError='';
 var simEmitterCameraData=null,simEmitterCameraTime=0,simEmitterCameraPending=false,simEmitterLoads=new WeakMap(),simEmitterLegacyWarned=false;
-function _simSourceLayout(m){return m==='simparticles'||m==='simfluid'||m==='simsmoke'}
-function _simEmitterKey(m){return {simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit'}[m]}
+function _simSourceLayout(m){return !!_simEmitterKey(m)}
+function _simEmitterKey(m){return {simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simboids:'bdEmit',simsand:'saEmit'}[m]}
 var AG_SIM_UI={
   common:[['pSimSens','Sensitivity',0,200,100,5,'%','How strongly the sound drives the simulation. Silence always emits nothing.'],
     ['pSimAttack','Attack',5,400,40,5,'ms','How fast the simulation reacts when a band gets louder.'],
@@ -3031,7 +3206,7 @@ var AG_SIM_UI={
 AG_SIM_UI.source=[
   ['pEmitScale','Emitter size',5,150,65,1,'%','Longest edge of the image or camera frame, relative to the simulation height. Aspect ratio is preserved.'],
   ['pEmitRZ','Rotation',-180,180,0,1,'deg','Rotate the image or camera emission around the centre.'],
-  ['pEmitPoints','Source jets',8,64,32,1,'','Number of image or camera injection points for fluid and smoke. Particles sample the whole source.']];
+  ['pEmitPoints','Source jets',8,64,32,1,'','Number of image or camera injection points for fluid, smoke and sand. Particles and boids sample the whole source.']];
 var AG_SIM_OPTS={
   common:[['q','Quality',[['low','Low'],['med','Medium'],['high','High'],['ultra','Ultra']],'Grid resolution, particle count and render scale.'],
     ['step','Precision',[['fast','Fast'],['normal','Normal'],['fine','Fine']],'Largest time step: 1/30, 1/60 or 1/120 s (sub-stepped when a frame is longer).'],
@@ -3134,6 +3309,69 @@ function simApplyPreset(i){
   syncSimUI();_simStore();agSim.reset();upP();renderDensity()}
 function _simPresetRow(k){return '<div class="prow prow-stack"><span class="prow-label">Presets</span><div class="mode-btns grow-btns" style="flex-wrap:wrap">'+(AG_SIM_PRESETS[k]||[]).map(function(p,i){return '<button class="mbtn" data-simpreset="'+i+'" onclick="simApplyPreset('+i+')">'+p[0]+'</button>'}).join('')+'</div></div>'}
 var AG_SIM_TITLE={simparticles:'Particle field',simfluid:'Fluid',simsmoke:'Smoke',simlife:'Cellular automata',simbolt:'Lightning',simfield:'Magnetic field lines'};
+Object.assign(AG_SIM_TITLE,{simboids:'Boids / flocking',simsand:'Granular sand',simferro:'Ferrofluid (2.5D surface)'});
+Object.assign(AG_SIM_DEF_OPT,{bdEmit:'ring',bdBounds:'wrap',bdColor:'spectrum',saEmit:'rain',saFloor:'wall',feShape:'disk'});
+Object.assign(AG_SIM_UI,{
+  simboids:[
+    ['pBdAmount','Population',10,100,80,5,'%','Share of the quality-tier population. Changing this restarts this flock.'],
+    ['pBdLife','Lifetime',20,300,180,5,'s1','How long each agent lives before it is replaced by emission.'],
+    ['pBdSize','Agent size',2,30,10,1,'','Size of the direction-facing agents.'],
+    ['pBdSpeed','Flight speed',0,200,65,5,'%','Cruising speed; audio contrast adds band-specific speed changes.'],
+    ['pBdRadius','Neighbor radius',4,40,18,1,'%','How far agents look for neighbors, in simulation-height units.'],
+    ['pBdCohesion','Cohesion',0,200,90,5,'%','Steers toward the local flock center.'],
+    ['pBdAlign','Alignment',0,200,110,5,'%','Steers toward the average direction of neighboring agents.'],
+    ['pBdSeparate','Separation',0,200,100,5,'%','Pushes nearby agents apart to prevent clumping.'],
+    ['pBdTurn','Turning force',10,200,85,5,'%','Maximum steering acceleration. Low values make broad, sweeping turns.'],
+    ['pBdWander','Wander',0,100,20,1,'%','Gentle curl-noise steering in addition to true neighbor-based flocking.'],
+    ['pBdTrail','Trails',0,95,0,1,'%','Light persistence. Leave at 0 for crisp agents without traces.']],
+  simsand:[
+    ['pSaGrain','Grain size',1,6,2,1,'','Size of a grain relative to the quality grid. Changing this restarts this sand layer.'],
+    ['pSaAmount','Emission',0,200,85,5,'%','Number of grains released by the sound. Existing grains remain until they leave or Restart is pressed.'],
+    ['pSaRadius','Source width',1,15,3,1,'%','Width of the rain, tap or image/webcam injection points.'],
+    ['pSaSpeed','Settling speed',10,300,120,5,'%','Cellular updates per second. Motion preserves grains rather than blending them like fluid.'],
+    ['pSaGravity','Gravity',0,100,100,5,'%','Probability that an unsupported grain falls during an update.'],
+    ['pSaFriction','Friction',0,100,35,1,'%','Higher values make steeper piles; lower values let grains slide sideways.'],
+    ['pSaWind','Wind',-100,100,0,5,'','Pushes loose grains sideways.'],
+    ['pSaKick','Beat scatter',0,200,100,5,'%','Detected beats shake and lift grains.']],
+  simferro:[
+    ['pFePool','Pool size',20,90,62,1,'%','Radius of the ferrofluid-inspired surface. This is a 2.5D height-field model, not a volumetric fluid.'],
+    ['pFeMagnets','Magnets',1,6,3,1,'','Number of magnetic attraction points under the surface.'],
+    ['pFeForce','Field strength',0,200,100,5,'%','Magnetic field strength. Higher values raise more spikes.'],
+    ['pFeMotion','Magnet motion',0,100,25,1,'%','Orbit speed of the magnets; sound-driven swirl also follows this control.'],
+    ['pFeSpacing','Spike spacing',4,30,12,1,'%','Distance between the hexagonally arranged spike centers.'],
+    ['pFeSharp','Sharpness',3,30,14,1,'','Narrower or rounder spike profiles.'],
+    ['pFeTension','Surface tension',0,100,35,1,'%','Couples neighboring heights and smooths the surface.'],
+    ['pFeDamp','Damping',0,100,45,1,'%','How quickly the surface settles after moving magnets or beats.'],
+    ['pFeHeight','Height',10,200,100,5,'%','Strength of the relief in the metallic lighting.'],
+    ['pFeRough','Roughness',2,100,22,1,'%','Low gives sharp metallic reflections; high gives a satin finish.'],
+    ['pFeTint','Palette tint',0,100,30,1,'%','Blend between neutral metal and the layer palette.'],
+    ['pFeLight','Light angle',0,360,135,5,'deg','Direction of the main reflected light.'],
+    ['pFeLightI','Light intensity',20,200,100,5,'%','Brightness of the metallic reflections.']]
+});
+Object.assign(AG_SIM_OPTS,{
+  simboids:[
+    ['bdEmit','Emitter',[['ring','Ring'],['fountain','Fountain'],['center','Burst'],['orbit','Orbit'],['image','Image'],['camera','Webcam']],'Spawn agents from a built-in arrangement, image or live camera.'],
+    ['bdBounds','Bounds',[['wrap','Wrap'],['bounce','Bounce'],['open','Open']],'Wrap, turn at the edges, or leave the frame.'],
+    ['bdColor','Colour by',[['spectrum','Spectrum'],['age','Age'],['speed','Speed']],'Agent palette color, unless image/webcam Source colors is selected.']],
+  simsand:[
+    ['saEmit','Emitter',[['rain','Rain'],['tap','Tap'],['image','Image'],['camera','Webcam']],'A row of rain, a central tap, or grains released from an image or webcam.'],
+    ['saFloor','Floor',[['wall','Solid'],['open','Drain']],'Solid accumulates piles. Drain lets grains leave through the bottom.']],
+  simferro:[['feShape','Pool',[['disk','Disk'],['ring','Ring'],['oval','Oval']],'Shape of the shallow metallic surface.']]
+});
+Object.assign(AG_SIM_PRESETS,{
+  simboids:[
+    ['Murmuration',{pBdCohesion:120,pBdAlign:150,pBdSeparate:90,pBdSpeed:60,pBdWander:12,pSimSwirlSnd:35},{bdEmit:'ring',bdBounds:'wrap'}],
+    ['School of fish',{pBdCohesion:150,pBdAlign:170,pBdSeparate:150,pBdSpeed:45,pBdRadius:24,pBdWander:7,pBdSize:14,pSimSwirlSnd:15},{bdEmit:'orbit',bdBounds:'bounce'}],
+    ['Firefly swarm',{pBdCohesion:55,pBdAlign:45,pBdSeparate:160,pBdSpeed:30,pBdWander:65,pBdTrail:30,pSimBloom:20},{bdEmit:'center',bdBounds:'wrap'}]],
+  simsand:[
+    ['Colored dunes',{pSaFriction:35,pSaKick:80,pSaAmount:100,pSaWind:0},{saEmit:'rain',saFloor:'wall'}],
+    ['Hourglass',{pSaFriction:15,pSaKick:0,pSaAmount:70,pSaRadius:2,pSaSpeed:160},{saEmit:'tap',saFloor:'wall'}],
+    ['Sandstorm',{pSaWind:65,pSaKick:160,pSaFriction:10,pSaAmount:160,pSaSpeed:180},{saEmit:'rain',saFloor:'open'}]],
+  simferro:[
+    ['Liquid chrome',{pFeTint:0,pFeRough:10,pFeForce:100,pFeMagnets:3,pFeMotion:20,pFeDamp:50,pSimExpo:0},{feShape:'disk'}],
+    ['Magnetic crown',{pFePool:75,pFeMagnets:6,pFeSpacing:10,pFeSharp:22,pFeForce:140,pFeTint:45,pSimExpo:0},{feShape:'ring'}],
+    ['Oil slick',{pFeTint:100,pFeRough:30,pFeForce:85,pFeTension:70,pFeSpacing:18,pFeDamp:25,pSimExpo:0},{feShape:'oval'}]]
+});
 
 // ---- v109 simulations: Wave ripples, Cloth, Gravity ----
 AG_SIM_LAYOUTS.push('simwave','simcloth','simgrav');
@@ -3451,8 +3689,8 @@ function _simEmitterInfo(){
   document.getElementById('simEmitterCameraRow').style.display=mode==='camera'?'':'none';
   var pending=!!(simEmitterCameraPending||camStarting),btn=document.getElementById('simEmitterCameraBtn');btn.textContent=pending?'Starting camera\u2026':camActive?'Stop camera':'Start camera';btn.disabled=pending;
   document.getElementById('camToggle').disabled=!!camStarting;
-  var colors=document.querySelector('[data-simk="pColor"]');if(colors)colors.closest('.prow').style.display=show&&simOpt.emitColor==='source'?'none':'';
-  var jets=document.getElementById('pEmitPoints');if(jets)jets.closest('.prow').style.display=layoutMode==='simparticles'?'none':'';
+  ['pColor','bdColor'].forEach(function(k){var colors=document.querySelector('[data-simk="'+k+'"]');if(colors)colors.closest('.prow').style.display=show&&simOpt.emitColor==='source'?'none':''});
+  var jets=document.getElementById('pEmitPoints');if(jets)jets.closest('.prow').style.display=(layoutMode==='simparticles'||layoutMode==='simboids')?'none':'';
   var info=document.getElementById('simEmitterInfo');
   info.textContent=mode==='camera'?(camActive?'Camera active. Emission and colors update live.':'Camera is off. Start the camera and allow access to emit.'):simEmitterError||(simEmitterData?simEmitterData.name+' \u00b7 image samples saved with this layer':'No image loaded. Choose an image to start emission.');
   info.classList.toggle('bad',mode==='camera'?!camActive:!!simEmitterError||!simEmitterData);
@@ -3580,7 +3818,7 @@ function buildSimPanels(){
   var anchor=ref.nextSibling;while(wrap.firstChild)ref.parentNode.insertBefore(wrap.firstChild,anchor);
   var box=document.createElement('div');box.id='simCommonBox';box.style.cssText='display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:6px;margin-top:2px';
   box.innerHTML='<details class="g3sec" id="simSourceBox" open style="display:none"><summary>Image / webcam emitter</summary><div class="sim-emitter-note">Brighter, non-transparent pixels emit more. Black and transparent areas emit nothing.</div><div class="prow prow-stack" id="simEmitterFileRow"><button class="mbtn" onclick="document.getElementById(\'simEmitterFile\').click()">Load image\u2026</button><input type="file" id="simEmitterFile" accept="image/*" onchange="loadSimEmitterFile(event)" style="display:none"></div><div class="prow prow-stack" id="simEmitterCameraRow"><button class="mbtn" id="simEmitterCameraBtn" onclick="toggleSimEmitterCamera()">Start camera</button><div class="sim-emitter-note">Uses the shared Webcam feed locally. Stop camera also stops other camera effects. Camera access is never restored automatically.</div></div><div class="sim-emitter-note" id="simEmitterInfo" role="status"></div>'+_simOptRow(['emitColor','Emitter colors',[['source','Source colors'],['palette','Palette']],'Pick up colors from the image or live camera, or use the Audiograph palette.'])+AG_SIM_UI.source.map(_simRow).join('')+'</details><div class="sublabel">Sound &amp; quality</div>'+AG_SIM_UI.common.map(_simRow).join('')+AG_SIM_OPTS.common.map(_simOptRow).join('')+
-    '<div class="prow prow-stack"><span class="prow-label">Simulation</span><div class="mode-btns grow-btns"><button class="mbtn" onclick="simRestart()" title="Clear this layer\'s simulation state and start again.">Restart</button><button class="mbtn" onclick="simResetSettings()" title="Return every control of this simulation layout to its default (keeps the quality tier).">Reset settings</button><button class="mbtn" id="simReinitBtn" onclick="simReinit()" style="display:none" title="Try to create the WebGPU device again.">Reinitialize GPU</button></div></div>';
+    '<div class="prow prow-stack"><span class="prow-label">Simulation</span><div class="mode-btns grow-btns"><button class="mbtn" onclick="simRestart()" title="Clear this layer\'s simulation state and start again.">Restart</button><button class="mbtn" onclick="simResetSettings()" title="Return every control of this simulation emitter to its default (keeps the quality tier).">Reset settings</button><button class="mbtn" id="simReinitBtn" onclick="simReinit()" style="display:none" title="Try to create the WebGPU device again.">Reinitialize GPU</button></div></div>';
   document.getElementById('layoutOpts_simparticles').appendChild(box);
 }
 function agSimHost(){var b=document.getElementById('simCommonBox');if(!b)return;
@@ -3590,12 +3828,22 @@ function agSimHost(){var b=document.getElementById('simCommonBox');if(!b)return;
   var source=document.getElementById('simSourceBox'),emitter=h&&h.querySelector('[data-simk="'+_simEmitterKey(m)+'"]');
   if(source&&emitter&&source.previousElementSibling!==emitter.closest('.prow'))emitter.closest('.prow').insertAdjacentElement('afterend',source);
   // The 3D cloner has no fluid-style swirl, emitter rotation, audio contrast or step size
-  ['pSimSwirlSnd','pSimRot','pSimReact'].forEach(function(id){var e=document.getElementById(id),r=e&&e.closest('.prow');if(r)r.style.display=(m==='simcloner'||m==='simsplat')?'none':''});
+  ['pSimSwirlSnd','pSimRot','pSimReact'].forEach(function(id){var e=document.getElementById(id),r=e&&e.closest('.prow');if(r)r.style.display=(m==='simcloner'||m==='simsplat'||(m==='simsand'&&id!=='pSimRot')||(m==='simferro'&&id==='pSimRot'))?'none':''});
   var sb=b.querySelector('.mbtn[data-simk="step"]'),sr=sb&&sb.closest('.prow');if(sr)sr.style.display=(m==='simcloner'||m==='simsplat')?'none':''}
 function syncSimUI(){
   document.querySelectorAll('.mbtn[data-simk]').forEach(function(b){var sv=simOpt[b.getAttribute('data-simk')];b.classList.toggle('on',b.hasAttribute('data-simmulti')?String(sv||'').split(',').indexOf(b.getAttribute('data-simv'))>=0:sv===b.getAttribute('data-simv'))});
   for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){var e=document.getElementById(d[0]),l=document.getElementById(d[0].replace(/^p/,'v'));if(e&&l)l.textContent=_simFmt(e.value,d[6])});
   agSimHost();_simEmitterInfo();if(typeof _agSplatInfo==='function')_agSplatInfo();if(typeof agSim!=='undefined')agSim.refreshUI()}
+Object.assign(AG_KNOB_GROUPS,{
+  'bd-flock':['pBdRadius','pBdCohesion','pBdAlign','pBdSeparate'],
+  'bd-flight':['pBdSpeed','pBdTurn','pBdWander','pBdTrail'],
+  'bd-population':['pBdAmount','pBdLife','pBdSize'],
+  'sa-grains':['pSaGrain','pSaAmount','pSaRadius'],
+  'sa-motion':['pSaSpeed','pSaGravity','pSaFriction','pSaWind','pSaKick'],
+  'fe-field':['pFePool','pFeMagnets','pFeForce','pFeMotion','pFeSpacing','pFeSharp'],
+  'fe-surface':['pFeTension','pFeDamp','pFeHeight','pFeRough','pFeTint'],
+  'fe-light':['pFeLight','pFeLightI']
+});
 buildSimPanels();agApplyKnobGroups();
 function simNewId(){return 1+Math.floor(Math.random()*2147483646)}
 function agSimDefaults(){var o={};if(typeof AG_SIM_UI==='undefined')return o;for(var k in AG_SIM_UI)AG_SIM_UI[k].forEach(function(d){o[d[0]]=d[4]});for(var c in AG_SIM_COL)AG_SIM_COL[c].forEach(function(d){o[d[0]]=d[2]});return o}
@@ -3671,6 +3919,7 @@ var agSim=(function(){
     var L={};
     L.grid=dev.createBindGroupLayout({entries:[ub(C),sm(C),tex(2,C),tex(3,C),tex(4,C),{binding:5,visibility:C,storageTexture:{access:'write-only',format:'rgba16float',viewDimension:'2d'}},{binding:6,visibility:C,buffer:{type:'read-only-storage'}}]});
     L.part=dev.createBindGroupLayout({entries:[ub(C),sm(C),{binding:2,visibility:C,buffer:{type:'storage'}},{binding:3,visibility:C,buffer:{type:'read-only-storage'}}]});
+    L.boids=dev.createBindGroupLayout({entries:[ub(C),sm(C),{binding:2,visibility:C,buffer:{type:'read-only-storage'}},{binding:3,visibility:C,buffer:{type:'storage'}},{binding:4,visibility:C,buffer:{type:'read-only-storage'}},{binding:5,visibility:C,buffer:{type:'storage'}},{binding:6,visibility:C,buffer:{type:'storage'}}]});
     L.rend=dev.createBindGroupLayout({entries:[ub(V|F),sm(V|F),{binding:2,visibility:V,buffer:{type:'read-only-storage'}},tex(3,V|F)]});
     L.post=dev.createBindGroupLayout({entries:[ub(V|F),sm(F),tex(2,F),tex(3,F),tex(4,F),tex(5,F)]});
     L.slime=dev.createBindGroupLayout({entries:[ub(C),sm(C),{binding:2,visibility:C,buffer:{type:'storage'}},tex(3,C)]});
@@ -3679,6 +3928,9 @@ var agSim=(function(){
     var mg=await mod(dev,'grid',AG_SIM_GRID),mp=await mod(dev,'pstep',AG_SIM_PART),mr=await mod(dev,'prend',AG_SIM_PREND),mo=await mod(dev,'post',AG_SIM_POST);
     ['kSplatVel','kSplatDye','kSplatInk','kBuoy','kCurl','kVort','kAdvVel','kAdvDye','kAdvInk','kDiv','kJacobi','kProject','kLight'].forEach(function(n){P[n]=dev.createComputePipeline({layout:PL(L.grid),compute:{module:mg,entryPoint:n}})});
     P.pStep=dev.createComputePipeline({layout:PL(L.part),compute:{module:mp,entryPoint:'pStep'}});
+    var mbd=await mod(dev,'flocking',AG_SIM_BOIDS);
+    ['bIndex','bStep'].forEach(function(n){P[n]=dev.createComputePipeline({layout:PL(L.boids),compute:{module:mbd,entryPoint:n}})});
+    ['kSand0','kSand1','kFerro'].forEach(function(n){P[n]=dev.createComputePipeline({layout:PL(L.grid),compute:{module:mg,entryPoint:n}})});
     ['kRD','kLife','kSlimeD','kWave'].forEach(function(n){P[n]=dev.createComputePipeline({layout:PL(L.grid),compute:{module:mg,entryPoint:n}})});
     var msl=await mod(dev,'slime',AG_SIM_SLIME),msd=await mod(dev,'sdep',AG_SIM_SDEP),mbo=await mod(dev,'bolt',AG_SIM_BOLT);
     P.sAgents=dev.createComputePipeline({layout:PL(L.slime),compute:{module:msl,entryPoint:'sAgents'}});
@@ -3689,7 +3941,7 @@ var agSim=(function(){
     P.sDep=dev.createRenderPipeline({layout:PL(L.rend),vertex:{module:msd,entryPoint:'sVS'},fragment:{module:msd,entryPoint:'sFS',targets:[{format:'rgba16float',blend:add}]},primitive:{topology:'triangle-list'}});
     P.bDraw=dev.createRenderPipeline({layout:PL(L.rend),vertex:{module:mbo,entryPoint:'bVS'},fragment:{module:mbo,entryPoint:'bFS',targets:[{format:'rgba16float',blend:add}]},primitive:{topology:'triangle-list'}});
     var full=function(fs,fmt){return dev.createRenderPipeline({layout:PL(L.post),vertex:{module:mo,entryPoint:'vsFull'},fragment:{module:mo,entryPoint:fs,targets:[{format:fmt}]},primitive:{topology:'triangle-list'}})};
-    ['fFluid','fSmoke','fCopy','fBright','fBlurH','fBlurV','fRD','fLife','fSlime','fField','fWave'].forEach(function(n){P[n]=full(n,'rgba16float')});
+    ['fFluid','fSmoke','fCopy','fBright','fBlurH','fBlurV','fRD','fLife','fSlime','fField','fWave','fSand','fFerro'].forEach(function(n){P[n]=full(n,'rgba16float')});
     P.fComp=full('fComp',G.fmt);
     try{await g3Build(dev,P)}catch(e){P.g3err=String(e&&e.message||e);err(e)}
     try{await splBuild(dev,P)}catch(e){P.splerr=String(e&&e.message||e);err(e)}
@@ -3797,7 +4049,8 @@ var agSim=(function(){
       if(kind==='fluid'){st.dye=pp(st,Math.min(2048,gw*2),Math.min(2048,gh*2))}
       else{st.sm=pp(st,Math.round(gw*1.5),Math.round(gh*1.5));st.light=grid(st,Math.round(gw*0.75),Math.round(gh*0.75))}
     }
-    ST[id]=st;S.created++;return st}
+    st.config=stateConfig(kind);ST[id]=st;S.created++;return st}
+  function stateConfig(kind){return kind==='boids'?K('pBdAmount',80):kind==='sand'?K('pSaGrain',2):0}
   function ensureOut(st,W,H){
     var tr=st.tr,sc=Math.min(1,tr.o/Math.max(W,H));
     var ow=Math.max(64,Math.round(W*sc)),oh=Math.max(64,Math.round(H*sc));
@@ -3807,7 +4060,7 @@ var agSim=(function(){
     st.hdr=rt(st,ow,oh);st.bl1=rt(st,Math.ceil(ow/2),Math.ceil(oh/2));st.bl2=rt(st,Math.ceil(ow/2),Math.ceil(oh/2));
     st.bgc={};st.dirty=true;st.accumClear=true;
     if(old){
-      if(st.kind==='particles'){
+      if(st.kind==='particles'||st.kind==='boids'){
         setU(st,{ow:ow,oh:oh});upload(st);
         var enc=G.dev.createCommandEncoder();fp(st,enc,'fCopy',st.hdr.v,old[0]);G.dev.queue.submit([enc.finish()]);
         st.accumClear=false;st.bgc={};
@@ -3819,6 +4072,7 @@ var agSim=(function(){
     delete ST[st.id];S.disposed++;
     if(lost)return;
     st.emitterBuf.destroy();
+    if(st.bbuf)st.bbuf.destroy();if(st.bheads)st.bheads.destroy();if(st.blinks)st.blinks.destroy();
     try{if(st.spbuf)st.spbuf.destroy();if(st.spdp)st.spdp.destroy();if(st.camU)st.camU.destroy();if(st.camT)st.camT.t.destroy()}catch(e){}
     try{st.res.forEach(function(t){t.destroy()});if(st.pbuf)st.pbuf.destroy();if(st.sbuf)st.sbuf.destroy();if(st.ibuf)st.ibuf.destroy();if(st.cub)st.cub.destroy();if(st.g3ms)st.g3ms.destroy();if(st.g3dp)st.g3dp.destroy();if(st.g3fm)st.g3fm.destroy();if(st.g3c)st.g3c.destroy();if(st.g3f)st.g3f.destroy();if(st.g3nm)st.g3nm.destroy();if(st.g3nt)st.g3nt.destroy();if(st.g3ao)st.g3ao.destroy();if(st.ipv)st.ipv.destroy();if(st.ebuf)st.ebuf.destroy();if(st.g3pu)st.g3pu.destroy();st.ub.destroy();st.rampTex.destroy();st.cx.unconfigure()}catch(e){err(e)}
     st.res=[];st.cv.width=st.cv.height=1}
@@ -3857,7 +4111,7 @@ var agSim=(function(){
     var k={sens:K('pSimSens',100)/100,attack:K('pSimAttack',40)/1000,release:K('pSimRelease',350)/1000,burst:K('pSimBurst',100)/100,react:K('pSimReact',30)/100,tilt:K('pSimTilt',0)/100,speed:K('pSimSpeed',100)/100,expo:Math.pow(2,K('pSimExpo',-100)/100),bloom:K('pSimBloom',0)/100,gain:Math.max(0,getIntensity()),swirlSnd:K('pSimSwirlSnd',100)/100};
     k.maxStep=STEPS[simOpt.step]||STEPS.normal;return k}
   function sourceUniforms(st,o){
-    var key={particles:'pEmit',fluid:'fEmit',smoke:'sEmit'}[st.kind],mode=key&&simOpt[key],asset=mode==='image'?simEmitterData:mode==='camera'?agEmitterCameraFrame():null;
+    var key=_simEmitterKey('sim'+st.kind),mode=key&&simOpt[key],asset=mode==='image'?simEmitterData:mode==='camera'?agEmitterCameraFrame():null;
     if(asset&&st.emitterAsset!==asset){
       var pts=asset.points;
       if(!Array.isArray(pts)||(mode==='image'&&!pts.length)||pts.length%5||pts.length>2048*5||!pts.every(function(x,i){return typeof x==='number'&&isFinite(x)&&x<=1&&x>=(i%5<2?-1:0)}))throw new Error('Invalid saved image emitter. Load the image again.');
@@ -3872,7 +4126,7 @@ var agSim=(function(){
     o.sourceN=asset?asset.points.length/5:0;o.emitScale=K('pEmitScale',65)/100;o.emitAngle=K('pEmitRZ',0)*Math.PI/180;o.emitColor=0;
     if(mode==='image'||mode==='camera'){
       o.emitType=mode==='image'?4:5;o.emitColor=simOpt.emitColor==='source'?1:0;
-      if(st.kind!=='particles')o.emitN=K('pEmitPoints',32);
+      if(st.kind!=='particles'&&st.kind!=='boids')o.emitN=K('pEmitPoints',32);
       if(st.kind==='smoke'&&!st.ink)st.ink=pp(st,st.sm.a.w,st.sm.a.h);
     }
     st.sourceCount=o.sourceN;st.emitType=o.emitType;
@@ -3896,12 +4150,23 @@ var agSim=(function(){
     var E=K('pSimEnergy',100)/100;o.jet*=E;o.kick=(o.kick||0)*E;if(o.vort!=null)o.vort*=E;if(o.pcurl!=null)o.pcurl*=E;if(o.turb!=null)o.turb*=E;
     return o}
   // ---------- v107: reaction-diffusion, automata, slime mould, lightning, field lines ----------
-  var XK={rd:1,life:1,slime:1,bolt:1,field:1,wave:1,cloth:1,grav:1,cloner:1,splat:1};
+  var XK={rd:1,life:1,slime:1,bolt:1,field:1,wave:1,cloth:1,grav:1,cloner:1,splat:1,boids:1,sand:1,ferro:1};
+  var BOID_CAP={low:1200,med:2400,high:4800,ultra:8000};
   var SEG_CAP={low:2000,med:3500,high:5000,ultra:6500};
   function xCreate(st,kind,asp,tr,dev){
     var TUx=GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING|GPUTextureUsage.RENDER_ATTACHMENT;
     st.fn=0;
-    if(kind==='rd'){st.gh=tr.g;st.gw=Math.max(32,Math.min(1024,Math.round(st.gh*asp)));st.rd=pp(st,st.gw,st.gh)}
+    if(kind==='boids'){
+      st.pn=Math.max(64,Math.round((BOID_CAP[simOpt.q]||BOID_CAP.med)*K('pBdAmount',80)/100));
+      var usage=GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC;
+      st.pbuf=dev.createBuffer({label:'boids state A',size:st.pn*48,usage:usage});st.bbuf=dev.createBuffer({label:'boids state B',size:st.pn*48,usage:usage});
+      st.bheads=dev.createBuffer({size:256*256*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+      st.blinks=dev.createBuffer({size:st.pn*4,usage:GPUBufferUsage.STORAGE});
+    }else if(kind==='sand'){
+      st.gh=Math.max(48,Math.min(768,Math.round(tr.g*3/K('pSaGrain',2)/2)*2));
+      st.gw=Math.max(32,Math.min(1536,Math.round(st.gh*asp/2)*2));st.sand=pp(st,st.gw,st.gh);st.saCarry=0;
+    }else if(kind==='ferro'){st.gh=tr.g;st.gw=Math.max(32,Math.min(1024,Math.round(st.gh*asp)));st.ferro=pp(st,st.gw,st.gh)}
+    else if(kind==='rd'){st.gh=tr.g;st.gw=Math.max(32,Math.min(1024,Math.round(st.gh*asp)));st.rd=pp(st,st.gw,st.gh)}
     else if(kind==='wave'){st.gh=tr.g;st.gw=Math.max(32,Math.min(1024,Math.round(st.gh*asp)));st.wv=pp(st,st.gw,st.gh);st.stoneN=0}
     else if(kind==='life'){st.gh=Math.max(48,Math.round(tr.g*0.5));st.gw=Math.max(48,Math.min(1024,Math.round(st.gh*asp)));st.lf=pp(st,st.gw,st.gh);st.acc=0;st.rule=-1}
     else if(kind==='slime'){
@@ -3928,7 +4193,30 @@ var agSim=(function(){
   function xUniforms(st,k,o,gov){
     var kd=st.kind,ek={ring:0,line:1,center:2};
     o.jet=1;o.frameN=st.fn;
-    if(kd==='rd'){
+    if(kd==='boids'){
+      var R=K('pBdRadius',18)/100,E=K('pSimEnergy',100)/100;
+      Object.assign(o,{pn:st.pn,pbounds:{wrap:0,bounce:1,open:2}[simOpt.bdBounds]||0,emitType:{ring:0,fountain:1,center:2,orbit:3}[simOpt.bdEmit]||0,
+        jet:0.35,swirl:0,spin:0,plife:K('pBdLife',180)/10,psize:K('pBdSize',10)*st.oh/900,pglow:1.6,
+        colorBy:{spectrum:0,age:1,speed:2}[simOpt.bdColor]||0,compMode:0,kick:k.burst,
+        bcols:Math.max(3,Math.min(256,Math.floor(2*st.asp/R))),brows:Math.max(3,Math.min(256,Math.floor(2/R))),
+        x1:R,x2:K('pBdCohesion',90)/100,x3:K('pBdAlign',110)/100,x4:K('pBdSeparate',100)/100,x5:K('pBdTurn',85)/100*5,
+        x6:K('pBdSpeed',65)/100*0.7*E,x7:K('pBdWander',20)/100*0.7,x8:E,x12:1});
+    }else if(kd==='sand'){
+      Object.assign(o,{bmode:simOpt.saFloor==='open'?2:0,emitN:20,emitType:simOpt.saEmit==='tap'?2:1,radius:K('pSaRadius',3)/100,dyeAmt:90*K('pSaAmount',85)/100,
+        x2:K('pSaGravity',100)/100*K('pSimEnergy',100)/100,x3:K('pSaFriction',35)/100,x4:K('pSaWind',0)/100,x5:K('pSaKick',100)/100,compMode:1});
+    }else if(kd==='ferro'){
+      var n=K('pFeMagnets',3),motion=K('pFeMotion',25)/100,radius=K('pFePool',62)/100*0.5,base=AG_SIM_NF;
+      for(var fi=0;fi<n;fi++){
+        var angle=fi/n*Math.PI*2+st.time*motion*0.7+(st.sphase||0)*motion*0.18,rr=n===1?radius*0.35:radius*0.6;
+        st.U[base+fi*4]=Math.cos(angle)*rr;st.U[base+fi*4+1]=Math.sin(angle)*rr;
+        st.U[base+fi*4+2]=0.65+0.35*st.bands[fi%6];st.U[base+fi*4+3]=1;
+      }
+      var light=K('pFeLight',135)*Math.PI/180;
+      Object.assign(o,{poleN:n,bmode:0,radius:radius,kick:k.burst,
+        x1:K('pFeForce',100)/100*K('pSimEnergy',100)/100,x2:K('pFeTension',35)/100,x3:K('pFeSpacing',12)/100,
+        x4:K('pFeSharp',14),x5:2+K('pFeDamp',45)/100*16,x6:{disk:0,ring:1,oval:2}[simOpt.feShape]||0,
+        x7:K('pFeHeight',100)/100,x8:K('pFeRough',22)/100,tintMix:K('pFeTint',30)/100,lightx:Math.cos(light),lighty:-Math.sin(light),lightI:K('pFeLightI',100)/100,compMode:1});
+    }else if(kd==='rd'){
       var it=Math.max(1,Math.round(K('pRdSpeed',8)*(0.5+0.5*gov)))*(st.pw?5:1);st.it=it;
       var fe=K('pRdFeed',37)/1000+(st.bands[1]-0.25)*0.012*K('pRdAudioF',30)/100;
       Object.assign(o,{bmode:simOpt.rdBounds==='wall'?0:1,emitN:K('pRdJets',6),emitType:ek[simOpt.rdEmit]||0,radius:K('pRdSize',5)/100,
@@ -4103,6 +4391,20 @@ var agSim=(function(){
     st.nseg=o/8;G.dev.queue.writeBuffer(st.sbuf,0,D,0,o)}
   function xStep(st,h,k,gov,o){
     var dev=G.dev,kd=st.kind,rampTex={v:st.rampV,id:-1};
+    if(kd==='sand'){
+      st.saCarry+=h*120*K('pSaSpeed',120)/100;st.it=Math.min(12,Math.floor(st.saCarry));st.saCarry-=st.it;
+      o.dyeAmt/=Math.max(1,st.it);
+    }
+    if(kd==='boids'){
+      particleEmission(st,h,k,gov,o,true);setU(st,o);upload(st);
+      var encB=dev.createCommandEncoder();encB.clearBuffer(st.bheads);
+      var bgB=dev.createBindGroup({layout:G.P.L.boids,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},
+        {binding:2,resource:{buffer:st.pbuf}},{binding:3,resource:{buffer:st.bbuf}},{binding:4,resource:{buffer:st.emitterBuf}},
+        {binding:5,resource:{buffer:st.bheads}},{binding:6,resource:{buffer:st.blinks}}]});
+      ['bIndex','bStep'].forEach(function(name){var pass=encB.beginComputePass();pass.setPipeline(G.P[name]);pass.setBindGroup(0,bgB);pass.dispatchWorkgroups(Math.ceil(st.pn/64));pass.end();S.dispatches++});
+      dev.queue.submit([encB.finish()]);var prev=st.pbuf;st.pbuf=st.bbuf;st.bbuf=prev;
+      st.time+=h;st.steps++;S.steps++;S.submits++;return;
+    }
     if(kd==='field'){st.time+=h;st.steps++;S.steps++;return}
     if(kd==='bolt'){boltStep(st,h,gov);st.time+=h;st.steps++;S.steps++;return}
     if(kd==='cloth'){clothStep(st,h,k,gov);st.time+=h;st.steps++;S.steps++;return}
@@ -4110,18 +4412,23 @@ var agSim=(function(){
     if(kd==='cloner'){g3Step(st,h);st.time+=h;st.steps++;S.steps++;return}
     if(kd==='splat'){splStep(st,h);st.time+=h;st.steps++;S.steps++;return}
     setU(st,o);upload(st);var enc=dev.createCommandEncoder(),first=st.fn===0;
-    if(kd==='rd'){var n=first?1:st.it;for(var i=0;i<n;i++){dg(st,enc,'kRD',st.rd.a,null,null,st.rd.b);st.rd.swap()}}
+    if(kd==='sand'){
+      for(var si=0;si<st.it;si++){dg(st,enc,st.fn%2?'kSand1':'kSand0',st.sand.a,rampTex,null,st.sand.b);st.sand.swap();st.fn++}
+    }else if(kd==='ferro'){dg(st,enc,'kFerro',st.ferro.a,null,null,st.ferro.b);st.ferro.swap()}
+    else if(kd==='rd'){var n=first?1:st.it;for(var i=0;i<n;i++){dg(st,enc,'kRD',st.rd.a,null,null,st.rd.b);st.rd.swap()}}
     else if(kd==='wave'){var wn=first?1:st.it;for(var wi=0;wi<wn;wi++){dg(st,enc,'kWave',st.wv.a,null,null,st.wv.b);st.wv.swap()}st.stoneN=0}
     else if(kd==='life'){
       st.acc+=h*K('pLiSpeed',14)*(st.pw?8:1);var g=Math.min(st.pw?16:4,Math.floor(st.acc));st.acc-=Math.floor(st.acc);if(first)g=1;
       for(var j=0;j<g;j++){dg(st,enc,'kLife',st.lf.a,null,null,st.lf.b);st.lf.swap()}if(g)st.fn++}
     else{var reps=Math.max(1,Math.round(K('pSlSteps',1)));slimeStep(st,enc);
       for(var r=1;r<reps;r++){dev.queue.submit([enc.finish()]);S.submits++;enc=dev.createCommandEncoder();setU(st,{pseed:(st.steps*7919+r*131)%65521});upload(st);slimeStep(st,enc)}}
-    if(kd!=='life')st.fn++;
+    if(kd!=='life'&&kd!=='sand')st.fn++;
     dev.queue.submit([enc.finish()]);S.submits++;S.steps++;st.steps++;st.time+=h}
   function xRender(st,enc){
     var P=G.P,dev=G.dev,rampTex={v:st.rampV,id:-1},kd=st.kind;
-    if(kd==='rd')fp(st,enc,'fRD',st.hdr.v,st.rd.a,null,rampTex);
+    if(kd==='sand')fp(st,enc,'fSand',st.hdr.v,st.sand.a);
+    else if(kd==='ferro')fp(st,enc,'fFerro',st.hdr.v,st.ferro.a,null,rampTex);
+    else if(kd==='rd')fp(st,enc,'fRD',st.hdr.v,st.rd.a,null,rampTex);
     else if(kd==='life')fp(st,enc,'fLife',st.hdr.v,st.lf.a,null,rampTex);
     else if(kd==='slime')fp(st,enc,'fSlime',st.hdr.v,st.sl.a,null,rampTex);
     else if(kd==='wave')fp(st,enc,'fWave',st.hdr.v,st.wv.a,null,rampTex);
@@ -4135,6 +4442,9 @@ var agSim=(function(){
       rp.end()}}
   function xDesc(st){
     var kd=st.kind;
+    if(kd==='boids')return 'flocking \u00b7 '+st.pn.toLocaleString()+' agents \u00b7 local alignment, cohesion and separation (2D)';
+    if(kd==='sand')return 'granular sand \u00b7 '+st.gw+'\u00d7'+st.gh+' cells \u00b7 conservative falling-grain cellular model (2D)';
+    if(kd==='ferro')return 'ferrofluid-inspired damped height field \u00b7 '+st.gw+'\u00d7'+st.gh+' \u00b7 metallic 2.5D surface, not volumetric';
     if(kd==='rd')return 'Gray\u2013Scott reaction-diffusion \u00b7 '+st.gw+'\u00d7'+st.gh+' grid';
     if(kd==='life')return (st.rule===1?'Conway\u2019s Life':st.rule===2?'cyclic automaton':'Lenia')+' \u00b7 '+st.gw+'\u00d7'+st.gh+' cells';
     if(kd==='slime')return 'Physarum agents \u00b7 '+st.pn.toLocaleString()+' agents \u00b7 trail '+st.gw+'\u00d7'+st.gh;
@@ -4486,19 +4796,23 @@ var agSim=(function(){
       att.depthStencilAttachment={view:st.spdpV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}}
     var rp=enc.beginRenderPass(att);rp.setPipeline(solid?P.splS:P.splA);rp.setBindGroup(0,st.spbg);rp.draw(6,n2);rp.end();S.dispatches++}
   // ---------- stepping ----------
+  function particleEmission(st,h,k,gov,o,boids){
+    var amt=boids?1:K('pSpAmount',100)/100,levelDrive=Math.pow(st.level,0.7)*(1-k.react)+Math.pow(st.level,1.6)*k.react;
+    var rate=st.pn/o.plife*(boids?1.3:0.05)*amt*Math.min(1.2,levelDrive*1.05)*gov;
+    st.carry+=rate*h;
+    if(boids&&st.steps===0&&st.level>0.01)st.carry+=st.pn*Math.min(1,levelDrive);
+    if(st.burstN){st.carry+=st.burstN;st.burstN=0}
+    if(o.emitType>=4&&!o.sourceN)st.carry=0;
+    var n=Math.min(st.pn,Math.floor(st.carry));st.carry-=n;
+    o.pemit=n;o.pcursor=st.cursor;st.cursor=(st.cursor+n)%st.pn;st.emitted+=n;
+  }
   function stepOnce(st,h,k,gov){
     var dev=G.dev,P=G.P,kd=st.kind;
     var o=baseUniforms(st,k,h);
     if(XK[kd]){xStep(st,h,k,gov,o);return}
     var enc=dev.createCommandEncoder();
     if(kd==='particles'){
-      var amt=K('pSpAmount',100)/100,levelDrive=Math.pow(st.level,0.7)*(1-k.react)+Math.pow(st.level,1.6)*k.react;
-      var rate=st.pn/o.plife*0.05*amt*Math.min(1.2,levelDrive*1.05)*gov;
-      st.carry+=rate*h+st.kick*h*0*0;
-      if(st.burstN){st.carry+=st.burstN;st.burstN=0}
-      if(o.emitType>=4&&!o.sourceN)st.carry=0;
-      var n=Math.min(st.pn,Math.floor(st.carry));st.carry-=n;
-      o.pemit=n;o.pcursor=st.cursor;st.cursor=(st.cursor+n)%st.pn;st.emitted+=n;
+      particleEmission(st,h,k,gov,o,false);
       setU(st,o);upload(st);
       var bg=dev.createBindGroup({layout:P.L.part,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:{buffer:st.pbuf}},{binding:3,resource:{buffer:st.emitterBuf}}]});
       var p=enc.beginComputePass();p.setPipeline(P.pStep);p.setBindGroup(0,bg);p.dispatchWorkgroups(Math.ceil(st.pn/64));p.end();S.dispatches++;
@@ -4528,6 +4842,7 @@ var agSim=(function(){
     if(st.kind==='grav'&&st.kick>0.05&&st.since===0)st.burstN=1;
     if(st.kind==='wave'&&st.kick>0.05&&st.since===0){st.stoneN=1;st.sx=0.08+0.84*pickX(st);st.sy=0.15+0.7*Math.random()}
     if(st.kind==='particles'&&st.kick>0.05&&st.since===0)st.burstN=(st.burstN||0)+st.pn*0.006*Math.min(1.5,st.kick)*(K('pSpAmount',100)/100);
+    if(st.kind==='boids'&&st.kick>0.05&&st.since===0)st.burstN=(st.burstN||0)+st.pn*0.04*Math.min(1.5,st.kick);
     var n=Math.min(4,Math.ceil(dt/k.maxStep-1e-6)),h=dt/n,gov=simOpt.auto==='on'?G.gov:1;
     for(var i=0;i<n;i++)stepOnce(st,h,k,gov);
     st.lastDt=h;st.subs=n;st.dirty=true;
@@ -4543,8 +4858,8 @@ var agSim=(function(){
   function render(st,k){
     var dev=G.dev,P=G.P,enc=dev.createCommandEncoder(),kd=st.kind;
     var o=baseUniforms(st,k,st.lastDt||1/60);setU(st,o);upload(st);
-    if(kd==='particles'){
-      var fadeK=0,tr=K('pSpTrail',55)/100;if(tr>0)fadeK=Math.exp(-(st.lastDt||1/60)*st.subs*(0.4+(1-tr)*(1-tr)*18));
+    if(kd==='particles'||kd==='boids'){
+      var fadeK=0,tr=K(kd==='boids'?'pBdTrail':'pSpTrail',kd==='boids'?0:55)/100;if(tr>0)fadeK=Math.exp(-(st.lastDt||1/60)*st.subs*(0.4+(1-tr)*(1-tr)*18));
       var bgR=dev.createBindGroup({layout:P.L.rend,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:{buffer:st.pbuf}},{binding:3,resource:st.rampV}]});
       var rp=enc.beginRenderPass({colorAttachments:[{view:st.hdr.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:st.accumClear?'clear':'load',storeOp:'store'}]});
       st.accumClear=false;
@@ -4575,7 +4890,7 @@ var agSim=(function(){
       ecx.configure({device:G.dev,format:G.fmt,alphaMode:'premultiplied'});
       st.cv=ecv;st.cx=ecx;st.ow=ow;st.oh=oh;st.bgc={};st.accumClear=true;st.dirty=true;
       st.hdr=T(ow,oh);st.bl1=T(Math.ceil(ow/2),Math.ceil(oh/2));st.bl2=T(Math.ceil(ow/2),Math.ceil(oh/2));
-      if(st.kind==='particles'&&sv.hdr&&!sv.ac){
+      if((st.kind==='particles'||st.kind==='boids')&&sv.hdr&&!sv.ac){
         setU(st,{ow:ow,oh:oh});upload(st);
         var enc=G.dev.createCommandEncoder();fp(st,enc,'fCopy',st.hdr.v,sv.hdr);G.dev.queue.submit([enc.finish()]);
         st.accumClear=false;st.dirty=false;
@@ -4601,9 +4916,9 @@ var agSim=(function(){
     if(kind==='splat'&&G.P&&G.P.splerr){paintMsg(ctx,W,H,G.P.splerr,'Gaussian splat unavailable');return}
     try{
       var asp=W/H,st=ST[simUid];
-      if(st&&(st.kind!==kind||st.q!==simOpt.q)){disposeState(st);st=null}
+      if(st&&(st.kind!==kind||st.q!==simOpt.q||st.config!==stateConfig(kind))){disposeState(st);st=null}
       else if(st){
-        if(st.kind==='particles'||st.kind==='bolt'||st.kind==='field'||st.kind==='grav'||st.kind==='cloner'||st.kind==='splat')st.asp=asp;
+        if(st.kind==='particles'||st.kind==='boids'||st.kind==='bolt'||st.kind==='field'||st.kind==='grav'||st.kind==='cloner'||st.kind==='splat')st.asp=asp;
         else{var rr=asp/st.gAsp;if(rr<0.6||rr>1.67){if(!st.aspT)st.aspT=now();else if(now()-st.aspT>1500){disposeState(st);st=null}}else st.aspT=0}
       }
       var k=knobs();
@@ -4622,7 +4937,7 @@ var agSim=(function(){
       else{render(st,k);ctx.drawImage(st.cv,0,0,W,H);S.frames++;st.fr=(st.fr||0)+1}
     }catch(e){err(e&&e.stack||e);fail('error','Simulation failed: '+(e&&e.message||e));paintMsg(ctx,W,H,G.msg,'WebGPU simulation error')}
   }
-  function advance(n,dt){var k=knobs();var r=rawAudio();var old=api.fixedDt;api.fixedDt=dt||old||1/60;for(var i=0;i<n;i++){api._force=true;globalFrame++;var rr=rawAudio();Object.keys(ST).forEach(function(id){var s=ST[id];stepState(s,1/60,k,rr);if(s.kind==='particles'&&s.hdr)render(s,k)})}api._force=false;api.fixedDt=old}
+  function advance(n,dt){var k=knobs();var r=rawAudio();var old=api.fixedDt;api.fixedDt=dt||old||1/60;for(var i=0;i<n;i++){api._force=true;globalFrame++;var rr=rawAudio();Object.keys(ST).forEach(function(id){var s=ST[id];stepState(s,1/60,k,rr);if((s.kind==='particles'||s.kind==='boids')&&s.hdr)render(s,k)})}api._force=false;api.fixedDt=old}
   function statusText(){
     if(G.status==='ready'){var st=ST[simUid];var a=(G.adInfo||'GPU')+' \u00b7 ';
       if(!st)return 'WebGPU ready \u00b7 '+a.slice(0,-3);
@@ -12795,7 +13110,7 @@ var agTour=(function(){
   var recipe={"layout":"spiral","params":{"pSineWaves":2,"pSineAmp":80,"customFnX":"W/2 + Math.sin(t * Math.PI * 6) * W/3","customFnY":"Math.cos(i*137.508*Math.PI/180) * v * H/2 + H/2","pCircleInner":25,"pKalSegments":6,"pKalInner":15,"pSpiralTurns":5,"pSpiralInner":8,"pSpiralSpread":88,"pFibDensity":90,"pFibInner":5,"pPhylDiv":0,"pPhylDensity":88,"pPhylInner":4,"pWaveRows":8,"pWaveAmp2":50,"pConcRings":5,"pConcInner":10,"pImgVSkel":35,"pImgVBreathe":40,"pImgVBloom":0,"pImgThreshold":15,"pImgCols":80,"pImgGap":22,"pImgFloor":35,"pVidThreshold":15,"pVidCols":60,"pVidSpeed":1,"pPwRes":192,"pPwSize":82,"pPwDisplace":52,"pPwBass":115,"pPwMid":34,"pPwTreble":38,"pPwLuma":25,"pPwFlow":24,"pPwFlowSpeed":35,"pPwElastic":65,"pPwDepth":0,"pPwSat":108,"pPwBright":100,"pPwContrast":104,"pPwFlash":18,"textLayoutInput":"SOUND","pTextSlant":15,"pTextGap":22,"pTextFloor":35,"pTextThreshold":15,"pTextRes":80,"pScatterSpreadH":80,"pScatterSpreadV":80,"pScatterCluster":50,"pTerrainGrid":40,"pTerrainDepth":40,"pTerrainPersp":200,"pTerrainCam":35,"pTerrainElev":80,"pTerrainNoise":40,"pTerrainBend":0,"pTerrainTwist":0,"pSphereGrid":30,"pSpherePersp":250,"pSphereTilt":15,"pSphereElev":60,"pSphereNoise":50,"pSphereRotate":5,"pTetDetail":8,"pTetPersp":250,"pTetTilt":15,"pTetElev":60,"pTetNoise":50,"pTetRotate":5,"pFracDepth":7,"pFracAngle":30,"pFracDecay":65,"pGrowNeurons":6,"pGrowSpeed":100,"pGrowBranch":50,"pGrowCurl":40,"pGrowNoise":45,"pGrowTrail":70,"pGrowLife":3,"pGrowThick":100,"pGrowMax":240,"pLisA":3,"pLisB":2,"pLisDrift":30,"pRoseN":5,"pRoseD":2,"pRoseDrift":30,"pSpiR":7,"pSpiW":3,"pSpiPen":80,"pSpiDrift":30,"pSacSkel":35,"pSacBreathe":40,"pSacBloom":0,"pGraphNodes":160,"pGraphHubs":5,"pGraphLinks":45,"pGraphLoose":16,"pGraphPulse":50,"pGraphDrift":30,"pGraphSize":100,"pGraphTwinkle":50,"pGraphSkel":45,"pGraphBloom":0,"pRidgeRows":40,"pRidgeAmp":80,"pRidgeSmooth":3,"pDnaTurns":4,"pDnaRadius":30,"pDnaPersp":250,"pDnaTilt":15,"pDnaElev":60,"pDnaNoise":50,"pDnaRotate":5,"pObjTravel":35,"pObjCount":35,"pObjWire":30,"pObjBack":15,"pObjMaxFaces":2000,"pObjPersp":250,"pObjTilt":15,"pObjElev":60,"pObjNoise":50,"pObjRotate":5,"_lines":290,"_contrast":75,"_sensitivity":100,"_height":70,"_thick":1.5,"_zoom":100,"_offX":0,"_offY":0,"_rotation":0,"_varyHeight":true,"_varyThick":false,"_fadeEdge":0,"_lineShape":"pins","_styleSize":100,"_styleDensity":100,"_styleAngle":0,"_colorMode":"toneramp","_solidColor":"#dddde0","_toneStops":["#0a102800","#3b5bdb80","#c2255c","#ff922b","#ffe066"],"_simpleStops":["#e94560","#f5a623","#6ee7b7"],"_showOutline":true,"_outlineStyle":"solid","_imgDir":"up","_imgSrc":"raster","_imgStyle":"led","_imgVMap":"along","_imgVTick":"along","_objModel":"knot","_objSignal":"shape","_objFlow":"rings","_objTick":"across","_sacredPat":"flower","_sacredMap":"along","_sacredTick":"along","_graphMap":"along","_graphTick":"along","_graphSeed":1,"_growType":"vine","_growDir":"bottom","_growLine":"solid","_textStyle":"led","_textLedCol":"eq","_textSlant":15,"_textGap":22,"_textFloor":35,"_pwSource":"image","_pwMode":"pixels","_pwDir":"noise","_pwFit":"contain","_pwShape":"square","_outlineOpacity":60,"_outlineWeight":2,"_outlineDist":0,"_outlineCount":1,"_outlineSpace":4,"_spin":0.4,"_spinDir":-1,"_speed":1,"_amplify":1,"_twist":0,"_bulge":-3,"_wave":0,"_waveFreq":5,"_shear":0,"_depth":0,"_ripple":7,"_jitter":0,"_rGlobal":0,"_rDist":0,"_rAppear":0,"_rOutline":0,"_rColor":0,"_rDisorder":0,"_flipH":false,"_flipV":false,"_mirrorOn":false,"_symmetryMode":"none","_symGap":0,"_particleShape":"circle","_particlesOn":true,"pPartDensity":20,"pPartEnergy":1.3,"pPartSpeed":3,"pPartLife":120,"pPartSize":7,"pPartSpread":50,"pPartGravity":0,"pPartDamping":97,"pPartTrail":0,"pNoisePerlin":9,"pNoiseCurl":14,"pNoiseBrownian":0,"pNoiseVortex":0,"pNoiseScale":30,"pNoiseSpeed":20,"_zoomLoud":false,"_dragRotX":0,"_dragRotY":0,"_playMode":"equalizer","_postFx":{"enabled":true,"pfxFracture":false,"pfxFracCells":44,"pfxFracGap":30,"pfxFracDisp":58,"pfxFracRot":34,"pfxFracBass":125,"pfxFracBeat":150,"pfxFracRecover":48,"pfxFracGlow":62,"pfxFracSeed":17,"pfxFracSize":65,"pfxFracDrift":45,"pfxFracNoise":35,"pfxFracMode":"flow","pfxBloom":30,"pfxChroma":0,"pfxContrast":0,"pfxVignette":0,"pfxScanlines":0,"pfxSharpen":0,"pfxInvert":0,"pfxReflect":0,"pfxBlurX":0,"pfxBlurY":0,"pfxBlurRadial":0,"pfxFocal":0,"pfxTrails":68,"pfxFeedback":0,"pfxEdgeGlow":0,"pfxKaleido":0}}};
   var ALL=[
     {t:'Choose your Audio source',sel:'.audio-source-group',txt:'Everything starts with sound: load a file, use the Mic, or capture System audio. Press Next and a demo beat plays if nothing is loaded.',grp:null,ban:'Pick your <b>Audio source</b>'},
-    {t:'Pick your Layout',sel:'#panelAppear .panel-body .prow-stack',panel:'panelAppear',txt:'The layout decides where the audio lines stand: lines, circles, spirals, 3D shapes and more.',grp:'layout',ban:'Pick your <b>Layout</b>'},
+    {t:'Pick your Emitter',sel:'#panelAppear .panel-body .prow-stack',panel:'panelAppear',txt:'The emitter turns audio into a visual: lines, circles, spirals, 3D shapes, simulations and more.',grp:'layout',ban:'Pick your <b>Emitter</b>'},
     {t:'Pick a Style',sel:'#rowStyle',panel:'panelAppear',txt:'Style changes how each line is drawn: straight, tapered, dotted, pins and more.',grp:'style',ban:'Choose a line <b>Style</b>'},
     {t:'Add an Outline',sel:'#rowOutline',panel:'panelAppear',txt:'An optional glowing outline traces each line. Choose Yes, then set its opacity, weight and gap.',grp:'outline',ban:'Add an <b>Outline</b>'},
     {t:'Set Geometry & Motion',sel:'#panelGeo',panel:'panelGeo',txt:'How many lines, how tall they react, plus spin and speed.',grp:'geometry',ban:'Tune <b>Geometry &amp; Motion</b>'},
@@ -13025,7 +13340,7 @@ var agAuto=(function(){
     if(v.dark)o.push('dark');
     return o.length?'Reads: '+o.join(' · '):'No keywords recognised yet: try a tempo, mood, colors or shapes.';
   }
-  var SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl)/],['simsmoke',/\b(smoke|smoky|fog|mist|steam|incense|campfire|cloud|plume)/],['simparticles',/\b(particle field|firework|embers?|sparks?|stardust|confetti|fountain|swarm)/]];
+  var SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl)/],['simsmoke',/\b(smoke|smoky|fog|mist|steam|incense|campfire|cloud|plume)/],['simparticles',/\b(particle field|firework|embers?|sparks?|stardust|confetti|fountain)/],['simboids',/\b(boids?|flock|murmuration|school of fish|swarm)/],['simsand',/\b(sand|granular|dunes?|hourglass)/],['simferro',/\b(ferrofluid|liquid metal|magnetic (fluid|liquid)|oil slick)/]];
   var LAYOUT_NAMES=['spiral','phyllotaxis','concentric','sphere','growth','circle','tetrahedron','dna','scatter','sacred','graph'];
   // ---- Simulations (WebGPU): at most one per stack, light quality, never on phones or without a real GPU ----
   function simOK(){
@@ -13067,7 +13382,7 @@ var agAuto=(function(){
     var shapes=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted'];
     s.layout=pick(v&&v.layouts,E>60?hotL:calmL,'layout');
     if(!(v&&v.layouts.length)&&simOK()&&Math.random()<(kind==='calm'?0.35:kind==='drop'?0.3:0.22)){
-      var sl=E>60?['simfluid','simparticles','simsmoke']:['simsmoke','simfluid','simparticles'];s.layout=sl[Math.floor(Math.random()*sl.length)]}s.shape=pick(v&&v.shapes,shapes,'shape');
+      var sl=E>60?['simfluid','simparticles','simsmoke','simboids','simsand','simferro']:['simsmoke','simfluid','simparticles','simboids','simsand','simferro'];s.layout=sl[Math.floor(Math.random()*sl.length)]}s.shape=pick(v&&v.shapes,shapes,'shape');
     if(v){var kw=v.kw,h=v.hit;
       if(v.palette){s.colors=kw.colors.slice();if(match<100&&kind!=='calm'&&kind!=='drop'&&s.colors.length>2){var c=s.colors.slice(1);for(var n=Math.floor(r()*c.length);n>0;n--)c.push(c.shift());s.colors=[s.colors[0]].concat(c)}}
       if(h.growth)s.growth=kw.growth;if(h.symmetry)s.symmetry=kw.symmetry;if(h.particles)s.particles=kw.particles;
@@ -13251,22 +13566,22 @@ try{loadFromHash()}catch(e){}
 <div class="help-modal">
 <button class="close-help" onclick="toggleHelp()">&times;</button>
 <h2>Audiograph — Guide <span style="font-size:.5em;font-weight:400;letter-spacing:.08em;color:var(--tx3);vertical-align:middle">v82</span></h2>
-<p>Audiograph turns sound into moving images. Pick a source, pick a layout, and shape the look while the music plays. Everything reacts to audio, and nearly everything can be undone.</p>
+<p>Audiograph turns sound into moving images. Pick an audio source, pick an emitter, and shape the look while the music plays. Everything reacts to audio, and nearly everything can be undone.</p>
 <nav class="help-toc" aria-label="Guide contents">
-<a href="#g-start">Quick start</a><a href="#g-audio">Audio</a><a href="#g-layers">Layers</a><a href="#g-layout">Layout</a><a href="#g-style">Style &amp; Outline</a><a href="#g-color">Color</a><a href="#g-geo">Geometry &amp; Motion</a><a href="#g-deform">Deformers</a><a href="#g-particles">Particles</a><a href="#g-postfx">Post FX</a><a href="#g-presets">Presets &amp; Morph</a><a href="#g-live">Live output</a><a href="#g-mapping">Projection mapping</a><a href="#g-perf">Resolution &amp; renderer</a><a href="#g-export">Export</a><a href="#g-auto">Automation</a><a href="#g-controls">Knobs, touch &amp; keys</a>
+<a href="#g-start">Quick start</a><a href="#g-audio">Audio</a><a href="#g-layers">Layers</a><a href="#g-layout">Emitters</a><a href="#g-style">Style &amp; Outline</a><a href="#g-color">Color</a><a href="#g-geo">Geometry &amp; Motion</a><a href="#g-deform">Deformers</a><a href="#g-particles">Particles</a><a href="#g-postfx">Post FX</a><a href="#g-presets">Presets &amp; Morph</a><a href="#g-live">Live output</a><a href="#g-mapping">Projection mapping</a><a href="#g-perf">Resolution &amp; renderer</a><a href="#g-export">Export</a><a href="#g-auto">Automation</a><a href="#g-controls">Knobs, touch &amp; keys</a>
 </nav>
 
 <div class="help-section" id="g-start">
 <h3>1 · Quick start</h3>
 <ol>
-<li>New here? Press <strong>Tutorial</strong> in the top bar: it builds a look step by step (audio, layout, style, geometry, color, particles, deformers, Post FX) and plays a demo beat if nothing is loaded.</li>
+<li>New here? Press <strong>Tutorial</strong> in the top bar: it builds a look step by step (audio, emitter, style, geometry, color, particles, deformers, Post FX) and plays a demo beat if nothing is loaded.</li>
 <li><strong>Load audio</strong> (or drop a file on the timeline), then press <strong>Play</strong>. Mic and System work too.</li>
-<li>In <strong>Appearance</strong>, click a <strong>Layout</strong> — this is the biggest change to the picture.</li>
+<li>In <strong>Appearance</strong>, choose an <strong>Emitter</strong> — this is the biggest change to the picture.</li>
 <li>Pick a <strong>Style</strong> and a <strong>Color</strong> ramp.</li>
 <li>Stuck? Press <strong>✨ Surprise</strong> in Presets for a ready-made scene, or 🎲 on any panel to randomise just that panel.</li>
 <li><span class="hk">⌘/Ctrl Z</span> undoes anything. <strong>Reset</strong> returns every look setting to default.</li>
 </ol>
-<p>Panels only show controls that matter for the selected layout, so the sidebar changes as you switch layouts.</p>
+<p>Panels only show controls that matter for the selected emitter, so the sidebar changes as you switch emitters.</p>
 </div>
 
 <div class="help-section" id="g-audio">
@@ -13282,7 +13597,7 @@ try{loadFromHash()}catch(e){}
 
 <div class="help-section" id="g-layers">
 <h3>3 · Layers</h3>
-<p>A scene is a stack of <strong>layers</strong>. Each layer has its own layout, style, colour, deformers, particles, Post FX and playback, so you can put a 3D sphere behind a glowing spiral.</p>
+<p>A scene is a stack of <strong>layers</strong>. Each layer has its own emitter, style, colour, deformers, particles, Post FX and playback, so you can put a 3D sphere behind a glowing spiral.</p>
 <ul>
 <li><strong>+ Add layer</strong> adds one; click a layer name to edit it. All panels below edit the <em>selected</em> layer.</li>
 <li>Each layer has an <strong>opacity</strong> slider, <strong>▲/▼</strong> to reorder (top of the list draws on top) and <strong>✕</strong> to remove.</li>
@@ -13291,12 +13606,12 @@ try{loadFromHash()}catch(e){}
 </div>
 
 <div class="help-section" id="g-layout">
-<h3>4 · Layout</h3>
-<p>The Layout row in <strong>Appearance</strong> decides how sound becomes shape. Each layout's own settings appear in the framed box right under the picker.</p>
+<h3>4 · Emitters</h3>
+<p>The Emitters row in <strong>Appearance</strong> decides how sound becomes shape. Each emitter's own settings appear in the framed box right under the picker. These are the existing visual generators, previously called layouts; presets keep working unchanged.</p>
 <ul>
 <li><strong>General</strong> — Linear, Circle, Concentric, Spiral, Phyllotaxis, Fractal (audio-driven tree), Scatter, <strong>Harmonic</strong> (Lissajous figure), <strong>Sacred</strong> (Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, Star 64, Vector Equilibrium, Torus: audio lines follow the figure's circles and edges; <em>Map</em> Along flows the spectrum through it, Shapes gives each circle/edge its own band; <em>Lines</em> Across or Along the paths; <em>Outline</em> shows the figure underneath, <em>Breathe</em> swells each ring with its band, <em>Bloom</em> unfolds the figure from the middle as the music gets louder), <strong>Graph</strong> (an Obsidian-style network: hubs, clusters and loose notes in a live force layout; audio lines run along the links, nodes are sized by their links and swell with their band; <em>Pulse</em> makes kicks push the graph apart, <em>Drift</em> keeps it moving, <em>Shuffle</em> builds a new network; Nodes, Hubs, Links, Loose, Map, Lines, Outline and Bloom), and <strong>Growth</strong>: living Vine or Coral simulations with Life, Trail, line type, Thickness, vine Direction (Bottom / Top / Center) and Neuron count. <strong>Noise</strong> shapes the linework: Coral branches meander with rough, organic edges, swell and pinch along their length, grow small knobs and fork unevenly — while the coral still grows from the same spot; Vine gets a gentle wobble. Set it to 0 for the old, perfectly regular coral.</li>
-<li><strong>Simulation</strong> (WebGPU) — Particles, Fluid, Smoke, and <strong>3D Cloner</strong> (WebGPU-instanced 3D objects in X/Y/Z arrays, rings or sphere clouds; sound drives each clone's move, scale and rotation and animates the polygons themselves; material editor with solid, wireframe or edges, colours, roughness, metallic and transparency). Particles, Fluid, and Smoke can emit from an image or webcam and pick up source colors. Each layout has presets, a Quality tier and an automatic budget.</li>
-<li><strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus. Drag the visuals to orbit; 3D Tilt / Rotate are in Geometry. Every 3D layout has a <strong>Signal</strong> switch: <em>Shape</em> pushes the mesh with the audio, while <em>Surface</em> keeps the geometry fixed and moves the audio over its skin as lines in any Style. Flow sets the pattern (Rings, Sweep, Spiral, Scatter), Lines sets the direction (Across or Along), and Travel, Count, Wire and Back tune it. On Terrain, Elevation and Noise shape the fixed landscape. In Shape mode, marker styles (Pins, Numbers, …) keep a faint wire underneath and stand out of the surface on every 3D layout.</li>
+<li><strong>Simulation</strong> (WebGPU) — Particles, Fluid, Smoke, <strong>Boids</strong> (neighbor-based alignment, cohesion and separation), <strong>Granular Sand</strong> (grains fall, slide, accumulate and scatter on beats; Solid floor retains piles, Drain lets them leave), <strong>Ferrofluid</strong> (a damped, magnet-driven 2.5D height field with metallic spikes, not a volumetric fluid solver), and <strong>3D Cloner</strong> (WebGPU-instanced 3D objects in X/Y/Z arrays, rings or sphere clouds; sound drives each clone's move, scale and rotation and animates the polygons themselves; material editor with solid, wireframe or edges, colours, roughness, metallic and transparency). Particles, Fluid, Smoke, Boids and Sand can emit from an image or webcam and pick up source colors. Each emitter has presets and a Quality tier. Restart clears the simulation; changing sand Grain size or boid Population also restarts that layer.</li>
+<li><strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus. Drag the visuals to orbit; 3D Tilt / Rotate are in Geometry. Every 3D emitter has a <strong>Signal</strong> switch: <em>Shape</em> pushes the mesh with the audio, while <em>Surface</em> keeps the geometry fixed and moves the audio over its skin as lines in any Style. Flow sets the pattern (Rings, Sweep, Spiral, Scatter), Lines sets the direction (Across or Along), and Travel, Count, Wire and Back tune it. On Terrain, Elevation and Noise shape the fixed landscape. In Shape mode, marker styles (Pins, Numbers, …) keep a faint wire underneath and stand out of the surface on every 3D emitter.</li>
 <li><strong>Input</strong> — <strong>Gaussian Splat</strong>: load a 3DGS <code>.ply</code> / <code>.splat</code> (or a plain point-cloud .ply) use a demo cloud, or turn any 3D object (Knot, Cube, Torus or your own .obj) into a point cloud; set <strong>Walkthrough</strong> (Fly through, Spiral, Glide) to fly the camera through the inside of the cloud; pick any mix of interactions (Pulse, Ripple, Equalizer, Explode, Flow, Twist, Wave, Reveal) and colour by original, height, distance or sound. <strong>Image</strong>: <em>Import raster</em> (PNG/JPG) becomes a brightness map drawn as Grid lines, Edge scans or an <em>LED</em> equalizer inside the picture (like Text LED); <em>Import vector</em> (SVG) traces the drawing's paths with audio lines exactly like Sacred (Map, Lines, Outline, Breathe, Bloom). <strong>Video</strong> (file or camera) becomes a brightness map drawn with lines; <strong>Pixel Warp</strong> keeps the real image colours and pushes pixels or a mesh with the music; <strong>Text</strong> (LED equalizer or scan lines); <strong>Math</strong> (your own formula); <strong>3D Object</strong> (load an .OBJ).</li>
 </ul>
 </div>
@@ -13330,7 +13645,7 @@ try{loadFromHash()}catch(e){}
 <h3>8 · Deformers &amp; audio response</h3>
 <ul>
 <li><strong>Amplify</strong> — overall response. <strong>Bass punch / release</strong> — how hard kicks hit and how fast the image relaxes.</li>
-<li><strong>Drop</strong> — detects big drops and can switch Layout, Colors, Style or Distort (Subtle / Medium / Wild).</li>
+<li><strong>Drop</strong> — detects big drops and can switch Emitter, Colors, Style or Distort (Subtle / Medium / Wild).</li>
 <li><strong>Twist, Bulge, Wave, Shear, Depth, Ripple, Disorder, Jitter</strong> — audio-reactive shape bending.</li>
 </ul>
 </div>
@@ -13368,7 +13683,7 @@ try{loadFromHash()}catch(e){}
 <li><strong>Project visuals</strong> opens a visuals-only window. Drag it to the projector or second screen, then press <span class="hk">F</span> or double-click it for fullscreen. Allow pop-ups if blocked.</li>
 <li>Keep the controller window on your laptop — audio plays from there. <strong>Close output</strong> stops projecting without stopping the music.</li>
 <li><strong>3D Cloner &amp; Gaussian Splat viewport</strong> — drag in the preview to orbit, Shift- or right-drag to move, scroll to zoom, double-click to reset the view.</li>
-<li><strong>Webcam</strong> panel — use camera colours for the lines, or let brightness displace them. On simulation layouts (Particles, Fluid, Smoke, 3D Cloner, Gaussian Splat…) the camera re-colours the image and its brightness warps the shape.</li>
+<li><strong>Webcam</strong> panel — use camera colours for the lines, or let brightness displace them. On simulation emitters (Particles, Fluid, Smoke, Boids, Granular Sand, Ferrofluid, 3D Cloner, Gaussian Splat…) the camera re-colours the image and its brightness warps the shape.</li>
 </ul>
 </div>
 
@@ -13400,8 +13715,8 @@ try{loadFromHash()}catch(e){}
 <h3>🎛 Automation: Autopilot, Mixer &amp; Reactive</h3>
 <ul>
 <li>Three hands-free modes share one panel. Pick a tab; a dot on a tab means that mode is running, even while you look at another tab.</li>
-<li><strong>Autopilot</strong>: turn it <strong>On</strong> and play music. It listens for the song's structure: <strong>Build-up</strong>, <strong>Drop</strong>, <strong>Breakdown</strong> and <strong>Groove</strong>. The bar shows the current energy. At each moment it slowly crossfades to a fitting variation (about 2–3 s on drops, 7–10 s otherwise, at least 8 s apart except for drops), and a fresh variation at least every <strong>Every</strong> seconds. Spin stays subtle and keeps one direction, the background stays black, and it never uses the Linear layout.</li>
-<li><strong>Describe</strong> the show in the text box: tempo (<em>slow</em>, <em>fast</em>, <em>90 bpm</em>), vibe (<em>dreamy</em>, <em>dark</em>, <em>aggressive</em>), colors, layouts and styles. The line below shows what it understood. <strong>Prompt match</strong> at 100% sticks to and cycles through the layouts/styles you named; lower settings explore more freely. Leave the description empty for free roaming.</li>
+<li><strong>Autopilot</strong>: turn it <strong>On</strong> and play music. It listens for the song's structure: <strong>Build-up</strong>, <strong>Drop</strong>, <strong>Breakdown</strong> and <strong>Groove</strong>. The bar shows the current energy. At each moment it slowly crossfades to a fitting variation (about 2–3 s on drops, 7–10 s otherwise, at least 8 s apart except for drops), and a fresh variation at least every <strong>Every</strong> seconds. Spin stays subtle and keeps one direction, the background stays black, and it never uses the Linear emitter.</li>
+<li><strong>Describe</strong> the show in the text box: tempo (<em>slow</em>, <em>fast</em>, <em>90 bpm</em>), vibe (<em>dreamy</em>, <em>dark</em>, <em>aggressive</em>), colors, emitters and styles. The line below shows what it understood. <strong>Prompt match</strong> at 100% sticks to and cycles through the emitters/styles you named; lower settings explore more freely. Leave the description empty for free roaming.</li>
 <li>Styles include <strong>Ink in Water</strong>; you can name it directly in the prompt.</li>
 <li><strong>Scale loud</strong> is paused while Autopilot runs, so the picture doesn't pump in and out; your setting returns when you stop it.</li>
 <li><strong>Changes</strong>: <strong>Colors</strong> only changes palettes. <strong>Mood</strong> also changes motion, glow and trails on your own layers (Linear layers never get spin). <strong>Everything</strong> builds its own stack of 1–3 layers: a main layer plus lighter supporting layers that share its palette and drift the other way. Regular changes swap one layer at a time while the rest glide to the new colors; drops rebuild the whole stack in a quick ripple.</li>
@@ -13419,7 +13734,7 @@ try{loadFromHash()}catch(e){}
 <li><strong>Touch (iPad)</strong> — one finger moves the layer (orbits 3D); pinch to scale, twist to rotate.</li>
 <li><span class="hk">Space</span> Play/Pause &nbsp; <span class="hk">⌘/Ctrl Z</span> Undo &nbsp; <span class="hk">F</span> Fullscreen &nbsp; <span class="hk">Esc</span> Exit fullscreen / close Guide</li>
 </ul>
-<p><strong>Tips:</strong> stack 2–3 layers with different layouts; Bloom + Vignette gives instant polish; for slow installations try Growth with a long Life and Trail.</p>
+<p><strong>Tips:</strong> stack 2–3 layers with different emitters; Bloom + Vignette gives instant polish; for slow installations try Growth with a long Life and Trail.</p>
 </div>
 </div>
 </div>

@@ -15,7 +15,7 @@ const retired = ['simrd', 'simslime'];
       data: ['simrd', 'simslime'].map(k => [!!AG_SIM_UI[k], !!AG_SIM_OPTS[k], !!AG_SIM_PRESETS[k], !!AG_SIM_TITLE[k]]),
       guide: document.getElementById('g-layout').textContent,
     }));
-    assert.deepEqual(ui.buttons, ['Particles', 'Fluid', 'Smoke', '3D Cloner']);
+    assert.deepEqual(ui.buttons, ['Particles', 'Fluid', 'Smoke', 'Boids', 'Granular Sand', 'Ferrofluid', '3D Cloner']);
     assert.ok(retired.every(k => !ui.registered.includes(k)));
     assert.deepEqual(ui.panels, [false, false]);
     assert.deepEqual(ui.data, [[false, false, false, false], [false, false, false, false]]);
