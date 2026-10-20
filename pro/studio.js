@@ -2,7 +2,7 @@ import {TYPES,EMITTERS,emitterNames,clone,node,layer,project,validate,order,conn
 import {EmitterEngine} from './engine.js';
 
 const $=id=>document.getElementById(id), el=(tag,className,text)=>{const e=document.createElement(tag);if(className)e.className=className;if(text!==undefined)e.textContent=text;return e;};
-let state=project(),active=state.layers[0].id,selected=null,pending=null,paused=false;
+let state=project(),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
 const history=[],future=[],engines=new Map(),surfaces=new Map(),view={x:15,y:20,zoom:.85};
 let plans=new Map(),frame=0,lastTime=0,renderErrors=[],latestBands={bass:0,mids:0,high:0,full:0};
 let statusSource='action';
@@ -93,6 +93,7 @@ function execute(g,time){
   return images[0];
 }
 function draw(time){
+  if(pageHidden)return;
   latestBands=readBands();$('audioMeter').value=latestBands.full;renderErrors=[];
   previewCtx.globalAlpha=1;previewCtx.filter='none';previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,preview.width,preview.height);
   for(const g of state.layers)if(g.visible&&g.opacity>0){
@@ -105,7 +106,7 @@ function draw(time){
   else if(statusSource==='render'&&renderErrors.length===0)message('Rendering layer graphs');
 }
 let elapsed=0;
-function loop(now){if(!paused&&now-lastTime>1000/30){elapsed+=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;lastTime=now;draw(elapsed);}requestAnimationFrame(loop);}
+function loop(now){if(!pageHidden&&!paused&&now-lastTime>1000/30){elapsed+=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;lastTime=now;draw(elapsed);}requestAnimationFrame(loop);}
 
 function renderLibrary(){
   const groups={Control:['value','oscillator','audio','map'],Image:['emitter','effect','blend','output']};
@@ -220,18 +221,22 @@ function renderLayers(){
 function renderUI(){renderGraph();renderProperties();renderLayers();$('undo').disabled=!history.length;$('redo').disabled=!future.length;}
 
 const audio={context:null,buffer:null,source:null,analyser:null,data:null};
+function audioContext(){
+  if(!audio.context||audio.context.state==='closed'){audio.context=new AudioContext();audio.analyser=null;audio.data=null;}
+  return audio.context;
+}
 function stopAudio(){if(audio.source){audio.source.onended=null;audio.source.stop();audio.source.disconnect();audio.source=null;}$('play').textContent='Play';}
 $('audioFile').onchange=async()=>{
   try{
     const file=$('audioFile').files[0];if(!file)return;if(file.size>120*1024*1024)throw Error('Audio limit is 120 MB');
-    stopAudio();audio.buffer=null;audio.context??=new AudioContext();audio.buffer=await audio.context.decodeAudioData(await file.arrayBuffer());$('audioName').textContent=file.name+' · press Play';message('Audio loaded. Connect an Audio band node to drive an Emitter.');
+    stopAudio();audio.buffer=null;audio.buffer=await audioContext().decodeAudioData(await file.arrayBuffer());$('audioName').textContent=file.name+' · press Play';message('Audio loaded. Connect an Audio band node to drive an Emitter.');
   }catch(error){message('Audio: '+error.message,true);}
 };
 $('play').onclick=async()=>{
   try{
     if(!audio.buffer)throw Error('Load an audio file before pressing Play');
     if(audio.source){stopAudio();return;}
-    await audio.context.resume();audio.analyser??=audio.context.createAnalyser();audio.analyser.fftSize=2048;audio.analyser.smoothingTimeConstant=.75;
+    await audioContext().resume();audio.analyser??=audio.context.createAnalyser();audio.analyser.fftSize=2048;audio.analyser.smoothingTimeConstant=.75;
     audio.data=new Uint8Array(audio.analyser.frequencyBinCount);audio.analyser.disconnect();audio.analyser.connect(audio.context.destination);
     const source=audio.context.createBufferSource();source.buffer=audio.buffer;source.connect(audio.analyser);audio.source=source;source.onended=()=>{if(audio.source===source){audio.source=null;$('play').textContent='Play';}};source.start();$('play').textContent='Stop';message('Playing shared audio');
   }catch(error){message(error.message,true);}
@@ -265,7 +270,20 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='Escape'){pending=null;renderGraph();message('Connection cancelled');}
 });
 window.addEventListener('resize',()=>requestAnimationFrame(renderWires));
-window.addEventListener('pagehide',()=>{for(const engine of engines.values())engine.dispose();stopAudio();audio.context?.close();});
+window.addEventListener('pagehide',event=>{
+  pageHidden=true;
+  for(const engine of engines.values())engine.dispose();
+  engines.clear();stopAudio();
+  if(audio.context){
+    const context=audio.context;
+    if(event.persisted)context.suspend().catch(error=>message('Audio suspend: '+error.message,true));
+    else {audio.context=null;audio.analyser=null;audio.data=null;context.close().catch(error=>message('Audio close: '+error.message,true));}
+  }
+});
+window.addEventListener('pageshow',()=>{
+  pageHidden=false;lastTime=0;
+  if(paused)draw(elapsed);
+});
 window.pro={
   getProject:()=>clone(state),validate,importProject,addNode,addLayer,connect:connection,undo,redo,
   select:id=>selectNode(id),selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},

@@ -199,6 +199,32 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.locator('#stop').click();await page.evaluate(()=>pro.draw());
     assert.equal(await page.evaluate(()=>pro.stats().bands.bass),0,'Stopped audio produces silence');
 
+    // Simulate bfcache transitions without relying on Chrome's cache eligibility heuristics.
+    await page.evaluate(id=>{
+      window.__beforeCache=pro.engine(id);
+      window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));
+    },ids.emitter);
+    assert.equal(await page.evaluate(()=>Object.keys(pro.stats().engines).length),0,'pagehide removes disposed engines from the registry');
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(()=>Object.keys(pro.stats().engines).length),0,'Hidden frame loop cannot recreate disposed engines');
+    await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+    await page.evaluate(()=>pro.draw());
+    await page.waitForFunction(id=>pro.engine(id)?.status==='ready',ids.emitter,{timeout:30000});
+    assert.equal(await page.evaluate(async id=>await pro.engine(id).w.agSim.ready(),ids.emitter),'ready');
+    assert.ok(await page.evaluate(id=>pro.engine(id)!==window.__beforeCache&&!pro.engine(id).disposed&&!!pro.engine(id).w,ids.emitter),'Cached restore recreates a live renderer engine');
+    await page.locator('#play').click();
+    await page.waitForFunction(()=>{pro.draw();return pro.stats().bands.bass>.05;});
+    for(let i=0;i<15;i++){await page.waitForTimeout(20);await page.evaluate(()=>pro.draw());}
+    const restoredPixels=await pixels();
+    assert.ok(restoredPixels.some(v=>v>30),'Cached restore resumes visible native GPU output');
+    assert.ok(await page.evaluate(id=>Object.values(pro.stats().engines[id].sim.layers)[0].level>.01,ids.emitter),'Retained audio can play and drive the recreated GPU solver');
+    await page.locator('#stop').click();
+    await page.locator('#audioFile').setInputFiles(audioFile(5));
+    await page.waitForFunction(()=>document.getElementById('audioName').textContent.includes('press Play'));
+    await page.locator('#play').click();
+    await page.waitForFunction(()=>{pro.draw();return pro.stats().bands.bass>.05;});
+    await page.locator('#stop').click();
+
     // Independent graph engines keep GPU state and parameters separate.
     await page.locator('#addLayer').click();
     const second=await page.evaluate(()=>{const g=pro.getProject().layers[1];return {id:g.id,emitter:g.nodes.find(n=>n.type==='emitter').id,audio:g.nodes.find(n=>n.type==='audio').id};});

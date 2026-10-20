@@ -63,6 +63,9 @@ then evaluates only ancestors of Output. Adding an unused node therefore does
 not interrupt the live branch. Solvers keep state across frames and ordinary
 property edits. Changing the Emitter algorithm resets only that engine's solver.
 Deleting an Emitter or layer disposes its simulation resources and frame.
+Back/forward-cache transitions dispose and clear engines; returning recreates
+them. Cached navigation stops audio and suspends its retained context, so Play
+or loading another file works after returning without retaining GPU resources.
 The four-Emitter project limit bounds the cost of this isolation approach.
 
 ## Boundaries
