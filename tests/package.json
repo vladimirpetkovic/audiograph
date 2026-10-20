@@ -11,6 +11,7 @@
     "test:emitters": "node sim-emitters.cjs",
     "test:sim-removal": "node sim-removal.cjs",
     "test:sim-trio": "node sim-trio.cjs",
+    "test:pro": "node pro.cjs",
     "test:tour": "node tour.cjs",
     "bench:particles": "node particles-benchmark.cjs",
     "bench:knobs": "node knobs-bench.cjs"

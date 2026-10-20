@@ -8,6 +8,13 @@ Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
+**Audiograph Pro preview: [Open the node-based studio](https://vladimirpetkovic.github.io/audiograph/pro/).**
+Separate layer graphs reuse the existing Emitters, with typed control/image
+connections, audio bands, effects, branching, blending, undo and JSON projects.
+This is a working prototype, not full feature parity: four Emitters maximum,
+960×540 preview, Low simulation quality and Canvas 2D compositing. See
+[the Pro guide](pro/README.md) for controls and current limits.
+
 ---
 
 ## How It Works
@@ -21,20 +28,20 @@ Audiograph maps audio energy to visual form. Every frame it samples the audio, a
 
 ## Composition model: Layers
 
-Everything is built from **layers** — stack as many as you like, each with its own layout, style, colors, outline, deformers, particles, symmetry, and playback mode. Layers have independent opacity and composite together, so a single scene can combine, say, a 3D sphere behind a spiral of glowing rings.
+Everything is built from **layers** — stack as many as you like, each with its own emitter, style, colors, outline, deformers, particles, symmetry, and playback mode. Layers have independent opacity and composite together, so a single scene can combine, say, a 3D sphere behind a spiral of glowing rings.
 
 ## Appearance
 
 The **Appearance** panel holds the three choices that define a look:
 
-### Layout — 20, grouped
+### Emitters — grouped
 
-**General** — Linear · Sine · Circle · Concentric · Spiral · Phyllotaxis · Kaleidoscope · Fractal · Ridge · Scatter
-**3D** — Terrain · Sphere · Tetrahedron · DNA
-**Input** — Image · Video · Pixel Warp · Text · Math · 3D Object
+**General** — Linear · Circle · Concentric · Spiral · Phyllotaxis · Fractal · Growth · Sacred · Graph · Harmonic · Scatter
+**Simulations** — Particles · Fluid · Smoke · Boids · Granular Sand · Ferrofluid · 3D Cloner
+**3D** — Terrain · Sphere · Tetrahedron · DNA · Knot · Cube · Torus
+**Input** — Image · Video · Gaussian Splat · Pixel Warp · Text · Math · 3D Object
 
 Highlights:
-- **Ridge** — a Joy Division–style stacked ridge plot; each row is a frequency band (bass at bottom, treble at top).
 - **Fractal** — a recursive, audio-driven branching tree (bass widens branches, treble adds asymmetry).
 - **Terrain / Sphere / Tetrahedron / DNA** — real 3D wireframes with audio-driven surface displacement; drag to orbit.
 - **3D Object** — load your own `.obj` model and drive it with audio.
