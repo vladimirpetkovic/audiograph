@@ -233,6 +233,9 @@ function execute(g,time,dt){
         else{const gr=p.fill==='vertical'?ctx.createLinearGradient(0,0,0,HEIGHT):ctx.createRadialGradient(WIDTH/2,HEIGHT/2,0,WIDTH/2,HEIGHT/2,WIDTH*.6);gr.addColorStop(0,p.fill==='vertical'?p.c1:p.c2);gr.addColorStop(1,p.fill==='vertical'?p.c2:p.c1);ctx.fillStyle=gr;}
         ctx.fillRect(0,0,WIDTH,HEIGHT);r.image=canvas;break;}
       case 'effect':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);if(src){ctx.filter=filterFor(p.kind,p.amount);ctx.drawImage(src,0,0);ctx.filter='none';}r.image=canvas;break;}
+      case 'cornerPin':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
+        const q=[[p.tlx,p.tly],[100+p.trx,p.try],[100+p.brx,100+p.bry],[p.blx,100+p.bly]].map(([x,y])=>[x*WIDTH/100,y*HEIGHT/100]);
+        if(src)warpQuad(ctx,src,q);if(p.grid==='on')drawPinGrid(ctx,q);r.image=canvas;break;}
       case 'blend':{const a=asImage(need(n,'a','image A'),n.id+'a'),b=asImage(need(n,'b','image B'),n.id+'b'),{canvas,ctx}=surface(n.id);
         if(a)ctx.drawImage(a,0,0);if(b){ctx.globalAlpha=p.mix;ctx.globalCompositeOperation=p.mode;ctx.drawImage(b,0,0);}ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';r.image=canvas;break;}
       case 'output':image=asImage(need(n,'image','an image'),n.id);r.image=image;break;
@@ -259,6 +262,27 @@ function execute(g,time,dt){
   if(!g.nodes.some(n=>n.type==='output'))throw Error(`${g.name}: add an Output node`);
   return image;
 }
+// Perspective-ish warp of a full frame onto quad q (TL,TR,BR,BL) via bilinear mesh of affine triangles.
+function quadPoint(q,u,v){const a=[q[0][0]+(q[1][0]-q[0][0])*u,q[0][1]+(q[1][1]-q[0][1])*u],b=[q[3][0]+(q[2][0]-q[3][0])*u,q[3][1]+(q[2][1]-q[3][1])*u];return [a[0]+(b[0]-a[0])*v,a[1]+(b[1]-a[1])*v];}
+function warpTri(ctx,img,s0,s1,s2,d0,d1,d2){
+  const cx=(d0[0]+d1[0]+d2[0])/3,cy=(d0[1]+d1[1]+d2[1])/3,grow=p=>{const dx=p[0]-cx,dy=p[1]-cy,l=Math.hypot(dx,dy)||1;return [p[0]+dx/l*.7,p[1]+dy/l*.7];};
+  const [e0,e1,e2]=[grow(d0),grow(d1),grow(d2)];
+  const den=(s1[0]-s0[0])*(s2[1]-s0[1])-(s2[0]-s0[0])*(s1[1]-s0[1]);if(!den)return;
+  const a=((d1[0]-d0[0])*(s2[1]-s0[1])-(d2[0]-d0[0])*(s1[1]-s0[1]))/den,b=((d1[1]-d0[1])*(s2[1]-s0[1])-(d2[1]-d0[1])*(s1[1]-s0[1]))/den,
+    c=((d2[0]-d0[0])*(s1[0]-s0[0])-(d1[0]-d0[0])*(s2[0]-s0[0]))/den,d=((d2[1]-d0[1])*(s1[0]-s0[0])-(d1[1]-d0[1])*(s2[0]-s0[0]))/den;
+  ctx.save();ctx.beginPath();ctx.moveTo(...e0);ctx.lineTo(...e1);ctx.lineTo(...e2);ctx.closePath();ctx.clip();
+  ctx.setTransform(a,b,c,d,d0[0]-a*s0[0]-c*s0[1],d0[1]-b*s0[0]-d*s0[1]);ctx.drawImage(img,0,0,WIDTH,HEIGHT);ctx.restore();
+}
+function warpQuad(ctx,img,q){
+  if(q.every((p,i)=>p[0]===[0,WIDTH,WIDTH,0][i]&&p[1]===[0,0,HEIGHT,HEIGHT][i])){ctx.drawImage(img,0,0);return;}
+  const N=12;for(let j=0;j<N;j++)for(let i=0;i<N;i++){
+    const u0=i/N,u1=(i+1)/N,v0=j/N,v1=(j+1)/N,s=(u,v)=>[u*WIDTH,v*HEIGHT],d=(u,v)=>quadPoint(q,u,v);
+    warpTri(ctx,img,s(u0,v0),s(u1,v0),s(u1,v1),d(u0,v0),d(u1,v0),d(u1,v1));warpTri(ctx,img,s(u0,v0),s(u1,v1),s(u0,v1),d(u0,v0),d(u1,v1),d(u0,v1));
+  }
+}
+function drawPinGrid(ctx,q){ctx.save();ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=1.5;
+  for(let k=0;k<=8;k++){const t=k/8;ctx.beginPath();ctx.moveTo(...quadPoint(q,t,0));ctx.lineTo(...quadPoint(q,t,1));ctx.moveTo(...quadPoint(q,0,t));ctx.lineTo(...quadPoint(q,1,t));ctx.stroke();}
+  ctx.fillStyle='#d2ff3a';for(const p of q){ctx.beginPath();ctx.arc(p[0],p[1],7,0,7);ctx.fill();}ctx.restore();}
 function drawThumb(id,src){const cv=thumbs.get(id);if(!cv?.isConnected)return;const c=cv.getContext('2d');c.fillStyle='#000';c.fillRect(0,0,cv.width,cv.height);c.drawImage(src,0,0,cv.width,cv.height);}
 function draw(time,dt=1/30){
   if(pageHidden)return;
@@ -490,6 +514,7 @@ function renderProps(root,n,keys){
   root.querySelectorAll('input[type=color]').forEach(i=>i.addEventListener('change',()=>liveCommit('Changed color')));
 }
 function renderProperties(){
+  $('previewWrap').classList.toggle('pinning',!!pinNode());
   const root=$('properties');root.replaceChildren();closeMenu();
   const g=graph(),n=g.nodes.find(n=>n.id===selected);
   if(!n){renderLayerInspector(root,g);return;}
@@ -648,6 +673,39 @@ $('play').onclick=()=>play().catch(e=>message(e.message,true));
 $('stop').onclick=()=>{stopAudio();stopMic();message('Audio stopped');};
 $('mic').onclick=()=>toggleMic().catch(e=>message('Mic: '+e.message,true));
 $('record').onclick=()=>attempt(toggleRecord);
+// With a Corner pin selected, its corners can be dragged directly on the preview.
+const PIN_KEYS=[['tlx','tly',0,0],['trx','try',100,0],['brx','bry',100,100],['blx','bly',0,100]];
+function pinNode(){const n=graph().nodes.find(n=>n.id===selected);return n?.type==='cornerPin'?n:null;}
+function previewPoint(ev){const r=preview.getBoundingClientRect();return [(ev.clientX-r.left)/r.width*100,(ev.clientY-r.top)/r.height*100];}
+let pinDrag=null;
+preview.addEventListener('pointerdown',ev=>{
+  const n=pinNode();if(!n)return;const [x,y]=previewPoint(ev),r=preview.getBoundingClientRect();
+  let best=-1,dist=Infinity;PIN_KEYS.forEach(([kx,ky,bx,by],i)=>{const d=Math.hypot((bx+n.props[kx]-x)*r.width/100,(by+n.props[ky]-y)*r.height/100);if(d<dist){dist=d;best=i;}});
+  if(dist>40)return;pinDrag={id:n.id,i:best};preview.setPointerCapture(ev.pointerId);ev.preventDefault();
+});
+preview.addEventListener('pointermove',ev=>{
+  const n=pinNode();preview.style.cursor=n?'crosshair':'';if(!pinDrag)return;
+  const [x,y]=previewPoint(ev),[kx,ky,bx,by]=PIN_KEYS[pinDrag.i],c=v=>Math.round(Math.max(-50,Math.min(50,v))*2)/2;
+  live(st=>{const m=st.layers.flatMap(g=>g.nodes).find(m=>m.id===pinDrag.id);if(m){m.props[kx]=c(x-bx);m.props[ky]=c(y-by);}});
+});
+const endPin=()=>{if(pinDrag){pinDrag=null;liveCommit('Moved corner');}};
+preview.addEventListener('pointerup',endPin);preview.addEventListener('pointercancel',endPin);
+
+// Output window for a projector / second display: mirrors the preview as a live stream.
+let outWin=null;
+$('output').onclick=()=>{
+  if(outWin&&!outWin.closed){outWin.focus();return;}
+  outWin=window.open('','audiograph-pro-output','popup,width=960,height=540');
+  if(!outWin)return message('Allow pop-ups to open the output window',true);
+  const d=outWin.document;d.title='Audiograph Pro · Output';
+  d.body.style.cssText='margin:0;background:#000;overflow:hidden;cursor:none';d.body.replaceChildren();
+  const v=d.createElement('video');v.muted=true;v.autoplay=true;v.playsInline=true;v.style.cssText='width:100vw;height:100vh;object-fit:contain;display:block';
+  v.srcObject=preview.captureStream(60);d.body.append(v);v.play().catch(()=>{});
+  v.ondblclick=()=>d.fullscreenElement?d.exitFullscreen():d.documentElement.requestFullscreen().catch(()=>{});
+  outWin.addEventListener('pagehide',()=>{v.srcObject?.getTracks().forEach(t=>t.stop());outWin=null;});
+  message('Output window open · move it to the projector and double-click for fullscreen');
+};
+addEventListener('pagehide',()=>{if(outWin&&!outWin.closed)outWin.close();});
 $('snap').onclick=()=>preview.toBlob(blob=>{if(!blob)return message('Snapshot failed',true);const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);message('Snapshot saved');},'image/png');
 $('fullscreen').onclick=toggleFullscreen;
 $('pause').onclick=()=>{paused=!paused;lastTime=0;$('pause').textContent=paused?'Resume':'Pause';$('pause').classList.toggle('on',paused);message(paused?'Visuals paused':'Visuals resumed');};

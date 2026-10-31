@@ -131,6 +131,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const rgb=await page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(480,270,1,1).data));
     assert.ok(rgb[1]>rgb[0],'Color correct hue-shifted magenta toward green: '+rgb);
 
+    // 7b. Corner pin warps the frame: pulling the top-left corner in leaves that corner empty.
+    await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:2,layers:[{id:'L1',name:'Pin',visible:true,opacity:1,blend:'source-over',
+      nodes:[{id:'bg',type:'background',x:0,y:0,props:{fill:'flat',c1:'#ff00aa',c2:'#000000'}},{id:'pin',type:'cornerPin',x:200,y:0,props:{tlx:40,tly:40}},{id:'out',type:'output',x:400,y:0,props:{}}],
+      edges:[{from:'bg',out:'image',to:'pin',input:'image'},{from:'pin',out:'image',to:'out',input:'image'}]}]}));
+    await page.evaluate(()=>pro.draw());
+    const at=(x,y)=>page.evaluate(([x,y])=>Array.from(document.getElementById('preview').getContext('2d').getImageData(x,y,1,1).data),[x,y]);
+    assert.ok((await at(20,20))[0]<20&&(await at(900,500))[0]>200,'Corner pin moves the top-left corner');
+
     // 8. Stage-1 (version 1) projects still import; unsafe or invalid data is rejected.
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};

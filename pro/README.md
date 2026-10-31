@@ -27,6 +27,8 @@ each with its own opacity and blend mode (up to four).
   vortex).
 - **Post FX**: Bloom, Color correct, Blur, Lens, Kaleido, Trails, Fracture. These
   run the original GPU per-layer shaders. Quick filter is a Canvas 2D filter.
+  **Corner pin** does projection mapping: with it selected, drag the four
+  corners on the preview (or drive them with any number).
 - **Controls**: Value, LFO (sine, triangle, saw, square, random), Map range,
   Smooth (attack and release), Math, Random (per beat or rate).
 - **Audio**: Audio band (bass, mids, high, full), Beat, Audio EQ (10 bands, feeds
@@ -53,6 +55,8 @@ the emitter draws*. Post FX nodes (blue wires) process the finished image.
   F toggles fullscreen.
 - **Templates, Save/Restore** (in this browser), **Export/Import** JSON, and
   **Rec** records the preview with audio to WebM, and **Snap** saves a PNG.
+  **Output** opens the live picture in its own window for a projector or second
+  display (double-click it for fullscreen).
 
 ## Engine
 
@@ -73,7 +77,8 @@ not saved in projects.
 
 - Output is fixed at 960×540, with Low simulation quality.
 - Each project allows four Emitters, four layers and 60 nodes per layer.
-- Not included: projection mapping, AI Look, autopilot and morphing.
+- Not included: the original's multi-plane mapping editor, AI Look, autopilot and
+  morphing. Corner pin + Output covers single-surface projection.
   Use the original Audiograph for these.
 
 ## Tests
@@ -88,6 +93,6 @@ covers:
 - click-to-insert and chain healing
 - wire dragging and the port menu
 - deformers changing pixels
-- Post FX without an emitter
+- Post FX without an emitter, and Corner pin warping
 - v1 migration and rejection of unsafe imports
 - every template, layers, save/restore, and 390px overflow

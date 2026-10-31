@@ -105,6 +105,9 @@ export const TYPES = {
     mode:pick('Mode','flow',['flow','shatter'],{key:'pfxFracMode'}),cells:n('Cells',44,8,64,1,{key:'pfxFracCells'}),size:n('Size var',65,0,100,1,{key:'pfxFracSize'}),gap:n('Crack gap',30,0,100,1,{key:'pfxFracGap'}),
     disp:n('Displace',58,0,100,1,{key:'pfxFracDisp'}),rot:n('Rotate',34,0,100,1,{key:'pfxFracRot'}),drift:n('Drift',45,0,100,1,{key:'pfxFracDrift'}),bass:n('Bass resp',125,0,200,1,{key:'pfxFracBass'}),
     beat:n('Beat resp',150,0,200,1,{key:'pfxFracBeat'}),recover:n('Recovery',48,0,100,1,{key:'pfxFracRecover'}),glow:n('Crack glow',62,0,100,1,{key:'pfxFracGlow'}),noise:n('Noise',35,0,100,1,{key:'pfxFracNoise'}),seed:n('Seed',17,0,999,1,{key:'pfxFracSeed'})}),
+  cornerPin:{category:'postfx',label:'Corner pin',description:'Projection mapping: drag the corners on the preview (or turn the knobs) to fit a wall, screen or object. Pair with Output for a second display.',...FX_IO,props:{
+    tlx:n('Top-left X',0,-50,50,.5),tly:n('Top-left Y',0,-50,50,.5),trx:n('Top-right X',0,-50,50,.5),try:n('Top-right Y',0,-50,50,.5),
+    brx:n('Bottom-right X',0,-50,50,.5),bry:n('Bottom-right Y',0,-50,50,.5),blx:n('Bottom-left X',0,-50,50,.5),bly:n('Bottom-left Y',0,-50,50,.5),grid:pick('Test grid','off',['off','on'])}},
   effect:{category:'postfx',label:'Quick filter',description:'Simple canvas filter.',...FX_IO,props:{kind:pick('Filter','hue',['hue','brightness','saturate','blur','invert']),amount:n('Amount',.35,0,2,.01)}},
   // Controls
   value:{category:'controls',label:'Value',description:'A constant number.',inputs:{},outputs:{value:'number'},props:{value:n('Value',.7,0,2,.01)}},
