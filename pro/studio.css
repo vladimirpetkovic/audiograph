@@ -246,3 +246,27 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 .port-menu-title{padding:5px 8px 6px;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3)}
 .live-value{font-variant-numeric:tabular-nums;color:var(--accent2)}
 .library-node .dot{background:var(--cat)}
+
+/* hold-to-detach feedback */
+.node.hold,.node.detached{box-shadow:0 0 0 2px var(--accent),0 10px 30px rgba(0,0,0,.6);transform:scale(1.03);transition:transform .12s,box-shadow .12s}
+.node.detached{opacity:.9}
+
+/* Tab node search */
+.node-search{position:fixed;z-index:60;width:260px;background:var(--elevated);border:1px solid var(--border-h);border-radius:6px;box-shadow:0 12px 32px #000b;padding:6px;display:flex;flex-direction:column;gap:4px}
+.node-search input{width:100%;box-sizing:border-box;height:28px;padding:0 8px;background:var(--bg);border:1px solid var(--border-h);border-radius:4px;color:var(--tx);font:inherit;font-size:.68rem;outline:none}
+.node-search input:focus{border-color:var(--accent2)}
+.node-search-list{max-height:min(320px,55vh);overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+.node-search-item{display:flex;align-items:center;gap:7px;width:100%;padding:5px 7px;background:none;border:0;border-radius:3px;color:var(--tx2);font:inherit;font-size:.62rem;text-align:left;cursor:pointer}
+.node-search-item .dot{width:6px;height:6px;border-radius:50%;background:var(--cat);flex:none}
+.node-search-item .ns-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
+.node-search-item .ns-cat{font-size:.5rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);white-space:nowrap}
+.node-search-item:hover,.node-search-item.active{background:var(--surface);box-shadow:inset 2px 0 0 var(--cat)}
+.node-search-empty{padding:8px;color:var(--tx3);font-size:.6rem}
+
+/* palette presets (as in the original Color panel) */
+.pal-preview{height:18px;border-radius:3px;border:1px solid var(--border);margin-bottom:8px;background-color:#000}
+.pal-presets{display:flex;flex-wrap:wrap;gap:4px}
+.pal-swatch{width:44px;height:20px;padding:0;border-radius:3px;border:1px solid var(--border);cursor:pointer;background-color:#000}
+.pal-swatch.solid{width:20px;border-radius:50%}
+.pal-swatch:hover{border-color:var(--accent2)}
+.pal-swatch.on{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}

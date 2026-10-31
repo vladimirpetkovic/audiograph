@@ -78,7 +78,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     g=await layer0();const palette=g.nodes.find(n=>n.type==='palette');
     assert.ok(g.edges.some(e=>e.from===twist.id&&e.to===palette.id)&&g.edges.some(e=>e.from===palette.id&&e.to===ids.bloom),'Twist → Palette → Bloom');
     await page.locator('[data-property="palettePreset"] [data-value="Fire"]').click();
-    assert.equal((await layer0()).nodes.find(n=>n.id===palette.id).props.c2,'#c1121f');
+    assert.equal((await layer0()).nodes.find(n=>n.id===palette.id).props.c2,'#c92a2a');
     await lit(.3);
 
     // 4. Deformers change the real render.
@@ -115,6 +115,24 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal((await layer0()).edges.length,nWires-1,'Clicking a wire removes it');
     await page.evaluate(id=>pro.select(id),palette.id);await page.keyboard.press('Delete');
     g=await layer0();assert.ok(g.edges.some(e=>e.from===twist.id&&e.to===ids.bloom),'Deleting Palette reconnects Twist → Bloom');
+
+    // 6a. Press-and-hold on a node title detaches it and heals the chain; Tab over a wire searches and splices a node in.
+    const pal2=await page.evaluate(id=>{pro.select(id);return pro.addNode('palette');},twist.id);
+    const ph=await page.locator(`.node[data-id="${pal2}"] .node-head`).boundingBox();
+    await page.mouse.move(ph.x+20,ph.y+ph.height/2);await page.mouse.down();await page.waitForTimeout(500);
+    await page.mouse.move(ph.x+20,ph.y+160,{steps:6});await page.mouse.up();
+    g=await layer0();assert.ok(!g.edges.some(e=>e.from===pal2||e.to===pal2)&&g.edges.some(e=>e.from===twist.id&&e.to===ids.bloom),'Hold-drag detaches and heals');
+    await page.evaluate(id=>pro.select(id),pal2);await page.keyboard.press('Delete');
+    const mid=await page.evaluate(([a,b])=>{const w=document.querySelector(`.wire[data-from="${a}"][data-to="${b}"]`),q=w.getPointAtLength(w.getTotalLength()/2),m=w.getScreenCTM();return {x:q.x*m.a+m.e,y:q.y*m.d+m.f};},[twist.id,ids.bloom]);
+    await page.mouse.move(mid.x,mid.y);await page.keyboard.press('Tab');await page.keyboard.type('jitter');await page.keyboard.press('Enter');
+    g=await layer0();const jit=g.nodes.find(n=>n.type==='jitter');
+    assert.ok(jit&&g.edges.some(e=>e.from===twist.id&&e.to===jit.id)&&g.edges.some(e=>e.from===jit.id&&e.to===ids.bloom),'Tab search splices into the wire');
+    await page.evaluate(id=>pro.select(id),jit.id);await page.keyboard.press('Delete');
+
+    // 6c. Audio: a file plays through the speakers; mic input is analysed but muted; a file afterwards is audible again.
+    await page.locator('#mic').click();await page.waitForFunction(()=>pro.stats().audio.input==='mic');
+    assert.equal((await page.evaluate(()=>pro.stats().audio)).monitor,0,'Mic is not sent to the speakers');
+    await page.locator('#mic').click();await page.waitForFunction(()=>!pro.stats().audio.input);
 
     // 6b. Webcam deformer runs the original camera feature on one shared stream; removing it stops the camera.
     const cam=await page.evaluate(id=>{pro.select(id);return pro.addNode('webcam');},twist.id);

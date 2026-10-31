@@ -34,11 +34,20 @@ const FX=(label,description,props)=>({category:'postfx',label,description,...FX_
 const SYMS=[['none','Off'],['x','X'],['y','Y'],['xy','XY'],['r3','3'],['r4','4'],['r6','6'],['r8','8']];
 const LINE_SHAPES=[['straight','Straight'],['rounded','Rounded'],['dotted','Dotted'],['dashed','Dashed'],['pins','Pins'],['tapered','Tapered'],['caps','Caps'],['cross','Cross'],['numbers','Numbers'],['symbols','Symbols'],['words','Words'],['cascade','Cascade'],['off','Off']];
 const PART_SHAPES=[['circle','Circle'],['square','Square'],['star','Star'],['diamond','Diamond'],['ring','Ring'],['triangle','Triangle'],['spark','Spark'],['line','Line'],['numbers','Numbers'],['symbols','Symbols'],['words','Words']];
+// The original Audiograph's gradient presets: [background (fades by "Low opacity"), colors…].
 export const PALETTES={
-  Classic:['#1a1a2e','#e94560','#f5a623','#6ee7b7'],Sunset:['#2d0b3a','#ff4d6d','#ff9e00','#ffe66d'],Ocean:['#03045e','#0077b6','#00b4d8','#caf0f8'],
-  Neon:['#10002b','#ff00e5','#00f0ff','#b6ff00'],Fire:['#200000','#c1121f','#ff6d00','#ffd60a'],Ice:['#0b132b','#5bc0be','#a9def9','#ffffff'],
-  Forest:['#081c15','#2d6a4f','#74c69d','#d8f3dc'],Mono:['#000000','#555555','#aaaaaa','#ffffff']
+  Classic:['#1a1a2e','#e94560','#f5a623','#6ee7b7'],Dusk:['#1a0a2e','#6b2fa0','#e0457b','#f7d26a'],Sunset:['#0a1028','#3b5bdb','#c2255c','#ff922b','#ffe066'],
+  Lagoon:['#00141a','#0b7285','#22d3ee','#c084fc','#f9a8d4'],Synthwave:['#10001a','#7a5cff','#ff4ecd','#ffb86b'],Meadow:['#0a1400','#2f9e44','#a9e34b','#ffd43b','#ff6b6b'],
+  Tropic:['#001020','#1c7ed6','#38d9a9','#fab005'],Fire:['#1a0008','#c92a2a','#f76707','#fcc419','#fff3bf'],Aurora:['#0d001a','#5f3dc4','#4dabf7','#63e6be','#f8f9fa'],
+  Rose:['#14000f','#a61e4d','#f06595','#ffa94d','#69db7c'],Indigo:['#000814','#364fc7','#e64980','#ffd8a8'],Coral:['#0a0a00','#e8590c','#f783ac','#74c0fc'],
+  Candy:['#120a00','#ff6b6b','#ffd43b','#4dabf7','#9775fa'],Mono:['#0d0d0d','#424242','#9e9e9e','#fafafa']
 };
+export const SOLID_PRESETS=['#dddde0','#ffffff','#f87171','#fb923c','#fbbf24','#a3e635','#34d399','#22d3ee','#818cf8','#f472b6','#191950','#000000'];
+// Gradient stops the original renderer receives for a Palette node.
+export function paletteStops(props){
+  const cols=[props.c2,props.c3,props.c4];if(props.colors==='4')cols.push(props.c5);
+  return {tone:[props.c1+Math.round(props.fade*255).toString(16).padStart(2,'0'),...cols],simple:cols};
+}
 
 export const TYPES = {
   // Emitters
@@ -76,7 +85,7 @@ export const TYPES = {
   // Color
   palette:{category:'color',label:'Palette',description:'Color mode and gradient stops.',...SHAPE_IO,props:{
     mode:pick('Mode','toneramp',['toneramp','simpleramp','solid'],{labels:[['toneramp','Tone ramp'],['simpleramp','Simple ramp'],['solid','Solid']]}),
-    c1:color('Low','#1a1a2e'),c2:color('Mid','#e94560'),c3:color('High','#f5a623'),c4:color('Peak','#6ee7b7'),
+    c1:color('Low','#1a1a2e'),c2:color('Mid','#e94560'),c3:color('High','#f5a623'),c4:color('Peak','#6ee7b7'),c5:color('Max','#ffffff'),colors:pick('Colors','3',['3','4']),
     fade:n('Low opacity',0,0,1,.05),solid:color('Solid','#dddde0')}},
   hue:{category:'color',label:'Hue shift',description:'Rotate hues, optionally cycling over time.',...SHAPE_IO,props:{hue:n('Hue',60,-180,180,1),cycle:n('Cycle (°/s)',0,-120,120,1)}},
   // Style
@@ -263,9 +272,8 @@ const ADDITIVE=new Set(['_twist','_bulge','_wave','_shear','_depth','_ripple','_
 export function applyShapeNode(type,props,mods){
   const out={...mods};
   if(type==='palette'){
-    const a=Math.round(props.fade*255).toString(16).padStart(2,'0');
-    out._colorMode=props.mode;out._solidColor=props.solid;
-    out._toneStops=[props.c1+a,props.c2,props.c3,props.c4];out._simpleStops=[props.c2,props.c3,props.c4];
+    const st=paletteStops(props);
+    out._colorMode=props.mode;out._solidColor=props.solid;out._toneStops=st.tone;out._simpleStops=st.simple;
     return out;
   }
   if(type==='motion'){out._spin=Math.abs(props.spin);out._spinDir=props.spin<0?-1:1;out._speed=props.speed;return out;}

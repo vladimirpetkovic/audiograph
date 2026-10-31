@@ -20,7 +20,8 @@ each with its own opacity and blend mode (up to four).
 - **Deformers**: Amplify, Twist, Bulge, Wave, Shear, Depth, Ripple, Jitter,
   Disorder, Randomize, Webcam (camera brightness displaces the shape and can
   color it; the Video emitter can also use the camera as its source).
-- **Color**: Palette (tone ramp, simple ramp or solid, with presets) and Hue shift
+- **Color**: Palette (tone ramp, simple ramp or solid, with the original's 14
+  presets and a live gradient preview) and Hue shift
   (static or cycling).
 - **Style**: Line style (13 styles) and Outline.
 - **Particles**: Particles (11 shapes) and Flow field (Perlin, curl, Brownian,
@@ -42,6 +43,11 @@ the emitter draws*. Post FX nodes (blue wires) process the finished image.
 
 - **Quick build**: select a node, then click a library node. It is inserted right
   after the selection. Deleting a node heals the chain.
+- **Tab search**: press Tab with the mouse over the graph, type (e.g. "fluid",
+  "bloom"), and press Enter. The node drops at the cursor; over a wire, it is
+  inserted into that wire.
+- **Detach**: press and hold a node's title (or Alt-drag it) and pull it out. Its
+  wires are removed and the chain heals.
 - **Drive any knob**: drag a number output (teal) onto a node and pick the knob.
   On an Emitter, the menu also lists that emitter's own options (e.g. Fluid
   viscosity), so audio or an LFO can drive them.
@@ -49,7 +55,9 @@ the emitter draws*. Post FX nodes (blue wires) process the finished image.
   single knob connects directly.
 - **Wires**: drag from an output dot to an input dot or to a node. Clicking an
   output and then an input also works. Click a wire to delete it.
-- **Audio**: load a file or use the Mic. Without audio, a demo beat plays. Wiring a
+- **Audio**: load a file, use the Mic, or **System** (desktop Chrome/Edge: share
+  a screen or tab and enable "Share audio"). Files play through the speakers; mic
+  and system input are analysed only. Without audio, a demo beat plays. Wiring a
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.

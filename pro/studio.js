@@ -1,4 +1,4 @@
-import {TYPES,CATEGORIES,EMITTERS,emitterNames,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,inputsOf,portType,OPT_PORT,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {TYPES,CATEGORIES,EMITTERS,emitterNames,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 
@@ -78,14 +78,15 @@ function addLayer(){
   const next=clone(state),g=layer(next.layers.length+1);next.layers.push(g);
   return attempt(()=>{commit(next,'Added layer');active=g.id;selected=g.nodes.find(n=>n.type==='emitter').id;renderUI();return g.id;});
 }
+// Remove a node's wires; a chain node's input source is reconnected to its downstream inputs.
+function detachEdges(g,id){
+  const n=g.nodes.find(n=>n.id===id),inE=g.edges.find(e=>e.to===id&&['shape','image'].includes(e.input)),outE=g.edges.filter(e=>e.from===id);
+  g.edges=g.edges.filter(e=>e.from!==id&&e.to!==id);
+  if(n&&inE&&isChain(n.type))for(const e of outE){const src=g.nodes.find(m=>m.id===inE.from),dst=g.nodes.find(m=>m.id===e.to);if(src&&dst&&compatible(TYPES[src.type].outputs[inE.out],inputsOf(dst.type)[e.input]))g.edges.push({from:inE.from,out:inE.out,to:e.to,input:e.input});}
+}
 function removeSelected(){
   if(!selected)return;const id=selected;
-  edit((p,g)=>{
-    // Heal the chain: reconnect the removed node's first input source to its downstream inputs.
-    const n=g.nodes.find(n=>n.id===id),inE=g.edges.find(e=>e.to===id&&['shape','image'].includes(e.input)),outE=g.edges.filter(e=>e.from===id);
-    g.nodes=g.nodes.filter(n=>n.id!==id);g.edges=g.edges.filter(e=>e.from!==id&&e.to!==id);
-    if(n&&inE&&isChain(n.type))for(const e of outE){const src=g.nodes.find(m=>m.id===inE.from),dst=g.nodes.find(m=>m.id===e.to);if(src&&dst&&compatible(TYPES[src.type].outputs[inE.out],inputsOf(dst.type)[e.input]))g.edges.push({from:inE.from,out:inE.out,to:e.to,input:e.input});}
-  },'Deleted node');
+  edit((p,g)=>{detachEdges(g,id);g.nodes=g.nodes.filter(n=>n.id!==id);},'Deleted node');
 }
 function duplicateSelected(){
   const n=graph().nodes.find(n=>n.id===selected);if(!n)return;
@@ -94,39 +95,63 @@ function duplicateSelected(){
 function connection(from,out,to,input){return edit((p,g)=>connect(g,from,out,to,input),'Connected');}
 
 // ---------- audio ----------
-const audio={context:null,buffer:null,source:null,mic:null,analyser:null,dest:null,startedAt:0,offset:0,name:''};
+const audio={context:null,buffer:null,source:null,live:null,analyser:null,monitor:null,dest:null,startedAt:0,offset:0,name:''};
 const A={freq:new Uint8Array(BINS),wave:new Float32Array(2048),rate:48000,bands:{bass:0,mids:0,high:0,full:0},beat:0,beatPulse:0,avg:0,lastBeat:0,live:false};
+// Routing: source → analyser → dest (recording) and analyser → monitor → speakers.
+// The monitor is muted for mic / system input so it never feeds back.
 function audioContext(){
   if(!audio.context||audio.context.state==='closed'){
-    audio.context=new AudioContext();const a=audio.context.createAnalyser();a.fftSize=BINS*2;a.smoothingTimeConstant=.78;a.minDecibels=-100;a.maxDecibels=-30;
-    audio.analyser=a;audio.dest=audio.context.createMediaStreamDestination();a.connect(audio.context.destination);a.connect(audio.dest);
+    const c=audio.context=new AudioContext({latencyHint:'interactive'}),a=c.createAnalyser();a.fftSize=BINS*2;a.smoothingTimeConstant=.78;a.minDecibels=-100;a.maxDecibels=-30;
+    audio.analyser=a;audio.monitor=c.createGain();audio.dest=c.createMediaStreamDestination();
+    a.connect(audio.monitor);audio.monitor.connect(c.destination);a.connect(audio.dest);
   }
   return audio.context;
+}
+// Browsers only start audio inside a user gesture: create/resume synchronously in the click itself.
+function unlockAudio(){const c=audioContext();if(c.state!=='running')c.resume().catch(()=>{});return c;}
+document.addEventListener('pointerdown',()=>{if(audio.context&&audio.context.state==='suspended'&&(audio.source||audio.live))audio.context.resume().catch(()=>{});},true);
+async function ensureRunning(){
+  const c=audioContext();if(c.state!=='running')await Promise.race([c.resume(),new Promise(r=>setTimeout(r,400))]);
+  if(c.state!=='running')message('The browser blocked sound · click anywhere on the page to enable it',true);
 }
 function stopAudio(keepOffset=false){
   if(audio.source){audio.source.onended=null;try{audio.source.stop();}catch{}audio.source.disconnect();if(keepOffset)audio.offset+=audio.context.currentTime-audio.startedAt;audio.source=null;}
   if(!keepOffset)audio.offset=0;$('play').textContent='Play';$('play').classList.remove('on');
 }
-function stopMic(){if(audio.mic){audio.mic.stream.getTracks().forEach(t=>t.stop());audio.mic.node.disconnect();audio.mic=null;$('mic').classList.remove('on');}}
+function stopLive(){
+  if(!audio.live)return;const {kind,stream,node}=audio.live;audio.live=null;
+  stream.getTracks().forEach(t=>t.stop());node.disconnect();$(kind).classList.remove('on');if(audio.monitor)audio.monitor.gain.value=1;
+}
 async function play(){
-  if(!audio.buffer)throw Error('Load an audio file first (or use the Mic)');
+  if(!audio.buffer)throw Error('Load an audio file first (or use Mic / System)');
   if(audio.source){stopAudio(true);message('Paused audio');return;}
-  stopMic();await audioContext().resume();
+  stopLive();unlockAudio();audio.monitor.gain.value=1;
   const source=audio.context.createBufferSource();source.buffer=audio.buffer;source.connect(audio.analyser);audio.source=source;
   const offset=audio.offset%audio.buffer.duration;audio.startedAt=audio.context.currentTime;audio.offset=offset;
   source.onended=()=>{if(audio.source===source){audio.source=null;audio.offset=0;$('play').textContent='Play';$('play').classList.remove('on');}};
   source.start(0,offset);$('play').textContent='Pause';$('play').classList.add('on');message('Playing '+audio.name);
+  await ensureRunning();
 }
-async function toggleMic(){
-  if(audio.mic){stopMic();message('Microphone off');return;}
-  stopAudio();await audioContext().resume();
-  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-  const nodeIn=audio.context.createMediaStreamSource(stream);
-  const gain=audio.context.createGain();gain.gain.value=1;nodeIn.connect(gain);
-  // The mic feeds the analyser only (never the speakers).
-  audio.analyser.disconnect();gain.connect(audio.analyser);audio.analyser.connect(audio.dest);
-  audio.mic={stream,node:gain};$('mic').classList.add('on');message('Listening to the microphone');
+async function startLive(kind,getStream){
+  if(audio.live?.kind===kind){stopLive();message(kind==='mic'?'Microphone off':'System audio off');return;}
+  stopAudio();stopLive();unlockAudio();
+  if(!navigator.mediaDevices)throw Error('needs HTTPS or localhost');
+  const stream=await getStream(),tracks=stream.getAudioTracks();
+  stream.getVideoTracks().forEach(t=>{t.stop();stream.removeTrack(t);});
+  if(!tracks.length){stream.getTracks().forEach(t=>t.stop());throw Error(kind==='system'?'no audio was shared · tick “Share system audio” (or share a tab with its audio)':'no microphone found');}
+  const node=audio.context.createMediaStreamSource(stream);node.connect(audio.analyser);audio.monitor.gain.value=0;
+  audio.live={kind,stream,node};$(kind).classList.add('on');
+  tracks[0].addEventListener('ended',()=>{if(audio.live?.stream===stream){stopLive();message(kind==='mic'?'Microphone disconnected':'System audio sharing ended');}});
+  await ensureRunning();
+  message(kind==='mic'?`Listening to ${tracks[0].label||'the microphone'}`:'System audio connected · the visuals follow whatever your computer plays');
 }
+const toggleMic=()=>startLive('mic',()=>navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}));
+const toggleSystem=()=>startLive('system',()=>{
+  if(!navigator.mediaDevices.getDisplayMedia)throw Error('not supported in this browser · use desktop Chrome or Edge');
+  message('Pick Entire screen and turn on “Share system audio” (or pick a tab and “Share tab audio”)');
+  return navigator.mediaDevices.getDisplayMedia({audio:{suppressLocalAudioPlayback:false,echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:true,systemAudio:'include',selfBrowserSurface:'exclude',monitorTypeSurfaces:'include'});
+});
+const audioError=(label,e)=>message(`${label}: ${e.name==='NotAllowedError'?'permission denied · allow it in the address bar and try again':e.message}`,true);
 // Demo signal: a 120 BPM groove so everything moves before audio is loaded.
 // Demo signal: a 120 BPM groove with a music-like (dB-scaled, pink) spectrum so everything moves before audio is loaded.
 const toByte=db=>Math.max(0,Math.min(255,(db+100)/70*255));
@@ -140,7 +165,7 @@ function demoSpectrum(t){
   for(let i=0;i<A.wave.length;i++)A.wave[i]=kick*.8*Math.sin(i/48000*2*Math.PI*55)+pad*.15*Math.sin(i*.09+t);
 }
 function readAudio(t){
-  A.live=!!(audio.analyser&&(audio.source||audio.mic));
+  A.live=!!(audio.analyser&&(audio.source||audio.live));
   if(A.live){A.rate=audio.context.sampleRate;audio.analyser.getByteFrequencyData(A.freq);audio.analyser.getFloatTimeDomainData(A.wave);}
   else{A.rate=48000;demoSpectrum(t);}
   const hz=A.rate/(BINS*2),band=(a,b)=>{let s=0,c=0;for(let i=Math.max(1,Math.floor(a/hz));i<Math.min(BINS,Math.ceil(b/hz));i++){s+=A.freq[i]/255;c++;}return c?s/c:0;};
@@ -368,11 +393,11 @@ function summary(n){
   if(n.type==='value')return String(p.value);
   if(n.type==='oscillator')return `${p.wave} · ${p.rate} Hz`;
   if(n.type==='audio')return `${p.band} ×${p.gain}`;
-  if(n.type==='palette')return p.mode==='solid'?'solid':[p.c1,p.c2,p.c3,p.c4].join(' ');
+  if(n.type==='palette')return p.mode==='solid'?'solid':paletteStops(p).simple.join(' ');
   for(const [k,s] of Object.entries(t.props)){if(s.kind==='select')return String(s.labels?.find(l=>l[0]===p[k])?.[1]??p[k]);if(s.kind==='number')return `${s.label} ${+p[k].toFixed(2)}`;}
   return t.description;
 }
-function updateSummaries(){for(const box of document.querySelectorAll('#nodes .node')){const n=findNode(box.dataset.id);if(n)box.querySelector('.node-summary').textContent=summary(n);}}
+function updateSummaries(){updatePalettePreview();for(const box of document.querySelectorAll('#nodes .node')){const n=findNode(box.dataset.id);if(n)box.querySelector('.node-summary').textContent=summary(n);}}
 function visiblePorts(g,n){
   const t=TYPES[n.type],all=inputsOf(n.type),ins=[];
   for(const [k,type] of Object.entries(all))if(Object.hasOwn(t.inputs,k)||g.edges.some(e=>e.to===n.id&&e.input===k))ins.push([k,type]);
@@ -429,7 +454,7 @@ function renderWires(){
   for(const edge of g.edges){
     const a=portEl(edge.from,edge.out,'out'),b=portEl(edge.to,edge.input,'in');if(!a||!b)continue;
     const [x1,y1]=portXY(a,'out'),[x2,y2]=portXY(b,'in'),wire=document.createElementNS('http://www.w3.org/2000/svg','path');
-    wire.setAttribute('d',curve(x1,y1,x2,y2));wire.setAttribute('class','wire '+a.dataset.ptype);
+    wire.setAttribute('d',curve(x1,y1,x2,y2));wire.setAttribute('class','wire '+a.dataset.ptype);Object.assign(wire.dataset,{from:edge.from,out:edge.out,to:edge.to,input:edge.input});
     wire.setAttribute('tabindex','0');wire.setAttribute('role','button');wire.setAttribute('aria-label',`Remove connection ${edge.out} → ${edge.input}`);
     const remove=()=>edit((p,g)=>{g.edges=g.edges.filter(e=>!(e.from===edge.from&&e.out===edge.out&&e.to===edge.to&&e.input===edge.input));},'Removed connection');
     wire.onclick=remove;wire.onkeydown=e=>{if(e.key==='Enter'||e.key==='Delete')remove();};svg.append(wire);
@@ -455,6 +480,71 @@ function startWire(event,n,key,type){
   };
   window.addEventListener('pointermove',move);window.addEventListener('pointerup',end);
 }
+// ---------- Tab: node search ----------
+const pointer={x:0,y:0,inGraph:false};
+function searchItems(){
+  const items=[];
+  for(const cat of CATEGORIES){
+    if(cat.id==='emitters'){for(const [group,list] of Object.entries(EMITTERS))for(const [mode,label] of list)items.push({type:'emitter',props:{mode},label,cat:`Emitter · ${group}`,color:cat.color,text:`${label} ${group} emitter`});continue;}
+    for(const t of Object.keys(TYPES))if(TYPES[t].category===cat.id)items.push({type:t,props:{},label:TYPES[t].label,cat:cat.label,color:cat.color,text:`${TYPES[t].label} ${cat.label} ${TYPES[t].description}`});
+  }
+  return items;
+}
+function rankItems(items,q){
+  q=q.trim().toLowerCase();if(!q)return items;
+  const words=q.split(/\s+/);
+  return items.map(it=>{const l=it.label.toLowerCase(),t=it.text.toLowerCase();if(!words.every(w=>t.includes(w)))return null;
+    return [l===q?0:l.startsWith(q)?1:l.split(/\W+/).some(w=>w.startsWith(words[0]))?2:l.includes(q)?3:it.cat.toLowerCase().includes(q)?4:5,it];})
+    .filter(Boolean).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
+}
+// Place a node at a graph point; dropped on a wire, a chain node is spliced into it.
+function placeNode(it,gx,gy,wire){
+  let made=null;
+  const ok=edit((p,g)=>{
+    const n=node(it.type,Math.round(gx-84),Math.round(gy-20),clone(it.props));made=n;g.nodes.push(n);
+    const e=wire&&g.edges.find(e=>e.from===wire.from&&e.out===wire.out&&e.to===wire.to&&e.input===wire.input);
+    if(!e||!isChain(it.type))return;
+    const src=g.nodes.find(m=>m.id===e.from),dst=g.nodes.find(m=>m.id===e.to),srcType=TYPES[src.type].outputs[e.out];
+    const inPort=Object.entries(inputsOf(it.type)).find(([,t])=>compatible(srcType,t))?.[0],outPort=Object.entries(TYPES[it.type].outputs).find(([,t])=>compatible(t,inputsOf(dst.type)[e.input]))?.[0];
+    if(!inPort||!outPort)return;
+    g.edges=g.edges.filter(x=>x!==e);g.edges.push({from:e.from,out:e.out,to:n.id,input:inPort},{from:n.id,out:outPort,to:e.to,input:e.input});
+  },`Added ${it.label}`);
+  if(ok&&made){selected=made.id;renderUI();}
+}
+function closeSearch(){document.querySelector('.node-search')?.remove();}
+function openSearch(){
+  closeSearch();closeMenu();
+  const vp=$('graphViewport'),r=vp.getBoundingClientRect();
+  const cx=pointer.inGraph?pointer.x:r.left+r.width/2,cy=pointer.inGraph?pointer.y:r.top+r.height/3;
+  const gx=(cx-r.left-view.x)/view.zoom,gy=(cy-r.top-view.y)/view.zoom;
+  const w=document.elementsFromPoint(cx,cy).find(x=>x.classList?.contains('wire')),wire=w?{...w.dataset}:null;
+  const box=el('div','node-search'),input=el('input'),list=el('div','node-search-list'),items=searchItems();
+  input.type='search';input.placeholder=wire?'Insert into wire…':'Search nodes…';input.setAttribute('aria-label','Search nodes');list.setAttribute('role','listbox');
+  let shown=[],active=0;
+  const pick=it=>{closeSearch();placeNode(it,gx,gy,wire);};
+  const render=()=>{
+    shown=rankItems(items,input.value).slice(0,40);active=Math.min(active,Math.max(0,shown.length-1));list.replaceChildren();
+    if(!shown.length)list.append(el('div','node-search-empty','No match'));
+    shown.forEach((it,i)=>{const b=el('button','node-search-item'+(i===active?' active':''));b.type='button';b.setAttribute('role','option');b.style.setProperty('--cat',it.color);
+      b.append(el('span','dot'),el('span','ns-label',it.label),el('span','ns-cat',it.cat));
+      b.onpointerdown=e=>e.preventDefault();b.onclick=()=>pick(it);list.append(b);});
+    list.querySelector('.active')?.scrollIntoView({block:'nearest'});
+  };
+  input.oninput=()=>{active=0;render();};
+  input.onkeydown=e=>{
+    const up=box.style.flexDirection==='column-reverse',next=e.key==='Tab'?!e.shiftKey:e.key===(up?'ArrowUp':'ArrowDown'),prev=e.key==='Tab'?e.shiftKey:e.key===(up?'ArrowDown':'ArrowUp');
+    if(next){e.preventDefault();active=(active+1)%Math.max(1,shown.length);render();}
+    else if(prev){e.preventDefault();active=(active-1+shown.length)%Math.max(1,shown.length);render();}
+    else if(e.key==='Enter'){e.preventDefault();if(shown[active])pick(shown[active]);}
+    else if(e.key==='Escape'){e.preventDefault();closeSearch();}
+  };
+  input.onblur=()=>setTimeout(()=>{if(!box.contains(document.activeElement))closeSearch();},0);
+  box.append(input,list);document.body.append(box);render();
+  const b=box.getBoundingClientRect();box.style.left=Math.max(8,Math.min(cx,innerWidth-b.width-8))+'px';
+  // Near the bottom edge the box grows upward from the cursor, so filtering keeps it next to the cursor.
+  if(cy+b.height+8>innerHeight&&cy>innerHeight/2){box.style.bottom=Math.max(8,innerHeight-cy)+'px';box.style.flexDirection=list.style.flexDirection='column-reverse';}else box.style.top=Math.max(8,cy)+'px';
+  input.focus();
+}
 function closeMenu(){document.querySelector('.port-menu')?.remove();}
 function portMenu(target,from,x,y){
   closeMenu();renderGraph();
@@ -474,11 +564,24 @@ function portMenu(target,from,x,y){
 }
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('.port-menu'))closeMenu();},true);
 function applyView(){$('graphWorld').style.transform=`translate(${view.x}px,${view.y}px) scale(${view.zoom})`;}
+// Drag the header to move. Press and hold (or Alt-drag) to pull the node out of its chain; the chain heals.
+const HOLD_MS=380;
 function startMove(event,n,box){
   if(event.button!==0)return;event.preventDefault();const before=clone(state),start={x:event.clientX,y:event.clientY,nx:n.x,ny:n.y};box.setPointerCapture(event.pointerId);box.classList.add('dragging');
-  const live=findNode(n.id);
-  const move=e=>{live.x=Math.round(Math.max(-10000,Math.min(10000,start.nx+(e.clientX-start.x)/view.zoom)));live.y=Math.round(Math.max(-10000,Math.min(10000,start.ny+(e.clientY-start.y)/view.zoom)));box.style.left=live.x+'px';box.style.top=live.y+'px';renderWires();};
-  const end=()=>{box.classList.remove('dragging');box.removeEventListener('pointermove',move);box.removeEventListener('pointerup',end);box.removeEventListener('pointercancel',end);attempt(()=>commit(clone(state),'Moved node',before));};
+  const live=findNode(n.id);let moved=false,detached=false;
+  const detach=()=>{
+    if(detached)return;detached=true;clearTimeout(hold);
+    const g=state.layers.find(g=>g.id===active),had=g.edges.some(e=>e.from===n.id||e.to===n.id);
+    if(!had){box.classList.remove('hold');return;}
+    detachEdges(g,n.id);box.classList.remove('hold');box.classList.add('detached');renderWires();message('Detached · drop it anywhere');
+  };
+  const hold=setTimeout(()=>{if(!moved){box.classList.add('hold');detach();}},HOLD_MS);
+  if(event.altKey)detach();
+  const move=e=>{
+    if(!moved&&Math.hypot(e.clientX-start.x,e.clientY-start.y)<4)return;moved=true;clearTimeout(hold);
+    live.x=Math.round(Math.max(-10000,Math.min(10000,start.nx+(e.clientX-start.x)/view.zoom)));live.y=Math.round(Math.max(-10000,Math.min(10000,start.ny+(e.clientY-start.y)/view.zoom)));box.style.left=live.x+'px';box.style.top=live.y+'px';renderWires();
+  };
+  const end=()=>{clearTimeout(hold);box.classList.remove('dragging','hold','detached');box.removeEventListener('pointermove',move);box.removeEventListener('pointerup',end);box.removeEventListener('pointercancel',end);attempt(()=>commit(clone(state),detached?'Detached node':'Moved node',before));};
   box.addEventListener('pointermove',move);box.addEventListener('pointerup',end);box.addEventListener('pointercancel',end);
 }
 function fit(){
@@ -523,8 +626,8 @@ function renderProperties(){
   head.append(h,el('div','insp-desc',t.description));root.append(head);
   if(n.type==='emitter')renderEmitter(root,n);
   else{
-    if(n.type==='palette'){const s=section(root,'Presets');s.append(ui.chips({options:Object.keys(PALETTES).map(k=>[k,k]),value:null,property:'palettePreset',onChange:k=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);[x.props.c1,x.props.c2,x.props.c3,x.props.c4]=PALETTES[k];},'Palette: '+k)}));}
-    renderProps(root,n,Object.keys(t.props));
+    if(n.type==='palette')renderPalettePresets(root,n);
+    renderProps(root,n,n.type==='palette'?paletteKeys(n.props):Object.keys(t.props));
     const wired=Object.keys(t.props).filter(k=>t.props[k].kind==='number'&&!t.props[k].noPort);
     if(wired.length&&t.category!=='controls')section(root).append(el('p','insp-note','Any knob can be driven: drag a wire from a Control or Audio node onto this node and pick the knob. 0 keeps the knob value, 1 pushes it to the maximum.'));
     if(t.category==='controls'||t.category==='audio'){const v=el('p','insp-note live-value');v.dataset.node=n.id;section(root).append(v);}
@@ -533,6 +636,30 @@ function renderProperties(){
   const dup=el('button','btn','Duplicate');dup.id='duplicateNode';dup.onclick=duplicateSelected;
   const del=el('button','btn danger','Delete');del.id='deleteNode';del.onclick=removeSelected;actions.append(dup,del);
   updateHint();
+}
+// Palette: live gradient preview of the active stops plus the original's preset swatches.
+const gradientCss=stops=>stops.length>1?`linear-gradient(to right,${stops.join(',')})`:stops[0];
+function paletteCss(p){return p.mode==='solid'?p.solid:gradientCss(p.mode==='simpleramp'?paletteStops(p).simple:paletteStops(p).tone);}
+function updatePalettePreview(){const pv=document.querySelector('.pal-preview');if(!pv)return;const n=findNode(pv.dataset.node);if(n)pv.style.background=paletteCss(n.props);}
+function paletteKeys(p){
+  if(p.mode==='solid')return ['mode','solid'];
+  return ['mode','colors',...(p.mode==='toneramp'?['c1']:[]),'c2','c3','c4',...(p.colors==='4'?['c5']:[]),...(p.mode==='toneramp'?['fade']:[])];
+}
+function renderPalettePresets(root,n){
+  const s=section(root,'Palette'),pv=el('div','pal-preview');pv.dataset.node=n.id;pv.style.background=paletteCss(n.props);s.append(pv);
+  const box=el('div','pal-presets');box.dataset.property=n.props.mode==='solid'?'solidPreset':'palettePreset';
+  if(n.props.mode==='solid')for(const c of SOLID_PRESETS){
+    const b=el('button','pal-swatch solid');b.type='button';b.title=c;b.dataset.value=c;b.style.background=c;b.classList.toggle('on',n.props.solid.toLowerCase()===c);
+    b.onclick=()=>edit((p,g)=>{g.nodes.find(x=>x.id===n.id).props.solid=c;},'Palette: '+c);box.append(b);
+  }
+  else for(const [name,st] of Object.entries(PALETTES)){
+    const p=n.props,cur=[p.c1,p.c2,p.c3,p.c4,...(p.colors==='4'?[p.c5]:[])].join().toLowerCase();
+    const b=el('button','pal-swatch');b.type='button';b.title=name;b.dataset.value=name;b.setAttribute('aria-label','Palette '+name);
+    b.style.background=gradientCss(n.props.mode==='simpleramp'?st.slice(1):[st[0]+'00',...st.slice(1)]);b.classList.toggle('on',cur===st.join().toLowerCase());
+    b.onclick=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id).props;[x.c1,x.c2,x.c3,x.c4]=st;x.c5=st[4]||x.c5;x.colors=st.length>4?'4':'3';x.fade=0;},'Palette: '+name);
+    box.append(b);
+  }
+  s.append(box);
 }
 // A new emitter type starts from its defaults; wires into the old type's option knobs are dropped.
 function setMode(g,n,mode){if(n.props.mode===mode)return;n.props.mode=mode;n.props.opts={};n.props.chips={};g.edges=g.edges.filter(e=>!(e.to===n.id&&OPT_PORT.test(e.input)));}
@@ -665,13 +792,15 @@ function toggleFullscreen(){if(document.fullscreenElement)document.exitFullscree
 $('audioFile').onchange=async()=>{
   try{
     const file=$('audioFile').files[0];if(!file)return;if(file.size>200*1024*1024)throw Error('Audio limit is 200 MB');
-    stopAudio();stopMic();audio.buffer=await audioContext().decodeAudioData(await file.arrayBuffer());audio.name=file.name;
+    stopAudio();stopLive();audio.buffer=await audioContext().decodeAudioData(await file.arrayBuffer());audio.name=file.name;
     $('audioName').textContent=file.name;await play();
   }catch(error){message('Audio: '+error.message,true);}
 };
+$('audioFile').closest('label').addEventListener('click',unlockAudio);
 $('play').onclick=()=>play().catch(e=>message(e.message,true));
-$('stop').onclick=()=>{stopAudio();stopMic();message('Audio stopped');};
-$('mic').onclick=()=>toggleMic().catch(e=>message('Mic: '+e.message,true));
+$('stop').onclick=()=>{stopAudio();stopLive();message('Audio stopped');};
+$('mic').onclick=()=>toggleMic().catch(e=>audioError('Mic',e));
+$('system').onclick=()=>toggleSystem().catch(e=>audioError('System audio',e));
 $('record').onclick=()=>attempt(toggleRecord);
 // With a Corner pin selected, its corners can be dragged directly on the preview.
 const PIN_KEYS=[['tlx','tly',0,0],['trx','try',100,0],['brx','bry',100,100],['blx','bly',0,100]];
@@ -722,11 +851,13 @@ $('helpBody').innerHTML=`
 <p><b>Quick build:</b> select a node, then click a node in the library. It is inserted right after the selection.</p>
 <p><b>Drive any knob:</b> drag from a <span style="color:${PORT_COLORS.number}">number</span> output (LFO, Audio band, Beat, Random…) onto a node and pick the knob. 0 keeps the knob setting, 1 pushes it to the maximum.</p>
 <p><b>Audio:</b> load a file or use the Mic. Without audio, a demo beat plays. An <b>Audio EQ</b> node reshapes what one emitter hears; connecting a number to an emitter's <b>drive</b> replaces the music for that emitter.</p>
-<p><b>Graph:</b> drag empty space to pan, wheel to zoom, click a wire to delete it, Delete removes the selected node (the chain heals), ⌘Z / ⇧⌘Z undo and redo. <b>Space</b> pauses, <b>F</b> goes fullscreen.</p>
+<p><b>Graph:</b> drag empty space to pan, wheel to zoom, click a wire to delete it, Delete removes the selected node (the chain heals), press and hold a node's title (or Alt-drag) to pull it out of its chain, <b>Tab</b> over the graph searches every node and drops it at the cursor (over a wire it is inserted into the wire), ⌘Z / ⇧⌘Z undo and redo. <b>Space</b> pauses, <b>F</b> goes fullscreen.</p>
 <p>Not in Pro (use the original Audiograph): projection mapping, AI Look, autopilot and morphing. Webcam is a Deformer node.</p>`;
 $('helpButton').onclick=()=>$('help').showModal();$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
 viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
+viewport.addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;pointer.inGraph=true;});
+viewport.addEventListener('pointerleave',()=>{pointer.inGraph=false;});
 viewport.ondrop=e=>{e.preventDefault();let d;try{d=JSON.parse(e.dataTransfer.getData('application/audiograph-node'));}catch{return;}if(!Object.hasOwn(TYPES,d?.type))return;const r=viewport.getBoundingClientRect();addNode(d.type,(e.clientX-r.left-view.x)/view.zoom-84,(e.clientY-r.top-view.y)/view.zoom-20,d.props||{});};
 viewport.onpointerdown=event=>{
   if(event.target.closest('.node')||event.target.closest('.wire')||event.button!==0)return;
@@ -743,7 +874,8 @@ $('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit'
 document.addEventListener('keydown',e=>{
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
   const k=e.key.toLowerCase();
-  if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();}
+  if(e.key==='Tab'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&(pointer.inGraph||e.target.closest?.('#graphViewport'))){e.preventDefault();openSearch();}
+  else if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();}
   else if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redo();}
   else if((e.metaKey||e.ctrlKey)&&k==='d'){e.preventDefault();duplicateSelected();}
   else if(e.key==='Delete'||e.key==='Backspace'){if(selected){e.preventDefault();removeSelected();}}
@@ -753,7 +885,7 @@ document.addEventListener('keydown',e=>{
 });
 window.addEventListener('resize',()=>requestAnimationFrame(renderWires));
 window.addEventListener('pagehide',event=>{
-  pageHidden=true;for(const engine of engines.values())engine.dispose();engines.clear();stopAudio();stopMic();
+  pageHidden=true;for(const engine of engines.values())engine.dispose();engines.clear();stopAudio();stopLive();
   if(audio.context){const c=audio.context;if(event.persisted)c.suspend().catch(()=>{});else{audio.context=null;c.close().catch(()=>{});}}
 });
 window.addEventListener('pageshow',()=>{pageHidden=false;lastTime=0;renderUI();if(paused)draw(elapsed);});
@@ -766,7 +898,7 @@ window.pro={
   getProject:()=>clone(state),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;renderUI();},selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(n.type==='emitter'&&key==='mode')setMode(g,n,value);else n.props[key]=value;},'Updated node property'),
-  stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
+  stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
   draw:()=>draw(elapsed),engine:id=>engines.get(id),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>n.type==='emitter')?.id||null;renderUI();}});
