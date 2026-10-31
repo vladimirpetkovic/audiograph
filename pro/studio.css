@@ -339,3 +339,19 @@ code.cmd{display:block;margin:6px 0;padding:6px 8px;background:#0b0b0e;border:1p
 .surf-row button{background:none;border:0;color:var(--tx3);cursor:pointer;font-size:.8rem;padding:0 2px}.surf-row button:hover{color:var(--hot)}
 .map-actions{display:flex;flex-wrap:wrap;gap:4px}
 .map-overlay[hidden]{display:none}
+.studio.auto-mode #librarySearch,.studio.auto-mode #library{display:none}
+.mode{position:relative}.mode-dot{display:none;position:absolute;top:4px;right:4px;width:5px;height:5px;border-radius:50%;background:#d2ff3a;box-shadow:0 0 6px #d2ff3a}.mode.live .mode-dot{display:block}
+.ap-prompt{width:100%;min-height:74px;padding:8px 9px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--tx);font:.68rem/1.45 var(--mono);resize:vertical;outline:none}
+.ap-prompt:focus{border-color:#d2ff3a}
+.ap-read{display:flex;flex-wrap:wrap;gap:4px;min-height:18px}
+.ap-chip{padding:3px 7px;border-radius:10px;font:.52rem/1.2 var(--mono);text-transform:uppercase;letter-spacing:.04em;border:1px solid currentColor;opacity:.9}
+.ap-chip[data-kind=Visual]{color:#5eead4}.ap-chip[data-kind=Colour]{color:#f9a8d4}.ap-chip[data-kind=Mood],.ap-chip[data-kind=Motion]{color:#fde047}
+.ap-chip[data-kind=Style]{color:#c4b5fd}.ap-chip[data-kind=FX]{color:#fb923c}.ap-chip[data-kind=Force],.ap-chip[data-kind=Deform]{color:#93c5fd}
+.ap-chip[data-kind=Sound],.ap-chip[data-kind=Input]{color:#d2ff3a}.ap-chip[data-kind=Off]{color:var(--tx3);text-decoration:line-through}
+.ap-examples{display:flex;flex-direction:column;gap:3px}
+.ap-example{text-align:left;background:none;border:0;border-left:2px solid var(--border);padding:3px 7px;color:var(--tx3);font:.58rem/1.35 var(--mono);cursor:pointer}
+.ap-example:hover{color:var(--tx);border-left-color:#d2ff3a}
+.ap-status{display:flex;align-items:center;gap:8px;font:.58rem/1 var(--mono);color:var(--tx2);text-transform:uppercase;letter-spacing:.06em}
+.ap-status b{color:#d2ff3a;font-weight:600;min-width:58px}.ap-bar{flex:1;height:5px;border-radius:3px;background:var(--bg);overflow:hidden}.ap-bar i{display:block;height:100%;background:linear-gradient(90deg,#00d991,#d2ff3a,#ff4d6d);width:0}
+.ap-last{font:.56rem/1.45 var(--mono);color:var(--tx3)}
+.mbtn.primary{color:var(--on-tx);background:var(--on);border-color:transparent;font-weight:600}.mbtn.primary:hover{color:var(--on-tx);background:var(--on);filter:brightness(1.1)}

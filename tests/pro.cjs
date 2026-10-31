@@ -356,6 +356,26 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.locator('[data-property=mapOn] [data-value=false]').click();
     await page.locator('#modeStudio').click();assert.ok(!(await page.locator('#mapOverlay').isVisible()),'Studio mode hides the handles');}
 
+    // Autopilot: words → graph, every example builds a valid rendering project, live changes glide the palette.
+    {await page.locator('#modeAuto').click();assert.ok(await page.locator('#autoPanel').isVisible(),'Autopilot workspace shows its panel');
+    const it=await page.evaluate(()=>{const r=pro.autopilot.parse('blue fluid with gold spiral, no glow');return {v:r.visuals.map(v=>v.mode+':'+(v.colors||[]).join('+')),no:[...r.no]};});
+    assert.deepEqual(it.v,['simfluid:blue','spiral:gold'],'Colours belong to the visual they describe');assert.ok(it.no.includes('glow'),'Negations are read');
+    await page.fill('[data-property=apPrompt]','intense red fluid, swirling, sparks on the beat, glitchy');
+    assert.ok((await page.locator('.ap-chip').allTextContents()).includes('Swirl'),'The panel shows what it understood');
+    await page.press('[data-property=apPrompt]','Enter');await lit(.5,25000);
+    const types=(await project()).layers[0].nodes.map(n=>n.type);
+    for(const t of ['gpuParticles','swirl','palette','fracture','bloom','output'])assert.ok(types.includes(t),`Autopilot builds ${t}`);
+    for(const ex of await page.locator('.ap-example').allTextContents()){await page.locator('.ap-example',{hasText:ex}).click();
+      await lit(.02,25000).catch(async()=>assert.fail(`Autopilot “${ex}”: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));}
+    await page.evaluate(()=>pro.autopilot.settings({changes:'mood',fade:.3}));await page.locator('[data-property=apLive] [data-value=true]').click();
+    const pal=()=>page.evaluate(()=>pro.getProject().layers.flatMap(g=>g.nodes.filter(n=>n.type==='palette').map(n=>[n.props.c1,n.props.c2,n.props.c3,n.props.c4].join())).join());
+    const p0=await pal(),h0=await page.evaluate(()=>pro.stats().frame);await page.locator('[data-property=apNext]').click();await page.waitForTimeout(1200);
+    assert.notEqual(await pal(),p0,'A live change glides to new colours');assert.equal((await page.evaluate(()=>pro.autopilot.status())).tweens,0,'Tweens finish');
+    const n0=await page.evaluate(()=>pro.getProject().layers[0].id);await page.evaluate(()=>{pro.autopilot.settings({changes:'all'});pro.autopilot.change('drop');});
+    assert.notEqual(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'Everything mode builds a new look on a drop');
+    await page.evaluate(()=>pro.undo());assert.equal(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'A rebuilt look is one undo step');
+    await page.locator('[data-property=apLive] [data-value=false]').click();await page.locator('#modeStudio').click();}
+
     // 10. Save / restore round trip.
     await page.locator('#save').click();const saved=await project();
     await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));await page.locator('#restore').click();

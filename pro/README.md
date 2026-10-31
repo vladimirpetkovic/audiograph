@@ -138,6 +138,20 @@ process the finished image.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when
     you switch templates.
+- **Autopilot** (third switch at the top) turns a description into a node graph:
+  - Type what you want, e.g. *"slow dreamy blue and gold smoke with soft glow"* or
+    *"blue fluid with gold spiral, no glow"*, and press Enter or **Create**. The
+    chips under the box show what it understood: visuals, colours (per visual),
+    themes, mood, motion, line style, symmetry, deformers, forces, effects, how
+    it reacts to the sound, "text in quotes", CPU/mouse data, and "no …".
+  - **Variation** rebuilds the same description with different choices;
+    **Add as layer** stacks it on the current project. Open Studio to fine-tune.
+  - **Live** follows the song (calm, groove, build, drop) and changes the look
+    at most every **Every** seconds, or at once on a drop. **Changes**: Colours
+    (palettes glide), Colours + mood (also glides bloom, intensity, spin… to the
+    section's energy) or Everything (a new look on drops and builds; one undo
+    step each). **Prompt match** sets how closely it sticks to your words,
+    **Fade** the glide time; **Next** changes now and **Hold** freezes the look.
 - **Panels**: drag the borders between the library, preview, graph and
   properties to resize them. Drag a border nearly closed or double-click it to
   hide that panel, and double-click again to bring it back. The layout is saved in this browser.

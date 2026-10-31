@@ -3,6 +3,7 @@ import {FORCE_KNOBS,TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,node
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 import * as mapping from './mapping.js';
+import * as autopilot from './autopilot.js';
 import {ORIGINAL_PRESETS} from './templates.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
@@ -438,7 +439,7 @@ function showAutoKnobs(){
 function draw(time,dt=1/30){
   if(pageHidden)return;
   if(!paused)autoClock+=dt*knobAutoSpeed;
-  readAudio(time);renderErrors=[];const prevErrors=nodeErrors;nodeErrors=new Set();
+  readAudio(time);if(!paused)autopilotStep(dt);renderErrors=[];const prevErrors=nodeErrors;nodeErrors=new Set();
   const mapped=mapActive(),out=mapped?programCtx:previewCtx;
   out.globalAlpha=1;out.filter='none';out.globalCompositeOperation='source-over';out.fillStyle='#000';out.fillRect(0,0,WIDTH,HEIGHT);
   for(const g of state.layers){
@@ -1176,7 +1177,7 @@ $('helpBody').innerHTML=`
 <p><b>Drive any knob:</b> drag from a <span style="color:${PORT_COLORS.number}">number</span> output (Audio bass / beat, LFO, Random, Camera motion…) onto a node and pick the knob. 0 keeps the knob setting, 1 pushes it to the maximum.</p>
 <p><b>Audio:</b> select an <b>Audio</b> node (or click the source name in the transport) to load a file, use the Mic or System audio. Without audio, a demo beat plays. Its <span style="color:${PORT_COLORS.audio}">audio</span> wire feeds emitters; put an <b>Audio EQ</b> in the wire to reshape what one emitter hears. Connecting a number to an emitter's <b>drive</b> replaces the music for that emitter.</p>
 <p><b>Graph:</b> drag empty space to pan, wheel to zoom, click a wire to delete it, Delete removes the selected node (the chain heals), press and hold a node's title (or Alt-drag) to pull it out of its chain, <b>Tab</b> over the graph searches every node and drops it at the cursor (over a wire it is inserted into the wire), ⌘Z / ⇧⌘Z undo and redo. <b>Space</b> pauses, <b>F</b> goes fullscreen.</p>
-<p><b>Map</b> (top centre) is projection mapping: add surfaces or pick a layout (cube, triptych, corridor, curved wall…), drag their points on the preview to fit walls and objects, crop which part of the picture each one shows (or give it its own layer), feather edges and use the test card to line up. <b>Detach</b> sends the mapped output to the projector. The mapping is saved with the project.</p>\n<p>Not in Pro (use the original Audiograph): morphing between presets.</p>`;
+<p><b>Map</b> (top centre) is projection mapping: add surfaces or pick a layout (cube, triptych, corridor, curved wall…), drag their points on the preview to fit walls and objects, crop which part of the picture each one shows (or give it its own layer), feather edges and use the test card to line up. <b>Detach</b> sends the mapped output to the projector. The mapping is saved with the project.</p>\n<p><b>Autopilot</b> (top centre) builds a graph from a description such as “intense red fluid, swirling, sparks on the beat”. Press Enter or Create; Variation gives another take. Turn Live on and it follows the song, gliding colours and mood or building a new look on drops.</p><p>Not in Pro (use the original Audiograph): morphing between presets.</p>`;
 $('helpButton').onclick=()=>$('help').showModal();$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
 viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
@@ -1276,14 +1277,19 @@ const overlay=$('mapOverlay'),SVGNS='http://www.w3.org/2000/svg';
 const curMap=()=>state.mapping||{on:false,test:false,surfaces:[]};
 const selSurface=()=>curMap().surfaces.find(s=>s.id===mapSel)||null;
 function mapEdit(fn,label){return edit(p=>{p.mapping=p.mapping?clone(p.mapping):{on:true,test:false,surfaces:[]};fn(p.mapping);},label);}
-function setMapMode(on){
-  mapMode=!!on;studio.classList.toggle('map-mode',mapMode);$('mapPanel').hidden=!mapMode;overlay.toggleAttribute('hidden',!mapMode);
-  $('modeStudio').classList.toggle('on',!mapMode);$('modeMap').classList.toggle('on',mapMode);
-  $('modeStudio').setAttribute('aria-selected',String(!mapMode));$('modeMap').setAttribute('aria-selected',String(mapMode));
-  if(mapMode){if(layout.hidden.library){layout.hidden.library=false;applyLayout();}if(!mapSel)mapSel=curMap().surfaces[0]?.id||null;renderMapPanel();}
-  renderOverlay();message(mapMode?'Map: drag the points on the preview to fit your surfaces':'Studio');
+// Workspaces: Studio (node library), Map (projection mapping) and Autopilot share the left panel.
+let workspace='studio';
+function setWorkspace(w){
+  workspace=w;mapMode=w==='map';const auto=w==='auto';
+  studio.classList.toggle('map-mode',mapMode);studio.classList.toggle('auto-mode',auto);$('mapPanel').hidden=!mapMode;$('autoPanel').hidden=!auto;overlay.toggleAttribute('hidden',!mapMode);
+  for(const [id,on] of [['modeStudio',w==='studio'],['modeMap',mapMode],['modeAuto',auto]]){$(id).classList.toggle('on',on);$(id).setAttribute('aria-selected',String(on));}
+  if((mapMode||auto)&&layout.hidden.library){layout.hidden.library=false;applyLayout();}
+  if(mapMode){if(!mapSel)mapSel=curMap().surfaces[0]?.id||null;renderMapPanel();}
+  if(auto)renderAutoPanel();
+  renderOverlay();message(mapMode?'Map: drag the points on the preview to fit your surfaces':auto?'Autopilot: describe what you want to see':'Studio');
 }
-$('modeStudio').onclick=()=>setMapMode(false);$('modeMap').onclick=()=>setMapMode(true);
+function setMapMode(on){setWorkspace(on?'map':'studio');}
+$('modeStudio').onclick=()=>setWorkspace('studio');$('modeMap').onclick=()=>setWorkspace('map');$('modeAuto').onclick=()=>setWorkspace('auto');
 function newSurfaceId(m){let i=m.surfaces.length+1;while(m.surfaces.some(s=>s.id==='s'+i))i++;return 's'+i;}
 function renderMapPanel(){
   const root=$('mapPanel');if(!root||!mapMode)return;root.replaceChildren();
@@ -1385,12 +1391,128 @@ function mapKey(e){
   if(e.key==='Escape'){mapPt=-1;renderOverlay();return true;}
   return false;
 }
+
+// ---------- autopilot ----------
+// Describe a look in plain words → a node graph. Live mode follows the song's sections and changes colours,
+// mood (tweened knobs) or everything, at most once per "Every" seconds unless the music drops.
+const AP_KEY='agpro.autopilot';
+const ap={prompt:'',changes:'colors',every:24,match:85,fade:3,live:false,hold:false,intent:null,seed:1,last:'',changes_n:0};
+try{Object.assign(ap,JSON.parse(localStorage.getItem(AP_KEY)||'{}'),{live:false,hold:false});}catch{}
+const director=new autopilot.Director(),apTweens=new Map();
+function apSave(){try{localStorage.setItem(AP_KEY,JSON.stringify({prompt:ap.prompt,changes:ap.changes,every:ap.every,match:ap.match,fade:ap.fade}));}catch{}}
+function apIntent(){ap.intent=autopilot.parse(ap.prompt||'');return ap.intent;}
+function apProject(layers){return {...clone(state),layers};}
+function apCreate(prompt=ap.prompt,{variation=false}={}){
+  ap.prompt=prompt;apSave();const it=apIntent();ap.seed=variation||!ap.seed?(Math.random()*1e9)|0:ap.seed;
+  if(!variation)ap.seed=(Math.random()*1e9)|0;
+  apTweens.clear();
+  const layers=autopilot.build(it,{seed:ap.seed,match:ap.match});
+  const done=importProject(apProject(layers),variation?'Autopilot: new variation':'Autopilot: created “'+(prompt||'surprise me').slice(0,48)+'”');
+  if(done){selected=graph().nodes.find(n=>isEngine(n.type)||n.type==='text')?.id||null;renderUI();}
+  ap.last=variation?'New variation':'Created from the description';renderAutoPanel();return done;
+}
+function apAddLayer(){
+  const it=apIntent(),seed=(Math.random()*1e9)|0;
+  return edit(p=>{if(p.layers.length>=LIMITS.layers)throw Error(`Up to ${LIMITS.layers} layers`);const [g]=autopilot.build({...it,layers:1},{seed,match:ap.match});g.opacity=.85;g.blend='screen';p.layers.push(g);active=g.id;},'Autopilot: added a layer');
+}
+// Tween a property towards a target without touching the undo history (the change is the music's, not the user's).
+function apTween(g,n,key,to,dur){
+  const from=n.props[key];if(from===undefined||from===to)return;
+  apTweens.set(g.id+'|'+n.id+'|'+key,{g:g.id,n:n.id,key,from,to,t:0,dur:Math.max(.05,dur),color:typeof to==='string'});
+}
+function apColors(kind){
+  const E=director.energy(kind),seed=(Math.random()*1e9)|0;
+  state.layers.forEach((g,i)=>{const stops=autopilot.paletteFor(ap.intent,{seed,energy:E,index:i});
+    for(const n of g.nodes)if(n.type==='palette')['c1','c2','c3','c4'].forEach((k,j)=>apTween(g,n,k,stops[j]||stops[stops.length-1],ap.fade));});
+}
+// Mood: rebuild the same description at the section's energy and glide matching knobs (bloom, intensity, spin…) there.
+const MOOD_KEYS=new Set(['bloom','intensity','punch','release','height','thick','spin','amount','strength','decay','fade','speed','density','glow','scale']);
+function apMood(kind){
+  const target=autopilot.build(ap.intent,{seed:ap.seed,energy:director.energy(kind),match:ap.match});
+  state.layers.forEach((g,i)=>{const t=target[i];if(!t)return;const seen={};
+    for(const n of g.nodes){const k=seen[n.type]=(seen[n.type]||0)+1,m=t.nodes.filter(x=>x.type===n.type)[k-1];if(!m)continue;const spec=TYPES[n.type].props;
+      for(const key of Object.keys(m.props)){if(!MOOD_KEYS.has(key)||spec[key]?.kind!=='number'||typeof n.props[key]!=='number')continue;
+        if(g.edges.some(e=>e.to===n.id&&e.input===key))continue;
+        let v=m.props[key];if(key==='spin'&&Math.sign(v)!==Math.sign(n.props[key])&&n.props[key])v=-v;apTween(g,n,key,Math.max(spec[key].min,Math.min(spec[key].max,v)),ap.fade*1.5);}}});
+}
+function apChange(kind,forced=false){
+  if(!ap.intent)apIntent();ap.changes_n++;
+  const big=ap.changes==='all'&&(forced||kind==='drop'||kind==='build'||ap.changes_n%3===0);
+  if(big){ap.seed=(Math.random()*1e9)|0;apTweens.clear();const layers=autopilot.build(ap.intent,{seed:ap.seed,energy:director.energy(kind),match:ap.match});
+    commit(validate(apProject(layers)),'Autopilot: '+kind);active=state.layers[0].id;if(!state.layers.some(g=>g.nodes.some(n=>n.id===selected)))selected=null;renderUI();}
+  else{apColors(kind);if(ap.changes!=='colors')apMood(kind);}
+  ap.last=`${kind[0].toUpperCase()+kind.slice(1)} → ${big?'new look':ap.changes==='colors'?'new colours':'colours + mood'}`;
+  apStatus(true);
+}
+let apStatusT=0;
+function autopilotStep(dt){
+  if(ap.live&&!ap.hold&&A.live!==undefined){const kind=director.step(A.bands.full,dt,ap.every);if(kind&&!liveBefore)apChange(kind);}
+  if(apTweens.size&&!liveBefore){
+    const nodes=new Map();for(const g of state.layers)for(const n of g.nodes)nodes.set(n.id,n);let ended=false;
+    for(const [key,tw] of apTweens){const n=nodes.get(tw.n);if(!n){apTweens.delete(key);continue;}
+      tw.t=Math.min(1,tw.t+dt/tw.dur);const e=tw.t*tw.t*(3-2*tw.t);
+      n.props[tw.key]=tw.color?autopilot.mixHex(tw.from,tw.to,e):(()=>{const v=tw.from+(tw.to-tw.from)*e,st=TYPES[n.type].props[tw.key]?.step||.01;return Math.round(v/st)*st;})();
+      if(tw.t>=1){n.props[tw.key]=tw.to;apTweens.delete(key);ended=true;}}
+    if(frame%6===0||ended)updateSummaries();
+    if(ended&&!apTweens.size&&selected&&!document.activeElement?.closest?.('#properties'))renderProperties();
+  }
+  if((apStatusT+=dt)>.25){apStatusT=0;apStatus();}
+}
+function apStatus(full=false){
+  $('modeAuto').classList.toggle('live',ap.live);
+  const box=$('apStatus');if(!box||workspace!=='auto')return;
+  const left=Math.max(0,ap.every-director.since);
+  box.querySelector('b').textContent=ap.live?(ap.hold?'Hold':director.section):'Off';
+  box.querySelector('.ap-bar i').style.width=Math.round(director.level*100)+'%';
+  box.querySelector('span').textContent=ap.live&&!ap.hold?`next ≤ ${Math.ceil(left)}s`:'';
+  if(full){const l=$('apLast');if(l)l.textContent=ap.last?'Last change: '+ap.last:'';}
+}
+function renderAutoPanel(){
+  const root=$('autoPanel');if(!root||workspace!=='auto')return;root.replaceChildren();
+  const head=el('div','insp-head'),h=el('h3');h.append(el('span','dot'),document.createTextNode('Autopilot'));
+  head.append(h,el('div','insp-desc','Describe what you want to see — visuals, colours, mood, motion, effects, how it reacts. Autopilot builds the node graph; open Studio to fine-tune it.'));root.append(head);
+  const d=section(root,'Describe');
+  const ta=el('textarea','ap-prompt');ta.dataset.property='apPrompt';ta.placeholder='e.g. slow dreamy blue and gold smoke with soft glow';ta.value=ap.prompt;ta.spellcheck=false;
+  const read=el('div','ap-read');
+  const showRead=()=>{read.replaceChildren();const it=autopilot.parse(ta.value);for(const c of it.read){const x=el('span','ap-chip',c.text);x.dataset.kind=c.kind;x.title=c.kind;read.append(x);}
+    if(!it.read.length)read.append(el('span','ap-last',ta.value.trim()?'Nothing recognised yet — Autopilot will improvise':'Empty → Autopilot improvises'));};
+  ta.oninput=()=>{ap.prompt=ta.value;apSave();showRead();};
+  ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();apCreate(ta.value);}};
+  showRead();d.append(ta,read);
+  const row=el('div','map-actions');
+  const btn=(t,title,fn,prop)=>{const b=el('button','mbtn',t);b.type='button';b.title=title;b.dataset.property=prop;b.onclick=fn;row.append(b);return b;};
+  btn('Create','Build a new project from the description (Enter)',()=>apCreate(ta.value),'apCreate').classList.add('primary');
+  btn('Variation','Same description, different choices',()=>apCreate(ta.value,{variation:true}),'apVariation');
+  btn('Add as layer','Add the description as another layer on top',()=>{ap.prompt=ta.value;apAddLayer();},'apAddLayer');
+  d.append(row);
+  const live=section(root,'Live');
+  live.append(ui.field('Autopilot',ui.toggle({value:ap.live,labels:['On','Off'],property:'apLive',onChange:v=>{ap.live=v;ap.hold=false;if(v){apIntent();director.since=0;if(!state.layers.some(g=>g.nodes.some(n=>n.type==='palette')))apCreate(ap.prompt);}message(v?'Autopilot is following the music':'Autopilot off');renderAutoPanel();}})));
+  live.append(ui.field('Changes',ui.chips({options:[['colors','Colours'],['mood','Colours + mood'],['all','Everything']],value:ap.changes,property:'apChanges',onChange:v=>{ap.changes=v;apSave();}})));
+  const knobs=el('div','knob-grid');
+  knobs.append(ui.knob({label:'Every',min:6,max:90,step:1,value:ap.every,def:24,unit:'s',property:'apEvery',onInput:v=>{ap.every=v;},onChange:v=>{ap.every=v;apSave();}}));
+  knobs.append(ui.knob({label:'Prompt match',min:0,max:100,step:1,value:ap.match,def:85,unit:'%',property:'apMatch',onInput:v=>{ap.match=v;},onChange:v=>{ap.match=v;apSave();}}));
+  knobs.append(ui.knob({label:'Fade',min:0,max:12,step:.5,value:ap.fade,def:3,unit:'s',property:'apFade',onInput:v=>{ap.fade=v;},onChange:v=>{ap.fade=v;apSave();}}));
+  live.append(knobs);
+  const st=el('div','ap-status');st.id='apStatus';st.append(el('b'),Object.assign(el('div','ap-bar'),{innerHTML:'<i></i>'}),el('span'));live.append(st);
+  const r2=el('div','map-actions');
+  const nb=el('button','mbtn','Next');nb.title='Change now';nb.dataset.property='apNext';nb.onclick=()=>{if(!ap.intent)apIntent();director.since=0;apChange(director.section==='waiting'?'phrase':director.section,true);};
+  const hb=el('button','mbtn',ap.hold?'Release':'Hold');hb.title='Keep the current look until released';hb.dataset.property='apHold';hb.disabled=!ap.live;hb.onclick=()=>{ap.hold=!ap.hold;hb.textContent=ap.hold?'Release':'Hold';apStatus();};
+  r2.append(nb,hb);live.append(r2);
+  const last=el('div','ap-last');last.id='apLast';live.append(last);
+  const ex=section(root,'Try');const exs=el('div','ap-examples');
+  for(const t of autopilot.EXAMPLES){const b=el('button','ap-example',t);b.onclick=()=>{ta.value=t;ap.prompt=t;apSave();showRead();apCreate(t);};exs.append(b);}
+  ex.append(exs);
+  const tip=section(root,'Words it knows');
+  tip.append(el('div','ap-last','Visuals: smoke, fluid, sand, birds, ferrofluid, particles, spiral, circle, rings, sacred geometry, mandala, waves, terrain, sphere, DNA, knot, cube, torus, text in "quotes". Colours: any colour name or #hex, themes like sunset, ocean, neon, cyberpunk, fire, ice, forest. Mood: calm, dreamy, intense, dark. Effects: glow, trails, blur, kaleidoscope, glitch, grain, mirrored. Reaction: pulse with the bass, flash on the beat, very reactive. Data: cpu, mouse. Say "no glow" to turn things off.'));
+  apStatus(true);
+}
 window.pro={
   getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;renderUI();},selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
-  mapMode:on=>{setMapMode(on);return mapMode;},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
+  mapMode:on=>{setMapMode(on);return mapMode;},workspace:w=>{if(w)setWorkspace(w);return workspace;},
+  autopilot:{parse:t=>autopilot.parse(t),create:(t,o)=>apCreate(t,o),addLayer:()=>apAddLayer(),change:k=>apChange(k||'phrase',true),settings:o=>{Object.assign(ap,o||{});apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,every:ap.every,match:ap.match,fade:ap.fade,live:ap.live,hold:ap.hold};},status:()=>({section:director.section,level:director.level,since:director.since,tweens:apTweens.size,last:ap.last,live:ap.live})},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 sensors.autoMidi();reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});

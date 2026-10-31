@@ -13,6 +13,7 @@
     <div class="modes" role="tablist" aria-label="Workspace">
       <button class="mode on" id="modeStudio" role="tab" aria-selected="true" title="Build visuals with nodes">Studio</button>
       <button class="mode" id="modeMap" role="tab" aria-selected="false" title="Projection mapping: fit the output onto walls, objects and screens">Map</button>
+      <button class="mode" id="modeAuto" role="tab" aria-selected="false" title="Autopilot: describe what you want, and let it follow the music">Autopilot<i class="mode-dot"></i></button>
     </div>
     <div class="toolbar">
       <button class="tbtn" id="undo" title="Undo (⌘/Ctrl Z)" aria-label="Undo">↶</button>
@@ -33,6 +34,7 @@
       <input id="librarySearch" class="search" type="search" placeholder="Search nodes…" aria-label="Search nodes">
       <div id="library"></div>
       <div id="mapPanel" class="map-panel" hidden></div>
+      <div id="autoPanel" class="map-panel auto-panel" hidden></div>
     </aside>
     <section class="stage">
       <div class="preview-wrap" id="previewWrap">
