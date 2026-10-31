@@ -2,6 +2,7 @@ import * as sensors from './sensors.js';
 import {FORCE_KNOBS,TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
+import * as mapping from './mapping.js';
 import {ORIGINAL_PRESETS} from './templates.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
@@ -45,7 +46,9 @@ function reconcile(){
     return [g.id,order(g).filter(n=>needed.has(n.id))];
   }));
   layerReaders=new Set(state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='layerIn').map(n=>state.layers[n.props.layer-1]?.id)).filter(Boolean));
-  for(const id of layerImages.keys())if(!layerReaders.has(id))layerImages.delete(id);
+  mapLayers=new Set((state.mapping?.surfaces||[]).filter(s=>s.source!=='all').map(s=>state.layers[s.source-1]?.id).filter(Boolean));
+  for(const id of layerImages.keys())if(!layerReaders.has(id)&&!mapLayers.has(id))layerImages.delete(id);
+  if(mapSel&&!state.mapping?.surfaces.some(s=>s.id===mapSel)){mapSel=null;mapPt=-1;}
   if(!state.layers.some(g=>g.id===active))active=state.layers[0].id;
   if(!graph().nodes.some(n=>n.id===selected))selected=null;
 }
@@ -66,7 +69,7 @@ function restoreSnapshot(snapshot){state=validate(snapshot);pending=null;reconci
 function undo(){if(history.length){future.push(clone(state));restoreSnapshot(history.pop());message('Undone');}}
 function redo(){if(future.length){history.push(clone(state));restoreSnapshot(future.pop());message('Redone');}}
 function importProject(raw,label='Imported project. Reload media files in the Input nodes.'){
-  const clean=validate(raw);commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
+  const clean=validate(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
 }
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
 const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);if(!o.length)return false;
@@ -420,7 +423,10 @@ function drawPinGrid(ctx,q){ctx.save();ctx.strokeStyle='rgba(255,255,255,.75)';c
   for(let k=0;k<=8;k++){const t=k/8;ctx.beginPath();ctx.moveTo(...quadPoint(q,t,0));ctx.lineTo(...quadPoint(q,t,1));ctx.moveTo(...quadPoint(q,0,t));ctx.lineTo(...quadPoint(q,1,t));ctx.stroke();}
   ctx.fillStyle='#d2ff3a';for(const p of q){ctx.beginPath();ctx.arc(p[0],p[1],7,0,7);ctx.fill();}ctx.restore();}
 // Layer nodes read other layers' pictures: this frame's if already drawn, otherwise the previous frame's.
-const layerImages=new Map();let layerReaders=new Set();
+const layerImages=new Map();let layerReaders=new Set(),mapLayers=new Set();
+// With projection mapping on, layers composite into the program picture, which is then warped onto the surfaces.
+const program=document.createElement('canvas');program.width=WIDTH;program.height=HEIGHT;const programCtx=program.getContext('2d');
+const mapActive=()=>!!state.mapping?.surfaces.length&&(state.mapping.on||state.mapping.test);
 function keepLayer(id,image){if(!layerImages.has(id)){const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;layerImages.set(id,c);}const c=layerImages.get(id),x=c.getContext('2d');x.clearRect(0,0,WIDTH,HEIGHT);x.drawImage(image,0,0);}
 function drawThumb(id,src){const cv=thumbs.get(id);if(!cv?.isConnected)return;const c=cv.getContext('2d');c.fillStyle='#000';c.fillRect(0,0,cv.width,cv.height);c.drawImage(src,0,0,cv.width,cv.height);}
 // Auto knobs: a shared clock (scaled by the Auto speed) and the drifted values shown on the knobs.
@@ -433,12 +439,17 @@ function draw(time,dt=1/30){
   if(pageHidden)return;
   if(!paused)autoClock+=dt*knobAutoSpeed;
   readAudio(time);renderErrors=[];const prevErrors=nodeErrors;nodeErrors=new Set();
-  previewCtx.globalAlpha=1;previewCtx.filter='none';previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);
-  for(const g of state.layers)if(g.visible&&g.opacity>0){
-    try{const image=execute(g,time,dt);if(image){if(layerReaders.has(g.id))keepLayer(g.id,image);previewCtx.globalAlpha=g.opacity;previewCtx.globalCompositeOperation=g.blend;previewCtx.drawImage(image,0,0);}}
+  const mapped=mapActive(),out=mapped?programCtx:previewCtx;
+  out.globalAlpha=1;out.filter='none';out.globalCompositeOperation='source-over';out.fillStyle='#000';out.fillRect(0,0,WIDTH,HEIGHT);
+  for(const g of state.layers){
+    // A hidden layer still renders when a mapping surface shows it on its own.
+    const shown=g.visible&&g.opacity>0,forMap=mapped&&mapLayers.has(g.id);if(!shown&&!forMap)continue;
+    try{const image=execute(g,time,dt);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);if(shown){out.globalAlpha=g.opacity;out.globalCompositeOperation=g.blend;out.drawImage(image,0,0);}}}
     catch(error){renderErrors.push(error.message);}
   }
-  previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';frame++;
+  out.globalAlpha=1;out.globalCompositeOperation='source-over';
+  if(mapped)mapping.render(previewCtx,state.mapping,src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT);
+  frame++;
   if(frame%2===0){drawSpectrum();showAutoKnobs();}
   $('audioMeter').value=A.bands.full;
   const list=[...engines.values()],starting=list.some(e=>e.status==='starting');
@@ -1005,7 +1016,7 @@ function renderLayers(){
   }
   $('addLayer').disabled=state.layers.length>=LIMITS.layers||state.layers.flatMap(g=>g.nodes).filter(n=>isEngine(n.type)).length>=LIMITS.emitters;
 }
-function renderUI(){renderGraph();renderProperties();renderLayers();$('undo').disabled=!history.length;$('redo').disabled=!future.length;}
+function renderUI(){renderGraph();renderProperties();renderLayers();if(mapMode)renderMapPanel();renderOverlay();$('undo').disabled=!history.length;$('redo').disabled=!future.length;}
 
 // ---------- templates ----------
 function chain(name,specs,extra){
@@ -1084,7 +1095,7 @@ const ORIGINAL_NAMES=ORIGINAL_PRESETS.map(P=>P.name);
 function loadTemplate(name){
   if(!Object.hasOwn(TEMPLATES,name))throw Error('Unknown template '+name);
   const layers=TEMPLATES[name]();layers.forEach((g,i)=>{if(i===0)g.blend='source-over';});
-  importProject({format:'audiograph-pro',version:VERSION,layers},`Template: ${name}`);
+  importProject({format:'audiograph-pro',version:VERSION,layers,...(state.mapping?{mapping:state.mapping}:{})},`Template: ${name}`);
 }
 
 // ---------- record / fullscreen ----------
@@ -1165,7 +1176,7 @@ $('helpBody').innerHTML=`
 <p><b>Drive any knob:</b> drag from a <span style="color:${PORT_COLORS.number}">number</span> output (Audio bass / beat, LFO, Random, Camera motion…) onto a node and pick the knob. 0 keeps the knob setting, 1 pushes it to the maximum.</p>
 <p><b>Audio:</b> select an <b>Audio</b> node (or click the source name in the transport) to load a file, use the Mic or System audio. Without audio, a demo beat plays. Its <span style="color:${PORT_COLORS.audio}">audio</span> wire feeds emitters; put an <b>Audio EQ</b> in the wire to reshape what one emitter hears. Connecting a number to an emitter's <b>drive</b> replaces the music for that emitter.</p>
 <p><b>Graph:</b> drag empty space to pan, wheel to zoom, click a wire to delete it, Delete removes the selected node (the chain heals), press and hold a node's title (or Alt-drag) to pull it out of its chain, <b>Tab</b> over the graph searches every node and drops it at the cursor (over a wire it is inserted into the wire), ⌘Z / ⇧⌘Z undo and redo. <b>Space</b> pauses, <b>F</b> goes fullscreen.</p>
-<p>Not in Pro (use the original Audiograph): projection mapping, AI Look, autopilot and morphing. Webcam is also a Deformer node.</p>`;
+<p><b>Map</b> (top centre) is projection mapping: add surfaces or pick a layout (cube, triptych, corridor, curved wall…), drag their points on the preview to fit walls and objects, crop which part of the picture each one shows (or give it its own layer), feather edges and use the test card to line up. <b>Detach</b> sends the mapped output to the projector. The mapping is saved with the project.</p>\n<p>Not in Pro (use the original Audiograph): morphing between presets.</p>`;
 $('helpButton').onclick=()=>$('help').showModal();$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
 viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
@@ -1192,6 +1203,7 @@ $('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit'
 document.addEventListener('keydown',e=>{
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
   const k=e.key.toLowerCase();
+  if(mapKey(e))return;
   if(e.key==='Tab'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&(pointer.inGraph||e.target.closest?.('#graphViewport'))){e.preventDefault();openSearch();}
   else if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();}
   else if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redo();}
@@ -1256,11 +1268,129 @@ for(const g of document.querySelectorAll('.gutter')){
 }
 applyLayout(false);
 new ResizeObserver(()=>renderWires()).observe($('graphViewport'));
+// ---------- projection mapping ----------
+// Map mode swaps the library for the mapping panel and shows draggable surfaces over the preview. The handles are
+// DOM (not drawn into the picture), so the Detach window only ever gets the clean mapped output.
+let mapMode=false,mapSel=null,mapPt=-1,mapDrag=null;
+const overlay=$('mapOverlay'),SVGNS='http://www.w3.org/2000/svg';
+const curMap=()=>state.mapping||{on:false,test:false,surfaces:[]};
+const selSurface=()=>curMap().surfaces.find(s=>s.id===mapSel)||null;
+function mapEdit(fn,label){return edit(p=>{p.mapping=p.mapping?clone(p.mapping):{on:true,test:false,surfaces:[]};fn(p.mapping);},label);}
+function setMapMode(on){
+  mapMode=!!on;studio.classList.toggle('map-mode',mapMode);$('mapPanel').hidden=!mapMode;overlay.toggleAttribute('hidden',!mapMode);
+  $('modeStudio').classList.toggle('on',!mapMode);$('modeMap').classList.toggle('on',mapMode);
+  $('modeStudio').setAttribute('aria-selected',String(!mapMode));$('modeMap').setAttribute('aria-selected',String(mapMode));
+  if(mapMode){if(layout.hidden.library){layout.hidden.library=false;applyLayout();}if(!mapSel)mapSel=curMap().surfaces[0]?.id||null;renderMapPanel();}
+  renderOverlay();message(mapMode?'Map: drag the points on the preview to fit your surfaces':'Studio');
+}
+$('modeStudio').onclick=()=>setMapMode(false);$('modeMap').onclick=()=>setMapMode(true);
+function newSurfaceId(m){let i=m.surfaces.length+1;while(m.surfaces.some(s=>s.id==='s'+i))i++;return 's'+i;}
+function renderMapPanel(){
+  const root=$('mapPanel');if(!root||!mapMode)return;root.replaceChildren();
+  const m=curMap(),s=selSurface();
+  const head=el('div','insp-head'),h=el('h3');h.append(el('span','dot'),document.createTextNode('Projection mapping'));
+  head.append(h,el('div','insp-desc','Fit the output onto walls, objects and screens. Detach sends the mapped picture to the projector.'));root.append(head);
+  const out=section(root,null);
+  out.append(ui.field('Mapping',ui.toggle({value:m.on,labels:['On','Off'],property:'mapOn',onChange:v=>mapEdit(x=>{x.on=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Mapping on':'Mapping off')})));
+  out.append(ui.field('Test card',ui.toggle({value:m.test,labels:['Show','Hide'],property:'mapTest',onChange:v=>mapEdit(x=>{x.test=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Test card on':'Test card off')})));
+  const pre=el('select');pre.dataset.property='mapPreset';pre.append(new Option('Start from a layout…',''));for(const k of Object.keys(mapping.PRESETS))pre.append(new Option(k,k));
+  pre.onchange=()=>{const k=pre.value;if(!k)return;mapEdit(x=>{x.surfaces=mapping.PRESETS[k]();x.on=true;mapSel=x.surfaces[0].id;mapPt=-1;},'Mapping layout: '+k);};
+  out.append(ui.field('Layout',pre));
+  const ls=section(root,`Surfaces (${m.surfaces.length}/${mapping.MAX_SURFACES})`),list=el('div','surf-list');
+  m.surfaces.forEach((x,i)=>{
+    const row=el('div','surf-row'+(x.id===mapSel?' sel':''));row.dataset.surface=x.id;
+    const del=el('button','','×');del.type='button';del.title='Delete surface';del.onclick=e=>{e.stopPropagation();mapEdit(mm=>{mm.surfaces=mm.surfaces.filter(y=>y.id!==x.id);},'Deleted surface');};
+    row.append(el('span','n',`${i+1}. ${x.name}`),el('span','src',x.source==='all'?'All':'Layer '+x.source),del);
+    row.onclick=()=>{mapSel=x.id;mapPt=-1;renderMapPanel();renderOverlay();};list.append(row);
+  });
+  if(!m.surfaces.length)list.append(el('p','insp-note','No surfaces yet. Add one or start from a layout.'));
+  ls.append(list);
+  const acts=el('div','map-actions');ls.append(acts);
+  const btn=(label,title,fn,dis=false)=>{const b=el('button','mbtn',label);b.type='button';b.title=title;b.disabled=dis;b.onclick=fn;acts.append(b);return b;};
+  btn('+ Surface','Add a surface',()=>mapEdit(x=>{const id=newSurfaceId(x),k=x.surfaces.length*.04;x.surfaces.push(mapping.surface(id,'Surface '+(x.surfaces.length+1),[[.2+k,.2+k],[.8+k,.2+k],[.8+k,.8+k],[.2+k,.8+k]]));x.on=true;mapSel=id;mapPt=-1;},'Added surface'),m.surfaces.length>=mapping.MAX_SURFACES).dataset.property='mapAdd';
+  if(s)btn('Duplicate','Copy the selected surface',()=>mapEdit(x=>{const id=newSurfaceId(x),c=clone(s);c.id=id;c.name=s.name+' copy';c.pts=c.pts.map(([a,b])=>[a+.03,b+.03]);x.surfaces.push(c);mapSel=id;},'Duplicated surface'),m.surfaces.length>=mapping.MAX_SURFACES);
+  if(!s){root.append(el('p','insp-note','Tip: Map mode shows handles on the preview only; the projector output stays clean.'));return;}
+  const upd=(fn,label)=>mapEdit(x=>{const t=x.surfaces.find(y=>y.id===s.id);if(t)fn(t);},label);
+  const ss=section(root,'Selected surface');
+  const name=el('input');name.type='text';name.maxLength=40;name.value=s.name;name.dataset.property='surfName';name.onchange=()=>upd(t=>{t.name=name.value.trim()||t.name;},'Renamed surface');ss.append(ui.field('Name',name));
+  const src=el('select');src.dataset.property='surfSource';src.append(new Option('All layers','all'));state.layers.forEach((g,i)=>src.append(new Option(`Layer ${i+1} · ${g.name}`,String(i+1))));src.value=String(s.source);
+  src.onchange=()=>upd(t=>{t.source=src.value==='all'?'all':+src.value;},'Surface source');ss.append(ui.field('Shows',src));
+  const grid=el('select');grid.dataset.property='surfGrid';for(const [c,r,l] of [[1,1,'Flat · 4 corners'],[2,1,'Bend sideways · 2×1'],[2,2,'Curved · 3×3 points'],[3,2,'Curved · 4×3 points'],[3,3,'Curved · 4×4 points'],[4,4,'Fine · 5×5 points']])grid.append(new Option(l,c+'x'+r));
+  grid.value=s.cols+'x'+s.rows;if(!grid.value){grid.append(new Option(`${s.cols}×${s.rows}`,s.cols+'x'+s.rows));grid.value=s.cols+'x'+s.rows;}
+  grid.onchange=()=>{const [c,r]=grid.value.split('x').map(Number);mapPt=-1;upd(t=>Object.assign(t,mapping.regrid(t,c,r)),'Surface grid');};ss.append(ui.field('Warp',grid));
+  ss.append(ui.field('Mask',ui.chips({options:[['rect','Rectangle'],['ellipse','Ellipse']],value:s.mask,property:'surfMask',onChange:v=>upd(t=>{t.mask=v;},'Surface mask')})));
+  const kn=el('div','knob-grid'),liveSurf=fn=>{live(st=>{const t=st.mapping?.surfaces.find(y=>y.id===s.id);if(t)fn(t);});renderOverlay();};
+  kn.append(ui.knob({label:'Opacity',min:0,max:100,step:1,value:Math.round(s.opacity*100),def:100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
+  kn.append(ui.knob({label:'Feather',min:0,max:50,step:1,value:Math.round(s.feather*100),def:0,unit:'%',property:'surfFeather',onInput:v=>liveSurf(t=>{t.feather=v/100;}),onChange:()=>liveCommit('Surface feather')}));
+  ss.append(kn);
+  const cs=section(root,'Crop · which part of the picture it shows'),ck=el('div','knob-grid');
+  ['Left','Top','Right','Bottom'].forEach((l,i)=>ck.append(ui.knob({label:l,min:0,max:100,step:1,value:Math.round(s.crop[i]*100),def:i<2?0:100,unit:'%',property:'surfCrop'+l,
+    onInput:v=>liveSurf(t=>{const c=[...t.crop];c[i]=v/100;if(i<2)c[i]=Math.min(c[i],c[i+2]-.02);else c[i]=Math.max(c[i],c[i-2]+.02);t.crop=c;}),onChange:()=>liveCommit('Surface crop')})));
+  cs.append(ck);
+  const sa=el('div','map-actions');cs.append(sa);
+  const sb=(label,title,fn)=>{const b=el('button','mbtn',label);b.type='button';b.title=title;b.onclick=fn;sa.append(b);};
+  sb('Match crop','Place the surface exactly where its crop sits in the picture (no warp)',()=>upd(t=>{const [l,tp,r,b]=t.crop;t.pts=mapping.gridPoints(t.cols,t.rows,[[l,tp],[r,tp],[r,b],[l,b]]);},'Surface matches crop'));
+  sb('Full frame','Stretch the surface over the whole output',()=>upd(t=>{t.pts=mapping.gridPoints(t.cols,t.rows);},'Surface full frame'));
+  sb('Flatten','Remove the curve, keep the four corners',()=>upd(t=>{t.pts=mapping.gridPoints(t.cols,t.rows,mapping.corners(t));},'Surface flattened'));
+  sb('Flip ↔','Mirror the surface left to right',()=>upd(t=>{const w=t.cols+1;t.pts=t.pts.map((_,k)=>t.pts[Math.floor(k/w)*w+(t.cols-k%w)]);},'Surface flipped'));
+  root.append(el('p','insp-note','Drag points on the preview · drag inside a surface to move it · arrow keys nudge the selected point (Shift ×10) · Delete removes the surface.'));
+}
+function overlayBox(){
+  const r=preview.getBoundingClientRect(),w=$('previewWrap').getBoundingClientRect();
+  overlay.style.left=(r.left-w.left)+'px';overlay.style.top=(r.top-w.top)+'px';overlay.style.width=r.width+'px';overlay.style.height=r.height+'px';
+  overlay.setAttribute('viewBox',`0 0 ${WIDTH} ${HEIGHT}`);overlay.setAttribute('preserveAspectRatio','none');return r;
+}
+function svg(tag,attrs){const n=document.createElementNS(SVGNS,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);return n;}
+function renderOverlay(){
+  if(!overlay||overlay.hasAttribute('hidden'))return;overlay.replaceChildren();const r=overlayBox(),k=WIDTH/(r.width||WIDTH),m=curMap();
+  const P=p=>`${(p[0]*WIDTH).toFixed(1)},${(p[1]*HEIGHT).toFixed(1)}`;
+  for(const s of m.surfaces){
+    const sel=s.id===mapSel,poly=svg('polygon',{class:'surf'+(sel?' sel':''),points:mapping.outline(s,s.cols*s.rows>1?16:1).map(P).join(' ')});poly.dataset.surface=s.id;overlay.append(poly);
+    const c=mapping.pointAt(s,.5,.5),t=svg('text',{x:c[0]*WIDTH,y:c[1]*HEIGHT,'text-anchor':'middle','font-size':13*k});t.textContent=s.name;overlay.append(t);
+  }
+  const s=selSurface();if(!s)return;
+  if(s.cols>1||s.rows>1){let d='';for(let j=0;j<=s.rows;j++){d+='M';for(let i=0;i<=16;i++)d+=P(mapping.pointAt(s,i/16,j/s.rows))+' ';}for(let i=0;i<=s.cols;i++){d+='M';for(let j=0;j<=16;j++)d+=P(mapping.pointAt(s,i/s.cols,j/16))+' ';}overlay.append(svg('path',{class:'mesh',d}));}
+  const w=s.cols+1,cornerIdx=new Set([0,s.cols,s.rows*w,s.rows*w+s.cols]);
+  s.pts.forEach((p,i)=>{const c=svg('circle',{class:'pt'+(cornerIdx.has(i)?' corner':'')+(i===mapPt?' on':''),cx:p[0]*WIDTH,cy:p[1]*HEIGHT,r:(cornerIdx.has(i)?7:5.5)*k});c.dataset.point=i;overlay.append(c);});
+}
+new ResizeObserver(()=>renderOverlay()).observe(preview);
+const normPoint=ev=>{const r=preview.getBoundingClientRect();return [(ev.clientX-r.left)/r.width,(ev.clientY-r.top)/r.height];};
+const round4=v=>Math.round(v*10000)/10000;
+overlay.addEventListener('pointerdown',ev=>{
+  if(ev.button!==0)return;ev.preventDefault();const [x,y]=normPoint(ev),r=preview.getBoundingClientRect(),m=curMap();
+  const s=selSurface();let hit=-1;
+  if(s){let best=16;s.pts.forEach((p,i)=>{const d=Math.hypot((p[0]-x)*r.width,(p[1]-y)*r.height);if(d<best){best=d;hit=i;}});}
+  if(hit>=0){mapPt=hit;mapDrag={kind:'pt',id:s.id,i:hit};}
+  else{
+    const under=[...m.surfaces].reverse().find(t=>mapping.inside(t,x,y));
+    if(!under){mapSel=null;mapPt=-1;renderMapPanel();renderOverlay();return;}
+    mapSel=under.id;mapPt=-1;mapDrag={kind:'move',id:under.id,x,y,pts:clone(under.pts)};renderMapPanel();
+  }
+  overlay.setPointerCapture(ev.pointerId);renderOverlay();
+});
+overlay.addEventListener('pointermove',ev=>{
+  if(!mapDrag)return;const [x,y]=normPoint(ev);
+  live(st=>{const t=st.mapping?.surfaces.find(s=>s.id===mapDrag.id);if(!t)return;
+    if(mapDrag.kind==='pt')t.pts[mapDrag.i]=[round4(Math.max(-1,Math.min(2,x))),round4(Math.max(-1,Math.min(2,y)))];
+    else{const dx=x-mapDrag.x,dy=y-mapDrag.y;t.pts=mapDrag.pts.map(([a,b])=>[round4(a+dx),round4(b+dy)]);}});
+  renderOverlay();
+});
+const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':'Moved surface');}};
+overlay.addEventListener('pointerup',endMapDrag);overlay.addEventListener('pointercancel',endMapDrag);
+function mapKey(e){
+  if(!mapMode||!mapSel)return false;const s=selSurface();if(!s)return false;
+  const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+  if(d){e.preventDefault();const st=(e.shiftKey?10:1);mapEdit(x=>{const t=x.surfaces.find(y=>y.id===s.id);const idx=mapPt>=0?[mapPt]:t.pts.map((_,i)=>i);for(const i of idx)t.pts[i]=[round4(t.pts[i][0]+d[0]*st/WIDTH),round4(t.pts[i][1]+d[1]*st/HEIGHT)];},'Nudged mapping');return true;}
+  if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mapEdit(x=>{x.surfaces=x.surfaces.filter(y=>y.id!==s.id);},'Deleted surface');return true;}
+  if(e.key==='Escape'){mapPt=-1;renderOverlay();return true;}
+  return false;
+}
 window.pro={
   getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;renderUI();},selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
+  mapMode:on=>{setMapMode(on);return mapMode;},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 sensors.autoMidi();reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});

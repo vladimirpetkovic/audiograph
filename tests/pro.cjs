@@ -337,6 +337,25 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(r.gain,3,'Amount becomes gain');
     assert.deepEqual(r.edges,['w.shape>m.in','m.out>o.image'],'Amplify ports are renamed');}
 
+    // Projection mapping: layouts, warped output, point drag + undo, validation, saved with the project.
+    {await page.locator('#modeMap').click();assert.ok(await page.locator('#mapPanel').isVisible(),'Map mode shows the mapping panel');
+    await page.selectOption('[data-property=mapPreset]','Cube (3 faces)');await page.waitForTimeout(300);
+    let m=await page.evaluate(()=>pro.mapping());assert.deepEqual(m.surfaces.map(s=>s.name),['Top','Left','Right']);assert.ok(m.on);
+    await page.locator('[data-property=mapTest] [data-value=true]').click();await page.evaluate(()=>pro.draw());
+    const corner=await page.evaluate(()=>{const d=document.getElementById('preview').getContext('2d').getImageData(0,0,40,40).data;let s=0;for(let i=0;i<d.length;i+=4)s+=d[i]+d[i+1]+d[i+2];return s;});
+    assert.equal(corner,0,'Outside the surfaces the mapped output is black');assert.ok(await page.evaluate(()=>pro.pixels())>3,'The test card is drawn on the surfaces');
+    const pt=await page.locator('#mapOverlay circle').first().boundingBox();
+    await page.mouse.move(pt.x+pt.width/2,pt.y+pt.height/2);await page.mouse.down();await page.mouse.move(pt.x+60,pt.y+30,{steps:4});await page.mouse.up();
+    const moved=(await page.evaluate(()=>pro.mapping())).surfaces[0].pts[0];assert.ok(moved[0]>m.surfaces[0].pts[0][0],'Dragging a handle moves the point');
+    await page.evaluate(()=>pro.undo());assert.deepEqual((await page.evaluate(()=>pro.mapping())).surfaces[0].pts[0],m.surfaces[0].pts[0],'Point moves undo');
+    await page.selectOption('[data-property=surfGrid]','2x2');assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].pts.length,9,'Curved warp adds points');
+    await page.locator('[data-property=mapTest] [data-value=false]').click();
+    const kept=await page.evaluate(()=>{pro.loadTemplate('Fluid bloom');return pro.getProject().mapping.surfaces.length;});assert.equal(kept,3,'Templates keep the venue mapping');
+    for(const bad of [{on:true,surfaces:[{id:'a',cols:2,rows:1,pts:[[0,0]]}]},{on:true,surfaces:Array.from({length:9},(_,i)=>({id:'s'+i,cols:1,rows:1,pts:[[0,0],[1,0],[0,1],[1,1]]}))}])
+      assert.ok(await page.evaluate(b=>{try{const P=pro.getProject();P.mapping=b;pro.validate(P);return false;}catch{return true;}},bad),'Invalid mapping is rejected');
+    await page.locator('[data-property=mapOn] [data-value=false]').click();
+    await page.locator('#modeStudio').click();assert.ok(!(await page.locator('#mapOverlay').isVisible()),'Studio mode hides the handles');}
+
     // 10. Save / restore round trip.
     await page.locator('#save').click();const saved=await project();
     await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));await page.locator('#restore').click();

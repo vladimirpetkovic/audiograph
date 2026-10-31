@@ -319,3 +319,23 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 .live-value .meter i{display:block;height:100%;background:var(--cat,var(--accent2));transition:width .15s}
 .live-value .meter em{font-style:normal;text-align:right;color:var(--tx)}
 code.cmd{display:block;margin:6px 0;padding:6px 8px;background:#0b0b0e;border:1px solid var(--border);border-radius:4px;font:.6rem/1.4 var(--mono);color:var(--accent2);user-select:all}
+/* workspace modes + projection mapping */
+.modes{display:flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--bg)}
+.mode{height:24px;padding:0 14px;background:transparent;border:0;border-radius:5px;color:var(--tx3);font:600 .6rem/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.mode:hover{color:var(--tx)}.mode.on{background:var(--on);color:var(--on-tx)}
+.studio.map-mode #librarySearch,.studio.map-mode #library{display:none}
+.map-panel{display:flex;flex-direction:column;gap:12px}
+.map-overlay{position:absolute;z-index:1;touch-action:none;cursor:crosshair;overflow:visible}
+.map-overlay .surf{fill:rgba(210,255,58,.04);stroke:rgba(255,255,255,.45);stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:move}
+.map-overlay .surf.sel{fill:rgba(210,255,58,.08);stroke:#d2ff3a;stroke-width:2}
+.map-overlay .mesh{fill:none;stroke:rgba(210,255,58,.45);stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
+.map-overlay .pt{fill:#0b0b0d;stroke:#d2ff3a;stroke-width:2;vector-effect:non-scaling-stroke;cursor:grab}
+.map-overlay .pt.corner{fill:#d2ff3a}.map-overlay .pt.on{fill:#fff;stroke:#fff}
+.map-overlay text{fill:#fff;font-family:var(--mono);font-weight:600;paint-order:stroke;stroke:#000;stroke-width:3px;pointer-events:none}
+.surf-list{display:flex;flex-direction:column;gap:3px}
+.surf-row{display:flex;align-items:center;gap:6px;padding:5px 7px;border:1px solid var(--border);border-radius:5px;background:var(--bg);cursor:pointer;font:.6rem/1.2 var(--mono);color:var(--tx2)}
+.surf-row:hover{border-color:var(--border-h)}.surf-row.sel{border-color:#d2ff3a;color:var(--tx)}
+.surf-row .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.surf-row .src{color:var(--tx3)}
+.surf-row button{background:none;border:0;color:var(--tx3);cursor:pointer;font-size:.8rem;padding:0 2px}.surf-row button:hover{color:var(--hot)}
+.map-actions{display:flex;flex-wrap:wrap;gap:4px}
+.map-overlay[hidden]{display:none}

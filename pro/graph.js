@@ -1,5 +1,6 @@
 // Audiograph Pro graph model: categorized node catalog, typed ports, validation and migration.
 // Emitter modes by node type: each is one of the original Audiograph renderers.
+import {cleanMapping} from './mapping.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
   waveform3d: [['terrain','Terrain'],['sphere','Sphere'],['tetrahedron','Tetrahedron'],['dna','DNA'],['knot','Knot'],['cube','Cube'],['torus','Torus']],
@@ -447,7 +448,8 @@ export function validate(input) {
     order(clean);return clean;
   });
   if(emitters>LIMITS.emitters)throw Error(`Limit: ${LIMITS.emitters} renderer nodes per project (each is an isolated GPU engine)`);
-  return {format:'audiograph-pro',version:VERSION,layers};
+  const mapping=cleanMapping(raw.mapping);
+  return mapping?{format:'audiograph-pro',version:VERSION,layers,mapping}:{format:'audiograph-pro',version:VERSION,layers};
 }
 // Knobs that can run in Auto mode: number properties with a port, and renderer option knobs ("opt:<id>").
 export function autoKnob(type,key){

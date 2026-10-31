@@ -122,6 +122,22 @@ process the finished image.
   preview with audio to WebM and shows elapsed time), and **Snap** (saves a PNG).
   **Detach**, in the middle of the transport, opens the live picture in its own
   window for a projector or second display (double-click it for fullscreen).
+- **Map** (the Studio | Map switch at the top) is projection mapping. The library
+  becomes the mapping panel and the surfaces appear over the preview:
+  - Start from a layout (Single screen, Cube, Span 2, Triptych, Corridor, Curved
+    wall, Circle) or add up to 8 surfaces.
+  - Drag a point to move it, drag inside a surface to move the whole surface, and
+    use the arrow keys to nudge (Shift ×10). Delete removes the selected surface.
+  - **Warp**: Flat (4 corners, true perspective) or a curved grid of up to 5×5
+    points for curved or uneven surfaces.
+  - **Crop** chooses which part of the picture a surface shows. **Shows** can
+    give a surface one layer of its own; a hidden layer still renders there.
+  - Opacity, edge **Feather** (for overlapping projectors), Rectangle / Ellipse
+    mask, Match crop, Full frame, Flatten and Flip.
+  - The **Test card** draws a numbered grid on every surface for alignment.
+  - The handles are only drawn in the studio, so Detach sends the clean mapped
+    picture to the projector. The mapping is saved with the project and kept when
+    you switch templates.
 - **Panels**: drag the borders between the library, preview, graph and
   properties to resize them. Drag a border nearly closed or double-click it to
   hide that panel, and double-click again to bring it back. The layout is saved in this browser.
@@ -147,9 +163,7 @@ not saved in projects.
 - Output is fixed at 960×540, with Low simulation quality.
 - Each project allows four drawing nodes (Inputs other than Audio, and
   Emitters), four layers and 60 nodes per layer.
-- Not included: the original's multi-plane mapping editor, AI Look, autopilot and
-  morphing. Corner pin + Output covers single-surface projection.
-  Use the original Audiograph for these.
+- Not included: morphing between presets (use the original Audiograph).
 
 ## Tests
 
