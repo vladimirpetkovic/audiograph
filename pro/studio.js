@@ -56,7 +56,7 @@ function importProject(raw,label='Imported project. Reload media files in the In
 }
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
 const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);if(!o.length)return false;
-  if(i.includes('audio')&&o.every(x=>x==='audio'))return true;return (i.includes('shape')||i.includes('image'))&&o.every(x=>x==='shape'||x==='image');};
+  if(i.includes('audio')&&o.every(x=>x==='audio'))return true;return (i.includes('shape')||i.includes('image')||i.includes('visual'))&&o.every(x=>x==='shape'||x==='image');};
 // Adding a modifier while a node is selected splices it into that node's chain.
 function addNode(type,x,y,props={}){
   let made=null;
@@ -217,6 +217,30 @@ function eqGains(props){
 }
 
 // ---------- evaluation ----------
+// Palette on pixels: gradient-map luminance through the palette, then blend over the source.
+const lutCache=new Map();
+function paletteLut(p){
+  const {tone,simple}=paletteStops(p),key=p.mode+'|'+(p.mode==='solid'?p.solid:(p.mode==='simpleramp'?simple:tone).join());
+  if(lutCache.has(key))return lutCache.get(key);
+  const c=document.createElement('canvas');c.width=256;c.height=1;const x=c.getContext('2d',{willReadFrequently:true});
+  if(p.mode==='solid'){x.fillStyle=p.solid;x.fillRect(0,0,256,1);}
+  else{const stops=p.mode==='simpleramp'?simple:tone,gr=x.createLinearGradient(0,0,256,0);stops.forEach((s,i)=>gr.addColorStop(i/Math.max(1,stops.length-1),s));x.fillStyle=gr;x.fillRect(0,0,256,1);}
+  const lut=x.getImageData(0,0,256,1).data;if(lutCache.size>64)lutCache.clear();lutCache.set(key,lut);return lut;
+}
+const mapped=new Map();
+function recolor(id,src,p){
+  if(!mapped.has(id)){const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;mapped.set(id,c);}
+  const m=mapped.get(id),mx=m.getContext('2d',{willReadFrequently:true});mx.clearRect(0,0,WIDTH,HEIGHT);if(!src)return surface(id).canvas;mx.drawImage(src,0,0,WIDTH,HEIGHT);
+  const img=mx.getImageData(0,0,WIDTH,HEIGHT),d=img.data,lut=paletteLut(p);
+  for(let i=0;i<d.length;i+=4){const a=d[i+3];if(!a)continue;const l=((d[i]*54+d[i+1]*183+d[i+2]*19)>>8)*4;
+    d[i]=lut[l];d[i+1]=lut[l+1];d[i+2]=lut[l+2];d[i+3]=a*lut[l+3]/255;}
+  mx.putImageData(img,0,0);
+  const {canvas,ctx}=surface(id);ctx.drawImage(src,0,0,WIDTH,HEIGHT);
+  ctx.globalCompositeOperation=p.blend==='normal'?'source-over':p.blend;ctx.globalAlpha=p.mix;
+  if(p.blend==='normal'&&p.mix>=1)ctx.clearRect(0,0,WIDTH,HEIGHT);
+  ctx.drawImage(m,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';return canvas;
+}
+function hueImage(id,src,deg){const {canvas,ctx}=surface(id);if(src){ctx.filter=`hue-rotate(${deg%360}deg)`;ctx.drawImage(src,0,0,WIDTH,HEIGHT);ctx.filter='none';}return canvas;}
 function surface(id){
   if(!surfaces.has(id)){const cv=document.createElement('canvas');cv.width=WIDTH;cv.height=HEIGHT;surfaces.set(id,cv);}
   const canvas=surfaces.get(id),ctx=canvas.getContext('2d');ctx.resetTransform();ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.filter='none';ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
@@ -325,6 +349,9 @@ function execute(g,time,dt){
           if(src&&e){const out=e.fx(fxSlots.get(n.id),src,fxSettings(n.type,p),{bass:A.bands.bass,beat:A.beatPulse});if(out)ctx.drawImage(out,0,0,WIDTH,HEIGHT);}
           else if(src)ctx.drawImage(src,0,0);
           r.image=canvas;
+        }else if(inputsOf(n.type).shape==='visual'&&(()=>{const v=need(n,'shape','a shape or an image');return v instanceof HTMLCanvasElement||(n.type==='palette'&&(p.blend!=='normal'||p.mix<1));})()){
+          // Image (or a blended shape): recolor pixels and output an image.
+          const src=asImage(need(n,'shape'),n.id);r.shape=n.type==='palette'?recolor(n.id,src,p):hueImage(n.id,src,p.hue+p.cycle*time);
         }else if(t.outputs.shape){
           const s=need(n,'shape','a shape');
           if(s instanceof HTMLCanvasElement)throw Error(`${g.name}: ${t.label} needs a shape from an Emitter, not an image`);
@@ -599,16 +626,21 @@ function rankItems(items,q){
     .filter(Boolean).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
 }
 // Place a node at a graph point; dropped on a wire, a chain node is spliced into it.
+// Splice node n into the wire (from→to): source → n → destination. Returns false when the ports don't fit.
+function spliceInto(g,n,wire){
+  const e=g.edges.find(e=>e.from===wire.from&&e.out===wire.out&&e.to===wire.to&&e.input===wire.input);
+  if(!e||e.from===n.id||e.to===n.id||!isChain(n.type))return false;
+  const src=g.nodes.find(m=>m.id===e.from),dst=g.nodes.find(m=>m.id===e.to),srcType=TYPES[src.type].outputs[e.out];
+  const inPort=Object.entries(inputsOf(n.type)).find(([,t])=>compatible(srcType,t))?.[0],outPort=Object.entries(TYPES[n.type].outputs).find(([,t])=>compatible(t,inputsOf(dst.type)[e.input]))?.[0];
+  if(!inPort||!outPort)return false;
+  g.edges=g.edges.filter(x=>x!==e);g.edges.push({from:e.from,out:e.out,to:n.id,input:inPort},{from:n.id,out:outPort,to:e.to,input:e.input});return true;
+}
+const wireAt=(x,y,exclude)=>document.elementsFromPoint(x,y).find(w=>w.classList?.contains('wire')&&w.dataset.from&&w.dataset.from!==exclude&&w.dataset.to!==exclude);
 function placeNode(it,gx,gy,wire){
   let made=null;
   const ok=edit((p,g)=>{
     const n=node(it.type,Math.round(gx-84),Math.round(gy-20),clone(it.props));made=n;g.nodes.push(n);
-    const e=wire&&g.edges.find(e=>e.from===wire.from&&e.out===wire.out&&e.to===wire.to&&e.input===wire.input);
-    if(!e||!isChain(it.type))return;
-    const src=g.nodes.find(m=>m.id===e.from),dst=g.nodes.find(m=>m.id===e.to),srcType=TYPES[src.type].outputs[e.out];
-    const inPort=Object.entries(inputsOf(it.type)).find(([,t])=>compatible(srcType,t))?.[0],outPort=Object.entries(TYPES[it.type].outputs).find(([,t])=>compatible(t,inputsOf(dst.type)[e.input]))?.[0];
-    if(!inPort||!outPort)return;
-    g.edges=g.edges.filter(x=>x!==e);g.edges.push({from:e.from,out:e.out,to:n.id,input:inPort},{from:n.id,out:outPort,to:e.to,input:e.input});
+    if(wire)spliceInto(g,n,wire);
   },`Added ${it.label}`);
   if(ok&&made){selected=made.id;renderUI();}
 }
@@ -669,7 +701,9 @@ function applyView(){$('graphWorld').style.transform=`translate(${view.x}px,${vi
 const HOLD_MS=380;
 function startMove(event,n,box){
   if(event.button!==0)return;event.preventDefault();const before=clone(state),start={x:event.clientX,y:event.clientY,nx:n.x,ny:n.y};box.setPointerCapture(event.pointerId);box.classList.add('dragging');
-  const live=findNode(n.id);let moved=false,detached=false;
+  const live=findNode(n.id);let moved=false,detached=false,target=null;
+  const loose=()=>{const g=state.layers.find(g=>g.id===active);return !g.edges.some(e=>e.from===n.id||e.to===n.id);};
+  const mark=w=>{if(target===w)return;target?.classList.remove('wedge');target=w;w?.classList.add('wedge');};
   const detach=()=>{
     if(detached)return;detached=true;clearTimeout(hold);
     const g=state.layers.find(g=>g.id===active),had=g.edges.some(e=>e.from===n.id||e.to===n.id);
@@ -681,8 +715,14 @@ function startMove(event,n,box){
   const move=e=>{
     if(!moved&&Math.hypot(e.clientX-start.x,e.clientY-start.y)<4)return;moved=true;clearTimeout(hold);
     live.x=Math.round(Math.max(-10000,Math.min(10000,start.nx+(e.clientX-start.x)/view.zoom)));live.y=Math.round(Math.max(-10000,Math.min(10000,start.ny+(e.clientY-start.y)/view.zoom)));box.style.left=live.x+'px';box.style.top=live.y+'px';renderWires();
+    // An unconnected node dropped on a wire wedges itself in between.
+    target=null;mark(loose()&&isChain(n.type)?wireAt(e.clientX,e.clientY,n.id)||null:null);
   };
-  const end=()=>{clearTimeout(hold);box.classList.remove('dragging','hold','detached');box.removeEventListener('pointermove',move);box.removeEventListener('pointerup',end);box.removeEventListener('pointercancel',end);attempt(()=>commit(clone(state),detached?'Detached node':'Moved node',before));};
+  const end=()=>{clearTimeout(hold);box.classList.remove('dragging','hold','detached');box.removeEventListener('pointermove',move);box.removeEventListener('pointerup',end);box.removeEventListener('pointercancel',end);
+    const w=target&&{...target.dataset};mark(null);
+    attempt(()=>{let label=detached?'Detached node':'Moved node';
+      if(w){const g=state.layers.find(g=>g.id===active);if(spliceInto(g,live,w))label=`Wedged ${TYPES[n.type].label} into the wire`;}
+      commit(clone(state),label,before);});};
   box.addEventListener('pointermove',move);box.addEventListener('pointerup',end);box.addEventListener('pointercancel',end);
 }
 function fit(){
@@ -766,8 +806,8 @@ const gradientCss=stops=>stops.length>1?`linear-gradient(to right,${stops.join('
 function paletteCss(p){return p.mode==='solid'?p.solid:gradientCss(p.mode==='simpleramp'?paletteStops(p).simple:paletteStops(p).tone);}
 function updatePalettePreview(){const pv=document.querySelector('.pal-preview');if(!pv)return;const n=findNode(pv.dataset.node);if(n)pv.style.background=paletteCss(n.props);}
 function paletteKeys(p){
-  if(p.mode==='solid')return ['mode','solid'];
-  return ['mode','colors',...(p.mode==='toneramp'?['c1']:[]),'c2','c3','c4',...(p.colors==='4'?['c5']:[]),...(p.mode==='toneramp'?['fade']:[])];
+  if(p.mode==='solid')return ['mode','solid','blend','mix'];
+  return ['mode','colors',...(p.mode==='toneramp'?['c1']:[]),'c2','c3','c4',...(p.colors==='4'?['c5']:[]),...(p.mode==='toneramp'?['fade']:[]),'blend','mix'];
 }
 function renderPalettePresets(root,n){
   const s=section(root,'Palette'),pv=el('div','pal-preview');pv.dataset.node=n.id;pv.style.background=paletteCss(n.props);s.append(pv);
@@ -1077,7 +1117,9 @@ const viewport=$('graphViewport');
 viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
 viewport.addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;pointer.inGraph=true;});
 viewport.addEventListener('pointerleave',()=>{pointer.inGraph=false;});
-viewport.ondrop=e=>{e.preventDefault();let d;try{d=JSON.parse(e.dataTransfer.getData('application/audiograph-node'));}catch{return;}if(!Object.hasOwn(TYPES,d?.type))return;const r=viewport.getBoundingClientRect();addNode(d.type,(e.clientX-r.left-view.x)/view.zoom-84,(e.clientY-r.top-view.y)/view.zoom-20,d.props||{});};
+viewport.ondrop=e=>{e.preventDefault();let d;try{d=JSON.parse(e.dataTransfer.getData('application/audiograph-node'));}catch{return;}if(!Object.hasOwn(TYPES,d?.type))return;const r=viewport.getBoundingClientRect(),gx=(e.clientX-r.left-view.x)/view.zoom,gy=(e.clientY-r.top-view.y)/view.zoom;
+  const w=wireAt(e.clientX,e.clientY);if(w){placeNode({type:d.type,label:TYPES[d.type].label,props:d.props||{}},gx,gy,{...w.dataset});return;}
+  addNode(d.type,gx-84,gy-20,d.props||{});};
 viewport.onpointerdown=event=>{
   if(event.target.closest('.node')||event.target.closest('.wire')||event.button!==0)return;
   viewport.focus();if(pending){pending=null;renderGraph();}

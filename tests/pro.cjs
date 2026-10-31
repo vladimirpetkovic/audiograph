@@ -31,7 +31,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
   try{
     browser=await chromium.launch({
       executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      headless:!process.env.AUDIOGRAPH_HEADED,args:['--ignore-gpu-blocklist','--enable-gpu-rasterization','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']
+      headless:!process.env.AUDIOGRAPH_HEADED,args:['--ignore-gpu-blocklist','--enable-gpu-rasterization','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessRespectPreflightResults,BlockInsecurePrivateNetworkRequests']
     });
     const page=await browser.newPage({viewport:{width:1540,height:1020}});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -135,6 +135,18 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     g=await layer0();const jit=g.nodes.find(n=>n.type==='jitter');
     assert.ok(jit&&g.edges.some(e=>e.from===twist.id&&e.to===jit.id)&&g.edges.some(e=>e.from===jit.id&&e.to===ids.bloom),'Tab search splices into the wire');
     await page.evaluate(id=>pro.select(id),jit.id);await page.keyboard.press('Delete');
+
+    // 6b. Dragging a loose node onto a wire wedges it in; a Palette takes an image (Bloom output) and blends over it.
+    const pal3=await page.evaluate(id=>{pro.select(null);const b=pro.getProject().layers[0].nodes.find(n=>n.id===id);return pro.addNode('palette',b.x+40,b.y+200);},ids.bloom);
+    const bo=await page.evaluate(([a,b])=>{const w=document.querySelector(`.wire[data-from="${a}"][data-to="${b}"]`),q=w.getPointAtLength(w.getTotalLength()/2),m=w.getScreenCTM();return {x:q.x*m.a+m.e,y:q.y*m.d+m.f};},[ids.bloom,ids.output]);
+    const p3=await page.locator(`.node[data-id="${pal3}"] .node-head`).boundingBox();
+    await page.mouse.move(p3.x+20,p3.y+p3.height/2);await page.mouse.down();await page.mouse.move(p3.x+30,p3.y+p3.height/2,{steps:2});
+    await page.mouse.move(bo.x,bo.y,{steps:8});assert.ok(await page.locator('.wire.wedge').count(),'Target wire highlights while dragging');await page.mouse.up();
+    g=await layer0();assert.ok(g.edges.some(e=>e.from===ids.bloom&&e.to===pal3)&&g.edges.some(e=>e.from===pal3&&e.to===ids.output),'Dropping a node on a wire wedges it in');
+    for(const blend of ['normal','multiply','screen','hue']){await page.evaluate(([id,b])=>{pro.setProperty(id,'blend',b);pro.draw();},[pal3,blend]);
+      assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],`Palette (${blend}) recolors an image`);}
+    assert.ok(await page.evaluate(()=>pro.pixels())>0,'Blended palette image is visible');
+    await page.evaluate(id=>pro.select(id),pal3);await page.keyboard.press('Delete');
 
     // 6c. Audio: a file plays through the speakers; mic input is analysed but muted; a file afterwards is audible again.
     await page.locator('#audioName').click();assert.equal(await page.evaluate(()=>pro.stats().selected),ids.audio,'Source label opens the Audio node');

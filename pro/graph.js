@@ -8,18 +8,18 @@ export const MODES = {
 export const emitterNames = Object.fromEntries(Object.values(MODES).flat());
 
 export const CATEGORIES = [
-  {id:'inputs',label:'Inputs',color:'#5eead4',hint:'Sound, pictures, camera, text and 3D you bring in'},
-  {id:'waveforms',label:'Waveforms',color:'#f59e0b',hint:'Audio-reactive line patterns, flat and 3D'},
-  {id:'emitters',label:'Emitters',color:'#fb7185',hint:'Particles: classic and native WebGPU simulations'},
-  {id:'deformers',label:'Deformers',color:'#c084fc',hint:'Bend the shape'},
-  {id:'color',label:'Color',color:'#f472b6',hint:'Palettes and hue'},
-  {id:'style',label:'Style',color:'#fbbf24',hint:'Line style and outlines'},
-  {id:'postfx',label:'Post FX',color:'#22d3ee',hint:'Image effects (GPU shaders)'},
-  {id:'controls',label:'Controls',color:'#6ee7b7',hint:'Numbers that move knobs'},
-  {id:'audio',label:'Audio analysis',color:'#a3e635',hint:'Turn sound into numbers or reshape it'},
-  {id:'composite',label:'Composite',color:'#dddde0',hint:'Mix and output'}
+  {id:'inputs',label:'Inputs',color:'#71f4d3',hint:'Sound, pictures, camera, text and 3D you bring in'},
+  {id:'waveforms',label:'Waveforms',color:'#71e7f4',hint:'Audio-reactive line patterns, flat and 3D'},
+  {id:'emitters',label:'Emitters',color:'#71b9f4',hint:'Particles: classic and native WebGPU simulations'},
+  {id:'deformers',label:'Deformers',color:'#718bf4',hint:'Bend the shape'},
+  {id:'color',label:'Color',color:'#8571f4',hint:'Palettes and hue'},
+  {id:'style',label:'Style',color:'#b271f4',hint:'Line style and outlines'},
+  {id:'postfx',label:'Post FX',color:'#e071f4',hint:'Image effects (GPU shaders)'},
+  {id:'controls',label:'Controls',color:'#f471da',hint:'Numbers that move knobs'},
+  {id:'audio',label:'Audio analysis',color:'#f471ac',hint:'Turn sound into numbers or reshape it'},
+  {id:'composite',label:'Composite',color:'#f4717e',hint:'Mix and output'}
 ];
-export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635'};
+export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6'};
 
 const n=(label,value,min,max,step=1,extra={})=>({kind:'number',label,value,min,max,step,...extra});
 const pick=(label,value,choices,extra={})=>({kind:'select',label,value,choices,...extra});
@@ -77,6 +77,9 @@ export const PALETTES={
 };
 export const SOLID_PRESETS=['#dddde0','#ffffff','#f87171','#fb923c','#fbbf24','#a3e635','#34d399','#22d3ee','#818cf8','#f472b6','#191950','#000000'];
 // Gradient stops the original renderer receives for a Palette node.
+// Palette blend modes (Canvas composite operations); Normal replaces the colors that came before.
+export const PALETTE_BLENDS=[['normal','Normal'],['multiply','Multiply'],['screen','Screen'],['overlay','Overlay'],['soft-light','Soft light'],['hard-light','Hard light'],
+  ['color','Color'],['hue','Hue'],['saturation','Saturation'],['luminosity','Luminosity'],['color-dodge','Dodge'],['color-burn','Burn'],['lighter','Add'],['difference','Difference'],['exclusion','Exclusion']];
 export function paletteStops(props){
   const cols=[props.c2,props.c3,props.c4];if(props.colors==='4')cols.push(props.c5);
   return {tone:[props.c1+Math.round(props.fade*255).toString(16).padStart(2,'0'),...cols],simple:cols};
@@ -123,11 +126,12 @@ export const TYPES = {
     displace:n('Displace',40,0,100,1),colors:pick('Camera colors','on',['on','off'],{labels:[['on','On'],['off','Off']]}),
     dir:pick('Direction','radial',['radial','vertical','horizontal'],{labels:[['radial','Radial'],['vertical','Vertical'],['horizontal','Horiz.']]}),smooth:n('Smoothing',5,1,20,1)}},
   // Color
-  palette:{category:'color',label:'Palette',description:'Color mode and gradient stops.',...SHAPE_IO,props:{
+  palette:{category:'color',label:'Palette',description:'Recolor anything: a shape or any image (a Merge, Post FX…). Normal replaces the colors before it; the other blend modes mix with them.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{
     mode:pick('Mode','toneramp',['toneramp','simpleramp','solid'],{labels:[['toneramp','Tone ramp'],['simpleramp','Simple ramp'],['solid','Solid']]}),
     c1:color('Low','#1a1a2e'),c2:color('Mid','#e94560'),c3:color('High','#f5a623'),c4:color('Peak','#6ee7b7'),c5:color('Max','#ffffff'),colors:pick('Colors','3',['3','4']),
-    fade:n('Low opacity',0,0,1,.05),solid:color('Solid','#dddde0')}},
-  hue:{category:'color',label:'Hue shift',description:'Rotate hues, optionally cycling over time.',...SHAPE_IO,props:{hue:n('Hue',60,-180,180,1),cycle:n('Cycle (°/s)',0,-120,120,1)}},
+    fade:n('Low opacity',0,0,1,.05),solid:color('Solid','#dddde0'),
+    blend:pick('Blend','normal',PALETTE_BLENDS.map(b=>b[0]),{labels:PALETTE_BLENDS}),mix:n('Mix',1,0,1,.01)}},
+  hue:{category:'color',label:'Hue shift',description:'Rotate hues of a shape or any image, optionally cycling over time.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{hue:n('Hue',60,-180,180,1),cycle:n('Cycle (°/s)',0,-120,120,1)}},
   // Style
   lineStyle:{category:'style',label:'Line style',description:'How each line is drawn.',...SHAPE_IO,props:{
     shape:pick('Style','dotted',LINE_SHAPES.map(s=>s[0]),{labels:LINE_SHAPES,key:'_lineShape'}),size:n('Size',100,30,250,5,{key:'_styleSize'}),density:n('Density',100,30,250,5,{key:'_styleDensity'}),angle:n('Angle',0,-90,90,1,{key:'_styleAngle'})}},
@@ -214,7 +218,8 @@ export function engineSpec(n){
 }
 export const MEDIA_KIND={image:'image',video:'video',object:'object',splat:'splat'};
 export function nodeTitle(n){return TYPES[n.type].props.mode?.kind==='select'&&isEngine(n.type)?emitterNames[n.props.mode]:TYPES[n.type].label;}
-export const compatible=(out,input)=>out===input||(out==='shape'&&input==='image');
+// A 'visual' input (Palette, Hue shift) takes a shape or an image.
+export const compatible=(out,input)=>out===input||(out==='shape'&&input==='image')||(input==='visual'&&(out==='shape'||out==='image'));
 export const clone = value => JSON.parse(JSON.stringify(value));
 const uid=()=>crypto.randomUUID();
 export function defaults(type){return Object.fromEntries(Object.entries(TYPES[type].props).map(([k,v])=>[k,clone(v.value)]));}

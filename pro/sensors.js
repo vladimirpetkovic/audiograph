@@ -54,7 +54,7 @@ export function computer(p,dt){
   return comp.out;
 }
 export function computerStatus(p){
-  if(p.source==='helper')return comp.helper?`Local helper connected${comp.helper.gpu==null?' (no GPU reading on this machine)':''}.`:`Local helper ${comp.helperErr||'connecting…'} on port ${p.port}. Using browser estimates until it answers.`;
+  if(p.source==='helper')return comp.helper?`Local helper connected${comp.helper.gpu==null?' (no GPU reading on this machine)':''}.`:`Local helper ${comp.helperErr||'connecting…'} on port ${p.port}. Using browser estimates until it answers${location.protocol==='https:'?' (if Chrome asks to access devices on your local network, click Allow)':''}.`;
   const parts=[comp.pressure!=null?'CPU pressure':'CPU from main-thread lag','GPU = render load',performance.memory?'JS memory':'no memory reading (Chrome only)',navigator.connection?'link speed':'no network reading',comp.battery!=null?'battery':'no battery reading'];
   return 'Browser estimates: '+parts.join(', ')+'. Use the local helper for real CPU, GPU, memory and network.';
 }

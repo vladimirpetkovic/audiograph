@@ -25,7 +25,7 @@ each with its own opacity and blend mode (up to four).
       can only estimate (Compute Pressure / main-thread lag, render load, JS memory).
       For real values run the local helper `node pro/tools/computer-feed.mjs [port]`
       (no dependencies; macOS, Linux, Windows; listens on 127.0.0.1 only) and pick
-      **Local helper**. Chrome / Edge only; Safari blocks local connections.
+      **Local helper**. Chrome / Edge only (allow local network access when Chrome asks); Safari blocks local connections.
     - **Clock**: second, minute, hour, day (phase of each), beat and pulse at a tempo.
     - **Mouse & keys**: x, y, speed, click, held, keys (typing rate), scroll.
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
@@ -52,7 +52,11 @@ each with its own opacity and blend mode (up to four).
   color it).
 - **Color**: Palette (tone ramp, simple ramp or solid, with the original's 14
   presets and a live gradient preview) and Hue shift
-  (static or cycling).
+  (static or cycling). Both take a shape *or* any image (a Merge, Post FX…), so
+  they fit anywhere in a chain. Palette **Blend** Normal replaces the colors that
+  came before; Multiply, Screen, Overlay, Soft/Hard light, Color, Hue,
+  Saturation, Luminosity, Dodge, Burn, Add, Difference and Exclusion mix the
+  palette's gradient map with them (**Mix** sets how much).
 - **Style**: Line style (13 styles) and Outline.
 - **Post FX**: Bloom, Color correct, Blur, Lens, Kaleido, Trails, Fracture. These
   run the original GPU per-layer shaders. Quick filter is a Canvas 2D filter.
@@ -79,6 +83,8 @@ process the finished image.
   inserted into that wire.
 - **Detach**: press and hold a node's title (or Alt-drag it) and pull it out. Its
   wires are removed and the chain heals.
+- **Wedge**: drag an unconnected node (or a library item) onto a wire; the wire
+  lights up, and on release the node is inserted between the two nodes.
 - **Drive any knob**: drag a number output (teal) onto a node and pick the knob.
   On an Emitter, the menu also lists that emitter's own options (e.g. Fluid
   viscosity), so audio or an LFO can drive them.
