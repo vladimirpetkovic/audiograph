@@ -32,11 +32,17 @@ each with its own opacity and blend mode (up to four).
     - **Clock**: second, minute, hour, day (phase of each), beat and pulse at a tempo.
     - **Mouse & keys**: x, y, speed, click, held, keys (typing rate), scroll.
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
-- **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…) and **3D**
-  (Terrain, Sphere, DNA, Knot…).
+- **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…).
+- **3D**: **Waveforms** (Terrain, Sphere, DNA, Knot…), **Objects**
+  (Primitive: cube, sphere, ico, torus, cylinder, cone, knot…, with size, detail
+  and stretch), **Cloner** (layout, counts, spacing, steps, rotation, variety;
+  takes up to three `object` inputs: Primitives or a 3D Object, whose loaded OBJ is
+  cloned), **Effectors** (Sound, Field, Random, Links) and **Look** (Material,
+  Light, Camera). Chain effectors and look nodes after the Cloner. The original's
+  cloner presets are templates under **3D cloner**. Older cloner projects split
+  into these nodes automatically.
 - **Emitters** (particles): **Particles** (classic) and **WebGPU
-  particles** (Particles, Fluid, Smoke, Granular sand, 3D
-  cloner). WebGPU simulations react harder to sound than in the original
+  particles** (Particles, Fluid, Smoke, Granular sand). WebGPU simulations react harder to sound than in the original
   (snappier attack, shorter release, bigger beat bursts; tuned per simulation),
   and their knobs and presets still override that.
   Visual inputs, waveforms and WebGPU emitters show the original's own options in the inspector
@@ -64,7 +70,7 @@ each with its own opacity and blend mode (up to four).
 - **Knobs** turn like the original's: drag around the knob (270° = full range,
   Shift for fine). The dot in the middle switches the knob to **Auto**: it drifts
   by itself around its value (saved with the project).
-- **Deformers**: **Bend** (Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam:
+- **Deformers**: **Symmetry** and **Mirror** (above), **Bend** (Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam:
   camera brightness displaces the shape and can color it) and **Noise** (Jitter,
   Disorder, Randomize, Flow field for classic Particles, Turbulence for WebGPU
   Particles and Smoke).

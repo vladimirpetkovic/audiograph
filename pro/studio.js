@@ -1,19 +1,32 @@
 import * as sensors from './sensors.js';
-import {FORCE_KNOBS,TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 import * as mapping from './mapping.js';
 import * as autopilot from './autopilot.js';
-import {ORIGINAL_PRESETS} from './templates.js';
+import {ORIGINAL_PRESETS,CLONER_PRESETS} from './templates.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
 const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
 // The simulation a shape-chain node acts on (walks up the shape wires), or null.
 function upstreamSim(g,n){
   const seen=new Set();let cur=n;
-  while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(cur.type==='gpuParticles')return cur.props.mode;if(isEngine(cur.type))return null;
+  while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(cur.type==='gpuParticles')return cur.props.mode;if(cur.type==='cloner')return 'simcloner';if(isEngine(cur.type))return null;
     const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}
   return null;
+}
+// Cloner: the wired objects become the original cloner's shape list; primitives by name, OBJ / knot as meshes.
+const PRIM_DEFAULT={...defaults('primitive'),prim:true};
+const CLONER_KEYS=Object.keys(TYPES.cloner.props).filter(k=>k==='layout'||TYPES.cloner.props[k].key?.startsWith('pG3'));
+function cloneObjects(n,p,shape,input){
+  const objs=['object','object2','object3'].map(k=>input(n,k)).filter(Boolean);if(!objs.length)objs.push(PRIM_DEFAULT);
+  const names=[],meshes=[];
+  for(const o of objs){if(o.prim&&o.shape!=='knot')names.push(o.shape);else{names.push('mesh'+meshes.length);meshes.push(o.prim?'knot':o.mesh);}}
+  const first=objs.find(o=>o.prim)||PRIM_DEFAULT,mods=shape.mods;
+  Object.assign(mods,{pG3Size:first.size,pG3Detail:first.detail,pG3ObjX:first.stretchX,pG3ObjY:first.stretchY,pG3ObjZ:first.stretchZ});
+  for(const [k,s] of Object.entries(TYPES.cloner.props))if(s.key)mods[s.key]=p[k];
+  mods._sim={...mods._sim,g3Mode:p.layout,g3Shape:names.join(',')};
+  shape.job.meshes=meshes;
 }
 // Physics nodes (Forces, Turbulence) only show the knobs for the simulation they are wired after.
 const SIM_PROPS=type=>Object.values(TYPES[type].props).some(s=>s.sims);
@@ -99,6 +112,10 @@ function addNode(type,x,y,props={}){
     g.nodes.push(n);
     // A new renderer listens to the layer's Audio node straight away.
     const src=isEngine(type)&&g.nodes.find(m=>m.type==='audioIn');if(src)g.edges.push({from:src.id,out:'audio',to:n.id,input:'audio'});
+    // A Cloner always starts with an object; a new object goes into the selected Cloner's first free slot.
+    if(type==='cloner'){const o=node('primitive',n.x-210,n.y+40);g.nodes.push(o);g.edges.push({from:o.id,out:'object',to:n.id,input:'object'});}
+    const cl=TYPES[type].outputs.object&&sel?.type==='cloner'&&sel,slot=cl&&['object','object2','object3'].find(k=>!g.edges.some(e=>e.to===cl.id&&e.input===k));
+    if(slot){n.x=cl.x-210;n.y=cl.y+40+130*['object','object2','object3'].indexOf(slot);g.edges.push({from:n.id,out:'object',to:cl.id,input:slot});}
   },`Added ${TYPES[type].label}`);
   if(ok&&made){selected=made.id;renderUI();return made.id;}
 }
@@ -326,9 +343,12 @@ function execute(g,time,dt){
         if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
       }
       r.shape={emitter:n,mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
+      if(n.type==='object'){const e=engines.get(n.id);r.object={mesh:e?.mediaKind==='object'&&e.w?.objModelData||'knot'};}
+      if(n.type==='cloner')cloneObjects(n,p,r.shape,input);
       if(n.type==='camera'&&g.edges.some(e=>e.from===n.id&&e.out!=='shape')){const c=cameraNumbers();r.motion=c.motion;r.brightness=c.brightness;}
     }else switch(n.type){
       case 'value':r.value=p.value;break;
+      case 'primitive':r.object={...p,prim:true};break;
       case 'oscillator':{const s=nstate(n.id,()=>({phase:0,v:0,next:0}));s.phase+=dt*p.rate;
         let w;if(p.wave==='random'){if(s.phase>=s.next){s.next=Math.floor(s.phase)+1;s.target=Math.random();}s.v+=((s.target??.5)-s.v)*Math.min(1,dt*8);w=s.v;}else w=waves[p.wave](s.phase);
         r.value=p.offset+p.depth*w;break;}
@@ -563,7 +583,7 @@ function renderLibrary(){
   }
 }
 // Waveforms and Emitters are listed per mode: each waveform / simulation is its own library entry.
-const GROUPS={inputs:['Media','Data'],waveforms:['2D','3D'],emitters:['Particles','WebGPU particles'],deformers:['Bend','Noise']};
+const GROUPS={inputs:['Media','Data'],waveforms:['2D'],emitters:['Particles','WebGPU particles'],'3d':['Waveforms','Objects','Cloner','Effectors','Look'],deformers:['Bend','Symmetry','Noise']};
 function groupedItems(cat){
   const items=[];
   for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat)){
@@ -873,7 +893,7 @@ function renderProperties(){
     if(n.type==='audioIn')renderAudioSource(root);
     if(n.type==='palette')renderPalettePresets(root,n);
     if(DATA_INPUTS.has(n.type))renderDataInput(root,n);
-    if(SIM_PROPS(n.type))renderSimNote(root,g,n);
+    if(SIM_PROPS(n.type)&&t.category!=='3d')renderSimNote(root,g,n);
     renderProps(root,n,n.type==='palette'?paletteKeys(n.props):simKeys(g,n));
     const wired=Object.keys(t.props).filter(k=>t.props[k].kind==='number'&&!t.props[k].noPort);
     if(wired.length&&t.category!=='controls'&&n.type!=='audioIn')section(root).append(el('p','insp-note','Any knob can be driven: drag a wire from a Control or Audio node onto this node and pick the knob. 0 keeps the knob value, 1 pushes it to the maximum.'));
@@ -968,6 +988,7 @@ function renderEmitter(root,n){
   }
   if(T.props.render)s.append(ui.chips({options:T.props.render.labels,value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)}));
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
+  if(n.type==='cloner')renderProps(root,n,CLONER_KEYS);
   if(n.type==='camera')s.append(el('p','insp-note','Uses your camera (the browser asks once). Its motion and brightness outputs are numbers for any knob.'));
   const kind=MEDIA_KIND[n.type];
   if(kind){
@@ -976,7 +997,7 @@ function renderEmitter(root,n){
     s.append(ui.field(`Load ${kind==='object'?'OBJ':kind==='splat'?'.ply / .splat':kind}`,f),el('p','insp-note',engines.get(n.id)?.mediaName?`Loaded: ${engines.get(n.id).mediaName} (not saved in projects)`:'Media files are not saved in projects.'));
   }
   const wiredOf=k=>graph().edges.some(e=>e.to===n.id&&e.input===k);
-  const geo={};for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){const gr=T.props[k].group;if(gr==='Lines'&&(n.type==='gpuParticles'||n.type==='splat'))continue;(geo[gr]||=[]).push(k);}
+  const geo={};for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){const gr=T.props[k].group;if(gr==='Lines'&&['gpuParticles','splat','cloner'].includes(n.type))continue;(geo[gr]||=[]).push(k);}
   for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr,!['Symmetry','Line style','Outline'].includes(gr)),n,ks,true);
   const d=fold(root,'Sound response');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
@@ -992,8 +1013,10 @@ function renderEmitter(root,n){
     opts.replaceChildren();
     // Chips first (they choose what the knobs mean), then the knobs sorted into labelled, collapsible groups.
     const bins=new Map(OPT_GROUPS.map(([g])=>[g,[]]));bins.set('Form',[]);
-    const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||{};
+    const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||n.type==='cloner'&&FORCE_KNOBS.simcloner||{};
     controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
+    // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
+    if(n.type==='cloner')controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3'):!/\('g3|simApplyPreset/.test(c.onclick));
     for(const c of controls)if(c.type==='range')bins.get(optGroup(c.label)).push(c);
     const ordered=[...controls.filter(c=>c.type!=='range'),...[...bins.values()].flat()];
     let grid=null,lastGroup=null,box=opts;
@@ -1020,8 +1043,7 @@ function renderEmitter(root,n){
     if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer or Color nodes after it.'));
     const forces=[...new Set(Object.values(moved).map(([t])=>t))];
     if(forces.length){
-      const box=fold(opts,'Forces',true),chips=el('div','chips');chips.dataset.property='forces';
-      box.append(el('p','insp-note','Physics knobs live in their own nodes. Click one to add it after this simulation (or select it if it is already there).'));
+      const box=fold(opts,n.type==='cloner'?'3D nodes':'Forces',true),chips=el('div','chips');chips.dataset.property='forces';
       for(const t of forces){
         const b=el('button','mbtn library-node',TYPES[t].label);b.type='button';b.dataset.type=t;b.title=TYPES[t].description;b.style.setProperty('--cat',catOf(t).color);
         b.onclick=()=>{const g=graph(),have=g.nodes.find(m=>m.type===t&&upstreamSim(g,m)&&chainFrom(g,n.id,m.id));if(have){selected=have.id;renderUI();}else addNode(t);};
@@ -1134,6 +1156,34 @@ function presetGraph(P){
 }
 for(const P of ORIGINAL_PRESETS)TEMPLATES[P.name]=()=>presetGraph(P);
 const ORIGINAL_NAMES=ORIGINAL_PRESETS.map(P=>P.name);
+// The original 3D cloner presets as node networks: primitives → Cloner → effectors → material, light, camera → palette → bloom.
+const CLONER_CHAIN=['soundEffector','fieldEffector','randomEffector','links','material','light','camera3d'];
+// Knobs a chain node leaves at the original's resting value when the preset does not set them.
+const CLONER_REST={fieldEffector:{strength:0},randomEffector:{size:0,color:0,tilt:0},links:{links:0},camera3d:{dof:0}};
+const CLONER_PALETTES=['Lagoon','Synthwave','Sunset','Aurora','Fire','Tropic','Dusk'];
+function clonerGraph(P,i){
+  const g={id:crypto.randomUUID(),name:P.name,visible:true,opacity:1,blend:'source-over',nodes:[],edges:[]};
+  const k=P.knobs,o=P.opts,used=new Set();let x=260;
+  const add=(type,xx,y,props={})=>{const n=node(type,xx,y,props);g.nodes.push(n);return n;},wire=(a,out,b,input)=>g.edges.push({from:a.id,out,to:b.id,input});
+  const take=type=>{const props={};let any=false;
+    for(const [pk,s] of Object.entries(TYPES[type].props)){
+      if(s.sim&&o[s.sim]!==undefined&&s.choices.includes(o[s.sim])){props[pk]=o[s.sim];any=true;}
+      else if(s.key&&k[s.key]!==undefined){props[pk]=s.kind==='number'?clampProp(type,pk,k[s.key]):k[s.key];used.add(s.key);any=true;}
+      else if(CLONER_REST[type]?.[pk]!==undefined)props[pk]=CLONER_REST[type][pk];}
+    return any&&props;};
+  const sound=add('audioIn',40,80),cl=add('cloner',x,80,take('cloner')||{});wire(sound,'audio',cl,'audio');
+  const shapes=String(o.g3Shape||'sphere').split(',').slice(0,3),prim={size:k.pG3Size??60,detail:k.pG3Detail??4,stretchX:k.pG3ObjX??100,stretchY:k.pG3ObjY??100,stretchZ:k.pG3ObjZ??100};
+  shapes.forEach((sh,j)=>wire(add('primitive',x-220,330+j*120,{...prim,shape:sh}),'object',cl,['object','object2','object3'][j]));
+  let prev=cl;x+=220;
+  for(const t of CLONER_CHAIN){const props=take(t);if(!props&&t!=='soundEffector')continue;const n=add(t,x,80,props||{});wire(prev,'shape',n,'shape');prev=n;x+=220;}
+  const pal=PALETTES[CLONER_PALETTES[i%CLONER_PALETTES.length]],pn=add('palette',x,80,{c1:pal[0],c2:pal[1],c3:pal[2],c4:pal[3],c5:pal[4]||pal[3],colors:pal.length>4?'4':'3'});wire(prev,'shape',pn,'shape');x+=220;
+  const bl=add('bloom',x,80,{bloom:k.pSimBloom??20});wire(pn,'shape',bl,'image');x+=220;
+  wire(bl,'image',add('output',x,80),'image');
+  const rest=Object.fromEntries(Object.entries(k).filter(([key])=>!used.has(key)&&!key.startsWith('pG3')&&key!=='pSimBloom'));if(Object.keys(rest).length)cl.props.opts=rest;
+  return [g];
+}
+CLONER_PRESETS.forEach((P,i)=>{TEMPLATES[P.name]=()=>clonerGraph(P,i);});
+const CLONER_NAMES=CLONER_PRESETS.map(P=>P.name);
 function loadTemplate(name){
   if(!Object.hasOwn(TEMPLATES,name))throw Error('Unknown template '+name);
   const layers=TEMPLATES[name]();layers.forEach((g,i)=>{if(i===0)g.blend='source-over';});
@@ -1204,7 +1254,7 @@ $('snap').onclick=()=>preview.toBlob(blob=>{if(!blob)return message('Snapshot fa
 $('fullscreen').onclick=toggleFullscreen;
 $('pause').onclick=()=>{paused=!paused;lastTime=0;$('pause').textContent=paused?'Resume':'Pause';$('pause').classList.toggle('on',paused);message(paused?'Visuals paused':'Visuals resumed');};
 $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
-for(const [label,names] of [['Audiograph presets',ORIGINAL_NAMES],['Pro starters',Object.keys(TEMPLATES).filter(n=>!ORIGINAL_NAMES.includes(n))]]){
+for(const [label,names] of [['Audiograph presets',ORIGINAL_NAMES],['3D cloner',CLONER_NAMES],['Pro starters',Object.keys(TEMPLATES).filter(n=>!ORIGINAL_NAMES.includes(n)&&!CLONER_NAMES.includes(n))]]){
   const grp=el('optgroup');grp.label=label;for(const name of names){const o=el('option','',name);o.value=name;grp.append(o);}$('templates').append(grp);}
 $('templates').onchange=()=>{const v=$('templates').value;$('templates').value='';if(v)attempt(()=>loadTemplate(v));};
 $('save').onclick=()=>attempt(()=>{localStorage.setItem('audiograph-pro-v2',JSON.stringify(validate(state)));message('Saved in this browser (media files are not stored)');});

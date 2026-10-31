@@ -6,7 +6,7 @@ import {TYPES,MODES,PALETTES,node} from './graph.js';
 export function rng(seed=Date.now()){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return ((s>>>0)%100000)/100000;};}
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const pick=(r,a)=>a[Math.floor(r()*a.length)%a.length];
-const typeOf=mode=>Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode));
+const typeOf=mode=>mode==='simcloner'?'cloner':Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode));
 const label=mode=>{for(const t of Object.keys(MODES))for(const [m,l] of MODES[t])if(m===mode)return l;return mode;};
 function hex2hsl(h){const n=parseInt(h.slice(1,7),16),r=(n>>16&255)/255,g=(n>>8&255)/255,b=(n&255)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;
   if(mx===mn)return [0,0,l*100];const d=mx-mn,s=l>.5?d/(2-mx-mn):d/(mx+mn);let hh=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;return [hh*60,s*100,l*100];}
@@ -284,7 +284,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   const sound=add('audioIn',{});
   const sim=SIM_MODES.includes(v.mode),props={};
   if(v.type==='text'){props.text=it.text;props.scale=it.scale??130;props.thick=it.thick??1.5;}
-  else if(v.type!=='camera'&&v.type!=='gpuParticles'){props.mode=v.mode;Object.assign(props,LOOK[v.mode]||{});}
+  else if(!['camera','gpuParticles','cloner'].includes(v.type)){props.mode=v.mode;Object.assign(props,LOOK[v.mode]||{});}
   if(v.type==='gpuParticles')props.mode=v.mode;
   const mo={},T=TYPES[v.type].props,set=(k,val)=>{if(T[k]&&val!=null){const s=T[k];props[k]=s.kind==='number'?clamp(val,s.min,s.max):val;}};
   if(!sim){
@@ -312,6 +312,8 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   if(i&&!sim){set('thick',(props.thick||1.5)*.6);set('density',(props.density||350)*.6);}
   const vis=add(v.type,props);wire(sound,'audio',vis,'audio');
   let prev=vis;
+  // The Cloner copies a primitive and a Sound effector makes the clones move.
+  if(v.type==='cloner'){wire(add('primitive',{shape:pick(r,['cube','sphere','ico','torus','cylinder'])},Y+170),'object',vis,'object');prev=chainTo(prev,add('soundEffector',{}));}
   // Symmetry (deformer) and Spin (force) follow the visual as their own nodes.
   if(mo.symmetry)prev=chainTo(prev,add('symmetry',{mode:mo.symmetry,gap:0}));
   const spinN=mo.spin!=null&&(mo.spin||(mo.speed??1)!==1||it.data.includes('computer'))?add('spin',{spin:mo.spin,speed:mo.speed??1}):null;if(spinN)prev=chainTo(prev,spinN);

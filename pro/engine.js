@@ -10,6 +10,11 @@ async function engineSource() {
     if(!html.includes('function getDefaultLayerParams'))throw Error('The parent page is not an Audiograph engine');
     // Load the trusted local app, not any project-provided source. Keep fonts and media offline.
     html=html.replace(/@import\s+url\((['"]?)[^'")]*\1\)\s*;?/g,'');
+    // Cloner: shapes "mesh0".."mesh2" are the 3D objects wired into the Cloner node (an OBJ or the knot).
+    const patch=(from,to)=>{if(!html.includes(from))throw Error('Audiograph engine patch target missing');html=html.replace(from,to);};
+    patch("if(shape==='sphere'){","if(/^mesh\\d$/.test(shape)){var om=(window.__agG3Meshes||[])[+shape[4]];if(om&&om.verts){var ov=om.verts,on=om.normals;for(var fi=0;fi<om.faces.length&&fi<40000;fi++)poly(om.faces[fi].map(function(ix){return V([ov[ix][0]*.7,ov[ix][1]*.7,ov[ix][2]*.7],on[ix])}))}}else if(shape==='sphere'){");
+    patch("function g3MeshMix(list,D){","function g3MeshMix(list,D){if(G.g3mv!==window.__agG3MeshVer){G.g3mv=window.__agG3MeshVer;for(var _k in G.g3m)if(_k.indexOf('mesh')>=0)delete G.g3m[_k]}");
+    patch("return AG_G3_SHAPES.some(function(q){return q[0]===x})","return /^mesh\\d$/.test(x)?!!(window.__agG3Meshes||[])[+x[4]]:AG_G3_SHAPES.some(function(q){return q[0]===x})");
     const base=new URL('../',location.href).href;
     const policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:";
     return html.replace('<head>',`<head><base href="${base}"><meta http-equiv="Content-Security-Policy" content="${policy}">`);
@@ -165,7 +170,7 @@ export class EmitterEngine {
         const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>{const on=b.getAttribute('onclick')||'';return b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(on)&&!HIDDEN.test(on)&&!hide?.test(on);});
         if(!buttons.length)continue;
         const action=buttons.every(b=>/simRestart|simReset|simReinit|Preset|Shuffle|objToPointCloud|click\(\)/i.test(b.getAttribute('onclick')||''));
-        out.push({type:'chips',key:String(idx),label:label(e),action,options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
+        out.push({type:'chips',key:String(idx),label:label(e),action,onclick:buttons[0].getAttribute('onclick')||'',options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
       }else if(OPT_ID.test(e.id))out.push({type:'range',id:e.id,label:label(e)||e.id,min:+e.min,max:+e.max,step:+e.step||1,value:+e.value,def:+(SIM_TUNE[this.mode]?.[e.id]??this.defaults[e.id]??e.defaultValue)});
     }
     return out;
@@ -197,6 +202,12 @@ export class EmitterEngine {
     for(const [k,v] of Object.entries(job.opts||{}))if(OPT_ID.test(k))p[k]=v;
     const cam=job.mods?._cam;
     Object.assign(p,job.mods||{});delete p._cam;
+    if(job.mods?._sim)p._sim={...this.base._sim,...job.mods._sim};
+    if(job.meshes&&!(this.meshes&&this.meshes.length===job.meshes.length&&this.meshes.every((m,i)=>m===job.meshes[i]))){
+      this.meshes=job.meshes;
+      w.__agG3Meshes=job.meshes.map(m=>m==='knot'?(w._objDefault||(w._objDefault=w._objDefaultModel())):m);
+      w.__agG3MeshVer=(w.__agG3MeshVer||0)+1;
+    }
     this.camera(cam);
     if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
     w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;

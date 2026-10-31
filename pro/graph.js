@@ -4,23 +4,24 @@ import {cleanMapping} from './mapping.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
   waveform3d: [['terrain','Terrain'],['sphere','Sphere'],['tetrahedron','Tetrahedron'],['dna','DNA'],['knot','Knot'],['cube','Cube'],['torus','Torus']],
-  gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand'],['simcloner','3D Cloner']]
+  gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand']]
 };
-export const emitterNames = Object.fromEntries(Object.values(MODES).flat());
+export const emitterNames = {...Object.fromEntries(Object.values(MODES).flat()),simcloner:'Cloner'};
 
 export const CATEGORIES = [
   {id:'inputs',label:'Inputs',color:'#71f4d3',hint:'Sound, pictures, camera, text and 3D you bring in'},
-  {id:'waveforms',label:'Waveforms',color:'#71e7f4',hint:'Audio-reactive line patterns, flat and 3D'},
-  {id:'emitters',label:'Emitters',color:'#71b9f4',hint:'Particles: classic and native WebGPU simulations'},
-  {id:'forces',label:'Forces',color:'#718cf4',hint:'Spin any shape; push and steer WebGPU simulations: gravity, drag, swirl, wind…'},
-  {id:'deformers',label:'Deformers',color:'#8471f4',hint:'Bend, mirror and repeat the shape, or add noise'},
-  {id:'color',label:'Color',color:'#b271f4',hint:'Palettes and hue'},
-  {id:'postfx',label:'Post FX',color:'#e071f4',hint:'Image effects (GPU shaders)'},
-  {id:'controls',label:'Controls',color:'#f471db',hint:'Numbers that move knobs'},
-  {id:'audio',label:'Audio analysis',color:'#f471ad',hint:'Turn sound into numbers or reshape it'},
+  {id:'waveforms',label:'Waveforms',color:'#71ecf4',hint:'Audio-reactive line patterns'},
+  {id:'emitters',label:'Emitters',color:'#71c3f4',hint:'Particles: classic and native WebGPU simulations'},
+  {id:'3d',label:'3D',color:'#7199f4',hint:'3D waveforms, and the Cloner with its objects, effectors, material, light and camera'},
+  {id:'forces',label:'Forces',color:'#7271f4',hint:'Spin any shape; push and steer WebGPU simulations: gravity, drag, swirl, wind…'},
+  {id:'deformers',label:'Deformers',color:'#9b71f4',hint:'Bend, mirror and repeat the shape, or add noise'},
+  {id:'color',label:'Color',color:'#c471f4',hint:'Palettes and hue'},
+  {id:'postfx',label:'Post FX',color:'#ed71f4',hint:'Image effects (GPU shaders)'},
+  {id:'controls',label:'Controls',color:'#f471d1',hint:'Numbers that move knobs'},
+  {id:'audio',label:'Audio analysis',color:'#f471a8',hint:'Turn sound into numbers or reshape it'},
   {id:'composite',label:'Composite',color:'#f4717f',hint:'Mix and output'}
 ];
-export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',any:'#e5e7eb'};
+export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',object3d:'#fde047',any:'#e5e7eb'};
 
 const n=(label,value,min,max,step=1,extra={})=>({kind:'number',label,value,min,max,step,...extra});
 const pick=(label,value,choices,extra={})=>({kind:'select',label,value,choices,...extra});
@@ -34,6 +35,12 @@ const FX_IO={inputs:{image:'image'},outputs:{image:'image'}};
 const DEFORM=(label,key,min,max,value,description,step=1)=>({category:'deformers',label,description,...SHAPE_IO,props:{amount:n('Amount',value,min,max,step,{key})}});
 const F=(label,value,min,max,key,sims)=>n(label,value,min,max,1,{key,sims});
 const FORCE=(label,description,props)=>({category:'forces',label,description,...SHAPE_IO,props});
+// Cloner parts (Cinema 4D style): each knob sets one original cloner option ("key" = knob id, "sim" = choice).
+const C3=(label,value,min,max,key,step=1)=>n(label,value,min,max,step,{key,sims:['simcloner']});
+const C3P=(label,value,choices,sim)=>pick(label,value,choices.map(c=>c[0]),{labels:choices,sim,sims:['simcloner']});
+const C3D=(group,label,description,props)=>({category:'3d',group,label,description,...SHAPE_IO,props});
+export const PRIMITIVES=[['sphere','Sphere'],['cube','Cube'],['cylinder','Cylinder'],['cone','Cone'],['pyramid','Pyramid'],['torus','Torus'],['ico','Icosphere'],['frame','Frame'],['knot','Knot']];
+export const CLONER_LAYOUTS=[['grid','Grid'],['linear','Linear'],['ring','Radial'],['sphere','Sphere'],['scatter','Scatter'],['spiral','Spiral'],['helix','Helix'],['network','Network']];
 const FX=(label,description,props)=>({category:'postfx',label,description,...FX_IO,fx:true,props});
 // Lines, transform, motion and symmetry live on every renderer node (grouped in its inspector).
 const G=(group,spec)=>({...spec,group});
@@ -128,12 +135,49 @@ export const TYPES = {
   video:ENGINE('inputs','Video','A video file drawn as audio-reactive lines, or warped by the sound.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})}),
   camera:ENGINE('inputs','Camera','Your camera drawn as audio-reactive lines, or warped by the sound. Its motion and brightness are numbers for any knob.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})},{motion:'number',brightness:'number'}),
   text:ENGINE('inputs','Text','Your words drawn as audio-reactive lines.',{text:text('Text','AUDIOGRAPH')}),
-  object:ENGINE('inputs','3D Object','An OBJ model (the built-in knot until you load one), as a mesh or as a point cloud.',{render:pick('Render','mesh',['mesh','cloud'],{labels:[['mesh','Mesh'],['cloud','Point cloud']]})}),
+  object:ENGINE('inputs','3D Object','An OBJ model (the built-in knot until you load one), as a mesh or as a point cloud. Its “object” output feeds a Cloner.',{render:pick('Render','mesh',['mesh','cloud'],{labels:[['mesh','Mesh'],['cloud','Point cloud']]})},{object:'object3d'}),
   splat:ENGINE('inputs','Gaussian Splat','A .ply / .splat point cloud that reacts to the sound (a demo cloud until you load one).',{}),
   // Waveforms and Emitters (particles)
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
-  waveform3d:ENGINE('waveforms','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),...STYLE_PROPS},{},'3D'),
-  gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke, sand, 3D cloner.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
+  waveform3d:ENGINE('3d','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),...STYLE_PROPS},{},'Waveforms'),
+  gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
+  // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
+  primitive:{category:'3d',group:'Objects',label:'Primitive',description:'A 3D object for the Cloner.',inputs:{},outputs:{object:'object3d'},props:{
+    shape:pick('Shape','sphere',PRIMITIVES.map(p=>p[0]),{labels:PRIMITIVES}),size:n('Size',60,2,300,5),detail:n('Detail',4,1,10,1),
+    stretchX:n('Stretch X',100,10,500,5),stretchY:n('Stretch Y',100,10,500,5),stretchZ:n('Stretch Z',100,10,500,5)}},
+  cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
+    layout:pick('Layout','grid',CLONER_LAYOUTS.map(c=>c[0]),{labels:CLONER_LAYOUTS,sim:'g3Mode'}),
+    countX:G('Count',n('Count X',5,1,60,1,{key:'pG3Nx'})),countY:G('Count',n('Count Y',5,1,60,1,{key:'pG3Ny'})),countZ:G('Count',n('Count Z',5,1,60,1,{key:'pG3Nz'})),
+    spacingX:G('Spacing',n('Spacing X',150,20,1000,5,{key:'pG3SpX'})),spacingY:G('Spacing',n('Spacing Y',150,0,600,5,{key:'pG3SpY'})),spacingZ:G('Spacing',n('Spacing Z',150,0,600,5,{key:'pG3SpZ'})),
+    twist:G('Steps',n('Twist',0,-45,45,1,{key:'pG3StRotY'})),endScale:G('Steps',n('End scale',100,10,300,5,{key:'pG3StScale'})),cloneSpin:G('Steps',n('Spin',15,-100,100,5,{key:'pG3Spin'})),
+    rotX:G('Rotate',n('Rotate X',0,-180,180,1,{key:'pG3GrX'})),rotY:G('Rotate',n('Rotate Y',0,-180,180,1,{key:'pG3GrY'})),rotZ:G('Rotate',n('Rotate Z',0,-180,180,1,{key:'pG3GrZ'})),
+    variety:G('Objects',n('Variety',100,0,100,5,{key:'pG3Mix'}))},{},'Cloner'),inputs:{audio:'audio',drive:'number',object:'object3d',object2:'object3d',object3:'object3d'}},
+  soundEffector:C3D('Effectors','Sound effector','Loud clones move, grow and tumble.',{
+    listen:C3P('Listen by','index',[['index','Order'],['distance','Distance'],['x','X'],['y','Y'],['z','Z'],['random','Random']],'g3Map'),
+    rotate:C3('Rotate',0,-360,360,'pG3EfRot',5),grow:C3('Grow from base',0,0,100,'pG3Anchor',5),spread:C3('Spread',35,0,100,'pG3Indep',5),delay:C3('Delay',0,0,100,'pG3Delay',5),
+    moveX:G('Move',C3('Move X',0,-300,300,'pG3EfX',5)),moveY:G('Move',C3('Move Y',0,-300,300,'pG3EfY',5)),moveZ:G('Move',C3('Move Z',0,-300,300,'pG3EfZ',5)),
+    scaleX:G('Scale',C3('Scale X',40,-100,800,'pG3ScX',5)),scaleY:G('Scale',C3('Scale Y',40,-100,800,'pG3ScY',5)),scaleZ:G('Scale',C3('Scale Z',40,-100,800,'pG3ScZ',5))}),
+  fieldEffector:C3D('Effectors','Field effector','A moving pattern lifts and scales the clones.',{
+    field:C3P('Field','wave',[['noise','Noise'],['wave','Wave'],['ripple','Ripple']],'g3Field'),
+    strength:C3('Strength',100,0,200,'pG3FieldAmt',5),size:C3('Size',100,20,400,'pG3FieldSize',5),speed:C3('Speed',50,0,300,'pG3FieldSpd',5)}),
+  randomEffector:C3D('Effectors','Random effector','Random size, height, colour, tilt and position per clone.',{
+    seed:C3('Seed',1,0,999,'pG3Seed'),size:C3('Size',40,0,100,'pG3RndScale',5),height:C3('Height',0,0,100,'pG3RndH',5),color:C3('Colour',30,0,100,'pG3RndCol',5),tilt:C3('Tilt',45,0,180,'pG3RndRot',5),
+    posX:G('Position',C3('X',0,0,300,'pG3RndPosX',5)),posY:G('Position',C3('Y',0,0,300,'pG3RndPosY',5)),posZ:G('Position',C3('Z',0,0,300,'pG3RndPosZ',5))}),
+  links:C3D('Effectors','Links','Connect each clone to its nearest neighbours with glowing lines.',{
+    links:C3('Links per clone',3,0,8,'pG3Links'),distance:C3('Distance',150,20,400,'pG3LinkDist',5)}),
+  material:C3D('Look','Material','Surface of the clones: shading, gloss, metal, glow and colour.',{
+    display:C3P('Display','solid',[['solid','Shaded'],['wire','Wireframe'],['edges','Shaded + edges']],'g3Style'),
+    shading:C3P('Normals','smooth',[['smooth','Smooth'],['flat','Faceted']],'g3Shade'),
+    opacity:C3('Opacity',100,5,100,'pG3Alpha',5),roughness:C3('Roughness',35,0,100,'pG3Rough',5),metallic:C3('Metallic',20,0,100,'pG3Metal',5),rim:C3('Rim',30,0,100,'pG3Rim',5),emission:C3('Emission',0,0,300,'pG3Emit',5),
+    colorBy:G('Colour',C3P('Palette by','height',[['clone','Clone'],['face','Polygon'],['height','Height'],['sound','Sound']],'g3CBy')),
+    surface:G('Colour',C3P('Surface','palette',[['palette','Palette'],['custom','Picked']],'g3CSrc')),surfaceColor:G('Colour',{...color('Picked surface','#4aa3ff'),key:'pG3Col'}),
+    edges:G('Colour',C3P('Edges','custom',[['palette','Palette'],['custom','Picked']],'g3ESrc')),edgeColor:G('Colour',{...color('Picked edges','#ffffff'),key:'pG3EdgeCol'})}),
+  light:C3D('Look','Light','Key and ambient light, and soft shadows where clones meet.',{
+    key:C3('Key light',100,0,200,'pG3Light',5),ambient:C3('Ambient',35,0,150,'pG3Amb',5),angle:C3('Angle',-42,-180,180,'pG3LitAz'),height:C3('Height',45,-20,89,'pG3LitEl'),
+    ao:G('Shadows',C3('Occlusion',50,0,100,'pG3Ao',5)),aoRadius:G('Shadows',C3('Radius',60,10,300,'pG3AoRad',5))}),
+  camera3d:C3D('Look','3D camera','Orbit, tilt and zoom, depth of field and motion blur.',{
+    orbit:C3('Orbit',12,-100,100,'pG3Orbit'),tilt:C3('Tilt',18,-80,80,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
+    dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
   // Deformers
   symmetry:{category:'deformers',group:'Symmetry',label:'Symmetry',description:'Repeat the shape: mirror across X / Y or turn it into 3- to 8-fold rotations.',...SHAPE_IO,props:{
     mode:pick('Symmetry','r6',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'}),gap:n('Gap',0,0,100,1,{key:'_symGap'})}},
@@ -248,6 +292,7 @@ export function engineSpec(n){
     case 'text':return {mode:'text'};
     case 'object':return p.render==='cloud'?{mode:'simsplat',mesh:true}:{mode:'object'};
     case 'splat':return {mode:'simsplat',splat:true};
+    case 'cloner':return {mode:'simcloner'};
     default:return {mode:p.mode};
   }
 }
@@ -272,7 +317,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=8;
+export const VERSION=9;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -359,7 +404,7 @@ function cleanLook(v,depth=0){
 const V2_MODE={...Object.fromEntries(Object.entries(MODES).flatMap(([type,list])=>list.map(([m])=>[m,{type,props:{mode:m}}]))),
   image:{type:'image',props:{render:'lines'}},pixelwarp:{type:'image',props:{render:'warp'}},video:{type:'video',props:{render:'lines'}},
   simboids:{type:'gpuParticles',props:{mode:'simparticles'}},simferro:{type:'gpuParticles',props:{mode:'simfluid'}},
-  text:{type:'text',props:{}},object:{type:'object',props:{render:'mesh'}},simsplat:{type:'splat',props:{}}};
+  text:{type:'text',props:{}},object:{type:'object',props:{render:'mesh'}},simsplat:{type:'splat',props:{}},simcloner:{type:'gpuParticles',props:{mode:'simcloner'}}};
 function migrate(raw){
   if(raw.version===VERSION)return raw;
   const out=clone(raw);
@@ -390,6 +435,7 @@ function migrate(raw){
   if(raw.version<6)for(const g of out.layers||[])extractForces(g);
   if(raw.version<7)for(const g of out.layers||[])extractMotion(g);
   if(raw.version<8)for(const g of out.layers||[])dropRetired(g);
+  if(raw.version<9)for(const g of out.layers||[])splitCloner(g);
   out.version=VERSION;return out;
 }
 // Version 8: Boids and Ferrofluid were retired (they become Particles and Fluid) along with the Flocking force.
@@ -402,6 +448,27 @@ function dropRetired(g){
     g.edges=g.edges.filter(e=>e&&e.to!==old.id);
     for(const e of g.edges)if(e.from===old.id&&into){e.from=into.from;e.out=into.out;}
     g.edges=g.edges.filter(e=>e.from!==old.id);g.nodes=g.nodes.filter(n=>n!==old);
+  }
+}
+// Version 9: the 3D Cloner left WebGPU particles for the 3D category: a Primitive wired into a Cloner node,
+// with effectors, material, light and camera as nodes after it (moved there by extractForces).
+const G3_SHAPE_LABEL=Object.fromEntries(PRIMITIVES.map(([k,l])=>[l,k])),G3_LAYOUT_LABEL=Object.fromEntries(CLONER_LAYOUTS.map(([k,l])=>[l,k]));
+const PRIM_KEYS={pG3Size:'size',pG3Detail:'detail',pG3ObjX:'stretchX',pG3ObjY:'stretchY',pG3ObjZ:'stretchZ'};
+function splitCloner(g){
+  if(!Array.isArray(g?.nodes)||!Array.isArray(g.edges))return;
+  for(const c of g.nodes.filter(n=>n?.type==='gpuParticles'&&n.props?.mode==='simcloner')){
+    extractForces(g);
+    const opts=c.props.opts||{},chips=c.props.chips||{},keyOf=Object.fromEntries(Object.entries(TYPES.cloner.props).filter(([,s])=>s.key).map(([k,s])=>[s.key,k]));
+    const props={},prim={id:`${c.id}_obj`.slice(0,60),type:'primitive',x:(c.x||0)-220,y:(c.y||0)+140,props:{}};
+    for(const [k,v] of Object.entries(opts)){if(keyOf[k])props[keyOf[k]]=v;else if(PRIM_KEYS[k])prim.props[PRIM_KEYS[k]]=v;}
+    for(const label of Object.values(chips)){if(G3_LAYOUT_LABEL[label])props.layout=G3_LAYOUT_LABEL[label];if(G3_SHAPE_LABEL[label])prim.props.shape=G3_SHAPE_LABEL[label];}
+    for(const [k,s] of Object.entries(TYPES.primitive.props))if(prim.props[k]===undefined)prim.props[k]=s.value;
+    for(const [k,s] of Object.entries(TYPES.cloner.props))if(props[k]===undefined)props[k]=s.value;
+    c.type='cloner';c.props=props;
+    for(const e of g.edges)if(e&&e.to===c.id&&typeof e.input==='string'&&e.input.startsWith('opt_')){const k=e.input.slice(4);if(keyOf[k])e.input=keyOf[k];}
+    g.edges=g.edges.filter(e=>!(e&&e.to===c.id&&typeof e.input==='string'&&e.input.startsWith('opt_')));
+    if(Array.isArray(c.auto))c.auto=c.auto.map(a=>typeof a==='string'&&a.startsWith('opt:')&&keyOf[a.slice(4)]?keyOf[a.slice(4)]:a).filter(a=>TYPES.cloner.props[a]);
+    g.nodes.push(prim);g.edges.push({from:prim.id,out:'object',to:c.id,input:'object'});
   }
 }
 // Simulation knobs that belong to a Forces / Noise node, by simulation: {mode: {knob key: [node type, prop]}}.
@@ -541,6 +608,7 @@ export function applyShapeNode(type,props,mods){
   if(type==='particles')out._particlesOn=true;
   if(type==='webcam'){out._cam={displace:props.displace,colors:props.colors==='on',dir:props.dir,smooth:props.smooth};return out;}
   for(const [k,s] of Object.entries(TYPES[type].props)){
+    if(s.sim){out._sim={...out._sim,[s.sim]:props[k]};continue;}
     if(!s.key)continue;let v=props[k];
     if(s.rad)v=v*Math.PI/180;
     if(ADDITIVE.has(s.key)&&typeof out[s.key]==='number')out[s.key]+=v;
