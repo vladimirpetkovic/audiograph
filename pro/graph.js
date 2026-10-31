@@ -4,7 +4,7 @@ import {cleanMapping} from './mapping.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
   waveform3d: [['terrain','Terrain'],['sphere','Sphere'],['tetrahedron','Tetrahedron'],['dna','DNA'],['knot','Knot'],['cube','Cube'],['torus','Torus']],
-  gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simboids','Boids'],['simsand','Granular Sand'],['simferro','Ferrofluid'],['simcloner','3D Cloner']]
+  gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand'],['simcloner','3D Cloner']]
 };
 export const emitterNames = Object.fromEntries(Object.values(MODES).flat());
 
@@ -133,7 +133,7 @@ export const TYPES = {
   // Waveforms and Emitters (particles)
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   waveform3d:ENGINE('waveforms','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),...STYLE_PROPS},{},'3D'),
-  gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke, flocks, sand, ferrofluid, 3D cloner.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
+  gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke, sand, 3D cloner.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
   // Deformers
   symmetry:{category:'deformers',group:'Symmetry',label:'Symmetry',description:'Repeat the shape: mirror across X / Y or turn it into 3- to 8-fold rotations.',...SHAPE_IO,props:{
     mode:pick('Symmetry','r6',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'}),gap:n('Gap',0,0,100,1,{key:'_symGap'})}},
@@ -158,14 +158,12 @@ export const TYPES = {
     spin:n('Spin',1,-5,5,.1,{key:'_spin'}),speed:n('Speed',1,.1,5,.1,{key:'_speed'})}},
   // Forces: WebGPU simulation physics, one idea per node. Each knob lists the simulations it moves; defaults match the simulation.
   gravity:FORCE('Gravity','Pull down (or up). Smoke rises by buoyancy.',{gravity:F('Gravity',-3,-100,100,'pSpGravity',['simparticles']),sand:F('Sand gravity',100,0,100,'pSaGravity',['simsand']),buoyancy:F('Buoyancy',100,0,200,'pSmBuoy',['simsmoke'])}),
-  drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand']),damping:F('Damping',25,0,100,'pFeDamp',['simferro'])}),
+  drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand'])}),
   swirl:FORCE('Swirl','Rotate the flow and spin the emitters.',{swirl:F('Swirl',43,-100,100,'pSpSwirl',['simparticles']),fluidSwirl:F('Fluid swirl',40,-100,100,'pSfSwirl',['simfluid']),
     spin:F('Emitter spin',0,-100,100,'pSpSpin',['simparticles']),fluidSpin:F('Jet spin',0,-100,100,'pSfSpin',['simfluid']),smokeSpin:F('Burner spin',0,-100,100,'pSmSpin',['simsmoke'])}),
-  attract:FORCE('Attract','Pull toward the centre or the magnets (negative pushes away).',{pull:F('Centre pull',0,-100,100,'pSpAttract',['simparticles']),field:F('Field strength',100,0,200,'pFeForce',['simferro']),motion:F('Magnet motion',40,0,100,'pFeMotion',['simferro'])}),
+  attract:FORCE('Attract','Pull toward the centre or the magnets (negative pushes away).',{pull:F('Centre pull',0,-100,100,'pSpAttract',['simparticles'])}),
   wind:FORCE('Wind','Blow sideways.',{smoke:F('Wind',0,-100,100,'pSmWind',['simsmoke']),sand:F('Sand wind',0,-100,100,'pSaWind',['simsand'])}),
   vorticity:FORCE('Vorticity','Curl the flow into eddies.',{fluid:F('Fluid vorticity',45,0,100,'pSfVort',['simfluid']),smoke:F('Smoke vorticity',55,0,100,'pSmVort',['simsmoke'])}),
-  flocking:FORCE('Flocking','How Boids behave together.',{cohesion:F('Cohesion',90,0,200,'pBdCohesion',['simboids']),align:F('Alignment',110,0,200,'pBdAlign',['simboids']),separate:F('Separation',100,0,200,'pBdSeparate',['simboids']),
-    radius:F('Neighbor radius',18,4,40,'pBdRadius',['simboids']),turn:F('Turning force',85,10,200,'pBdTurn',['simboids']),wander:F('Wander',20,0,100,'pBdWander',['simboids'])}),
   // Color
   palette:{category:'color',label:'Palette',description:'Recolor anything: a shape or any image (a Merge, Post FX…). Normal replaces the colors before it; the other blend modes mix with them.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{
     mode:pick('Mode','toneramp',['toneramp','simpleramp','solid'],{labels:[['toneramp','Tone ramp'],['simpleramp','Simple ramp'],['solid','Solid']]}),
@@ -274,7 +272,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=7;
+export const VERSION=8;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -360,6 +358,7 @@ function cleanLook(v,depth=0){
 // Version 3 splits renderers into Inputs and Emitters and carries real audio on "audio" ports.
 const V2_MODE={...Object.fromEntries(Object.entries(MODES).flatMap(([type,list])=>list.map(([m])=>[m,{type,props:{mode:m}}]))),
   image:{type:'image',props:{render:'lines'}},pixelwarp:{type:'image',props:{render:'warp'}},video:{type:'video',props:{render:'lines'}},
+  simboids:{type:'gpuParticles',props:{mode:'simparticles'}},simferro:{type:'gpuParticles',props:{mode:'simfluid'}},
   text:{type:'text',props:{}},object:{type:'object',props:{render:'mesh'}},simsplat:{type:'splat',props:{}}};
 function migrate(raw){
   if(raw.version===VERSION)return raw;
@@ -390,7 +389,20 @@ function migrate(raw){
   }
   if(raw.version<6)for(const g of out.layers||[])extractForces(g);
   if(raw.version<7)for(const g of out.layers||[])extractMotion(g);
+  if(raw.version<8)for(const g of out.layers||[])dropRetired(g);
   out.version=VERSION;return out;
+}
+// Version 8: Boids and Ferrofluid were retired (they become Particles and Fluid) along with the Flocking force.
+const RETIRED_MODE={simboids:'simparticles',simferro:'simfluid'};
+function dropRetired(g){
+  if(!Array.isArray(g?.nodes)||!Array.isArray(g.edges))return;
+  for(const nd of g.nodes)if(nd?.type==='gpuParticles'&&RETIRED_MODE[nd.props?.mode]){nd.props.mode=RETIRED_MODE[nd.props.mode];delete nd.props.opts;}
+  for(const old of g.nodes.filter(n=>n?.type==='flocking')){
+    const into=g.edges.find(e=>e&&e.to===old.id&&e.input==='shape');
+    g.edges=g.edges.filter(e=>e&&e.to!==old.id);
+    for(const e of g.edges)if(e.from===old.id&&into){e.from=into.from;e.out=into.out;}
+    g.edges=g.edges.filter(e=>e.from!==old.id);g.nodes=g.nodes.filter(n=>n!==old);
+  }
 }
 // Simulation knobs that belong to a Forces / Noise node, by simulation: {mode: {knob key: [node type, prop]}}.
 export const FORCE_KNOBS={};

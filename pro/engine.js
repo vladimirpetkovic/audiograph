@@ -60,11 +60,9 @@ function fakeAnalyser(audio) {
 // beat bursts than the original's calm defaults (measured: about 2x the beat-driven motion). Presets and knobs override it.
 const PUNCH={pSimSens:60,pSimReact:70,pSimBurst:100,pSimBass:170,pSimAttack:12,pSimRelease:180,pSimEnergy:115};
 // Fluid fills the frame quickly: half energy keeps it readable.
-export const SIM_TUNE={simparticles:PUNCH,simfluid:{...PUNCH,pSimEnergy:50},simboids:PUNCH,simsand:PUNCH,
+export const SIM_TUNE={simparticles:PUNCH,simfluid:{...PUNCH,pSimEnergy:50},simsand:PUNCH,
   // Smoke accumulates density: full punch clips it to white, so it gets faster timing and bigger bursts only.
-  simsmoke:{pSimSens:60,pSimReact:45,pSimBurst:100,pSimBass:120,pSimAttack:25,pSimRelease:250},
-  // Ferrofluid saturates (spikes freeze) when everything is pushed; it gets a lighter touch and looser damping.
-  simferro:{pSimSens:60,pSimReact:60,pSimAttack:15,pSimRelease:200,pSimBurst:100,pFeDamp:25,pFeHeight:130,pFeMotion:40}};
+  simsmoke:{pSimSens:60,pSimReact:45,pSimBurst:100,pSimBass:120,pSimAttack:25,pSimRelease:250}};
 export class EmitterEngine {
   constructor(id,onError) {
     this.id=id;this.onError=onError;this.status='starting';this.disposed=false;this.mode='';this.mediaName='';this.mediaKind='';this.generation=0;

@@ -35,7 +35,7 @@ each with its own opacity and blend mode (up to four).
 - **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…) and **3D**
   (Terrain, Sphere, DNA, Knot…).
 - **Emitters** (particles): **Particles** (classic) and **WebGPU
-  particles** (Particles, Fluid, Smoke, Boids, Granular sand, Ferrofluid, 3D
+  particles** (Particles, Fluid, Smoke, Granular sand, 3D
   cloner). WebGPU simulations react harder to sound than in the original
   (snappier attack, shorter release, bigger beat bursts; tuned per simulation),
   and their knobs and presets still override that.
@@ -55,9 +55,8 @@ each with its own opacity and blend mode (up to four).
   3/4/6/8-fold with a gap; **Mirror** flips H / V and adds a reflection. Wire them
   after a renderer. Older projects move these renderer settings into the nodes.
 - **Forces** (WebGPU simulations): Gravity (gravity, sand gravity, smoke
-  buoyancy), Drag (drag, viscosity, friction, damping), Swirl (swirl and emitter
-  spin), Attract (centre pull, magnet field and motion), Wind, Vorticity and
-  Flocking (Boids). Wire one after a simulation; it shows only the knobs for that
+  buoyancy), Drag (drag, viscosity, friction), Swirl (swirl and emitter
+  spin), Attract (centre pull), Wind and Vorticity. Wire one after a simulation; it shows only the knobs for that
   simulation and lists the others it works on. Defaults match the simulation, so
   adding one changes nothing until you turn it. Older projects move their physics
   knobs into Forces nodes automatically.

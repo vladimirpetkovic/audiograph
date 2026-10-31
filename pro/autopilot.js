@@ -51,9 +51,9 @@ const VISUALS=[
   [/\bfluid|liquid(?! metal)|\bink\b|paint|marbl|\bdye\b|water(?!fall)|watercolou?r|honey|syrup/,'simfluid'],
   [/smoke|smoky|\bfog|mist|steam|incense|vapou?r|haze|\bclouds?\b|plume|wisp/,'simsmoke'],
   [/firework|embers?|sparks? fountain|stardust|confetti|fountain|particle (field|system|storm)|particles?\b(?! overlay)/,'simparticles'],
-  [/flock|boids?|swarm|murmuration|\bbirds?\b|school of fish|\bfish\b|insects|fireflies/,'simboids'],
+  [/flock|boids?|swarm|murmuration|\bbirds?\b|school of fish|\bfish\b|insects|fireflies/,'simparticles'],
   [/\bsand\b|granular|hourglass|\bdust\b|powder/,'simsand'],
-  [/ferro|liquid metal|mercury|magnetic (fluid|liquid)|chrome blob|oil slick|metallic blob/,'simferro'],
+  [/ferro|liquid metal|mercury|magnetic (fluid|liquid)|chrome blob|oil slick|metallic blob/,'simfluid'],
   [/clon(e|er)|\bcubes\b|blocks|voxels?|array of|grid of (cubes|boxes|spheres)|instances/,'simcloner'],
   [/terrain|landscape|mountains?|hills|valley|\bfloor\b|\bground\b/,'terrain'],
   [/sphere|globe|planet|\borbs?\b|\bball\b/,'sphere'],
@@ -76,7 +76,7 @@ const VISUALS=[
   [/\bbars\b|equali[sz]er|spectrum|meters?|audio bars|linear|straight lines?|scan ?lines? of sound/,'linear']
 ];
 // Prefer a simulation when one of these words describes the main visual.
-const SIM_MODES=['simparticles','simfluid','simsmoke','simboids','simsand','simferro','simcloner'];
+const SIM_MODES=['simparticles','simfluid','simsmoke','simsand','simcloner'];
 const MOOD=[
   [/calm|chill|ambient|gentle|soft|serene|peaceful|dreamy|meditat|lazy|relax|zen|floating|tranquil|quiet|lullaby|sleepy|smooth/,25,.6],
   [/groov|funky|bouncy|playful|happy|upbeat|dance/,60,1.05],
@@ -94,11 +94,10 @@ const FORCES=[
   ['gravity',/rising|floating up|ascend|buoyant|upward|lift(ing)? off|levitat/,{gravity:-30,sand:40,buoyancy:180}],
   ['swirl',/swirl|vortex|whirlpool|tornado|twister|cyclone|spinning|maelstrom/,{swirl:65,fluidSwirl:60,spin:40,fluidSpin:40,smokeSpin:40}],
   ['wind',/wind|breeze|blowing|gust|windy/,{smoke:55,sand:45}],
-  ['attract',/attract|magnet|pulled in|black hole|implod|gravitational|converg/,{pull:65,field:140,motion:50}],
-  ['attract',/repel|explod|explosion|burst(ing)? out|push(ed)? away|diverg|supernova/,{pull:-65,field:140,motion:60}],
-  ['drag',/viscous|honey|syrup|thick liquid|slow motion|molasses|gooey/,{drag:100,viscosity:70,friction:60,damping:45}],
+  ['attract',/attract|magnet|pulled in|black hole|implod|gravitational|converg/,{pull:65}],
+  ['attract',/repel|explod|explosion|burst(ing)? out|push(ed)? away|diverg|supernova/,{pull:-65}],
+  ['drag',/viscous|honey|syrup|thick liquid|slow motion|molasses|gooey/,{drag:100,viscosity:70,friction:60}],
   ['vorticity',/curly|curls|eddies|eddy|turbulent|chaotic swirl/,{fluid:85,smoke:85}],
-  ['flocking',/tight flock|schooling|cohesive|murmuration/,{cohesion:160,align:150,separate:90}]
 ];
 const LINE_SHAPES=[[/dotted|dots? line|polka/,'dotted'],[/dashed|dashes/,'dashed'],[/\bpins?\b|needles?/,'pins'],[/tapered|brush|calligraph|ink stroke/,'tapered'],
   [/rounded|soft lines|pill/,'rounded'],[/\bcaps\b/,'caps'],[/cross(es)?\b|plus signs/,'cross'],[/numbers|digits|numeric/,'numbers'],[/symbols|glyphs|runes|ascii/,'symbols'],
@@ -106,7 +105,7 @@ const LINE_SHAPES=[[/dotted|dots? line|polka/,'dotted'],[/dashed|dashes/,'dashed
 const SYM=[[/kaleido|mandala|six.?fold|hexagonal|snowflake/,'r6'],[/eight.?fold|octagon|8.?fold/,'r8'],[/four.?fold|4.?fold|quad|cross symmetry/,'r4'],
   [/three.?fold|triangular|trinity|3.?fold/,'r3'],[/mirror(ed)?|symmetr|reflected|rorschach|butterfly/,'x']];
 const EXAMPLES=['slow dreamy blue and gold smoke with soft glow','intense red fluid, swirling, sparks on the beat, glitchy','cyberpunk neon spiral, kaleidoscope, thin lines, fast spin',
-  'calm ocean waves with long trails and film grain','sunset sphere over a starfield, pulsing with the bass','pink flocking birds rising, dreamy blur, 90 bpm',
+  'calm ocean waves with long trails and film grain','sunset sphere over a starfield, pulsing with the bass','pink particle swarm rising, dreamy blur, 90 bpm',
   'black and white sacred geometry, mirrored, high contrast','toxic green liquid metal pulled into a black hole'];
 export {EXAMPLES};
 
@@ -265,7 +264,7 @@ export function build(it,{seed=Date.now(),energy:forced=null,match=85}={}){
   const r=rng(seed),E=forced??it.energy??(40+r()*30),explore=1-match/100;
   let visuals=it.visuals.slice();
   if(!visuals.length&&!it.text){
-    const calm=['phyllotaxis','spiral','simsmoke','sphere','lissajous','growth','concentric','simfluid','sacred','terrain'],hot=['simparticles','circle','concentric','simfluid','spiral','dna','tetrahedron','scatter','simferro','sacred'];
+    const calm=['phyllotaxis','spiral','simsmoke','sphere','lissajous','growth','concentric','simfluid','sacred','terrain'],hot=['simparticles','circle','concentric','simfluid','spiral','dna','tetrahedron','scatter','sacred'];
     const m=pick(r,E>60?hot:calm);visuals=[{mode:m,type:typeOf(m),colors:null}];
     if(explore>.3&&r()<explore*.6){const m2=pick(r,E>60?hot:calm);if(m2!==m&&!(SIM_MODES.includes(m)&&SIM_MODES.includes(m2)))visuals.push({mode:m2,type:typeOf(m2),colors:null});}
   }
@@ -303,8 +302,8 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
     if(it.react.includes('pulse'))set('pulse',true);
   }else{
     set('scale',it.scale);
-    // Copies of a field simulation (smoke, fluid, sand, ferro) add up to white; only point-like ones repeat.
-    if(it.symmetry&&it.symmetry!=='x'&&['simparticles','simboids','simcloner'].includes(v.mode))mo.symmetry=it.symmetry;
+    // Copies of a field simulation (smoke, fluid, sand) add up to white; only point-like ones repeat.
+    if(it.symmetry&&it.symmetry!=='x'&&['simparticles','simcloner'].includes(v.mode))mo.symmetry=it.symmetry;
     if(it.spin)mo.spin=clamp(it.spin*.5,-5,5);
   }
   if(v.type==='camera')set('render','lines');
