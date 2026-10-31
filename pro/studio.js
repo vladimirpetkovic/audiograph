@@ -1,4 +1,4 @@
-import {TYPES,CATEGORIES,EMITTERS,emitterNames,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,inputsOf,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {TYPES,CATEGORIES,EMITTERS,emitterNames,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,inputsOf,portType,OPT_PORT,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 
@@ -221,7 +221,12 @@ function execute(g,time,dt){
         const gains=input(n,'spectrum');
         if(gains){const f=new Uint8Array(BINS);for(let i=0;i<BINS;i++)f[i]=Math.min(255,freq[i]*gains[i]);freq=f;}
         const lvl=driven?Math.max(0,input(n,'drive')??0):A.bands.bass;
-        r.shape={emitter:n,mods:{},hue:0,job:{mode:p.mode,opts:p.opts,chips:p.chips,text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:A.beatPulse}}}};
+        let opts=p.opts;
+        for(const e of g.edges)if(e.to===n.id&&OPT_PORT.test(e.input)){
+          const id=e.input.slice(4),range=engines.get(n.id)?.optRange({mode:p.mode,chips:p.chips},id);
+          if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
+        }
+        r.shape={emitter:n,mods:{},hue:0,job:{mode:p.mode,opts,chips:p.chips,text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:A.beatPulse}}}};
         break;}
       case 'background':{const {canvas,ctx}=surface(n.id);
         if(p.fill==='flat')ctx.fillStyle=p.c1;
@@ -347,8 +352,11 @@ function updateSummaries(){for(const box of document.querySelectorAll('#nodes .n
 function visiblePorts(g,n){
   const t=TYPES[n.type],all=inputsOf(n.type),ins=[];
   for(const [k,type] of Object.entries(all))if(Object.hasOwn(t.inputs,k)||g.edges.some(e=>e.to===n.id&&e.input===k))ins.push([k,type]);
+  if(n.type==='emitter')for(const e of g.edges)if(e.to===n.id&&OPT_PORT.test(e.input))ins.push([e.input,'number']);
   return {ins,outs:Object.entries(t.outputs)};
 }
+function optLabel(n,key){const r=engines.get(n.id)?.optRange({mode:n.props.mode,chips:n.props.chips},key.slice(4));return r?.label||key.slice(4);}
+function portLabel(n,key){return TYPES[n.type].props[key]?.label||(OPT_PORT.test(key)?optLabel(n,key):key);}
 function renderGraph(){
   const g=graph();$('nodes').replaceChildren();
   for(const old of thumbs.keys())thumbs.delete(old);
@@ -360,7 +368,7 @@ function renderGraph(){
     const ports=el('div','ports'),{ins,outs}=visiblePorts(g,n);
     for(const [dir,list] of [['in',ins],['out',outs]])for(const [key,type] of list){
       const connected=g.edges.some(e=>dir==='in'?e.to===n.id&&e.input===key:e.from===n.id&&e.out===key);
-      const label=dir==='in'&&t.props[key]?t.props[key].label:key;
+      const label=dir==='in'?portLabel(n,key):key;
       const port=el('button',`port ${dir} ${type}${connected?' connected':''}`,label);
       port.type='button';port.dataset.node=n.id;port.dataset.port=key;port.dataset.direction=dir;port.dataset.ptype=type;port.title=`${dir==='in'?'Input':'Output'}: ${label} (${type})`;
       if(pending?.id===n.id&&pending.port===key&&dir==='out')port.classList.add('pending');
@@ -427,11 +435,15 @@ function closeMenu(){document.querySelector('.port-menu')?.remove();}
 function portMenu(target,from,x,y){
   closeMenu();renderGraph();
   const t=TYPES[target.type],options=Object.entries(inputsOf(target.type)).filter(([,type])=>compatible(from.type,type));
+  if(target.type==='emitter'&&from.type==='number'){
+    const e=engines.get(target.id);let ctl=[];try{ctl=e?.status==='ready'?e.controls({mode:target.props.mode,chips:target.props.chips})||[]:[];}catch{}
+    for(const c of ctl)if(c.type==='range')options.push(['opt_'+c.id,'number']);
+  }
   if(!options.length){message(`${t.label} has no ${from.type} input`,true);return;}
   if(options.length===1){connection(from.id,from.port,target.id,options[0][0]);return;}
   const menu=el('div','port-menu');menu.setAttribute('role','menu');
   menu.append(el('div','port-menu-title',`Connect to ${t.label}`));
-  for(const [k] of options){const b=el('button','',t.props[k]?.label||k);b.type='button';b.dataset.port=k;b.onclick=()=>{closeMenu();connection(from.id,from.port,target.id,k);};menu.append(b);}
+  for(const [k] of options){const b=el('button','',portLabel(target,k));b.type='button';b.dataset.port=k;b.onclick=()=>{closeMenu();connection(from.id,from.port,target.id,k);};menu.append(b);}
   document.body.append(menu);
   const r=menu.getBoundingClientRect();menu.style.left=Math.min(x,innerWidth-r.width-8)+'px';menu.style.top=Math.min(y,innerHeight-r.height-8)+'px';
   menu.querySelector('button')?.focus();
@@ -497,11 +509,13 @@ function renderProperties(){
   const del=el('button','btn danger','Delete');del.id='deleteNode';del.onclick=removeSelected;actions.append(dup,del);
   updateHint();
 }
+// A new emitter type starts from its defaults; wires into the old type's option knobs are dropped.
+function setMode(g,n,mode){if(n.props.mode===mode)return;n.props.mode=mode;n.props.opts={};n.props.chips={};g.edges=g.edges.filter(e=>!(e.to===n.id&&OPT_PORT.test(e.input)));}
 function emitterMediaKind(mode){return ['image','pixelwarp'].includes(mode)?'image':mode==='video'?'video':mode==='object'?'object':null;}
 function renderEmitter(root,n){
   const s=section(root,'Emitter'),sel=el('select');sel.dataset.property='mode';sel.setAttribute('aria-label','Emitter');
   for(const [cat,list] of Object.entries(EMITTERS)){const og=el('optgroup');og.label=cat;for(const [id,label] of list){const o=el('option','',label);o.value=id;og.append(o);}sel.append(og);}
-  sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);x.props.mode=sel.value;x.props.opts={};x.props.chips={};},'Emitter: '+emitterNames[sel.value]);
+  sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);setMode(g,x,sel.value);},'Emitter: '+emitterNames[sel.value]);
   s.append(ui.field('Type',sel));
   if(n.props.mode==='text')s.append(propControl(n,'text',TYPES.emitter.props.text));
   const kind=emitterMediaKind(n.props.mode);
@@ -525,7 +539,7 @@ function renderEmitter(root,n){
       if(c.type==='range'){
         if(!grid){grid=el('div','knob-grid');opts.append(grid);}
         const cur=n.props.opts[c.id]??c.value;
-        grid.append(ui.knob({label:c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,
+        grid.append(ui.knob({label:c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),
           onInput:v=>live(()=>{const x=findNode(n.id);if(x)x.props.opts={...x.props.opts,[c.id]:v};}),onChange:()=>liveCommit('Emitter: '+c.label)}));
       }else{
         grid=null;const wrap=el('div','opt-chips');if(c.label)wrap.append(el('div','insp-sublabel',c.label));
@@ -687,7 +701,7 @@ setInterval(()=>{
 window.pro={
   getProject:()=>clone(state),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;renderUI();},selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
-  setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');n.props[key]=value;},'Updated node property'),
+  setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(n.type==='emitter'&&key==='mode')setMode(g,n,value);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
   draw:()=>draw(elapsed),engine:id=>engines.get(id),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };

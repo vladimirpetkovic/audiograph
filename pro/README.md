@@ -40,6 +40,8 @@ the emitter draws*. Post FX nodes (blue wires) process the finished image.
 - **Quick build**: select a node, then click a library node. It is inserted right
   after the selection. Deleting a node heals the chain.
 - **Drive any knob**: drag a number output (teal) onto a node and pick the knob.
+  On an Emitter, the menu also lists that emitter's own options (e.g. Fluid
+  viscosity), so audio or an LFO can drive them.
   An input of 0 keeps the knob value and 1 pushes it to the maximum. A node with a
   single knob connects directly.
 - **Wires**: drag from an output dot to an input dot or to a node. Clicking an

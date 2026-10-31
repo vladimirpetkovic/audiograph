@@ -138,7 +138,7 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 .port.pending,.port.drop-target{color:var(--tx)}
 .port.pending::before,.port.drop-target::before{transform:scale(1.4);background:var(--pc);box-shadow:0 0 8px var(--pc)}
 .port:focus-visible{outline:none;color:var(--tx)}
-.port-menu{position:fixed;z-index:50;min-width:150px;max-width:240px;padding:4px;background:var(--elevated);border:1px solid var(--border-h);border-radius:6px;box-shadow:0 10px 28px #000a;display:flex;flex-direction:column;gap:1px}
+.port-menu{position:fixed;z-index:50;max-height:min(420px,70vh);overflow-y:auto;min-width:150px;max-width:240px;padding:4px;background:var(--elevated);border:1px solid var(--border-h);border-radius:6px;box-shadow:0 10px 28px #000a;display:flex;flex-direction:column;gap:1px}
 .port-menu button{display:block;width:100%;padding:6px 8px;background:none;border:0;border-radius:4px;color:var(--tx2);font:.58rem/1.2 var(--mono);text-transform:uppercase;letter-spacing:.05em;text-align:left;cursor:pointer}
 .port-menu button:hover,.port-menu button:focus-visible{background:#1f1f26;color:var(--tx);outline:none}
 

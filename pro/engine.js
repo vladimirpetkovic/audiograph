@@ -123,6 +123,13 @@ export class EmitterEngine {
     }
     return out;
   }
+  // Range of one emitter option knob (for driven option ports), cached per layout + chip state.
+  optRange(job,id) {
+    if(this.status!=='ready')return null;
+    const key=job.mode+'|'+JSON.stringify(job.chips||{});
+    if(this.rangeKey!==key){this.ranges=new Map((this.controls(job)||[]).filter(c=>c.type==='range').map(c=>[c.id,c]));this.rangeKey=key;}
+    return this.ranges.get(id)||null;
+  }
   // Perform a chip click (presets / restart / choice) and report the resulting range values.
   click(job,key,label) {
     this.prepare(job);

@@ -131,6 +131,9 @@ export function inputsOf(type){
   for(const [k,s] of Object.entries(t.props))if(s.kind==='number'&&!s.noPort&&!inputs[k])inputs[k]='number';
   return inputs;
 }
+// Emitters also take a number on any of their own option knobs: input "opt_<option id>".
+export const OPT_PORT=/^opt_[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
+export function portType(n,key){return inputsOf(n.type)[key]??(n.type==='emitter'&&OPT_PORT.test(key)?'number':undefined);}
 export const compatible=(out,input)=>out===input||(out==='shape'&&input==='image');
 export const clone = value => JSON.parse(JSON.stringify(value));
 const uid=()=>crypto.randomUUID();
@@ -161,9 +164,9 @@ export function order(graph) {
     const from=nodes.get(e.from),to=nodes.get(e.to);
     if(!from||!to)throw Error('Connection references a missing node');
     if(e.from===e.to)throw Error('A node cannot connect to itself');
-    const sourcePorts=TYPES[from.type].outputs,targetPorts=inputsOf(to.type);
-    if(!Object.hasOwn(sourcePorts,e.out)||!Object.hasOwn(targetPorts,e.input))throw Error('Connection references a missing port');
-    const out=sourcePorts[e.out],input=targetPorts[e.input];
+    const sourcePorts=TYPES[from.type].outputs,input=portType(to,e.input);
+    if(!Object.hasOwn(sourcePorts,e.out)||!input)throw Error('Connection references a missing port');
+    const out=sourcePorts[e.out];
     if(!compatible(out,input))throw Error(`Type mismatch: ${out} cannot connect to ${input}`);
     const key=e.to+':'+e.input;
     if(occupied.has(key))throw Error('An input can have only one connection');

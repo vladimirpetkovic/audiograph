@@ -106,6 +106,10 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.ok(g.edges.some(e=>e.from===lfo&&e.to===twist.id),'An output can feed several inputs');
     assert.equal(await page.locator(`.port.in[data-node="${twist.id}"][data-port="amount"].connected`).count(),1,'Driven port appears on the card');
 
+    // 5b. Numbers can also drive the emitter's own option knobs (input opt_<id>); the card labels the port.
+    await page.evaluate(([l,e])=>pro.connect(l,'value',e,'opt_pCircleInner'),[lfo,ids.emitter]);
+    assert.equal(await page.locator(`.port.in[data-node="${ids.emitter}"][data-port="opt_pCircleInner"]`).textContent(),'Inner R');
+
     // 6. Wire click removes it; deleting a chain node heals the chain.
     const nWires=(await layer0()).edges.length;await page.locator('.wire.number').first().click();
     assert.equal((await layer0()).edges.length,nWires-1,'Clicking a wire removes it');
