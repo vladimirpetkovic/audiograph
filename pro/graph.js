@@ -1,7 +1,7 @@
 // Audiograph Pro graph model: categorized node catalog, typed ports, validation and migration.
 // Emitter modes by node type: each is one of the original Audiograph renderers.
 export const MODES = {
-  waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['custom','Math']],
+  waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
   waveform3d: [['terrain','Terrain'],['sphere','Sphere'],['tetrahedron','Tetrahedron'],['dna','DNA'],['knot','Knot'],['cube','Cube'],['torus','Torus']],
   gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simboids','Boids'],['simsand','Granular Sand'],['simferro','Ferrofluid'],['simcloner','3D Cloner']]
 };
@@ -35,7 +35,7 @@ const FX=(label,description,props)=>({category:'postfx',label,description,...FX_
 // Renderer nodes: each owns one isolated Audiograph engine. "audio" overrides the project sound; "drive" replaces it with a number.
 const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number'},outputs:{shape:'shape',...outputs},
   props:{...props,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:n('Intensity',100,0,200,5),punch:n('Bass punch',60,0,100,1),release:n('Bass release',220,60,800,10),dynamics:n('Dynamics',50,0,100,1),
-    opts:dict('Options',120,'number'),chips:dict('Choices',60,'string')}});
+    opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}}}});
 const SYMS=[['none','Off'],['x','X'],['y','Y'],['xy','XY'],['r3','3'],['r4','4'],['r6','6'],['r8','8']];
 const LINE_SHAPES=[['straight','Straight'],['rounded','Rounded'],['dotted','Dotted'],['dashed','Dashed'],['pins','Pins'],['tapered','Tapered'],['caps','Caps'],['cross','Cross'],['numbers','Numbers'],['symbols','Symbols'],['words','Words'],['cascade','Cascade'],['off','Off']];
 const PART_SHAPES=[['circle','Circle'],['square','Square'],['star','Star'],['diamond','Diamond'],['ring','Ring'],['triangle','Triangle'],['spark','Spark'],['line','Line'],['numbers','Numbers'],['symbols','Symbols'],['words','Words']];
@@ -120,7 +120,7 @@ export const TYPES = {
   grade:FX('Color correct','Brightness, contrast, saturation, hue.',{brightness:n('Brightness',0,-100,100,1,{key:'pfxBrightness'}),contrast:n('Contrast',10,-100,100,1,{key:'pfxContrast'}),
     saturation:n('Saturation',20,-100,200,1,{key:'pfxSaturation'}),hue:n('Hue',0,-180,180,1,{key:'pfxHue'}),invert:n('Invert',0,0,100,1,{key:'pfxInvert'})}),
   blur:FX('Blur','Directional, radial and focal blur.',{x:n('Blur X',20,0,100,1,{key:'pfxBlurX'}),y:n('Blur Y',0,0,100,1,{key:'pfxBlurY'}),radial:n('Radial',0,0,100,1,{key:'pfxBlurRadial'}),focal:n('Focal area',0,0,100,1,{key:'pfxFocal'})}),
-  lens:FX('Lens','Chromatic aberration, vignette, sharpen, scanlines.',{chroma:n('Chromatic',30,0,100,1,{key:'pfxChroma'}),vignette:n('Vignette',40,0,100,1,{key:'pfxVignette'}),sharpen:n('Sharpen',0,0,100,1,{key:'pfxSharpen'}),scanlines:n('Scanlines',0,0,100,1,{key:'pfxScanlines'})}),
+  lens:FX('Lens','Chromatic aberration, vignette, sharpen, scanlines.',{chroma:n('Chromatic',30,0,100,1,{key:'pfxChroma'}),vignette:n('Vignette',40,0,100,1,{key:'pfxVignette'}),sharpen:n('Sharpen',0,0,100,1,{key:'pfxSharpen'}),grain:n('Grain',0,0,100,1,{key:'pfxGrain'}),scanlines:n('Scanlines',0,0,100,1,{key:'pfxScanlines'})}),
   kaleido:FX('Kaleido','Kaleidoscope and reflection.',{kaleido:n('Kaleido',50,0,100,1,{key:'pfxKaleido'}),reflect:n('Reflect',0,0,100,1,{key:'pfxReflect'})}),
   trails:FX('Trails','Motion trails and zoom feedback.',{trails:n('Trails',60,0,100,1,{key:'pfxTrails'}),feedback:n('Feedback',0,0,100,1,{key:'pfxFeedback'})}),
   fracture:FX('Fracture','Shatter the image along cracks that open on bass and beats.',{
@@ -147,6 +147,15 @@ export const TYPES = {
   // Composite
   background:{category:'composite',label:'Background',description:'A solid or gradient fill.',inputs:{},outputs:{image:'image'},props:{fill:pick('Fill','radial',['flat','vertical','radial']),c1:color('Color A','#0f0f12'),c2:color('Color B','#1c3d30')}},
   blend:{category:'composite',label:'Blend',description:'Combine two images.',inputs:{a:'image',b:'image'},outputs:{image:'image'},primary:['a','b'],props:{mode:pick('Blend mode','screen',['screen','source-over','multiply','difference','lighter','overlay']),mix:n('Mix',.5,0,1,.01)}},
+  merge:{category:'composite',label:'Merge',description:'Stack up to four images (A at the bottom), each with its own opacity.',inputs:{a:'image',b:'image',c:'image',d:'image'},outputs:{image:'image'},primary:['a','b','c','d'],props:{
+    mode:pick('Blend mode','source-over',['source-over','screen','lighter','multiply','difference','overlay'],{labels:[['source-over','Normal'],['screen','Screen'],['lighter','Add'],['multiply','Multiply'],['difference','Difference'],['overlay','Overlay']]}),
+    a:n('Opacity A',1,0,1,.01),b:n('Opacity B',1,0,1,.01),c:n('Opacity C',1,0,1,.01),d:n('Opacity D',1,0,1,.01)}},
+  mask:{category:'composite',label:'Mask',description:'Show the image only where the mask image is drawn (or only where it is not).',inputs:{image:'image',mask:'image'},outputs:{image:'image'},primary:['image','mask'],props:{invert:bool('Invert'),feather:n('Feather',0,0,40,1)}},
+  feedback:{category:'composite',label:'Feedback',description:'Feeds the last frame back under the new one, zoomed and rotated, for tunnels and echoes.',inputs:{image:'image'},outputs:{image:'image'},props:{
+    decay:n('Persistence',.85,0,.98,.01),zoom:n('Zoom',1.03,.85,1.2,.005),rotate:n('Rotate (°)',1,-15,15,.1),hue:n('Hue drift',0,-60,60,1)}},
+  imageTransform:{category:'composite',label:'Image transform',description:'Move, scale, rotate and fade an image.',inputs:{image:'image'},outputs:{image:'image'},props:{
+    scale:n('Scale',1,.1,4,.01),rotate:n('Rotate (°)',0,-180,180,1),x:n('Offset X',0,-100,100,1),y:n('Offset Y',0,-100,100,1),opacity:n('Opacity',1,0,1,.01),spin:n('Spin (°/s)',0,-180,180,1)}},
+  layerIn:{category:'composite',label:'Layer',description:'Another layer’s picture as an image, to remix it here (the previous frame if that layer comes later).',inputs:{},outputs:{image:'image'},props:{layer:n('Layer',1,1,4,1,{noPort:true})}},
   output:{category:'composite',label:'Output',description:'The end of the chain: what this layer shows.',inputs:{image:'image'},outputs:{},props:{}}
 };
 export const EQ_KEYS=['eq32','eq64','eq125','eq250','eq500','eq1k','eq2k','eq4k','eq8k','eq16k'];
@@ -196,7 +205,7 @@ export function layer(index=1) {
 }
 export const VERSION=3;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
-export const LIMITS={layers:4,nodes:60,edges:160,emitters:4};
+export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
 function finite(value,min,max,label) {
   if(typeof value!=='number'||!Number.isFinite(value)||value<min||value>max)throw Error(`${label} must be between ${min} and ${max}`);
@@ -243,7 +252,31 @@ function cleanProp(s,v,label){
     }
     return out;
   }
+  if(s.kind==='look')return cleanLook(v);
   if(typeof v!=='string'||v.length>s.max)throw Error(`Invalid ${label}`);return v;
+}
+// A template look is a set of original layer parameters. Values are plain numbers, booleans, short tokens,
+// colour lists and two small option objects. Math expressions are code in the original renderer, so only
+// the ones shipped with its built-in presets are accepted.
+export const SAFE_FN=new Set(['t * W','t*W','H/2 + Math.sin(t * Math.PI * 4) * H/3 * v','H/2 + Math.sin(t*Math.PI*5 + i*Math.PI) * v * H/3','W/2 + Math.sin(t * Math.PI * 6) * W/3','Math.cos(i*137.508*Math.PI/180) * v * H/2 + H/2']);
+const TOKEN=/^[A-Za-z0-9#_.-]{0,24}$/;
+function lookValue(k,x,depth){
+  if(typeof x==='number'){if(!Number.isFinite(x)||Math.abs(x)>1e6)throw Error('Invalid look value');return x;}
+  if(typeof x==='boolean')return x;
+  if(typeof x==='string'){
+    if(k==='customFnX'||k==='customFnY'){if(!SAFE_FN.has(x))throw Error('Custom math expressions are not imported');return x;}
+    if(k==='textLayoutInput'){if(x.length>40||/[<>]/.test(x))throw Error('Invalid look text');return x;}
+    if(!TOKEN.test(x))throw Error('Invalid look value');return x;
+  }
+  if(Array.isArray(x)){if(depth||x.length>16)throw Error('Invalid look list');return x.map(y=>{if(typeof y==='number'&&Number.isFinite(y))return y;if(typeof y==='string'&&TOKEN.test(y))return y;throw Error('Invalid look list');});}
+  if(x&&typeof x==='object'&&!depth&&(k==='_postFx'||k==='_sim'))return cleanLook(x,1);
+  throw Error('Invalid look value');
+}
+function cleanLook(v,depth=0){
+  if(!v||typeof v!=='object'||Array.isArray(v))throw Error('Invalid template look');
+  const entries=Object.entries(v);if(entries.length>200)throw Error('Template look is too large');
+  const out={};for(const [k,x] of entries){if(!OPT_KEY.test(k))throw Error('Invalid look key');out[k]=lookValue(k,x,depth);}
+  return out;
 }
 // Version 1 (stage 1 prototype): emitter output was "image"; legacy emitter props are dropped.
 // Version 2: one "emitter" type for every renderer and a "spectrum" (EQ gains) port.
@@ -298,7 +331,7 @@ export function validate(input) {
     clean.edges=g.edges.map(e=>{if(!e)throw Error('Invalid connection');return {from:id(e.from),to:id(e.to),out:id(e.out),input:id(e.input)};});
     order(clean);return clean;
   });
-  if(emitters>LIMITS.emitters)throw Error('Limit: four Emitters per project (isolated GPU contexts)');
+  if(emitters>LIMITS.emitters)throw Error(`Limit: ${LIMITS.emitters} renderer nodes per project (each is an isolated GPU engine)`);
   return {format:'audiograph-pro',version:VERSION,layers};
 }
 export function connect(graph,from,out,to,input) {

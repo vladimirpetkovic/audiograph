@@ -1,6 +1,7 @@
 import {TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
+import {ORIGINAL_PRESETS} from './templates.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
 const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
@@ -26,6 +27,8 @@ function reconcile(){
     for(let i=0;i<queue.length;i++)for(const edge of g.edges)if(edge.to===queue[i]&&!needed.has(edge.from)){needed.add(edge.from);queue.push(edge.from);}
     return [g.id,order(g).filter(n=>needed.has(n.id))];
   }));
+  layerReaders=new Set(state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='layerIn').map(n=>state.layers[n.props.layer-1]?.id)).filter(Boolean));
+  for(const id of layerImages.keys())if(!layerReaders.has(id))layerImages.delete(id);
   if(!state.layers.some(g=>g.id===active))active=state.layers[0].id;
   if(!graph().nodes.some(n=>n.id===selected))selected=null;
 }
@@ -252,7 +255,7 @@ function execute(g,time,dt){
         const id=e.input.slice(4),range=engines.get(n.id)?.optRange(jobOf(n),id);
         if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
       }
-      r.shape={emitter:n,mods:{},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
+      r.shape={emitter:n,mods:{},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='camera'&&g.edges.some(e=>e.from===n.id&&e.out!=='shape')){const c=cameraNumbers();r.motion=c.motion;r.brightness=c.brightness;}
     }else switch(n.type){
       case 'value':r.value=p.value;break;
@@ -286,6 +289,24 @@ function execute(g,time,dt){
         if(src)warpQuad(ctx,src,q);if(p.grid==='on')drawPinGrid(ctx,q);r.image=canvas;break;}
       case 'blend':{const a=asImage(need(n,'a','image A'),n.id+'a'),b=asImage(need(n,'b','image B'),n.id+'b'),{canvas,ctx}=surface(n.id);
         if(a)ctx.drawImage(a,0,0);if(b){ctx.globalAlpha=p.mix;ctx.globalCompositeOperation=p.mode;ctx.drawImage(b,0,0);}ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';r.image=canvas;break;}
+      case 'merge':{const {canvas,ctx}=surface(n.id);let any=false;
+        for(const k of ['a','b','c','d']){const v=input(n,k);if(v===undefined)continue;const img=asImage(v,n.id+k);if(!img)continue;
+          ctx.globalAlpha=p[k];ctx.globalCompositeOperation=any?p.mode:'source-over';ctx.drawImage(img,0,0);any=true;}
+        ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';if(!any){nodeErrors.add(n.id);throw Error(`${g.name}: connect an image to Merge`);}r.image=canvas;break;}
+      case 'mask':{const src=asImage(need(n,'image','an image'),n.id+'i'),m=asImage(need(n,'mask','a mask image'),n.id+'m'),{canvas,ctx}=surface(n.id);
+        if(src){ctx.drawImage(src,0,0);if(m){ctx.globalCompositeOperation=p.invert?'destination-out':'destination-in';if(p.feather)ctx.filter=`blur(${p.feather}px)`;ctx.drawImage(m,0,0);ctx.filter='none';ctx.globalCompositeOperation='source-over';}}
+        r.image=canvas;break;}
+      case 'feedback':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
+        const hist=nstate(n.id,()=>{const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;return {c};}),hc=hist.c.getContext('2d');
+        ctx.save();ctx.globalAlpha=p.decay;ctx.translate(WIDTH/2,HEIGHT/2);ctx.rotate(p.rotate*Math.PI/180);ctx.scale(p.zoom,p.zoom);ctx.translate(-WIDTH/2,-HEIGHT/2);
+        if(p.hue)ctx.filter=`hue-rotate(${p.hue}deg)`;ctx.drawImage(hist.c,0,0);ctx.restore();ctx.filter='none';
+        if(src)ctx.drawImage(src,0,0);hc.clearRect(0,0,WIDTH,HEIGHT);hc.drawImage(canvas,0,0);r.image=canvas;break;}
+      case 'imageTransform':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
+        if(src){ctx.globalAlpha=p.opacity;ctx.translate(WIDTH/2+p.x*WIDTH/200,HEIGHT/2+p.y*HEIGHT/200);ctx.rotate((p.rotate+p.spin*time)*Math.PI/180);ctx.scale(p.scale,p.scale);ctx.drawImage(src,-WIDTH/2,-HEIGHT/2);ctx.resetTransform();ctx.globalAlpha=1;}
+        r.image=canvas;break;}
+      case 'layerIn':{const target=state.layers[p.layer-1];if(!target){nodeErrors.add(n.id);throw Error(`${g.name}: there is no layer ${p.layer}`);}
+        if(target.id===g.id){nodeErrors.add(n.id);throw Error(`${g.name}: a Layer node cannot show its own layer`);}
+        r.image=layerImages.get(target.id)||surface(n.id).canvas;break;}
       case 'output':image=asImage(need(n,'image','an image'),n.id);r.image=image;break;
       default:
         if(t.fx){
@@ -331,13 +352,16 @@ function warpQuad(ctx,img,q){
 function drawPinGrid(ctx,q){ctx.save();ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=1.5;
   for(let k=0;k<=8;k++){const t=k/8;ctx.beginPath();ctx.moveTo(...quadPoint(q,t,0));ctx.lineTo(...quadPoint(q,t,1));ctx.moveTo(...quadPoint(q,0,t));ctx.lineTo(...quadPoint(q,1,t));ctx.stroke();}
   ctx.fillStyle='#d2ff3a';for(const p of q){ctx.beginPath();ctx.arc(p[0],p[1],7,0,7);ctx.fill();}ctx.restore();}
+// Layer nodes read other layers' pictures: this frame's if already drawn, otherwise the previous frame's.
+const layerImages=new Map();let layerReaders=new Set();
+function keepLayer(id,image){if(!layerImages.has(id)){const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;layerImages.set(id,c);}const c=layerImages.get(id),x=c.getContext('2d');x.clearRect(0,0,WIDTH,HEIGHT);x.drawImage(image,0,0);}
 function drawThumb(id,src){const cv=thumbs.get(id);if(!cv?.isConnected)return;const c=cv.getContext('2d');c.fillStyle='#000';c.fillRect(0,0,cv.width,cv.height);c.drawImage(src,0,0,cv.width,cv.height);}
 function draw(time,dt=1/30){
   if(pageHidden)return;
   readAudio(time);renderErrors=[];const prevErrors=nodeErrors;nodeErrors=new Set();
   previewCtx.globalAlpha=1;previewCtx.filter='none';previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);
   for(const g of state.layers)if(g.visible&&g.opacity>0){
-    try{const image=execute(g,time,dt);if(image){previewCtx.globalAlpha=g.opacity;previewCtx.globalCompositeOperation=g.blend;previewCtx.drawImage(image,0,0);}}
+    try{const image=execute(g,time,dt);if(image){if(layerReaders.has(g.id))keepLayer(g.id,image);previewCtx.globalAlpha=g.opacity;previewCtx.globalCompositeOperation=g.blend;previewCtx.drawImage(image,0,0);}}
     catch(error){renderErrors.push(error.message);}
   }
   previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';frame++;
@@ -459,7 +483,7 @@ function visiblePorts(g,n){
   if(isEngine(n.type))for(const e of g.edges)if(e.to===n.id&&OPT_PORT.test(e.input))ins.push([e.input,'number']);
   return {ins,outs:Object.entries(t.outputs)};
 }
-const jobOf=n=>({...engineSpec(n),chips:n.props.chips});
+const jobOf=n=>({...engineSpec(n),chips:n.props.chips,look:n.props.look});
 function optLabel(n,key){const r=engines.get(n.id)?.optRange(jobOf(n),key.slice(4));return r?.label||key.slice(4);}
 function portLabel(n,key){return TYPES[n.type].props[key]?.label||(OPT_PORT.test(key)?optLabel(n,key):key);}
 function renderGraph(){
@@ -853,7 +877,48 @@ const TEMPLATES={
   'Webcam mirror':()=>[chain('Mirror',[['audioIn',{}],E('circle'),['webcam',{displace:60}],['symmetry',{mode:'x',mirror:true}],['bloom',{bloom:45}],['output',{}]])],
   'Two layers':()=>[chain('Smoke',[['audioIn',{}],E('simsmoke'),['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['audioIn',{}],E('spiral'),['symmetry',{mode:'x'}],['hue',{cycle:30}],['output',{}]])]
 };
+// The original Audiograph's built-in presets: one renderer per original layer (carrying that layer's look),
+// stacked by Merge nodes over the preset background, then the preset's Post FX as a chain of FX nodes.
+const SOLID_MODELS=['knot','cube','torus'];
+const FX_NODES=[['trails',['pfxTrails','pfxFeedback']],['kaleido',['pfxKaleido','pfxReflect']],['blur',['pfxBlurX','pfxBlurY','pfxBlurRadial','pfxFocal']],
+  ['bloom',['pfxBloom','pfxEdgeGlow']],['grade',['pfxBrightness','pfxContrast','pfxSaturation','pfxHue','pfxInvert']],['lens',['pfxChroma','pfxVignette','pfxSharpen','pfxGrain','pfxScanlines']]];
+const clampProp=(type,key,v)=>{const s=TYPES[type].props[key];return Math.max(s.min,Math.min(s.max,v));};
+function presetGraph(P){
+  const g={id:crypto.randomUUID(),name:P.name,visible:true,opacity:1,blend:'source-over',nodes:[],edges:[]};
+  const add=(type,x,y,props={})=>{const n=node(type,x,y,props);g.nodes.push(n);return n;},wire=(a,out,b,input)=>g.edges.push({from:a.id,out,to:b.id,input});
+  const sound=add('audioIn',40,80);let src=sound,x=260;
+  if(P.eq){const eq={};for(const k of EQ_KEYS)if(P.eq[k]!==undefined)eq[k]=clampProp('spectrum',k,P.eq[k]);src=add('spectrum',x,80,eq);wire(sound,'audio',src,'audio');x+=220;}
+  const bg=add('background',x,80,{fill:'flat',c1:/^#[0-9a-f]{6}$/i.test(P.bg)?P.bg.toLowerCase():'#0f0f12'});
+  const response={};if(P.bass){response.punch=clampProp('waveform2d','punch',P.bass.punch??60);response.release=clampProp('waveform2d','release',P.bass.release??220);}
+  if(P.dynamics!=null)response.dynamics=clampProp('waveform2d','dynamics',P.dynamics);
+  const renderers=P.layers.map((l,i)=>{
+    const look={...l.look};let type,mode=l.layout;
+    if(mode==='object'){type='waveform3d';mode=SOLID_MODELS.includes(look._objModel)?look._objModel:'knot';}
+    else type=Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode));
+    if(!type)throw Error(`${P.name}: unsupported layout ${mode}`);
+    const n=add(type,x,260+i*170,{mode,look,...response});wire(src,'audio',n,'audio');return {n,opacity:(l.opacity??100)/100};
+  });
+  x+=230;
+  // Merge chains: A carries what is below, B–D take the next renderers.
+  let below=bg,y=80;
+  for(let i=0;i<renderers.length;i+=3){
+    const m=add('merge',x,y,{mode:'source-over'});wire(below,'image',m,'a');
+    renderers.slice(i,i+3).forEach((r,k)=>{const port='bcd'[k];m.props[port]=r.opacity;wire(r.n,'shape',m,port);});
+    below=m;x+=220;y+=60;
+  }
+  const fx=P.postFx||{};
+  for(const [type,keys] of FX_NODES){
+    if(!keys.some(k=>fx[k]))continue;
+    const props={};for(const [k,s] of Object.entries(TYPES[type].props))if(s.key)props[k]=clampProp(type,k,fx[s.key]??0);
+    const f=add(type,x,80,props);wire(below,'image',f,'image');below=f;x+=220;
+  }
+  const out=add('output',x,80);wire(below,'image',out,'image');
+  return [g];
+}
+for(const P of ORIGINAL_PRESETS)TEMPLATES[P.name]=()=>presetGraph(P);
+const ORIGINAL_NAMES=ORIGINAL_PRESETS.map(P=>P.name);
 function loadTemplate(name){
+  if(!Object.hasOwn(TEMPLATES,name))throw Error('Unknown template '+name);
   const layers=TEMPLATES[name]();layers.forEach((g,i)=>{if(i===0)g.blend='source-over';});
   importProject({format:'audiograph-pro',version:VERSION,layers},`Template: ${name}`);
 }
@@ -920,7 +985,8 @@ $('snap').onclick=()=>preview.toBlob(blob=>{if(!blob)return message('Snapshot fa
 $('fullscreen').onclick=toggleFullscreen;
 $('pause').onclick=()=>{paused=!paused;lastTime=0;$('pause').textContent=paused?'Resume':'Pause';$('pause').classList.toggle('on',paused);message(paused?'Visuals paused':'Visuals resumed');};
 $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
-for(const name of Object.keys(TEMPLATES)){const o=el('option','',name);o.value=name;$('templates').append(o);}
+for(const [label,names] of [['Audiograph presets',ORIGINAL_NAMES],['Pro starters',Object.keys(TEMPLATES).filter(n=>!ORIGINAL_NAMES.includes(n))]]){
+  const grp=el('optgroup');grp.label=label;for(const name of names){const o=el('option','',name);o.value=name;grp.append(o);}$('templates').append(grp);}
 $('templates').onchange=()=>{const v=$('templates').value;$('templates').value='';if(v)attempt(()=>loadTemplate(v));};
 $('save').onclick=()=>attempt(()=>{localStorage.setItem('audiograph-pro-v2',JSON.stringify(validate(state)));message('Saved in this browser (media files are not stored)');});
 $('restore').onclick=()=>attempt(()=>{const raw=localStorage.getItem('audiograph-pro-v2')||localStorage.getItem('audiograph-pro-v1');if(!raw)throw Error('Nothing saved in this browser yet');importProject(JSON.parse(raw),'Restored saved project');});

@@ -24,7 +24,7 @@ export function setCameraProvider(fn){cameraProvider=fn;}
 const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 // Chips Pro expresses as node types instead (media source, built-in model, OBJ → point cloud).
 const HIDDEN=/setVidSource|setPixelWarpSource|objToPointCloud|setObjModel|setObjLayout/;
-const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',JSON.stringify(job.chips||{})].join('|');
+const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',JSON.stringify(job.chips||{}),job.look&&Object.keys(job.look).length?JSON.stringify(job.look):''].join('|');
 
 // A fake AnalyserNode living in the engine realm. Pro writes freq/wave each frame.
 function fakeAnalyser(audio) {
@@ -92,7 +92,7 @@ export class EmitterEngine {
       w.agSim.reset();this.mode=mode;this.generation++;this.lastText=null;
       if(mode.startsWith('sim')&&!w._agIsSim(mode))throw Error(`${job.mode} is not available in this Audiograph build`);
     }
-    w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(this.defaults);
+    w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(this.withLook(job.look));
     if(mode==='object'){w.objBuiltin=solid?job.mode:(this.mediaKind==='object'?'file':'knot');}
     try{if(mode==='object')w.setObjLayout(w.objBuiltin,null);else w.setLayout(mode,null);}catch(e){console.warn(e);}
     if(job.source){const b=[...(this.container()?.querySelectorAll('.mode-btns button')||[])].find(b=>(b.getAttribute('onclick')||'').includes(job.source));if(b&&!b.classList.contains('on'))try{b.click();}catch(e){console.warn(e);}}
@@ -104,7 +104,15 @@ export class EmitterEngine {
       const b=g.buttons.find(b=>b.textContent.trim()===label);
       if(b&&!b.classList.contains('on'))try{b.click();}catch(e){console.warn(e);}
     }
-    this.base=w.getLayoutParams();this.baseKey=key;return mode;
+    this.base={...this.withLook(job.look),...w.getLayoutParams()};this.baseKey=key;return mode;
+  }
+  // Template looks: original layer parameters on top of the engine defaults (simulations never auto-switch).
+  withLook(look) {
+    if(!look||!Object.keys(look).length)return this.defaults;
+    const p={...this.defaults,...look};
+    if(look._sim)p._sim={...this.defaults._sim,...look._sim,auto:'off'};
+    if(look._postFx)p._postFx=this.w.pfxNorm(look._postFx);
+    return p;
   }
   chipGroups() {
     const box=this.container();if(!box)return [];
