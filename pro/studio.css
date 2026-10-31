@@ -47,7 +47,18 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 .mbtn.on .dot{background:var(--on-tx);opacity:.45}
 
 /* ── layout ─────────────────────────────── */
-.studio{display:grid;grid-template-columns:236px minmax(0,1fr) 300px;min-height:0;min-width:0}
+.studio{--lib-w:236px;--insp-w:300px;position:relative;display:grid;grid-template-columns:var(--lib-w) minmax(0,1fr) var(--insp-w);min-height:0;min-width:0}
+.studio.no-library .library,.studio.no-inspector .inspector{visibility:hidden;padding:0;border:0}
+/* Resize handles: drag to resize, double-click to hide / show. Hidden panels leave a slim bar to grab. */
+.gutter{position:absolute;z-index:30;background:transparent;transition:background .12s;touch-action:none}
+.gutter:hover,.gutter.active{background:var(--accent2)}
+.gutter-col{top:0;bottom:0;width:6px;cursor:col-resize}
+.gutter[data-resize=library]{left:calc(var(--lib-w) - 3px)}.gutter[data-resize=inspector]{right:calc(var(--insp-w) - 3px)}
+.studio.no-library .gutter[data-resize=library],.studio.no-inspector .gutter[data-resize=inspector]{background:var(--border);width:8px}
+.studio.no-library .gutter[data-resize=library]{left:0}.studio.no-inspector .gutter[data-resize=inspector]{right:0}
+.gutter-row{position:relative;flex:none;height:5px;margin:-2px 0;cursor:row-resize}
+.stage.no-preview .preview-wrap{display:none}.stage.no-preview .gutter-row{height:8px;margin:0;background:var(--border)}
+body.resizing{user-select:none}body.resizing iframe,body.resizing canvas{pointer-events:none}
 .library{background:var(--surface);border-right:1px solid var(--border);overflow:auto;padding:10px;min-height:0;display:flex;flex-direction:column;gap:8px}
 #library{display:flex;flex-direction:column;gap:6px}
 .inspector{background:var(--surface);border-left:1px solid var(--border);overflow:auto;padding:12px;min-height:0;min-width:0}
@@ -72,7 +83,7 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 .library-node.hidden{display:none}
 
 /* preview */
-.preview-wrap{position:relative;flex:55 1 0;min-height:120px;display:flex;align-items:center;justify-content:center;background:#000;padding:10px;overflow:hidden}
+.preview-wrap{position:relative;flex:var(--prev-flex,55) 1 0;min-height:120px;display:flex;align-items:center;justify-content:center;background:#000;padding:10px;overflow:hidden}
 #preview{display:block;max-width:100%;max-height:100%;width:auto;height:100%;aspect-ratio:16/9;object-fit:contain;background:#000;box-shadow:0 0 0 1px var(--border)}
 .preview-hud{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;opacity:.35;transition:opacity .2s;z-index:2}
 .pinning .preview-hud{right:auto;left:50%;transform:translateX(-50%)}
@@ -84,7 +95,19 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 #previewWrap:fullscreen:hover .preview-hud{opacity:.8}
 
 /* transport */
-.transport{display:flex;align-items:center;gap:6px;padding:6px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);min-width:0;flex:none}
+.transport{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px;padding:6px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);min-width:0;flex:none}
+.transport-side{display:flex;align-items:center;gap:6px;min-width:0}.transport-side.end{justify-content:flex-end}
+.btn.icon{width:34px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:none}
+.btn.icon svg{width:15px;height:15px;fill:currentColor}
+#play .i-pause,#play.on .i-play{display:none}#play.on .i-pause{display:inline}
+#play.on{color:var(--accent2);border-color:var(--accent2)}
+.btn.rec .i-rec{fill:#ef4444}.btn.rec .i-recstop{display:none;fill:#ef4444}
+.btn.rec.on{width:auto;padding:0 9px;border-color:#ef4444;color:#fca5a5;animation:recpulse 1.2s ease-in-out infinite}
+.btn.rec.on .i-rec{display:none}.btn.rec.on .i-recstop{display:inline}
+.rec-time{font-size:.6rem;font-variant-numeric:tabular-nums}.btn.rec:not(.on) .rec-time{display:none}
+@keyframes recpulse{50%{box-shadow:0 0 0 3px #ef444433}}
+.btn.detach{display:inline-flex;align-items:center;gap:7px;padding:0 14px;height:30px;letter-spacing:.08em}
+.btn.detach svg{width:14px;height:14px}.btn.detach.on{color:var(--accent2);border-color:var(--accent2)}
 #audioName{flex:1;min-width:0;font-size:.6rem;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:none;border:0;padding:2px 4px;text-align:left;cursor:pointer;font-family:inherit;border-radius:3px}
 #audioName:hover{color:var(--tx);background:var(--bg3,rgba(255,255,255,.06))}
 .audio-src{display:flex;gap:6px;flex-wrap:wrap}.audio-src .btn{flex:1}
@@ -95,7 +118,7 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 #audioMeter::-moz-meter-bar{background:var(--accent2)}
 
 /* graph */
-.graph-region{flex:45 1 0;min-height:160px;display:flex;flex-direction:column;min-width:0}
+.graph-region{flex:calc(100 - var(--prev-flex,55)) 1 0;min-height:160px;display:flex;flex-direction:column;min-width:0}
 .graph-head{display:flex;align-items:center;gap:5px;height:34px;padding:0 8px;border-bottom:1px solid var(--border);flex:none;min-width:0}
 .layer-tabs{display:flex;gap:3px;min-width:0;overflow-x:auto;scrollbar-width:none}
 .layer-tabs::-webkit-scrollbar{display:none}
@@ -223,7 +246,7 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 
 /* ── responsive ─────────────────────────────── */
 @media (max-width:1100px){
-  .studio{grid-template-columns:200px minmax(0,1fr) 260px}
+  .studio{--lib-w:200px;--insp-w:260px}
   .graph-hint{visibility:hidden}
   .toolbar{gap:4px}
   .transport{flex-wrap:wrap}
@@ -237,6 +260,8 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
   .toolbar .tbtn{padding:0 7px}
   .logo{font-size:.95rem}
   .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}
+  .gutter{display:none}
+  .studio.no-library .library,.studio.no-inspector .inspector{visibility:visible}.stage.no-preview .preview-wrap{display:flex}
   .library{border-right:0;border-bottom:1px solid var(--border);max-height:220px}
   .stage{min-height:0}
   .preview-wrap{flex:none;height:auto;aspect-ratio:16/9;min-height:0;padding:0}

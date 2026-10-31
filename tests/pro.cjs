@@ -235,6 +235,21 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.equal(await page.locator('#properties .live-value .meter').count(),8,'Eight Computer meters');
       for(const id of Object.values(data.ids))await page.evaluate(id=>{pro.select(id);},id),await page.locator('#deleteNode').click();
     }finally{feed.kill();}
+    // Panels resize by dragging their borders and hide on double-click; transport uses icons; Detach sits in the middle.
+    {const lib0=(await page.locator('.library').boundingBox()).width,g=await page.locator('.gutter[data-resize=library]').boundingBox();
+      await page.mouse.move(g.x+3,g.y+200);await page.mouse.down();await page.mouse.move(g.x+83,g.y+200,{steps:5});await page.mouse.up();
+      assert.ok(Math.abs((await page.locator('.library').boundingBox()).width-(lib0+80))<4,'Dragging the library border widens it');
+      const pv0=(await page.locator('#previewWrap').boundingBox()).height,r=await page.locator('.gutter-row').boundingBox();
+      await page.mouse.move(r.x+300,r.y+2);await page.mouse.down();await page.mouse.move(r.x+300,r.y-60,{steps:5});await page.mouse.up();
+      assert.ok((await page.locator('#previewWrap').boundingBox()).height<pv0-40,'Dragging the preview border shrinks the preview');
+      await page.locator('.gutter[data-resize=inspector]').dblclick();
+      assert.ok(await page.evaluate(()=>pro.layout().hidden.inspector)&&(await page.locator('.inspector').boundingBox()).width<2,'Double-click hides properties');
+      await page.locator('.gutter[data-resize=inspector]').dblclick();assert.ok((await page.locator('.inspector').boundingBox()).width>200,'Double-click brings properties back');
+      for(const id of ['play','stop','record','snap'])assert.equal(await page.locator(`#${id} svg`).count(),1,id+' has an icon');
+      assert.match(await page.locator('#output').textContent(),/Detach/);
+      const t=await page.locator('.transport').boundingBox(),d=await page.locator('#output').boundingBox();
+      assert.ok(Math.abs(d.x+d.width/2-(t.x+t.width/2))<t.width*.15,'Detach is centred in the transport bar');
+      await page.evaluate(()=>{localStorage.removeItem('agpro.layout');});}
     // Two-finger trackpad scroll pans the graph vertically (pixel deltas), pinch zooms.
     {const vp=await page.locator('#graphViewport').boundingBox(),before=await page.evaluate(()=>pro.view());
       await page.evaluate(([x,y])=>document.getElementById('graphViewport').dispatchEvent(new WheelEvent('wheel',{deltaY:37.5,deltaMode:0,clientX:x,clientY:y,bubbles:true,cancelable:true})),[vp.x+50,vp.y+50]);

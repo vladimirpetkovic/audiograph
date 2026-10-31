@@ -126,7 +126,7 @@ async function ensureRunning(){
 }
 function stopAudio(keepOffset=false){
   if(audio.source){audio.source.onended=null;try{audio.source.stop();}catch{}audio.source.disconnect();if(keepOffset)audio.offset+=audio.context.currentTime-audio.startedAt;audio.source=null;}
-  if(!keepOffset)audio.offset=0;$('play').textContent='Play';$('play').classList.remove('on');
+  if(!keepOffset)audio.offset=0;$('play').classList.remove('on');$('play').setAttribute('aria-label','Play');
 }
 // Source buttons live in the Audio node's inspector, so they may not exist right now.
 function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:'Demo beat';}
@@ -146,8 +146,8 @@ async function play(){
   stopLive();unlockAudio();audio.monitor.gain.value=1;
   const source=audio.context.createBufferSource();source.buffer=audio.buffer;source.connect(audio.analyser);audio.source=source;
   const offset=audio.offset%audio.buffer.duration;audio.startedAt=audio.context.currentTime;audio.offset=offset;
-  source.onended=()=>{if(audio.source===source){audio.source=null;audio.offset=0;$('play').textContent='Play';$('play').classList.remove('on');}};
-  source.start(0,offset);$('play').textContent='Pause';$('play').classList.add('on');message('Playing '+audio.name);updateAudioUI();
+  source.onended=()=>{if(audio.source===source){audio.source=null;audio.offset=0;$('play').classList.remove('on');$('play').setAttribute('aria-label','Play');}};
+  source.start(0,offset);$('play').classList.add('on');$('play').setAttribute('aria-label','Pause');message('Playing '+audio.name);updateAudioUI();
   await ensureRunning();
 }
 async function startLive(kind,getStream){
@@ -1044,8 +1044,8 @@ function toggleRecord(){
   const type=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t));
   recorder=new MediaRecorder(stream,{mimeType:type,videoBitsPerSecond:12e6});chunks=[];
   recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-  recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.${type.includes('mp4')?'mp4':'webm'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);recorder=null;$('record').classList.remove('on');$('record').textContent='Rec';message('Recording saved');};
-  recorder.start(500);$('record').classList.add('on');$('record').textContent='Stop rec';message('Recording… press Stop rec to save');
+  recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.${type.includes('mp4')?'mp4':'webm'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);recorder=null;clearInterval(recClock);$('record').classList.remove('on');$('record').setAttribute('aria-label','Record');message('Recording saved');};
+  recorder.start(500);$('record').classList.add('on');$('record').setAttribute('aria-label','Stop recording');{const t0=performance.now(),tm=$('record').querySelector('.rec-time'),tick=()=>{const s=Math.floor((performance.now()-t0)/1000);tm.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};tick();clearInterval(recClock);recClock=setInterval(tick,500);}message('Recording… press Rec again to save');
 }
 function toggleFullscreen(){if(document.fullscreenElement)document.exitFullscreen();else $('previewWrap').requestFullscreen?.().catch(e=>message(e.message,true));}
 
@@ -1059,6 +1059,7 @@ $('audioName').onclick=()=>{
 };
 $('play').onclick=()=>play().catch(e=>message(e.message,true));
 $('stop').onclick=()=>{stopAudio();stopLive();updateAudioUI();message('Audio stopped');};
+let recClock=0;
 $('record').onclick=()=>attempt(toggleRecord);
 // With a Corner pin selected, its corners can be dragged directly on the preview.
 const PIN_KEYS=[['tlx','tly',0,0],['trx','try',100,0],['brx','bry',100,100],['blx','bly',0,100]];
@@ -1089,7 +1090,8 @@ $('output').onclick=()=>{
   const v=d.createElement('video');v.muted=true;v.autoplay=true;v.playsInline=true;v.style.cssText='width:100vw;height:100vh;object-fit:contain;display:block';
   v.srcObject=preview.captureStream(60);d.body.append(v);v.play().catch(()=>{});
   v.ondblclick=()=>d.fullscreenElement?d.exitFullscreen():d.documentElement.requestFullscreen().catch(()=>{});
-  outWin.addEventListener('pagehide',()=>{v.srcObject?.getTracks().forEach(t=>t.stop());outWin=null;});
+  $('output').classList.add('on');
+  outWin.addEventListener('pagehide',()=>{v.srcObject?.getTracks().forEach(t=>t.stop());outWin=null;$('output').classList.remove('on');});
   message('Output window open · move it to the projector and double-click for fullscreen');
 };
 addEventListener('pagehide',()=>{if(outWin&&!outWin.closed)outWin.close();});
@@ -1166,8 +1168,44 @@ setInterval(()=>{
   }
   const out=lastValues.get(n.id);v.textContent=out!==undefined?`Now: ${out.toFixed(3)}`:'Not connected to an Output yet';
 },200);
+// ---------- resizable panels ----------
+// Drag a border to resize the library, properties or the preview / graph split; drag it nearly shut (or
+// double-click it) to hide that panel, and double-click the slim bar to bring it back. Sizes persist.
+const LAYOUT_KEY='agpro.layout',studio=document.querySelector('.studio'),stage=document.querySelector('.stage');
+const PANES={library:{min:150,max:520,def:236},inspector:{min:220,max:640,def:300}};
+let layout={library:236,inspector:300,preview:55,hidden:{}};
+try{layout={...layout,...JSON.parse(localStorage.getItem(LAYOUT_KEY)||'{}')};layout.hidden={...(layout.hidden||{})};}catch{}
+function applyLayout(save=true){
+  for(const [k,c] of Object.entries(PANES)){layout[k]=Math.max(c.min,Math.min(c.max,+layout[k]||c.def));studio.style.setProperty(k==='library'?'--lib-w':'--insp-w',layout.hidden[k]?'0px':layout[k]+'px');studio.classList.toggle('no-'+k,!!layout.hidden[k]);}
+  layout.preview=Math.max(12,Math.min(88,+layout.preview||55));stage.style.setProperty('--prev-flex',layout.preview);stage.classList.toggle('no-preview',!!layout.hidden.preview);
+  if(save)try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));}catch{}
+  requestAnimationFrame(renderWires);
+}
+function togglePane(k){layout.hidden[k]=!layout.hidden[k];applyLayout();}
+for(const g of document.querySelectorAll('.gutter')){
+  const k=g.dataset.resize;
+  g.ondblclick=()=>togglePane(k);
+  g.onpointerdown=e=>{
+    if(e.button!==0)return;e.preventDefault();g.setPointerCapture(e.pointerId);g.classList.add('active');document.body.classList.add('resizing');
+    const sr=studio.getBoundingClientRect(),st=stage.getBoundingClientRect();
+    const move=ev=>{
+      if(k==='preview'){
+        const y=ev.clientY-st.top,pct=y/st.height*100;
+        if(pct<8){layout.hidden.preview=true;}else{layout.hidden.preview=false;layout.preview=pct;}
+      }else{
+        const w=k==='library'?ev.clientX-sr.left:sr.right-ev.clientX;
+        if(w<PANES[k].min*.5)layout.hidden[k]=true;else{layout.hidden[k]=false;layout[k]=w;}
+      }
+      applyLayout(false);
+    };
+    const end=()=>{g.classList.remove('active');document.body.classList.remove('resizing');g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',end);g.removeEventListener('pointercancel',end);applyLayout();};
+    g.addEventListener('pointermove',move);g.addEventListener('pointerup',end);g.addEventListener('pointercancel',end);
+  };
+}
+applyLayout(false);
+new ResizeObserver(()=>renderWires()).observe($('graphViewport'));
 window.pro={
-  getProject:()=>clone(state),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
+  getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;renderUI();},selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),

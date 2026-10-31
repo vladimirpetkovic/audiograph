@@ -103,9 +103,13 @@ process the finished image.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
 - **Templates, Save/Restore** (in this browser), **Export/Import** JSON, and
-  **Rec** records the preview with audio to WebM, and **Snap** saves a PNG.
-  **Output** opens the live picture in its own window for a projector or second
-  display (double-click it for fullscreen).
+  The transport has icon buttons: **Play/Pause**, **Stop**, **Rec** (records the
+  preview with audio to WebM and shows elapsed time), and **Snap** (saves a PNG).
+  **Detach**, in the middle of the transport, opens the live picture in its own
+  window for a projector or second display (double-click it for fullscreen).
+- **Panels**: drag the borders between the library, preview, graph and
+  properties to resize them. Drag a border nearly closed or double-click it to
+  hide that panel, and double-click again to bring it back. The layout is saved in this browser.
 
 ## Engine
 
