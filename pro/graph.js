@@ -9,7 +9,8 @@ export const emitterNames = Object.fromEntries(Object.values(MODES).flat());
 
 export const CATEGORIES = [
   {id:'inputs',label:'Inputs',color:'#5eead4',hint:'Sound, pictures, camera, text and 3D you bring in'},
-  {id:'emitters',label:'Emitters',color:'#f59e0b',hint:'Waveforms and particles from Audiograph'},
+  {id:'waveforms',label:'Waveforms',color:'#f59e0b',hint:'Audio-reactive line patterns, flat and 3D'},
+  {id:'emitters',label:'Emitters',color:'#fb7185',hint:'Particles: classic and native WebGPU simulations'},
   {id:'geometry',label:'Geometry & Motion',color:'#8aa2ff',hint:'Lines, transform, motion, symmetry'},
   {id:'deformers',label:'Deformers',color:'#c084fc',hint:'Bend the shape'},
   {id:'color',label:'Color',color:'#f472b6',hint:'Palettes and hue'},
@@ -63,9 +64,9 @@ export const TYPES = {
   text:ENGINE('inputs','Text','Your words drawn as audio-reactive lines.',{text:text('Text','AUDIOGRAPH')}),
   object:ENGINE('inputs','3D Object','An OBJ model (the built-in knot until you load one), as a mesh or as a point cloud.',{render:pick('Render','mesh',['mesh','cloud'],{labels:[['mesh','Mesh'],['cloud','Point cloud']]})}),
   splat:ENGINE('inputs','Gaussian Splat','A .ply / .splat point cloud that reacts to the sound (a demo cloud until you load one).',{}),
-  // Emitters
-  waveform2d:ENGINE('emitters','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d})},{},'Waveforms 2D'),
-  waveform3d:ENGINE('emitters','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d})},{},'Waveforms 3D'),
+  // Waveforms and Emitters (particles)
+  waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d})},{},'2D'),
+  waveform3d:ENGINE('waveforms','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d})},{},'3D'),
   gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke, flocks, sand, ferrofluid, 3D cloner.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
   // Geometry & Motion
   lines:{category:'geometry',label:'Lines',description:'Density, height and thickness of the drawn lines.',...SHAPE_IO,props:{

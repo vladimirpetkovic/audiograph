@@ -20,11 +20,12 @@ each with its own opacity and blend mode (up to four).
     **motion** and **brightness**.
   - **Text**, **3D Object** (built-in knot or your OBJ, as a mesh or a
     **point cloud**), **Gaussian Splat** (.ply / .splat, demo cloud by default).
-- **Emitters** (generated visuals): **Waveforms 2D** (Linear, Circle, Spiral,
-  Harmonic, Math…), **Waveforms 3D** (Terrain, Sphere, DNA, Knot…),
-  **Particles** (Particles, Flow field) and **WebGPU particles** (Particles,
-  Fluid, Smoke, Boids, Granular sand, Ferrofluid, 3D cloner).
-  Visual inputs and emitters show the original's own options in the inspector
+- **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…) and **3D**
+  (Terrain, Sphere, DNA, Knot…).
+- **Emitters** (particles): **Particles** (Particles, Flow field) and **WebGPU
+  particles** (Particles, Fluid, Smoke, Boids, Granular sand, Ferrofluid, 3D
+  cloner).
+  Visual inputs, waveforms and WebGPU emitters show the original's own options in the inspector
   (knobs and choice chips, including presets) plus its audio response
   (Intensity, Bass punch, Bass release, Dynamics). They take `audio` and `drive`
   inputs and give a `shape` output.
@@ -50,7 +51,7 @@ each with its own opacity and blend mode (up to four).
   in an audio wire and reshapes what follows it.
 - **Composite**: Background (flat, vertical, radial), Blend, Output.
 
-Audio → Input or Emitter → shape nodes → Post FX → Output. Audio wires are lime.
+Audio → Input, Waveform or Emitter → shape nodes → Post FX → Output. Audio wires are lime.
 Shape nodes (amber wires) change *how it draws*. Post FX nodes (blue wires)
 process the finished image.
 

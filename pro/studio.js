@@ -397,9 +397,9 @@ function renderLibrary(){
   const root=$('library');root.replaceChildren();
   for(const cat of CATEGORIES){
     const types=Object.keys(TYPES).filter(t=>TYPES[t].category===cat.id);
-    if(cat.id==='emitters'){
-      const items=emitterItems(),{root:pr,body}=ui.panel({id:cat.id,title:cat.label,color:cat.color,count:items.length});
-      for(const group of EMITTER_GROUPS){
+    if(GROUPS[cat.id]){
+      const items=groupedItems(cat.id),{root:pr,body}=ui.panel({id:cat.id,title:cat.label,color:cat.color,count:items.length});
+      for(const group of GROUPS[cat.id]){
         const list=items.filter(it=>it.group===group);if(!list.length)continue;
         body.append(el('div','lib-sub',group));
         const box=el('div','chips');for(const it of list)box.append(libraryButton(it.type,it.label,it.description,it.props,cat.color));
@@ -412,13 +412,13 @@ function renderLibrary(){
     body.append(box);root.append(pr);
   }
 }
-// Emitters are listed per mode: each waveform / simulation is its own library entry.
-const EMITTER_GROUPS=['Waveforms 2D','Waveforms 3D','Particles','WebGPU particles'];
-function emitterItems(){
+// Waveforms and Emitters are listed per mode: each waveform / simulation is its own library entry.
+const GROUPS={waveforms:['2D','3D'],emitters:['Particles','WebGPU particles']};
+function groupedItems(cat){
   const items=[];
-  for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category==='emitters')){
+  for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat)){
     const T=TYPES[t],group=T.group||'Particles';
-    if(MODES[t])for(const [mode,label] of MODES[t])items.push({type:t,props:{mode},label,group,description:`${label} · ${T.group}. ${T.description}`});
+    if(MODES[t])for(const [mode,label] of MODES[t])items.push({type:t,props:{mode},label,group,description:`${label} · ${T.label}. ${T.description}`});
     else items.push({type:t,props:{},label:T.label,group,description:T.description});
   }
   return items;
@@ -442,7 +442,7 @@ $('librarySearch').addEventListener('input',()=>{
 function summary(n){
   const p=n.props,t=TYPES[n.type];
   if(n.type==='audioIn')return sourceName();
-  if(MODES[n.type])return t.group;
+  if(MODES[n.type])return t.label;
   if(n.type==='text')return p.text;
   if(isEngine(n.type)){const m=engines.get(n.id)?.mediaName,r=t.props.render?.labels.find(l=>l[0]===p.render)?.[1];return [r,m||(MEDIA_KIND[n.type]?(n.type==='object'?'built-in knot':n.type==='splat'?'demo cloud':'no file'):'')].filter(Boolean).join(' · ');}
   if(n.type==='value')return String(p.value);
@@ -541,7 +541,7 @@ const pointer={x:0,y:0,inGraph:false};
 function searchItems(){
   const items=[];
   for(const cat of CATEGORIES){
-    if(cat.id==='emitters'){for(const it of emitterItems())items.push({type:it.type,props:it.props,label:it.label,cat:`Emitters · ${it.group}`,color:cat.color,text:`${it.label} ${it.group} emitter ${it.description}`});continue;}
+    if(GROUPS[cat.id]){for(const it of groupedItems(cat.id))items.push({type:it.type,props:it.props,label:it.label,cat:`${cat.label} · ${it.group}`,color:cat.color,text:`${it.label} ${cat.label} ${it.group} ${it.description}`});continue;}
     for(const t of Object.keys(TYPES))if(TYPES[t].category===cat.id)items.push({type:t,props:{},label:TYPES[t].label,cat:cat.label,color:cat.color,text:`${TYPES[t].label} ${cat.label} ${TYPES[t].description}`});
   }
   return items;
@@ -727,7 +727,7 @@ function renderAudioSource(root){
   load.addEventListener('click',unlockAudio);f.onchange=()=>{const file=f.files[0];if(file)loadAudioFile(file);};
   const mic=el('button','btn','Mic');mic.id='mic';mic.type='button';mic.title='Use the microphone';mic.onclick=()=>toggleMic().catch(e=>audioError('Mic',e));
   const sys=el('button','btn','System');sys.id='system';sys.type='button';sys.title='React to whatever your computer plays (desktop Chrome / Edge: share the screen or a tab with audio)';sys.onclick=()=>toggleSystem().catch(e=>audioError('System audio',e));
-  row.append(load,mic,sys);s.append(row,el('p','insp-note audio-source'),el('p','insp-note','Every Audio node hears this one source. Wire “audio” into emitters or an Audio EQ; bass, mids, high, level and beat are numbers for any knob.'));
+  row.append(load,mic,sys);s.append(row,el('p','insp-note audio-source'),el('p','insp-note','Every Audio node hears this one source. Wire “audio” into visual inputs, waveforms, emitters or an Audio EQ; bass, mids, high, level and beat are numbers for any knob.'));
   updateAudioUI();
 }
 async function loadAudioFile(file){
@@ -743,7 +743,7 @@ function useSplatFile(n,e,res){
   edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);if(cloud)x.props.chips={...x.props.chips,[cloud.key]:'Loaded file'};if(res?.flip)x.props.opts={...x.props.opts,pGsRX:180};},'Gaussian Splat: loaded file');
 }
 function renderEmitter(root,n){
-  const T=TYPES[n.type],s=section(root,T.group||'Source');
+  const T=TYPES[n.type],s=section(root,MODES[n.type]?T.label:'Source');
   if(MODES[n.type]){
     const sel=el('select');sel.dataset.property='mode';sel.setAttribute('aria-label',T.props.mode.label);
     for(const [id,label] of MODES[n.type]){const o=el('option','',label);o.value=id;sel.append(o);}
@@ -928,7 +928,7 @@ $('export').onclick=()=>attempt(()=>{const blob=new Blob([JSON.stringify(validat
 $('import').onchange=async()=>{try{const file=$('import').files[0];if(!file)return;if(file.size>1024*1024)throw Error('Project JSON limit is 1 MB');importProject(JSON.parse(await file.text()));}catch(error){message('Import: '+error.message,true);}finally{$('import').value='';}};
 $('helpBody').innerHTML=`
 <p>Build visuals by chaining nodes. Every graph is one <b>layer</b>; layers stack in the preview using each layer's blend mode.</p>
-<p><b>Inputs</b> are what you bring in: the <b>Audio</b> source, an Image, Video, Camera, Text, 3D Object or Gaussian Splat. <b>Emitters</b> are generated visuals: 2D and 3D Waveforms, Particles and WebGPU particle simulations. Every visual input and emitter has a <span style="color:${PORT_COLORS.shape}">shape</span> output that flows through <b>Geometry</b>, <b>Deformer</b>, <b>Color</b> and <b>Style</b> nodes, which change how it draws. <b>Post FX</b> nodes process the finished <span style="color:${PORT_COLORS.image}">image</span>. End every chain in <b>Output</b>.</p>
+<p><b>Inputs</b> are what you bring in: the <b>Audio</b> source, an Image, Video, Camera, Text, 3D Object or Gaussian Splat. <b>Waveforms</b> are audio-reactive line patterns (2D and 3D). <b>Emitters</b> are particles: classic Particles / Flow field and the native WebGPU simulations. Every visual input, waveform and emitter has a <span style="color:${PORT_COLORS.shape}">shape</span> output that flows through <b>Geometry</b>, <b>Deformer</b>, <b>Color</b> and <b>Style</b> nodes, which change how it draws. <b>Post FX</b> nodes process the finished <span style="color:${PORT_COLORS.image}">image</span>. End every chain in <b>Output</b>.</p>
 <p><b>Quick build:</b> select a node, then click a node in the library. It is inserted right after the selection.</p>
 <p><b>Drive any knob:</b> drag from a <span style="color:${PORT_COLORS.number}">number</span> output (Audio bass / beat, LFO, Random, Camera motion…) onto a node and pick the knob. 0 keeps the knob setting, 1 pushes it to the maximum.</p>
 <p><b>Audio:</b> select an <b>Audio</b> node (or click the source name in the transport) to load a file, use the Mic or System audio. Without audio, a demo beat plays. Its <span style="color:${PORT_COLORS.audio}">audio</span> wire feeds emitters; put an <b>Audio EQ</b> in the wire to reshape what one emitter hears. Connecting a number to an emitter's <b>drive</b> replaces the music for that emitter.</p>
