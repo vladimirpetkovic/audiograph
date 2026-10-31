@@ -1,4 +1,4 @@
-import {TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,GEO_PROPS,geoMods,geoFromLook,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 import {ORIGINAL_PRESETS} from './templates.js';
@@ -231,6 +231,7 @@ function execute(g,time,dt){
   const input=(n,key)=>{const e=byInput.get(n.id+':'+key);return e?outputs.get(e.from)?.[e.out]:undefined;};
   const props=n=>{
     const p={...n.props};
+    if(n.auto)for(const k of n.auto){const s=TYPES[n.type].props[k];if(s){p[k]=autoDrift(s,p[k],n.id+k,autoClock);autoValues.set(n.id+':'+k,p[k]);}}
     for(const [k,s] of Object.entries(TYPES[n.type].props))if(s.kind==='number'&&!s.noPort&&byInput.has(n.id+':'+k))p[k]=modulate(s,p[k],input(n,k));
     return p;
   };
@@ -251,11 +252,13 @@ function execute(g,time,dt){
       if(driven){const d=driveSpectrum(Math.max(0,input(n,'drive')??0),time);freq=d.freq;wave=d.wave;}
       const lvl=driven?Math.max(0,input(n,'drive')??0):sig.bands.bass,spec=engineSpec(n);
       let opts=p.opts;
+      if(n.auto)for(const k of n.auto){if(!k.startsWith('opt:'))continue;const id=k.slice(4),range=engines.get(n.id)?.optRange(jobOf(n),id);
+        if(range){if(opts===p.opts)opts={...opts};opts[id]=autoDrift(range,opts[id]??range.value,n.id+k,autoClock);autoValues.set(n.id+':'+k,opts[id]);}}
       for(const e of g.edges)if(e.to===n.id&&OPT_PORT.test(e.input)){
         const id=e.input.slice(4),range=engines.get(n.id)?.optRange(jobOf(n),id);
         if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
       }
-      r.shape={emitter:n,mods:{},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
+      r.shape={emitter:n,mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='camera'&&g.edges.some(e=>e.from===n.id&&e.out!=='shape')){const c=cameraNumbers();r.motion=c.motion;r.brightness=c.brightness;}
     }else switch(n.type){
       case 'value':r.value=p.value;break;
@@ -356,8 +359,15 @@ function drawPinGrid(ctx,q){ctx.save();ctx.strokeStyle='rgba(255,255,255,.75)';c
 const layerImages=new Map();let layerReaders=new Set();
 function keepLayer(id,image){if(!layerImages.has(id)){const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;layerImages.set(id,c);}const c=layerImages.get(id),x=c.getContext('2d');x.clearRect(0,0,WIDTH,HEIGHT);x.drawImage(image,0,0);}
 function drawThumb(id,src){const cv=thumbs.get(id);if(!cv?.isConnected)return;const c=cv.getContext('2d');c.fillStyle='#000';c.fillRect(0,0,cv.width,cv.height);c.drawImage(src,0,0,cv.width,cv.height);}
+// Auto knobs: a shared clock (scaled by the Auto speed) and the drifted values shown on the knobs.
+let autoClock=0,knobAutoSpeed=1;const autoValues=new Map();
+function showAutoKnobs(){
+  if(!selected)return;
+  for(const b of document.querySelectorAll('#properties .knob.auto')){const k=b.querySelector('.knob-auto')?.dataset.auto;const v=autoValues.get(selected+':'+k);if(v!==undefined)b.show?.(v);}
+}
 function draw(time,dt=1/30){
   if(pageHidden)return;
+  if(!paused)autoClock+=dt*knobAutoSpeed;
   readAudio(time);renderErrors=[];const prevErrors=nodeErrors;nodeErrors=new Set();
   previewCtx.globalAlpha=1;previewCtx.filter='none';previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);
   for(const g of state.layers)if(g.visible&&g.opacity>0){
@@ -365,7 +375,7 @@ function draw(time,dt=1/30){
     catch(error){renderErrors.push(error.message);}
   }
   previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';frame++;
-  if(frame%2===0)drawSpectrum();
+  if(frame%2===0){drawSpectrum();showAutoKnobs();}
   $('audioMeter').value=A.bands.full;
   const list=[...engines.values()],starting=list.some(e=>e.status==='starting');
   $('backend').textContent=starting?'Starting engines…':[...new Set(list.map(e=>e.backend||(e.status==='ready'?'Canvas2D':e.status)))].join(' / ')||'No Emitters';
@@ -450,7 +460,7 @@ function groupedItems(cat){
 function libraryButton(type,label,description,props,color){
   const b=el('button','mbtn library-node');b.type='button';b.draggable=true;b.dataset.type=type;if(props.mode)b.dataset.mode=props.mode;
   b.title=description+(isChain(type)?' · Click to insert after the selected node.':'');b.style.setProperty('--cat',color);
-  b.append(el('span','dot'),document.createTextNode(label));
+  b.append(document.createTextNode(label));
   b.addEventListener('dragstart',e=>e.dataTransfer.setData('application/audiograph-node',JSON.stringify({type,props})));
   b.onclick=()=>addNode(type,undefined,undefined,props);
   return b;
@@ -606,7 +616,7 @@ function openSearch(){
     shown=rankItems(items,input.value).slice(0,40);active=Math.min(active,Math.max(0,shown.length-1));list.replaceChildren();
     if(!shown.length)list.append(el('div','node-search-empty','No match'));
     shown.forEach((it,i)=>{const b=el('button','node-search-item'+(i===active?' active':''));b.type='button';b.setAttribute('role','option');b.style.setProperty('--cat',it.color);
-      b.append(el('span','dot'),el('span','ns-label',it.label),el('span','ns-cat',it.cat));
+      b.append(el('span','ns-label',it.label),el('span','ns-cat',it.cat));
       b.onpointerdown=e=>e.preventDefault();b.onclick=()=>pick(it);list.append(b);});
     list.querySelector('.active')?.scrollIntoView({block:'nearest'});
   };
@@ -673,18 +683,39 @@ function fit(){
 
 // ---------- inspector ----------
 function section(root,label){const s=el('div','insp-section');if(label)s.append(el('div','insp-label',label));root.append(s);return s;}
+// Collapsible inspector group; its open state is remembered per group name.
+function fold(root,label,open=true){
+  const s=el('div','insp-section insp-fold'),key='agpro.fold.'+label,saved=localStorage.getItem(key);
+  const head=el('button','insp-label insp-fold-head',label);head.type='button';s.dataset.group=label;
+  const body=el('div','insp-fold-body');s.append(head,body);
+  const set=v=>{s.classList.toggle('closed',!v);head.setAttribute('aria-expanded',v?'true':'false');};
+  set(saved===null?open:saved==='1');head.onclick=()=>{const v=s.classList.contains('closed');set(v);try{localStorage.setItem(key,v?'1':'0');}catch{}};
+  root.append(s);return body;
+}
+// Renderer option knobs (read from the original's panels) are sorted into groups by their label.
+const OPT_GROUPS=[['Setup',/preset|^emitter$|bound|source|model|^type|mode|shape|cloud|scene/i],['Sound',/sensitiv|attack|release|audio|sound|bass|energy|beat|spectrum|react|loud/i],
+  ['Emission',/amount|lifetime|life|size|launch|emit|jet|spawn|count|density|rate|particles|radius/i],['Forces',/drag|gravity|pull|swirl|spin|turbul|curl|flow|wind|speed|attract|viscos|vortic|force|cohes|align|separ|noise|friction|damp|pressure|diffus/i],
+  ['Look',/trail|bloom|exposure|glow|colou?r|opacity|contrast|saturat|hue|fade|bright|light|shad|edge|thick|point/i],['Quality',/quality|precision|budget|simulation|time ?scale|step|resolution|iteration|detail/i]];
+const optGroup=label=>(OPT_GROUPS.find(([,re])=>re.test(label||''))||['Form'])[0];
 function setProp(n,key,value,label){return edit((p,g)=>{g.nodes.find(x=>x.id===n.id).props[key]=value;},`${TYPES[n.type].label}: ${label}`);}
+function autoOpts(n,key,s){
+  if(s&&(s.kind!=='number'||s.noPort))return {};
+  return {auto:!!n.auto?.includes(key),onAuto:on=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id),a=new Set(x.auto||[]);on?a.add(key):a.delete(key);if(a.size)x.auto=[...a];else delete x.auto;},`${s?.label||'Knob'}: auto ${on?'on':'off'}`)};
+}
 function propControl(n,key,s,connected){
   const set=v=>setProp(n,key,v,s.label);
-  if(s.kind==='number')return ui.knob({label:s.label,min:s.min,max:s.max,step:s.step,value:n.props[key],def:s.value,property:key,modulated:connected,
+  if(s.kind==='number')return ui.knob({label:s.label,min:s.min,max:s.max,step:s.step,value:n.props[key],def:s.value,property:key,modulated:connected,...autoOpts(n,key,s),
     onInput:v=>live(st=>{const x=findNode(n.id);if(x)x.props[key]=v;}),onChange:()=>liveCommit(`${TYPES[n.type].label}: ${s.label}`)});
   if(s.kind==='select')return ui.chips({options:s.labels||s.choices.map(c=>[c,c]),value:n.props[key],property:key,onChange:set});
   if(s.kind==='bool')return ui.field(s.label,ui.toggle({value:n.props[key],property:key,onChange:set}));
   if(s.kind==='color')return ui.colorField({label:s.label,value:n.props[key],property:key,onChange:v=>live(()=>{findNode(n.id).props[key]=v;})});
   if(s.kind==='text'){const i=el('input');i.type='text';i.maxLength=s.max;i.value=n.props[key];i.dataset.property=key;i.onchange=()=>set(i.value);return ui.field(s.label,i);}
 }
-function renderProps(root,n,keys){
+function renderProps(root,n,keys,folded){
   const t=TYPES[n.type],g=graph(),wired=k=>g.edges.some(e=>e.to===n.id&&e.input===k);
+  // Grouped props (spec.group) go into collapsible sections after the ungrouped ones.
+  const groups=new Map();if(!folded)for(const k of keys){const gr=t.props[k]?.group;if(gr){if(!groups.has(gr))groups.set(gr,[]);groups.get(gr).push(k);}}
+  if(groups.size){renderProps(root,n,keys.filter(k=>!t.props[k]?.group),true);for(const [gr,ks] of groups)renderProps(fold(root,gr),n,ks,true);return;}
   let grid=null,sec=section(root,null);
   for(const k of keys){
     const s=t.props[k],c=propControl(n,k,s,wired(k));if(!c)continue;
@@ -783,24 +814,32 @@ function renderEmitter(root,n){
     f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);message('Loaded '+f.files[0].name);renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
     s.append(ui.field(`Load ${kind==='object'?'OBJ':kind==='splat'?'.ply / .splat':kind}`,f),el('p','insp-note',engines.get(n.id)?.mediaName?`Loaded: ${engines.get(n.id).mediaName} (not saved in projects)`:'Media files are not saved in projects.'));
   }
-  const d=section(root,'Response');
+  const wiredOf=k=>graph().edges.some(e=>e.to===n.id&&e.input===k);
+  const geo={};for(const k of Object.keys(GEO_PROPS))if(T.props[k]){const gr=T.props[k].group;if(gr==='Lines'&&(n.type==='gpuParticles'||n.type==='splat'))continue;(geo[gr]||=[]).push(k);}
+  for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr,gr!=='Symmetry'),n,ks,true);
+  const d=fold(root,'Sound response');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
-  const rg=el('div','knob-grid');for(const k of ['intensity','punch','release','dynamics'])rg.append(propControl(n,k,T.props[k],graph().edges.some(e=>e.to===n.id&&e.input===k)));d.append(rg);
+  const rg=el('div','knob-grid');for(const k of ['intensity','punch','release','dynamics'])rg.append(propControl(n,k,T.props[k],wiredOf(k)));d.append(rg);
   const wiredAudio=graph().edges.find(e=>e.to===n.id&&e.input==='audio'),from=wiredAudio&&findNode(wiredAudio.from);
   d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':`Hears ${from?TYPES[from.type].label:'the project sound'} (${sourceName()}). Connect a number to “drive” to override.`));
-  const opts=section(root,'Options');opts.dataset.emitterOptions='';
+  const opts=el('div','insp-options');opts.dataset.emitterOptions='';root.append(opts);
   const e=engineFor(n.id);
   const fill=()=>{
     if(selected!==n.id||!opts.isConnected)return;
     let controls;try{controls=e.controls(jobOf(n));}catch(err){opts.append(el('p','insp-note',err.message));return;}
     if(!controls){opts.append(el('p','insp-note','Engine starting…'));return;}
-    opts.replaceChildren(el('div','insp-label','Options'));
-    let grid=null;
-    for(const c of controls){
+    opts.replaceChildren();
+    // Chips first (they choose what the knobs mean), then the knobs sorted into labelled, collapsible groups.
+    const bins=new Map(OPT_GROUPS.map(([g])=>[g,[]]));bins.set('Form',[]);
+    for(const c of controls)if(c.type==='range')bins.get(optGroup(c.label)).push(c);
+    const ordered=[...controls.filter(c=>c.type!=='range'),...[...bins.values()].flat()];
+    let grid=null,lastGroup=null,box=opts;
+    for(const c of ordered){
       if(c.type==='range'){
-        if(!grid){grid=el('div','knob-grid');opts.append(grid);}
+        const gr=optGroup(c.label);if(gr!==lastGroup){lastGroup=gr;box=fold(opts,gr,true);grid=null;}
+        if(!grid){grid=el('div','knob-grid');box.append(grid);}
         const cur=n.props.opts[c.id]??c.value;
-        grid.append(ui.knob({label:c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),
+        grid.append(ui.knob({label:c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),...autoOpts(n,'opt:'+c.id),
           onInput:v=>live(()=>{const x=findNode(n.id);if(x)x.props.opts={...x.props.opts,[c.id]:v};}),onChange:()=>liveCommit('Emitter: '+c.label)}));
       }else{
         grid=null;const wrap=el('div','opt-chips');if(c.label)wrap.append(el('div','insp-sublabel',c.label));
@@ -815,7 +854,7 @@ function renderEmitter(root,n){
         opts.append(wrap);
       }
     }
-    if(!controls.length)opts.append(el('p','insp-note','This emitter has no extra options. Add Geometry, Deformer, Color or Style nodes after it.'));
+    if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer, Color or Style nodes after it.'));
   };
   if(e.status==='ready')fill();else{opts.append(el('p','insp-note','Engine starting…'));e.ready.then(()=>{if(opts.isConnected){opts.replaceChildren();fill();}});}
 }
@@ -857,25 +896,28 @@ function chain(name,specs,extra){
   extra?.(g);return g;
 }
 const drive=(g,ctrlType,ctrlProps,targetType,input,y=300)=>{const t=g.nodes.find(n=>n.type===targetType),c=node(ctrlType,t.x,y,ctrlProps);g.nodes.push(c);g.edges.push({from:c.id,out:'value',to:t.id,input});};
-const E=mode=>[Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode)),{mode}];
+const E=(mode,extra={})=>[Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode)),{mode,...extra}];
+// Renderers without a Palette node downstream draw in grayscale.
+const GRAY={_colorMode:'toneramp',_toneStops:['#00000000','#555555','#aaaaaa','#ffffff'],_simpleStops:['#555555','#aaaaaa','#ffffff']};
+const PAL=(c1,c2,c3,c4)=>['palette',{c1,c2,c3,c4}];
 // Wire one of the layer's Audio node numbers into a knob.
 const audioTo=(g,out,targetType,input,via)=>{const a=g.nodes.find(n=>n.type==='audioIn'),t=g.nodes.find(n=>n.type===targetType);
   if(via){const s=node(via[0],a.x+210,300,via[1]);g.nodes.push(s);g.edges.push({from:a.id,out,to:s.id,input:'value'},{from:s.id,out:'value',to:t.id,input});}
   else g.edges.push({from:a.id,out,to:t.id,input});};
 const TEMPLATES={
-  'Fluid bloom':()=>[chain('Fluid',[['audioIn',{}],E('simfluid'),['bloom',{}],['output',{}]])],
-  'Kaleido spectrum':()=>[chain('Kaleido',[['audioIn',{}],E('circle'),['twist',{amount:35}],['symmetry',{mode:'r6'}],['palette',{c1:'#10002b',c2:'#ff00e5',c3:'#00f0ff',c4:'#b6ff00'}],['bloom',{bloom:45}],['output',{}]],g=>drive(g,'oscillator',{rate:.1,depth:1,offset:0},'twist','amount'))],
-  'Particle storm':()=>[chain('Storm',[['audioIn',{}],E('linear'),['particles',{density:30,trail:20}],['flowField',{curl:60,perlin:20}],['trails',{trails:70}],['output',{}]])],
+  'Fluid bloom':()=>[chain('Fluid',[['audioIn',{}],E('simfluid'),PAL('#03071e','#370617','#e85d04','#ffba08'),['bloom',{}],['output',{}]])],
+  'Kaleido spectrum':()=>[chain('Kaleido',[['audioIn',{}],E('circle',{symmetry:'r6'}),['twist',{amount:35}],['palette',{c1:'#10002b',c2:'#ff00e5',c3:'#00f0ff',c4:'#b6ff00'}],['bloom',{bloom:45}],['output',{}]],g=>drive(g,'oscillator',{rate:.1,depth:1,offset:0},'twist','amount'))],
+  'Particle storm':()=>[chain('Storm',[['audioIn',{}],E('linear'),['particles',{density:30,trail:20}],['flowField',{curl:60,perlin:20}],PAL('#000814','#003566','#00b4d8','#caf0f8'),['trails',{trails:70}],['output',{}]])],
   'Shattered rings':()=>[chain('Shatter',[['audioIn',{}],E('concentric'),['palette',{c1:'#200000',c2:'#c1121f',c3:'#ff6d00',c4:'#ffd60a'}],['fracture',{}],['output',{}]])],
   'Bass bulge sphere':()=>[chain('Sphere',[['audioIn',{}],E('sphere'),['bulge',{amount:0}],['palette',{c1:'#0b132b',c2:'#5bc0be',c3:'#a9def9',c4:'#ffffff'}],['hue',{hue:0,cycle:20}],['output',{}]],g=>{g.nodes.find(n=>n.type==='audioIn').props.gain=2;audioTo(g,'bass','bulge','amount',['smooth',{attack:10,release:250}]);})],
-  'Beat kaleidoscope':()=>[chain('Beat',[['audioIn',{}],E('phyllotaxis'),['lines',{thick:3,height:140}],['ripple',{amount:0}],['palette',{c1:'#03001c',c2:'#7b2cbf',c3:'#ff4d6d',c4:'#ffd166'}],['kaleido',{kaleido:70}],['bloom',{bloom:50}],['output',{}]],g=>{g.nodes.find(n=>n.type==='audioIn').props.decay=400;audioTo(g,'beat','ripple','amount');})],
-  'Ferro pulse':()=>[chain('Ferro',[['audioIn',{}],E('simferro'),['grade',{contrast:30,saturation:20}],['lens',{chroma:40,vignette:60}],['output',{}]])],
-  'Flocking trails':()=>[chain('Boids',[['audioIn',{}],E('simboids'),['hue',{hue:0,cycle:25}],['trails',{trails:80}],['bloom',{bloom:40}],['output',{}]])],
+  'Beat kaleidoscope':()=>[chain('Beat',[['audioIn',{}],E('phyllotaxis',{thick:3,height:140}),['ripple',{amount:0}],['palette',{c1:'#03001c',c2:'#7b2cbf',c3:'#ff4d6d',c4:'#ffd166'}],['kaleido',{kaleido:70}],['bloom',{bloom:50}],['output',{}]],g=>{g.nodes.find(n=>n.type==='audioIn').props.decay=400;audioTo(g,'beat','ripple','amount');})],
+  'Ferro pulse':()=>[chain('Ferro',[['audioIn',{}],E('simferro'),PAL('#0a0a0a','#3c096c','#9d4edd','#e0aaff'),['grade',{contrast:30,saturation:20}],['lens',{chroma:40,vignette:60}],['output',{}]])],
+  'Flocking trails':()=>[chain('Boids',[['audioIn',{}],E('simboids'),PAL('#001219','#005f73','#94d2bd','#ee9b00'),['hue',{hue:0,cycle:25}],['trails',{trails:80}],['bloom',{bloom:40}],['output',{}]])],
   'Glowing DNA':()=>[chain('DNA',[['audioIn',{}],E('dna'),['palette',{c1:'#001219',c2:'#0a9396',c3:'#94d2bd',c4:'#e9d8a6'}],['bloom',{bloom:55}],['output',{}]])],
-  'Drifting terrain':()=>[chain('Terrain',[['audioIn',{}],E('terrain'),['transform',{tilt:0}],['wave',{amount:20}],['palette',{c1:'#0d1b2a',c2:'#1b998b',c3:'#c5d86d',c4:'#f4f1de'}],['output',{}]],g=>drive(g,'oscillator',{rate:.05,depth:.4,offset:0},'transform','tilt'))],
-  'Glitch sand':()=>[chain('Sand',[['audioIn',{}],E('simsand'),['lens',{chroma:70,scanlines:40,vignette:30}],['fracture',{}],['output',{}]])],
-  'Webcam mirror':()=>[chain('Mirror',[['audioIn',{}],E('circle'),['webcam',{displace:60}],['symmetry',{mode:'x',mirror:true}],['bloom',{bloom:45}],['output',{}]])],
-  'Two layers':()=>[chain('Smoke',[['audioIn',{}],E('simsmoke'),['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['audioIn',{}],E('spiral'),['symmetry',{mode:'x'}],['hue',{cycle:30}],['output',{}]])]
+  'Drifting terrain':()=>[chain('Terrain',[['audioIn',{}],E('terrain'),['wave',{amount:20}],['palette',{c1:'#0d1b2a',c2:'#1b998b',c3:'#c5d86d',c4:'#f4f1de'}],['output',{}]],g=>drive(g,'oscillator',{rate:.05,depth:.4,offset:0},'waveform3d','tilt'))],
+  'Glitch sand':()=>[chain('Sand',[['audioIn',{}],E('simsand'),PAL('#1a1a1a','#ff006e','#fb5607','#ffbe0b'),['lens',{chroma:70,scanlines:40,vignette:30}],['fracture',{}],['output',{}]])],
+  'Webcam mirror':()=>[chain('Mirror',[['audioIn',{}],E('circle',{symmetry:'x',mirror:true}),['webcam',{displace:60}],PAL('#000000','#14213d','#fca311','#e5e5e5'),['bloom',{bloom:45}],['output',{}]])],
+  'Two layers':()=>[chain('Smoke',[['audioIn',{}],E('simsmoke'),PAL('#0b090a','#660708','#e5383b','#f5f3f4'),['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['audioIn',{}],E('spiral',{symmetry:'x'}),PAL('#03045e','#0077b6','#90e0ef','#ffffff'),['hue',{cycle:30}],['output',{}]])]
 };
 // The original Audiograph's built-in presets: one renderer per original layer (carrying that layer's look),
 // stacked by Merge nodes over the preset background, then the preset's Post FX as a chain of FX nodes.
@@ -896,7 +938,7 @@ function presetGraph(P){
     if(mode==='object'){type='waveform3d';mode=SOLID_MODELS.includes(look._objModel)?look._objModel:'knot';}
     else type=Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode));
     if(!type)throw Error(`${P.name}: unsupported layout ${mode}`);
-    const n=add(type,x,260+i*170,{mode,look,...response});wire(src,'audio',n,'audio');return {n,opacity:(l.opacity??100)/100};
+    const n=add(type,x,260+i*170,{mode,look,...geoFromLook(look),...response});wire(src,'audio',n,'audio');return {n,opacity:(l.opacity??100)/100};
   });
   x+=230;
   // Merge chains: A carries what is below, B–D take the next renderers.

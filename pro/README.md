@@ -29,9 +29,15 @@ each with its own opacity and blend mode (up to four).
   (knobs and choice chips, including presets) plus its audio response
   (Intensity, Bass punch, Bass release, Dynamics). They take `audio` and `drive`
   inputs and give a `shape` output.
-- **Geometry & Motion**: Lines, Transform (scale, rotation, offset, 3D tilt and
-  rotate, zoom on loud), Motion (spin, speed), Symmetry (mirror axes, 3/4/6/8-fold,
-  flip, reflection).
+  Every renderer also carries its geometry in grouped, collapsible inspector
+  sections: Lines, Transform (scale, rotation, offset, 3D tilt and rotate, zoom on
+  loud), Motion (spin, speed) and Symmetry (mirror axes, 3/4/6/8-fold, flip,
+  reflection). Option knobs are grouped (Setup, Sound, Emission, Forces, Look,
+  Quality, Form). Projects with the old Geometry nodes fold them into the renderer.
+  Without a Palette node a renderer draws in grayscale.
+- **Knobs** turn like the original's: drag around the knob (270° = full range,
+  Shift for fine). The dot in the middle switches the knob to **Auto**: it drifts
+  by itself around its value (saved with the project).
 - **Deformers**: Amplify, Twist, Bulge, Wave, Shear, Depth, Ripple, Jitter,
   Disorder, Randomize, Webcam (camera brightness displaces the shape and can
   color it).

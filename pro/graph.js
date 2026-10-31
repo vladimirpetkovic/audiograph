@@ -11,7 +11,6 @@ export const CATEGORIES = [
   {id:'inputs',label:'Inputs',color:'#5eead4',hint:'Sound, pictures, camera, text and 3D you bring in'},
   {id:'waveforms',label:'Waveforms',color:'#f59e0b',hint:'Audio-reactive line patterns, flat and 3D'},
   {id:'emitters',label:'Emitters',color:'#fb7185',hint:'Particles: classic and native WebGPU simulations'},
-  {id:'geometry',label:'Geometry & Motion',color:'#8aa2ff',hint:'Lines, transform, motion, symmetry'},
   {id:'deformers',label:'Deformers',color:'#c084fc',hint:'Bend the shape'},
   {id:'color',label:'Color',color:'#f472b6',hint:'Palettes and hue'},
   {id:'style',label:'Style',color:'#fbbf24',hint:'Line style and outlines'},
@@ -28,15 +27,44 @@ const bool=(label,value=false,extra={})=>({kind:'bool',label,value,...extra});
 const color=(label,value)=>({kind:'color',label,value});
 const text=(label,value,max=100)=>({kind:'text',label,value,max});
 const dict=(label,limit,valueKind)=>({kind:'dict',label,value:{},limit,valueKind});
+const SYMS=[['none','Off'],['x','X'],['y','Y'],['xy','XY'],['r3','3'],['r4','4'],['r6','6'],['r8','8']];
 const SHAPE_IO={inputs:{shape:'shape'},outputs:{shape:'shape'}};
 const FX_IO={inputs:{image:'image'},outputs:{image:'image'}};
 const DEFORM=(label,key,min,max,value,description,step=1)=>({category:'deformers',label,description,...SHAPE_IO,props:{amount:n('Amount',value,min,max,step,{key})}});
 const FX=(label,description,props)=>({category:'postfx',label,description,...FX_IO,fx:true,props});
+// Lines, transform, motion and symmetry live on every renderer node (grouped in its inspector).
+const G=(group,spec)=>({...spec,group});
+export const GEO_PROPS={
+  density:G('Lines',n('Density',350,80,800,10,{key:'_lines'})),height:G('Lines',n('Height',80,5,300,5,{key:'_height'})),thick:G('Lines',n('Thickness',1,.5,15,.25,{key:'_thick'})),
+  contrast:G('Lines',n('Contrast',75,5,100,1,{key:'_contrast'})),sensitivity:G('Lines',n('Sensitivity',100,5,200,5,{key:'_sensitivity'})),fade:G('Lines',n('Fade edges',0,0,100,5,{key:'_fadeEdge'})),
+  varyHeight:G('Lines',bool('Vary height',true,{key:'_varyHeight'})),varyThick:G('Lines',bool('Vary thickness',false,{key:'_varyThick'})),
+  scale:G('Transform',n('Scale',100,50,400,10,{key:'_zoom'})),rotation:G('Transform',n('Rotation',0,-180,180,1,{key:'_rotation'})),x:G('Transform',n('Offset X',0,-100,100,1,{key:'_offX'})),y:G('Transform',n('Offset Y',0,-100,100,1,{key:'_offY'})),
+  tilt:G('Transform',n('3D tilt',0,-180,180,1,{key:'_dragRotX',rad:true})),turn:G('Transform',n('3D rotate',0,-180,180,1,{key:'_dragRotY',rad:true})),pulse:G('Transform',bool('Zoom on loud',false,{key:'_zoomLoud'})),
+  spin:G('Motion',n('Spin',0,-5,5,.1,{key:'_spin'})),speed:G('Motion',n('Speed',1,.1,5,.1,{key:'_speed'})),
+  symmetry:G('Symmetry',pick('Symmetry','none',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'})),symGap:G('Symmetry',n('Gap',0,0,100,1,{key:'_symGap'})),
+  flipH:G('Symmetry',bool('Flip H',false,{key:'_flipH'})),flipV:G('Symmetry',bool('Flip V',false,{key:'_flipV'})),mirror:G('Symmetry',bool('Reflection',false,{key:'_mirrorOn'}))};
+// Original layer parameters for a renderer's geometry props (spin carries its direction).
+export function geoMods(p){
+  const out={};
+  for(const [k,s] of Object.entries(GEO_PROPS)){let v=p[k];if(v===undefined)continue;if(s.rad)v=v*Math.PI/180;out[s.key]=v;}
+  out._spin=Math.abs(p.spin??0);out._spinDir=(p.spin??0)<0?-1:1;return out;
+}
+// Geometry props seeded from an original layer look (templates).
+export function geoFromLook(look){
+  const out={};
+  for(const [k,s] of Object.entries(GEO_PROPS)){
+    let v=look[s.key];if(v===undefined)continue;
+    if(k==='spin'){v=v*(look._spinDir<0?-1:1);}
+    if(s.kind==='number'){if(typeof v!=='number')continue;if(s.rad)v=v*180/Math.PI;out[k]=Math.max(s.min,Math.min(s.max,Math.round(v/s.step)*s.step));}
+    else if(s.kind==='bool'){if(typeof v==='boolean')out[k]=v;}
+    else if(s.choices.includes(v))out[k]=v;
+  }
+  return out;
+}
 // Renderer nodes: each owns one isolated Audiograph engine. "audio" overrides the project sound; "drive" replaces it with a number.
 const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number'},outputs:{shape:'shape',...outputs},
-  props:{...props,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:n('Intensity',100,0,200,5),punch:n('Bass punch',60,0,100,1),release:n('Bass release',220,60,800,10),dynamics:n('Dynamics',50,0,100,1),
+  props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound response',n('Intensity',100,0,200,5)),punch:G('Sound response',n('Bass punch',60,0,100,1)),release:G('Sound response',n('Bass release',220,60,800,10)),dynamics:G('Sound response',n('Dynamics',50,0,100,1)),
     opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}}}});
-const SYMS=[['none','Off'],['x','X'],['y','Y'],['xy','XY'],['r3','3'],['r4','4'],['r6','6'],['r8','8']];
 const LINE_SHAPES=[['straight','Straight'],['rounded','Rounded'],['dotted','Dotted'],['dashed','Dashed'],['pins','Pins'],['tapered','Tapered'],['caps','Caps'],['cross','Cross'],['numbers','Numbers'],['symbols','Symbols'],['words','Words'],['cascade','Cascade'],['off','Off']];
 const PART_SHAPES=[['circle','Circle'],['square','Square'],['star','Star'],['diamond','Diamond'],['ring','Ring'],['triangle','Triangle'],['spark','Spark'],['line','Line'],['numbers','Numbers'],['symbols','Symbols'],['words','Words']];
 // The original Audiograph's gradient presets: [background (fades by "Low opacity"), colors…].
@@ -68,18 +96,6 @@ export const TYPES = {
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d})},{},'2D'),
   waveform3d:ENGINE('waveforms','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d})},{},'3D'),
   gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke, flocks, sand, ferrofluid, 3D cloner.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
-  // Geometry & Motion
-  lines:{category:'geometry',label:'Lines',description:'Density, height and thickness of the drawn lines.',...SHAPE_IO,props:{
-    density:n('Density',350,80,800,10,{key:'_lines'}),height:n('Height',80,5,300,5,{key:'_height'}),thick:n('Thickness',1,.5,15,.25,{key:'_thick'}),
-    contrast:n('Contrast',75,5,100,1,{key:'_contrast'}),sensitivity:n('Sensitivity',100,5,200,5,{key:'_sensitivity'}),fade:n('Fade edges',0,0,100,5,{key:'_fadeEdge'}),
-    varyHeight:bool('Vary height',true,{key:'_varyHeight'}),varyThick:bool('Vary thickness',false,{key:'_varyThick'})}},
-  transform:{category:'geometry',label:'Transform',description:'Scale, rotate, offset and tilt in 3D.',...SHAPE_IO,props:{
-    scale:n('Scale',100,50,400,10,{key:'_zoom'}),rotation:n('Rotation',0,-180,180,1,{key:'_rotation'}),x:n('Offset X',0,-100,100,1,{key:'_offX'}),y:n('Offset Y',0,-100,100,1,{key:'_offY'}),
-    tilt:n('3D tilt',0,-180,180,1,{key:'_dragRotX',rad:true}),turn:n('3D rotate',0,-180,180,1,{key:'_dragRotY',rad:true}),pulse:bool('Zoom on loud',false,{key:'_zoomLoud'})}},
-  motion:{category:'geometry',label:'Motion',description:'Spin and animation speed.',...SHAPE_IO,props:{spin:n('Spin',0,-5,5,.1,{key:'_spin'}),speed:n('Speed',1,.1,5,.1,{key:'_speed'})}},
-  symmetry:{category:'geometry',label:'Symmetry',description:'Mirror, flip and radial symmetry.',...SHAPE_IO,props:{
-    mode:pick('Symmetry','r4',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'}),gap:n('Gap',0,0,100,1,{key:'_symGap'}),
-    flipH:bool('Flip H',false,{key:'_flipH'}),flipV:bool('Flip V',false,{key:'_flipV'}),mirror:bool('Reflection',false,{key:'_mirrorOn'})}},
   // Deformers
   amplify:DEFORM('Amplify','_amplify',.5,5,1.6,'Boost the audio response of the shape.',.1),
   twist:DEFORM('Twist','_twist',-100,100,40,'Twist around the centre.'),
@@ -203,7 +219,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=3;
+export const VERSION=4;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -305,10 +321,31 @@ function migrate(raw){
     }
     for(const e of edges){if(!e)continue;if(e.input==='spectrum')e.input='audio';if(e.out==='spectrum')e.out='audio';}
   }
+  for(const g of out.layers||[])foldGeometry(g);
   out.version=VERSION;return out;
 }
+// Version 4: the Lines, Transform, Motion and Symmetry nodes became renderer properties.
+const OLD_GEO={lines:{density:'density',height:'height',thick:'thick',contrast:'contrast',sensitivity:'sensitivity',fade:'fade',varyHeight:'varyHeight',varyThick:'varyThick'},
+  transform:{scale:'scale',rotation:'rotation',x:'x',y:'y',tilt:'tilt',turn:'turn',pulse:'pulse'},motion:{spin:'spin',speed:'speed'},
+  symmetry:{mode:'symmetry',gap:'symGap',flipH:'flipH',flipV:'flipV',mirror:'mirror'}};
+function foldGeometry(g){
+  if(!Array.isArray(g?.nodes)||!Array.isArray(g.edges))return;
+  for(const old of g.nodes.filter(n=>OLD_GEO[n?.type])){
+    const into=g.edges.find(e=>e&&e.to===old.id&&e.input==='shape');
+    // Walk up the shape chain to the renderer that draws it.
+    let up=into&&g.nodes.find(n=>n&&n.id===into.from);const seen=new Set();
+    while(up&&!TYPES[up.type]?.engine&&!seen.has(up.id)){seen.add(up.id);const e=g.edges.find(e=>e&&e.to===up.id&&e.input==='shape');up=e&&g.nodes.find(n=>n&&n.id===e.from);}
+    const map=OLD_GEO[old.type];
+    if(up&&TYPES[up.type]?.engine){up.props=up.props||{};for(const [k,to] of Object.entries(map))if(old.props?.[k]!==undefined)up.props[to]=old.props[k];
+      for(const e of g.edges)if(e&&e.to===old.id&&map[e.input]){e.to=up.id;e.input=map[e.input];}}
+    g.edges=g.edges.filter(e=>e&&e.to!==old.id);
+    for(const e of g.edges)if(e.from===old.id&&into){e.from=into.from;e.out=into.out;}
+    g.edges=g.edges.filter(e=>e.from!==old.id);
+    g.nodes=g.nodes.filter(n=>n!==old);
+  }
+}
 export function validate(input) {
-  if(!input||input.format!=='audiograph-pro'||![1,2,3].includes(input.version))throw Error('Expected an Audiograph Pro project');
+  if(!input||input.format!=='audiograph-pro'||![1,2,3,4].includes(input.version))throw Error('Expected an Audiograph Pro project');
   const raw=migrate(input);
   if(!Array.isArray(raw.layers)||raw.layers.length<1||raw.layers.length>LIMITS.layers)throw Error('A project needs 1–4 layer graphs');
   const ids=new Set();let emitters=0;
@@ -325,7 +362,12 @@ export function validate(input) {
       if(!nd.props||typeof nd.props!=='object'||Array.isArray(nd.props))throw Error('Node properties are missing');
       const props={};
       for(const [key,s] of Object.entries(TYPES[nd.type].props))props[key]=cleanProp(s,nd.props[key],s.label);
-      return {id:unique(nd.id),type:nd.type,x:finite(nd.x,-10000,10000,'Node X'),y:finite(nd.y,-10000,10000,'Node Y'),props};
+      const out={id:unique(nd.id),type:nd.type,x:finite(nd.x,-10000,10000,'Node X'),y:finite(nd.y,-10000,10000,'Node Y'),props};
+      if(nd.auto!==undefined){
+        if(!Array.isArray(nd.auto)||nd.auto.length>64)throw Error('Invalid auto knobs');
+        const auto=[...new Set(nd.auto)].filter(k=>typeof k==='string'&&(autoKnob(nd.type,k)));if(auto.length)out.auto=auto;
+      }
+      return out;
     });
     if(clean.nodes.filter(nd=>nd.type==='output').length>1)throw Error('Only one Output is allowed per layer');
     clean.edges=g.edges.map(e=>{if(!e)throw Error('Invalid connection');return {from:id(e.from),to:id(e.to),out:id(e.out),input:id(e.input)};});
@@ -333,6 +375,18 @@ export function validate(input) {
   });
   if(emitters>LIMITS.emitters)throw Error(`Limit: ${LIMITS.emitters} renderer nodes per project (each is an isolated GPU engine)`);
   return {format:'audiograph-pro',version:VERSION,layers};
+}
+// Knobs that can run in Auto mode: number properties with a port, and renderer option knobs ("opt:<id>").
+export function autoKnob(type,key){
+  const s=TYPES[type]?.props[key];if(s)return s.kind==='number'&&!s.noPort;
+  return !!TYPES[type]?.engine&&/^opt:[a-zA-Z][a-zA-Z0-9_]{0,40}$/.test(key);
+}
+// Auto drift: two slow sines per knob (seeded by node and knob) around the knob's own value.
+export function autoDrift(s,home,seed,clock){
+  let h=2166136261;for(let i=0;i<seed.length;i++){h^=seed.charCodeAt(i);h=Math.imul(h,16777619);}
+  const r=k=>((h>>>(k*5))&1023)/1023,ph1=r(0)*6.283,ph2=r(1)*6.283,w1=6.283/(16+r(2)*14),w2=6.283/(7+r(3)*6);
+  const u=.6*Math.sin(ph1+clock*w1)+.4*Math.sin(ph2+clock*w2);
+  return Math.max(s.min,Math.min(s.max,home+u*(s.max-s.min)*.35));
 }
 export function connect(graph,from,out,to,input) {
   const candidate={from,out,to,input},edges=graph.edges.filter(e=>e.to!==to||e.input!==input);

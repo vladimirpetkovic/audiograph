@@ -50,8 +50,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await lit(1);
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
-    assert.equal(await page.locator('.library-node[data-mode]').count(),26,'Every waveform and WebGPU simulation is in the library');
-    assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','Geometry & Motion','Deformers','Color','Style','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
+    assert.equal(await page.locator('.library-node[data-mode]').count(),27,'Every waveform and WebGPU simulation is in the library');
+    assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','Deformers','Color','Style','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
     assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','3D Object','Gaussian Splat'],'Inputs');
     assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['2D','3D','Particles','WebGPU particles'],'Waveform and Emitter groups');
     assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
@@ -185,11 +185,21 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,3);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    assert.equal(migrated.version,4);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
     // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
     const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
     assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.render]),[['camera','lines'],['image','warp']]);
     assert.equal(v2.layers[0].edges[0].input,'audio');
+    // Version 3 Geometry nodes fold into the renderer they follow.
+    const v3=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:3,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[
+      {id:'w',type:'waveform2d',x:0,y:0,props:{mode:'circle'}},{id:'l',type:'lines',x:0,y:0,props:{thick:4}},{id:'s',type:'symmetry',x:0,y:0,props:{mode:'r6',gap:10}},{id:'o',type:'oscillator',x:0,y:0,props:{}},{id:'out',type:'output',x:0,y:0,props:{}}],
+      edges:[{from:'w',out:'shape',to:'l',input:'shape'},{from:'l',out:'shape',to:'s',input:'shape'},{from:'o',out:'value',to:'l',input:'thick'},{from:'s',out:'shape',to:'out',input:'image'}]}]}));
+    const w3=v3.layers[0].nodes.find(n=>n.id==='w');
+    assert.deepEqual([v3.layers[0].nodes.length,w3.props.thick,w3.props.symmetry,w3.props.symGap],[3,4,'r6',10],'Geometry folded into the renderer');
+    assert.deepEqual(v3.layers[0].edges.map(e=>[e.from,e.to,e.input]).sort(),[['o','w','thick'],['w','out','image']],'Edges retargeted');
+    // Auto knobs: only number knobs (and renderer options), saved with the node.
+    const auto=await page.evaluate(()=>{const g={format:'audiograph-pro',version:4,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'w',type:'waveform2d',x:0,y:0,props:{mode:'circle'},auto:['thick','opt:pSimDrag','mode','nope']}],edges:[]}]};return pro.validate(g).layers[0].nodes[0].auto;});
+    assert.deepEqual(auto,['thick','opt:pSimDrag'],'Auto knob list sanitised');
     for(const bad of [{opts:{customFnX:'alert(1)'}},{mode:'nope'},{opts:{['a'.repeat(50)]:1}}]){
       const r=await page.evaluate(([v1,bad])=>{try{pro.validate({...v1,layers:[{...v1.layers[0],nodes:[{...v1.layers[0].nodes[0],props:{mode:'circle',...bad}},v1.layers[0].nodes[1]]}]});return 'accepted';}catch(e){return e.message;}},[v1,bad]);
       assert.notEqual(r,'accepted',JSON.stringify(bad));
@@ -199,6 +209,17 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     for(const t of await page.evaluate(()=>pro.templates)){
       await page.locator('#templates').selectOption(t);await lit(.05,25000).catch(async()=>assert.fail(`${t}: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));
     }
+    await page.locator('#templates').selectOption('Two layers');await lit(.05,25000);
+    // Knobs turn like the original: dragging clockwise around the centre raises the value; the centre dot toggles Auto.
+    await page.evaluate(()=>{const l=pro.getProject().layers.find(l=>l.nodes.some(n=>n.type==='waveform2d'));pro.selectLayer(l.id);pro.select(l.nodes.find(n=>n.type==='waveform2d').id);});
+    const dial=page.locator('#properties .knob').filter({has:page.locator('[data-property="thick"]')}).first();
+    if(await dial.count()){
+      const before=await dial.evaluate(k=>k.getValue());const b=await dial.locator('.knob-dial').boundingBox(),cx=b.x+b.width/2,cy=b.y+b.height/2;
+      await page.mouse.move(cx-15,cy+15);await page.mouse.down();for(const a of [135,180,225,270,315])await page.mouse.move(cx+20*Math.cos(a*Math.PI/180),cy+20*Math.sin(a*Math.PI/180));await page.mouse.up();
+      assert.ok(await dial.evaluate(k=>k.getValue())>before,'Rotary drag raises the knob');
+      await dial.locator('.knob-auto').click();
+      assert.ok((await project()).layers.some(l=>l.nodes.some(n=>n.auto?.includes('thick'))),'Auto dot switches the knob to Auto');
+    }else assert.fail('No Thickness knob in the inspector');
     await page.locator('#addLayer').click();assert.equal((await project()).layers.length,3,'Two-layer template + one more');
     await page.locator('[data-property="layerBlend"] [data-value="difference"]').click().catch(()=>{});
     await page.locator('.layer-tab.active .layer-x').click();assert.equal((await project()).layers.length,2);

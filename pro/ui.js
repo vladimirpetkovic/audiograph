@@ -37,18 +37,29 @@ export function knob(opts) {
   label.title = opts.label || '';
   const valueEl = el('span', 'knob-value');
   valueEl.title = 'Click to type a value';
-  dial.title = 'Drag, wheel or arrows · Shift for fine · double-click resets';
+  dial.title = 'Turn it: drag around the knob · wheel or arrows · Shift for fine · double-click resets';
   root.append(dial, input, label, valueEl);
+  // Auto (the dot in the middle, as in the original): the knob drifts by itself around its value.
+  if (opts.onAuto) {
+    const ab = el('button', 'knob-auto' + (opts.auto ? ' on' : ''));
+    ab.type = 'button'; ab.title = 'Auto: this knob drifts by itself around its value. Click again to stop.';
+    ab.setAttribute('aria-label', 'Auto ' + (opts.label || '')); ab.setAttribute('aria-pressed', opts.auto ? 'true' : 'false');
+    ab.dataset.auto = opts.property || '';
+    ab.addEventListener('pointerdown', (e) => e.stopPropagation());
+    ab.addEventListener('dblclick', (e) => e.stopPropagation());
+    ab.addEventListener('click', (e) => { e.stopPropagation(); opts.onAuto(!ab.classList.contains('on')); });
+    dial.append(ab); if (opts.auto) root.classList.add('auto');
+  }
   if (opts.modulated) { const d = el('span', 'knob-mod'); d.title = 'Driven by a connected input'; root.append(d); }
 
-  function render() {
-    const f = (value - min) / (max - min || 1), z = min < 0 && max > 0 ? -min / (max - min) : 0;
+  function render(shown = value) {
+    const f = (shown - min) / (max - min || 1), z = min < 0 && max > 0 ? -min / (max - min) : 0;
     const a = Math.min(f, z) * 100, b = Math.max(f, z) * 100;
     fill.setAttribute('stroke-dasharray', b - a < 0.05 ? '0 200' : `0 ${a.toFixed(2)} ${(b - a).toFixed(2)} 200`);
     tick.setAttribute('transform', `rotate(${(f * 270 - 135).toFixed(1)} 20 20)`);
     const accent = `hsl(${(f * 140).toFixed(1)} 88% 58%)`;
     root.style.setProperty('--knob-accent', accent);
-    valueEl.textContent = fmt(value);
+    valueEl.textContent = fmt(shown);
     input.value = value;
   }
   function set(v, fire) {
@@ -68,13 +79,19 @@ export function knob(opts) {
     if (e.button !== 0) return;
     e.preventDefault(); input.focus({ preventScroll: true });
     try { dial.setPointerCapture(e.pointerId); } catch {}
-    drag = { id: e.pointerId, y: e.clientY, raw: value, changed: false };
+    // Rotary drag, as in the original: the value follows the pointer's angle around the centre (270° = full range).
+    const r = dial.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    drag = { id: e.pointerId, cx, cy, a: Math.atan2(e.clientY - cy, e.clientX - cx), raw: value, changed: false };
     root.classList.add('drag'); document.body.classList.add('knob-dragging');
   });
   dial.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
-    const dy = drag.y - e.clientY; drag.y = e.clientY;
-    drag.raw = Math.min(max, Math.max(min, drag.raw + dy / 200 * (max - min) * (e.shiftKey ? 0.2 : 1)));
+    const dx = e.clientX - drag.cx, dy = e.clientY - drag.cy;
+    if (dx * dx + dy * dy < 36) { drag.a = null; return; }
+    const a = Math.atan2(dy, dx); if (drag.a === null) { drag.a = a; return; }
+    let da = a - drag.a; if (da > Math.PI) da -= 2 * Math.PI; else if (da < -Math.PI) da += 2 * Math.PI; drag.a = a;
+    if (!da) return;
+    drag.raw = Math.min(max, Math.max(min, drag.raw + da * 180 / Math.PI / 270 * (max - min) / (e.shiftKey ? 5 : 1)));
     if (set(drag.raw, true)) drag.changed = true;
   });
   const end = () => {
@@ -118,6 +135,7 @@ export function knob(opts) {
   });
 
   root.setValue = (v) => { value = snap(v); render(); };
+  root.show = (v) => { if (!drag) render(Math.min(max, Math.max(min, v))); };
   root.getValue = () => value;
   root.input = input;
   render();
@@ -171,7 +189,7 @@ export function panel(opts) {
   if (opts.color) root.style.setProperty('--cat', opts.color);
   const head = el('button', 'panel-head');
   head.type = 'button';
-  head.append(el('span', 'dot'), el('span', 'panel-title', opts.title || ''));
+  head.append(...(opts.color ? [] : [el('span', 'dot')]), el('span', 'panel-title', opts.title || ''));
   if (opts.count != null) head.append(el('span', 'panel-count', String(opts.count)));
   head.append(el('span', 'panel-arrow', '▾'));
   const body = el('div', 'panel-body');
