@@ -47,6 +47,12 @@ function fakeAnalyser(audio) {
     connect(){},disconnect(){}};
 }
 
+// Pro's sound reaction for the WebGPU simulations: snappier attack, shorter release, more audio contrast and
+// beat bursts than the original's calm defaults (measured: about 2x the beat-driven motion). Presets and knobs override it.
+const PUNCH={pSimSens:115,pSimReact:70,pSimBurst:170,pSimBass:170,pSimAttack:12,pSimRelease:180,pSimEnergy:115};
+export const SIM_TUNE={simparticles:PUNCH,simfluid:PUNCH,simsmoke:PUNCH,simboids:PUNCH,simsand:PUNCH,
+  // Ferrofluid saturates (spikes freeze) when everything is pushed; it gets a lighter touch and looser damping.
+  simferro:{pSimReact:60,pSimAttack:15,pSimRelease:200,pSimBurst:150,pFeDamp:25,pFeHeight:130,pFeMotion:40}};
 export class EmitterEngine {
   constructor(id,onError) {
     this.id=id;this.onError=onError;this.status='starting';this.disposed=false;this.mode='';this.mediaName='';this.mediaKind='';this.generation=0;
@@ -117,8 +123,9 @@ export class EmitterEngine {
   }
   // Template looks: original layer parameters on top of the engine defaults (simulations never auto-switch).
   withLook(look) {
-    if(!look||!Object.keys(look).length)return this.defaults;
-    const p={...this.defaults,...look};
+    const tune=SIM_TUNE[this.mode];
+    if(!look||!Object.keys(look).length)return tune?{...this.defaults,...tune}:this.defaults;
+    const p={...this.defaults,...tune,...look};
     if(look._sim)p._sim={...this.defaults._sim,...look._sim,auto:'off'};
     if(look._postFx)p._postFx=this.w.pfxNorm(look._postFx);
     return p;
@@ -143,7 +150,7 @@ export class EmitterEngine {
         if(!buttons.length)continue;
         const action=buttons.every(b=>/simRestart|simReset|simReinit|Preset|Shuffle|objToPointCloud|click\(\)/i.test(b.getAttribute('onclick')||''));
         out.push({type:'chips',key:String(idx),label:label(e),action,options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
-      }else if(OPT_ID.test(e.id))out.push({type:'range',id:e.id,label:label(e)||e.id,min:+e.min,max:+e.max,step:+e.step||1,value:+e.value,def:+(this.defaults[e.id]??e.defaultValue)});
+      }else if(OPT_ID.test(e.id))out.push({type:'range',id:e.id,label:label(e)||e.id,min:+e.min,max:+e.max,step:+e.step||1,value:+e.value,def:+(SIM_TUNE[this.mode]?.[e.id]??this.defaults[e.id]??e.defaultValue)});
     }
     return out;
   }
@@ -161,7 +168,7 @@ export class EmitterEngine {
     const b=g.buttons.find(b=>b.textContent.trim()===label);if(!b)throw Error('Unknown option '+label);
     b.click();this.base=this.w.getLayoutParams();
     const ranges={};
-    for(const e of this.container().querySelectorAll('input[type=range]'))if(OPT_ID.test(e.id)&&+e.value!==+(this.defaults[e.id]??e.defaultValue))ranges[e.id]=+e.value;
+    for(const e of this.container().querySelectorAll('input[type=range]'))if(OPT_ID.test(e.id)&&+e.value!==+(SIM_TUNE[this.mode]?.[e.id]??this.defaults[e.id]??e.defaultValue))ranges[e.id]=+e.value;
     return {ranges,on:b.classList.contains('on')};
   }
   // Render one frame of the emitter with parameter overrides. Returns the engine canvas.

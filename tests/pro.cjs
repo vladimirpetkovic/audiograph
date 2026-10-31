@@ -304,6 +304,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.deepEqual(r.edge,['w>o'],'Wires heal');
     assert.ok(r.groups.includes('Line style')&&r.groups.includes('Outline'),'Waveform inspector has Line style and Outline groups');
     assert.ok(!/\bStyle\b/.test(r.cats.replace(/Line style/g,'')),'No Style category');}
+    // The old Amplify deformer becomes the pass-through Amplify node.
+    {const r=await page.evaluate(()=>{
+      const P=pro.validate({format:'audiograph-pro',version:4,layers:[{id:'a',name:'A',visible:true,opacity:1,blend:'source-over',nodes:[
+        {id:'w',type:'waveform2d',x:0,y:0,props:{mode:'circle'}},{id:'m',type:'amplify',x:200,y:0,props:{amount:3}},{id:'o',type:'output',x:400,y:0,props:{}}],
+        edges:[{from:'w',out:'shape',to:'m',input:'shape'},{from:'m',out:'shape',to:'o',input:'image'}]}]});
+      const m=P.layers[0].nodes.find(n=>n.id==='m');return {gain:m.props.gain,edges:P.layers[0].edges.map(e=>`${e.from}.${e.out}>${e.to}.${e.input}`)};});
+    assert.equal(r.gain,3,'Amount becomes gain');
+    assert.deepEqual(r.edges,['w.shape>m.in','m.out>o.image'],'Amplify ports are renamed');}
 
     // 10. Save / restore round trip.
     await page.locator('#save').click();const saved=await project();

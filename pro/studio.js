@@ -198,9 +198,10 @@ function bandsOf(freq){
 // The value on an "audio" wire. Unwired audio inputs hear the project sound.
 // Amplify: a louder copy of an audio signal (spectrum and waveform, clipped like a real gain stage).
 function ampSignal(a,g){
-  const f=new Uint8Array(a.freq.length),w=new Uint8Array(a.wave.length);
-  for(let i=0;i<f.length;i++)f[i]=Math.min(255,a.freq[i]*g);
-  for(let i=0;i<w.length;i++)w[i]=Math.max(0,Math.min(255,128+(a.wave[i]-128)*g));
+  // Spectrum bytes are dB-scaled (-100…-30 dB over 0…255): a gain shifts them; the float waveform scales.
+  const f=new Uint8Array(a.freq.length),w=new Float32Array(a.wave.length),shift=g>0?20*Math.log10(g)*255/70:-255;
+  for(let i=0;i<f.length;i++)f[i]=a.freq[i]?Math.max(0,Math.min(255,a.freq[i]+shift)):0;
+  for(let i=0;i<w.length;i++)w[i]=Math.max(-1,Math.min(1,a.wave[i]*g));
   return {...a,freq:f,wave:w,bands:bandsOf(f),pulse:Math.min(1,(a.pulse??0)*g)};
 }
 const projectSignal=()=>({freq:A.freq,wave:A.wave,bands:A.bands,beat:A.beat,pulse:A.beatPulse});

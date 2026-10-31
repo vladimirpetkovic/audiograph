@@ -119,7 +119,6 @@ export const TYPES = {
   waveform3d:ENGINE('waveforms','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),...STYLE_PROPS},{},'3D'),
   gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke, flocks, sand, ferrofluid, 3D cloner.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
   // Deformers
-  amplify:DEFORM('Amplify','_amplify',.5,5,1.6,'Boost the audio response of the shape.',.1),
   twist:DEFORM('Twist','_twist',-100,100,40,'Twist around the centre.'),
   bulge:DEFORM('Bulge','_bulge',-100,100,40,'Inflate or pinch the centre.'),
   wave:{category:'deformers',label:'Wave',description:'Travelling sine displacement.',...SHAPE_IO,props:{amount:n('Amount',40,0,100,1,{key:'_wave'}),speed:n('Wave speed',5,1,20,1,{key:'_waveFreq'})}},
@@ -349,6 +348,11 @@ function migrate(raw){
     for(const e of edges){if(!e)continue;if(e.input==='spectrum')e.input='audio';if(e.out==='spectrum')e.out='audio';}
   }
   for(const g of out.layers||[])foldGeometry(g);
+  // Version 5: the Amplify deformer became the pass-through Amplify node (Amount → Gain).
+  if(raw.version<5)for(const g of out.layers||[]){
+    const amps=new Set();for(const nd of g?.nodes||[])if(nd?.type==='amplify'&&nd.props&&'amount' in nd.props){amps.add(nd.id);nd.props={gain:Math.max(0,Math.min(8,+nd.props.amount||1))};}
+    for(const e of g?.edges||[]){if(!e)continue;if(amps.has(e.to)&&e.input==='shape')e.input='in';else if(amps.has(e.to)&&e.input==='amount')e.input='gain';if(amps.has(e.from)&&e.out==='shape')e.out='out';}
+  }
   out.version=VERSION;return out;
 }
 // Version 4: the Lines, Transform, Motion and Symmetry nodes became renderer properties.
