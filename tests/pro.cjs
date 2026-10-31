@@ -31,7 +31,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
   try{
     browser=await chromium.launch({
       executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      headless:!process.env.AUDIOGRAPH_HEADED,args:['--ignore-gpu-blocklist','--enable-gpu-rasterization']
+      headless:!process.env.AUDIOGRAPH_HEADED,args:['--ignore-gpu-blocklist','--enable-gpu-rasterization','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']
     });
     const page=await browser.newPage({viewport:{width:1540,height:1020}});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -111,6 +111,12 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal((await layer0()).edges.length,nWires-1,'Clicking a wire removes it');
     await page.evaluate(id=>pro.select(id),palette.id);await page.keyboard.press('Delete');
     g=await layer0();assert.ok(g.edges.some(e=>e.from===twist.id&&e.to===ids.bloom),'Deleting Palette reconnects Twist → Bloom');
+
+    // 6b. Webcam deformer runs the original camera feature on one shared stream; removing it stops the camera.
+    const cam=await page.evaluate(id=>{pro.select(id);return pro.addNode('webcam');},twist.id);
+    await page.waitForFunction(id=>pro.engine(id).w.camActive&&pro.engine(id).w.camColors,ids.emitter,{timeout:15000});
+    await page.evaluate(id=>pro.select(id),cam);await page.keyboard.press('Delete');
+    await page.waitForFunction(id=>!pro.engine(id).w.camActive,ids.emitter,{timeout:5000});
 
     // 7. Post FX run on images without any emitter (background → kaleido → output) via a helper engine.
     await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:2,layers:[{id:'L1',name:'Bg',visible:true,opacity:1,blend:'source-over',

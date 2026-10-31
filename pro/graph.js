@@ -68,6 +68,9 @@ export const TYPES = {
   disorder:DEFORM('Disorder','_rDisorder',0,100,40,'Scatter elements out of place.'),
   randomize:{category:'deformers',label:'Randomize',description:'Per-element randomness.',...SHAPE_IO,props:{
     global:n('Global',30,0,100,1,{key:'_rGlobal'}),dist:n('Distribution',0,0,100,1,{key:'_rDist'}),appear:n('Appearance',0,0,100,1,{key:'_rAppear'}),outline:n('Outline',0,0,100,1,{key:'_rOutline'}),color:n('Color',0,0,100,1,{key:'_rColor'})}},
+  webcam:{category:'deformers',label:'Webcam',description:'Your camera displaces the shape by brightness and can colour it.',...SHAPE_IO,props:{
+    displace:n('Displace',40,0,100,1),colors:pick('Camera colors','on',['on','off'],{labels:[['on','On'],['off','Off']]}),
+    dir:pick('Direction','radial',['radial','vertical','horizontal'],{labels:[['radial','Radial'],['vertical','Vertical'],['horizontal','Horiz.']]}),smooth:n('Smoothing',5,1,20,1)}},
   // Color
   palette:{category:'color',label:'Palette',description:'Color mode and gradient stops.',...SHAPE_IO,props:{
     mode:pick('Mode','toneramp',['toneramp','simpleramp','solid'],{labels:[['toneramp','Tone ramp'],['simpleramp','Simple ramp'],['solid','Solid']]}),
@@ -261,6 +264,7 @@ export function applyShapeNode(type,props,mods){
   if(type==='lineStyle'&&props.shape==='off'){out._lineShape='off';}
   if(type==='outline')out._showOutline=true;
   if(type==='particles')out._particlesOn=true;
+  if(type==='webcam'){out._cam={displace:props.displace,colors:props.colors==='on',dir:props.dir,smooth:props.smooth};return out;}
   for(const [k,s] of Object.entries(TYPES[type].props)){
     if(!s.key)continue;let v=props[k];
     if(s.rad)v=v*Math.PI/180;

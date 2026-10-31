@@ -1,5 +1,5 @@
 import {TYPES,CATEGORIES,EMITTERS,emitterNames,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,inputsOf,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
-import {EmitterEngine,WIDTH,HEIGHT,BINS} from './engine.js';
+import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
@@ -279,7 +279,20 @@ function drawSpectrum(){
     const v=m/255;c.fillStyle=`hsl(${160-v*140} 80% ${40+v*20}%)`;c.fillRect(i*(w/bars),h-v*h,w/bars-1,v*h);
   }
 }
+// One shared camera stream for every engine (Webcam node, Video emitter camera source). Released when unused.
+let camPromise=null,camStream=null;
+setCameraProvider(()=>{
+  if(!navigator.mediaDevices?.getUserMedia)return Promise.reject(Error('Camera requires HTTPS or localhost'));
+  if(!camPromise)camPromise=navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false})
+    .then(s=>(camStream=s),e=>{camPromise=null;throw Error('Could not start camera: '+e.message);});
+  return camPromise;
+});
+function releaseCameraIfUnused(){
+  if(!camStream||[...engines.values()].some(e=>e.usesCamera()))return;
+  camStream.getTracks().forEach(t=>t.stop());camStream=null;camPromise=null;
+}
 function loop(now){
+  if(frame%60===59)releaseCameraIfUnused();
   if(!pageHidden&&!paused&&now-lastTime>1000/31){const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;elapsed+=dt;lastTime=now;try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}}
   requestAnimationFrame(loop);
 }
@@ -575,6 +588,13 @@ const TEMPLATES={
   'Particle storm':()=>[chain('Storm',[['emitter',{mode:'linear'}],['particles',{density:30,trail:20}],['flowField',{curl:60,perlin:20}],['trails',{trails:70}],['output',{}]])],
   'Shattered rings':()=>[chain('Shatter',[['emitter',{mode:'concentric'}],['palette',{c1:'#200000',c2:'#c1121f',c3:'#ff6d00',c4:'#ffd60a'}],['fracture',{}],['output',{}]])],
   'Bass bulge sphere':()=>[chain('Sphere',[['emitter',{mode:'sphere'}],['bulge',{amount:0}],['palette',{c1:'#0b132b',c2:'#5bc0be',c3:'#a9def9',c4:'#ffffff'}],['hue',{hue:0,cycle:20}],['output',{}]],g=>{const a=node('audio',250,300,{band:'bass',gain:2});const s=node('smooth',460,300,{attack:10,release:250});const b=g.nodes.find(n=>n.type==='bulge');g.nodes.push(a,s);g.edges.push({from:a.id,out:'value',to:s.id,input:'value'},{from:s.id,out:'value',to:b.id,input:'amount'});})],
+  'Beat kaleidoscope':()=>[chain('Beat',[['emitter',{mode:'phyllotaxis'}],['lines',{thick:3,height:140}],['ripple',{amount:0}],['palette',{c1:'#03001c',c2:'#7b2cbf',c3:'#ff4d6d',c4:'#ffd166'}],['kaleido',{kaleido:70}],['bloom',{bloom:50}],['output',{}]],g=>drive(g,'beat',{decay:400,gain:1},'ripple','amount'))],
+  'Ferro pulse':()=>[chain('Ferro',[['emitter',{mode:'simferro'}],['grade',{contrast:30,saturation:20}],['lens',{chroma:40,vignette:60}],['output',{}]])],
+  'Flocking trails':()=>[chain('Boids',[['emitter',{mode:'simboids'}],['hue',{hue:0,cycle:25}],['trails',{trails:80}],['bloom',{bloom:40}],['output',{}]])],
+  'Glowing DNA':()=>[chain('DNA',[['emitter',{mode:'dna'}],['palette',{c1:'#001219',c2:'#0a9396',c3:'#94d2bd',c4:'#e9d8a6'}],['bloom',{bloom:55}],['output',{}]])],
+  'Drifting terrain':()=>[chain('Terrain',[['emitter',{mode:'terrain'}],['transform',{tilt:0}],['wave',{amount:20}],['palette',{c1:'#0d1b2a',c2:'#1b998b',c3:'#c5d86d',c4:'#f4f1de'}],['output',{}]],g=>drive(g,'oscillator',{rate:.05,depth:.4,offset:0},'transform','tilt'))],
+  'Glitch sand':()=>[chain('Sand',[['emitter',{mode:'simsand'}],['lens',{chroma:70,scanlines:40,vignette:30}],['fracture',{}],['output',{}]])],
+  'Webcam mirror':()=>[chain('Mirror',[['emitter',{mode:'circle'}],['webcam',{displace:60}],['symmetry',{mode:'x',mirror:true}],['bloom',{bloom:45}],['output',{}]])],
   'Two layers':()=>[chain('Smoke',[['emitter',{mode:'simsmoke'}],['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['emitter',{mode:'spiral'}],['symmetry',{mode:'x'}],['hue',{cycle:30}],['output',{}]])]
 };
 function loadTemplate(name){
@@ -608,6 +628,7 @@ $('play').onclick=()=>play().catch(e=>message(e.message,true));
 $('stop').onclick=()=>{stopAudio();stopMic();message('Audio stopped');};
 $('mic').onclick=()=>toggleMic().catch(e=>message('Mic: '+e.message,true));
 $('record').onclick=()=>attempt(toggleRecord);
+$('snap').onclick=()=>preview.toBlob(blob=>{if(!blob)return message('Snapshot failed',true);const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);message('Snapshot saved');},'image/png');
 $('fullscreen').onclick=toggleFullscreen;
 $('pause').onclick=()=>{paused=!paused;lastTime=0;$('pause').textContent=paused?'Resume':'Pause';$('pause').classList.toggle('on',paused);message(paused?'Visuals paused':'Visuals resumed');};
 $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
@@ -624,7 +645,7 @@ $('helpBody').innerHTML=`
 <p><b>Drive any knob:</b> drag from a <span style="color:${PORT_COLORS.number}">number</span> output (LFO, Audio band, Beat, Random…) onto a node and pick the knob. 0 keeps the knob setting, 1 pushes it to the maximum.</p>
 <p><b>Audio:</b> load a file or use the Mic. Without audio, a demo beat plays. An <b>Audio EQ</b> node reshapes what one emitter hears; connecting a number to an emitter's <b>drive</b> replaces the music for that emitter.</p>
 <p><b>Graph:</b> drag empty space to pan, wheel to zoom, click a wire to delete it, Delete removes the selected node (the chain heals), ⌘Z / ⇧⌘Z undo and redo. <b>Space</b> pauses, <b>F</b> goes fullscreen.</p>
-<p>Not in Pro (use the original Audiograph): projection mapping, AI Look, autopilot, morphing and webcam input.</p>`;
+<p>Not in Pro (use the original Audiograph): projection mapping, AI Look, autopilot and morphing. Webcam is a Deformer node.</p>`;
 $('helpButton').onclick=()=>$('help').showModal();$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
 viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};

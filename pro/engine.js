@@ -18,6 +18,9 @@ async function engineSource() {
 }
 export const WIDTH=960,HEIGHT=540,BINS=2048;
 const SOLIDS=['knot','cube','torus'];
+// The page owns the one camera stream; engines receive clones, so the frames never ask for permission themselves.
+let cameraProvider=null;
+export function setCameraProvider(fn){cameraProvider=fn;}
 const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 
 // A fake AnalyserNode living in the engine realm. Pro writes freq/wave each frame.
@@ -57,7 +60,11 @@ export class EmitterEngine {
     if(typeof w.getDefaultLayerParams!=='function'||!w.agSim||!w.agDrawDensity||typeof w.liveAnimLoop!=='function')throw Error('Renderer API unavailable in the parent app');
     this.w=w;
     w.addEventListener('error',event=>this.fail(`Emitter engine: ${event.message}`));
-    w.alert=message=>this.fail(String(message));
+    w.alert=message=>{message=String(message);if(/camera/i.test(message)){this.camError=message;this.onError(message);}else this.fail(message);};
+    if(w.navigator.mediaDevices)w.navigator.mediaDevices.getUserMedia=async c=>{
+      if(!c?.video||c.audio||!cameraProvider)throw Error('Only the shared camera is available to Pro engines');
+      return (await cameraProvider()).clone();
+    };
     if(w.rafId)w.cancelVisualFrame(w.rafId);
     w.requestVisualFrame=()=>0;w.cancelVisualFrame=()=>{};
     w.audioBuffer=null;w.playing=false;w.particlesOn=false;w.agSim.noPrewarm=true;w.dprCap=1;w.canvasBg='rgba(0,0,0,0)';
@@ -136,7 +143,9 @@ export class EmitterEngine {
     if(job.mode==='object'&&this.mediaKind!=='object')throw Error('3D Object: load an OBJ file in the Emitter properties');
     const p={...this.base};
     for(const [k,v] of Object.entries(job.opts||{}))if(OPT_ID.test(k))p[k]=v;
-    Object.assign(p,job.mods||{});
+    const cam=job.mods?._cam;
+    Object.assign(p,job.mods||{});delete p._cam;
+    this.camera(cam);
     if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
     w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;
     w.setLayoutParams(p);
@@ -159,6 +168,16 @@ export class EmitterEngine {
     }else this.backend=w.agGpu.status().t;
     return this.canvas;
   }
+  // Webcam node: start/stop the app's own camera colour and displacement feature and set its controls.
+  camera(cam) {
+    const w=this.w,d=w.document;
+    if(!cam){this.camError='';if(w.camActive||w.camStarting)w.stopCam();return;}
+    if(!w.camActive&&!w.camStarting&&!this.camError)w.toggleCam();
+    d.getElementById('camDisplace').value=cam.displace;d.getElementById('camSmooth').value=cam.smooth;
+    w.camDispDir=cam.dir;w.camUseColors=!!(cam.colors&&w.camActive);
+    if(w.camActive)w.sampleCamLoop();
+  }
+  usesCamera(){return !!(this.w&&(this.w.camActive||this.w.camStarting||this.w.vidCamStream));}
   // Run the original per-layer Post FX shader on any canvas. `slot` keeps trail history per node.
   fx(slot,src,settings,drive) {
     if(this.status!=='ready')return null;
@@ -203,7 +222,7 @@ export class EmitterEngine {
     this.disposed=true;this.cancelLoad?.();
     if(this.video){this.video.pause();this.video.removeAttribute('src');}
     if(this.videoURL)URL.revokeObjectURL(this.videoURL);
-    if(this.w){try{this.w.agSim.reset();if(this.w.agSim.status()==='ready')this.w.agSim.loseDevice();}catch{}}
+    if(this.w){try{this.w.stopCam?.();this.w.stopWebcamFeed?.();}catch{}try{this.w.agSim.reset();if(this.w.agSim.status()==='ready')this.w.agSim.loseDevice();}catch{}}
     this.iframe?.remove();this.w=null;this.canvas.width=this.canvas.height=1;
   }
 }

@@ -17,7 +17,8 @@ each with its own opacity and blend mode (up to four).
   rotate, zoom on loud), Motion (spin, speed), Symmetry (mirror axes, 3/4/6/8-fold,
   flip, reflection).
 - **Deformers**: Amplify, Twist, Bulge, Wave, Shear, Depth, Ripple, Jitter,
-  Disorder, Randomize.
+  Disorder, Randomize, Webcam (camera brightness displaces the shape and can
+  color it; the Video emitter can also use the camera as its source).
 - **Color**: Palette (tone ramp, simple ramp or solid, with presets) and Hue shift
   (static or cycling).
 - **Style**: Line style (13 styles) and Outline.
@@ -48,7 +49,7 @@ the emitter draws*. Post FX nodes (blue wires) process the finished image.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
 - **Templates, Save/Restore** (in this browser), **Export/Import** JSON, and
-  **Rec** records the preview with audio to WebM.
+  **Rec** records the preview with audio to WebM, and **Snap** saves a PNG.
 
 ## Engine
 
@@ -69,7 +70,7 @@ not saved in projects.
 
 - Output is fixed at 960×540, with Low simulation quality.
 - Each project allows four Emitters, four layers and 60 nodes per layer.
-- Not included: projection mapping, AI Look, autopilot, morphing, webcam input.
+- Not included: projection mapping, AI Look, autopilot and morphing.
   Use the original Audiograph for these.
 
 ## Tests
