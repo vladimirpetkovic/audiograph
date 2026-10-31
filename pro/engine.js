@@ -215,11 +215,13 @@ export class EmitterEngine {
     const ctx=this.ctx;ctx.resetTransform();ctx.globalCompositeOperation='source-over';ctx.clearRect(0,0,WIDTH,HEIGHT);
     ctx.filter=job.hue?`hue-rotate(${job.hue}deg)`:'none';
     const pf=w.document.getElementById('postFxCv');
-    ctx.drawImage(pf&&pf.style.display!=='none'&&w.postFxEnabled?pf:fc,0,0,WIDTH,HEIGHT);ctx.filter='none';
-    if(mode.startsWith('sim')){
-      const stats=w.agSim.stats();
-      if(!['ready','idle','init'].includes(stats.status))throw Error(`Native WebGPU: ${stats.msg||stats.status}`);
-      this.backend=`Native WebGPU${stats.status==='ready'?'':' (starting)'}`;
+    const sim=mode.startsWith('sim')?w.agSim.stats():null;
+    // While the GPU starts the original paints a notice; Pro shows nothing until the simulation is ready.
+    if(!sim||sim.status==='ready')ctx.drawImage(pf&&pf.style.display!=='none'&&w.postFxEnabled?pf:fc,0,0,WIDTH,HEIGHT);
+    ctx.filter='none';
+    if(sim){
+      if(!['ready','idle','init'].includes(sim.status))throw Error(`Native WebGPU: ${sim.msg||sim.status}`);
+      this.backend='Native WebGPU';
     }else this.backend=w.agGpu.status().t;
     return this.canvas;
   }

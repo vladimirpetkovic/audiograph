@@ -110,6 +110,26 @@ const EXAMPLES=['slow dreamy blue and gold smoke with soft glow','intense red fl
   'black and white sacred geometry, mirrored, high contrast','toxic green liquid metal pulled into a black hole'];
 export {EXAMPLES};
 
+// ---------- prompt writer ----------
+// Writes a new description in words parse() understands, matched to the energy of the music (0–100).
+// `keep` (0–1) reuses the subject of the previous prompt so a song's looks feel related.
+const W_MOOD=[['slow dreamy','calm','gentle floating','serene','soft ambient'],['groovy','playful','bouncy','upbeat','funky'],['intense','explosive','wild','energetic','chaotic']];
+const W_SUBJECT=[['smoke','ink fluid','fireflies','liquid metal','sand','mandala','sacred geometry','waves','starfield','lissajous loops','rings','sphere','dna helix'],
+  ['particles','fluid','spiral','rings','flower','neural network','fractal tree','terrain','knot','torus','birds','vines','circle'],
+  ['particles','fluid','spiral','smoke','liquid metal','spectrum bars','tunnel','sphere','cube','knot','fireworks','swarm','sacred geometry']];
+const W_COLOR=['sunset','ocean','aurora','cyberpunk','synthwave','ice','fire','toxic','cosmic','luxury','pastel','tropical','forest','desert','electric','monochrome',
+  'blue and gold','pink and teal','violet and lime','red and black','orange and cyan','magenta and ice','emerald and gold','white and silver'];
+const W_EXTRA=[['with soft glow','with long trails','drifting','rising','mirrored','slowly rotating','pulsing with the bass','with film grain','blur'],
+  ['swirling','with trails','pulsing with the bass','kaleidoscope','wavy','rotating','sparks on the beat','glow'],
+  ['swirling','glitchy','sparks on the beat','kaleidoscope','shockwave','fast spin','pulsing with the bass','shattered','strong glow','turbulent']];
+export function write({energy=50,seed=Date.now(),prev='',keep=0}={}){
+  const r=rng(seed),band=energy<40?0:energy<70?1:2;
+  const old=W_SUBJECT.flat().find(w=>new RegExp('\\b'+w+'\\b').test(prev));
+  const subject=old&&r()<keep?old:pick(r,W_SUBJECT[band]);
+  const extras=[...W_EXTRA[band]].sort(()=>r()-.5).slice(0,1+(r()<.6?1:0));
+  return `${pick(r,W_MOOD[band])} ${pick(r,W_COLOR)} ${subject}, ${extras.join(', ')}`;
+}
+
 // ---------- parse ----------
 export function parse(text){
   const raw=String(text||'').slice(0,600);let t=' '+raw.toLowerCase().replace(/[“”]/g,'"')+' ';
@@ -283,7 +303,8 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
     if(it.react.includes('pulse'))set('pulse',true);
   }else{
     set('scale',it.scale);
-    if(it.symmetry&&it.symmetry!=='x')mo.symmetry=it.symmetry;
+    // Copies of a field simulation (smoke, fluid, sand, ferro) add up to white; only point-like ones repeat.
+    if(it.symmetry&&it.symmetry!=='x'&&['simparticles','simboids','simcloner'].includes(v.mode))mo.symmetry=it.symmetry;
     if(it.spin)mo.spin=clamp(it.spin*.5,-5,5);
   }
   if(v.type==='camera')set('render','lines');

@@ -37,6 +37,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/audiograph/pro/`);
     await page.waitForFunction(()=>window.pro&&Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});
+    await page.evaluate(()=>pro.dissolve(false));
     const project=()=>page.evaluate(()=>pro.getProject());
     const layer0=async()=>(await project()).layers[0];
     const idOf=async type=>(await layer0()).nodes.find(n=>n.type===type)?.id;
@@ -351,6 +352,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(r.gain,3,'Amount becomes gain');
     assert.deepEqual(r.edges,['w.shape>m.in','m.out>o.image'],'Amplify ports are renamed');}
 
+    // Deleting a node dissolves instead of cutting to black.
+    {await page.evaluate(()=>{pro.dissolve(true);pro.loadTemplate('Kaleido spectrum');});await page.waitForTimeout(1500);
+     const lit0=await page.evaluate(()=>pro.pixels());
+     const after=await page.evaluate(async()=>{const p=pro.getProject(),g=p.layers[0],w=g.nodes.find(n=>n.type==='waveform2d');g.nodes=g.nodes.filter(n=>n!==w);g.edges=g.edges.filter(e=>e.from!==w.id&&e.to!==w.id);pro.importProject(p);
+       await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const a=pro.pixels();await new Promise(r=>setTimeout(r,1500));return [a,pro.pixels()];});
+     assert.ok(after[0]>lit0*.4&&after[1]<after[0]*.5,`A deleted visual fades out (${lit0.toFixed(2)} → ${after.map(v=>v.toFixed(2))})`);await page.evaluate(()=>{pro.undo();pro.dissolve(false);});}
+
     // Projection mapping: layouts, warped output, point drag + undo, validation, saved with the project.
     {await page.locator('#modeMap').click();assert.ok(await page.locator('#mapPanel').isVisible(),'Map mode shows the mapping panel');assert.ok(!(await page.locator('#autoPanel').isVisible()),'Only one workspace panel');
     await page.selectOption('[data-property=mapPreset]','Cube (3 faces)');await page.waitForTimeout(300);
@@ -388,6 +396,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const n0=await page.evaluate(()=>pro.getProject().layers[0].id);await page.evaluate(()=>{pro.autopilot.settings({changes:'all'});pro.autopilot.change('drop');});
     assert.notEqual(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'Everything mode builds a new look on a drop');
     await page.evaluate(()=>pro.undo());assert.equal(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'A rebuilt look is one undo step');
+    // Write: Autopilot writes and builds its own description; typing takes over.
+    await page.locator('[data-property=apWrite] [data-value=true]').click();await page.waitForTimeout(400);
+    const wr=await page.evaluate(()=>pro.autopilot.settings());assert.ok(wr.write&&wr.live&&wr.prompt.length>8,'Write turns Autopilot on and writes a prompt');
+    assert.equal(await page.evaluate(()=>pro.autopilot.parse(pro.autopilot.settings().prompt).read.length>2),true,'Written prompts are understood');
+    await page.locator('[data-property=apPrompt]').pressSequentially('x');assert.equal((await page.evaluate(()=>pro.autopilot.settings())).write,false,'Typing turns Write off');
     await page.locator('#modeMap').click();await page.locator('#modeAuto').click();assert.ok(!(await page.locator('#mapPanel').isVisible()),'Mapping panel hides in Autopilot');
     await page.fill('[data-property=apPrompt]','');await page.locator('[data-property=apPrompt]').pressSequentially('pink spiral');await page.waitForTimeout(1800);
     assert.ok((await project()).layers[0].nodes.some(n=>n.props.mode==='spiral'),'Typing builds after a pause');

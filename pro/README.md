@@ -152,8 +152,11 @@ process the finished image.
     chips under the box show what it understood: visuals, colours (per visual),
     themes, mood, motion, line style, symmetry, deformers, forces, effects, how
     it reacts to the sound, "text in quotes", CPU/mouse data, and "no …".
-  - **Variation** rebuilds the same description with different choices;
-    **Add as layer** stacks it on the current project. Open Studio to fine-tune.
+  - **Write** (On/Off under the Autopilot toggle) lets Autopilot write its own
+    descriptions, matched to the music, and build them; typing takes over again.
+  - Every change to what is drawn (Autopilot, templates, adding or deleting
+    nodes, wires or layers) dissolves from the last frame; new engines start
+    behind it, so there is no flash.
   - The **Autopilot** On/Off toggle at the top of the panel follows the song (calm, groove, build, drop) and changes the look
     at most every **Every** seconds, or at once on a drop. **Changes**: Colours
     (palettes glide), Colours + mood (also glides bloom, intensity, spin… to the
