@@ -50,7 +50,9 @@ function fakeAnalyser(audio) {
 // Pro's sound reaction for the WebGPU simulations: snappier attack, shorter release, more audio contrast and
 // beat bursts than the original's calm defaults (measured: about 2x the beat-driven motion). Presets and knobs override it.
 const PUNCH={pSimSens:115,pSimReact:70,pSimBurst:170,pSimBass:170,pSimAttack:12,pSimRelease:180,pSimEnergy:115};
-export const SIM_TUNE={simparticles:PUNCH,simfluid:PUNCH,simsmoke:PUNCH,simboids:PUNCH,simsand:PUNCH,
+export const SIM_TUNE={simparticles:PUNCH,simfluid:PUNCH,simboids:PUNCH,simsand:PUNCH,
+  // Smoke accumulates density: full punch clips it to white, so it gets faster timing and bigger bursts only.
+  simsmoke:{pSimReact:45,pSimBurst:150,pSimBass:120,pSimAttack:25,pSimRelease:250},
   // Ferrofluid saturates (spikes freeze) when everything is pushed; it gets a lighter touch and looser damping.
   simferro:{pSimReact:60,pSimAttack:15,pSimRelease:200,pSimBurst:150,pFeDamp:25,pFeHeight:130,pFeMotion:40}};
 export class EmitterEngine {

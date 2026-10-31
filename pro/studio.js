@@ -1,11 +1,25 @@
 import * as sensors from './sensors.js';
-import {TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {FORCE_KNOBS,TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 import {ORIGINAL_PRESETS} from './templates.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
 const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
+// The simulation a shape-chain node acts on (walks up the shape wires), or null.
+function upstreamSim(g,n){
+  const seen=new Set();let cur=n;
+  while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(cur.type==='gpuParticles')return cur.props.mode;if(isEngine(cur.type))return null;
+    const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}
+  return null;
+}
+// Physics nodes (Forces, Turbulence) only show the knobs for the simulation they are wired after.
+const SIM_PROPS=type=>Object.values(TYPES[type].props).some(s=>s.sims);
+function simKeys(g,n){
+  const t=TYPES[n.type],keys=Object.keys(t.props);if(!SIM_PROPS(n.type))return keys;
+  const mode=upstreamSim(g,n);if(!mode)return keys;
+  const own=keys.filter(k=>!t.props[k].sims||t.props[k].sims.includes(mode));return own.length?own:keys;
+}
 let state=project(),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
 const DATA_INPUTS=new Set(['computer','clock','pointer','midi']),lastOuts=new Map();
 const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new Map(),view={x:20,y:20,zoom:.9},nodeState=new Map(),fxSlots=new Map(),thumbs=new Map();
@@ -497,7 +511,7 @@ function renderLibrary(){
   }
 }
 // Waveforms and Emitters are listed per mode: each waveform / simulation is its own library entry.
-const GROUPS={inputs:['Media','Data'],waveforms:['2D','3D'],emitters:['Particles','WebGPU particles']};
+const GROUPS={inputs:['Media','Data'],waveforms:['2D','3D'],emitters:['Particles','WebGPU particles'],deformers:['Bend','Noise']};
 function groupedItems(cat){
   const items=[];
   for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat)){
@@ -537,7 +551,7 @@ function summary(n){
   if(n.type==='oscillator')return `${p.wave} · ${p.rate} Hz`;
   if(n.type==='audio')return `${p.band} ×${p.gain}`;
   if(n.type==='palette')return p.mode==='solid'?'solid':paletteStops(p).simple.join(' ');
-  for(const [k,s] of Object.entries(t.props)){if(s.kind==='select')return String(s.labels?.find(l=>l[0]===p[k])?.[1]??p[k]);if(s.kind==='number')return `${s.label} ${+p[k].toFixed(2)}`;}
+  for(const k of simKeys(graph(),n)){const s=t.props[k];if(s.kind==='select')return String(s.labels?.find(l=>l[0]===p[k])?.[1]??p[k]);if(s.kind==='number')return `${s.label} ${+p[k].toFixed(2)}`;}
   return t.description;
 }
 function updateSummaries(){updatePalettePreview();for(const box of document.querySelectorAll('#nodes .node')){const n=findNode(box.dataset.id);if(n)box.querySelector('.node-summary').textContent=summary(n);}}
@@ -697,7 +711,7 @@ function openSearch(){
 function closeMenu(){document.querySelector('.port-menu')?.remove();}
 function portMenu(target,from,x,y){
   closeMenu();renderGraph();
-  const t=TYPES[target.type],options=Object.entries(inputsOf(target.type)).filter(([,type])=>compatible(from.type,type));
+  const t=TYPES[target.type],keep=new Set(simKeys(graph(),target)),options=Object.entries(inputsOf(target.type)).filter(([k,type])=>compatible(from.type,type)&&(!t.props[k]||keep.has(k)));
   if(isEngine(target.type)&&from.type==='number'){
     const e=engines.get(target.id);let ctl=[];try{ctl=e?.status==='ready'?e.controls(jobOf(target))||[]:[];}catch{}
     for(const c of ctl)if(c.type==='range')options.push(['opt_'+c.id,'number']);
@@ -807,7 +821,8 @@ function renderProperties(){
     if(n.type==='audioIn')renderAudioSource(root);
     if(n.type==='palette')renderPalettePresets(root,n);
     if(DATA_INPUTS.has(n.type))renderDataInput(root,n);
-    renderProps(root,n,n.type==='palette'?paletteKeys(n.props):Object.keys(t.props));
+    if(SIM_PROPS(n.type))renderSimNote(root,g,n);
+    renderProps(root,n,n.type==='palette'?paletteKeys(n.props):simKeys(g,n));
     const wired=Object.keys(t.props).filter(k=>t.props[k].kind==='number'&&!t.props[k].noPort);
     if(wired.length&&t.category!=='controls'&&n.type!=='audioIn')section(root).append(el('p','insp-note','Any knob can be driven: drag a wire from a Control or Audio node onto this node and pick the knob. 0 keeps the knob value, 1 pushes it to the maximum.'));
     if(t.category==='controls'||t.category==='audio'&&n.type!=='spectrum'||n.type==='audioIn'||DATA_INPUTS.has(n.type)){const v=el('p','insp-note live-value');v.dataset.node=n.id;section(root).append(v);}
@@ -816,6 +831,14 @@ function renderProperties(){
   const dup=el('button','btn','Duplicate');dup.id='duplicateNode';dup.onclick=duplicateSelected;
   const del=el('button','btn danger','Delete');del.id='deleteNode';del.onclick=removeSelected;actions.append(dup,del);
   updateHint();
+}
+// True when node `to` sits downstream of `from` along shape wires.
+function chainFrom(g,from,to){const seen=new Set();let cur=g.nodes.find(m=>m.id===to);while(cur&&!seen.has(cur.id)){if(cur.id===from)return true;seen.add(cur.id);const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}return false;}
+function renderSimNote(root,g,n){
+  const mode=upstreamSim(g,n),t=TYPES[n.type],sims=[...new Set(Object.values(t.props).flatMap(s=>s.sims||[]))];
+  const names=sims.map(m=>emitterNames[m]).join(', ');
+  const msg=!mode?`Wire this after a WebGPU simulation. Works on: ${names}.`:sims.includes(mode)?`Acting on ${emitterNames[mode]}. Also works on: ${sims.filter(m=>m!==mode).map(m=>emitterNames[m]).join(', ')||'—'}.`:`${emitterNames[mode]||'This renderer'} has no ${t.label.toLowerCase()} control. Works on: ${names}.`;
+  section(root).append(el('p','insp-note',msg));
 }
 // Palette: live gradient preview of the active stops plus the original's preset swatches.
 const gradientCss=stops=>stops.length>1?`linear-gradient(to right,${stops.join(',')})`:stops[0];
@@ -917,6 +940,8 @@ function renderEmitter(root,n){
     opts.replaceChildren();
     // Chips first (they choose what the knobs mean), then the knobs sorted into labelled, collapsible groups.
     const bins=new Map(OPT_GROUPS.map(([g])=>[g,[]]));bins.set('Form',[]);
+    const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||{};
+    controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
     for(const c of controls)if(c.type==='range')bins.get(optGroup(c.label)).push(c);
     const ordered=[...controls.filter(c=>c.type!=='range'),...[...bins.values()].flat()];
     let grid=null,lastGroup=null,box=opts;
@@ -941,6 +966,17 @@ function renderEmitter(root,n){
       }
     }
     if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer or Color nodes after it.'));
+    const forces=[...new Set(Object.values(moved).map(([t])=>t))];
+    if(forces.length){
+      const box=fold(opts,'Forces',true),chips=el('div','chips');chips.dataset.property='forces';
+      box.append(el('p','insp-note','Physics knobs live in their own nodes. Click one to add it after this simulation (or select it if it is already there).'));
+      for(const t of forces){
+        const b=el('button','mbtn library-node',TYPES[t].label);b.type='button';b.dataset.type=t;b.title=TYPES[t].description;b.style.setProperty('--cat',catOf(t).color);
+        b.onclick=()=>{const g=graph(),have=g.nodes.find(m=>m.type===t&&upstreamSim(g,m)&&chainFrom(g,n.id,m.id));if(have){selected=have.id;renderUI();}else addNode(t);};
+        chips.append(b);
+      }
+      box.append(chips);
+    }
   };
   if(e.status==='ready')fill();else{opts.append(el('p','insp-note','Engine starting…'));e.ready.then(()=>{if(opts.isConnected){opts.replaceChildren();fill();}});}
 }

@@ -9,13 +9,14 @@ export const emitterNames = Object.fromEntries(Object.values(MODES).flat());
 
 export const CATEGORIES = [
   {id:'inputs',label:'Inputs',color:'#71f4d3',hint:'Sound, pictures, camera, text and 3D you bring in'},
-  {id:'waveforms',label:'Waveforms',color:'#71e1f4',hint:'Audio-reactive line patterns, flat and 3D'},
-  {id:'emitters',label:'Emitters',color:'#71aef4',hint:'Particles: classic and native WebGPU simulations'},
-  {id:'deformers',label:'Deformers',color:'#717bf4',hint:'Bend the shape'},
-  {id:'color',label:'Color',color:'#9c71f4',hint:'Palettes and hue'},
-  {id:'postfx',label:'Post FX',color:'#cf71f4',hint:'Image effects (GPU shaders)'},
-  {id:'controls',label:'Controls',color:'#f471e5',hint:'Numbers that move knobs'},
-  {id:'audio',label:'Audio analysis',color:'#f471b2',hint:'Turn sound into numbers or reshape it'},
+  {id:'waveforms',label:'Waveforms',color:'#71e7f4',hint:'Audio-reactive line patterns, flat and 3D'},
+  {id:'emitters',label:'Emitters',color:'#71b9f4',hint:'Particles: classic and native WebGPU simulations'},
+  {id:'forces',label:'Forces',color:'#718cf4',hint:'Push and steer WebGPU simulations: gravity, drag, swirl, wind…'},
+  {id:'deformers',label:'Deformers',color:'#8471f4',hint:'Bend the shape or add noise'},
+  {id:'color',label:'Color',color:'#b271f4',hint:'Palettes and hue'},
+  {id:'postfx',label:'Post FX',color:'#e071f4',hint:'Image effects (GPU shaders)'},
+  {id:'controls',label:'Controls',color:'#f471db',hint:'Numbers that move knobs'},
+  {id:'audio',label:'Audio analysis',color:'#f471ad',hint:'Turn sound into numbers or reshape it'},
   {id:'composite',label:'Composite',color:'#f4717f',hint:'Mix and output'}
 ];
 export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',any:'#e5e7eb'};
@@ -30,6 +31,8 @@ const SYMS=[['none','Off'],['x','X'],['y','Y'],['xy','XY'],['r3','3'],['r4','4']
 const SHAPE_IO={inputs:{shape:'shape'},outputs:{shape:'shape'}};
 const FX_IO={inputs:{image:'image'},outputs:{image:'image'}};
 const DEFORM=(label,key,min,max,value,description,step=1)=>({category:'deformers',label,description,...SHAPE_IO,props:{amount:n('Amount',value,min,max,step,{key})}});
+const F=(label,value,min,max,key,sims)=>n(label,value,min,max,1,{key,sims});
+const FORCE=(label,description,props)=>({category:'forces',label,description,...SHAPE_IO,props});
 const FX=(label,description,props)=>({category:'postfx',label,description,...FX_IO,fx:true,props});
 // Lines, transform, motion and symmetry live on every renderer node (grouped in its inspector).
 const G=(group,spec)=>({...spec,group});
@@ -125,13 +128,25 @@ export const TYPES = {
   shear:DEFORM('Shear','_shear',-100,100,30,'Slant the shape.'),
   depth:DEFORM('Depth','_depth',0,200,60,'Perspective depth.'),
   ripple:DEFORM('Ripple','_ripple',-100,100,40,'Concentric ripples.'),
-  jitter:DEFORM('Jitter','_jitter',0,100,30,'Random shake.'),
-  disorder:DEFORM('Disorder','_rDisorder',0,100,40,'Scatter elements out of place.'),
-  randomize:{category:'deformers',label:'Randomize',description:'Per-element randomness.',...SHAPE_IO,props:{
+  jitter:{...DEFORM('Jitter','_jitter',0,100,30,'Random shake.'),group:'Noise'},
+  disorder:{...DEFORM('Disorder','_rDisorder',0,100,40,'Scatter elements out of place.'),group:'Noise'},
+  randomize:{category:'deformers',group:'Noise',label:'Randomize',description:'Per-element randomness.',...SHAPE_IO,props:{
     global:n('Global',30,0,100,1,{key:'_rGlobal'}),dist:n('Distribution',0,0,100,1,{key:'_rDist'}),appear:n('Appearance',0,0,100,1,{key:'_rAppear'}),outline:n('Outline',0,0,100,1,{key:'_rOutline'}),color:n('Color',0,0,100,1,{key:'_rColor'})}},
   webcam:{category:'deformers',label:'Webcam',description:'Your camera displaces the shape by brightness and can colour it.',...SHAPE_IO,props:{
     displace:n('Displace',40,0,100,1),colors:pick('Camera colors','on',['on','off'],{labels:[['on','On'],['off','Off']]}),
     dir:pick('Direction','radial',['radial','vertical','horizontal'],{labels:[['radial','Radial'],['vertical','Vertical'],['horizontal','Horiz.']]}),smooth:n('Smoothing',5,1,20,1)}},
+  turbulence:{category:'deformers',group:'Noise',label:'Turbulence',description:'Noise that churns WebGPU Particles and Smoke.',...SHAPE_IO,props:{
+    amount:F('Turbulence',46,0,100,'pSpTurb',['simparticles']),scale:F('Noise scale',66,10,100,'pSpTurbScale',['simparticles']),smoke:F('Smoke turbulence',30,0,100,'pSmTurb',['simsmoke'])}},
+  // Forces: WebGPU simulation physics, one idea per node. Each knob lists the simulations it moves; defaults match the simulation.
+  gravity:FORCE('Gravity','Pull down (or up). Smoke rises by buoyancy.',{gravity:F('Gravity',-3,-100,100,'pSpGravity',['simparticles']),sand:F('Sand gravity',100,0,100,'pSaGravity',['simsand']),buoyancy:F('Buoyancy',100,0,200,'pSmBuoy',['simsmoke'])}),
+  drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand']),damping:F('Damping',25,0,100,'pFeDamp',['simferro'])}),
+  swirl:FORCE('Swirl','Rotate the flow and spin the emitters.',{swirl:F('Swirl',43,-100,100,'pSpSwirl',['simparticles']),fluidSwirl:F('Fluid swirl',40,-100,100,'pSfSwirl',['simfluid']),
+    spin:F('Emitter spin',0,-100,100,'pSpSpin',['simparticles']),fluidSpin:F('Jet spin',0,-100,100,'pSfSpin',['simfluid']),smokeSpin:F('Burner spin',0,-100,100,'pSmSpin',['simsmoke'])}),
+  attract:FORCE('Attract','Pull toward the centre or the magnets (negative pushes away).',{pull:F('Centre pull',0,-100,100,'pSpAttract',['simparticles']),field:F('Field strength',100,0,200,'pFeForce',['simferro']),motion:F('Magnet motion',40,0,100,'pFeMotion',['simferro'])}),
+  wind:FORCE('Wind','Blow sideways.',{smoke:F('Wind',0,-100,100,'pSmWind',['simsmoke']),sand:F('Sand wind',0,-100,100,'pSaWind',['simsand'])}),
+  vorticity:FORCE('Vorticity','Curl the flow into eddies.',{fluid:F('Fluid vorticity',45,0,100,'pSfVort',['simfluid']),smoke:F('Smoke vorticity',55,0,100,'pSmVort',['simsmoke'])}),
+  flocking:FORCE('Flocking','How Boids behave together.',{cohesion:F('Cohesion',90,0,200,'pBdCohesion',['simboids']),align:F('Alignment',110,0,200,'pBdAlign',['simboids']),separate:F('Separation',100,0,200,'pBdSeparate',['simboids']),
+    radius:F('Neighbor radius',18,4,40,'pBdRadius',['simboids']),turn:F('Turning force',85,10,200,'pBdTurn',['simboids']),wander:F('Wander',20,0,100,'pBdWander',['simboids'])}),
   // Color
   palette:{category:'color',label:'Palette',description:'Recolor anything: a shape or any image (a Merge, Post FX…). Normal replaces the colors before it; the other blend modes mix with them.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{
     mode:pick('Mode','toneramp',['toneramp','simpleramp','solid'],{labels:[['toneramp','Tone ramp'],['simpleramp','Simple ramp'],['solid','Solid']]}),
@@ -145,7 +160,7 @@ export const TYPES = {
     shape:pick('Shape','circle',PART_SHAPES.map(s=>s[0]),{labels:PART_SHAPES,key:'_particleShape'}),density:n('Density',20,1,50,1,{key:'pPartDensity'}),energy:n('Energy',1,.1,5,.1,{key:'pPartEnergy'}),
     speed:n('Speed',3,0,10,.1,{key:'pPartSpeed'}),life:n('Life',120,10,300,10,{key:'pPartLife'}),size:n('Size',12,1,40,.5,{key:'pPartSize'}),spread:n('Spread',50,0,100,5,{key:'pPartSpread'}),
     gravity:n('Gravity',0,-5,5,.1,{key:'pPartGravity'}),damping:n('Damping',97,80,100,.5,{key:'pPartDamping'}),trail:n('Trail',0,0,60,1,{key:'pPartTrail'})}},
-  flowField:{category:'emitters',group:'Particles',label:'Flow field',description:'Noise forces that steer particles.',...SHAPE_IO,props:{
+  flowField:{category:'deformers',group:'Noise',label:'Flow field',description:'Noise forces that steer classic Particles.',...SHAPE_IO,props:{
     perlin:n('Perlin',40,0,100,1,{key:'pNoisePerlin'}),curl:n('Curl',0,0,100,1,{key:'pNoiseCurl'}),brownian:n('Brownian',0,0,100,1,{key:'pNoiseBrownian'}),vortex:n('Vortex',0,0,100,1,{key:'pNoiseVortex'}),
     scale:n('Scale',30,1,100,1,{key:'pNoiseScale'}),speed:n('Speed',20,1,100,1,{key:'pNoiseSpeed'})}},
   // Post FX (original per-layer GPU shaders)
@@ -239,7 +254,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=5;
+export const VERSION=6;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -353,7 +368,30 @@ function migrate(raw){
     const amps=new Set();for(const nd of g?.nodes||[])if(nd?.type==='amplify'&&nd.props&&'amount' in nd.props){amps.add(nd.id);nd.props={gain:Math.max(0,Math.min(8,+nd.props.amount||1))};}
     for(const e of g?.edges||[]){if(!e)continue;if(amps.has(e.to)&&e.input==='shape')e.input='in';else if(amps.has(e.to)&&e.input==='amount')e.input='gain';if(amps.has(e.from)&&e.out==='shape')e.out='out';}
   }
+  if(raw.version<6)for(const g of out.layers||[])extractForces(g);
   out.version=VERSION;return out;
+}
+// Simulation knobs that belong to a Forces / Noise node, by simulation: {mode: {knob key: [node type, prop]}}.
+export const FORCE_KNOBS={};
+for(const [t,T] of Object.entries(TYPES))for(const [k,s] of Object.entries(T.props))for(const m of s.sims||[])(FORCE_KNOBS[m]||={})[s.key]=[t,k];
+// Version 6: physics knobs set on a simulation move into Forces nodes inserted right after it.
+function extractForces(g){
+  if(!Array.isArray(g?.nodes)||!Array.isArray(g.edges))return;
+  for(const sim of g.nodes.filter(n=>n?.type==='gpuParticles'&&n.props)){
+    const map=FORCE_KNOBS[sim.props.mode];if(!map)continue;
+    const opts=sim.props.opts||{},made=new Map();
+    const take=key=>{const [t,k]=map[key];if(!made.has(t))made.set(t,{id:`${sim.id}_${t}`.slice(0,60),type:t,x:(sim.x||0)+220*(made.size+1),y:(sim.y||0)+140,props:{}});return [made.get(t),k];};
+    for(const key of Object.keys(opts))if(map[key]){const [nd,k]=take(key);nd.props[k]=opts[key];delete opts[key];}
+    for(const e of g.edges)if(e&&e.to===sim.id&&typeof e.input==='string'&&map[e.input.slice(4)]&&e.input.startsWith('opt_')){const [nd,k]=take(e.input.slice(4));e.to=nd.id;e.input=k;}
+    if(Array.isArray(sim.auto))sim.auto=sim.auto.filter(a=>{if(typeof a!=='string'||!a.startsWith('opt:')||!map[a.slice(4)])return true;const [nd,k]=take(a.slice(4));(nd.auto||=[]).push(k);return false;});
+    if(!made.size)continue;
+    const chain=[...made.values()],outs=g.edges.filter(e=>e&&e.from===sim.id&&e.out==='shape');
+    for(const [i,nd] of chain.entries()){
+      for(const [k,s] of Object.entries(TYPES[nd.type].props))if(nd.props[k]===undefined)nd.props[k]=s.value;
+      g.nodes.push(nd);g.edges.push({from:i?chain[i-1].id:sim.id,out:'shape',to:nd.id,input:'shape'});
+    }
+    const last=chain[chain.length-1].id;for(const e of outs){e.from=last;}
+  }
 }
 // Version 4: the Lines, Transform, Motion and Symmetry nodes became renderer properties.
 const OLD_GEO={lines:{density:'density',height:'height',thick:'thick',contrast:'contrast',sensitivity:'sensitivity',fade:'fade',varyHeight:'varyHeight',varyThick:'varyThick'},
@@ -380,7 +418,7 @@ function foldGeometry(g){
   }
 }
 export function validate(input) {
-  if(!input||input.format!=='audiograph-pro'||![1,2,3,4,5].includes(input.version))throw Error('Expected an Audiograph Pro project');
+  if(!input||input.format!=='audiograph-pro'||![1,2,3,4,5,6].includes(input.version))throw Error('Expected an Audiograph Pro project');
   const raw=migrate(input);
   if(!Array.isArray(raw.layers)||raw.layers.length<1||raw.layers.length>LIMITS.layers)throw Error('A project needs 1–4 layer graphs');
   const ids=new Set();let emitters=0;

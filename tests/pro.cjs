@@ -51,9 +51,9 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
     assert.equal(await page.locator('.library-node[data-mode]').count(),27,'Every waveform and WebGPU simulation is in the library');
-    assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','Deformers','Color','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
+    assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
     assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','3D Object','Gaussian Splat','Computer','Clock','Mouse & keys','MIDI'],'Inputs');
-    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','3D','Particles','WebGPU particles'],'Input, Waveform and Emitter groups');
+    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','3D','Particles','WebGPU particles','Bend','Noise'],'Input, Waveform, Emitter and Deformer groups');
     assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
 
     // 2. Emitter inspector exposes the original's own options; a preset chip changes knobs and survives undo/redo.
@@ -197,7 +197,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,5);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    assert.equal(migrated.version,6);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
     // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
     const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
     assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.render]),[['camera','lines'],['image','warp']]);
@@ -304,6 +304,30 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.deepEqual(r.edge,['w>o'],'Wires heal');
     assert.ok(r.groups.includes('Line style')&&r.groups.includes('Outline'),'Waveform inspector has Line style and Outline groups');
     assert.ok(!/\bStyle\b/.test(r.cats.replace(/Line style/g,'')),'No Style category');}
+    // Simulation physics knobs live in Forces nodes; old projects move them out of the simulation.
+    {const r=await page.evaluate(async()=>{
+      const P=pro.validate({format:'audiograph-pro',version:5,layers:[{id:'f',name:'F',visible:true,opacity:1,blend:'source-over',nodes:[
+        {id:'lfo',type:'value',x:0,y:200,props:{}},{id:'s',type:'gpuParticles',x:0,y:0,props:{mode:'simparticles',opts:{pSpGravity:60,pSpSwirl:-20,pSpAmount:150}},auto:['opt:pSpTurb']},{id:'o',type:'output',x:400,y:0,props:{}}],
+        edges:[{from:'s',out:'shape',to:'o',input:'image'},{from:'lfo',out:'value',to:'s',input:'opt_pSpDrag'}]}]});
+      const L=P.layers[0],get=t=>L.nodes.find(n=>n.type===t);
+      pro.importProject(P,'forces');pro.select('s');
+      await new Promise(r=>{const t=setInterval(()=>{if(document.querySelector('[data-property="forces"]')){clearInterval(t);r();}},100);setTimeout(r,8000);});
+      const simKnobs=[...document.querySelectorAll('#properties [data-property^="opt:"]')].map(k=>k.dataset.property);
+      const chips=[...document.querySelectorAll('[data-property="forces"] button')].map(b=>b.textContent);
+      pro.select(get('gravity').id);
+      const gravKnobs=[...document.querySelectorAll('#properties [data-property]')].map(k=>k.dataset.property).filter(k=>['gravity','sand','buoyancy'].includes(k));
+      await new Promise(r=>setTimeout(r,1500));const e=pro.engine('s'),slider=e.w.document.getElementById('pSpGravity');
+      return {types:L.nodes.map(n=>n.type).sort(),opts:get('gpuParticles').props.opts,grav:get('gravity').props.gravity,swirl:get('swirl').props.swirl,
+        dragWire:L.edges.some(e=>e.from==='lfo'&&e.to===get('drag').id&&e.input==='drag'),turbAuto:get('turbulence').auto,
+        toOutput:L.edges.find(e=>e.to==='o').from,simKnobs,chips,gravKnobs,slider:slider&&+slider.value};});
+    assert.deepEqual(r.types,['drag','gpuParticles','gravity','output','swirl','turbulence','value'],'Physics knobs move to Forces / Noise nodes');
+    assert.deepEqual(r.opts,{pSpAmount:150},'Only emission knobs stay on the simulation');
+    assert.equal(r.grav,60);assert.equal(r.swirl,-20);assert.ok(r.dragWire,'Wired knobs follow');assert.deepEqual(r.turbAuto,['amount'],'Auto knobs follow');
+    assert.notEqual(r.toOutput,'s','The forces sit between the simulation and the output');
+    assert.ok(!r.simKnobs.includes('opt:pSpGravity')&&r.simKnobs.includes('opt:pSpAmount'),'The simulation inspector hides physics knobs');
+    assert.ok(r.chips.includes('Gravity')&&r.chips.includes('Swirl')&&!r.chips.includes('Flocking'),'Force shortcuts match the simulation');
+    assert.deepEqual(r.gravKnobs,['gravity'],'Gravity shows only the Particles knob');
+    assert.equal(r.slider,60,'The Gravity node drives the simulation');}
     // The old Amplify deformer becomes the pass-through Amplify node.
     {const r=await page.evaluate(()=>{
       const P=pro.validate({format:'audiograph-pro',version:4,layers:[{id:'a',name:'A',visible:true,opacity:1,blend:'source-over',nodes:[

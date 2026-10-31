@@ -34,9 +34,11 @@ each with its own opacity and blend mode (up to four).
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
 - **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…) and **3D**
   (Terrain, Sphere, DNA, Knot…).
-- **Emitters** (particles): **Particles** (Particles, Flow field) and **WebGPU
+- **Emitters** (particles): **Particles** (classic) and **WebGPU
   particles** (Particles, Fluid, Smoke, Boids, Granular sand, Ferrofluid, 3D
-  cloner).
+  cloner). WebGPU simulations react harder to sound than in the original
+  (snappier attack, shorter release, bigger beat bursts; tuned per simulation),
+  and their knobs and presets still override that.
   Visual inputs, waveforms and WebGPU emitters show the original's own options in the inspector
   (knobs and choice chips, including presets) plus its audio response
   (Intensity, Bass punch, Bass release, Dynamics). They take `audio` and `drive`
@@ -46,13 +48,23 @@ each with its own opacity and blend mode (up to four).
   loud), Motion (spin, speed) and Symmetry (mirror axes, 3/4/6/8-fold, flip,
   reflection). Option knobs are grouped (Setup, Sound, Emission, Forces, Look,
   Quality, Form). Projects with the old Geometry nodes fold them into the renderer.
+  A simulation's physics knobs are not on the simulation: they live in Forces
+  nodes, offered as one-click shortcuts in its inspector.
+- **Forces** (WebGPU simulations): Gravity (gravity, sand gravity, smoke
+  buoyancy), Drag (drag, viscosity, friction, damping), Swirl (swirl and emitter
+  spin), Attract (centre pull, magnet field and motion), Wind, Vorticity and
+  Flocking (Boids). Wire one after a simulation; it shows only the knobs for that
+  simulation and lists the others it works on. Defaults match the simulation, so
+  adding one changes nothing until you turn it. Older projects move their physics
+  knobs into Forces nodes automatically.
   Without a Palette node a renderer draws in grayscale.
 - **Knobs** turn like the original's: drag around the knob (270° = full range,
   Shift for fine). The dot in the middle switches the knob to **Auto**: it drifts
   by itself around its value (saved with the project).
-- **Deformers**: Amplify, Twist, Bulge, Wave, Shear, Depth, Ripple, Jitter,
-  Disorder, Randomize, Webcam (camera brightness displaces the shape and can
-  color it).
+- **Deformers**: **Bend** (Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam:
+  camera brightness displaces the shape and can color it) and **Noise** (Jitter,
+  Disorder, Randomize, Flow field for classic Particles, Turbulence for WebGPU
+  Particles and Smoke).
 - **Color**: Palette (tone ramp, simple ramp or solid, with the original's 14
   presets and a live gradient preview), Hue shift (static or cycling) and
   Color correct (brightness, contrast, saturation, hue, invert). Palette and Hue
