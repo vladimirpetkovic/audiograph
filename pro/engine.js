@@ -159,6 +159,8 @@ export class EmitterEngine {
     if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
     if(mode==='video'||(mode==='pixelwarp'&&this.mediaKind==='video'))w.sampleVideoFrame?.();
+    const r=job.response;
+    if(r){const d=w.document,set=(id,v)=>{const e=d.getElementById(id);if(e&&+e.value!==v)e.value=v;};set('pIntensity',r.intensity);set('pBassPunch',r.punch);set('pBassRelease',r.release);set('pDynamics',r.dynamics);}
     this.audio.freq.set(job.audio.freq);this.audio.wave.set(job.audio.wave);
     w.analyser.context.sampleRate=job.audio.rate||48000;
     w.__agFractureDrive=job.audio.drive;

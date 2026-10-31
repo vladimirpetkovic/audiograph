@@ -43,7 +43,9 @@ export const PALETTES={
 export const TYPES = {
   // Emitters
   emitter:{category:'emitters',label:'Emitter',description:'An Audiograph renderer. Reacts to the shared audio, or to “drive” when connected.',inputs:{drive:'number',spectrum:'spectrum'},outputs:{shape:'shape'},primary:['drive'],
-    props:{mode:pick('Emitter','simfluid',Object.keys(emitterNames)),drive:n('Drive',.7,0,2,.01,{noPort:true}),text:text('Text','AUDIOGRAPH'),opts:dict('Options',120,'number'),chips:dict('Choices',60,'string')}},
+    props:{mode:pick('Emitter','simfluid',Object.keys(emitterNames)),drive:n('Drive',.7,0,2,.01,{noPort:true}),text:text('Text','AUDIOGRAPH'),
+      intensity:n('Intensity',100,0,200,5),punch:n('Bass punch',60,0,100,1),release:n('Bass release',220,60,800,10),dynamics:n('Dynamics',50,0,100,1),
+      opts:dict('Options',120,'number'),chips:dict('Choices',60,'string')}},
   // Geometry & Motion
   lines:{category:'geometry',label:'Lines',description:'Density, height and thickness of the drawn lines.',...SHAPE_IO,props:{
     density:n('Density',350,80,800,10,{key:'_lines'}),height:n('Height',80,5,300,5,{key:'_height'}),thick:n('Thickness',1,.5,15,.25,{key:'_thick'}),

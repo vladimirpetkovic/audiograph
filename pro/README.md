@@ -12,7 +12,8 @@ each with its own opacity and blend mode (up to four).
 
 - **Emitters**: all 32 Audiograph renderers (General, Simulations, 3D, Input).
   The inspector shows each emitter's own options from the original (knobs and
-  choice chips, including presets).
+  choice chips, including presets), plus the original audio response: Intensity,
+  Bass punch, Bass release and Dynamics.
 - **Geometry & Motion**: Lines, Transform (scale, rotation, offset, 3D tilt and
   rotate, zoom on loud), Motion (spin, speed), Symmetry (mirror axes, 3/4/6/8-fold,
   flip, reflection).

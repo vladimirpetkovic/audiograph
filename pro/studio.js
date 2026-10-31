@@ -226,7 +226,7 @@ function execute(g,time,dt){
           const id=e.input.slice(4),range=engines.get(n.id)?.optRange({mode:p.mode,chips:p.chips},id);
           if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
         }
-        r.shape={emitter:n,mods:{},hue:0,job:{mode:p.mode,opts,chips:p.chips,text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:A.beatPulse}}}};
+        r.shape={emitter:n,mods:{},hue:0,job:{mode:p.mode,opts,chips:p.chips,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:A.beatPulse}}}};
         break;}
       case 'background':{const {canvas,ctx}=surface(n.id);
         if(p.fill==='flat')ctx.fillStyle=p.c1;
@@ -526,6 +526,7 @@ function renderEmitter(root,n){
   }
   const d=section(root,'Audio');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
+  const rg=el('div','knob-grid');for(const k of ['intensity','punch','release','dynamics'])rg.append(propControl(n,k,TYPES.emitter.props[k],graph().edges.some(e=>e.to===n.id&&e.input===k)));d.append(rg);
   d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':A.live?'Reacting to the playing audio. Connect a number to “drive” to override.':'Reacting to the demo beat. Load audio or use the Mic.'));
   const opts=section(root,'Options');opts.dataset.emitterOptions='';
   const e=engineFor(n.id);
