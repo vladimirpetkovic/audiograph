@@ -8,12 +8,11 @@ Single HTML file. No dependencies. No build step. Open it in a browser and go.
 
 **▶ Live: [vladimirpetkovic.github.io/audiograph](https://vladimirpetkovic.github.io/audiograph/)**
 
-**Audiograph Pro preview: [Open the node-based studio](https://vladimirpetkovic.github.io/audiograph/pro/).**
-Separate layer graphs reuse the existing Emitters, with typed control/image
-connections, audio bands, effects, branching, blending, undo and JSON projects.
-This is a working prototype, not full feature parity: four Emitters maximum,
-960×540 preview, Low simulation quality and Canvas 2D compositing. See
-[the Pro guide](pro/README.md) for controls and current limits.
+**Audiograph Pro: [Open the node-based studio](https://vladimirpetkovic.github.io/audiograph/pro/).**
+Build visuals by chaining nodes: all 32 Emitters, Geometry, Deformers, Color, Style,
+Particles and the original GPU Post FX. LFOs, audio bands and beats can drive any
+knob. It has up to four layers, templates, recording and JSON projects. See
+[the Pro guide](pro/README.md).
 
 ---
 

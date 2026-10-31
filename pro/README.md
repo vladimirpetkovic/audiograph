@@ -1,102 +1,89 @@
-# Audiograph Pro prototype
+# Audiograph Pro
 
-A separate, static node-based vertical slice. Open `pro/` through an HTTP server
-or at `/audiograph/pro/`; the regular app at `../index.html` stays unchanged.
-No build step, package installation, CDN, uploads or remote services are needed.
+A node-based studio built on the original Audiograph. Open `pro/` through an HTTP
+server or at `/audiograph/pro/`. The regular app at `../index.html` stays unchanged
+and is the engine. There is no build step and nothing to install; it uses no CDN,
+uploads or remote services.
 
-## Publishing
+## How it works
 
-Publish these files together, preserving their relative paths:
+Every **layer** is a graph that ends in an **Output**. Layers stack in the preview,
+each with its own opacity and blend mode (up to four).
 
-- `index.html` (the existing regular Audiograph engine, one level above `pro/`)
-- `pro/index.html`
-- `pro/studio.css`
-- `pro/graph.js`
-- `pro/engine.js`
-- `pro/studio.js`
+- **Emitters**: all 32 Audiograph renderers (General, Simulations, 3D, Input).
+  The inspector shows each emitter's own options from the original (knobs and
+  choice chips, including presets).
+- **Geometry & Motion**: Lines, Transform (scale, rotation, offset, 3D tilt and
+  rotate, zoom on loud), Motion (spin, speed), Symmetry (mirror axes, 3/4/6/8-fold,
+  flip, reflection).
+- **Deformers**: Amplify, Twist, Bulge, Wave, Shear, Depth, Ripple, Jitter,
+  Disorder, Randomize.
+- **Color**: Palette (tone ramp, simple ramp or solid, with presets) and Hue shift
+  (static or cycling).
+- **Style**: Line style (13 styles) and Outline.
+- **Particles**: Particles (11 shapes) and Flow field (Perlin, curl, Brownian,
+  vortex).
+- **Post FX**: Bloom, Color correct, Blur, Lens, Kaleido, Trails, Fracture. These
+  run the original GPU per-layer shaders. Quick filter is a Canvas 2D filter.
+- **Controls**: Value, LFO (sine, triangle, saw, square, random), Map range,
+  Smooth (attack and release), Math, Random (per beat or rate).
+- **Audio**: Audio band (bass, mids, high, full), Beat, Audio EQ (10 bands, feeds
+  one emitter's spectrum input).
+- **Composite**: Background (flat, vertical, radial), Blend, Output.
 
-Serve `.js` files as JavaScript and use HTTPS (or localhost) for WebGPU.
-Do not point an SPA fallback at Pro: its modules and the parent engine must be
-served as actual files.
+Emitter → shape nodes → Post FX → Output. Shape nodes (amber wires) change *how
+the emitter draws*. Post FX nodes (blue wires) process the finished image.
 
-## Working slice
+## Using it
 
-The library supports drag/drop and click-to-add. Drag headers to move nodes,
-drag empty space to pan, and use the wheel or zoom buttons. Connect an output
-port to a matching input by clicking each. Click a wire to remove it. Select a
-node to edit its properties; Delete/Backspace or the inspector deletes it.
-Undo/redo supports nodes, wires, properties, moves and layer changes.
+- **Quick build**: select a node, then click a library node. It is inserted right
+  after the selection. Deleting a node heals the chain.
+- **Drive any knob**: drag a number output (teal) onto a node and pick the knob.
+  An input of 0 keeps the knob value and 1 pushes it to the maximum. A node with a
+  single knob connects directly.
+- **Wires**: drag from an output dot to an input dot or to a node. Clicking an
+  output and then an input also works. Click a wire to delete it.
+- **Audio**: load a file or use the Mic. Without audio, a demo beat plays. Wiring a
+  number into an emitter's Drive replaces the music for that emitter.
+- **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
+  F toggles fullscreen.
+- **Templates, Save/Restore** (in this browser), **Export/Import** JSON, and
+  **Rec** records the preview with audio to WebM.
 
-- **Controls:** Value, Oscillator, Audio band (bass/mids/high/full), Map range.
-- **Images:** Emitter, Image effect, Blend, Output.
-- **Effects:** hue, brightness, saturation, blur, invert.
-- **Blends:** normal, screen, multiply, difference, additive, with mix.
-- **Layers:** up to four independent graphs, each with visibility and opacity.
-- **Projects:** versioned, bounded and validated JSON import/export; explicit
-  browser save/restore uses the separate `audiograph-pro-v1` storage key.
+## Engine
 
-All 32 currently visible Audiograph emitters are selectable: 11 General,
-7 Simulations, 7 3D and 7 Input choices. Each uses its real existing renderer;
-this is not the regular app's unrelated Graph visualisation editor.
-Image and Pixel Warp accept raster files, Video accepts browser-decodable files,
-Text accepts text, and 3D Object accepts OBJ. Gaussian Splat uses its built-in
-demo. Math uses only the built-in trusted expression, never project-supplied
-code. The small property subset is intentional.
+Each Emitter loads the trusted same-origin regular app into an isolated frame.
+Pro drives the app's own live render loop (`liveAnimLoop`) one frame at a time.
+It replaces the app's analyser with a synthetic one that Pro fills from the real
+audio, the demo beat or a Drive value. Everything the original applies when
+compositing (symmetry, flip, mirror, spin, particles, per-layer Post FX) therefore
+renders exactly as in Audiograph. Post FX nodes call the original's
+`applyLayerFx` on any image. If there are no emitters, a helper engine runs them.
 
-The working default is Oscillator → Fluid Emitter → Image effect → Output.
-Add an Audio band node and connect it to the Emitter's drive socket for
-audio-reactive output. Load an audio file and explicitly press Play.
-One shared Web Audio analyser supplies every Audio band node; no microphone
-or camera permissions are requested.
+Projects are versioned and validated. Emitter options accept only numeric values
+under safe IDs. Code and expressions are never imported. Version 1 (stage 1)
+projects are migrated automatically. Media files (audio, image, video, OBJ) are
+not saved in projects.
 
-## Rendering and lifecycle
+## Limits
 
-Each Emitter loads the trusted same-origin regular app into an isolated engine
-frame. External font imports are removed and the engine has an offline-oriented
-content policy. Rendering globals, solver IDs, canvases and devices are isolated
-between Emitters. Native WebGPU runs the original simulation compute solvers;
-other emitters use the original WebGL / Canvas renderer and its compatibility
-fallbacks. Effects and final preview compositing use Canvas 2D.
+- Output is fixed at 960×540, with Low simulation quality.
+- Each project allows four Emitters, four layers and 60 nodes per layer.
+- Not included: projection mapping, AI Look, autopilot, morphing, webcam input.
+  Use the original Audiograph for these.
 
-The graph evaluator validates typed ports and cycles, sorts nodes topologically,
-then evaluates only ancestors of Output. Adding an unused node therefore does
-not interrupt the live branch. Solvers keep state across frames and ordinary
-property edits. Changing the Emitter algorithm resets only that engine's solver.
-Deleting an Emitter or layer disposes its simulation resources and frame.
-Back/forward-cache transitions dispose and clear engines; returning recreates
-them. Cached navigation stops audio and suspends its retained context, so Play
-or loading another file works after returning without retaining GPU resources.
-The four-Emitter project limit bounds the cost of this isolation approach.
-
-## Boundaries
-
-This is not a zero-copy GPU graph. Resolution is fixed at 960×540 and simulation
-quality at Low. Numeric drive is a scalar spectrum amplitude, not a 64-bin
-spectrum socket. There is no feedback, solver-internal graph, full parameter
-parity, device input, MIDI/OSC, morphing, Autopilot, projection mapping or export
-parity. Pause freezes the visuals; audio has its own Stop control.
-
-Audio, raster images, video and OBJ source files are not serialized or uploaded.
-Reload them after reopening/importing a project or undoing Emitter deletion.
-Normal-app saved projects are a different format and are deliberately rejected.
-
-## Acceptance
-
-From the repository root:
+## Tests
 
 ```sh
 node tests/pro.cjs
 ```
 
-Uses the existing `tests/node_modules/playwright` and native installed Google
-Chrome on macOS. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select another browser;
-`AUDIOGRAPH_PRO_URL` can target an existing deployment. Tests start a bounded
-static server with correct Pro subpaths and parent engine routing, then close
-the browser and server in `finally`.
-
-Acceptance verifies native GPU output and state persistence, all built-in
-Emitter choices, raster/OBJ/video imports, shared audio, typed/cyclic connection
-rejection, independent Fluid and Boids GPU engines, branching/blending, layer
-visibility, actual pixel changes, properties, dragging, library drag/drop,
-delete/undo/redo and JSON/browser save roundtrips. A screenshot is written outside
-the repository at `../pro-prototype.png`.
+This uses `tests/node_modules/playwright` and the installed Google Chrome. It
+covers:
+- native WebGPU output and the emitter option knobs and presets
+- click-to-insert and chain healing
+- wire dragging and the port menu
+- deformers changing pixels
+- Post FX without an emitter
+- v1 migration and rejection of unsafe imports
+- every template, layers, save/restore, and 390px overflow

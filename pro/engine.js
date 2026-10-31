@@ -1,3 +1,7 @@
+// Isolated Audiograph engines. Each Emitter owns one same-origin iframe running the real app; Pro drives
+// the app's own live render loop (liveAnimLoop) one frame at a time with a synthetic analyser, so every
+// original feature that lives in the composite (symmetry, flip, mirror, spin, particles, per-layer Post FX)
+// renders exactly as in Audiograph.
 let sourcePromise;
 async function engineSource() {
   if(!sourcePromise)sourcePromise=fetch(new URL('../index.html',location.href)).then(async r=>{
@@ -5,17 +9,35 @@ async function engineSource() {
     let html=await r.text();
     if(!html.includes('function getDefaultLayerParams'))throw Error('The parent page is not an Audiograph engine');
     // Load the trusted local app, not any project-provided source. Keep fonts and media offline.
-    html=html.replace(/@import\s+url\([^;]+\);/g,'');
+    html=html.replace(/@import\s+url\((['"]?)[^'")]*\1\)\s*;?/g,'');
     const base=new URL('../',location.href).href;
-    const policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:";
+    const policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:";
     return html.replace('<head>',`<head><base href="${base}"><meta http-equiv="Content-Security-Policy" content="${policy}">`);
   });
   return sourcePromise;
 }
-const WIDTH=960,HEIGHT=540;
+export const WIDTH=960,HEIGHT=540,BINS=2048;
+const SOLIDS=['knot','cube','torus'];
+const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
+
+// A fake AnalyserNode living in the engine realm. Pro writes freq/wave each frame.
+function fakeAnalyser(audio) {
+  const dummy=()=>({type:'',frequency:{value:0},Q:{value:0},gain:{value:0},connect(){},disconnect(){}});
+  const bass={fftSize:2048,frequencyBinCount:1024,getFloatTimeDomainData(buf){buf.set(audio.wave.subarray(0,buf.length));},getByteFrequencyData(buf){buf.fill(0);},connect(){},disconnect(){}};
+  const context={sampleRate:48000,createBiquadFilter:dummy,createGain:dummy,createAnalyser:()=>bass,destination:{}};
+  return {fftSize:BINS*2,frequencyBinCount:BINS,smoothingTimeConstant:.75,minDecibels:-100,maxDecibels:-30,context,
+    getByteFrequencyData(buf){buf.set(audio.freq.subarray(0,buf.length));},
+    getFloatFrequencyData(buf){for(let i=0;i<buf.length;i++)buf[i]=-100+audio.freq[i]/255*70;},
+    getByteTimeDomainData(buf){for(let i=0;i<buf.length;i++)buf[i]=128+audio.wave[i%audio.wave.length]*127;},
+    getFloatTimeDomainData(buf){for(let i=0;i<buf.length;i++)buf[i]=audio.wave[i%audio.wave.length];},
+    connect(){},disconnect(){}};
+}
+
 export class EmitterEngine {
   constructor(id,onError) {
     this.id=id;this.onError=onError;this.status='starting';this.disposed=false;this.mode='';this.mediaName='';this.mediaKind='';this.generation=0;
+    this.baseKey='';this.base=null;this.lastText=null;this.frames=0;
+    this.audio={freq:new Uint8Array(BINS),wave:new Float32Array(2048)};
     this.canvas=document.createElement('canvas');this.canvas.width=WIDTH;this.canvas.height=HEIGHT;this.ctx=this.canvas.getContext('2d');
     this.ready=this.init().catch(error=>{if(!this.disposed){this.status='error';this.error=error.message;this.onError(error.message);}return false;});
   }
@@ -32,73 +54,129 @@ export class EmitterEngine {
     iframe.srcdoc=html;document.getElementById('engines').append(iframe);await loaded;
     if(this.disposed)return false;
     const w=iframe.contentWindow;
-    if(typeof w.getDefaultLayerParams!=='function'||!w.agSim||!w.agDrawDensity)throw Error('Renderer API unavailable in the parent app');
+    if(typeof w.getDefaultLayerParams!=='function'||!w.agSim||!w.agDrawDensity||typeof w.liveAnimLoop!=='function')throw Error('Renderer API unavailable in the parent app');
     this.w=w;
     w.addEventListener('error',event=>this.fail(`Emitter engine: ${event.message}`));
     w.alert=message=>this.fail(String(message));
-    w.audioBuffer=null;w.playing=false;w.particlesOn=false;w.stackMode=false;w.stackLayouts=[];w.agSim.noPrewarm=true;
     if(w.rafId)w.cancelVisualFrame(w.rafId);
-    this.params=w.getDefaultLayerParams();this.params._particlesOn=false;this.params._simId=1;
-    this.params._sim={...w.AG_SIM_DEF_OPT,q:'low',auto:'off'};
-    this.params.pSimExpo=0;this.params.pSimReact=0;this.params.pSimSwirlSnd=0;
-    this.params._lines=96;this.params._height=70;this.params._thick=3;this.params._colorMode='toneramp';
+    w.requestVisualFrame=()=>0;w.cancelVisualFrame=()=>{};
+    w.audioBuffer=null;w.playing=false;w.particlesOn=false;w.agSim.noPrewarm=true;w.dprCap=1;w.canvasBg='rgba(0,0,0,0)';
+    const fc=w.frameCv;fc.style.cssText=`position:fixed;left:0;top:0;width:${WIDTH}px;height:${HEIGHT}px;display:block`;
+    w.analyser=fakeAnalyser(this.audio);w.liveMode=true;w.livePaused=false;
+    try{w.localStorage.removeItem('audiograph_bass');}catch{}
+    this.defaults=w.getDefaultLayerParams();
+    Object.assign(this.defaults,{_particlesOn:false,_simId:1,pSimExpo:0,pSimReact:0,pSimSwirlSnd:0});
+    this.defaults._sim={...w.AG_SIM_DEF_OPT,q:'low',auto:'off'};
+    w.stackMode=true;w.activeLayerIdx=0;w.stackLayouts=[{layout:'linear',opacity:100,params:this.defaults}];
     this.status='ready';return true;
   }
-  fail(message) {
-    if(this.disposed)return;
-    this.status='error';this.error=message;this.onError(message);
-  }
-  configure(props) {
-    const w=this.w,p=this.params;
-    const solid=['knot','cube','torus'].includes(props.mode);
-    const mode=solid?'object':props.mode;
-    if(mode!==this.mode) {
+  fail(message) {if(this.disposed)return;this.status='error';this.error=message;this.onError(message);}
+  container(mode=this.mode){return this.w?.document.getElementById('layoutOpts_'+mode);}
+  // Switch the trusted app to a layout, replay chip choices, snapshot the resulting parameters.
+  prepare(job) {
+    const w=this.w,solid=SOLIDS.includes(job.mode),mode=solid?'object':job.mode;
+    const key=job.mode+'|'+JSON.stringify(job.chips||{});
+    if(key===this.baseKey)return mode;
+    if(mode!==this.mode){
       if(this.video){if(mode==='video')this.video.play().catch(error=>this.fail('Video playback: '+error.message));else this.video.pause();}
-      w.agSim.reset();this.mode=mode;this.generation++;
-      w.layoutMode=mode;
-      if(mode.startsWith('sim')&&!w._agIsSim(mode))throw Error(`${props.mode} is not available in this Audiograph build`);
+      w.agSim.reset();this.mode=mode;this.generation++;this.lastText=null;
+      if(mode.startsWith('sim')&&!w._agIsSim(mode))throw Error(`${job.mode} is not available in this Audiograph build`);
     }
-    if(mode==='object')w.objBuiltin=solid?props.mode:'file';
-    p.pSimEnergy=props.energy;p.pSpSize=props.size;p._thick=props.size;
-    w.layoutMode=mode;w.setLayoutParams(p);
-    if(solid)w.objBuiltin=props.mode;
-    if(mode==='text'&&this.lastText!==props.text) {
-      w.document.getElementById('textLayoutInput').value=props.text;w.generateTextLayout();this.lastText=props.text;
+    w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(this.defaults);
+    if(mode==='object'){w.objBuiltin=solid?job.mode:(this.mediaKind==='object'?'file':'knot');}
+    try{if(mode==='object')w.setObjLayout(w.objBuiltin,null);else w.setLayout(mode,null);}catch(e){console.warn(e);}
+    const groups=this.chipGroups();
+    for(const [k,label] of Object.entries(job.chips||{})){
+      const g=groups[k];if(!g)continue;
+      const b=g.buttons.find(b=>b.textContent.trim()===label);
+      if(b&&!b.classList.contains('on'))try{b.click();}catch(e){console.warn(e);}
     }
-    // Math is the built-in expression in the trusted application only. No imported code.
+    this.base=w.getLayoutParams();this.baseKey=key;return mode;
   }
-  draw(props,drive,time) {
+  chipGroups() {
+    const box=this.container();if(!box)return [];
+    return [...box.querySelectorAll('.mode-btns')].map(g=>({el:g,buttons:[...g.querySelectorAll('button')]}));
+  }
+  // Introspect the original panel for the current layout: knobs, chips, text fields.
+  controls(job) {
+    if(this.status!=='ready')return null;
+    this.prepare(job);
+    const box=this.container();if(!box)return [];
+    const shown=e=>{for(let x=e;x&&x!==box;x=x.parentElement){if(x.style.display==='none'||x.hidden||x.classList.contains('ag-na'))return false;}return true;};
+    const label=e=>{const row=e.closest('.prow,.sim-row,.ag-row')||e.parentElement;const l=row?.querySelector('.prow-label,.sublabel,label,span');return (l&&!l.contains(e)?l.textContent:'').trim().replace(/\s+/g,' ').slice(0,40);};
+    const out=[],groups=this.chipGroups();
+    for(const e of box.querySelectorAll('input[type=range],.mode-btns')){
+      if(!shown(e))continue;
+      if(e.classList.contains('mode-btns')){
+        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>b.style.display!=='none');
+        if(!buttons.length)continue;
+        const action=buttons.every(b=>/simRestart|simReset|simReinit|Preset|Shuffle|objToPointCloud|click\(\)/i.test(b.getAttribute('onclick')||''));
+        out.push({type:'chips',key:String(idx),label:label(e),action,options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
+      }else if(OPT_ID.test(e.id))out.push({type:'range',id:e.id,label:label(e)||e.id,min:+e.min,max:+e.max,step:+e.step||1,value:+e.value,def:+(this.defaults[e.id]??e.defaultValue)});
+    }
+    return out;
+  }
+  // Perform a chip click (presets / restart / choice) and report the resulting range values.
+  click(job,key,label) {
+    this.prepare(job);
+    const g=this.chipGroups()[key];if(!g)throw Error('That option is no longer available');
+    const b=g.buttons.find(b=>b.textContent.trim()===label);if(!b)throw Error('Unknown option '+label);
+    b.click();this.base=this.w.getLayoutParams();
+    const ranges={};
+    for(const e of this.container().querySelectorAll('input[type=range]'))if(OPT_ID.test(e.id)&&+e.value!==+(this.defaults[e.id]??e.defaultValue))ranges[e.id]=+e.value;
+    return {ranges,on:b.classList.contains('on')};
+  }
+  // Render one frame of the emitter with parameter overrides. Returns the engine canvas.
+  draw(job) {
     if(this.status==='error')throw Error(this.error);
     if(this.status!=='ready')return null;
-    const w=this.w;
-    this.configure(props);
-    if(['image','pixelwarp'].includes(this.mode)&&this.mediaKind!=='image')throw Error(`${props.mode}: load an image in the selected Emitter properties`);
-    if(this.mode==='video'&&this.mediaKind!=='video')throw Error('Video: load a video in the selected Emitter properties');
-    if(this.mode==='object'&&props.mode==='object'&&this.mediaKind!=='object')throw Error('3D Object: load an OBJ file in the selected Emitter properties');
-    if(this.mode==='video')w.sampleVideoFrame();
-    const value=Math.max(0,Math.min(2,drive));
-    const values=Array.from({length:96},(_,i)=>Math.max(0,Math.min(1,value*(.58+.42*Math.sin(i*.14+time)))));
-    w.globalFrame++;w.agSim.inject({spec:value,onset:0});w.agSim.beginFrame();w.agGpu.beginFrame();
-    const ctx=this.ctx;ctx.resetTransform();ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.save();
-    ctx.filter=`hue-rotate(${props.hue}deg)`;
-    w.agDrawDensity(ctx,WIDTH,HEIGHT,values,w.P(),false);ctx.restore();
-    if(this.mode.startsWith('sim')){
+    const w=this.w,mode=this.prepare(job);
+    if(['image','pixelwarp'].includes(mode)&&this.mediaKind!=='image'&&!(mode==='pixelwarp'&&this.mediaKind==='video'))throw Error(`${job.mode}: load an image in the Emitter properties`);
+    if(mode==='video'&&this.mediaKind!=='video')throw Error('Video: load a video in the Emitter properties');
+    if(job.mode==='object'&&this.mediaKind!=='object')throw Error('3D Object: load an OBJ file in the Emitter properties');
+    const p={...this.base};
+    for(const [k,v] of Object.entries(job.opts||{}))if(OPT_ID.test(k))p[k]=v;
+    Object.assign(p,job.mods||{});
+    if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
+    w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;
+    w.setLayoutParams(p);
+    if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)?job.mode:'file';
+    if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
+    if(mode==='video'||(mode==='pixelwarp'&&this.mediaKind==='video'))w.sampleVideoFrame?.();
+    this.audio.freq.set(job.audio.freq);this.audio.wave.set(job.audio.wave);
+    w.analyser.context.sampleRate=job.audio.rate||48000;
+    w.__agFractureDrive=job.audio.drive;
+    const fc=w.frameCv,fctx=w.frameCtx;fctx.setTransform(1,0,0,1,0,0);fctx.clearRect(0,0,fc.width,fc.height);
+    w.liveAnimLoop();this.frames++;
+    const ctx=this.ctx;ctx.resetTransform();ctx.globalCompositeOperation='source-over';ctx.clearRect(0,0,WIDTH,HEIGHT);
+    ctx.filter=job.hue?`hue-rotate(${job.hue}deg)`:'none';
+    const pf=w.document.getElementById('postFxCv');
+    ctx.drawImage(pf&&pf.style.display!=='none'&&w.postFxEnabled?pf:fc,0,0,WIDTH,HEIGHT);ctx.filter='none';
+    if(mode.startsWith('sim')){
       const stats=w.agSim.stats();
       if(!['ready','idle','init'].includes(stats.status))throw Error(`Native WebGPU: ${stats.msg||stats.status}`);
       this.backend=`Native WebGPU${stats.status==='ready'?'':' (starting)'}`;
     }else this.backend=w.agGpu.status().t;
     return this.canvas;
   }
+  // Run the original per-layer Post FX shader on any canvas. `slot` keeps trail history per node.
+  fx(slot,src,settings,drive) {
+    if(this.status!=='ready')return null;
+    const w=this.w;w.__agFractureDrive=drive;
+    const out=w.applyLayerFx(slot,src,w.pfxNorm({...settings,enabled:true}));
+    return out;
+  }
   async media(file,kind) {
     if(file.size>80*1024*1024)throw Error('Media limit is 80 MB per file');
     await this.ready;if(!this.w||this.disposed)throw Error('Emitter engine is not ready');
-    const w=this.w;this.mediaKind='';this.mediaName='';
+    const w=this.w;this.mediaKind='';this.mediaName='';this.baseKey='';
     if(kind==='image') {
       if(!['image/png','image/jpeg','image/webp','image/gif','image/avif'].includes(file.type))throw Error('Use a raster PNG, JPEG, WebP, GIF or AVIF image');
       const bitmap=await createImageBitmap(file);
       if(bitmap.width*bitmap.height>16000000){bitmap.close();throw Error('Image limit is 16 megapixels');}
       const cv=w.document.createElement('canvas');cv.width=bitmap.width;cv.height=bitmap.height;cv.getContext('2d').drawImage(bitmap,0,0);bitmap.close();
       w.imgLayoutImg=cv;w.imgSource='raster';w.sampleLayoutImage();
+      if(w.agPixelWarp?.setImage)try{w.agPixelWarp.setImage(cv);}catch(e){console.warn(e);}
     }else if(kind==='video') {
       if(!file.type.startsWith('video/'))throw Error('Choose a video file');
       const url=URL.createObjectURL(file),video=w.document.createElement('video');
@@ -120,12 +198,12 @@ export class EmitterEngine {
     }
     this.mediaKind=kind;this.mediaName=file.name;
   }
-  stats() {return this.w?{status:this.status,mode:this.mode,generation:this.generation,sim:this.w.agSim.stats(),renderer:this.w.agGpu.stats()}: {status:this.status};}
+  stats() {return this.w?{status:this.status,mode:this.mode,generation:this.generation,frames:this.frames,sim:this.w.agSim.stats(),renderer:this.w.agGpu.stats()}: {status:this.status};}
   dispose() {
     this.disposed=true;this.cancelLoad?.();
     if(this.video){this.video.pause();this.video.removeAttribute('src');}
     if(this.videoURL)URL.revokeObjectURL(this.videoURL);
-    if(this.w){this.w.agSim.reset();if(this.w.agSim.status()==='ready')this.w.agSim.loseDevice();}
+    if(this.w){try{this.w.agSim.reset();if(this.w.agSim.status()==='ready')this.w.agSim.loseDevice();}catch{}}
     this.iframe?.remove();this.w=null;this.canvas.width=this.canvas.height=1;
   }
 }
