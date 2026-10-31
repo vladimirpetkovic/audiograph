@@ -24,7 +24,16 @@ export function setCameraProvider(fn){cameraProvider=fn;}
 const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 // Chips Pro expresses as node types instead (media source, built-in model, OBJ → point cloud).
 const HIDDEN=/setVidSource|setPixelWarpSource|objToPointCloud|setObjModel|setObjLayout/;
-const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',JSON.stringify(job.chips||{}),job.look&&Object.keys(job.look).length?JSON.stringify(job.look):''].join('|');
+const strCache=new WeakMap();
+const str=o=>{if(!o||typeof o!=='object')return JSON.stringify(o??{});let v=strCache.get(o);if(v===undefined){v=JSON.stringify(o);strCache.set(o,v);}return v;};
+const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|');
+// Same parameters as last frame? (objects compare by content; they are small)
+function sameParams(a,b){
+  if(!a||!b)return false;
+  for(const k in a){const x=a[k],y=b[k];if(x===y)continue;if(x&&y&&typeof x==='object'&&typeof y==='object'&&str(x)===str(y))continue;return false;}
+  for(const k in b)if(!(k in a))return false;
+  return true;
+}
 
 function lowpass(src,dst,rate,hz){
   const w=2*Math.PI*hz/rate,al=Math.sin(w)/(2*Math.SQRT1_2),c=Math.cos(w),a0=1+al,b0=(1-c)/2/a0,b1=(1-c)/a0,b2=b0,a1=-2*c/a0,a2=(1-al)/a0;
@@ -90,6 +99,11 @@ export class EmitterEngine {
     const fc=w.frameCv;fc.style.cssText=`position:fixed;left:0;top:0;width:${WIDTH}px;height:${HEIGHT}px;display:block`;
     w.analyser=fakeAnalyser(this.audio);w.liveMode=true;w.livePaused=false;
     try{w.localStorage.removeItem('audiograph_bass');}catch{}
+    // The app's stacked render loop reads the panel back (getLayoutParams) and re-applies it (setLayoutParams) twice per
+    // frame. During a Pro frame the parameters are already applied, so those round trips return / skip the frame's object.
+    const realSet=w.setLayoutParams,realGet=w.getLayoutParams;this.realSet=realSet;
+    w.setLayoutParams=q=>{if(this.frameP&&q===this.frameP)return;this.applied=null;realSet(q);};
+    w.getLayoutParams=()=>this.frameP||realGet();
     this.defaults=w.getDefaultLayerParams();
     // Simulations keep the original's sound reaction (audio contrast, swirl by sound, exposure) and quality.
     Object.assign(this.defaults,{_particlesOn:false,_simId:1});
@@ -104,6 +118,7 @@ export class EmitterEngine {
     const w=this.w,solid=SOLIDS.includes(job.mode),mode=solid?'object':job.mode;
     const key=jobKey(job);
     if(key===this.baseKey)return mode;
+    this.applied=null;
     if(mode!==this.mode){
       if(this.video){if(mode==='video')this.video.play().catch(error=>this.fail('Video playback: '+error.message));else this.video.pause();}
       w.agSim.reset();this.mode=mode;this.generation++;this.lastText=null;
@@ -168,7 +183,7 @@ export class EmitterEngine {
     this.prepare(job);
     const g=this.chipGroups()[key];if(!g)throw Error('That option is no longer available');
     const b=g.buttons.find(b=>b.textContent.trim()===label);if(!b)throw Error('Unknown option '+label);
-    b.click();this.base=this.w.getLayoutParams();
+    b.click();this.applied=null;this.base=this.w.getLayoutParams();
     const ranges={};
     for(const e of this.container().querySelectorAll('input[type=range]'))if(OPT_ID.test(e.id)&&+e.value!==+(SIM_TUNE[this.mode]?.[e.id]??this.defaults[e.id]??e.defaultValue))ranges[e.id]=+e.value;
     return {ranges,on:b.classList.contains('on')};
@@ -186,7 +201,7 @@ export class EmitterEngine {
     this.camera(cam);
     if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
     w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;
-    w.setLayoutParams(p);
+    if(!sameParams(p,this.applied)){this.realSet(p);this.applied=p;}
     if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
     if(mode==='video'||(mode==='pixelwarp'&&(this.mediaKind==='video'||w.vidCamStream)))w.sampleVideoFrame?.();
@@ -196,7 +211,7 @@ export class EmitterEngine {
     w.analyser.context.sampleRate=job.audio.rate||48000;
     w.__agFractureDrive=job.audio.drive;
     const fc=w.frameCv,fctx=w.frameCtx;fctx.setTransform(1,0,0,1,0,0);fctx.clearRect(0,0,fc.width,fc.height);
-    w.liveAnimLoop();this.frames++;
+    this.frameP=p;try{w.liveAnimLoop();}finally{this.frameP=null;}this.frames++;
     const ctx=this.ctx;ctx.resetTransform();ctx.globalCompositeOperation='source-over';ctx.clearRect(0,0,WIDTH,HEIGHT);
     ctx.filter=job.hue?`hue-rotate(${job.hue}deg)`:'none';
     const pf=w.document.getElementById('postFxCv');
@@ -228,7 +243,7 @@ export class EmitterEngine {
   async media(file,kind) {
     if(file.size>80*1024*1024)throw Error('Media limit is 80 MB per file');
     await this.ready;if(!this.w||this.disposed)throw Error('Emitter engine is not ready');
-    const w=this.w;this.mediaKind='';this.mediaName='';this.baseKey='';
+    const w=this.w;this.mediaKind='';this.mediaName='';this.baseKey='';this.applied=null;
     if(kind==='image') {
       if(!['image/png','image/jpeg','image/webp','image/gif','image/avif'].includes(file.type))throw Error('Use a raster PNG, JPEG, WebP, GIF or AVIF image');
       const bitmap=await createImageBitmap(file);
