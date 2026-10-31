@@ -22,6 +22,9 @@ const SOLIDS=['knot','cube','torus'];
 let cameraProvider=null;
 export function setCameraProvider(fn){cameraProvider=fn;}
 const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
+// Chips Pro expresses as node types instead (media source, built-in model, OBJ → point cloud).
+const HIDDEN=/setVidSource|setPixelWarpSource|objToPointCloud|setObjModel|setObjLayout/;
+const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',JSON.stringify(job.chips||{})].join('|');
 
 // A fake AnalyserNode living in the engine realm. Pro writes freq/wave each frame.
 function fakeAnalyser(audio) {
@@ -82,7 +85,7 @@ export class EmitterEngine {
   // Switch the trusted app to a layout, replay chip choices, snapshot the resulting parameters.
   prepare(job) {
     const w=this.w,solid=SOLIDS.includes(job.mode),mode=solid?'object':job.mode;
-    const key=job.mode+'|'+JSON.stringify(job.chips||{});
+    const key=jobKey(job);
     if(key===this.baseKey)return mode;
     if(mode!==this.mode){
       if(this.video){if(mode==='video')this.video.play().catch(error=>this.fail('Video playback: '+error.message));else this.video.pause();}
@@ -92,6 +95,9 @@ export class EmitterEngine {
     w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(this.defaults);
     if(mode==='object'){w.objBuiltin=solid?job.mode:(this.mediaKind==='object'?'file':'knot');}
     try{if(mode==='object')w.setObjLayout(w.objBuiltin,null);else w.setLayout(mode,null);}catch(e){console.warn(e);}
+    if(job.source){const b=[...(this.container()?.querySelectorAll('.mode-btns button')||[])].find(b=>(b.getAttribute('onclick')||'').includes(job.source));if(b&&!b.classList.contains('on'))try{b.click();}catch(e){console.warn(e);}}
+    if(job.mesh){w.simOpt.spSrc='mesh';w.simOpt.spMesh=this.mediaKind==='object'?'obj':'knot';try{w.syncSimUI();}catch{}w.agSim.reset();}
+    else if(job.splat&&w.simOpt.spSrc==='mesh'){w.simOpt.spSrc='galaxy';try{w.syncSimUI();}catch{}}
     const groups=this.chipGroups();
     for(const [k,label] of Object.entries(job.chips||{})){
       const g=groups[k];if(!g)continue;
@@ -115,7 +121,8 @@ export class EmitterEngine {
     for(const e of box.querySelectorAll('input[type=range],.mode-btns')){
       if(!shown(e))continue;
       if(e.classList.contains('mode-btns')){
-        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(b.getAttribute('onclick')||''));
+        const hide=job.mesh?/setSimOpt\('sp(Src|Mesh)'/:job.splat?/setSimOpt\('(spSrc','mesh|spMesh)'/:null;
+        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>{const on=b.getAttribute('onclick')||'';return b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(on)&&!HIDDEN.test(on)&&!hide?.test(on);});
         if(!buttons.length)continue;
         const action=buttons.every(b=>/simRestart|simReset|simReinit|Preset|Shuffle|objToPointCloud|click\(\)/i.test(b.getAttribute('onclick')||''));
         out.push({type:'chips',key:String(idx),label:label(e),action,options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
@@ -126,7 +133,7 @@ export class EmitterEngine {
   // Range of one emitter option knob (for driven option ports), cached per layout + chip state.
   optRange(job,id) {
     if(this.status!=='ready')return null;
-    const key=job.mode+'|'+JSON.stringify(job.chips||{});
+    const key=jobKey(job);
     if(this.rangeKey!==key){this.ranges=new Map((this.controls(job)||[]).filter(c=>c.type==='range').map(c=>[c.id,c]));this.rangeKey=key;}
     return this.ranges.get(id)||null;
   }
@@ -145,9 +152,7 @@ export class EmitterEngine {
     if(this.status==='error')throw Error(this.error);
     if(this.status!=='ready')return null;
     const w=this.w,mode=this.prepare(job);
-    if(['image','pixelwarp'].includes(mode)&&this.mediaKind!=='image'&&!(mode==='pixelwarp'&&this.mediaKind==='video'))throw Error(`${job.mode}: load an image in the Emitter properties`);
-    if(mode==='video'&&this.mediaKind!=='video')throw Error('Video: load a video in the Emitter properties');
-    if(job.mode==='object'&&this.mediaKind!=='object')throw Error('3D Object: load an OBJ file in the Emitter properties');
+    if(job.need&&this.mediaKind!==job.need)throw Error(`${job.label||job.mode}: load ${job.need==='image'?'an image':'a video'} in its properties`);
     const p={...this.base};
     for(const [k,v] of Object.entries(job.opts||{}))if(OPT_ID.test(k))p[k]=v;
     const cam=job.mods?._cam;
@@ -158,7 +163,7 @@ export class EmitterEngine {
     w.setLayoutParams(p);
     if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
-    if(mode==='video'||(mode==='pixelwarp'&&this.mediaKind==='video'))w.sampleVideoFrame?.();
+    if(mode==='video'||(mode==='pixelwarp'&&(this.mediaKind==='video'||w.vidCamStream)))w.sampleVideoFrame?.();
     const r=job.response;
     if(r){const d=w.document,set=(id,v)=>{const e=d.getElementById(id);if(e&&+e.value!==v)e.value=v;};set('pIntensity',r.intensity);set('pBassPunch',r.punch);set('pBassRelease',r.release);set('pDynamics',r.dynamics);}
     this.audio.freq.set(job.audio.freq);this.audio.wave.set(job.audio.wave);
@@ -227,7 +232,7 @@ export class EmitterEngine {
       this.mediaKind=kind;this.mediaName=file.name;return {flip:!!r.flip};
     }else{
       if(!file.name.toLowerCase().endsWith('.obj'))throw Error('Choose an OBJ file');
-      w.objModelData=w.agParseObj(await file.text());w.objBuiltin='file';
+      w.objModelData=w.agParseObj(await file.text());w.objBuiltin='file';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;
     }
     this.mediaKind=kind;this.mediaName=file.name;
   }

@@ -1,25 +1,25 @@
 // Audiograph Pro graph model: categorized node catalog, typed ports, validation and migration.
-export const EMITTERS = {
-  General: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter']],
-  Simulations: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simboids','Boids'],['simsand','Granular Sand'],['simferro','Ferrofluid'],['simcloner','3D Cloner']],
-  '3D': [['terrain','Terrain'],['sphere','Sphere'],['tetrahedron','Tetrahedron'],['dna','DNA'],['knot','Knot'],['cube','Cube'],['torus','Torus']],
-  Input: [['image','Image'],['video','Video'],['simsplat','Gaussian Splat'],['pixelwarp','Pixel Warp'],['text','Text'],['custom','Math'],['object','3D Object (OBJ)']]
+// Emitter modes by node type: each is one of the original Audiograph renderers.
+export const MODES = {
+  waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['custom','Math']],
+  waveform3d: [['terrain','Terrain'],['sphere','Sphere'],['tetrahedron','Tetrahedron'],['dna','DNA'],['knot','Knot'],['cube','Cube'],['torus','Torus']],
+  gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simboids','Boids'],['simsand','Granular Sand'],['simferro','Ferrofluid'],['simcloner','3D Cloner']]
 };
-export const emitterNames = Object.fromEntries(Object.values(EMITTERS).flat());
+export const emitterNames = Object.fromEntries(Object.values(MODES).flat());
 
 export const CATEGORIES = [
-  {id:'emitters',label:'Emitters',color:'#f59e0b',hint:'Audio-reactive renderers from Audiograph'},
+  {id:'inputs',label:'Inputs',color:'#5eead4',hint:'Sound, pictures, camera, text and 3D you bring in'},
+  {id:'emitters',label:'Emitters',color:'#f59e0b',hint:'Waveforms and particles from Audiograph'},
   {id:'geometry',label:'Geometry & Motion',color:'#8aa2ff',hint:'Lines, transform, motion, symmetry'},
   {id:'deformers',label:'Deformers',color:'#c084fc',hint:'Bend the shape'},
   {id:'color',label:'Color',color:'#f472b6',hint:'Palettes and hue'},
   {id:'style',label:'Style',color:'#fbbf24',hint:'Line style and outlines'},
-  {id:'particles',label:'Particles',color:'#fb923c',hint:'Particles spawned from the shape'},
   {id:'postfx',label:'Post FX',color:'#22d3ee',hint:'Image effects (GPU shaders)'},
   {id:'controls',label:'Controls',color:'#6ee7b7',hint:'Numbers that move knobs'},
-  {id:'audio',label:'Audio',color:'#a3e635',hint:'Sound analysis'},
+  {id:'audio',label:'Audio analysis',color:'#a3e635',hint:'Turn sound into numbers or reshape it'},
   {id:'composite',label:'Composite',color:'#dddde0',hint:'Mix and output'}
 ];
-export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',spectrum:'#a3e635'};
+export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635'};
 
 const n=(label,value,min,max,step=1,extra={})=>({kind:'number',label,value,min,max,step,...extra});
 const pick=(label,value,choices,extra={})=>({kind:'select',label,value,choices,...extra});
@@ -31,6 +31,10 @@ const SHAPE_IO={inputs:{shape:'shape'},outputs:{shape:'shape'}};
 const FX_IO={inputs:{image:'image'},outputs:{image:'image'}};
 const DEFORM=(label,key,min,max,value,description,step=1)=>({category:'deformers',label,description,...SHAPE_IO,props:{amount:n('Amount',value,min,max,step,{key})}});
 const FX=(label,description,props)=>({category:'postfx',label,description,...FX_IO,fx:true,props});
+// Renderer nodes: each owns one isolated Audiograph engine. "audio" overrides the project sound; "drive" replaces it with a number.
+const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number'},outputs:{shape:'shape',...outputs},
+  props:{...props,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:n('Intensity',100,0,200,5),punch:n('Bass punch',60,0,100,1),release:n('Bass release',220,60,800,10),dynamics:n('Dynamics',50,0,100,1),
+    opts:dict('Options',120,'number'),chips:dict('Choices',60,'string')}});
 const SYMS=[['none','Off'],['x','X'],['y','Y'],['xy','XY'],['r3','3'],['r4','4'],['r6','6'],['r8','8']];
 const LINE_SHAPES=[['straight','Straight'],['rounded','Rounded'],['dotted','Dotted'],['dashed','Dashed'],['pins','Pins'],['tapered','Tapered'],['caps','Caps'],['cross','Cross'],['numbers','Numbers'],['symbols','Symbols'],['words','Words'],['cascade','Cascade'],['off','Off']];
 const PART_SHAPES=[['circle','Circle'],['square','Square'],['star','Star'],['diamond','Diamond'],['ring','Ring'],['triangle','Triangle'],['spark','Spark'],['line','Line'],['numbers','Numbers'],['symbols','Symbols'],['words','Words']];
@@ -50,11 +54,19 @@ export function paletteStops(props){
 }
 
 export const TYPES = {
+  // Inputs: what you bring in. Visual inputs render with the original's own renderer for that content.
+  audioIn:{category:'inputs',label:'Audio',description:'The sound: a file, the microphone or system audio. Wire “audio” into emitters (or an Audio EQ); the numbers drive any knob.',
+    inputs:{},outputs:{audio:'audio',level:'number',bass:'number',mids:'number',high:'number',beat:'number'},props:{gain:n('Number gain',1,0,8,.05),decay:n('Beat decay (ms)',350,30,3000,10)}},
+  image:ENGINE('inputs','Image','A picture drawn as audio-reactive lines, or warped by the sound.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})}),
+  video:ENGINE('inputs','Video','A video file drawn as audio-reactive lines, or warped by the sound.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})}),
+  camera:ENGINE('inputs','Camera','Your camera drawn as audio-reactive lines, or warped by the sound. Its motion and brightness are numbers for any knob.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})},{motion:'number',brightness:'number'}),
+  text:ENGINE('inputs','Text','Your words drawn as audio-reactive lines.',{text:text('Text','AUDIOGRAPH')}),
+  object:ENGINE('inputs','3D Object','An OBJ model (the built-in knot until you load one), as a mesh or as a point cloud.',{render:pick('Render','mesh',['mesh','cloud'],{labels:[['mesh','Mesh'],['cloud','Point cloud']]})}),
+  splat:ENGINE('inputs','Gaussian Splat','A .ply / .splat point cloud that reacts to the sound (a demo cloud until you load one).',{}),
   // Emitters
-  emitter:{category:'emitters',label:'Emitter',description:'An Audiograph renderer. Reacts to the shared audio, or to “drive” when connected.',inputs:{drive:'number',spectrum:'spectrum'},outputs:{shape:'shape'},primary:['drive'],
-    props:{mode:pick('Emitter','simfluid',Object.keys(emitterNames)),drive:n('Drive',.7,0,2,.01,{noPort:true}),text:text('Text','AUDIOGRAPH'),
-      intensity:n('Intensity',100,0,200,5),punch:n('Bass punch',60,0,100,1),release:n('Bass release',220,60,800,10),dynamics:n('Dynamics',50,0,100,1),
-      opts:dict('Options',120,'number'),chips:dict('Choices',60,'string')}},
+  waveform2d:ENGINE('emitters','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d})},{},'Waveforms 2D'),
+  waveform3d:ENGINE('emitters','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d})},{},'Waveforms 3D'),
+  gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke, flocks, sand, ferrofluid, 3D cloner.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
   // Geometry & Motion
   lines:{category:'geometry',label:'Lines',description:'Density, height and thickness of the drawn lines.',...SHAPE_IO,props:{
     density:n('Density',350,80,800,10,{key:'_lines'}),height:n('Height',80,5,300,5,{key:'_height'}),thick:n('Thickness',1,.5,15,.25,{key:'_thick'}),
@@ -95,11 +107,11 @@ export const TYPES = {
     style:pick('Style','solid',['solid','dotted','dashed','connected','fill'],{key:'_outlineStyle'}),opacity:n('Opacity',60,5,100,5,{key:'_outlineOpacity'}),weight:n('Weight',2,.5,8,.25,{key:'_outlineWeight'}),
     gap:n('Gap',0,0,30,1,{key:'_outlineDist'}),count:n('Count',1,1,10,1,{key:'_outlineCount'}),spacing:n('Spacing',4,1,20,1,{key:'_outlineSpace'})}},
   // Particles
-  particles:{category:'particles',label:'Particles',description:'Particles spawned from the shape, driven by loudness.',...SHAPE_IO,props:{
+  particles:{category:'emitters',group:'Particles',label:'Particles',description:'Particles spawned from the shape, driven by loudness.',...SHAPE_IO,props:{
     shape:pick('Shape','circle',PART_SHAPES.map(s=>s[0]),{labels:PART_SHAPES,key:'_particleShape'}),density:n('Density',20,1,50,1,{key:'pPartDensity'}),energy:n('Energy',1,.1,5,.1,{key:'pPartEnergy'}),
     speed:n('Speed',3,0,10,.1,{key:'pPartSpeed'}),life:n('Life',120,10,300,10,{key:'pPartLife'}),size:n('Size',12,1,40,.5,{key:'pPartSize'}),spread:n('Spread',50,0,100,5,{key:'pPartSpread'}),
     gravity:n('Gravity',0,-5,5,.1,{key:'pPartGravity'}),damping:n('Damping',97,80,100,.5,{key:'pPartDamping'}),trail:n('Trail',0,0,60,1,{key:'pPartTrail'})}},
-  flowField:{category:'particles',label:'Flow field',description:'Noise forces that steer particles.',...SHAPE_IO,props:{
+  flowField:{category:'emitters',group:'Particles',label:'Flow field',description:'Noise forces that steer particles.',...SHAPE_IO,props:{
     perlin:n('Perlin',40,0,100,1,{key:'pNoisePerlin'}),curl:n('Curl',0,0,100,1,{key:'pNoiseCurl'}),brownian:n('Brownian',0,0,100,1,{key:'pNoiseBrownian'}),vortex:n('Vortex',0,0,100,1,{key:'pNoiseVortex'}),
     scale:n('Scale',30,1,100,1,{key:'pNoiseScale'}),speed:n('Speed',20,1,100,1,{key:'pNoiseSpeed'})}},
   // Post FX (original per-layer GPU shaders)
@@ -124,11 +136,11 @@ export const TYPES = {
   map:{category:'controls',label:'Map range',description:'Scale and offset a number.',inputs:{value:'number'},outputs:{value:'number'},primary:['value'],props:{scale:n('Scale',1,-4,4,.01),offset:n('Offset',0,-2,2,.01)}},
   smooth:{category:'controls',label:'Smooth',description:'Soften a signal with separate attack and release.',inputs:{value:'number'},outputs:{value:'number'},primary:['value'],props:{attack:n('Attack (ms)',30,0,2000,5),release:n('Release (ms)',300,0,4000,10)}},
   math:{category:'controls',label:'Math',description:'Combine two numbers.',inputs:{a:'number',b:'number'},outputs:{value:'number'},primary:['a','b'],props:{op:pick('Operation','add',['add','multiply','subtract','min','max']),a:n('A',0,-2,2,.01,{noPort:true}),b:n('B',0,-2,2,.01,{noPort:true})}},
-  random:{category:'controls',label:'Random',description:'A new random value at a rate or on every beat.',inputs:{},outputs:{value:'number'},props:{trigger:pick('Trigger','beat',['beat','rate']),rate:n('Rate (Hz)',1,.05,10,.05),glide:n('Glide',.3,0,1,.01)}},
+  random:{category:'controls',label:'Random',description:'A new random value at a rate, on every beat, or whenever the “trigger” input rises above 0.5.',inputs:{trigger:'number'},outputs:{value:'number'},props:{trigger:pick('Trigger','beat',['beat','rate']),rate:n('Rate (Hz)',1,.05,10,.05),glide:n('Glide',.3,0,1,.01)}},
   // Audio
-  audio:{category:'audio',label:'Audio band',description:'Level of one frequency band.',inputs:{},outputs:{value:'number'},props:{band:pick('Band','bass',['bass','mids','high','full']),gain:n('Gain',1,0,8,.05)}},
-  beat:{category:'audio',label:'Beat',description:'A pulse on every detected beat.',inputs:{},outputs:{value:'number'},props:{decay:n('Decay (ms)',350,30,3000,10),gain:n('Gain',1,0,4,.05)}},
-  spectrum:{category:'audio',label:'Audio EQ',description:'Shape the spectrum an Emitter hears.',inputs:{},outputs:{spectrum:'spectrum'},props:{
+  audio:{category:'audio',label:'Audio band',description:'Level of one frequency band (of the wired audio, or the project sound).',inputs:{audio:'audio'},outputs:{value:'number'},props:{band:pick('Band','bass',['bass','mids','high','full']),gain:n('Gain',1,0,8,.05)}},
+  beat:{category:'audio',label:'Beat',description:'A pulse on every detected beat (of the wired audio, or the project sound).',inputs:{audio:'audio'},outputs:{value:'number'},props:{decay:n('Decay (ms)',350,30,3000,10),gain:n('Gain',1,0,4,.05)}},
+  spectrum:{category:'audio',label:'Audio EQ',description:'Reshape the sound before an emitter or an analysis node hears it.',inputs:{audio:'audio'},outputs:{audio:'audio'},props:{
     gain:n('Gain',100,0,300,5),eq32:n('32 Hz',100,0,200,5),eq64:n('64 Hz',100,0,200,5),eq125:n('125 Hz',100,0,200,5),eq250:n('250 Hz',100,0,200,5),eq500:n('500 Hz',100,0,200,5),
     eq1k:n('1 kHz',100,0,200,5),eq2k:n('2 kHz',100,0,200,5),eq4k:n('4 kHz',100,0,200,5),eq8k:n('8 kHz',100,0,200,5),eq16k:n('16 kHz',100,0,200,5)}},
   // Composite
@@ -147,7 +159,24 @@ export function inputsOf(type){
 }
 // Emitters also take a number on any of their own option knobs: input "opt_<option id>".
 export const OPT_PORT=/^opt_[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
-export function portType(n,key){return inputsOf(n.type)[key]??(n.type==='emitter'&&OPT_PORT.test(key)?'number':undefined);}
+export function portType(n,key){return inputsOf(n.type)[key]??(isEngine(n.type)&&OPT_PORT.test(key)?'number':undefined);}
+export const isEngine=type=>!!TYPES[type]?.engine;
+const MEDIA_SOURCE={image:"setPixelWarpSource('image'",video:"setPixelWarpSource('video'",camera:"setPixelWarpSource('camera'"};
+// How a renderer node maps onto the original app: layout mode, forced source button, required media.
+export function engineSpec(n){
+  const p=n.props;
+  switch(n.type){
+    case 'image':return p.render==='warp'?{mode:'pixelwarp',source:MEDIA_SOURCE.image,need:'image'}:{mode:'image',need:'image'};
+    case 'video':return p.render==='warp'?{mode:'pixelwarp',source:MEDIA_SOURCE.video,need:'video'}:{mode:'video',source:"setVidSource('file'",need:'video'};
+    case 'camera':return p.render==='warp'?{mode:'pixelwarp',source:MEDIA_SOURCE.camera}:{mode:'video',source:"setVidSource('camera'"};
+    case 'text':return {mode:'text'};
+    case 'object':return p.render==='cloud'?{mode:'simsplat',mesh:true}:{mode:'object'};
+    case 'splat':return {mode:'simsplat',splat:true};
+    default:return {mode:p.mode};
+  }
+}
+export const MEDIA_KIND={image:'image',video:'video',object:'object',splat:'splat'};
+export function nodeTitle(n){return TYPES[n.type].props.mode?.kind==='select'&&isEngine(n.type)?emitterNames[n.props.mode]:TYPES[n.type].label;}
 export const compatible=(out,input)=>out===input||(out==='shape'&&input==='image');
 export const clone = value => JSON.parse(JSON.stringify(value));
 const uid=()=>crypto.randomUUID();
@@ -157,14 +186,15 @@ export function node(type,x=40,y=50,props={}) {
   return {id:uid(),type,x,y,props:{...defaults(type),...props}};
 }
 export function layer(index=1) {
-  const emitter=node('emitter',40,70),fx=node('bloom',260,70),output=node('output',470,70);
-  if(index!==1)emitter.props.mode='circle';
-  return {id:uid(),name:`Layer ${index}`,visible:true,opacity:1,blend:'screen',nodes:[emitter,fx,output],edges:[
+  const sound=node('audioIn',40,70),emitter=index===1?node('gpuParticles',250,70):node('waveform2d',250,70),fx=node('bloom',460,70),output=node('output',670,70);
+  return {id:uid(),name:`Layer ${index}`,visible:true,opacity:1,blend:'screen',nodes:[sound,emitter,fx,output],edges:[
+    {from:sound.id,out:'audio',to:emitter.id,input:'audio'},
     {from:emitter.id,out:'shape',to:fx.id,input:'image'},
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export function project() { return {format:'audiograph-pro',version:2,layers:[layer()]}; }
+export const VERSION=3;
+export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:4};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
 function finite(value,min,max,label) {
@@ -214,20 +244,37 @@ function cleanProp(s,v,label){
   }
   if(typeof v!=='string'||v.length>s.max)throw Error(`Invalid ${label}`);return v;
 }
-// Version 1 (stage 1 prototype) projects: emitter output was "image"; legacy emitter props are dropped.
+// Version 1 (stage 1 prototype): emitter output was "image"; legacy emitter props are dropped.
+// Version 2: one "emitter" type for every renderer and a "spectrum" (EQ gains) port.
+// Version 3 splits renderers into Inputs and Emitters and carries real audio on "audio" ports.
+const V2_MODE={...Object.fromEntries(Object.entries(MODES).flatMap(([type,list])=>list.map(([m])=>[m,{type,props:{mode:m}}]))),
+  image:{type:'image',props:{render:'lines'}},pixelwarp:{type:'image',props:{render:'warp'}},video:{type:'video',props:{render:'lines'}},
+  text:{type:'text',props:{}},object:{type:'object',props:{render:'mesh'}},simsplat:{type:'splat',props:{}}};
 function migrate(raw){
-  if(raw.version===2)return raw;
-  const out=clone(raw);out.version=2;
+  if(raw.version===VERSION)return raw;
+  const out=clone(raw);
   for(const g of out.layers||[]){
-    const emitters=new Set((g.nodes||[]).filter(n=>n?.type==='emitter').map(n=>n.id));
-    for(const e of g.edges||[])if(e&&emitters.has(e.from)&&e.out==='image')e.out='shape';
-    for(const nd of g.nodes||[])if(nd?.type==='emitter'&&nd.props){delete nd.props.energy;delete nd.props.size;delete nd.props.hue;}
-    if(g.blend===undefined)g.blend='source-over';
+    const nodes=Array.isArray(g?.nodes)?g.nodes:[],edges=Array.isArray(g?.edges)?g.edges:[],emitters=new Set(nodes.filter(n=>n?.type==='emitter').map(n=>n.id));
+    if(out.version===1){
+      for(const e of edges)if(e&&emitters.has(e.from)&&e.out==='image')e.out='shape';
+      for(const nd of nodes)if(nd?.type==='emitter'&&nd.props){delete nd.props.energy;delete nd.props.size;delete nd.props.hue;}
+      if(g.blend===undefined)g.blend='source-over';
+    }
+    for(const nd of nodes){
+      if(nd?.type!=='emitter'||!nd.props)continue;
+      const to=V2_MODE[nd.props.mode];if(!to)throw Error('Unknown emitter type '+String(nd.props.mode).slice(0,30));
+      const props={...nd.props,...to.props},chips={...(props.chips||{})};
+      // The old Video / Pixel warp "Source" chip becomes the node type (chip group 0 in both panels).
+      if(['video','pixelwarp'].includes(nd.props.mode)){const src=chips['0'];delete chips['0'];if(src==='Camera'){nd.type='camera';props.render=nd.props.mode==='video'?'lines':'warp';}else if(src==='Video'){nd.type='video';props.render='warp';}else nd.type=to.type;}
+      else nd.type=to.type;
+      props.chips=chips;nd.props=props;
+    }
+    for(const e of edges){if(!e)continue;if(e.input==='spectrum')e.input='audio';if(e.out==='spectrum')e.out='audio';}
   }
-  return out;
+  out.version=VERSION;return out;
 }
 export function validate(input) {
-  if(!input||input.format!=='audiograph-pro'||![1,2].includes(input.version))throw Error('Expected an Audiograph Pro project');
+  if(!input||input.format!=='audiograph-pro'||![1,2,3].includes(input.version))throw Error('Expected an Audiograph Pro project');
   const raw=migrate(input);
   if(!Array.isArray(raw.layers)||raw.layers.length<1||raw.layers.length>LIMITS.layers)throw Error('A project needs 1–4 layer graphs');
   const ids=new Set();let emitters=0;
@@ -240,7 +287,7 @@ export function validate(input) {
     const clean={id:unique(g.id),name:g.name,visible:g.visible,opacity:finite(g.opacity,0,1,'Opacity'),blend,nodes:[],edges:[]};
     clean.nodes=g.nodes.map(nd=>{
       if(!nd||!Object.hasOwn(TYPES,nd.type))throw Error('Unknown node type');
-      if(nd.type==='emitter')emitters++;
+      if(isEngine(nd.type))emitters++;
       if(!nd.props||typeof nd.props!=='object'||Array.isArray(nd.props))throw Error('Node properties are missing');
       const props={};
       for(const [key,s] of Object.entries(TYPES[nd.type].props))props[key]=cleanProp(s,nd.props[key],s.label);
@@ -251,7 +298,7 @@ export function validate(input) {
     order(clean);return clean;
   });
   if(emitters>LIMITS.emitters)throw Error('Limit: four Emitters per project (isolated GPU contexts)');
-  return {format:'audiograph-pro',version:2,layers};
+  return {format:'audiograph-pro',version:VERSION,layers};
 }
 export function connect(graph,from,out,to,input) {
   const candidate={from,out,to,input},edges=graph.edges.filter(e=>e.to!==to||e.input!==input);

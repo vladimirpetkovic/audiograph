@@ -2,7 +2,7 @@
 
 :root{--bg:#08080a;--surface:#0f0f12;--elevated:#17171c;--border:#252529;--border-h:#3a3a40;--tx:#dddde0;--tx2:#8a8a92;--tx3:#55555c;--accent:#c4f0dc;--accent2:#6ee7b7;--accent-d:#1c3d30;--hot:#f87171;--on:#00d991;--on-tx:#061713;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:'Inter','Helvetica Neue',Arial,sans-serif;
-  --t-number:#6ee7b7;--t-shape:#f59e0b;--t-image:#8aa2ff;--t-spectrum:#a3e635;color-scheme:dark}
+  --t-number:#6ee7b7;--t-shape:#f59e0b;--t-image:#8aa2ff;--t-audio:#a3e635;color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{height:100dvh;overflow:hidden;display:grid;grid-template-rows:46px minmax(0,1fr) 26px;background:var(--bg);color:var(--tx);font:12px/1.4 var(--mono);-webkit-font-smoothing:antialiased}
@@ -85,7 +85,9 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 
 /* transport */
 .transport{display:flex;align-items:center;gap:6px;padding:6px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);min-width:0;flex:none}
-#audioName{flex:1;min-width:0;font-size:.6rem;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#audioName{flex:1;min-width:0;font-size:.6rem;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:none;border:0;padding:2px 4px;text-align:left;cursor:pointer;font-family:inherit;border-radius:3px}
+#audioName:hover{color:var(--tx);background:var(--bg3,rgba(255,255,255,.06))}
+.audio-src{display:flex;gap:6px;flex-wrap:wrap}.audio-src .btn{flex:1}
 #spectrum{width:96px;height:28px;flex:none;border-radius:3px;background:var(--bg);image-rendering:auto}
 #audioMeter{width:60px;height:6px;flex:none;-webkit-appearance:none;appearance:none;border:0;border-radius:3px;background:var(--border);overflow:hidden}
 #audioMeter::-webkit-meter-bar{background:var(--border);border:0;border-radius:3px;height:6px}
@@ -112,7 +114,7 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 #wires{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;z-index:1}
 #nodes{position:absolute;left:0;top:0}
 .wire{fill:none;stroke:var(--t-number);stroke-opacity:.85;stroke-width:2;cursor:pointer;pointer-events:stroke;transition:stroke .1s,stroke-width .1s}
-.wire.shape{stroke:var(--t-shape)}.wire.image{stroke:var(--t-image)}.wire.spectrum{stroke:var(--t-spectrum)}
+.wire.shape{stroke:var(--t-shape)}.wire.image{stroke:var(--t-image)}.wire.audio{stroke:var(--t-audio)}
 .wire:hover{stroke:#fff;stroke-opacity:1;stroke-width:3.5}
 .wire-ghost{fill:none;stroke:#fff;stroke-opacity:.6;stroke-width:2;stroke-dasharray:6 5;pointer-events:none}
 .graph-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;pointer-events:none;color:var(--tx3);font-size:.65rem;line-height:1.7;z-index:0}
@@ -133,7 +135,7 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 .port.out{text-align:right}
 .port.out::before{left:auto;right:-5px;background:var(--pc)}
 .port.connected::before{background:var(--pc)}
-.port.number{--pc:var(--t-number)}.port.shape{--pc:var(--t-shape)}.port.image{--pc:var(--t-image)}.port.spectrum{--pc:var(--t-spectrum)}
+.port.number{--pc:var(--t-number)}.port.shape{--pc:var(--t-shape)}.port.image{--pc:var(--t-image)}.port.audio{--pc:var(--t-audio)}
 .port:hover{color:var(--tx2)}
 .port:hover::before{transform:scale(1.2)}
 .port.pending,.port.drop-target{color:var(--tx)}

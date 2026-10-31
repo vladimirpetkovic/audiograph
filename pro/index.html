@@ -39,15 +39,12 @@
         </div>
       </div>
       <div class="transport">
-        <label class="btn teal" title="Load an audio file">Load audio<input id="audioFile" type="file" accept="audio/*" hidden></label>
         <button class="btn" id="play">Play</button>
         <button class="btn" id="stop">Stop</button>
-        <button class="btn" id="mic" title="Use the microphone as audio input">Mic</button>
-        <button class="btn" id="system" title="React to whatever your computer plays (desktop Chrome / Edge: share the screen or a tab with audio)">System</button>
         <button class="btn" id="record" title="Record the preview (and audio) to WebM">Rec</button>
         <button class="btn" id="output" title="Open the output in a separate window for a projector or second display. Use a Corner pin node to map it.">Output</button>
         <button class="btn" id="snap" title="Save the current frame as PNG">Snap</button>
-        <span id="audioName">Demo signal · load audio or use the mic</span>
+        <button type="button" id="audioName" title="Audio source · click to open the Audio node (load a file, Mic or System)">Demo beat · add audio</button>
         <canvas id="spectrum" width="192" height="28" aria-label="Audio spectrum"></canvas>
         <meter id="audioMeter" min="0" max="1" value="0" aria-label="Audio level"></meter>
       </div>

@@ -1,4 +1,4 @@
-import {TYPES,CATEGORIES,EMITTERS,emitterNames,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 
@@ -15,7 +15,7 @@ function attempt(fn){try{return fn();}catch(error){message(error.message,true);r
 
 // ---------- project state ----------
 function reconcile(){
-  const emitterIDs=new Set(state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='emitter').map(n=>n.id)));
+  const emitterIDs=new Set(state.layers.flatMap(g=>g.nodes.filter(n=>isEngine(n.type)).map(n=>n.id)));
   const anyFx=state.layers.some(g=>g.nodes.some(n=>TYPES[n.type].fx));
   for(const [id,engine] of engines)if(id==='__fx'?(!anyFx||emitterIDs.size>0):!emitterIDs.has(id)){engine.dispose();engines.delete(id);}
   const nodeIDs=new Set(state.layers.flatMap(g=>g.nodes.map(n=>n.id)));
@@ -45,10 +45,12 @@ function liveCommit(label){
 function restoreSnapshot(snapshot){state=validate(snapshot);pending=null;reconcile();renderUI();if(paused)draw(elapsed);}
 function undo(){if(history.length){future.push(clone(state));restoreSnapshot(history.pop());message('Undone');}}
 function redo(){if(future.length){history.push(clone(state));restoreSnapshot(future.pop());message('Redone');}}
-function importProject(raw,label='Imported project. Reload external media in Emitter properties.'){
+function importProject(raw,label='Imported project. Reload media files in the Input nodes.'){
   const clean=validate(raw);commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
 }
-const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);return (i.includes('shape')||i.includes('image'))&&o.length&&o.every(x=>x==='shape'||x==='image');};
+// Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
+const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);if(!o.length)return false;
+  if(i.includes('audio')&&o.every(x=>x==='audio'))return true;return (i.includes('shape')||i.includes('image'))&&o.every(x=>x==='shape'||x==='image');};
 // Adding a modifier while a node is selected splices it into that node's chain.
 function addNode(type,x,y,props={}){
   let made=null;
@@ -68,19 +70,21 @@ function addNode(type,x,y,props={}){
         }
       }
       const vp=$('graphViewport'),cx=(vp.clientWidth/2-view.x)/view.zoom,cy=(vp.clientHeight/3-view.y)/view.zoom;
-      if(sel){n.x=sel.x+(TYPES[type].category==='controls'||TYPES[type].category==='audio'?-210:30);n.y=sel.y+150;}else{n.x=cx-84;n.y=cy;}
+      if(sel){n.x=sel.x+(['controls','audio','inputs'].includes(TYPES[type].category)&&!isEngine(type)?-210:30);n.y=sel.y+150;}else{n.x=cx-84;n.y=cy;}
     }else{n.x=x;n.y=y;}
     g.nodes.push(n);
+    // A new renderer listens to the layer's Audio node straight away.
+    const src=isEngine(type)&&g.nodes.find(m=>m.type==='audioIn');if(src)g.edges.push({from:src.id,out:'audio',to:n.id,input:'audio'});
   },`Added ${TYPES[type].label}`);
   if(ok&&made){selected=made.id;renderUI();return made.id;}
 }
 function addLayer(){
   const next=clone(state),g=layer(next.layers.length+1);next.layers.push(g);
-  return attempt(()=>{commit(next,'Added layer');active=g.id;selected=g.nodes.find(n=>n.type==='emitter').id;renderUI();return g.id;});
+  return attempt(()=>{commit(next,'Added layer');active=g.id;selected=g.nodes.find(n=>isEngine(n.type)).id;renderUI();return g.id;});
 }
 // Remove a node's wires; a chain node's input source is reconnected to its downstream inputs.
 function detachEdges(g,id){
-  const n=g.nodes.find(n=>n.id===id),inE=g.edges.find(e=>e.to===id&&['shape','image'].includes(e.input)),outE=g.edges.filter(e=>e.from===id);
+  const n=g.nodes.find(n=>n.id===id),inE=g.edges.find(e=>e.to===id&&['shape','image','audio'].includes(e.input)),outE=g.edges.filter(e=>e.from===id);
   g.edges=g.edges.filter(e=>e.from!==id&&e.to!==id);
   if(n&&inE&&isChain(n.type))for(const e of outE){const src=g.nodes.find(m=>m.id===inE.from),dst=g.nodes.find(m=>m.id===e.to);if(src&&dst&&compatible(TYPES[src.type].outputs[inE.out],inputsOf(dst.type)[e.input]))g.edges.push({from:inE.from,out:inE.out,to:e.to,input:e.input});}
 }
@@ -118,9 +122,17 @@ function stopAudio(keepOffset=false){
   if(audio.source){audio.source.onended=null;try{audio.source.stop();}catch{}audio.source.disconnect();if(keepOffset)audio.offset+=audio.context.currentTime-audio.startedAt;audio.source=null;}
   if(!keepOffset)audio.offset=0;$('play').textContent='Play';$('play').classList.remove('on');
 }
+// Source buttons live in the Audio node's inspector, so they may not exist right now.
+function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:'Demo beat';}
+function updateAudioUI(){
+  for(const k of ['mic','system'])$(k)?.classList.toggle('on',audio.live?.kind===k);
+  const name=sourceName();$('audioName').textContent=name==='Demo beat'?'Demo beat · add audio':name;
+  const cur=document.querySelector('.audio-source');if(cur)cur.textContent='Now: '+name+(audio.live||audio.source||name==='Demo beat'?'':' (stopped)');
+  updateSummaries();
+}
 function stopLive(){
   if(!audio.live)return;const {kind,stream,node}=audio.live;audio.live=null;
-  stream.getTracks().forEach(t=>t.stop());node.disconnect();$(kind).classList.remove('on');if(audio.monitor)audio.monitor.gain.value=1;
+  stream.getTracks().forEach(t=>t.stop());node.disconnect();if(audio.monitor)audio.monitor.gain.value=1;updateAudioUI();
 }
 async function play(){
   if(!audio.buffer)throw Error('Load an audio file first (or use Mic / System)');
@@ -129,7 +141,7 @@ async function play(){
   const source=audio.context.createBufferSource();source.buffer=audio.buffer;source.connect(audio.analyser);audio.source=source;
   const offset=audio.offset%audio.buffer.duration;audio.startedAt=audio.context.currentTime;audio.offset=offset;
   source.onended=()=>{if(audio.source===source){audio.source=null;audio.offset=0;$('play').textContent='Play';$('play').classList.remove('on');}};
-  source.start(0,offset);$('play').textContent='Pause';$('play').classList.add('on');message('Playing '+audio.name);
+  source.start(0,offset);$('play').textContent='Pause';$('play').classList.add('on');message('Playing '+audio.name);updateAudioUI();
   await ensureRunning();
 }
 async function startLive(kind,getStream){
@@ -140,7 +152,7 @@ async function startLive(kind,getStream){
   stream.getVideoTracks().forEach(t=>{t.stop();stream.removeTrack(t);});
   if(!tracks.length){stream.getTracks().forEach(t=>t.stop());throw Error(kind==='system'?'no audio was shared · tick “Share system audio” (or share a tab with its audio)':'no microphone found');}
   const node=audio.context.createMediaStreamSource(stream);node.connect(audio.analyser);audio.monitor.gain.value=0;
-  audio.live={kind,stream,node};$(kind).classList.add('on');
+  audio.live={kind,stream,node};updateAudioUI();
   tracks[0].addEventListener('ended',()=>{if(audio.live?.stream===stream){stopLive();message(kind==='mic'?'Microphone disconnected':'System audio sharing ended');}});
   await ensureRunning();
   message(kind==='mic'?`Listening to ${tracks[0].label||'the microphone'}`:'System audio connected · the visuals follow whatever your computer plays');
@@ -168,12 +180,17 @@ function readAudio(t){
   A.live=!!(audio.analyser&&(audio.source||audio.live));
   if(A.live){A.rate=audio.context.sampleRate;audio.analyser.getByteFrequencyData(A.freq);audio.analyser.getFloatTimeDomainData(A.wave);}
   else{A.rate=48000;demoSpectrum(t);}
-  const hz=A.rate/(BINS*2),band=(a,b)=>{let s=0,c=0;for(let i=Math.max(1,Math.floor(a/hz));i<Math.min(BINS,Math.ceil(b/hz));i++){s+=A.freq[i]/255;c++;}return c?s/c:0;};
-  A.bands={bass:band(30,250),mids:band(250,2500),high:band(2500,14000),full:band(30,14000)};
+  A.bands=bandsOf(A.freq);
   const b=A.bands.bass;A.avg=A.avg*.95+b*.05;
   if(b>A.avg*1.25+.04&&t-A.lastBeat>.22){A.lastBeat=t;A.beat++;A.beatPulse=1;}
   A.beatPulse*=.86;
 }
+function bandsOf(freq){
+  const hz=A.rate/(BINS*2),band=(a,b)=>{let s=0,c=0;for(let i=Math.max(1,Math.floor(a/hz));i<Math.min(BINS,Math.ceil(b/hz));i++){s+=freq[i]/255;c++;}return c?s/c:0;};
+  return {bass:band(30,250),mids:band(250,2500),high:band(2500,14000),full:band(30,14000)};
+}
+// The value on an "audio" wire. Unwired audio inputs hear the project sound.
+const projectSignal=()=>({freq:A.freq,wave:A.wave,bands:A.bands,beat:A.beat,pulse:A.beatPulse});
 // An emitter driven by a number: a synthetic spectrum whose loudness follows the number.
 function driveSpectrum(level,t){
   const freq=new Uint8Array(BINS),wave=new Float32Array(2048),hz=A.rate/(BINS*2),l=Math.max(0,level),gain=l>0?20*Math.log10(l):-100;
@@ -226,7 +243,18 @@ function execute(g,time,dt){
   const need=(n,key,label)=>{const v=input(n,key);if(v===undefined){nodeErrors.add(n.id);throw Error(`${g.name}: connect ${label} to ${TYPES[n.type].label}`);}return v;};
   for(const n of plans.get(g.id)||[]){
     const t=TYPES[n.type],p=props(n);let r={};
-    switch(n.type){
+    if(t.engine){
+      const sig=input(n,'audio')??projectSignal(),driven=byInput.has(n.id+':drive');let freq=sig.freq,wave=sig.wave;
+      if(driven){const d=driveSpectrum(Math.max(0,input(n,'drive')??0),time);freq=d.freq;wave=d.wave;}
+      const lvl=driven?Math.max(0,input(n,'drive')??0):sig.bands.bass,spec=engineSpec(n);
+      let opts=p.opts;
+      for(const e of g.edges)if(e.to===n.id&&OPT_PORT.test(e.input)){
+        const id=e.input.slice(4),range=engines.get(n.id)?.optRange(jobOf(n),id);
+        if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
+      }
+      r.shape={emitter:n,mods:{},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
+      if(n.type==='camera'&&g.edges.some(e=>e.from===n.id&&e.out!=='shape')){const c=cameraNumbers();r.motion=c.motion;r.brightness=c.brightness;}
+    }else switch(n.type){
       case 'value':r.value=p.value;break;
       case 'oscillator':{const s=nstate(n.id,()=>({phase:0,v:0,next:0}));s.phase+=dt*p.rate;
         let w;if(p.wave==='random'){if(s.phase>=s.next){s.next=Math.floor(s.phase)+1;s.target=Math.random();}s.v+=((s.target??.5)-s.v)*Math.min(1,dt*8);w=s.v;}else w=waves[p.wave](s.phase);
@@ -234,25 +262,20 @@ function execute(g,time,dt){
       case 'map':r.value=(input(n,'value')??0)*p.scale+p.offset;break;
       case 'smooth':{const s=nstate(n.id,()=>({v:0})),x=input(n,'value')??0,ms=x>s.v?p.attack:p.release;s.v+=(x-s.v)*(ms<=0?1:1-Math.exp(-dt*1000/ms));r.value=s.v;break;}
       case 'math':{const a=input(n,'a')??p.a,b=input(n,'b')??p.b;r.value={add:a+b,multiply:a*b,subtract:a-b,min:Math.min(a,b),max:Math.max(a,b)}[p.op];break;}
-      case 'random':{const s=nstate(n.id,()=>({v:Math.random(),target:Math.random(),beat:A.beat,acc:0}));s.acc+=dt;
-        if(p.trigger==='beat'?A.beat!==s.beat:s.acc>=1/p.rate){s.beat=A.beat;s.acc=0;s.target=Math.random();}
+      case 'random':{const s=nstate(n.id,()=>({v:Math.random(),target:Math.random(),beat:A.beat,acc:0,gate:false})),trig=input(n,'trigger');s.acc+=dt;
+        // A wired trigger replaces the beat/rate clock: a new value each time it rises above 0.5.
+        const gate=trig!==undefined&&trig>.5,fire=trig!==undefined?gate&&!s.gate:p.trigger==='beat'?A.beat!==s.beat:s.acc>=1/p.rate;s.gate=gate;
+        if(fire){s.beat=A.beat;s.acc=0;s.target=Math.random();}
         s.v+=(s.target-s.v)*(p.glide<=0?1:Math.min(1,dt*(1.2/p.glide)));r.value=s.v;break;}
-      case 'audio':r.value=A.bands[p.band]*p.gain;break;
-      case 'beat':{const s=nstate(n.id,()=>({beat:A.beat,v:0}));if(A.beat!==s.beat){s.beat=A.beat;s.v=1;}else s.v*=Math.exp(-dt*1000/p.decay);r.value=s.v*p.gain;break;}
-      case 'spectrum':r.spectrum=eqGains(p);break;
-      case 'emitter':{
-        const driven=byInput.has(n.id+':drive');let freq=A.freq,wave=A.wave;
-        if(driven){const d=driveSpectrum(Math.max(0,input(n,'drive')??0),time);freq=d.freq;wave=d.wave;}
-        const gains=input(n,'spectrum');
-        if(gains){const f=new Uint8Array(BINS);for(let i=0;i<BINS;i++)f[i]=Math.min(255,freq[i]*gains[i]);freq=f;}
-        const lvl=driven?Math.max(0,input(n,'drive')??0):A.bands.bass;
-        let opts=p.opts;
-        for(const e of g.edges)if(e.to===n.id&&OPT_PORT.test(e.input)){
-          const id=e.input.slice(4),range=engines.get(n.id)?.optRange({mode:p.mode,chips:p.chips},id);
-          if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
-        }
-        r.shape={emitter:n,mods:{},hue:0,job:{mode:p.mode,opts,chips:p.chips,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:A.beatPulse}}}};
-        break;}
+      case 'audioIn':{const sig=projectSignal(),s=nstate(n.id,()=>({beat:A.beat,v:0}));
+        if(sig.beat!==s.beat){s.beat=sig.beat;s.v=1;}else s.v*=Math.exp(-dt*1000/p.decay);
+        r.audio=sig;r.level=sig.bands.full*p.gain;r.bass=sig.bands.bass*p.gain;r.mids=sig.bands.mids*p.gain;r.high=sig.bands.high*p.gain;r.beat=s.v*p.gain;break;}
+      case 'audio':r.value=(input(n,'audio')??projectSignal()).bands[p.band]*p.gain;break;
+      case 'beat':{const sig=input(n,'audio')??projectSignal(),s=nstate(n.id,()=>({beat:sig.beat,v:0}));if(sig.beat!==s.beat){s.beat=sig.beat;s.v=1;}else s.v*=Math.exp(-dt*1000/p.decay);r.value=s.v*p.gain;break;}
+      case 'spectrum':{const sig=input(n,'audio')??projectSignal(),gains=eqGains(p),f=new Uint8Array(BINS);
+        for(let i=0;i<BINS;i++)f[i]=Math.min(255,sig.freq[i]*gains[i]);
+        // Beats stay with the source; levels follow the reshaped spectrum.
+        r.audio={...sig,freq:f,bands:bandsOf(f)};break;}
       case 'background':{const {canvas,ctx}=surface(n.id);
         if(p.fill==='flat')ctx.fillStyle=p.c1;
         else{const gr=p.fill==='vertical'?ctx.createLinearGradient(0,0,0,HEIGHT):ctx.createRadialGradient(WIDTH/2,HEIGHT/2,0,WIDTH/2,HEIGHT/2,WIDTH*.6);gr.addColorStop(0,p.fill==='vertical'?p.c1:p.c2);gr.addColorStop(1,p.fill==='vertical'?p.c2:p.c1);ctx.fillStyle=gr;}
@@ -279,7 +302,7 @@ function execute(g,time,dt){
           r.shape={...s,mods,hue:((hue%360)+360)%360};
         }
     }
-    outputs.set(n.id,r);if(r.value!==undefined)lastValues.set(n.id,r.value);
+    outputs.set(n.id,r);{const v=r.value??(n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
     if(r.image&&thumbs.has(n.id)&&frame%4===0)drawThumb(n.id,r.image);
   }
   // Emitter thumbnails show the raw emitter render.
@@ -335,14 +358,32 @@ function drawSpectrum(){
 }
 // One shared camera stream for every engine (Webcam node, Video emitter camera source). Released when unused.
 let camPromise=null,camStream=null;
-setCameraProvider(()=>{
+function camProvider(){
   if(!navigator.mediaDevices?.getUserMedia)return Promise.reject(Error('Camera requires HTTPS or localhost'));
   if(!camPromise)camPromise=navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false})
     .then(s=>(camStream=s),e=>{camPromise=null;throw Error('Could not start camera: '+e.message);});
   return camPromise;
-});
+}
+setCameraProvider(camProvider);
+// Camera motion / brightness numbers: a tiny grey copy of the shared stream, compared frame to frame.
+const camNum={video:null,canvas:null,prev:null,frame:-1,used:-1e9,motion:0,brightness:0};
+function cameraNumbers(){
+  camNum.used=frame;if(camNum.frame===frame)return camNum;camNum.frame=frame;
+  if(!camNum.video){
+    const v=camNum.video=document.createElement('video');v.muted=true;v.playsInline=true;
+    camProvider().then(s=>{if(camNum.video===v){v.srcObject=s;v.play().catch(()=>{});}}).catch(e=>{message(e.message,true,'render');});
+    camNum.canvas=document.createElement('canvas');camNum.canvas.width=32;camNum.canvas.height=24;
+  }
+  const v=camNum.video;if(v.readyState<2)return camNum;
+  const c=camNum.canvas.getContext('2d',{willReadFrequently:true});c.drawImage(v,0,0,32,24);
+  const d=c.getImageData(0,0,32,24).data,g=new Float32Array(768);let sum=0,diff=0;
+  for(let i=0;i<768;i++){g[i]=(d[i*4]*.3+d[i*4+1]*.59+d[i*4+2]*.11)/255;sum+=g[i];if(camNum.prev)diff+=Math.abs(g[i]-camNum.prev[i]);}
+  camNum.prev=g;camNum.brightness=sum/768;camNum.motion+=(Math.min(1,diff/768*12)-camNum.motion)*.5;
+  return camNum;
+}
 function releaseCameraIfUnused(){
-  if(!camStream||[...engines.values()].some(e=>e.usesCamera()))return;
+  if(camNum.video&&frame-camNum.used>30){camNum.video.srcObject=null;camNum.video=null;camNum.prev=null;}
+  if(!camStream||camNum.video||[...engines.values()].some(e=>e.usesCamera()))return;
   camStream.getTracks().forEach(t=>t.stop());camStream=null;camPromise=null;
 }
 function loop(now){
@@ -357,19 +398,30 @@ function renderLibrary(){
   for(const cat of CATEGORIES){
     const types=Object.keys(TYPES).filter(t=>TYPES[t].category===cat.id);
     if(cat.id==='emitters'){
-      const all=Object.values(EMITTERS).flat().length,{root:pr,body}=ui.panel({id:cat.id,title:cat.label,color:cat.color,count:all});
-      for(const [group,list] of Object.entries(EMITTERS)){
+      const items=emitterItems(),{root:pr,body}=ui.panel({id:cat.id,title:cat.label,color:cat.color,count:items.length});
+      for(const group of EMITTER_GROUPS){
+        const list=items.filter(it=>it.group===group);if(!list.length)continue;
         body.append(el('div','lib-sub',group));
-        const box=el('div','chips');
-        for(const [mode,label] of list)box.append(libraryButton('emitter',label,`${label} emitter`,{mode},cat.color));
+        const box=el('div','chips');for(const it of list)box.append(libraryButton(it.type,it.label,it.description,it.props,cat.color));
         body.append(box);
       }
       root.append(pr);continue;
     }
-    const {root:pr,body}=ui.panel({id:cat.id,title:cat.label,color:cat.color,count:types.length,open:!['controls','audio','composite','particles','style'].includes(cat.id)});
+    const {root:pr,body}=ui.panel({id:cat.id,title:cat.label,color:cat.color,count:types.length,open:!['controls','audio','composite','style'].includes(cat.id)});
     const box=el('div','chips');for(const t of types)box.append(libraryButton(t,TYPES[t].label,TYPES[t].description,{},cat.color));
     body.append(box);root.append(pr);
   }
+}
+// Emitters are listed per mode: each waveform / simulation is its own library entry.
+const EMITTER_GROUPS=['Waveforms 2D','Waveforms 3D','Particles','WebGPU particles'];
+function emitterItems(){
+  const items=[];
+  for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category==='emitters')){
+    const T=TYPES[t],group=T.group||'Particles';
+    if(MODES[t])for(const [mode,label] of MODES[t])items.push({type:t,props:{mode},label,group,description:`${label} · ${T.group}. ${T.description}`});
+    else items.push({type:t,props:{},label:T.label,group,description:T.description});
+  }
+  return items;
 }
 function libraryButton(type,label,description,props,color){
   const b=el('button','mbtn library-node');b.type='button';b.draggable=true;b.dataset.type=type;if(props.mode)b.dataset.mode=props.mode;
@@ -389,7 +441,10 @@ $('librarySearch').addEventListener('input',()=>{
 // ---------- graph editor ----------
 function summary(n){
   const p=n.props,t=TYPES[n.type];
-  if(n.type==='emitter')return emitterNames[p.mode]+(p.mode==='text'?` · ${p.text}`:'');
+  if(n.type==='audioIn')return sourceName();
+  if(MODES[n.type])return t.group;
+  if(n.type==='text')return p.text;
+  if(isEngine(n.type)){const m=engines.get(n.id)?.mediaName,r=t.props.render?.labels.find(l=>l[0]===p.render)?.[1];return [r,m||(MEDIA_KIND[n.type]?(n.type==='object'?'built-in knot':n.type==='splat'?'demo cloud':'no file'):'')].filter(Boolean).join(' · ');}
   if(n.type==='value')return String(p.value);
   if(n.type==='oscillator')return `${p.wave} · ${p.rate} Hz`;
   if(n.type==='audio')return `${p.band} ×${p.gain}`;
@@ -401,10 +456,11 @@ function updateSummaries(){updatePalettePreview();for(const box of document.quer
 function visiblePorts(g,n){
   const t=TYPES[n.type],all=inputsOf(n.type),ins=[];
   for(const [k,type] of Object.entries(all))if(Object.hasOwn(t.inputs,k)||g.edges.some(e=>e.to===n.id&&e.input===k))ins.push([k,type]);
-  if(n.type==='emitter')for(const e of g.edges)if(e.to===n.id&&OPT_PORT.test(e.input))ins.push([e.input,'number']);
+  if(isEngine(n.type))for(const e of g.edges)if(e.to===n.id&&OPT_PORT.test(e.input))ins.push([e.input,'number']);
   return {ins,outs:Object.entries(t.outputs)};
 }
-function optLabel(n,key){const r=engines.get(n.id)?.optRange({mode:n.props.mode,chips:n.props.chips},key.slice(4));return r?.label||key.slice(4);}
+const jobOf=n=>({...engineSpec(n),chips:n.props.chips});
+function optLabel(n,key){const r=engines.get(n.id)?.optRange(jobOf(n),key.slice(4));return r?.label||key.slice(4);}
 function portLabel(n,key){return TYPES[n.type].props[key]?.label||(OPT_PORT.test(key)?optLabel(n,key):key);}
 function renderGraph(){
   const g=graph();$('nodes').replaceChildren();
@@ -412,8 +468,8 @@ function renderGraph(){
   for(const n of g.nodes){
     const t=TYPES[n.type],box=el('article','node'+(n.id===selected?' selected':'')+(nodeErrors.has(n.id)?' error':''));
     box.dataset.id=n.id;box.dataset.type=n.type;box.style.left=n.x+'px';box.style.top=n.y+'px';box.style.setProperty('--cat',catOf(n.type).color);
-    const head=el('div','node-head');head.append(el('div','node-title',n.type==='emitter'?emitterNames[n.props.mode]:t.label),el('div','node-summary',summary(n)));box.append(head);
-    if(n.type==='emitter'||t.fx||n.type==='output'){const c=el('canvas','node-thumb');c.width=160;c.height=90;box.append(c);thumbs.set(n.id,c);}
+    const head=el('div','node-head');head.append(el('div','node-title',nodeTitle(n)),el('div','node-summary',summary(n)));box.append(head);
+    if(t.engine||t.fx||n.type==='output'){const c=el('canvas','node-thumb');c.width=160;c.height=90;box.append(c);thumbs.set(n.id,c);}
     const ports=el('div','ports'),{ins,outs}=visiblePorts(g,n);
     for(const [dir,list] of [['in',ins],['out',outs]])for(const [key,type] of list){
       const connected=g.edges.some(e=>dir==='in'?e.to===n.id&&e.input===key:e.from===n.id&&e.out===key);
@@ -485,7 +541,7 @@ const pointer={x:0,y:0,inGraph:false};
 function searchItems(){
   const items=[];
   for(const cat of CATEGORIES){
-    if(cat.id==='emitters'){for(const [group,list] of Object.entries(EMITTERS))for(const [mode,label] of list)items.push({type:'emitter',props:{mode},label,cat:`Emitter · ${group}`,color:cat.color,text:`${label} ${group} emitter`});continue;}
+    if(cat.id==='emitters'){for(const it of emitterItems())items.push({type:it.type,props:it.props,label:it.label,cat:`Emitters · ${it.group}`,color:cat.color,text:`${it.label} ${it.group} emitter ${it.description}`});continue;}
     for(const t of Object.keys(TYPES))if(TYPES[t].category===cat.id)items.push({type:t,props:{},label:TYPES[t].label,cat:cat.label,color:cat.color,text:`${TYPES[t].label} ${cat.label} ${TYPES[t].description}`});
   }
   return items;
@@ -549,8 +605,8 @@ function closeMenu(){document.querySelector('.port-menu')?.remove();}
 function portMenu(target,from,x,y){
   closeMenu();renderGraph();
   const t=TYPES[target.type],options=Object.entries(inputsOf(target.type)).filter(([,type])=>compatible(from.type,type));
-  if(target.type==='emitter'&&from.type==='number'){
-    const e=engines.get(target.id);let ctl=[];try{ctl=e?.status==='ready'?e.controls({mode:target.props.mode,chips:target.props.chips})||[]:[];}catch{}
+  if(isEngine(target.type)&&from.type==='number'){
+    const e=engines.get(target.id);let ctl=[];try{ctl=e?.status==='ready'?e.controls(jobOf(target))||[]:[];}catch{}
     for(const c of ctl)if(c.type==='range')options.push(['opt_'+c.id,'number']);
   }
   if(!options.length){message(`${t.label} has no ${from.type} input`,true);return;}
@@ -622,15 +678,16 @@ function renderProperties(){
   const g=graph(),n=g.nodes.find(n=>n.id===selected);
   if(!n){renderLayerInspector(root,g);return;}
   const t=TYPES[n.type],cat=catOf(n.type),head=el('div','insp-head'),h=el('h3');
-  const dot=el('span','dot');dot.style.background=cat.color;h.append(dot,document.createTextNode(n.type==='emitter'?`${emitterNames[n.props.mode]} emitter`:t.label));
+  const dot=el('span','dot');dot.style.background=cat.color;h.append(dot,document.createTextNode(nodeTitle(n)));
   head.append(h,el('div','insp-desc',t.description));root.append(head);
-  if(n.type==='emitter')renderEmitter(root,n);
+  if(t.engine)renderEmitter(root,n);
   else{
+    if(n.type==='audioIn')renderAudioSource(root);
     if(n.type==='palette')renderPalettePresets(root,n);
     renderProps(root,n,n.type==='palette'?paletteKeys(n.props):Object.keys(t.props));
     const wired=Object.keys(t.props).filter(k=>t.props[k].kind==='number'&&!t.props[k].noPort);
-    if(wired.length&&t.category!=='controls')section(root).append(el('p','insp-note','Any knob can be driven: drag a wire from a Control or Audio node onto this node and pick the knob. 0 keeps the knob value, 1 pushes it to the maximum.'));
-    if(t.category==='controls'||t.category==='audio'){const v=el('p','insp-note live-value');v.dataset.node=n.id;section(root).append(v);}
+    if(wired.length&&t.category!=='controls'&&n.type!=='audioIn')section(root).append(el('p','insp-note','Any knob can be driven: drag a wire from a Control or Audio node onto this node and pick the knob. 0 keeps the knob value, 1 pushes it to the maximum.'));
+    if(t.category==='controls'||t.category==='audio'&&n.type!=='spectrum'||n.type==='audioIn'){const v=el('p','insp-note live-value');v.dataset.node=n.id;section(root).append(v);}
   }
   const actions=section(root).appendChild(el('div','insp-actions'));
   const dup=el('button','btn','Duplicate');dup.id='duplicateNode';dup.onclick=duplicateSelected;
@@ -662,34 +719,56 @@ function renderPalettePresets(root,n){
   s.append(box);
 }
 // A new emitter type starts from its defaults; wires into the old type's option knobs are dropped.
-function setMode(g,n,mode){if(n.props.mode===mode)return;n.props.mode=mode;n.props.opts={};n.props.chips={};g.edges=g.edges.filter(e=>!(e.to===n.id&&OPT_PORT.test(e.input)));}
-function emitterMediaKind(mode){return ['image','pixelwarp'].includes(mode)?'image':mode==='video'?'video':mode==='object'?'object':mode==='simsplat'?'splat':null;}
+function setMode(g,n,mode,key='mode'){if(n.props[key]===mode)return;n.props[key]=mode;n.props.opts={};n.props.chips={};g.edges=g.edges.filter(e=>!(e.to===n.id&&OPT_PORT.test(e.input)));}
+// The Audio node's inspector holds the project's sound source (shared by every Audio node).
+function renderAudioSource(root){
+  const s=section(root,'Source'),row=el('div','audio-src');
+  const load=el('label','btn teal','Load file'),f=el('input');f.type='file';f.id='audioFile';f.accept='audio/*';f.hidden=true;load.title='Play an audio file';load.append(f);
+  load.addEventListener('click',unlockAudio);f.onchange=()=>{const file=f.files[0];if(file)loadAudioFile(file);};
+  const mic=el('button','btn','Mic');mic.id='mic';mic.type='button';mic.title='Use the microphone';mic.onclick=()=>toggleMic().catch(e=>audioError('Mic',e));
+  const sys=el('button','btn','System');sys.id='system';sys.type='button';sys.title='React to whatever your computer plays (desktop Chrome / Edge: share the screen or a tab with audio)';sys.onclick=()=>toggleSystem().catch(e=>audioError('System audio',e));
+  row.append(load,mic,sys);s.append(row,el('p','insp-note audio-source'),el('p','insp-note','Every Audio node hears this one source. Wire “audio” into emitters or an Audio EQ; bass, mids, high, level and beat are numbers for any knob.'));
+  updateAudioUI();
+}
+async function loadAudioFile(file){
+  try{
+    if(file.size>200*1024*1024)throw Error('Audio limit is 200 MB');
+    stopAudio();stopLive();audio.buffer=await audioContext().decodeAudioData(await file.arrayBuffer());audio.name=file.name;
+    updateAudioUI();await play();
+  }catch(error){message('Audio: '+error.message,true);}
+}
 // After a splat file loads, pick the "Loaded file" cloud and apply the parser's orientation hint.
 function useSplatFile(n,e,res){
-  const job={mode:n.props.mode,chips:n.props.chips},cloud=(e.controls(job)||[]).find(c=>c.type==='chips'&&c.options.some(o=>o.label==='Loaded file'));
+  const job=jobOf(n),cloud=(e.controls(job)||[]).find(c=>c.type==='chips'&&c.options.some(o=>o.label==='Loaded file'));
   edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);if(cloud)x.props.chips={...x.props.chips,[cloud.key]:'Loaded file'};if(res?.flip)x.props.opts={...x.props.opts,pGsRX:180};},'Gaussian Splat: loaded file');
 }
 function renderEmitter(root,n){
-  const s=section(root,'Emitter'),sel=el('select');sel.dataset.property='mode';sel.setAttribute('aria-label','Emitter');
-  for(const [cat,list] of Object.entries(EMITTERS)){const og=el('optgroup');og.label=cat;for(const [id,label] of list){const o=el('option','',label);o.value=id;og.append(o);}sel.append(og);}
-  sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);setMode(g,x,sel.value);},'Emitter: '+emitterNames[sel.value]);
-  s.append(ui.field('Type',sel));
-  if(n.props.mode==='text')s.append(propControl(n,'text',TYPES.emitter.props.text));
-  const kind=emitterMediaKind(n.props.mode);
+  const T=TYPES[n.type],s=section(root,T.group||'Source');
+  if(MODES[n.type]){
+    const sel=el('select');sel.dataset.property='mode';sel.setAttribute('aria-label',T.props.mode.label);
+    for(const [id,label] of MODES[n.type]){const o=el('option','',label);o.value=id;sel.append(o);}
+    sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);setMode(g,x,sel.value);},`${T.label}: ${emitterNames[sel.value]}`);
+    s.append(ui.field(T.props.mode.label,sel));
+  }
+  if(T.props.render)s.append(ui.chips({options:T.props.render.labels,value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)}));
+  if(n.type==='text')s.append(propControl(n,'text',T.props.text));
+  if(n.type==='camera')s.append(el('p','insp-note','Uses your camera (the browser asks once). Its motion and brightness outputs are numbers for any knob.'));
+  const kind=MEDIA_KIND[n.type];
   if(kind){
     const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj';
     f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);message('Loaded '+f.files[0].name);renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
     s.append(ui.field(`Load ${kind==='object'?'OBJ':kind==='splat'?'.ply / .splat':kind}`,f),el('p','insp-note',engines.get(n.id)?.mediaName?`Loaded: ${engines.get(n.id).mediaName} (not saved in projects)`:'Media files are not saved in projects.'));
   }
-  const d=section(root,'Audio');
+  const d=section(root,'Response');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
-  const rg=el('div','knob-grid');for(const k of ['intensity','punch','release','dynamics'])rg.append(propControl(n,k,TYPES.emitter.props[k],graph().edges.some(e=>e.to===n.id&&e.input===k)));d.append(rg);
-  d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':A.live?'Reacting to the playing audio. Connect a number to “drive” to override.':'Reacting to the demo beat. Load audio or use the Mic.'));
+  const rg=el('div','knob-grid');for(const k of ['intensity','punch','release','dynamics'])rg.append(propControl(n,k,T.props[k],graph().edges.some(e=>e.to===n.id&&e.input===k)));d.append(rg);
+  const wiredAudio=graph().edges.find(e=>e.to===n.id&&e.input==='audio'),from=wiredAudio&&findNode(wiredAudio.from);
+  d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':`Hears ${from?TYPES[from.type].label:'the project sound'} (${sourceName()}). Connect a number to “drive” to override.`));
   const opts=section(root,'Options');opts.dataset.emitterOptions='';
   const e=engineFor(n.id);
   const fill=()=>{
     if(selected!==n.id||!opts.isConnected)return;
-    let controls;try{controls=e.controls({mode:n.props.mode,chips:n.props.chips});}catch(err){opts.append(el('p','insp-note',err.message));return;}
+    let controls;try{controls=e.controls(jobOf(n));}catch(err){opts.append(el('p','insp-note',err.message));return;}
     if(!controls){opts.append(el('p','insp-note','Engine starting…'));return;}
     opts.replaceChildren(el('div','insp-label','Options'));
     let grid=null;
@@ -704,7 +783,7 @@ function renderEmitter(root,n){
         const current=c.options.find(o=>o.on)?.label;
         wrap.append(ui.chips({options:c.options.map(o=>[o.label,o.label]),value:c.action?null:current,property:'chip:'+c.key,onChange:label=>{
           attempt(()=>{
-            const job={mode:n.props.mode,chips:n.props.chips},res=e.click(job,c.key,label);
+            const job=jobOf(n),res=e.click(job,c.key,label);
             if(c.action){message(label);if(Object.keys(res.ranges).length)edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);x.props.opts={...x.props.opts,...res.ranges};},'Emitter: '+label);return;}
             edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);x.props.chips={...x.props.chips,[c.key]:label};x.props.opts={...x.props.opts,...res.ranges};},'Emitter: '+label);
           });
@@ -739,7 +818,7 @@ function renderLayers(){
     tab.append(vis,name,x);tab.onclick=()=>{if(active!==g.id){active=g.id;selected=null;pending=null;renderUI();fit();}};
     $('layers').append(tab);
   }
-  $('addLayer').disabled=state.layers.length>=LIMITS.layers||state.layers.flatMap(g=>g.nodes).filter(n=>n.type==='emitter').length>=LIMITS.emitters;
+  $('addLayer').disabled=state.layers.length>=LIMITS.layers||state.layers.flatMap(g=>g.nodes).filter(n=>isEngine(n.type)).length>=LIMITS.emitters;
 }
 function renderUI(){renderGraph();renderProperties();renderLayers();$('undo').disabled=!history.length;$('redo').disabled=!future.length;}
 
@@ -754,24 +833,29 @@ function chain(name,specs,extra){
   extra?.(g);return g;
 }
 const drive=(g,ctrlType,ctrlProps,targetType,input,y=300)=>{const t=g.nodes.find(n=>n.type===targetType),c=node(ctrlType,t.x,y,ctrlProps);g.nodes.push(c);g.edges.push({from:c.id,out:'value',to:t.id,input});};
+const E=mode=>[Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode)),{mode}];
+// Wire one of the layer's Audio node numbers into a knob.
+const audioTo=(g,out,targetType,input,via)=>{const a=g.nodes.find(n=>n.type==='audioIn'),t=g.nodes.find(n=>n.type===targetType);
+  if(via){const s=node(via[0],a.x+210,300,via[1]);g.nodes.push(s);g.edges.push({from:a.id,out,to:s.id,input:'value'},{from:s.id,out:'value',to:t.id,input});}
+  else g.edges.push({from:a.id,out,to:t.id,input});};
 const TEMPLATES={
-  'Fluid bloom':()=>[chain('Fluid',[['emitter',{mode:'simfluid'}],['bloom',{}],['output',{}]])],
-  'Kaleido spectrum':()=>[chain('Kaleido',[['emitter',{mode:'circle'}],['twist',{amount:35}],['symmetry',{mode:'r6'}],['palette',{c1:'#10002b',c2:'#ff00e5',c3:'#00f0ff',c4:'#b6ff00'}],['bloom',{bloom:45}],['output',{}]],g=>drive(g,'oscillator',{rate:.1,depth:1,offset:0},'twist','amount'))],
-  'Particle storm':()=>[chain('Storm',[['emitter',{mode:'linear'}],['particles',{density:30,trail:20}],['flowField',{curl:60,perlin:20}],['trails',{trails:70}],['output',{}]])],
-  'Shattered rings':()=>[chain('Shatter',[['emitter',{mode:'concentric'}],['palette',{c1:'#200000',c2:'#c1121f',c3:'#ff6d00',c4:'#ffd60a'}],['fracture',{}],['output',{}]])],
-  'Bass bulge sphere':()=>[chain('Sphere',[['emitter',{mode:'sphere'}],['bulge',{amount:0}],['palette',{c1:'#0b132b',c2:'#5bc0be',c3:'#a9def9',c4:'#ffffff'}],['hue',{hue:0,cycle:20}],['output',{}]],g=>{const a=node('audio',250,300,{band:'bass',gain:2});const s=node('smooth',460,300,{attack:10,release:250});const b=g.nodes.find(n=>n.type==='bulge');g.nodes.push(a,s);g.edges.push({from:a.id,out:'value',to:s.id,input:'value'},{from:s.id,out:'value',to:b.id,input:'amount'});})],
-  'Beat kaleidoscope':()=>[chain('Beat',[['emitter',{mode:'phyllotaxis'}],['lines',{thick:3,height:140}],['ripple',{amount:0}],['palette',{c1:'#03001c',c2:'#7b2cbf',c3:'#ff4d6d',c4:'#ffd166'}],['kaleido',{kaleido:70}],['bloom',{bloom:50}],['output',{}]],g=>drive(g,'beat',{decay:400,gain:1},'ripple','amount'))],
-  'Ferro pulse':()=>[chain('Ferro',[['emitter',{mode:'simferro'}],['grade',{contrast:30,saturation:20}],['lens',{chroma:40,vignette:60}],['output',{}]])],
-  'Flocking trails':()=>[chain('Boids',[['emitter',{mode:'simboids'}],['hue',{hue:0,cycle:25}],['trails',{trails:80}],['bloom',{bloom:40}],['output',{}]])],
-  'Glowing DNA':()=>[chain('DNA',[['emitter',{mode:'dna'}],['palette',{c1:'#001219',c2:'#0a9396',c3:'#94d2bd',c4:'#e9d8a6'}],['bloom',{bloom:55}],['output',{}]])],
-  'Drifting terrain':()=>[chain('Terrain',[['emitter',{mode:'terrain'}],['transform',{tilt:0}],['wave',{amount:20}],['palette',{c1:'#0d1b2a',c2:'#1b998b',c3:'#c5d86d',c4:'#f4f1de'}],['output',{}]],g=>drive(g,'oscillator',{rate:.05,depth:.4,offset:0},'transform','tilt'))],
-  'Glitch sand':()=>[chain('Sand',[['emitter',{mode:'simsand'}],['lens',{chroma:70,scanlines:40,vignette:30}],['fracture',{}],['output',{}]])],
-  'Webcam mirror':()=>[chain('Mirror',[['emitter',{mode:'circle'}],['webcam',{displace:60}],['symmetry',{mode:'x',mirror:true}],['bloom',{bloom:45}],['output',{}]])],
-  'Two layers':()=>[chain('Smoke',[['emitter',{mode:'simsmoke'}],['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['emitter',{mode:'spiral'}],['symmetry',{mode:'x'}],['hue',{cycle:30}],['output',{}]])]
+  'Fluid bloom':()=>[chain('Fluid',[['audioIn',{}],E('simfluid'),['bloom',{}],['output',{}]])],
+  'Kaleido spectrum':()=>[chain('Kaleido',[['audioIn',{}],E('circle'),['twist',{amount:35}],['symmetry',{mode:'r6'}],['palette',{c1:'#10002b',c2:'#ff00e5',c3:'#00f0ff',c4:'#b6ff00'}],['bloom',{bloom:45}],['output',{}]],g=>drive(g,'oscillator',{rate:.1,depth:1,offset:0},'twist','amount'))],
+  'Particle storm':()=>[chain('Storm',[['audioIn',{}],E('linear'),['particles',{density:30,trail:20}],['flowField',{curl:60,perlin:20}],['trails',{trails:70}],['output',{}]])],
+  'Shattered rings':()=>[chain('Shatter',[['audioIn',{}],E('concentric'),['palette',{c1:'#200000',c2:'#c1121f',c3:'#ff6d00',c4:'#ffd60a'}],['fracture',{}],['output',{}]])],
+  'Bass bulge sphere':()=>[chain('Sphere',[['audioIn',{}],E('sphere'),['bulge',{amount:0}],['palette',{c1:'#0b132b',c2:'#5bc0be',c3:'#a9def9',c4:'#ffffff'}],['hue',{hue:0,cycle:20}],['output',{}]],g=>{g.nodes.find(n=>n.type==='audioIn').props.gain=2;audioTo(g,'bass','bulge','amount',['smooth',{attack:10,release:250}]);})],
+  'Beat kaleidoscope':()=>[chain('Beat',[['audioIn',{}],E('phyllotaxis'),['lines',{thick:3,height:140}],['ripple',{amount:0}],['palette',{c1:'#03001c',c2:'#7b2cbf',c3:'#ff4d6d',c4:'#ffd166'}],['kaleido',{kaleido:70}],['bloom',{bloom:50}],['output',{}]],g=>{g.nodes.find(n=>n.type==='audioIn').props.decay=400;audioTo(g,'beat','ripple','amount');})],
+  'Ferro pulse':()=>[chain('Ferro',[['audioIn',{}],E('simferro'),['grade',{contrast:30,saturation:20}],['lens',{chroma:40,vignette:60}],['output',{}]])],
+  'Flocking trails':()=>[chain('Boids',[['audioIn',{}],E('simboids'),['hue',{hue:0,cycle:25}],['trails',{trails:80}],['bloom',{bloom:40}],['output',{}]])],
+  'Glowing DNA':()=>[chain('DNA',[['audioIn',{}],E('dna'),['palette',{c1:'#001219',c2:'#0a9396',c3:'#94d2bd',c4:'#e9d8a6'}],['bloom',{bloom:55}],['output',{}]])],
+  'Drifting terrain':()=>[chain('Terrain',[['audioIn',{}],E('terrain'),['transform',{tilt:0}],['wave',{amount:20}],['palette',{c1:'#0d1b2a',c2:'#1b998b',c3:'#c5d86d',c4:'#f4f1de'}],['output',{}]],g=>drive(g,'oscillator',{rate:.05,depth:.4,offset:0},'transform','tilt'))],
+  'Glitch sand':()=>[chain('Sand',[['audioIn',{}],E('simsand'),['lens',{chroma:70,scanlines:40,vignette:30}],['fracture',{}],['output',{}]])],
+  'Webcam mirror':()=>[chain('Mirror',[['audioIn',{}],E('circle'),['webcam',{displace:60}],['symmetry',{mode:'x',mirror:true}],['bloom',{bloom:45}],['output',{}]])],
+  'Two layers':()=>[chain('Smoke',[['audioIn',{}],E('simsmoke'),['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['audioIn',{}],E('spiral'),['symmetry',{mode:'x'}],['hue',{cycle:30}],['output',{}]])]
 };
 function loadTemplate(name){
   const layers=TEMPLATES[name]();layers.forEach((g,i)=>{if(i===0)g.blend='source-over';});
-  importProject({format:'audiograph-pro',version:2,layers},`Template: ${name}`);
+  importProject({format:'audiograph-pro',version:VERSION,layers},`Template: ${name}`);
 }
 
 // ---------- record / fullscreen ----------
@@ -789,18 +873,15 @@ function toggleRecord(){
 function toggleFullscreen(){if(document.fullscreenElement)document.exitFullscreen();else $('previewWrap').requestFullscreen?.().catch(e=>message(e.message,true));}
 
 // ---------- wiring ----------
-$('audioFile').onchange=async()=>{
-  try{
-    const file=$('audioFile').files[0];if(!file)return;if(file.size>200*1024*1024)throw Error('Audio limit is 200 MB');
-    stopAudio();stopLive();audio.buffer=await audioContext().decodeAudioData(await file.arrayBuffer());audio.name=file.name;
-    $('audioName').textContent=file.name;await play();
-  }catch(error){message('Audio: '+error.message,true);}
+// The source label opens the active layer's Audio node (adding one, wired to its emitters, if needed).
+$('audioName').onclick=()=>{
+  const a=graph().nodes.find(n=>n.type==='audioIn');if(a){selected=a.id;renderUI();return;}
+  let id=null;edit((p,g)=>{const e=g.nodes.filter(n=>isEngine(n.type)),x=Math.min(...g.nodes.map(n=>n.x),40)-210,n=node('audioIn',x,e[0]?.y??70);g.nodes.push(n);id=n.id;
+    for(const m of e)if(!g.edges.some(w=>w.to===m.id&&w.input==='audio'))g.edges.push({from:n.id,out:'audio',to:m.id,input:'audio'});},'Added Audio');
+  if(id){selected=id;renderUI();}
 };
-$('audioFile').closest('label').addEventListener('click',unlockAudio);
 $('play').onclick=()=>play().catch(e=>message(e.message,true));
-$('stop').onclick=()=>{stopAudio();stopLive();message('Audio stopped');};
-$('mic').onclick=()=>toggleMic().catch(e=>audioError('Mic',e));
-$('system').onclick=()=>toggleSystem().catch(e=>audioError('System audio',e));
+$('stop').onclick=()=>{stopAudio();stopLive();updateAudioUI();message('Audio stopped');};
 $('record').onclick=()=>attempt(toggleRecord);
 // With a Corner pin selected, its corners can be dragged directly on the preview.
 const PIN_KEYS=[['tlx','tly',0,0],['trx','try',100,0],['brx','bry',100,100],['blx','bly',0,100]];
@@ -847,12 +928,12 @@ $('export').onclick=()=>attempt(()=>{const blob=new Blob([JSON.stringify(validat
 $('import').onchange=async()=>{try{const file=$('import').files[0];if(!file)return;if(file.size>1024*1024)throw Error('Project JSON limit is 1 MB');importProject(JSON.parse(await file.text()));}catch(error){message('Import: '+error.message,true);}finally{$('import').value='';}};
 $('helpBody').innerHTML=`
 <p>Build visuals by chaining nodes. Every graph is one <b>layer</b>; layers stack in the preview using each layer's blend mode.</p>
-<p><b>Emitters</b> are the Audiograph renderers. Their <span style="color:${PORT_COLORS.shape}">shape</span> output flows through <b>Geometry</b>, <b>Deformer</b>, <b>Color</b>, <b>Style</b> and <b>Particle</b> nodes, which change how the emitter draws. <b>Post FX</b> nodes process the finished <span style="color:${PORT_COLORS.image}">image</span>. End every chain in <b>Output</b>.</p>
+<p><b>Inputs</b> are what you bring in: the <b>Audio</b> source, an Image, Video, Camera, Text, 3D Object or Gaussian Splat. <b>Emitters</b> are generated visuals: 2D and 3D Waveforms, Particles and WebGPU particle simulations. Every visual input and emitter has a <span style="color:${PORT_COLORS.shape}">shape</span> output that flows through <b>Geometry</b>, <b>Deformer</b>, <b>Color</b> and <b>Style</b> nodes, which change how it draws. <b>Post FX</b> nodes process the finished <span style="color:${PORT_COLORS.image}">image</span>. End every chain in <b>Output</b>.</p>
 <p><b>Quick build:</b> select a node, then click a node in the library. It is inserted right after the selection.</p>
-<p><b>Drive any knob:</b> drag from a <span style="color:${PORT_COLORS.number}">number</span> output (LFO, Audio band, Beat, Random…) onto a node and pick the knob. 0 keeps the knob setting, 1 pushes it to the maximum.</p>
-<p><b>Audio:</b> load a file or use the Mic. Without audio, a demo beat plays. An <b>Audio EQ</b> node reshapes what one emitter hears; connecting a number to an emitter's <b>drive</b> replaces the music for that emitter.</p>
+<p><b>Drive any knob:</b> drag from a <span style="color:${PORT_COLORS.number}">number</span> output (Audio bass / beat, LFO, Random, Camera motion…) onto a node and pick the knob. 0 keeps the knob setting, 1 pushes it to the maximum.</p>
+<p><b>Audio:</b> select an <b>Audio</b> node (or click the source name in the transport) to load a file, use the Mic or System audio. Without audio, a demo beat plays. Its <span style="color:${PORT_COLORS.audio}">audio</span> wire feeds emitters; put an <b>Audio EQ</b> in the wire to reshape what one emitter hears. Connecting a number to an emitter's <b>drive</b> replaces the music for that emitter.</p>
 <p><b>Graph:</b> drag empty space to pan, wheel to zoom, click a wire to delete it, Delete removes the selected node (the chain heals), press and hold a node's title (or Alt-drag) to pull it out of its chain, <b>Tab</b> over the graph searches every node and drops it at the cursor (over a wire it is inserted into the wire), ⌘Z / ⇧⌘Z undo and redo. <b>Space</b> pauses, <b>F</b> goes fullscreen.</p>
-<p>Not in Pro (use the original Audiograph): projection mapping, AI Look, autopilot and morphing. Webcam is a Deformer node.</p>`;
+<p>Not in Pro (use the original Audiograph): projection mapping, AI Look, autopilot and morphing. Webcam is also a Deformer node.</p>`;
 $('helpButton').onclick=()=>$('help').showModal();$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
 viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
@@ -897,9 +978,9 @@ setInterval(()=>{
 window.pro={
   getProject:()=>clone(state),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;renderUI();},selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
-  setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(n.type==='emitter'&&key==='mode')setMode(g,n,value);else n.props[key]=value;},'Updated node property'),
+  setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
-  draw:()=>draw(elapsed),engine:id=>engines.get(id),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
+  draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
-reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>n.type==='emitter')?.id||null;renderUI();}});
+reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
 requestAnimationFrame(loop);

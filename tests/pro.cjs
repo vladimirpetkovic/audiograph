@@ -40,7 +40,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const project=()=>page.evaluate(()=>pro.getProject());
     const layer0=async()=>(await project()).layers[0];
     const idOf=async type=>(await layer0()).nodes.find(n=>n.type===type)?.id;
-    const ids={emitter:await idOf('emitter'),bloom:await idOf('bloom'),output:await idOf('output')};
+    const ids={emitter:await idOf('gpuParticles'),audio:await idOf('audioIn'),bloom:await idOf('bloom'),output:await idOf('output')};
     const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
 
     // 1. Default graph: the native WebGPU Fluid runs inside the real Audiograph engine and reaches the preview.
@@ -50,9 +50,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await lit(1);
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
-    assert.equal(await page.locator('.library-node[data-mode]').count(),32,'All 32 Audiograph emitters are in the library');
-    for(const label of ['Emitters','Geometry & Motion','Deformers','Color','Style','Particles','Post FX','Controls','Audio','Composite'])
-      assert.equal(await page.locator('.panel-title',{hasText:label}).count()>=1,true,`Library category ${label}`);
+    assert.equal(await page.locator('.library-node[data-mode]').count(),26,'Every waveform and WebGPU simulation is in the library');
+    assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Emitters','Geometry & Motion','Deformers','Color','Style','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
+    assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','3D Object','Gaussian Splat'],'Inputs');
+    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Waveforms 2D','Waveforms 3D','Particles','WebGPU particles'],'Emitter groups');
+    assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
 
     // 2. Emitter inspector exposes the original's own options; a preset chip changes knobs and survives undo/redo.
     await page.locator(`.node[data-id="${ids.emitter}"] .node-head`).click();
@@ -67,8 +69,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.notEqual(em.props.opts[optId],(await knobInput.evaluate(i=>+i.max))*.9,'Undo reverts the knob');
     await page.evaluate(()=>pro.redo());
 
-    // 3. Mode change via the inspector, then click-to-insert: Twist and Palette splice into the chain after the selection.
-    await page.locator('select[data-property="mode"]').selectOption('circle');
+    // 3. Mode change via the inspector; then the emitter becomes a Circle waveform (same id) and Twist / Palette splice in after it.
+    await page.locator('select[data-property="mode"]').selectOption('simboids');
+    assert.equal((await layer0()).nodes.find(n=>n.id===ids.emitter).props.mode,'simboids');
+    await page.evaluate(id=>{const p=pro.getProject(),n=p.layers[0].nodes.find(n=>n.id===id);n.type='waveform2d';n.props={mode:'circle'};pro.importProject(p);},ids.emitter);
+    assert.equal(await page.locator(`.node[data-id="${ids.emitter}"] .node-title`).textContent(),'Circle');
     await page.locator(`.node[data-id="${ids.emitter}"] .node-head`).click();
     await page.locator('.library-node[data-type="twist"]').click();
     let g=await layer0();const twist=g.nodes.find(n=>n.type==='twist');
@@ -111,7 +116,9 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(await page.locator(`.port.in[data-node="${ids.emitter}"][data-port="opt_pCircleInner"]`).textContent(),'Inner R');
 
     // 6. Wire click removes it; deleting a chain node heals the chain.
-    const nWires=(await layer0()).edges.length;await page.locator('.wire.number').first().click();
+    const nWires=(await layer0()).edges.length;
+    const wp=await page.evaluate(()=>{const w=document.querySelector('.wire.number'),q=w.getPointAtLength(w.getTotalLength()*.12),m=w.getScreenCTM();return {x:q.x*m.a+m.e,y:q.y*m.d+m.f};});
+    await page.mouse.click(wp.x,wp.y);
     assert.equal((await layer0()).edges.length,nWires-1,'Clicking a wire removes it');
     await page.evaluate(id=>pro.select(id),palette.id);await page.keyboard.press('Delete');
     g=await layer0();assert.ok(g.edges.some(e=>e.from===twist.id&&e.to===ids.bloom),'Deleting Palette reconnects Twist → Bloom');
@@ -130,15 +137,32 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(id=>pro.select(id),jit.id);await page.keyboard.press('Delete');
 
     // 6c. Audio: a file plays through the speakers; mic input is analysed but muted; a file afterwards is audible again.
+    await page.locator('#audioName').click();assert.equal(await page.evaluate(()=>pro.stats().selected),ids.audio,'Source label opens the Audio node');
     await page.locator('#mic').click();await page.waitForFunction(()=>pro.stats().audio.input==='mic');
     assert.equal((await page.evaluate(()=>pro.stats().audio)).monitor,0,'Mic is not sent to the speakers');
     await page.locator('#mic').click();await page.waitForFunction(()=>!pro.stats().audio.input);
+
+    // 6d. Audio EQ in the audio wire reshapes what follows it: a silenced EQ gives an Audio band of 0, the raw Audio node does not.
+    const [eq,band]=await page.evaluate(([a,e,b])=>{const eq=pro.addNode('spectrum',40,500),band=pro.addNode('audio',250,500);pro.setProperty(eq,'gain',0);
+      pro.connect(a,'audio',eq,'audio');pro.connect(eq,'audio',e,'audio');pro.connect(eq,'audio',band,'audio');pro.connect(band,'value',b,'bloom');pro.connect(a,'bass',b,'edge');return [eq,band];},[ids.audio,ids.emitter,ids.bloom]);
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(id=>pro.value(id),band),0,'EQ output is silent');
+    assert.ok(await page.evaluate(id=>pro.value(id),ids.audio)>0,'Audio node level is live');
+    await page.evaluate(([eq,band])=>{for(const id of [band,eq]){pro.select(id);document.getElementById('deleteNode').click();}},[eq,band]);
+    assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.to===ids.emitter&&e.input==='audio'),'Deleting the EQ heals the audio wire');
 
     // 6b. Webcam deformer runs the original camera feature on one shared stream; removing it stops the camera.
     const cam=await page.evaluate(id=>{pro.select(id);return pro.addNode('webcam');},twist.id);
     await page.waitForFunction(id=>pro.engine(id).w.camActive&&pro.engine(id).w.camColors,ids.emitter,{timeout:15000});
     await page.evaluate(id=>pro.select(id),cam);await page.keyboard.press('Delete');
     await page.waitForFunction(id=>!pro.engine(id).w.camActive,ids.emitter,{timeout:5000});
+
+    // 6e. Camera input renders the original's camera lines; its brightness number drives knobs.
+    await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:3,layers:[{id:'L1',name:'Cam',visible:true,opacity:1,blend:'source-over',
+      nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'c',type:'camera',x:200,y:0,props:{}},{id:'m',type:'map',x:200,y:200,props:{}},{id:'b',type:'bloom',x:400,y:0,props:{}},{id:'out',type:'output',x:600,y:0,props:{}}],
+      edges:[{from:'a',out:'audio',to:'c',input:'audio'},{from:'c',out:'shape',to:'b',input:'image'},{from:'c',out:'brightness',to:'m',input:'value'},{from:'m',out:'value',to:'b',input:'bloom'},{from:'b',out:'image',to:'out',input:'image'}]}]}));
+    await lit(.05,25000);await page.waitForFunction(()=>pro.value('m')>0,null,{timeout:10000});
+    await page.waitForFunction(()=>pro.engine('c').w.vidSource==='camera'&&!!pro.engine('c').w.vidCamStream,null,{timeout:10000});
 
     // 7. Post FX run on images without any emitter (background → kaleido → output) via a helper engine.
     await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:2,layers:[{id:'L1',name:'Bg',visible:true,opacity:1,blend:'source-over',
@@ -161,7 +185,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,2);assert.equal(migrated.layers[0].edges[0].out,'shape');
+    assert.equal(migrated.version,3);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
+    const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
+    assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.render]),[['camera','lines'],['image','warp']]);
+    assert.equal(v2.layers[0].edges[0].input,'audio');
     for(const bad of [{opts:{customFnX:'alert(1)'}},{mode:'nope'},{opts:{['a'.repeat(50)]:1}}]){
       const r=await page.evaluate(([v1,bad])=>{try{pro.validate({...v1,layers:[{...v1.layers[0],nodes:[{...v1.layers[0].nodes[0],props:{mode:'circle',...bad}},v1.layers[0].nodes[1]]}]});return 'accepted';}catch(e){return e.message;}},[v1,bad]);
       assert.notEqual(r,'accepted',JSON.stringify(bad));

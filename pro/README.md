@@ -10,34 +10,49 @@ uploads or remote services.
 Every **layer** is a graph that ends in an **Output**. Layers stack in the preview,
 each with its own opacity and blend mode (up to four).
 
-- **Emitters**: all 32 Audiograph renderers (General, Simulations, 3D, Input).
-  The inspector shows each emitter's own options from the original (knobs and
-  choice chips, including presets), plus the original audio response: Intensity,
-  Bass punch, Bass release and Dynamics.
+- **Inputs** (what you bring in):
+  - **Audio**: the project's sound. Its inspector has **Load file**, **Mic** and
+    **System**; every Audio node hears that one source. Outputs: `audio` (the
+    signal, for emitters and Audio EQ) and the numbers level, bass, mids, high
+    and beat.
+  - **Image**, **Video**: drawn as lines, or **Pixel warp**.
+  - **Camera**: lines or Pixel warp from the camera. It also outputs the numbers
+    **motion** and **brightness**.
+  - **Text**, **3D Object** (built-in knot or your OBJ, as a mesh or a
+    **point cloud**), **Gaussian Splat** (.ply / .splat, demo cloud by default).
+- **Emitters** (generated visuals): **Waveforms 2D** (Linear, Circle, Spiral,
+  Harmonic, Math…), **Waveforms 3D** (Terrain, Sphere, DNA, Knot…),
+  **Particles** (Particles, Flow field) and **WebGPU particles** (Particles,
+  Fluid, Smoke, Boids, Granular sand, Ferrofluid, 3D cloner).
+  Visual inputs and emitters show the original's own options in the inspector
+  (knobs and choice chips, including presets) plus its audio response
+  (Intensity, Bass punch, Bass release, Dynamics). They take `audio` and `drive`
+  inputs and give a `shape` output.
 - **Geometry & Motion**: Lines, Transform (scale, rotation, offset, 3D tilt and
   rotate, zoom on loud), Motion (spin, speed), Symmetry (mirror axes, 3/4/6/8-fold,
   flip, reflection).
 - **Deformers**: Amplify, Twist, Bulge, Wave, Shear, Depth, Ripple, Jitter,
   Disorder, Randomize, Webcam (camera brightness displaces the shape and can
-  color it; the Video emitter can also use the camera as its source).
+  color it).
 - **Color**: Palette (tone ramp, simple ramp or solid, with the original's 14
   presets and a live gradient preview) and Hue shift
   (static or cycling).
 - **Style**: Line style (13 styles) and Outline.
-- **Particles**: Particles (11 shapes) and Flow field (Perlin, curl, Brownian,
-  vortex).
 - **Post FX**: Bloom, Color correct, Blur, Lens, Kaleido, Trails, Fracture. These
   run the original GPU per-layer shaders. Quick filter is a Canvas 2D filter.
   **Corner pin** does projection mapping: with it selected, drag the four
   corners on the preview (or drive them with any number).
 - **Controls**: Value, LFO (sine, triangle, saw, square, random), Map range,
-  Smooth (attack and release), Math, Random (per beat or rate).
-- **Audio**: Audio band (bass, mids, high, full), Beat, Audio EQ (10 bands, feeds
-  one emitter's spectrum input).
+  Smooth (attack and release), Math, Random (per beat, at a rate, or when its
+  `trigger` input rises above 0.5).
+- **Audio analysis**: Audio band (bass, mids, high, full) and Beat read an
+  `audio` wire (or the project sound if unwired). **Audio EQ** (10 bands) sits
+  in an audio wire and reshapes what follows it.
 - **Composite**: Background (flat, vertical, radial), Blend, Output.
 
-Emitter → shape nodes → Post FX → Output. Shape nodes (amber wires) change *how
-the emitter draws*. Post FX nodes (blue wires) process the finished image.
+Audio → Input or Emitter → shape nodes → Post FX → Output. Audio wires are lime.
+Shape nodes (amber wires) change *how it draws*. Post FX nodes (blue wires)
+process the finished image.
 
 ## Using it
 
@@ -55,9 +70,10 @@ the emitter draws*. Post FX nodes (blue wires) process the finished image.
   single knob connects directly.
 - **Wires**: drag from an output dot to an input dot or to a node. Clicking an
   output and then an input also works. Click a wire to delete it.
-- **Audio**: load a file, use the Mic, or **System** (desktop Chrome/Edge: share
-  a screen or tab and enable "Share audio"). Files play through the speakers; mic
-  and system input are analysed only. Without audio, a demo beat plays. Wiring a
+- **Audio**: select an Audio node (or click the source name in the transport) to
+  load a file, use the Mic, or **System** (desktop Chrome/Edge: share a screen or
+  tab and enable "Share audio"). Files play through the speakers; mic and system
+  input are analysed only. Without audio, a demo beat plays. Wiring a
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
@@ -68,7 +84,7 @@ the emitter draws*. Post FX nodes (blue wires) process the finished image.
 
 ## Engine
 
-Each Emitter loads the trusted same-origin regular app into an isolated frame.
+Each Input or Emitter node that draws loads the trusted same-origin regular app into an isolated frame.
 Pro drives the app's own live render loop (`liveAnimLoop`) one frame at a time.
 It replaces the app's analyser with a synthetic one that Pro fills from the real
 audio, the demo beat or a Drive value. Everything the original applies when
@@ -77,14 +93,16 @@ renders exactly as in Audiograph. Post FX nodes call the original's
 `applyLayerFx` on any image. If there are no emitters, a helper engine runs them.
 
 Projects are versioned and validated. Emitter options accept only numeric values
-under safe IDs. Code and expressions are never imported. Version 1 (stage 1)
-projects are migrated automatically. Media files (audio, image, video, OBJ, .ply/.splat) are
+under safe IDs. Code and expressions are never imported. Version 1 and 2
+projects are migrated automatically (old Emitter nodes become the matching Input
+or Emitter node, and a camera-sourced Video becomes a Camera node). Media files (audio, image, video, OBJ, .ply/.splat) are
 not saved in projects.
 
 ## Limits
 
 - Output is fixed at 960×540, with Low simulation quality.
-- Each project allows four Emitters, four layers and 60 nodes per layer.
+- Each project allows four drawing nodes (Inputs other than Audio, and
+  Emitters), four layers and 60 nodes per layer.
 - Not included: the original's multi-plane mapping editor, AI Look, autopilot and
   morphing. Corner pin + Output covers single-surface projection.
   Use the original Audiograph for these.
@@ -102,5 +120,7 @@ covers:
 - wire dragging and the port menu
 - deformers changing pixels
 - Post FX without an emitter, and Corner pin warping
-- v1 migration and rejection of unsafe imports
+- the library layout (Inputs first), Audio node sources, Audio EQ in a wire,
+  Camera input and its numbers
+- v1/v2 migration and rejection of unsafe imports
 - every template, layers, save/restore, and 390px overflow
