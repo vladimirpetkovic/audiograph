@@ -286,3 +286,10 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 .pal-swatch.solid{width:20px;border-radius:50%}
 .pal-swatch:hover{border-color:var(--accent2)}
 .pal-swatch.on{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}
+
+/* data input meters */
+.live-value .meter{display:grid;grid-template-columns:4.2em 1fr 2.6em;align-items:center;gap:6px;font-size:.56rem;color:var(--tx2);line-height:1.6}
+.live-value .meter b{height:4px;border-radius:2px;background:#24242a;overflow:hidden}
+.live-value .meter i{display:block;height:100%;background:var(--cat,var(--accent2));transition:width .15s}
+.live-value .meter em{font-style:normal;text-align:right;color:var(--tx)}
+code.cmd{display:block;margin:6px 0;padding:6px 8px;background:#0b0b0e;border:1px solid var(--border);border-radius:4px;font:.6rem/1.4 var(--mono);color:var(--accent2);user-select:all}

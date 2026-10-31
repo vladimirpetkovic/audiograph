@@ -52,8 +52,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
     assert.equal(await page.locator('.library-node[data-mode]').count(),27,'Every waveform and WebGPU simulation is in the library');
     assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','Deformers','Color','Style','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
-    assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','3D Object','Gaussian Splat'],'Inputs');
-    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['2D','3D','Particles','WebGPU particles'],'Waveform and Emitter groups');
+    assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','3D Object','Gaussian Splat','Computer','Clock','Mouse & keys','MIDI'],'Inputs');
+    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','3D','Particles','WebGPU particles'],'Input, Waveform and Emitter groups');
     assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
 
     // 2. Emitter inspector exposes the original's own options; a preset chip changes knobs and survives undo/redo.
@@ -204,6 +204,28 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       const r=await page.evaluate(([v1,bad])=>{try{pro.validate({...v1,layers:[{...v1.layers[0],nodes:[{...v1.layers[0].nodes[0],props:{mode:'circle',...bad}},v1.layers[0].nodes[1]]}]});return 'accepted';}catch(e){return e.message;}},[v1,bad]);
       assert.notEqual(r,'accepted',JSON.stringify(bad));
     }
+
+    // 8b. Data inputs give live 0–1 numbers; the Computer node reads the local helper when it runs.
+    const feed=require('child_process').spawn(process.execPath,[path.join(root,'pro','tools','computer-feed.mjs'),'7798'],{stdio:'ignore'});
+    try{
+      await page.waitForTimeout(1500);
+      const data=await page.evaluate(async()=>{const ids={};for(const t of ['computer','clock','pointer'])ids[t]=pro.addNode(t,40,40);
+        pro.setProperty(ids.computer,'source','helper');pro.setProperty(ids.computer,'port',7798);pro.setProperty(ids.computer,'smooth',0);
+        for(let i=0;i<30;i++){pro.draw();await new Promise(r=>setTimeout(r,100));}
+        return {ids,cpu:pro.outputs?.(ids.computer),clock:pro.outputs?.(ids.clock),ptr:pro.outputs?.(ids.pointer)};});
+      for(const [k,o] of Object.entries({cpu:data.cpu,clock:data.clock,ptr:data.ptr})){assert.ok(o&&Object.values(o).every(v=>v>=0&&v<=1),k+' outputs are 0–1: '+JSON.stringify(o));}
+      assert.ok(data.cpu.cpu>0&&data.cpu.memory>0,'Helper CPU and memory read: '+JSON.stringify(data.cpu));
+      await page.evaluate(id=>pro.select(id),data.ids.computer);await page.waitForTimeout(500);
+      assert.match(await page.locator('#properties .data-status').textContent(),/helper connected/i);
+      assert.equal(await page.locator('#properties .live-value .meter').count(),6,'Six Computer meters');
+      for(const id of Object.values(data.ids))await page.evaluate(id=>{pro.select(id);},id),await page.locator('#deleteNode').click();
+    }finally{feed.kill();}
+    // Two-finger trackpad scroll pans the graph vertically (pixel deltas), pinch zooms.
+    {const vp=await page.locator('#graphViewport').boundingBox(),before=await page.evaluate(()=>pro.view());
+      await page.evaluate(([x,y])=>document.getElementById('graphViewport').dispatchEvent(new WheelEvent('wheel',{deltaY:37.5,deltaMode:0,clientX:x,clientY:y,bubbles:true,cancelable:true})),[vp.x+50,vp.y+50]);
+      const after=await page.evaluate(()=>pro.view());assert.ok(after.y<before.y&&after.zoom===before.zoom,'Trackpad pans vertically '+JSON.stringify([before,after]));
+      await page.evaluate(([x,y])=>document.getElementById('graphViewport').dispatchEvent(new WheelEvent('wheel',{deltaY:-10,ctrlKey:true,deltaMode:0,clientX:x,clientY:y,bubbles:true,cancelable:true})),[vp.x+50,vp.y+50]);
+      assert.ok((await page.evaluate(()=>pro.view())).zoom>after.zoom,'Pinch zooms');}
 
     // 9. Templates and layers: every template renders without errors; layers add, blend and delete.
     for(const t of await page.evaluate(()=>pro.templates)){

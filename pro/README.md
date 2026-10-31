@@ -20,6 +20,15 @@ each with its own opacity and blend mode (up to four).
     **motion** and **brightness**.
   - **Text**, **3D Object** (built-in knot or your OBJ, as a mesh or a
     **point cloud**), **Gaussian Splat** (.ply / .splat, demo cloud by default).
+  - **Data** inputs give 0–1 numbers for any knob, with live meters in the inspector:
+    - **Computer**: cpu, gpu, memory, fps, network, battery. Without help the browser
+      can only estimate (Compute Pressure / main-thread lag, render load, JS memory).
+      For real values run the local helper `node pro/tools/computer-feed.mjs [port]`
+      (no dependencies; macOS, Linux, Windows; listens on 127.0.0.1 only) and pick
+      **Local helper**. Chrome / Edge only; Safari blocks local connections.
+    - **Clock**: second, minute, hour, day (phase of each), beat and pulse at a tempo.
+    - **Mouse & keys**: x, y, speed, click, held, keys (typing rate), scroll.
+    - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
 - **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…) and **3D**
   (Terrain, Sphere, DNA, Knot…).
 - **Emitters** (particles): **Particles** (Particles, Flow field) and **WebGPU
@@ -131,3 +140,6 @@ covers:
   Camera input and its numbers
 - v1/v2 migration and rejection of unsafe imports
 - every template, layers, save/restore, and 390px overflow
+
+**Graph navigation**: two-finger trackpad scroll pans in any direction, pinch (or
+⌘-scroll) zooms; a mouse wheel zooms, Shift + wheel pans sideways.

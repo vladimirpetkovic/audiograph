@@ -1,3 +1,4 @@
+import * as sensors from './sensors.js';
 import {TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,GEO_PROPS,geoMods,geoFromLook,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
@@ -6,6 +7,7 @@ import {ORIGINAL_PRESETS} from './templates.js';
 const $=id=>document.getElementById(id),el=ui.el;
 const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
 let state=project(),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
+const DATA_INPUTS=new Set(['computer','clock','pointer','midi']),lastOuts=new Map();
 const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new Map(),view={x:20,y:20,zoom:.9},nodeState=new Map(),fxSlots=new Map(),thumbs=new Map();
 let plans=new Map(),frame=0,lastTime=0,elapsed=0,renderErrors=[],nodeErrors=new Set(),statusSource='action',liveBefore=null;
 const preview=$('preview'),previewCtx=preview.getContext('2d');
@@ -23,7 +25,8 @@ function reconcile(){
   for(const map of [surfaces,thumbs])for(const [id,cv] of map)if(!nodeIDs.has(id.split(':')[0])){cv.width=cv.height=1;map.delete(id);}
   for(const id of nodeState.keys())if(!nodeIDs.has(id))nodeState.delete(id);
   plans=new Map(state.layers.map(g=>{
-    const needed=new Set(g.nodes.filter(n=>n.type==='output').map(n=>n.id)),queue=[...needed];
+    // Outputs and everything feeding them run; data inputs always run (cheap) so their meters stay live.
+    const needed=new Set(g.nodes.filter(n=>n.type==='output'||DATA_INPUTS.has(n.type)).map(n=>n.id)),queue=[...needed];
     for(let i=0;i<queue.length;i++)for(const edge of g.edges)if(edge.to===queue[i]&&!needed.has(edge.from)){needed.add(edge.from);queue.push(edge.from);}
     return [g.id,order(g).filter(n=>needed.has(n.id))];
   }));
@@ -276,6 +279,10 @@ function execute(g,time,dt){
       case 'audioIn':{const sig=projectSignal(),s=nstate(n.id,()=>({beat:A.beat,v:0}));
         if(sig.beat!==s.beat){s.beat=sig.beat;s.v=1;}else s.v*=Math.exp(-dt*1000/p.decay);
         r.audio=sig;r.level=sig.bands.full*p.gain;r.bass=sig.bands.bass*p.gain;r.mids=sig.bands.mids*p.gain;r.high=sig.bands.high*p.gain;r.beat=s.v*p.gain;break;}
+      case 'computer':Object.assign(r,sensors.computer(p,dt));break;
+      case 'clock':Object.assign(r,sensors.clock(p,nstate(n.id,()=>({})),dt));break;
+      case 'pointer':Object.assign(r,sensors.pointer(p,dt));break;
+      case 'midi':Object.assign(r,sensors.midiValues(p));break;
       case 'audio':r.value=(input(n,'audio')??projectSignal()).bands[p.band]*p.gain;break;
       case 'beat':{const sig=input(n,'audio')??projectSignal(),s=nstate(n.id,()=>({beat:sig.beat,v:0}));if(sig.beat!==s.beat){s.beat=sig.beat;s.v=1;}else s.v*=Math.exp(-dt*1000/p.decay);r.value=s.v*p.gain;break;}
       case 'spectrum':{const sig=input(n,'audio')??projectSignal(),gains=eqGains(p),f=new Uint8Array(BINS);
@@ -326,7 +333,7 @@ function execute(g,time,dt){
           r.shape={...s,mods,hue:((hue%360)+360)%360};
         }
     }
-    outputs.set(n.id,r);{const v=r.value??(n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
+    outputs.set(n.id,r);if(DATA_INPUTS.has(n.type))lastOuts.set(n.id,{...r});{const v=r.value??(n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
     if(r.image&&thumbs.has(n.id)&&frame%4===0)drawThumb(n.id,r.image);
   }
   // Emitter thumbnails show the raw emitter render.
@@ -422,7 +429,7 @@ function releaseCameraIfUnused(){
 }
 function loop(now){
   if(frame%60===59)releaseCameraIfUnused();
-  if(!pageHidden&&!paused&&now-lastTime>1000/31){const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;elapsed+=dt;lastTime=now;try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}}
+  if(!pageHidden&&!paused&&now-lastTime>1000/31){const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;elapsed+=dt;lastTime=now;const t0=performance.now();try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}sensors.frameTiming(performance.now()-t0,dt);}
   requestAnimationFrame(loop);
 }
 
@@ -447,11 +454,11 @@ function renderLibrary(){
   }
 }
 // Waveforms and Emitters are listed per mode: each waveform / simulation is its own library entry.
-const GROUPS={waveforms:['2D','3D'],emitters:['Particles','WebGPU particles']};
+const GROUPS={inputs:['Media','Data'],waveforms:['2D','3D'],emitters:['Particles','WebGPU particles']};
 function groupedItems(cat){
   const items=[];
   for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat)){
-    const T=TYPES[t],group=T.group||'Particles';
+    const T=TYPES[t],group=T.group||GROUPS[cat][0];
     if(MODES[t])for(const [mode,label] of MODES[t])items.push({type:t,props:{mode},label,group,description:`${label} · ${T.label}. ${T.description}`});
     else items.push({type:t,props:{},label:T.label,group,description:T.description});
   }
@@ -476,6 +483,10 @@ $('librarySearch').addEventListener('input',()=>{
 function summary(n){
   const p=n.props,t=TYPES[n.type];
   if(n.type==='audioIn')return sourceName();
+  if(n.type==='computer')return p.source==='helper'?`local helper :${p.port}`:'browser estimates';
+  if(n.type==='clock')return `${p.bpm} BPM`;
+  if(n.type==='midi')return `CC ${p.cc}${p.channel?' · ch '+p.channel:''}${p.note>=0?' · note '+p.note:''}`;
+  if(n.type==='pointer')return 'mouse · keys';
   if(MODES[n.type])return t.label;
   if(n.type==='text')return p.text;
   if(isEngine(n.type)){const m=engines.get(n.id)?.mediaName,r=t.props.render?.labels.find(l=>l[0]===p.render)?.[1];return [r,m||(MEDIA_KIND[n.type]?(n.type==='object'?'built-in knot':n.type==='splat'?'demo cloud':'no file'):'')].filter(Boolean).join(' · ');}
@@ -739,10 +750,11 @@ function renderProperties(){
   else{
     if(n.type==='audioIn')renderAudioSource(root);
     if(n.type==='palette')renderPalettePresets(root,n);
+    if(DATA_INPUTS.has(n.type))renderDataInput(root,n);
     renderProps(root,n,n.type==='palette'?paletteKeys(n.props):Object.keys(t.props));
     const wired=Object.keys(t.props).filter(k=>t.props[k].kind==='number'&&!t.props[k].noPort);
     if(wired.length&&t.category!=='controls'&&n.type!=='audioIn')section(root).append(el('p','insp-note','Any knob can be driven: drag a wire from a Control or Audio node onto this node and pick the knob. 0 keeps the knob value, 1 pushes it to the maximum.'));
-    if(t.category==='controls'||t.category==='audio'&&n.type!=='spectrum'||n.type==='audioIn'){const v=el('p','insp-note live-value');v.dataset.node=n.id;section(root).append(v);}
+    if(t.category==='controls'||t.category==='audio'&&n.type!=='spectrum'||n.type==='audioIn'||DATA_INPUTS.has(n.type)){const v=el('p','insp-note live-value');v.dataset.node=n.id;section(root).append(v);}
   }
   const actions=section(root).appendChild(el('div','insp-actions'));
   const dup=el('button','btn','Duplicate');dup.id='duplicateNode';dup.onclick=duplicateSelected;
@@ -775,6 +787,24 @@ function renderPalettePresets(root,n){
 }
 // A new emitter type starts from its defaults; wires into the old type's option knobs are dropped.
 function setMode(g,n,mode,key='mode'){if(n.props[key]===mode)return;n.props[key]=mode;n.props.opts={};n.props.chips={};g.edges=g.edges.filter(e=>!(e.to===n.id&&OPT_PORT.test(e.input)));}
+// Data inputs: live meters (filled by the readout timer), plus source status and helper / MIDI actions.
+function renderDataInput(root,n){
+  const s=section(root,'Live');s.append(el('p','insp-note data-status'));
+  if(n.type==='computer'){
+    s.append(el('p','insp-note','Browsers cannot see the real CPU or GPU use. For true values pick “Local helper” and run this once in Terminal (needs Node.js):'));
+    const code=el('code','cmd',`node computer-feed.mjs ${n.props.port}`);s.append(code);
+    const a=el('a','btn','Download computer-feed.mjs');a.href='tools/computer-feed.mjs';a.download='computer-feed.mjs';s.append(a);
+    s.append(el('p','insp-note','It only listens on this computer (127.0.0.1) and reports numbers. Works in Chrome and Edge; Safari blocks local connections.'));
+  }
+  if(n.type==='midi'){
+    const row=el('div','audio-src'),con=el('button','btn','Connect MIDI'),learn=el('button','btn','Learn CC');con.type=learn.type='button';
+    con.onclick=()=>sensors.connectMidi().then(()=>message('MIDI connected')).catch(e=>message(e.message,true));
+    learn.title='Move a knob or fader on your controller';
+    learn.onclick=async()=>{try{await sensors.connectMidi();learn.textContent='Move a control…';const r=await sensors.midiLearn();edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);x.props.cc=r.cc;x.props.channel=r.channel;},`MIDI: learned CC ${r.cc}`);}catch(e){message(e.message,true);}};
+    row.append(con,learn);s.append(row);
+  }
+  if(n.type==='pointer')s.append(el('p','insp-note','Reads the mouse and keyboard anywhere in this window (key names are never recorded, only how often you type).'));
+}
 // The Audio node's inspector holds the project's sound source (shared by every Audio node).
 function renderAudioSource(root){
   const s=section(root,'Source'),row=el('div','audio-src');
@@ -1058,7 +1088,10 @@ viewport.onpointerdown=event=>{
   viewport.addEventListener('pointermove',move);viewport.addEventListener('pointerup',end);viewport.addEventListener('pointercancel',end);
 };
 function zoom(factor,cx=viewport.clientWidth/2,cy=viewport.clientHeight/2){const next=Math.max(.3,Math.min(1.8,view.zoom*factor)),ratio=next/view.zoom;view.x=cx-(cx-view.x)*ratio;view.y=cy-(cy-view.y)*ratio;view.zoom=next;applyView();}
-viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();if(e.ctrlKey||Math.abs(e.deltaY)>=Math.abs(e.deltaX)&&!e.shiftKey)zoom(e.deltaY<0?1.08:1/1.08,e.clientX-r.left,e.clientY-r.top);else{view.x-=e.deltaX;view.y-=e.deltaY;applyView();}},{passive:false});
+// Trackpads (pixel deltas, no 120-step notches) pan with two fingers in any direction; pinch or ⌘-scroll zooms.
+// A notched mouse wheel zooms, Shift + wheel pans sideways.
+const isTrackpad=e=>e.deltaMode===0&&(e.deltaX!==0||!(e.wheelDeltaY&&e.wheelDeltaY%120===0));
+viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();if(e.ctrlKey||e.metaKey||!isTrackpad(e)&&!e.shiftKey)zoom(e.ctrlKey?Math.exp(-e.deltaY*.01):e.deltaY<0?1.08:1/1.08,e.clientX-r.left,e.clientY-r.top);else{view.x-=e.deltaX;view.y-=e.deltaY;applyView();}},{passive:false});
 $('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit').onclick=fit;
 document.addEventListener('keydown',e=>{
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
@@ -1081,6 +1114,14 @@ window.addEventListener('pageshow',()=>{pageHidden=false;lastTime=0;renderUI();i
 setInterval(()=>{
   // Live readout for the selected control node.
   const v=document.querySelector('.live-value');if(!v)return;const n=findNode(v.dataset.node);if(!n)return;
+  if(DATA_INPUTS.has(n.type)){
+    const o=lastOuts.get(n.id);v.replaceChildren();
+    if(!o){v.textContent='Not running yet';return;}
+    for(const k of Object.keys(TYPES[n.type].outputs)){const row=el('div','meter'),bar=el('i');bar.style.width=(Math.max(0,Math.min(1,o[k]??0))*100).toFixed(1)+'%';row.append(el('span','',k),el('b'),el('em','',(o[k]??0).toFixed(2)));row.children[1].append(bar);v.append(row);}
+    const st=document.querySelector('#properties .data-status');if(st&&n.type==='computer')st.textContent=sensors.computerStatus(n.props);
+    if(st&&n.type==='midi'){const m=sensors.midiInfo();st.textContent=m.error||(m.connected?(m.devices.length?'Connected: '+m.devices.join(', '):'Connected, but no MIDI devices are plugged in.'):'Not connected.');}
+    return;
+  }
   const out=lastValues.get(n.id);v.textContent=out!==undefined?`Now: ${out.toFixed(3)}`:'Not connected to an Output yet';
 },200);
 window.pro={
@@ -1088,7 +1129,7 @@ window.pro={
   select:id=>{selected=id;renderUI();},selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
-  draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
+  draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
-reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
+sensors.autoMidi();reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
 requestAnimationFrame(loop);
