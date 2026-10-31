@@ -511,7 +511,12 @@ function renderProperties(){
 }
 // A new emitter type starts from its defaults; wires into the old type's option knobs are dropped.
 function setMode(g,n,mode){if(n.props.mode===mode)return;n.props.mode=mode;n.props.opts={};n.props.chips={};g.edges=g.edges.filter(e=>!(e.to===n.id&&OPT_PORT.test(e.input)));}
-function emitterMediaKind(mode){return ['image','pixelwarp'].includes(mode)?'image':mode==='video'?'video':mode==='object'?'object':null;}
+function emitterMediaKind(mode){return ['image','pixelwarp'].includes(mode)?'image':mode==='video'?'video':mode==='object'?'object':mode==='simsplat'?'splat':null;}
+// After a splat file loads, pick the "Loaded file" cloud and apply the parser's orientation hint.
+function useSplatFile(n,e,res){
+  const job={mode:n.props.mode,chips:n.props.chips},cloud=(e.controls(job)||[]).find(c=>c.type==='chips'&&c.options.some(o=>o.label==='Loaded file'));
+  edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);if(cloud)x.props.chips={...x.props.chips,[cloud.key]:'Loaded file'};if(res?.flip)x.props.opts={...x.props.opts,pGsRX:180};},'Gaussian Splat: loaded file');
+}
 function renderEmitter(root,n){
   const s=section(root,'Emitter'),sel=el('select');sel.dataset.property='mode';sel.setAttribute('aria-label','Emitter');
   for(const [cat,list] of Object.entries(EMITTERS)){const og=el('optgroup');og.label=cat;for(const [id,label] of list){const o=el('option','',label);o.value=id;og.append(o);}sel.append(og);}
@@ -520,9 +525,9 @@ function renderEmitter(root,n){
   if(n.props.mode==='text')s.append(propControl(n,'text',TYPES.emitter.props.text));
   const kind=emitterMediaKind(n.props.mode);
   if(kind){
-    const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':'.obj';
-    f.onchange=async()=>{try{if(!f.files[0])return;await engineFor(n.id).media(f.files[0],kind);message('Loaded '+f.files[0].name);renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
-    s.append(ui.field(`Load ${kind==='object'?'OBJ':kind}`,f),el('p','insp-note',engines.get(n.id)?.mediaName?`Loaded: ${engines.get(n.id).mediaName} (not saved in projects)`:'Media files are not saved in projects.'));
+    const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj';
+    f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);message('Loaded '+f.files[0].name);renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
+    s.append(ui.field(`Load ${kind==='object'?'OBJ':kind==='splat'?'.ply / .splat':kind}`,f),el('p','insp-note',engines.get(n.id)?.mediaName?`Loaded: ${engines.get(n.id).mediaName} (not saved in projects)`:'Media files are not saved in projects.'));
   }
   const d=section(root,'Audio');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');

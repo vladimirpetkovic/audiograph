@@ -66,7 +66,7 @@ renders exactly as in Audiograph. Post FX nodes call the original's
 
 Projects are versioned and validated. Emitter options accept only numeric values
 under safe IDs. Code and expressions are never imported. Version 1 (stage 1)
-projects are migrated automatically. Media files (audio, image, video, OBJ) are
+projects are migrated automatically. Media files (audio, image, video, OBJ, .ply/.splat) are
 not saved in projects.
 
 ## Limits

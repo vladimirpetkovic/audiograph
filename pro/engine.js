@@ -115,7 +115,7 @@ export class EmitterEngine {
     for(const e of box.querySelectorAll('input[type=range],.mode-btns')){
       if(!shown(e))continue;
       if(e.classList.contains('mode-btns')){
-        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>b.style.display!=='none');
+        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(b.getAttribute('onclick')||''));
         if(!buttons.length)continue;
         const action=buttons.every(b=>/simRestart|simReset|simReinit|Preset|Shuffle|objToPointCloud|click\(\)/i.test(b.getAttribute('onclick')||''));
         out.push({type:'chips',key:String(idx),label:label(e),action,options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
@@ -220,6 +220,11 @@ export class EmitterEngine {
       if(this.video){this.video.pause();this.video.removeAttribute('src');}
       if(this.videoURL)URL.revokeObjectURL(this.videoURL);
       this.videoURL=url;this.video=video;w.vidEl=video;w.sampleVideoFrame();
+    }else if(kind==='splat') {
+      if(!/\.(ply|splat)$/i.test(file.name))throw Error('Choose a .ply or .splat file');
+      const r=w.agSplatParse(await file.arrayBuffer(),file.name);
+      Object.assign(w.AG_SPLAT,{file:r.data,n:r.n,name:file.name,err:''});w.AG_SPLAT.ver++;
+      this.mediaKind=kind;this.mediaName=file.name;return {flip:!!r.flip};
     }else{
       if(!file.name.toLowerCase().endsWith('.obj'))throw Error('Choose an OBJ file');
       w.objModelData=w.agParseObj(await file.text());w.objBuiltin='file';
