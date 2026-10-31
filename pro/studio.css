@@ -211,6 +211,9 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
   .studio{grid-template-columns:200px minmax(0,1fr) 260px}
   .graph-hint{visibility:hidden}
   .toolbar{gap:4px}
+  .transport{flex-wrap:wrap}
+  .transport .btn{padding-left:9px;padding-right:9px}
+  #audioName{flex-basis:100%;order:10}
 }
 @media (max-width:760px){
   body{height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto;grid-template-rows:auto auto auto}
