@@ -12,8 +12,8 @@ export const CATEGORIES = [
   {id:'inputs',label:'Inputs',color:'#71f4d3',hint:'Sound, pictures, camera, text and 3D you bring in'},
   {id:'waveforms',label:'Waveforms',color:'#71e7f4',hint:'Audio-reactive line patterns, flat and 3D'},
   {id:'emitters',label:'Emitters',color:'#71b9f4',hint:'Particles: classic and native WebGPU simulations'},
-  {id:'forces',label:'Forces',color:'#718cf4',hint:'Push and steer WebGPU simulations: gravity, drag, swirl, wind…'},
-  {id:'deformers',label:'Deformers',color:'#8471f4',hint:'Bend the shape or add noise'},
+  {id:'forces',label:'Forces',color:'#718cf4',hint:'Spin any shape; push and steer WebGPU simulations: gravity, drag, swirl, wind…'},
+  {id:'deformers',label:'Deformers',color:'#8471f4',hint:'Bend, mirror and repeat the shape, or add noise'},
   {id:'color',label:'Color',color:'#b271f4',hint:'Palettes and hue'},
   {id:'postfx',label:'Post FX',color:'#e071f4',hint:'Image effects (GPU shaders)'},
   {id:'controls',label:'Controls',color:'#f471db',hint:'Numbers that move knobs'},
@@ -43,9 +43,9 @@ export const GEO_PROPS={
   varyHeight:G('Lines',bool('Vary height',true,{key:'_varyHeight'})),varyThick:G('Lines',bool('Vary thickness',false,{key:'_varyThick'})),
   scale:G('Transform',n('Scale',100,50,400,10,{key:'_zoom'})),rotation:G('Transform',n('Rotation',0,-180,180,1,{key:'_rotation'})),x:G('Transform',n('Offset X',0,-100,100,1,{key:'_offX'})),y:G('Transform',n('Offset Y',0,-100,100,1,{key:'_offY'})),
   tilt:G('Transform',n('3D tilt',0,-180,180,1,{key:'_dragRotX',rad:true})),turn:G('Transform',n('3D rotate',0,-180,180,1,{key:'_dragRotY',rad:true})),pulse:G('Transform',bool('Zoom on loud',false,{key:'_zoomLoud'})),
-  spin:G('Motion',n('Spin',0,-5,5,.1,{key:'_spin'})),speed:G('Motion',n('Speed',1,.1,5,.1,{key:'_speed'})),
-  symmetry:G('Symmetry',pick('Symmetry','none',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'})),symGap:G('Symmetry',n('Gap',0,0,100,1,{key:'_symGap'})),
-  flipH:G('Symmetry',bool('Flip H',false,{key:'_flipH'})),flipV:G('Symmetry',bool('Flip V',false,{key:'_flipV'})),mirror:G('Symmetry',bool('Reflection',false,{key:'_mirrorOn'}))};
+  };
+// Spin (Forces), Symmetry and Mirror (Deformers) are nodes; a renderer without them draws still and unmirrored.
+const MOTION_BASE={_spin:0,_spinDir:1,_speed:1,_symmetryMode:'none',_symGap:0,_flipH:false,_flipV:false,_mirrorOn:false};
 const LINE_SHAPES=[['straight','Straight'],['rounded','Rounded'],['dotted','Dotted'],['dashed','Dashed'],['pins','Pins'],['tapered','Tapered'],['caps','Caps'],['cross','Cross'],['numbers','Numbers'],['symbols','Symbols'],['words','Words'],['cascade','Cascade'],['off','Off']];
 // Line style and outline live on the waveform nodes (grouped, closed by default).
 export const STYLE_PROPS={
@@ -57,16 +57,28 @@ export const STYLE_PROPS={
 const LOOK_PROPS={...GEO_PROPS,...STYLE_PROPS};
 // Original layer parameters for a renderer's geometry props (spin carries its direction).
 export function geoMods(p){
-  const out={};
+  const out={...MOTION_BASE};
   for(const [k,s] of Object.entries(LOOK_PROPS)){let v=p[k];if(v===undefined)continue;if(s.rad)v=v*Math.PI/180;out[s.key]=v;}
-  out._spin=Math.abs(p.spin??0);out._spinDir=(p.spin??0)<0?-1:1;return out;
+  return out;
+}
+// Spin / Symmetry / Mirror nodes for an original look or for old renderer props: [[type, props], …] (only the ones in use).
+export function motionNodes(v){
+  const out=[];
+  if((v.symmetry&&v.symmetry!=='none')||v.symGap)out.push(['symmetry',{mode:SYMS.some(s=>s[0]===v.symmetry)?v.symmetry:'none',gap:v.symGap??0}]);
+  if(v.flipH||v.flipV||v.mirror)out.push(['mirror',{flipH:!!v.flipH,flipV:!!v.flipV,reflect:!!v.mirror}]);
+  if((v.spin??0)!==0||(v.speed??1)!==1)out.push(['spin',{spin:v.spin??0,speed:v.speed??1}]);
+  return out;
+}
+export function motionFromLook(look){
+  const sp=typeof look._spin==='number'?look._spin*(look._spinDir<0?-1:1):0;
+  return motionNodes({symmetry:look._symmetryMode,symGap:look._symGap,flipH:look._flipH===true,flipV:look._flipV===true,mirror:look._mirrorOn===true,
+    spin:Math.max(-5,Math.min(5,Math.round(sp*10)/10)),speed:typeof look._speed==='number'?Math.max(.1,Math.min(5,Math.round(look._speed*10)/10)):1});
 }
 // Geometry props seeded from an original layer look (templates).
 export function geoFromLook(look){
   const out={};
   for(const [k,s] of Object.entries(LOOK_PROPS)){
     let v=look[s.key];if(v===undefined)continue;
-    if(k==='spin'){v=v*(look._spinDir<0?-1:1);}
     if(s.kind==='number'){if(typeof v!=='number')continue;if(s.rad)v=v*180/Math.PI;out[k]=Math.max(s.min,Math.min(s.max,Math.round(v/s.step)*s.step));}
     else if(s.kind==='bool'){if(typeof v==='boolean')out[k]=v;}
     else if(s.choices.includes(v))out[k]=v;
@@ -123,6 +135,10 @@ export const TYPES = {
   waveform3d:ENGINE('waveforms','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),...STYLE_PROPS},{},'3D'),
   gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke, flocks, sand, ferrofluid, 3D cloner.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
   // Deformers
+  symmetry:{category:'deformers',group:'Symmetry',label:'Symmetry',description:'Repeat the shape: mirror across X / Y or turn it into 3- to 8-fold rotations.',...SHAPE_IO,props:{
+    mode:pick('Symmetry','r6',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'}),gap:n('Gap',0,0,100,1,{key:'_symGap'})}},
+  mirror:{category:'deformers',group:'Symmetry',label:'Mirror',description:'Flip the shape and add a reflection.',...SHAPE_IO,props:{
+    flipH:bool('Flip H',false,{key:'_flipH'}),flipV:bool('Flip V',false,{key:'_flipV'}),reflect:bool('Reflection',true,{key:'_mirrorOn'})}},
   twist:DEFORM('Twist','_twist',-100,100,40,'Twist around the centre.'),
   bulge:DEFORM('Bulge','_bulge',-100,100,40,'Inflate or pinch the centre.'),
   wave:{category:'deformers',label:'Wave',description:'Travelling sine displacement.',...SHAPE_IO,props:{amount:n('Amount',40,0,100,1,{key:'_wave'}),speed:n('Wave speed',5,1,20,1,{key:'_waveFreq'})}},
@@ -138,6 +154,8 @@ export const TYPES = {
     dir:pick('Direction','radial',['radial','vertical','horizontal'],{labels:[['radial','Radial'],['vertical','Vertical'],['horizontal','Horiz.']]}),smooth:n('Smoothing',5,1,20,1)}},
   turbulence:{category:'deformers',group:'Noise',label:'Turbulence',description:'Noise that churns WebGPU Particles and Smoke.',...SHAPE_IO,props:{
     amount:F('Turbulence',46,0,100,'pSpTurb',['simparticles']),scale:F('Noise scale',66,10,100,'pSpTurbScale',['simparticles']),smoke:F('Smoke turbulence',30,0,100,'pSmTurb',['simsmoke'])}},
+  spin:{category:'forces',label:'Spin',description:'Keep the shape turning. Negative spins the other way; Speed sets how fast its animation runs.',...SHAPE_IO,props:{
+    spin:n('Spin',1,-5,5,.1,{key:'_spin'}),speed:n('Speed',1,.1,5,.1,{key:'_speed'})}},
   // Forces: WebGPU simulation physics, one idea per node. Each knob lists the simulations it moves; defaults match the simulation.
   gravity:FORCE('Gravity','Pull down (or up). Smoke rises by buoyancy.',{gravity:F('Gravity',-3,-100,100,'pSpGravity',['simparticles']),sand:F('Sand gravity',100,0,100,'pSaGravity',['simsand']),buoyancy:F('Buoyancy',100,0,200,'pSmBuoy',['simsmoke'])}),
   drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand']),damping:F('Damping',25,0,100,'pFeDamp',['simferro'])}),
@@ -255,7 +273,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=6;
+export const VERSION=7;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -363,18 +381,38 @@ function migrate(raw){
     }
     for(const e of edges){if(!e)continue;if(e.input==='spectrum')e.input='audio';if(e.out==='spectrum')e.out='audio';}
   }
-  for(const g of out.layers||[])foldGeometry(g);
+  if(raw.version<6)for(const g of out.layers||[])foldGeometry(g);
   // Version 5: the Amplify deformer became the pass-through Amplify node (Amount → Gain).
   if(raw.version<5)for(const g of out.layers||[]){
     const amps=new Set();for(const nd of g?.nodes||[])if(nd?.type==='amplify'&&nd.props&&'amount' in nd.props){amps.add(nd.id);nd.props={gain:Math.max(0,Math.min(8,+nd.props.amount||1))};}
     for(const e of g?.edges||[]){if(!e)continue;if(amps.has(e.to)&&e.input==='shape')e.input='in';else if(amps.has(e.to)&&e.input==='amount')e.input='gain';if(amps.has(e.from)&&e.out==='shape')e.out='out';}
   }
   if(raw.version<6)for(const g of out.layers||[])extractForces(g);
+  if(raw.version<7)for(const g of out.layers||[])extractMotion(g);
   out.version=VERSION;return out;
 }
 // Simulation knobs that belong to a Forces / Noise node, by simulation: {mode: {knob key: [node type, prop]}}.
 export const FORCE_KNOBS={};
 for(const [t,T] of Object.entries(TYPES))for(const [k,s] of Object.entries(T.props))for(const m of s.sims||[])(FORCE_KNOBS[m]||={})[s.key]=[t,k];
+// Version 7: Spin / Speed and Symmetry / Mirror left the renderers for their own nodes, inserted right after the renderer.
+const MOTION_PROPS={symmetry:['symmetry','mode'],symGap:['symmetry','gap'],flipH:['mirror','flipH'],flipV:['mirror','flipV'],mirror:['mirror','reflect'],spin:['spin','spin'],speed:['spin','speed']};
+function extractMotion(g){
+  if(!Array.isArray(g?.nodes)||!Array.isArray(g.edges))return;
+  for(const r of g.nodes.filter(n=>TYPES[n?.type]?.engine&&n.props)){
+    const vals={};for(const k of Object.keys(MOTION_PROPS))if(r.props[k]!==undefined){vals[k]=r.props[k];delete r.props[k];}
+    const wired=g.edges.filter(e=>e&&e.to===r.id&&MOTION_PROPS[e.input]),autos=(Array.isArray(r.auto)?r.auto:[]).filter(a=>MOTION_PROPS[a]);
+    const made=new Map(motionNodes(vals).map(([t,p])=>[t,p]));
+    for(const k of [...wired.map(e=>e.input),...autos]){const [t,pk]=MOTION_PROPS[k];if(!made.has(t))made.set(t,{});const p=made.get(t);if(p[pk]===undefined&&vals[k]!==undefined)p[pk]=t==='symmetry'&&pk==='mode'&&!SYMS.some(s=>s[0]===vals[k])?'none':vals[k];}
+    if(!made.size)continue;
+    const chain=[...made].map(([t,p],i)=>{const nd={id:`${r.id}_${t}`.slice(0,60),type:t,x:(r.x||0)+220*(i+1),y:(r.y||0)-140,props:{}};
+      for(const [k,s] of Object.entries(TYPES[t].props))nd.props[k]=p[k]??(t==='symmetry'&&k==='mode'?'none':t==='mirror'&&k==='reflect'?false:t==='spin'&&k==='spin'?0:s.value);return nd;});
+    for(const e of wired){const [t,pk]=MOTION_PROPS[e.input];e.to=chain.find(n=>n.type===t).id;e.input=pk;}
+    if(autos.length){r.auto=r.auto.filter(a=>!MOTION_PROPS[a]);for(const a of autos){const [t,pk]=MOTION_PROPS[a];(chain.find(n=>n.type===t).auto||=[]).push(pk);}}
+    const outs=g.edges.filter(e=>e&&e.from===r.id&&e.out==='shape');
+    chain.forEach((nd,i)=>{g.nodes.push(nd);g.edges.push({from:i?chain[i-1].id:r.id,out:'shape',to:nd.id,input:'shape'});});
+    for(const e of outs)e.from=chain[chain.length-1].id;
+  }
+}
 // Version 6: physics knobs set on a simulation move into Forces nodes inserted right after it.
 function extractForces(g){
   if(!Array.isArray(g?.nodes)||!Array.isArray(g.edges))return;
@@ -419,7 +457,7 @@ function foldGeometry(g){
   }
 }
 export function validate(input) {
-  if(!input||input.format!=='audiograph-pro'||![1,2,3,4,5,6].includes(input.version))throw Error('Expected an Audiograph Pro project');
+  if(!input||input.format!=='audiograph-pro'||!(Number.isInteger(input.version)&&input.version>=1&&input.version<=VERSION))throw Error('Expected an Audiograph Pro project');
   const raw=migrate(input);
   if(!Array.isArray(raw.layers)||raw.layers.length<1||raw.layers.length>LIMITS.layers)throw Error('A project needs 1–4 layer graphs');
   const ids=new Set();let emitters=0;
@@ -486,7 +524,7 @@ export function applyShapeNode(type,props,mods){
     out._colorMode=props.mode;out._solidColor=props.solid;out._toneStops=st.tone;out._simpleStops=st.simple;
     return out;
   }
-  if(type==='motion'){out._spin=Math.abs(props.spin);out._spinDir=props.spin<0?-1:1;out._speed=props.speed;return out;}
+  if(type==='motion'||type==='spin'){out._spin=Math.abs(props.spin);out._spinDir=props.spin<0?-1:1;out._speed=props.speed;return out;}
   if(type==='particles')out._particlesOn=true;
   if(type==='webcam'){out._cam={displace:props.displace,colors:props.colors==='on',dir:props.dir,smooth:props.smooth};return out;}
   for(const [k,s] of Object.entries(TYPES[type].props)){

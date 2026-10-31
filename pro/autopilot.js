@@ -267,24 +267,24 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   if(v.type==='text'){props.text=it.text;props.scale=it.scale??130;props.thick=it.thick??1.5;}
   else if(v.type!=='camera'&&v.type!=='gpuParticles'){props.mode=v.mode;Object.assign(props,LOOK[v.mode]||{});}
   if(v.type==='gpuParticles')props.mode=v.mode;
-  const T=TYPES[v.type].props,set=(k,val)=>{if(T[k]&&val!=null){const s=T[k];props[k]=s.kind==='number'?clamp(val,s.min,s.max):val;}};
+  const mo={},T=TYPES[v.type].props,set=(k,val)=>{if(T[k]&&val!=null){const s=T[k];props[k]=s.kind==='number'?clamp(val,s.min,s.max):val;}};
   if(!sim){
     set('thick',it.thick!=null?it.thick:(props.thick??1.5)*(E>70?1.4:E<35?.8:1));
     set('density',it.density??(v.mode==='scatter'||v.mode==='graph'?undefined:Math.round(260+E*2.4)));
     set('height',(props.height??80)*(E>70?1.25:E<35?.85:1));
     set('scale',it.scale??(i?110+r()*40:undefined));
-    if(it.symmetry&&!['terrain','linear'].includes(v.mode))set('symmetry',it.symmetry);
-    else if(!i&&explore>.25&&E>75&&r()<.35&&!['terrain','linear','sine'].includes(v.mode))set('symmetry',pick(r,['r4','r6','xy']));
+    if(it.symmetry&&!['terrain','linear'].includes(v.mode))mo.symmetry=it.symmetry;
+    else if(!i&&explore>.25&&E>75&&r()<.35&&!['terrain','linear','sine'].includes(v.mode))mo.symmetry=pick(r,['r4','r6','xy']);
     if(it.lineShape&&T.lineShape)set('lineShape',it.lineShape);else if(i&&T.lineShape)set('lineShape',pick(r,['straight','tapered','dotted','pins']));
     if(it.outline&&T.outline)set('outline',true);
     if(it.tilt!=null)set('tilt',it.tilt);
-    const spin=it.spin!=null?it.spin:(r()<.35?0:(E>60?.3+r()*.6:.1+r()*.35)*(r()<.5?-1:1))*it.tempo;set('spin',+spin.toFixed(2));
-    set('speed',it.tempo);
+    const spin=it.spin!=null?it.spin:(r()<.35?0:(E>60?.3+r()*.6:.1+r()*.35)*(r()<.5?-1:1))*it.tempo;mo.spin=clamp(+spin.toFixed(2),-5,5);
+    mo.speed=clamp(it.tempo,.1,5);
     if(it.react.includes('pulse'))set('pulse',true);
   }else{
     set('scale',it.scale);
-    if(it.symmetry&&it.symmetry!=='x')set('symmetry',it.symmetry);
-    if(it.spin)set('spin',it.spin*.5);
+    if(it.symmetry&&it.symmetry!=='x')mo.symmetry=it.symmetry;
+    if(it.spin)mo.spin=clamp(it.spin*.5,-5,5);
   }
   if(v.type==='camera')set('render','lines');
   const reactive=it.intensity??Math.round(70+E*.8);set('intensity',i?reactive*.8:reactive);
@@ -292,6 +292,9 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   if(i&&!sim){set('thick',(props.thick||1.5)*.6);set('density',(props.density||350)*.6);}
   const vis=add(v.type,props);wire(sound,'audio',vis,'audio');
   let prev=vis;
+  // Symmetry (deformer) and Spin (force) follow the visual as their own nodes.
+  if(mo.symmetry)prev=chainTo(prev,add('symmetry',{mode:mo.symmetry,gap:0}));
+  const spinN=mo.spin!=null&&(mo.spin||(mo.speed??1)!==1||it.data.includes('computer'))?add('spin',{spin:mo.spin,speed:mo.speed??1}):null;if(spinN)prev=chainTo(prev,spinN);
   // Deformers bend the shape; forces push simulations.
   for(const d of it.deformers){if(sim&&!['turbulence','jitter','disorder','flowField'].includes(d.type))continue;prev=chainTo(prev,add(d.type,d.props));}
   if(sim)for(const f of it.forces){const keys=Object.keys(f.props).filter(k=>TYPES[f.type].props[k]?.sims?.includes(v.mode)||!TYPES[f.type].props[k]?.sims);if(!keys.some(k=>TYPES[f.type].props[k]?.sims?.includes(v.mode)))continue;prev=chainTo(prev,add(f.type,f.props));}
@@ -331,7 +334,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
     else if(!find('bloom')?.id||!it.react.includes('beat')){const b=find('bloom');if(b)drive(sound,'bass',b,'bloom',['smooth',{attack:15,release:300}]);}
   }
   if(it.react.includes('high')){const h=find('hue')||find('jitter');if(h)drive(sound,'high',h,h.type==='hue'?'hue':'amount',['smooth',{attack:5,release:150}]);}
-  if(!i&&it.data.includes('computer')){const c=node('computer',40,dy);g.nodes.push(c);const t=find('turbulence')||find('hue')||find('twist');if(t)wire(c,'activity',t,t.type==='hue'?'cycle':'amount');else if(T.spin)wire(c,'activity',vis,'spin');dy+=110;}
+  if(!i&&it.data.includes('computer')){const c=node('computer',40,dy);g.nodes.push(c);const t=find('turbulence')||find('hue')||find('twist');if(t)wire(c,'activity',t,t.type==='hue'?'cycle':'amount');else if(spinN)wire(c,'activity',spinN,'spin');dy+=110;}
   if(!i&&it.data.includes('pointer')){const p=node('pointer',40,dy);g.nodes.push(p);if(T.rotation)wire(p,'x',vis,'rotation');if(T.tilt)wire(p,'y',vis,'tilt');}
   return g;
 }

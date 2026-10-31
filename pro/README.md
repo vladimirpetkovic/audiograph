@@ -45,11 +45,15 @@ each with its own opacity and blend mode (up to four).
   inputs and give a `shape` output.
   Every renderer also carries its geometry in grouped, collapsible inspector
   sections: Lines, Transform (scale, rotation, offset, 3D tilt and rotate, zoom on
-  loud), Motion (spin, speed) and Symmetry (mirror axes, 3/4/6/8-fold, flip,
-  reflection). Option knobs are grouped (Setup, Sound, Emission, Forces, Look,
+  loud). Spin lives in a Spin node (Forces) and symmetry in Symmetry and Mirror
+  nodes (Deformers). Option knobs are grouped (Setup, Sound, Emission, Forces, Look,
   Quality, Form). Projects with the old Geometry nodes fold them into the renderer.
   A simulation's physics knobs are not on the simulation: they live in Forces
   nodes, offered as one-click shortcuts in its inspector.
+- **Spin** (Forces) keeps any shape turning (negative = the other way) and sets
+  its animation speed. **Symmetry** (Deformers) mirrors across X / Y or repeats
+  3/4/6/8-fold with a gap; **Mirror** flips H / V and adds a reflection. Wire them
+  after a renderer. Older projects move these renderer settings into the nodes.
 - **Forces** (WebGPU simulations): Gravity (gravity, sand gravity, smoke
   buoyancy), Drag (drag, viscosity, friction, damping), Swirl (swirl and emitter
   spin), Attract (centre pull, magnet field and motion), Wind, Vorticity and

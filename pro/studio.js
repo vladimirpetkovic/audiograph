@@ -1,5 +1,5 @@
 import * as sensors from './sensors.js';
-import {FORCE_KNOBS,TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {FORCE_KNOBS,TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 import * as mapping from './mapping.js';
@@ -1059,7 +1059,7 @@ const audioTo=(g,out,targetType,input,via)=>{const a=g.nodes.find(n=>n.type==='a
   else g.edges.push({from:a.id,out,to:t.id,input});};
 const TEMPLATES={
   'Fluid bloom':()=>[chain('Fluid',[['audioIn',{}],E('simfluid'),PAL('#03071e','#370617','#e85d04','#ffba08'),['bloom',{}],['output',{}]])],
-  'Kaleido spectrum':()=>[chain('Kaleido',[['audioIn',{}],E('circle',{symmetry:'r6'}),['twist',{amount:35}],['palette',{c1:'#10002b',c2:'#ff00e5',c3:'#00f0ff',c4:'#b6ff00'}],['bloom',{bloom:45}],['output',{}]],g=>drive(g,'oscillator',{rate:.1,depth:1,offset:0},'twist','amount'))],
+  'Kaleido spectrum':()=>[chain('Kaleido',[['audioIn',{}],E('circle'),['symmetry',{mode:'r6'}],['twist',{amount:35}],['palette',{c1:'#10002b',c2:'#ff00e5',c3:'#00f0ff',c4:'#b6ff00'}],['bloom',{bloom:45}],['output',{}]],g=>drive(g,'oscillator',{rate:.1,depth:1,offset:0},'twist','amount'))],
   'Particle storm':()=>[chain('Storm',[['audioIn',{}],E('linear'),['particles',{density:30,trail:20}],['flowField',{curl:60,perlin:20}],PAL('#000814','#003566','#00b4d8','#caf0f8'),['trails',{trails:70}],['output',{}]])],
   'Shattered rings':()=>[chain('Shatter',[['audioIn',{}],E('concentric'),['palette',{c1:'#200000',c2:'#c1121f',c3:'#ff6d00',c4:'#ffd60a'}],['fracture',{}],['output',{}]])],
   'Bass bulge sphere':()=>[chain('Sphere',[['audioIn',{}],E('sphere'),['bulge',{amount:0}],['palette',{c1:'#0b132b',c2:'#5bc0be',c3:'#a9def9',c4:'#ffffff'}],['hue',{hue:0,cycle:20}],['output',{}]],g=>{g.nodes.find(n=>n.type==='audioIn').props.gain=2;audioTo(g,'bass','bulge','amount',['smooth',{attack:10,release:250}]);})],
@@ -1069,8 +1069,8 @@ const TEMPLATES={
   'Glowing DNA':()=>[chain('DNA',[['audioIn',{}],E('dna'),['palette',{c1:'#001219',c2:'#0a9396',c3:'#94d2bd',c4:'#e9d8a6'}],['bloom',{bloom:55}],['output',{}]])],
   'Drifting terrain':()=>[chain('Terrain',[['audioIn',{}],E('terrain'),['wave',{amount:20}],['palette',{c1:'#0d1b2a',c2:'#1b998b',c3:'#c5d86d',c4:'#f4f1de'}],['output',{}]],g=>drive(g,'oscillator',{rate:.05,depth:.4,offset:0},'waveform3d','tilt'))],
   'Glitch sand':()=>[chain('Sand',[['audioIn',{}],E('simsand'),PAL('#1a1a1a','#ff006e','#fb5607','#ffbe0b'),['lens',{chroma:70,scanlines:40,vignette:30}],['fracture',{}],['output',{}]])],
-  'Webcam mirror':()=>[chain('Mirror',[['audioIn',{}],E('circle',{symmetry:'x',mirror:true}),['webcam',{displace:60}],PAL('#000000','#14213d','#fca311','#e5e5e5'),['bloom',{bloom:45}],['output',{}]])],
-  'Two layers':()=>[chain('Smoke',[['audioIn',{}],E('simsmoke'),PAL('#0b090a','#660708','#e5383b','#f5f3f4'),['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['audioIn',{}],E('spiral',{symmetry:'x'}),PAL('#03045e','#0077b6','#90e0ef','#ffffff'),['hue',{cycle:30}],['output',{}]])]
+  'Webcam mirror':()=>[chain('Mirror',[['audioIn',{}],E('circle'),['symmetry',{mode:'x'}],['mirror',{reflect:true}],['webcam',{displace:60}],PAL('#000000','#14213d','#fca311','#e5e5e5'),['bloom',{bloom:45}],['output',{}]])],
+  'Two layers':()=>[chain('Smoke',[['audioIn',{}],E('simsmoke'),PAL('#0b090a','#660708','#e5383b','#f5f3f4'),['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['audioIn',{}],E('spiral'),['symmetry',{mode:'x'}],PAL('#03045e','#0077b6','#90e0ef','#ffffff'),['hue',{cycle:30}],['output',{}]])]
 };
 // The original Audiograph's built-in presets: one renderer per original layer (carrying that layer's look),
 // stacked by Merge nodes over the preset background, then the preset's Post FX as a chain of FX nodes.
@@ -1091,9 +1091,12 @@ function presetGraph(P){
     if(mode==='object'){type='waveform3d';mode=SOLID_MODELS.includes(look._objModel)?look._objModel:'knot';}
     else type=Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode));
     if(!type)throw Error(`${P.name}: unsupported layout ${mode}`);
-    const n=add(type,x,260+i*170,{mode,look,...geoFromLook(look),...response});wire(src,'audio',n,'audio');return {n,opacity:(l.opacity??100)/100};
+    const n=add(type,x,260+i*170,{mode,look,...geoFromLook(look),...response});wire(src,'audio',n,'audio');
+    // The look's spin and symmetry become Spin / Symmetry / Mirror nodes after the renderer.
+    let last=n;motionFromLook(look).forEach(([t,props],k)=>{const m=add(t,x+220*(k+1),260+i*170,props);wire(last,'shape',m,'shape');last=m;});
+    return {n:last,steps:(last===n?0:g.nodes.indexOf(last)-g.nodes.indexOf(n)),opacity:(l.opacity??100)/100};
   });
-  x+=230;
+  x+=230+220*Math.max(0,...renderers.map(r=>r.steps));
   // Merge chains: A carries what is below, B–D take the next renderers.
   let below=bg,y=80;
   for(let i=0;i<renderers.length;i+=3){

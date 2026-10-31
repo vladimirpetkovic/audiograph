@@ -197,7 +197,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,6);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    assert.equal(migrated.version,7);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
     // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
     const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
     assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.render]),[['camera','lines'],['image','warp']]);
@@ -207,8 +207,22 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       {id:'w',type:'waveform2d',x:0,y:0,props:{mode:'circle'}},{id:'l',type:'lines',x:0,y:0,props:{thick:4}},{id:'s',type:'symmetry',x:0,y:0,props:{mode:'r6',gap:10}},{id:'o',type:'oscillator',x:0,y:0,props:{}},{id:'out',type:'output',x:0,y:0,props:{}}],
       edges:[{from:'w',out:'shape',to:'l',input:'shape'},{from:'l',out:'shape',to:'s',input:'shape'},{from:'o',out:'value',to:'l',input:'thick'},{from:'s',out:'shape',to:'out',input:'image'}]}]}));
     const w3=v3.layers[0].nodes.find(n=>n.id==='w');
-    assert.deepEqual([v3.layers[0].nodes.length,w3.props.thick,w3.props.symmetry,w3.props.symGap],[3,4,'r6',10],'Geometry folded into the renderer');
-    assert.deepEqual(v3.layers[0].edges.map(e=>[e.from,e.to,e.input]).sort(),[['o','w','thick'],['w','out','image']],'Edges retargeted');
+    const s3=v3.layers[0].nodes.find(n=>n.type==='symmetry');
+    assert.deepEqual([v3.layers[0].nodes.length,w3.props.thick,w3.props.symmetry,s3?.props],[4,4,undefined,{mode:'r6',gap:10}],'Geometry folded, symmetry kept as a Symmetry node');
+    assert.deepEqual(v3.layers[0].edges.map(e=>[e.from,e.to,e.input]).sort(),[['o','w','thick'],['w',s3.id,'shape'],[s3.id,'out','image']].sort(),'Edges retargeted');
+    // Version 6: spin / symmetry / mirror on a renderer become Spin, Symmetry and Mirror nodes after it; wires and autos follow.
+    const v6=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:6,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[
+      {id:'w',type:'waveform2d',x:0,y:0,props:{mode:'circle',spin:-2,speed:1.5,symmetry:'r4',flipH:true},auto:['symGap']},{id:'o',type:'oscillator',x:0,y:0,props:{}},{id:'out',type:'output',x:0,y:0,props:{}}],
+      edges:[{from:'o',out:'value',to:'w',input:'spin'},{from:'w',out:'shape',to:'out',input:'image'}]}]}));
+    const n6=t=>v6.layers[0].nodes.find(n=>n.type===t),e6=v6.layers[0].edges;
+    assert.deepEqual([n6('symmetry')?.props,n6('mirror')?.props,n6('spin')?.props,n6('symmetry')?.auto,n6('waveform2d').props.spin],
+      [{mode:'r4',gap:0},{flipH:true,flipV:false,reflect:false},{spin:-2,speed:1.5},['gap'],undefined],'Motion props moved into nodes');
+    assert.ok(e6.some(e=>e.from==='o'&&e.to===n6('spin').id&&e.input==='spin')&&e6.some(e=>e.from===n6('spin').id&&e.to==='out'),'Motion wires follow');
+    const r6=await page.evaluate(async p=>{pro.importProject(p);for(let i=0;i<6;i++){pro.draw();await new Promise(r=>requestAnimationFrame(r));}return pro.stats().errors;},v6);
+    assert.deepEqual(r6,[],'Spin / Symmetry / Mirror nodes render');
+    // Templates and Autopilot build the nodes too.
+    const tm=await page.evaluate(()=>{pro.loadTemplate('Kaleido spectrum');const a=pro.getProject().layers[0].nodes.map(n=>n.type);pro.autopilot.create('kaleidoscope spiral, fast spin');const b=pro.getProject().layers.flatMap(g=>g.nodes.map(n=>n.type));return [a.includes('symmetry'),b.includes('symmetry'),b.includes('spin')];});
+    assert.deepEqual(tm,[true,true,true],'Templates and Autopilot add Symmetry / Spin nodes');
     // Auto knobs: only number knobs (and renderer options), saved with the node.
     const auto=await page.evaluate(()=>{const g={format:'audiograph-pro',version:4,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'w',type:'waveform2d',x:0,y:0,props:{mode:'circle'},auto:['thick','opt:pSimDrag','mode','nope']}],edges:[]}]};return pro.validate(g).layers[0].nodes[0].auto;});
     assert.deepEqual(auto,['thick','opt:pSimDrag'],'Auto knob list sanitised');
