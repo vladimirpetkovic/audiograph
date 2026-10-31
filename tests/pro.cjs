@@ -45,6 +45,9 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     {const g=await layer0(),pal=g.nodes.find(n=>n.type==='palette'),bl=g.nodes.find(n=>n.type==='bloom');
       assert.ok(pal&&g.edges.some(e=>e.from===ids.emitter&&e.to===pal.id)&&g.edges.some(e=>e.from===pal.id&&e.to===bl.id),'Default network: Fluid → Palette → Bloom');
       assert.equal(bl.props.bloom,20,'Default Bloom is 20');
+      await page.locator(`.node[data-id="${bl.id}"] .node-head`).click();
+      const off=await page.evaluate(()=>{const g=document.querySelector('.inspector .knob-grid'),a=g.getBoundingClientRect(),k=[...g.children].map(c=>c.getBoundingClientRect());return Math.abs(a.left+a.width/2-(k[0].left+k.at(-1).right)/2);});
+      assert.ok(off<2,'One or two knobs are centred');
       // The editing tests below start from Fluid → Bloom.
       await page.evaluate(id=>{const p=pro.getProject(),l=p.layers[0],pal=l.nodes.find(n=>n.type==='palette');l.nodes=l.nodes.filter(n=>n!==pal);l.edges=l.edges.filter(e=>e.to!==pal.id&&e.from!==pal.id);
         l.edges.push({from:id,out:'shape',to:l.nodes.find(n=>n.type==='bloom').id,input:'image'});pro.importProject(p);},ids.emitter);}
