@@ -325,6 +325,8 @@ code.cmd{display:block;margin:6px 0;padding:6px 8px;background:#0b0b0e;border:1p
 .mode:hover{color:var(--tx)}.mode.on{background:var(--on);color:var(--on-tx)}
 .studio.map-mode #librarySearch,.studio.map-mode #library{display:none}
 .map-panel{display:flex;flex-direction:column;gap:12px}
+.map-panel[hidden]{display:none}
+.ws-top{padding-bottom:10px;border-bottom:1px solid var(--border)}
 .map-overlay{position:absolute;z-index:1;touch-action:none;cursor:crosshair;overflow:visible}
 .map-overlay .surf{fill:rgba(210,255,58,.04);stroke:rgba(255,255,255,.45);stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:move}
 .map-overlay .surf.sel{fill:rgba(210,255,58,.08);stroke:#d2ff3a;stroke-width:2}

@@ -1308,7 +1308,7 @@ function setWorkspace(w){
   if((mapMode||auto)&&layout.hidden.library){layout.hidden.library=false;applyLayout();}
   if(mapMode){if(!mapSel)mapSel=curMap().surfaces[0]?.id||null;renderMapPanel();}
   if(auto)renderAutoPanel();
-  renderOverlay();message(mapMode?'Map: drag the points on the preview to fit your surfaces':auto?'Autopilot: describe what you want to see':'Studio');
+  renderOverlay();message(mapMode?'Mapping':auto?'Autopilot':'Studio');
 }
 function setMapMode(on){setWorkspace(on?'map':'studio');}
 $('modeStudio').onclick=()=>setWorkspace('studio');$('modeMap').onclick=()=>setWorkspace('map');$('modeAuto').onclick=()=>setWorkspace('auto');
@@ -1316,9 +1316,7 @@ function newSurfaceId(m){let i=m.surfaces.length+1;while(m.surfaces.some(s=>s.id
 function renderMapPanel(){
   const root=$('mapPanel');if(!root||!mapMode)return;root.replaceChildren();
   const m=curMap(),s=selSurface();
-  const head=el('div','insp-head'),h=el('h3');h.append(el('span','dot'),document.createTextNode('Projection mapping'));
-  head.append(h,el('div','insp-desc','Fit the output onto walls, objects and screens. Detach sends the mapped picture to the projector.'));root.append(head);
-  const out=section(root,null);
+  const out=el('div','ws-top');root.append(out);
   out.append(ui.field('Mapping',ui.toggle({value:m.on,labels:['On','Off'],property:'mapOn',onChange:v=>mapEdit(x=>{x.on=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Mapping on':'Mapping off')})));
   out.append(ui.field('Test card',ui.toggle({value:m.test,labels:['Show','Hide'],property:'mapTest',onChange:v=>mapEdit(x=>{x.test=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Test card on':'Test card off')})));
   const pre=el('select');pre.dataset.property='mapPreset';pre.append(new Option('Start from a layout…',''));for(const k of Object.keys(mapping.PRESETS))pre.append(new Option(k,k));
@@ -1331,13 +1329,12 @@ function renderMapPanel(){
     row.append(el('span','n',`${i+1}. ${x.name}`),el('span','src',x.source==='all'?'All':'Layer '+x.source),del);
     row.onclick=()=>{mapSel=x.id;mapPt=-1;renderMapPanel();renderOverlay();};list.append(row);
   });
-  if(!m.surfaces.length)list.append(el('p','insp-note','No surfaces yet. Add one or start from a layout.'));
   ls.append(list);
   const acts=el('div','map-actions');ls.append(acts);
   const btn=(label,title,fn,dis=false)=>{const b=el('button','mbtn',label);b.type='button';b.title=title;b.disabled=dis;b.onclick=fn;acts.append(b);return b;};
   btn('+ Surface','Add a surface',()=>mapEdit(x=>{const id=newSurfaceId(x),k=x.surfaces.length*.04;x.surfaces.push(mapping.surface(id,'Surface '+(x.surfaces.length+1),[[.2+k,.2+k],[.8+k,.2+k],[.8+k,.8+k],[.2+k,.8+k]]));x.on=true;mapSel=id;mapPt=-1;},'Added surface'),m.surfaces.length>=mapping.MAX_SURFACES).dataset.property='mapAdd';
   if(s)btn('Duplicate','Copy the selected surface',()=>mapEdit(x=>{const id=newSurfaceId(x),c=clone(s);c.id=id;c.name=s.name+' copy';c.pts=c.pts.map(([a,b])=>[a+.03,b+.03]);x.surfaces.push(c);mapSel=id;},'Duplicated surface'),m.surfaces.length>=mapping.MAX_SURFACES);
-  if(!s){root.append(el('p','insp-note','Tip: Map mode shows handles on the preview only; the projector output stays clean.'));return;}
+  if(!s)return;
   const upd=(fn,label)=>mapEdit(x=>{const t=x.surfaces.find(y=>y.id===s.id);if(t)fn(t);},label);
   const ss=section(root,'Selected surface');
   const name=el('input');name.type='text';name.maxLength=40;name.value=s.name;name.dataset.property='surfName';name.onchange=()=>upd(t=>{t.name=name.value.trim()||t.name;},'Renamed surface');ss.append(ui.field('Name',name));
@@ -1351,7 +1348,7 @@ function renderMapPanel(){
   kn.append(ui.knob({label:'Opacity',min:0,max:100,step:1,value:Math.round(s.opacity*100),def:100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
   kn.append(ui.knob({label:'Feather',min:0,max:50,step:1,value:Math.round(s.feather*100),def:0,unit:'%',property:'surfFeather',onInput:v=>liveSurf(t=>{t.feather=v/100;}),onChange:()=>liveCommit('Surface feather')}));
   ss.append(kn);
-  const cs=section(root,'Crop · which part of the picture it shows'),ck=el('div','knob-grid');
+  const cs=section(root,'Crop'),ck=el('div','knob-grid');
   ['Left','Top','Right','Bottom'].forEach((l,i)=>ck.append(ui.knob({label:l,min:0,max:100,step:1,value:Math.round(s.crop[i]*100),def:i<2?0:100,unit:'%',property:'surfCrop'+l,
     onInput:v=>liveSurf(t=>{const c=[...t.crop];c[i]=v/100;if(i<2)c[i]=Math.min(c[i],c[i+2]-.02);else c[i]=Math.max(c[i],c[i-2]+.02);t.crop=c;}),onChange:()=>liveCommit('Surface crop')})));
   cs.append(ck);
@@ -1361,7 +1358,6 @@ function renderMapPanel(){
   sb('Full frame','Stretch the surface over the whole output',()=>upd(t=>{t.pts=mapping.gridPoints(t.cols,t.rows);},'Surface full frame'));
   sb('Flatten','Remove the curve, keep the four corners',()=>upd(t=>{t.pts=mapping.gridPoints(t.cols,t.rows,mapping.corners(t));},'Surface flattened'));
   sb('Flip ↔','Mirror the surface left to right',()=>upd(t=>{const w=t.cols+1;t.pts=t.pts.map((_,k)=>t.pts[Math.floor(k/w)*w+(t.cols-k%w)]);},'Surface flipped'));
-  root.append(el('p','insp-note','Drag points on the preview · drag inside a surface to move it · arrow keys nudge the selected point (Shift ×10) · Delete removes the surface.'));
 }
 function overlayBox(){
   const r=preview.getBoundingClientRect(),w=$('previewWrap').getBoundingClientRect();
@@ -1424,8 +1420,9 @@ const director=new autopilot.Director(),apTweens=new Map();
 function apSave(){try{localStorage.setItem(AP_KEY,JSON.stringify({prompt:ap.prompt,changes:ap.changes,every:ap.every,match:ap.match,fade:ap.fade}));}catch{}}
 function apIntent(){ap.intent=autopilot.parse(ap.prompt||'');return ap.intent;}
 function apProject(layers){return {...clone(state),layers};}
+let apTyping=0,apBuilt=null;
 function apCreate(prompt=ap.prompt,{variation=false}={}){
-  ap.prompt=prompt;apSave();const it=apIntent();ap.seed=variation||!ap.seed?(Math.random()*1e9)|0:ap.seed;
+  ap.prompt=prompt;apBuilt=prompt;apSave();const it=apIntent();ap.seed=variation||!ap.seed?(Math.random()*1e9)|0:ap.seed;
   if(!variation)ap.seed=(Math.random()*1e9)|0;
   apTweens.clear();
   const layers=autopilot.build(it,{seed:ap.seed,match:ap.match});
@@ -1491,24 +1488,24 @@ function apStatus(full=false){
 }
 function renderAutoPanel(){
   const root=$('autoPanel');if(!root||workspace!=='auto')return;root.replaceChildren();
-  const head=el('div','insp-head'),h=el('h3');h.append(el('span','dot'),document.createTextNode('Autopilot'));
-  head.append(h,el('div','insp-desc','Describe what you want to see — visuals, colours, mood, motion, effects, how it reacts. Autopilot builds the node graph; open Studio to fine-tune it.'));root.append(head);
+  const top=el('div','ws-top');root.append(top);
+  top.append(ui.field('Autopilot',ui.toggle({value:ap.live,labels:['On','Off'],property:'apLive',onChange:v=>{ap.live=v;ap.hold=false;if(v){apIntent();director.since=0;if(!state.layers.some(g=>g.nodes.some(n=>n.type==='palette')))apCreate(ap.prompt);}message(v?'Autopilot is following the music':'Autopilot off');renderAutoPanel();}})));
   const d=section(root,'Describe');
-  const ta=el('textarea','ap-prompt');ta.dataset.property='apPrompt';ta.placeholder='e.g. slow dreamy blue and gold smoke with soft glow';ta.value=ap.prompt;ta.spellcheck=false;
+  const ta=el('textarea','ap-prompt');ta.dataset.property='apPrompt';ta.placeholder='slow dreamy blue and gold smoke with soft glow';ta.value=ap.prompt;ta.spellcheck=false;
   const read=el('div','ap-read');
-  const showRead=()=>{read.replaceChildren();const it=autopilot.parse(ta.value);for(const c of it.read){const x=el('span','ap-chip',c.text);x.dataset.kind=c.kind;x.title=c.kind;read.append(x);}
-    if(!it.read.length)read.append(el('span','ap-last',ta.value.trim()?'Nothing recognised yet — Autopilot will improvise':'Empty → Autopilot improvises'));};
-  ta.oninput=()=>{ap.prompt=ta.value;apSave();showRead();};
-  ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();apCreate(ta.value);}};
+  const showRead=()=>{read.replaceChildren();for(const c of autopilot.parse(ta.value).read){const x=el('span','ap-chip',c.text);x.dataset.kind=c.kind;x.title=c.kind;read.append(x);}};
+  // Typing builds the look after a short pause; Enter builds it at once.
+  const build=()=>{clearTimeout(apTyping);apTyping=0;if(ta.value.trim()&&ta.value!==apBuilt)apCreate(ta.value);};
+  ta.oninput=()=>{ap.prompt=ta.value;apSave();showRead();clearTimeout(apTyping);apTyping=setTimeout(build,1200);};
+  ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();clearTimeout(apTyping);apTyping=0;apCreate(ta.value);}};
   showRead();d.append(ta,read);
   const row=el('div','map-actions');
   const btn=(t,title,fn,prop)=>{const b=el('button','mbtn',t);b.type='button';b.title=title;b.dataset.property=prop;b.onclick=fn;row.append(b);return b;};
-  btn('Create','Build a new project from the description (Enter)',()=>apCreate(ta.value),'apCreate').classList.add('primary');
-  btn('Variation','Same description, different choices',()=>apCreate(ta.value,{variation:true}),'apVariation');
-  btn('Add as layer','Add the description as another layer on top',()=>{ap.prompt=ta.value;apAddLayer();},'apAddLayer');
+  btn('Create','Build it (Enter)',()=>apCreate(ta.value),'apCreate').classList.add('primary');
+  btn('Variation','Same words, different choices',()=>apCreate(ta.value,{variation:true}),'apVariation');
+  btn('Add as layer','Add it as another layer on top',()=>{ap.prompt=ta.value;apAddLayer();},'apAddLayer');
   d.append(row);
-  const live=section(root,'Live');
-  live.append(ui.field('Autopilot',ui.toggle({value:ap.live,labels:['On','Off'],property:'apLive',onChange:v=>{ap.live=v;ap.hold=false;if(v){apIntent();director.since=0;if(!state.layers.some(g=>g.nodes.some(n=>n.type==='palette')))apCreate(ap.prompt);}message(v?'Autopilot is following the music':'Autopilot off');renderAutoPanel();}})));
+  const live=section(root,'Follow the music');
   live.append(ui.field('Changes',ui.chips({options:[['colors','Colours'],['mood','Colours + mood'],['all','Everything']],value:ap.changes,property:'apChanges',onChange:v=>{ap.changes=v;apSave();}})));
   const knobs=el('div','knob-grid');
   knobs.append(ui.knob({label:'Every',min:6,max:90,step:1,value:ap.every,def:24,unit:'s',property:'apEvery',onInput:v=>{ap.every=v;},onChange:v=>{ap.every=v;apSave();}}));
@@ -1518,14 +1515,9 @@ function renderAutoPanel(){
   const st=el('div','ap-status');st.id='apStatus';st.append(el('b'),Object.assign(el('div','ap-bar'),{innerHTML:'<i></i>'}),el('span'));live.append(st);
   const r2=el('div','map-actions');
   const nb=el('button','mbtn','Next');nb.title='Change now';nb.dataset.property='apNext';nb.onclick=()=>{if(!ap.intent)apIntent();director.since=0;apChange(director.section==='waiting'?'phrase':director.section,true);};
-  const hb=el('button','mbtn',ap.hold?'Release':'Hold');hb.title='Keep the current look until released';hb.dataset.property='apHold';hb.disabled=!ap.live;hb.onclick=()=>{ap.hold=!ap.hold;hb.textContent=ap.hold?'Release':'Hold';apStatus();};
+  const hb=el('button','mbtn',ap.hold?'Release':'Hold');hb.title='Keep the current look';hb.dataset.property='apHold';hb.disabled=!ap.live;hb.onclick=()=>{ap.hold=!ap.hold;hb.textContent=ap.hold?'Release':'Hold';apStatus();};
   r2.append(nb,hb);live.append(r2);
   const last=el('div','ap-last');last.id='apLast';live.append(last);
-  const ex=section(root,'Try');const exs=el('div','ap-examples');
-  for(const t of autopilot.EXAMPLES){const b=el('button','ap-example',t);b.onclick=()=>{ta.value=t;ap.prompt=t;apSave();showRead();apCreate(t);};exs.append(b);}
-  ex.append(exs);
-  const tip=section(root,'Words it knows');
-  tip.append(el('div','ap-last','Visuals: smoke, fluid, sand, birds, ferrofluid, particles, spiral, circle, rings, sacred geometry, mandala, waves, terrain, sphere, DNA, knot, cube, torus, text in "quotes". Colours: any colour name or #hex, themes like sunset, ocean, neon, cyberpunk, fire, ice, forest. Mood: calm, dreamy, intense, dark. Effects: glow, trails, blur, kaleidoscope, glitch, grain, mirrored. Reaction: pulse with the bass, flash on the beat, very reactive. Data: cpu, mouse. Say "no glow" to turn things off.'));
   apStatus(true);
 }
 window.pro={
@@ -1534,7 +1526,7 @@ window.pro={
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
   mapMode:on=>{setMapMode(on);return mapMode;},workspace:w=>{if(w)setWorkspace(w);return workspace;},
-  autopilot:{parse:t=>autopilot.parse(t),create:(t,o)=>apCreate(t,o),addLayer:()=>apAddLayer(),change:k=>apChange(k||'phrase',true),settings:o=>{Object.assign(ap,o||{});apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,every:ap.every,match:ap.match,fade:ap.fade,live:ap.live,hold:ap.hold};},status:()=>({section:director.section,level:director.level,since:director.since,tweens:apTweens.size,last:ap.last,live:ap.live})},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
+  autopilot:{examples:autopilot.EXAMPLES,parse:t=>autopilot.parse(t),create:(t,o)=>apCreate(t,o),addLayer:()=>apAddLayer(),change:k=>apChange(k||'phrase',true),settings:o=>{Object.assign(ap,o||{});apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,every:ap.every,match:ap.match,fade:ap.fade,live:ap.live,hold:ap.hold};},status:()=>({section:director.section,level:director.level,since:director.since,tweens:apTweens.size,last:ap.last,live:ap.live})},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 sensors.autoMidi();reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});

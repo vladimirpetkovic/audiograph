@@ -352,7 +352,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.deepEqual(r.edges,['w.shape>m.in','m.out>o.image'],'Amplify ports are renamed');}
 
     // Projection mapping: layouts, warped output, point drag + undo, validation, saved with the project.
-    {await page.locator('#modeMap').click();assert.ok(await page.locator('#mapPanel').isVisible(),'Map mode shows the mapping panel');
+    {await page.locator('#modeMap').click();assert.ok(await page.locator('#mapPanel').isVisible(),'Map mode shows the mapping panel');assert.ok(!(await page.locator('#autoPanel').isVisible()),'Only one workspace panel');
     await page.selectOption('[data-property=mapPreset]','Cube (3 faces)');await page.waitForTimeout(300);
     let m=await page.evaluate(()=>pro.mapping());assert.deepEqual(m.surfaces.map(s=>s.name),['Top','Left','Right']);assert.ok(m.on);
     await page.locator('[data-property=mapTest] [data-value=true]').click();await page.evaluate(()=>pro.draw());
@@ -379,7 +379,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.press('[data-property=apPrompt]','Enter');await lit(.5,25000);
     const types=(await project()).layers[0].nodes.map(n=>n.type);
     for(const t of ['gpuParticles','swirl','palette','fracture','bloom','output'])assert.ok(types.includes(t),`Autopilot builds ${t}`);
-    for(const ex of await page.locator('.ap-example').allTextContents()){await page.locator('.ap-example',{hasText:ex}).click();
+    for(const ex of await page.evaluate(()=>pro.autopilot.examples)){await page.evaluate(t=>pro.autopilot.create(t),ex);
       await lit(.02,25000).catch(async()=>assert.fail(`Autopilot “${ex}”: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));}
     await page.evaluate(()=>pro.autopilot.settings({changes:'mood',fade:.3}));await page.locator('[data-property=apLive] [data-value=true]').click();
     const pal=()=>page.evaluate(()=>pro.getProject().layers.flatMap(g=>g.nodes.filter(n=>n.type==='palette').map(n=>[n.props.c1,n.props.c2,n.props.c3,n.props.c4].join())).join());
@@ -388,6 +388,9 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const n0=await page.evaluate(()=>pro.getProject().layers[0].id);await page.evaluate(()=>{pro.autopilot.settings({changes:'all'});pro.autopilot.change('drop');});
     assert.notEqual(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'Everything mode builds a new look on a drop');
     await page.evaluate(()=>pro.undo());assert.equal(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'A rebuilt look is one undo step');
+    await page.locator('#modeMap').click();await page.locator('#modeAuto').click();assert.ok(!(await page.locator('#mapPanel').isVisible()),'Mapping panel hides in Autopilot');
+    await page.fill('[data-property=apPrompt]','');await page.locator('[data-property=apPrompt]').pressSequentially('pink spiral');await page.waitForTimeout(1800);
+    assert.ok((await project()).layers[0].nodes.some(n=>n.props.mode==='spiral'),'Typing builds after a pause');
     await page.locator('[data-property=apLive] [data-value=false]').click();await page.locator('#modeStudio').click();}
 
     // 10. Save / restore round trip.

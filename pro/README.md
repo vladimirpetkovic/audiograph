@@ -129,7 +129,7 @@ process the finished image.
   preview with audio to WebM and shows elapsed time), and **Snap** (saves a PNG).
   **Detach**, in the middle of the transport, opens the live picture in its own
   window for a projector or second display (double-click it for fullscreen).
-- **Map** (the Studio | Map switch at the top) is projection mapping. The library
+- **Mapping** (the Studio | Mapping switch at the top) is projection mapping. The library
   becomes the mapping panel and the surfaces appear over the preview:
   - Start from a layout (Single screen, Cube, Span 2, Triptych, Corridor, Curved
     wall, Circle) or add up to 8 surfaces.
@@ -147,13 +147,14 @@ process the finished image.
     you switch templates.
 - **Autopilot** (third switch at the top) turns a description into a node graph:
   - Type what you want, e.g. *"slow dreamy blue and gold smoke with soft glow"* or
-    *"blue fluid with gold spiral, no glow"*, and press Enter or **Create**. The
+    *"blue fluid with gold spiral, no glow"*; it builds when you pause typing,
+    or at once with Enter or **Create**. The
     chips under the box show what it understood: visuals, colours (per visual),
     themes, mood, motion, line style, symmetry, deformers, forces, effects, how
     it reacts to the sound, "text in quotes", CPU/mouse data, and "no …".
   - **Variation** rebuilds the same description with different choices;
     **Add as layer** stacks it on the current project. Open Studio to fine-tune.
-  - **Live** follows the song (calm, groove, build, drop) and changes the look
+  - The **Autopilot** On/Off toggle at the top of the panel follows the song (calm, groove, build, drop) and changes the look
     at most every **Every** seconds, or at once on a drop. **Changes**: Colours
     (palettes glide), Colours + mood (also glides bloom, intensity, spin… to the
     section's energy) or Everything (a new look on drops and builds; one undo
