@@ -267,6 +267,20 @@ function recolor(id,src,p){
   ctx.drawImage(m,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';return canvas;
 }
 function hueImage(id,src,deg){const {canvas,ctx}=surface(id);if(src){ctx.filter=`hue-rotate(${deg%360}deg)`;ctx.drawImage(src,0,0,WIDTH,HEIGHT);ctx.filter='none';}return canvas;}
+// Echo: the history drawn zoomed/rotated (one step), then — with Smooth — the new frame stamped at in-between
+// zoom/rotation steps so it bridges the gap to the previous echo instead of leaving separate rings.
+const xf=(ctx,zoom,rotate,f)=>{ctx.translate(WIDTH/2,HEIGHT/2);ctx.rotate(rotate*f*Math.PI/180);const z=Math.pow(zoom,f);ctx.scale(z,z);ctx.translate(-WIDTH/2,-HEIGHT/2);};
+function echo(ctx,hist,{zoom=1,rotate=0,alpha=1,hue=0}){
+  ctx.save();ctx.globalAlpha=alpha;xf(ctx,zoom,rotate,1);
+  if(hue)ctx.filter=`hue-rotate(${hue}deg)`;
+  ctx.drawImage(hist,0,0);ctx.restore();ctx.filter='none';
+}
+function bridge(ctx,src,{zoom=1,rotate=0,alpha=1,smooth=0}){
+  const moving=Math.abs(zoom-1)>.002||Math.abs(rotate)>.05,steps=smooth>0&&moving?1+Math.round(smooth/100*7):1;
+  ctx.save();ctx.globalCompositeOperation='lighten';
+  for(let i=steps-1;i>=1;i--){const f=i/steps;ctx.save();ctx.globalAlpha=1-(1-alpha)*f;xf(ctx,zoom,rotate,f);ctx.drawImage(src,0,0,WIDTH,HEIGHT);ctx.restore();}
+  ctx.globalAlpha=1;ctx.drawImage(src,0,0,WIDTH,HEIGHT);ctx.restore();
+}
 function surface(id){
   if(!surfaces.has(id)){const cv=document.createElement('canvas');cv.width=WIDTH;cv.height=HEIGHT;surfaces.set(id,cv);}
   const canvas=surfaces.get(id),ctx=canvas.getContext('2d');ctx.resetTransform();ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.filter='none';ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
@@ -366,9 +380,8 @@ function execute(g,time,dt){
         r.image=canvas;break;}
       case 'feedback':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
         const hist=nstate(n.id,()=>{const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;return {c};}),hc=hist.c.getContext('2d');
-        ctx.save();ctx.globalAlpha=p.decay;ctx.translate(WIDTH/2,HEIGHT/2);ctx.rotate(p.rotate*Math.PI/180);ctx.scale(p.zoom,p.zoom);ctx.translate(-WIDTH/2,-HEIGHT/2);
-        if(p.hue)ctx.filter=`hue-rotate(${p.hue}deg)`;ctx.drawImage(hist.c,0,0);ctx.restore();ctx.filter='none';
-        if(src)ctx.drawImage(src,0,0);hc.clearRect(0,0,WIDTH,HEIGHT);hc.drawImage(canvas,0,0);r.image=canvas;break;}
+        const look={zoom:p.zoom,rotate:p.rotate,alpha:p.decay,hue:p.hue,smooth:p.smooth??0};echo(ctx,hist.c,look);
+        if(src)bridge(ctx,src,look);hc.clearRect(0,0,WIDTH,HEIGHT);hc.drawImage(canvas,0,0);r.image=canvas;break;}
       case 'imageTransform':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
         if(src){ctx.globalAlpha=p.opacity;ctx.translate(WIDTH/2+p.x*WIDTH/200,HEIGHT/2+p.y*HEIGHT/200);ctx.rotate((p.rotate+p.spin*time)*Math.PI/180);ctx.scale(p.scale,p.scale);ctx.drawImage(src,-WIDTH/2,-HEIGHT/2);ctx.resetTransform();ctx.globalAlpha=1;}
         r.image=canvas;break;}
@@ -376,6 +389,12 @@ function execute(g,time,dt){
         if(target.id===g.id){nodeErrors.add(n.id);throw Error(`${g.name}: a Layer node cannot show its own layer`);}
         r.image=layerImages.get(target.id)||surface(n.id).canvas;break;}
       case 'output':image=asImage(need(n,'image','an image'),n.id);r.image=image;break;
+      case 'trails':{let src=asImage(need(n,'image','an image'),n.id);const {canvas,ctx}=surface(n.id);
+        // Smooth: stamp the new frame at in-between zoom steps so it bridges the gap to the previous (zoomed) echo.
+        if(src&&p.smooth>0&&p.feedback>0){const b=surface(n.id+':b');bridge(b.ctx,src,{zoom:1+p.feedback/100*.06,alpha:p.trails/100*.97,smooth:p.smooth});src=b.canvas;}
+        const e=fxEngine();if(!fxSlots.has(n.id))fxSlots.set(n.id,1000+fxSlots.size);
+        if(src&&e){const out=e.fx(fxSlots.get(n.id),src,fxSettings(n.type,p),{bass:A.bands.bass,beat:A.beatPulse});if(out)ctx.drawImage(out,0,0,WIDTH,HEIGHT);}else if(src)ctx.drawImage(src,0,0);
+        r.image=canvas;break;}
       default:
         if(t.fx){
           const src=asImage(need(n,'image','an image'),n.id),e=fxEngine(),{canvas,ctx}=surface(n.id);

@@ -76,6 +76,8 @@ each with its own opacity and blend mode (up to four).
 - **Line style & Outline** are groups on every waveform node (13 line styles; outline off by default).
 - **Post FX**: Bloom, Blur, Lens, Kaleido, Trails, Fracture. These
   run the original GPU per-layer shaders. Quick filter is a Canvas 2D filter.
+  **Smooth** on Trails (with Feedback) and on the Feedback node fills the gaps
+  between zoomed echoes so they read as one continuous smear instead of rings.
   **Corner pin** does projection mapping: with it selected, drag the four
   corners on the preview (or drive them with any number).
 - **Controls**: Value, LFO (sine, triangle, saw, square, random), Map range,
