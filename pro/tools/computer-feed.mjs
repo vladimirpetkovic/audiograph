@@ -10,13 +10,18 @@ import {execFile} from 'node:child_process';
 const PORT=+(process.argv[2]||process.env.PORT||7703);
 const run=(cmd,args)=>new Promise(res=>execFile(cmd,args,{timeout:2000,windowsHide:true},(err,out)=>res(err?'':String(out))));
 const clamp=v=>Math.max(0,Math.min(1,v));
-const state={cpu:0,gpu:null,memory:0,net:0,cores:os.cpus().length,platform:process.platform,updated:0};
+const state={cpu:0,core:0,gpu:null,memory:0,net:0,cores:os.cpus().length,platform:process.platform,updated:0};
 
+// CPU: average over all cores, plus the busiest single core ("core"), which moves far more.
 let prevCpu=null;
 function cpu(){
-  const sum=os.cpus().map(c=>c.times).reduce((a,c)=>({idle:a.idle+c.idle,total:a.total+c.user+c.nice+c.sys+c.irq+c.idle}),{idle:0,total:0});
-  if(prevCpu){const total=sum.total-prevCpu.total;if(total>0)state.cpu=clamp(1-(sum.idle-prevCpu.idle)/total);}
-  prevCpu=sum;
+  const per=os.cpus().map(c=>({idle:c.times.idle,total:c.times.user+c.times.nice+c.times.sys+c.times.irq+c.times.idle}));
+  if(prevCpu&&prevCpu.length===per.length){
+    let idle=0,total=0,peak=0;
+    per.forEach((c,i)=>{const t=c.total-prevCpu[i].total,d=c.idle-prevCpu[i].idle;idle+=d;total+=t;if(t>0)peak=Math.max(peak,1-d/t);});
+    if(total>0){state.cpu=clamp(1-idle/total);state.core=clamp(peak);}
+  }
+  prevCpu=per;
 }
 async function memory(){
   if(process.platform==='darwin'){
@@ -55,8 +60,10 @@ async function network(){
   if(prevNet&&bytes>=prevNet.bytes)state.net=(bytes-prevNet.bytes)/((now-prevNet.t)/1000);
   prevNet={bytes,t:now};
 }
-async function sample(){cpu();await Promise.all([memory(),gpu(),network()]).catch(()=>{});state.updated=Date.now();}
-await sample();setInterval(sample,500);
+// CPU is cheap to read, so it updates 5× a second; the rest (which spawn system tools) twice a second.
+let busy=false;
+async function sample(){if(busy)return;busy=true;try{await Promise.all([memory(),gpu(),network()]);}catch{}finally{busy=false;state.updated=Date.now();}}
+cpu();await sample();setInterval(()=>{cpu();state.updated=Date.now();},200);setInterval(sample,500);
 
 http.createServer((req,res)=>{
   res.setHeader('Access-Control-Allow-Origin','*');

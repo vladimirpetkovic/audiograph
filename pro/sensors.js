@@ -8,7 +8,7 @@ const ease=(cur,target,dt,k)=>cur+(target-cur)*(1-Math.exp(-dt*k));
 // frame time, JS memory (Chrome), frame rate, network bandwidth and battery. The optional local helper
 // (pro/tools/computer-feed.mjs) reports the real CPU, GPU, memory and network use.
 const comp={started:false,pressure:null,lag:0,frameMs:0,fps:30,battery:null,charging:0,helper:null,helperAt:0,helperErr:'',polling:false,port:0,
-  out:{cpu:0,gpu:0,memory:0,fps:0,network:0,battery:1}};
+  out:{cpu:0,core:0,gpu:0,memory:0,fps:0,network:0,battery:1,activity:0},raw:{},range:{},prev:null,act:0};
 const PRESSURE={nominal:.15,fair:.45,serious:.75,critical:1};
 function startComputer(){
   if(comp.started)return;comp.started=true;
@@ -37,11 +37,12 @@ export function frameTiming(ms,dt){comp.frameMs=ease(comp.frameMs,ms,dt,4);if(dt
 export function computer(p,dt){
   startComputer();
   const now=performance.now(),useHelper=p.source==='helper';
-  if(useHelper&&now-lastPoll>500){lastPoll=now;pollHelper(p.port);}
+  if(useHelper&&now-lastPoll>200){lastPoll=now;pollHelper(p.port);}
   const h=useHelper&&comp.helper,mem=performance.memory;
   const net=navigator.connection?.downlink;
   const target={
     cpu:h&&Number.isFinite(h.cpu)?h.cpu:Math.max(comp.pressure??0,comp.lag),
+    core:h&&Number.isFinite(h.core)?h.core:h&&Number.isFinite(h.cpu)?h.cpu:Math.max(comp.pressure??0,comp.lag),
     gpu:h&&Number.isFinite(h.gpu)?h.gpu:clamp(comp.frameMs/33),
     memory:h&&Number.isFinite(h.memory)?h.memory:mem?mem.usedJSHeapSize/mem.jsHeapSizeLimit:0,
     fps:clamp(comp.fps/60),
@@ -49,10 +50,27 @@ export function computer(p,dt){
     network:h&&Number.isFinite(h.net)?Math.log10(1+h.net/1000)/5:net?Math.log10(1+net)/2:0,
     battery:comp.battery??1
   };
+  // Activity: how much the readings are changing right now (a spike whenever anything moves).
+  const moving=['cpu','core','gpu','memory','network'];
+  if(comp.prev){let d=0;for(const key of moving)d+=Math.abs(clamp(target[key])-comp.prev[key]);comp.act=Math.max(d*6,comp.act*Math.exp(-dt*3));}
+  comp.prev=Object.fromEntries(moving.map(k=>[k,clamp(target[k])]));target.activity=comp.act;
   const k=1/Math.max(.02,p.smooth*p.smooth*2);
-  for(const key of Object.keys(comp.out))comp.out[key]=clamp(p.smooth<=0?target[key]:ease(comp.out[key],clamp(target[key]),dt,k));
+  for(const key of Object.keys(comp.out)){
+    const raw=comp.raw[key]=clamp(p.smooth<=0?target[key]:ease(comp.raw[key]??target[key],clamp(target[key]),dt,k));
+    comp.out[key]=p.range==='auto'&&key!=='battery'?autoRange(key,raw,dt,p.window):raw;
+  }
   return comp.out;
 }
+// Auto range: stretch a value to its own recent low–high (the edges relax over "window" seconds), so small
+// swings use the whole 0–1 range. A minimum span keeps near-constant readings from turning into noise.
+const MIN_SPAN={cpu:.04,core:.06,gpu:.04,memory:.01,fps:.05,network:.04,activity:.05};
+function autoRange(key,v,dt,win){
+  const r=comp.range[key]??(comp.range[key]={lo:v,hi:v}),a=1-Math.exp(-dt/Math.max(1,win));
+  r.lo=v<r.lo?v:r.lo+(v-r.lo)*a;r.hi=v>r.hi?v:r.hi+(v-r.hi)*a;
+  const span=Math.max(r.hi-r.lo,MIN_SPAN[key]??.04),mid=(r.hi+r.lo)/2;
+  return clamp((v-(mid-span/2))/span);
+}
+export function computerRaw(){return comp.raw;}
 export function computerStatus(p){
   if(p.source==='helper')return comp.helper?`Local helper connected${comp.helper.gpu==null?' (no GPU reading on this machine)':''}.`:`Local helper ${comp.helperErr||'connecting…'} on port ${p.port}. Using browser estimates until it answers${location.protocol==='https:'?' (if Chrome asks to access devices on your local network, click Allow)':''}.`;
   const parts=[comp.pressure!=null?'CPU pressure':'CPU from main-thread lag','GPU = render load',performance.memory?'JS memory':'no memory reading (Chrome only)',navigator.connection?'link speed':'no network reading',comp.battery!=null?'battery':'no battery reading'];

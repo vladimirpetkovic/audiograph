@@ -111,7 +111,7 @@ const A={freq:new Uint8Array(BINS),wave:new Float32Array(2048),rate:48000,bands:
 // The monitor is muted for mic / system input so it never feeds back.
 function audioContext(){
   if(!audio.context||audio.context.state==='closed'){
-    const c=audio.context=new AudioContext({latencyHint:'interactive'}),a=c.createAnalyser();a.fftSize=BINS*2;a.smoothingTimeConstant=.78;a.minDecibels=-100;a.maxDecibels=-30;
+    const c=audio.context=new AudioContext({latencyHint:'interactive'}),a=c.createAnalyser();a.fftSize=BINS*2;a.smoothingTimeConstant=.5;a.minDecibels=-100;a.maxDecibels=-30;
     audio.analyser=a;audio.monitor=c.createGain();audio.dest=c.createMediaStreamDestination();
     a.connect(audio.monitor);audio.monitor.connect(c.destination);a.connect(audio.dest);
   }

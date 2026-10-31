@@ -26,10 +26,18 @@ const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const HIDDEN=/setVidSource|setPixelWarpSource|objToPointCloud|setObjModel|setObjLayout/;
 const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',JSON.stringify(job.chips||{}),job.look&&Object.keys(job.look).length?JSON.stringify(job.look):''].join('|');
 
+function lowpass(src,dst,rate,hz){
+  const w=2*Math.PI*hz/rate,al=Math.sin(w)/(2*Math.SQRT1_2),c=Math.cos(w),a0=1+al,b0=(1-c)/2/a0,b1=(1-c)/a0,b2=b0,a1=-2*c/a0,a2=(1-al)/a0;
+  const n=Math.min(src.length,dst.length);
+  for(let pass=0;pass<2;pass++){let x1=0,x2=0,y1=0,y2=0;const from=pass?dst:src;
+    for(let i=0;i<n;i++){const x=from[i],y=b0*x+b1*x1+b2*x2-a1*y1-a2*y2;x2=x1;x1=x;y2=y1;y1=y;dst[i]=y;}}
+  for(let i=n;i<dst.length;i++)dst[i]=0;
+}
 // A fake AnalyserNode living in the engine realm. Pro writes freq/wave each frame.
 function fakeAnalyser(audio) {
   const dummy=()=>({type:'',frequency:{value:0},Q:{value:0},gain:{value:0},connect(){},disconnect(){}});
-  const bass={fftSize:2048,frequencyBinCount:1024,getFloatTimeDomainData(buf){buf.set(audio.wave.subarray(0,buf.length));},getByteFrequencyData(buf){buf.fill(0);},connect(){},disconnect(){}};
+  // The original detects bass hits on the sound low-passed at 140 Hz (two 12 dB biquads); do the same here.
+  const bass={fftSize:2048,frequencyBinCount:1024,getFloatTimeDomainData(buf){lowpass(audio.wave,buf,context.sampleRate,140);},getByteFrequencyData(buf){buf.fill(0);},connect(){},disconnect(){}};
   const context={sampleRate:48000,createBiquadFilter:dummy,createGain:dummy,createAnalyser:()=>bass,destination:{}};
   return {fftSize:BINS*2,frequencyBinCount:BINS,smoothingTimeConstant:.75,minDecibels:-100,maxDecibels:-30,context,
     getByteFrequencyData(buf){buf.set(audio.freq.subarray(0,buf.length));},
@@ -75,8 +83,9 @@ export class EmitterEngine {
     w.analyser=fakeAnalyser(this.audio);w.liveMode=true;w.livePaused=false;
     try{w.localStorage.removeItem('audiograph_bass');}catch{}
     this.defaults=w.getDefaultLayerParams();
-    Object.assign(this.defaults,{_particlesOn:false,_simId:1,pSimExpo:0,pSimReact:0,pSimSwirlSnd:0});
-    this.defaults._sim={...w.AG_SIM_DEF_OPT,q:'low',auto:'off'};
+    // Simulations keep the original's sound reaction (audio contrast, swirl by sound, exposure) and quality.
+    Object.assign(this.defaults,{_particlesOn:false,_simId:1});
+    this.defaults._sim={...w.AG_SIM_DEF_OPT};
     w.stackMode=true;w.activeLayerIdx=0;w.stackLayouts=[{layout:'linear',opacity:100,params:this.defaults}];
     this.status='ready';return true;
   }

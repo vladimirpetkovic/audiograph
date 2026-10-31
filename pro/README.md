@@ -21,7 +21,10 @@ each with its own opacity and blend mode (up to four).
   - **Text**, **3D Object** (built-in knot or your OBJ, as a mesh or a
     **point cloud**), **Gaussian Splat** (.ply / .splat, demo cloud by default).
   - **Data** inputs give 0–1 numbers for any knob, with live meters in the inspector:
-    - **Computer**: cpu, gpu, memory, fps, network, battery. Without help the browser
+    - **Computer**: cpu, core (busiest core), gpu, memory, fps, network, battery and
+      activity (spikes whenever a reading changes). **Range: Auto** (default) stretches each
+      value to its own recent low–high over the *Range window*, so small swings still sweep
+      0–1; **Absolute** gives plain percentages. Without help the browser
       can only estimate (Compute Pressure / main-thread lag, render load, JS memory).
       For real values run the local helper `node pro/tools/computer-feed.mjs [port]`
       (no dependencies; macOS, Linux, Windows; listens on 127.0.0.1 only) and pick

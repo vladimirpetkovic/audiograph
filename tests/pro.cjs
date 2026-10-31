@@ -222,14 +222,17 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     try{
       await page.waitForTimeout(1500);
       const data=await page.evaluate(async()=>{const ids={};for(const t of ['computer','clock','pointer'])ids[t]=pro.addNode(t,40,40);
-        pro.setProperty(ids.computer,'source','helper');pro.setProperty(ids.computer,'port',7798);pro.setProperty(ids.computer,'smooth',0);
+        pro.setProperty(ids.computer,'source','helper');pro.setProperty(ids.computer,'port',7798);pro.setProperty(ids.computer,'smooth',0);pro.setProperty(ids.computer,'range','absolute');
         for(let i=0;i<30;i++){pro.draw();await new Promise(r=>setTimeout(r,100));}
         return {ids,cpu:pro.outputs?.(ids.computer),clock:pro.outputs?.(ids.clock),ptr:pro.outputs?.(ids.pointer)};});
       for(const [k,o] of Object.entries({cpu:data.cpu,clock:data.clock,ptr:data.ptr})){assert.ok(o&&Object.values(o).every(v=>v>=0&&v<=1),k+' outputs are 0–1: '+JSON.stringify(o));}
-      assert.ok(data.cpu.cpu>0&&data.cpu.memory>0,'Helper CPU and memory read: '+JSON.stringify(data.cpu));
+      assert.ok(data.cpu.cpu>0&&data.cpu.core>=data.cpu.cpu-.05&&data.cpu.memory>0&&'activity' in data.cpu,'Helper CPU, busiest core, memory and activity read: '+JSON.stringify(data.cpu));
+      // Auto range stretches each reading to its recent low–high; outputs stay 0–1.
+      const auto=await page.evaluate(async id=>{pro.setProperty(id,'range','auto');const seen=[];for(let i=0;i<15;i++){pro.draw();seen.push(pro.outputs(id));await new Promise(r=>setTimeout(r,100));}return seen;},data.ids.computer);
+      assert.ok(auto.every(o=>Object.values(o).every(v=>v>=0&&v<=1)),'Auto-ranged outputs are 0–1');
       await page.evaluate(id=>pro.select(id),data.ids.computer);await page.waitForTimeout(500);
       assert.match(await page.locator('#properties .data-status').textContent(),/helper connected/i);
-      assert.equal(await page.locator('#properties .live-value .meter').count(),6,'Six Computer meters');
+      assert.equal(await page.locator('#properties .live-value .meter').count(),8,'Eight Computer meters');
       for(const id of Object.values(data.ids))await page.evaluate(id=>{pro.select(id);},id),await page.locator('#deleteNode').click();
     }finally{feed.kill();}
     // Two-finger trackpad scroll pans the graph vertically (pixel deltas), pinch zooms.

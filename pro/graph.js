@@ -89,9 +89,10 @@ export const TYPES = {
   // Inputs: what you bring in. Visual inputs render with the original's own renderer for that content.
   audioIn:{category:'inputs',label:'Audio',description:'The sound: a file, the microphone or system audio. Wire “audio” into emitters (or an Audio EQ); the numbers drive any knob.',
     inputs:{},outputs:{audio:'audio',level:'number',bass:'number',mids:'number',high:'number',beat:'number'},props:{gain:n('Number gain',1,0,8,.05),decay:n('Beat decay (ms)',350,30,3000,10)}},
-  computer:{category:'inputs',group:'Data',label:'Computer',description:'This computer’s load as numbers: CPU, GPU, memory, frame rate, network and battery. Real values with the local helper, browser estimates without it.',
-    inputs:{},outputs:{cpu:'number',gpu:'number',memory:'number',fps:'number',network:'number',battery:'number'},
-    props:{source:pick('Source','browser',['browser','helper'],{labels:[['browser','Browser'],['helper','Local helper']]}),port:n('Helper port',7703,1024,65535,1,{noPort:true}),smooth:n('Smoothing',.5,0,.95,.01,{noPort:true})}},
+  computer:{category:'inputs',group:'Data',label:'Computer',description:'This computer’s load as numbers: CPU (average and busiest core), GPU, memory, frame rate, network, battery and activity (spikes when anything changes). Auto range stretches each to its recent low–high so small swings move a lot. Real values with the local helper, browser estimates without it.',
+    inputs:{},outputs:{cpu:'number',core:'number',gpu:'number',memory:'number',fps:'number',network:'number',battery:'number',activity:'number'},
+    props:{source:pick('Source','browser',['browser','helper'],{labels:[['browser','Browser'],['helper','Local helper']]}),port:n('Helper port',7703,1024,65535,1,{noPort:true}),
+      range:pick('Range','auto',['auto','absolute'],{labels:[['auto','Auto (stretch)'],['absolute','Absolute']]}),window:n('Range window (s)',15,2,120,1,{noPort:true}),smooth:n('Smoothing',.2,0,.95,.01,{noPort:true})}},
   clock:{category:'inputs',group:'Data',label:'Clock',description:'Time as numbers: position in the minute, hour, day and week, plus a tempo beat (phase and pulse).',
     inputs:{},outputs:{second:'number',minute:'number',hour:'number',day:'number',beat:'number',pulse:'number'},props:{bpm:n('Tempo (BPM)',120,20,300,1,{noPort:true})}},
   pointer:{category:'inputs',group:'Data',label:'Mouse & keys',description:'Your hands as numbers: mouse position and speed, clicks, held button, typing and scrolling.',
