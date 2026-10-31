@@ -9,17 +9,17 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="logo" href="../" title="Open the original Audiograph"><img class="logo-mark" src="./logo.svg" alt="">Audiograph<span class="logo-pro">Pro</span></a>
     <div class="modes" role="tablist" aria-label="Workspace">
       <button class="mode on" id="modeStudio" role="tab" aria-selected="true" title="Build visuals with nodes">Studio</button>
       <button class="mode" id="modeMap" role="tab" aria-selected="false" title="Projection mapping: fit the output onto walls, objects and screens">Mapping</button>
       <button class="mode" id="modeAuto" role="tab" aria-selected="false" title="Autopilot: describe what you want, and let it follow the music">Autopilot<i class="mode-dot"></i></button>
     </div>
+    <a class="logo" href="../" title="Open the original Audiograph"><img class="logo-mark" src="./logo.svg" alt="">Audiograph<span class="logo-pro">Pro</span></a>
     <div class="toolbar">
       <button class="tbtn" id="undo" title="Undo (⌘/Ctrl Z)" aria-label="Undo">↶</button>
       <button class="tbtn" id="redo" title="Redo (⌘/Ctrl Shift Z)" aria-label="Redo">↷</button>
-      <span class="sep"></span>
-      <select class="tbtn" id="templates" aria-label="Start from a template"><option value="">Templates…</option></select>
+      <span class="sep studio-only"></span>
+      <select class="tbtn studio-only" id="templates" aria-label="Start from a template"><option value="">Templates…</option></select>
       <span class="sep"></span>
       <button class="tbtn" id="save" title="Save in this browser">Save</button>
       <button class="tbtn" id="restore" title="Restore the project saved in this browser">Restore</button>

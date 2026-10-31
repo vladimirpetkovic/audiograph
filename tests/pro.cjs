@@ -42,11 +42,18 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const layer0=async()=>(await project()).layers[0];
     const idOf=async type=>(await layer0()).nodes.find(n=>n.type===type)?.id;
     const ids={emitter:await idOf('gpuParticles'),audio:await idOf('audioIn'),bloom:await idOf('bloom'),output:await idOf('output')};
+    {const g=await layer0(),pal=g.nodes.find(n=>n.type==='palette'),bl=g.nodes.find(n=>n.type==='bloom');
+      assert.ok(pal&&g.edges.some(e=>e.from===ids.emitter&&e.to===pal.id)&&g.edges.some(e=>e.from===pal.id&&e.to===bl.id),'Default network: Fluid → Palette → Bloom');
+      assert.equal(bl.props.bloom,20,'Default Bloom is 20');
+      // The editing tests below start from Fluid → Bloom.
+      await page.evaluate(id=>{const p=pro.getProject(),l=p.layers[0],pal=l.nodes.find(n=>n.type==='palette');l.nodes=l.nodes.filter(n=>n!==pal);l.edges=l.edges.filter(e=>e.to!==pal.id&&e.from!==pal.id);
+        l.edges.push({from:id,out:'shape',to:l.nodes.find(n=>n.type==='bloom').id,input:'image'});pro.importProject(p);},ids.emitter);}
     const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
 
     // 1. Default graph: the native WebGPU Fluid runs inside the real Audiograph engine and reaches the preview.
     const native=await page.evaluate(async id=>{const e=pro.engine(id);await e.ready;return {status:await e.w.agSim.ready(),stats:e.w.agSim.stats()};},ids.emitter);
     assert.equal(native.status,'ready',JSON.stringify(native.stats));
+    assert.equal(await page.evaluate(id=>pro.engine(id).base.pSimEnergy,ids.emitter),50,'Fluid energy defaults to 50');
     assert.ok(native.stats.adapter&&!/swiftshader|software/i.test(native.stats.adapter),native.stats.adapter);
     await lit(1);
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
@@ -361,6 +368,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
 
     // Projection mapping: layouts, warped output, point drag + undo, validation, saved with the project.
     {await page.locator('#modeMap').click();assert.ok(await page.locator('#mapPanel').isVisible(),'Map mode shows the mapping panel');assert.ok(!(await page.locator('#autoPanel').isVisible()),'Only one workspace panel');
+      for(const sel of ['.graph-region','.inspector','#templates','#library'])assert.ok(!(await page.locator(sel).isVisible()),sel+' is Studio only');
     await page.selectOption('[data-property=mapPreset]','Cube (3 faces)');await page.waitForTimeout(300);
     let m=await page.evaluate(()=>pro.mapping());assert.deepEqual(m.surfaces.map(s=>s.name),['Top','Left','Right']);assert.ok(m.on);
     await page.locator('[data-property=mapTest] [data-value=true]').click();await page.evaluate(()=>pro.draw());
@@ -402,6 +410,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(await page.evaluate(()=>pro.autopilot.parse(pro.autopilot.settings().prompt).read.length>2),true,'Written prompts are understood');
     await page.locator('[data-property=apPrompt]').pressSequentially('x');assert.equal((await page.evaluate(()=>pro.autopilot.settings())).write,false,'Typing turns Write off');
     await page.locator('#modeMap').click();await page.locator('#modeAuto').click();assert.ok(!(await page.locator('#mapPanel').isVisible()),'Mapping panel hides in Autopilot');
+    for(const sel of ['.graph-region','.inspector'])assert.ok(!(await page.locator(sel).isVisible()),sel+' hides in Autopilot');
     await page.fill('[data-property=apPrompt]','');await page.locator('[data-property=apPrompt]').pressSequentially('pink spiral');await page.waitForTimeout(1800);
     assert.ok((await project()).layers[0].nodes.some(n=>n.props.mode==='spiral'),'Typing builds after a pause');
     await page.locator('[data-property=apLive] [data-value=false]').click();await page.locator('#modeStudio').click();}

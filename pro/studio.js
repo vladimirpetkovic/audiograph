@@ -1320,7 +1320,7 @@ const overlay=$('mapOverlay'),SVGNS='http://www.w3.org/2000/svg';
 const curMap=()=>state.mapping||{on:false,test:false,surfaces:[]};
 const selSurface=()=>curMap().surfaces.find(s=>s.id===mapSel)||null;
 function mapEdit(fn,label){return edit(p=>{p.mapping=p.mapping?clone(p.mapping):{on:true,test:false,surfaces:[]};fn(p.mapping);},label);}
-// Workspaces: Studio (node library), Map (projection mapping) and Autopilot share the left panel.
+// Workspaces: Studio (library, graph, properties), Mapping and Autopilot (their panel and the picture only).
 let workspace='studio';
 function setWorkspace(w){
   workspace=w;mapMode=w==='map';const auto=w==='auto';
@@ -1329,8 +1329,11 @@ function setWorkspace(w){
   if((mapMode||auto)&&layout.hidden.library){layout.hidden.library=false;applyLayout();}
   if(mapMode){if(!mapSel)mapSel=curMap().surfaces[0]?.id||null;renderMapPanel();}
   if(auto)renderAutoPanel();
+  for(const k of ['studio','map','auto'])document.body.classList.toggle('ws-'+k,w===k);
+  if(w==='studio')applyLayout(false);
   renderOverlay();message(mapMode?'Mapping':auto?'Autopilot':'Studio');
 }
+document.body.classList.add('ws-studio');
 function setMapMode(on){setWorkspace(on?'map':'studio');}
 $('modeStudio').onclick=()=>setWorkspace('studio');$('modeMap').onclick=()=>setWorkspace('map');$('modeAuto').onclick=()=>setWorkspace('auto');
 function newSurfaceId(m){let i=m.surfaces.length+1;while(m.surfaces.some(s=>s.id==='s'+i))i++;return 's'+i;}

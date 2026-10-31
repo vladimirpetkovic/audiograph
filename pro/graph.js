@@ -266,10 +266,11 @@ export function node(type,x=40,y=50,props={}) {
   return {id:uid(),type,x,y,props:{...defaults(type),...props}};
 }
 export function layer(index=1) {
-  const sound=node('audioIn',40,70),emitter=index===1?node('gpuParticles',250,70):node('waveform2d',250,70),fx=node('bloom',460,70),output=node('output',670,70);
-  return {id:uid(),name:`Layer ${index}`,visible:true,opacity:1,blend:'screen',nodes:[sound,emitter,fx,output],edges:[
+  const sound=node('audioIn',40,70),emitter=index===1?node('gpuParticles',250,70):node('waveform2d',250,70),pal=node('palette',460,70),fx=node('bloom',670,70,{bloom:20}),output=node('output',880,70);
+  return {id:uid(),name:`Layer ${index}`,visible:true,opacity:1,blend:'screen',nodes:[sound,emitter,pal,fx,output],edges:[
     {from:sound.id,out:'audio',to:emitter.id,input:'audio'},
-    {from:emitter.id,out:'shape',to:fx.id,input:'image'},
+    {from:emitter.id,out:'shape',to:pal.id,input:'shape'},
+    {from:pal.id,out:'shape',to:fx.id,input:'image'},
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }

@@ -12,9 +12,10 @@ button{cursor:pointer}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#222227;border-radius:4px;border:2px solid transparent;background-clip:padding-box}::-webkit-scrollbar-thumb:hover{background-color:#303036}::-webkit-scrollbar-track{background:transparent}
 
 /* ── header ─────────────────────────────── */
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 14px;border-bottom:1px solid var(--border);min-width:0}
+.topbar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;padding:0 14px 0 0;border-bottom:1px solid var(--border);min-width:0}
+.topbar .logo{justify-self:center}.topbar .toolbar{justify-self:end}
 .logo{display:flex;align-items:center;gap:8px;font:600 1.05rem/1 var(--sans);letter-spacing:.15em;text-transform:uppercase;color:#fff;text-decoration:none;white-space:nowrap}
-.logo-mark{height:1.6em;width:auto}
+.logo-mark{height:1.6em;width:auto;mix-blend-mode:screen}
 .logo-pro{display:inline-block;margin-left:6px;padding:2px 5px;border:1px solid #6ee7b766;border-radius:4px;color:var(--accent2);font:600 .55rem/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;vertical-align:middle}
 .toolbar{display:flex;align-items:center;gap:5px;min-width:0}
 .sep{width:1px;height:16px;background:var(--border);flex:none;margin:0 2px}
@@ -83,8 +84,8 @@ body.resizing{user-select:none}body.resizing iframe,body.resizing canvas{pointer
 .library-node.hidden{display:none}
 
 /* preview */
-.preview-wrap{position:relative;flex:var(--prev-flex,55) 1 0;min-height:120px;display:flex;align-items:center;justify-content:center;background:#000;padding:10px;overflow:hidden}
-#preview{display:block;max-width:100%;max-height:100%;width:auto;height:100%;aspect-ratio:16/9;object-fit:contain;background:#000;box-shadow:0 0 0 1px var(--border)}
+.preview-wrap{container-type:size;position:relative;flex:var(--prev-flex,55) 1 0;min-height:120px;display:flex;align-items:center;justify-content:center;background:#000;padding:10px;overflow:hidden}
+#preview{display:block;max-width:100%;max-height:100%;width:min(100cqw,100cqh*16/9);height:auto;aspect-ratio:16/9;object-fit:contain;background:#000;box-shadow:0 0 0 1px var(--border)}
 .preview-hud{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;opacity:.35;transition:opacity .2s;z-index:2}
 .pinning .preview-hud{right:auto;left:50%;transform:translateX(-50%)}
 .preview-wrap:hover .preview-hud,.preview-hud:focus-within{opacity:1}
@@ -255,7 +256,7 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 }
 @media (max-width:760px){
   body{height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto;grid-template-rows:auto auto auto}
-  .topbar{flex-wrap:wrap;padding:8px 10px;gap:8px}
+  .topbar{display:flex;flex-wrap:wrap;padding:8px 10px 0;gap:8px}.topbar .logo{order:-1;width:100%;justify-content:center}.modes{order:3}
   .toolbar{flex-wrap:wrap;width:100%}
   .toolbar .tbtn{padding:0 7px}
   .logo{font-size:.95rem}
@@ -320,9 +321,17 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 .live-value .meter em{font-style:normal;text-align:right;color:var(--tx)}
 code.cmd{display:block;margin:6px 0;padding:6px 8px;background:#0b0b0e;border:1px solid var(--border);border-radius:4px;font:.6rem/1.4 var(--mono);color:var(--accent2);user-select:all}
 /* workspace modes + projection mapping */
-.modes{display:flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--bg)}
-.mode{height:24px;padding:0 14px;background:transparent;border:0;border-radius:5px;color:var(--tx3);font:600 .6rem/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
-.mode:hover{color:var(--tx)}.mode.on{background:var(--on);color:var(--on-tx)}
+/* Workspace tabs: real tabs at the top-left; the active one opens into its panel below. */
+.modes{display:flex;align-self:end;gap:2px;padding:0 0 0 8px;margin-bottom:-1px;justify-self:start}
+.mode{height:34px;padding:0 16px;background:transparent;border:1px solid transparent;border-bottom:0;border-radius:7px 7px 0 0;color:var(--tx3);font:600 .62rem/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.mode:hover{color:var(--tx);background:#ffffff08}.mode.on{background:var(--surface);border-color:var(--border);color:var(--tx);box-shadow:inset 0 2px 0 var(--accent2)}
+body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:none}
+/* Mapping and Autopilot are their own screens: their panel and the picture, nothing from the Studio. */
+.studio.map-mode,.studio.auto-mode{grid-template-columns:var(--lib-w) minmax(0,1fr) 0}
+.studio.map-mode .inspector,.studio.auto-mode .inspector,.studio.map-mode .gutter[data-resize=inspector],.studio.auto-mode .gutter[data-resize=inspector],
+.studio.map-mode .graph-region,.studio.auto-mode .graph-region,.studio.map-mode .gutter-row,.studio.auto-mode .gutter-row{display:none}
+.studio.map-mode .stage.no-preview .preview-wrap,.studio.auto-mode .stage.no-preview .preview-wrap{display:flex}
+.studio.map-mode .library,.studio.auto-mode .library{visibility:visible}
 .studio.map-mode #librarySearch,.studio.map-mode #library{display:none}
 .map-panel{display:flex;flex-direction:column;gap:12px}
 .map-panel[hidden]{display:none}
