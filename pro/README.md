@@ -54,20 +54,23 @@ each with its own opacity and blend mode (up to four).
   Disorder, Randomize, Webcam (camera brightness displaces the shape and can
   color it).
 - **Color**: Palette (tone ramp, simple ramp or solid, with the original's 14
-  presets and a live gradient preview) and Hue shift
-  (static or cycling). Both take a shape *or* any image (a Merge, Post FX…), so
+  presets and a live gradient preview), Hue shift (static or cycling) and
+  Color correct (brightness, contrast, saturation, hue, invert). Palette and Hue
+  shift take a shape *or* any image (a Merge, Post FX…), so
   they fit anywhere in a chain. Palette **Blend** Normal replaces the colors that
   came before; Multiply, Screen, Overlay, Soft/Hard light, Color, Hue,
   Saturation, Luminosity, Dodge, Burn, Add, Difference and Exclusion mix the
   palette's gradient map with them (**Mix** sets how much).
-- **Style**: Line style (13 styles) and Outline.
-- **Post FX**: Bloom, Color correct, Blur, Lens, Kaleido, Trails, Fracture. These
+- **Line style & Outline** are groups on every waveform node (13 line styles; outline off by default).
+- **Post FX**: Bloom, Blur, Lens, Kaleido, Trails, Fracture. These
   run the original GPU per-layer shaders. Quick filter is a Canvas 2D filter.
   **Corner pin** does projection mapping: with it selected, drag the four
   corners on the preview (or drive them with any number).
 - **Controls**: Value, LFO (sine, triangle, saw, square, random), Map range,
   Smooth (attack and release), Math, Random (per beat, at a rate, or when its
-  `trigger` input rises above 0.5).
+  `trigger` input rises above 0.5), and **Amplify**: a pass-through for any
+  wire that multiplies a number, makes audio louder, boosts the sound driving a
+  shape, or brightens an image.
 - **Audio analysis**: Audio band (bass, mids, high, full) and Beat read an
   `audio` wire (or the project sound if unwired). **Audio EQ** (10 bands) sits
   in an audio wire and reshapes what follows it.

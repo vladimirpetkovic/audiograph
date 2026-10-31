@@ -1,5 +1,5 @@
 import * as sensors from './sensors.js';
-import {TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,GEO_PROPS,geoMods,geoFromLook,compatible,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {TYPES,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 import {ORIGINAL_PRESETS} from './templates.js';
@@ -56,7 +56,7 @@ function importProject(raw,label='Imported project. Reload media files in the In
 }
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
 const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);if(!o.length)return false;
-  if(i.includes('audio')&&o.every(x=>x==='audio'))return true;return (i.includes('shape')||i.includes('image')||i.includes('visual'))&&o.every(x=>x==='shape'||x==='image');};
+  if(i.includes('audio')&&o.every(x=>x==='audio'))return true;if(i.includes('any'))return true;return (i.includes('shape')||i.includes('image')||i.includes('visual'))&&o.every(x=>x==='shape'||x==='image');};
 // Adding a modifier while a node is selected splices it into that node's chain.
 function addNode(type,x,y,props={}){
   let made=null;
@@ -196,6 +196,13 @@ function bandsOf(freq){
   return {bass:band(30,250),mids:band(250,2500),high:band(2500,14000),full:band(30,14000)};
 }
 // The value on an "audio" wire. Unwired audio inputs hear the project sound.
+// Amplify: a louder copy of an audio signal (spectrum and waveform, clipped like a real gain stage).
+function ampSignal(a,g){
+  const f=new Uint8Array(a.freq.length),w=new Uint8Array(a.wave.length);
+  for(let i=0;i<f.length;i++)f[i]=Math.min(255,a.freq[i]*g);
+  for(let i=0;i<w.length;i++)w[i]=Math.max(0,Math.min(255,128+(a.wave[i]-128)*g));
+  return {...a,freq:f,wave:w,bands:bandsOf(f),pulse:Math.min(1,(a.pulse??0)*g)};
+}
 const projectSignal=()=>({freq:A.freq,wave:A.wave,bands:A.bands,beat:A.beat,pulse:A.beatPulse});
 // An emitter driven by a number: a synthetic spectrum whose loudness follows the number.
 function driveSpectrum(level,t){
@@ -265,7 +272,7 @@ function execute(g,time,dt){
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
   const asImage=(v,consumer)=>{
     if(!v||v instanceof HTMLCanvasElement)return v;
-    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue;
+    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1);
     if(rendered.has(key))return rendered.get(key);
     const e=engineFor(v.emitter.id),out=e.draw({...v.job,mods:v.mods,hue:v.hue});
     if(!out)return null;
@@ -307,6 +314,14 @@ function execute(g,time,dt){
       case 'clock':Object.assign(r,sensors.clock(p,nstate(n.id,()=>({})),dt));break;
       case 'pointer':Object.assign(r,sensors.pointer(p,dt));break;
       case 'midi':Object.assign(r,sensors.midiValues(p));break;
+      case 'amplify':{const v=need(n,'in','something to amplify'),g2=p.gain;
+        if(typeof v==='number')r.out=v*g2;
+        else if(v instanceof HTMLCanvasElement){const {canvas,ctx}=surface(n.id);ctx.filter=`brightness(${g2})`;ctx.drawImage(v,0,0);ctx.filter='none';r.out=canvas;}
+        else if(v.emitter){const a=v.job.audio,d=a.drive;
+          r.out={...v,amp:(v.amp??1)*g2,job:{...v.job,audio:{...a,...ampSignal({freq:a.freq,wave:a.wave},g2),drive:{bass:Math.min(1,d.bass*g2),beat:Math.min(1,d.beat*g2)}}}};}
+        else if(v.freq)r.out=ampSignal(v,g2);
+        else r.out=v;
+        break;}
       case 'audio':r.value=(input(n,'audio')??projectSignal()).bands[p.band]*p.gain;break;
       case 'beat':{const sig=input(n,'audio')??projectSignal(),s=nstate(n.id,()=>({beat:sig.beat,v:0}));if(sig.beat!==s.beat){s.beat=sig.beat;s.v=1;}else s.v*=Math.exp(-dt*1000/p.decay);r.value=s.v*p.gain;break;}
       case 'spectrum':{const sig=input(n,'audio')??projectSignal(),gains=eqGains(p),f=new Uint8Array(BINS);
@@ -360,7 +375,7 @@ function execute(g,time,dt){
           r.shape={...s,mods,hue:((hue%360)+360)%360};
         }
     }
-    outputs.set(n.id,r);if(DATA_INPUTS.has(n.type))lastOuts.set(n.id,{...r});{const v=r.value??(n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
+    outputs.set(n.id,r);if(DATA_INPUTS.has(n.type))lastOuts.set(n.id,{...r});{const v=r.value??(typeof r.out==='number'?r.out:n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
     if(r.image&&thumbs.has(n.id)&&frame%4===0)drawThumb(n.id,r.image);
   }
   // Emitter thumbnails show the raw emitter render.
@@ -475,7 +490,7 @@ function renderLibrary(){
       }
       root.append(pr);continue;
     }
-    const {root:pr,body}=ui.panel({id:cat.id,title:cat.label,color:cat.color,count:types.length,open:!['controls','audio','composite','style'].includes(cat.id)});
+    const {root:pr,body}=ui.panel({id:cat.id,title:cat.label,color:cat.color,count:types.length,open:!['controls','audio','composite'].includes(cat.id)});
     const box=el('div','chips');for(const t of types)box.append(libraryButton(t,TYPES[t].label,TYPES[t].description,{},cat.color));
     body.append(box);root.append(pr);
   }
@@ -582,7 +597,7 @@ function renderWires(){
   for(const edge of g.edges){
     const a=portEl(edge.from,edge.out,'out'),b=portEl(edge.to,edge.input,'in');if(!a||!b)continue;
     const [x1,y1]=portXY(a,'out'),[x2,y2]=portXY(b,'in'),wire=document.createElementNS('http://www.w3.org/2000/svg','path');
-    wire.setAttribute('d',curve(x1,y1,x2,y2));wire.setAttribute('class','wire '+a.dataset.ptype);Object.assign(wire.dataset,{from:edge.from,out:edge.out,to:edge.to,input:edge.input});
+    wire.setAttribute('d',curve(x1,y1,x2,y2));wire.setAttribute('class','wire '+(a.dataset.ptype==='any'?resolveOut(g,g.nodes.find(m=>m.id===edge.from),edge.out):a.dataset.ptype));Object.assign(wire.dataset,{from:edge.from,out:edge.out,to:edge.to,input:edge.input});
     wire.setAttribute('tabindex','0');wire.setAttribute('role','button');wire.setAttribute('aria-label',`Remove connection ${edge.out} → ${edge.input}`);
     const remove=()=>edit((p,g)=>{g.edges=g.edges.filter(e=>!(e.from===edge.from&&e.out===edge.out&&e.to===edge.to&&e.input===edge.input));},'Removed connection');
     wire.onclick=remove;wire.onkeydown=e=>{if(e.key==='Enter'||e.key==='Delete')remove();};svg.append(wire);
@@ -885,8 +900,8 @@ function renderEmitter(root,n){
     s.append(ui.field(`Load ${kind==='object'?'OBJ':kind==='splat'?'.ply / .splat':kind}`,f),el('p','insp-note',engines.get(n.id)?.mediaName?`Loaded: ${engines.get(n.id).mediaName} (not saved in projects)`:'Media files are not saved in projects.'));
   }
   const wiredOf=k=>graph().edges.some(e=>e.to===n.id&&e.input===k);
-  const geo={};for(const k of Object.keys(GEO_PROPS))if(T.props[k]){const gr=T.props[k].group;if(gr==='Lines'&&(n.type==='gpuParticles'||n.type==='splat'))continue;(geo[gr]||=[]).push(k);}
-  for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr,gr!=='Symmetry'),n,ks,true);
+  const geo={};for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){const gr=T.props[k].group;if(gr==='Lines'&&(n.type==='gpuParticles'||n.type==='splat'))continue;(geo[gr]||=[]).push(k);}
+  for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr,!['Symmetry','Line style','Outline'].includes(gr)),n,ks,true);
   const d=fold(root,'Sound response');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
   const rg=el('div','knob-grid');for(const k of ['intensity','punch','release','dynamics'])rg.append(propControl(n,k,T.props[k],wiredOf(k)));d.append(rg);
@@ -924,7 +939,7 @@ function renderEmitter(root,n){
         opts.append(wrap);
       }
     }
-    if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer, Color or Style nodes after it.'));
+    if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer or Color nodes after it.'));
   };
   if(e.status==='ready')fill();else{opts.append(el('p','insp-note','Engine starting…'));e.ready.then(()=>{if(opts.isConnected){opts.replaceChildren();fill();}});}
 }
@@ -936,7 +951,7 @@ function renderLayerInspector(root,g){
   const grid=el('div','knob-grid');grid.append(ui.knob({label:'Opacity',min:0,max:100,step:1,value:Math.round(g.opacity*100),def:100,unit:'%',property:'layerOpacity',
     onInput:v=>live(()=>{graph().opacity=v/100;}),onChange:()=>liveCommit('Layer opacity')}));s.append(grid);
   const b=section(root,'Blend with layers below');b.append(ui.chips({options:LAYER_BLENDS.map(m=>[m,{'source-over':'Normal',screen:'Screen',lighter:'Add',multiply:'Multiply',difference:'Difference',overlay:'Overlay'}[m]]),value:g.blend,property:'layerBlend',onChange:v=>edit((p,l)=>{l.blend=v;},'Layer blend')}));
-  section(root).append(el('p','insp-note','Tip: select a node, then click a Deformer, Color, Style or Post FX node in the library to insert it right after.'));
+  section(root).append(el('p','insp-note','Tip: select a node, then click a Deformer, Color or Post FX node in the library to insert it right after.'));
   updateHint();
 }
 function updateHint(){const n=graph().nodes.find(n=>n.id===selected);$('selectionHint').textContent=n?`${TYPES[n.type].label} selected · library clicks insert after it`:`${graph().name}`;}

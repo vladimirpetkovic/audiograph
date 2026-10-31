@@ -9,17 +9,16 @@ export const emitterNames = Object.fromEntries(Object.values(MODES).flat());
 
 export const CATEGORIES = [
   {id:'inputs',label:'Inputs',color:'#71f4d3',hint:'Sound, pictures, camera, text and 3D you bring in'},
-  {id:'waveforms',label:'Waveforms',color:'#71e7f4',hint:'Audio-reactive line patterns, flat and 3D'},
-  {id:'emitters',label:'Emitters',color:'#71b9f4',hint:'Particles: classic and native WebGPU simulations'},
-  {id:'deformers',label:'Deformers',color:'#718bf4',hint:'Bend the shape'},
-  {id:'color',label:'Color',color:'#8571f4',hint:'Palettes and hue'},
-  {id:'style',label:'Style',color:'#b271f4',hint:'Line style and outlines'},
-  {id:'postfx',label:'Post FX',color:'#e071f4',hint:'Image effects (GPU shaders)'},
-  {id:'controls',label:'Controls',color:'#f471da',hint:'Numbers that move knobs'},
-  {id:'audio',label:'Audio analysis',color:'#f471ac',hint:'Turn sound into numbers or reshape it'},
-  {id:'composite',label:'Composite',color:'#f4717e',hint:'Mix and output'}
+  {id:'waveforms',label:'Waveforms',color:'#71e1f4',hint:'Audio-reactive line patterns, flat and 3D'},
+  {id:'emitters',label:'Emitters',color:'#71aef4',hint:'Particles: classic and native WebGPU simulations'},
+  {id:'deformers',label:'Deformers',color:'#717bf4',hint:'Bend the shape'},
+  {id:'color',label:'Color',color:'#9c71f4',hint:'Palettes and hue'},
+  {id:'postfx',label:'Post FX',color:'#cf71f4',hint:'Image effects (GPU shaders)'},
+  {id:'controls',label:'Controls',color:'#f471e5',hint:'Numbers that move knobs'},
+  {id:'audio',label:'Audio analysis',color:'#f471b2',hint:'Turn sound into numbers or reshape it'},
+  {id:'composite',label:'Composite',color:'#f4717f',hint:'Mix and output'}
 ];
-export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6'};
+export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',any:'#e5e7eb'};
 
 const n=(label,value,min,max,step=1,extra={})=>({kind:'number',label,value,min,max,step,...extra});
 const pick=(label,value,choices,extra={})=>({kind:'select',label,value,choices,...extra});
@@ -43,16 +42,25 @@ export const GEO_PROPS={
   spin:G('Motion',n('Spin',0,-5,5,.1,{key:'_spin'})),speed:G('Motion',n('Speed',1,.1,5,.1,{key:'_speed'})),
   symmetry:G('Symmetry',pick('Symmetry','none',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'})),symGap:G('Symmetry',n('Gap',0,0,100,1,{key:'_symGap'})),
   flipH:G('Symmetry',bool('Flip H',false,{key:'_flipH'})),flipV:G('Symmetry',bool('Flip V',false,{key:'_flipV'})),mirror:G('Symmetry',bool('Reflection',false,{key:'_mirrorOn'}))};
+const LINE_SHAPES=[['straight','Straight'],['rounded','Rounded'],['dotted','Dotted'],['dashed','Dashed'],['pins','Pins'],['tapered','Tapered'],['caps','Caps'],['cross','Cross'],['numbers','Numbers'],['symbols','Symbols'],['words','Words'],['cascade','Cascade'],['off','Off']];
+// Line style and outline live on the waveform nodes (grouped, closed by default).
+export const STYLE_PROPS={
+  lineShape:G('Line style',pick('Style','straight',LINE_SHAPES.map(s=>s[0]),{labels:LINE_SHAPES,key:'_lineShape'})),styleSize:G('Line style',n('Size',100,30,250,5,{key:'_styleSize'})),
+  styleDensity:G('Line style',n('Density',100,30,250,5,{key:'_styleDensity'})),styleAngle:G('Line style',n('Angle',0,-90,90,1,{key:'_styleAngle'})),
+  outline:G('Outline',bool('Show outline',false,{key:'_showOutline'})),outlineStyle:G('Outline',pick('Style','solid',['solid','dotted','dashed','connected','fill'],{key:'_outlineStyle'})),
+  outlineOpacity:G('Outline',n('Opacity',60,5,100,5,{key:'_outlineOpacity'})),outlineWeight:G('Outline',n('Weight',2,.5,8,.25,{key:'_outlineWeight'})),
+  outlineGap:G('Outline',n('Gap',0,0,30,1,{key:'_outlineDist'})),outlineCount:G('Outline',n('Count',1,1,10,1,{key:'_outlineCount'})),outlineSpacing:G('Outline',n('Spacing',4,1,20,1,{key:'_outlineSpace'}))};
+const LOOK_PROPS={...GEO_PROPS,...STYLE_PROPS};
 // Original layer parameters for a renderer's geometry props (spin carries its direction).
 export function geoMods(p){
   const out={};
-  for(const [k,s] of Object.entries(GEO_PROPS)){let v=p[k];if(v===undefined)continue;if(s.rad)v=v*Math.PI/180;out[s.key]=v;}
+  for(const [k,s] of Object.entries(LOOK_PROPS)){let v=p[k];if(v===undefined)continue;if(s.rad)v=v*Math.PI/180;out[s.key]=v;}
   out._spin=Math.abs(p.spin??0);out._spinDir=(p.spin??0)<0?-1:1;return out;
 }
 // Geometry props seeded from an original layer look (templates).
 export function geoFromLook(look){
   const out={};
-  for(const [k,s] of Object.entries(GEO_PROPS)){
+  for(const [k,s] of Object.entries(LOOK_PROPS)){
     let v=look[s.key];if(v===undefined)continue;
     if(k==='spin'){v=v*(look._spinDir<0?-1:1);}
     if(s.kind==='number'){if(typeof v!=='number')continue;if(s.rad)v=v*180/Math.PI;out[k]=Math.max(s.min,Math.min(s.max,Math.round(v/s.step)*s.step));}
@@ -65,7 +73,6 @@ export function geoFromLook(look){
 const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number'},outputs:{shape:'shape',...outputs},
   props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound response',n('Intensity',100,0,200,5)),punch:G('Sound response',n('Bass punch',60,0,100,1)),release:G('Sound response',n('Bass release',220,60,800,10)),dynamics:G('Sound response',n('Dynamics',50,0,100,1)),
     opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}}}});
-const LINE_SHAPES=[['straight','Straight'],['rounded','Rounded'],['dotted','Dotted'],['dashed','Dashed'],['pins','Pins'],['tapered','Tapered'],['caps','Caps'],['cross','Cross'],['numbers','Numbers'],['symbols','Symbols'],['words','Words'],['cascade','Cascade'],['off','Off']];
 const PART_SHAPES=[['circle','Circle'],['square','Square'],['star','Star'],['diamond','Diamond'],['ring','Ring'],['triangle','Triangle'],['spark','Spark'],['line','Line'],['numbers','Numbers'],['symbols','Symbols'],['words','Words']];
 // The original Audiograph's gradient presets: [background (fades by "Low opacity"), colors…].
 export const PALETTES={
@@ -108,8 +115,8 @@ export const TYPES = {
   object:ENGINE('inputs','3D Object','An OBJ model (the built-in knot until you load one), as a mesh or as a point cloud.',{render:pick('Render','mesh',['mesh','cloud'],{labels:[['mesh','Mesh'],['cloud','Point cloud']]})}),
   splat:ENGINE('inputs','Gaussian Splat','A .ply / .splat point cloud that reacts to the sound (a demo cloud until you load one).',{}),
   // Waveforms and Emitters (particles)
-  waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d})},{},'2D'),
-  waveform3d:ENGINE('waveforms','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d})},{},'3D'),
+  waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
+  waveform3d:ENGINE('waveforms','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),...STYLE_PROPS},{},'3D'),
   gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke, flocks, sand, ferrofluid, 3D cloner.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
   // Deformers
   amplify:DEFORM('Amplify','_amplify',.5,5,1.6,'Boost the audio response of the shape.',.1),
@@ -134,11 +141,6 @@ export const TYPES = {
     blend:pick('Blend','normal',PALETTE_BLENDS.map(b=>b[0]),{labels:PALETTE_BLENDS}),mix:n('Mix',1,0,1,.01)}},
   hue:{category:'color',label:'Hue shift',description:'Rotate hues of a shape or any image, optionally cycling over time.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{hue:n('Hue',60,-180,180,1),cycle:n('Cycle (°/s)',0,-120,120,1)}},
   // Style
-  lineStyle:{category:'style',label:'Line style',description:'How each line is drawn.',...SHAPE_IO,props:{
-    shape:pick('Style','dotted',LINE_SHAPES.map(s=>s[0]),{labels:LINE_SHAPES,key:'_lineShape'}),size:n('Size',100,30,250,5,{key:'_styleSize'}),density:n('Density',100,30,250,5,{key:'_styleDensity'}),angle:n('Angle',0,-90,90,1,{key:'_styleAngle'})}},
-  outline:{category:'style',label:'Outline',description:'Outline around the shape.',...SHAPE_IO,props:{
-    style:pick('Style','solid',['solid','dotted','dashed','connected','fill'],{key:'_outlineStyle'}),opacity:n('Opacity',60,5,100,5,{key:'_outlineOpacity'}),weight:n('Weight',2,.5,8,.25,{key:'_outlineWeight'}),
-    gap:n('Gap',0,0,30,1,{key:'_outlineDist'}),count:n('Count',1,1,10,1,{key:'_outlineCount'}),spacing:n('Spacing',4,1,20,1,{key:'_outlineSpace'})}},
   // Particles
   particles:{category:'emitters',group:'Particles',label:'Particles',description:'Particles spawned from the shape, driven by loudness.',...SHAPE_IO,props:{
     shape:pick('Shape','circle',PART_SHAPES.map(s=>s[0]),{labels:PART_SHAPES,key:'_particleShape'}),density:n('Density',20,1,50,1,{key:'pPartDensity'}),energy:n('Energy',1,.1,5,.1,{key:'pPartEnergy'}),
@@ -149,8 +151,8 @@ export const TYPES = {
     scale:n('Scale',30,1,100,1,{key:'pNoiseScale'}),speed:n('Speed',20,1,100,1,{key:'pNoiseSpeed'})}},
   // Post FX (original per-layer GPU shaders)
   bloom:FX('Bloom','Glow around bright areas.',{bloom:n('Bloom',60,0,100,1,{key:'pfxBloom'}),edge:n('Edge glow',0,0,100,1,{key:'pfxEdgeGlow'})}),
-  grade:FX('Color correct','Brightness, contrast, saturation, hue.',{brightness:n('Brightness',0,-100,100,1,{key:'pfxBrightness'}),contrast:n('Contrast',10,-100,100,1,{key:'pfxContrast'}),
-    saturation:n('Saturation',20,-100,200,1,{key:'pfxSaturation'}),hue:n('Hue',0,-180,180,1,{key:'pfxHue'}),invert:n('Invert',0,0,100,1,{key:'pfxInvert'})}),
+  grade:{...FX('Color correct','Brightness, contrast, saturation, hue.',{brightness:n('Brightness',0,-100,100,1,{key:'pfxBrightness'}),contrast:n('Contrast',10,-100,100,1,{key:'pfxContrast'}),
+    saturation:n('Saturation',20,-100,200,1,{key:'pfxSaturation'}),hue:n('Hue',0,-180,180,1,{key:'pfxHue'}),invert:n('Invert',0,0,100,1,{key:'pfxInvert'})}),category:'color'},
   blur:FX('Blur','Directional, radial and focal blur.',{x:n('Blur X',20,0,100,1,{key:'pfxBlurX'}),y:n('Blur Y',0,0,100,1,{key:'pfxBlurY'}),radial:n('Radial',0,0,100,1,{key:'pfxBlurRadial'}),focal:n('Focal area',0,0,100,1,{key:'pfxFocal'})}),
   lens:FX('Lens','Chromatic aberration, vignette, sharpen, scanlines.',{chroma:n('Chromatic',30,0,100,1,{key:'pfxChroma'}),vignette:n('Vignette',40,0,100,1,{key:'pfxVignette'}),sharpen:n('Sharpen',0,0,100,1,{key:'pfxSharpen'}),grain:n('Grain',0,0,100,1,{key:'pfxGrain'}),scanlines:n('Scanlines',0,0,100,1,{key:'pfxScanlines'})}),
   kaleido:FX('Kaleido','Kaleidoscope and reflection.',{kaleido:n('Kaleido',50,0,100,1,{key:'pfxKaleido'}),reflect:n('Reflect',0,0,100,1,{key:'pfxReflect'})}),
@@ -169,6 +171,7 @@ export const TYPES = {
   map:{category:'controls',label:'Map range',description:'Scale and offset a number.',inputs:{value:'number'},outputs:{value:'number'},primary:['value'],props:{scale:n('Scale',1,-4,4,.01),offset:n('Offset',0,-2,2,.01)}},
   smooth:{category:'controls',label:'Smooth',description:'Soften a signal with separate attack and release.',inputs:{value:'number'},outputs:{value:'number'},primary:['value'],props:{attack:n('Attack (ms)',30,0,2000,5),release:n('Release (ms)',300,0,4000,10)}},
   math:{category:'controls',label:'Math',description:'Combine two numbers.',inputs:{a:'number',b:'number'},outputs:{value:'number'},primary:['a','b'],props:{op:pick('Operation','add',['add','multiply','subtract','min','max']),a:n('A',0,-2,2,.01,{noPort:true}),b:n('B',0,-2,2,.01,{noPort:true})}},
+  amplify:{category:'controls',label:'Amplify',description:'Pass-through that boosts whatever flows through it: a number, an audio signal, a shape (the sound driving it) or an image (brightness).',inputs:{in:'any'},outputs:{out:'any'},primary:['in'],props:{gain:n('Gain',2,0,8,.05)}},
   random:{category:'controls',label:'Random',description:'A new random value at a rate, on every beat, or whenever the “trigger” input rises above 0.5.',inputs:{trigger:'number'},outputs:{value:'number'},props:{trigger:pick('Trigger','beat',['beat','rate']),rate:n('Rate (Hz)',1,.05,10,.05),glide:n('Glide',.3,0,1,.01)}},
   // Audio
   audio:{category:'audio',label:'Audio band',description:'Level of one frequency band (of the wired audio, or the project sound).',inputs:{audio:'audio'},outputs:{value:'number'},props:{band:pick('Band','bass',['bass','mids','high','full']),gain:n('Gain',1,0,8,.05)}},
@@ -220,7 +223,8 @@ export function engineSpec(n){
 export const MEDIA_KIND={image:'image',video:'video',object:'object',splat:'splat'};
 export function nodeTitle(n){return TYPES[n.type].props.mode?.kind==='select'&&isEngine(n.type)?emitterNames[n.props.mode]:TYPES[n.type].label;}
 // A 'visual' input (Palette, Hue shift) takes a shape or an image.
-export const compatible=(out,input)=>out===input||(out==='shape'&&input==='image')||(input==='visual'&&(out==='shape'||out==='image'));
+// 'any' (Amplify) passes through whatever is wired into it.
+export const compatible=(out,input)=>out===input||out==='any'||input==='any'||(out==='shape'&&input==='image')||(input==='visual'&&(out==='shape'||out==='image'));
 export const clone = value => JSON.parse(JSON.stringify(value));
 const uid=()=>crypto.randomUUID();
 export function defaults(type){return Object.fromEntries(Object.entries(TYPES[type].props).map(([k,v])=>[k,clone(v.value)]));}
@@ -236,7 +240,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=4;
+export const VERSION=5;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -245,6 +249,12 @@ function finite(value,min,max,label) {
   return value;
 }
 function id(value) {if(typeof value!=='string'||!/^[a-zA-Z0-9_-]{1,80}$/.test(value))throw Error('Invalid ID');return value;}
+// The real type on a pass-through ('any') output: whatever feeds the node, followed upstream.
+export function resolveOut(graph,n,out,seen=new Set()){
+  const t=TYPES[n.type].outputs[out];if(t!=='any'||seen.has(n.id))return t;seen.add(n.id);
+  const e=graph.edges.find(e=>e.to===n.id&&inputsOf(n.type)[e.input]==='any'),src=e&&graph.nodes.find(m=>m.id===e.from);
+  return src?resolveOut(graph,src,e.out,seen):'any';
+}
 export function order(graph) {
   const nodes=new Map(graph.nodes.map(n=>[n.id,n])), indegree=new Map(graph.nodes.map(n=>[n.id,0])), adjacency=new Map(graph.nodes.map(n=>[n.id,[]])), occupied=new Set();
   for(const e of graph.edges) {
@@ -253,7 +263,7 @@ export function order(graph) {
     if(e.from===e.to)throw Error('A node cannot connect to itself');
     const sourcePorts=TYPES[from.type].outputs,input=portType(to,e.input);
     if(!Object.hasOwn(sourcePorts,e.out)||!input)throw Error('Connection references a missing port');
-    const out=sourcePorts[e.out];
+    const out=resolveOut(graph,from,e.out);
     if(!compatible(out,input))throw Error(`Type mismatch: ${out} cannot connect to ${input}`);
     const key=e.to+':'+e.input;
     if(occupied.has(key))throw Error('An input can have only one connection');
@@ -344,7 +354,10 @@ function migrate(raw){
 // Version 4: the Lines, Transform, Motion and Symmetry nodes became renderer properties.
 const OLD_GEO={lines:{density:'density',height:'height',thick:'thick',contrast:'contrast',sensitivity:'sensitivity',fade:'fade',varyHeight:'varyHeight',varyThick:'varyThick'},
   transform:{scale:'scale',rotation:'rotation',x:'x',y:'y',tilt:'tilt',turn:'turn',pulse:'pulse'},motion:{spin:'spin',speed:'speed'},
-  symmetry:{mode:'symmetry',gap:'symGap',flipH:'flipH',flipV:'flipV',mirror:'mirror'}};
+  symmetry:{mode:'symmetry',gap:'symGap',flipH:'flipH',flipV:'flipV',mirror:'mirror'},
+  // Version 5: Line style and Outline became waveform properties.
+  lineStyle:{shape:'lineShape',size:'styleSize',density:'styleDensity',angle:'styleAngle'},
+  outline:{style:'outlineStyle',opacity:'outlineOpacity',weight:'outlineWeight',gap:'outlineGap',count:'outlineCount',spacing:'outlineSpacing'}};
 function foldGeometry(g){
   if(!Array.isArray(g?.nodes)||!Array.isArray(g.edges))return;
   for(const old of g.nodes.filter(n=>OLD_GEO[n?.type])){
@@ -354,7 +367,8 @@ function foldGeometry(g){
     while(up&&!TYPES[up.type]?.engine&&!seen.has(up.id)){seen.add(up.id);const e=g.edges.find(e=>e&&e.to===up.id&&e.input==='shape');up=e&&g.nodes.find(n=>n&&n.id===e.from);}
     const map=OLD_GEO[old.type];
     if(up&&TYPES[up.type]?.engine){up.props=up.props||{};for(const [k,to] of Object.entries(map))if(old.props?.[k]!==undefined)up.props[to]=old.props[k];
-      for(const e of g.edges)if(e&&e.to===old.id&&map[e.input]){e.to=up.id;e.input=map[e.input];}}
+      if(old.type==='outline')up.props.outline=true;if(old.type==='lineStyle'&&up.props.lineShape===undefined)up.props.lineShape='dotted';
+      for(const e of g.edges)if(e&&e!==into&&e.to===old.id&&map[e.input]){e.to=up.id;e.input=map[e.input];}}
     g.edges=g.edges.filter(e=>e&&e.to!==old.id);
     for(const e of g.edges)if(e.from===old.id&&into){e.from=into.from;e.out=into.out;}
     g.edges=g.edges.filter(e=>e.from!==old.id);
@@ -362,7 +376,7 @@ function foldGeometry(g){
   }
 }
 export function validate(input) {
-  if(!input||input.format!=='audiograph-pro'||![1,2,3,4].includes(input.version))throw Error('Expected an Audiograph Pro project');
+  if(!input||input.format!=='audiograph-pro'||![1,2,3,4,5].includes(input.version))throw Error('Expected an Audiograph Pro project');
   const raw=migrate(input);
   if(!Array.isArray(raw.layers)||raw.layers.length<1||raw.layers.length>LIMITS.layers)throw Error('A project needs 1–4 layer graphs');
   const ids=new Set();let emitters=0;
@@ -429,8 +443,6 @@ export function applyShapeNode(type,props,mods){
     return out;
   }
   if(type==='motion'){out._spin=Math.abs(props.spin);out._spinDir=props.spin<0?-1:1;out._speed=props.speed;return out;}
-  if(type==='lineStyle'&&props.shape==='off'){out._lineShape='off';}
-  if(type==='outline')out._showOutline=true;
   if(type==='particles')out._particlesOn=true;
   if(type==='webcam'){out._cam={displace:props.displace,colors:props.colors==='on',dir:props.dir,smooth:props.smooth};return out;}
   for(const [k,s] of Object.entries(TYPES[type].props)){

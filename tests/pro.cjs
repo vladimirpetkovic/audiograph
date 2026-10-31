@@ -51,7 +51,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
     assert.equal(await page.locator('.library-node[data-mode]').count(),27,'Every waveform and WebGPU simulation is in the library');
-    assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','Deformers','Color','Style','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
+    assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','Deformers','Color','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
     assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','3D Object','Gaussian Splat','Computer','Clock','Mouse & keys','MIDI'],'Inputs');
     assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','3D','Particles','WebGPU particles'],'Input, Waveform and Emitter groups');
     assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
@@ -197,7 +197,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,4);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    assert.equal(migrated.version,5);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
     // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
     const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
     assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.render]),[['camera','lines'],['image','warp']]);
@@ -275,6 +275,35 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.locator('#addLayer').click();assert.equal((await project()).layers.length,3,'Two-layer template + one more');
     await page.locator('[data-property="layerBlend"] [data-value="difference"]').click().catch(()=>{});
     await page.locator('.layer-tab.active .layer-x').click();assert.equal((await project()).layers.length,2);
+
+    // Amplify passes any wire through: numbers are multiplied, images brightened; its output takes the input's type.
+    {const r=await page.evaluate(async()=>{
+      const P={format:'audiograph-pro',version:5,layers:[{id:'amp',name:'Amp',visible:true,opacity:1,blend:'source-over',nodes:[
+        {id:'v',type:'value',x:0,y:0,props:{value:.3}},{id:'a1',type:'amplify',x:200,y:0,props:{gain:3}},{id:'w',type:'waveform2d',x:0,y:200,props:{mode:'circle'}},
+        {id:'a2',type:'amplify',x:200,y:200,props:{gain:2}},{id:'b',type:'bloom',x:400,y:200,props:{}},{id:'a3',type:'amplify',x:600,y:200,props:{gain:1.5}},{id:'o',type:'output',x:800,y:200,props:{}}],
+        edges:[{from:'v',out:'value',to:'a1',input:'in'},{from:'a1',out:'out',to:'w',input:'thick'},{from:'w',out:'shape',to:'a2',input:'in'},{from:'a2',out:'out',to:'b',input:'image'},
+          {from:'b',out:'image',to:'a3',input:'in'},{from:'a3',out:'out',to:'o',input:'image'}]}]};
+      pro.importProject(P,'amp');await new Promise(r=>setTimeout(r,2500));
+      const mismatch=(()=>{try{pro.validate({...P,layers:[{...P.layers[0],edges:[...P.layers[0].edges,{from:'a3',out:'out',to:'a1',input:'gain'}]}]});return 'accepted';}catch(e){return e.message;}})();
+      const wires=[...document.querySelectorAll('.wire')].map(w=>w.getAttribute('class'));
+      return {value:pro.value('a1'),errors:pro.stats().errors,mismatch,wires,lit:pro.pixels()};});
+    assert.ok(Math.abs(r.value-.9)<1e-6,'Amplify multiplies a number: '+r.value);
+    assert.deepEqual(r.errors,[],'Amplify chain renders');assert.ok(r.lit>1,'Amplified shape draws');
+    assert.match(r.mismatch,/Type mismatch|Cycle/,'An amplified image cannot drive a number knob');
+    assert.ok(r.wires.some(c=>c==='wire number')&&r.wires.some(c=>c==='wire image'),'Amplify wires take the color of what flows through');}
+    // Line style and Outline are waveform knob groups; old standalone nodes fold into the waveform.
+    {const r=await page.evaluate(()=>{
+      const P=pro.validate({format:'audiograph-pro',version:4,layers:[{id:'old',name:'Old',visible:true,opacity:1,blend:'source-over',nodes:[
+        {id:'w',type:'waveform2d',x:0,y:0,props:{mode:'circle'}},{id:'ls',type:'lineStyle',x:200,y:0,props:{shape:'dashed',size:150}},{id:'ol',type:'outline',x:400,y:0,props:{style:'fill',weight:4}},{id:'o',type:'output',x:600,y:0,props:{}}],
+        edges:[{from:'w',out:'shape',to:'ls',input:'shape'},{from:'ls',out:'shape',to:'ol',input:'shape'},{from:'ol',out:'shape',to:'o',input:'image'}]}]});
+      const w=P.layers[0].nodes.find(n=>n.id==='w');pro.importProject(P,'old');pro.select('w');
+      return {types:P.layers[0].nodes.map(n=>n.type),props:[w.props.lineShape,w.props.styleSize,w.props.outline,w.props.outlineStyle,w.props.outlineWeight],edge:P.layers[0].edges.map(e=>e.from+'>'+e.to),
+        groups:[...document.querySelectorAll('#properties [data-group]')].map(g=>g.dataset.group),cats:[...document.querySelectorAll('#library [data-category], #library .panel')].map(p=>p.textContent).join('|')};});
+    assert.deepEqual(r.types,['waveform2d','output'],'Style nodes fold away');
+    assert.deepEqual(r.props,['dashed',150,true,'fill',4],'Their settings move onto the waveform');
+    assert.deepEqual(r.edge,['w>o'],'Wires heal');
+    assert.ok(r.groups.includes('Line style')&&r.groups.includes('Outline'),'Waveform inspector has Line style and Outline groups');
+    assert.ok(!/\bStyle\b/.test(r.cats.replace(/Line style/g,'')),'No Style category');}
 
     // 10. Save / restore round trip.
     await page.locator('#save').click();const saved=await project();

@@ -2,7 +2,7 @@
 
 :root{--bg:#08080a;--surface:#0f0f12;--elevated:#17171c;--border:#252529;--border-h:#3a3a40;--tx:#dddde0;--tx2:#8a8a92;--tx3:#55555c;--accent:#c4f0dc;--accent2:#6ee7b7;--accent-d:#1c3d30;--hot:#f87171;--on:#00d991;--on-tx:#061713;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:'Inter','Helvetica Neue',Arial,sans-serif;
-  --t-number:#6ee7b7;--t-shape:#f59e0b;--t-image:#8aa2ff;--t-audio:#a3e635;--t-visual:#f472b6;color-scheme:dark}
+  --t-number:#6ee7b7;--t-shape:#f59e0b;--t-image:#8aa2ff;--t-audio:#a3e635;--t-visual:#f472b6;--t-any:#e5e7eb;color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{height:100dvh;overflow:hidden;display:grid;grid-template-rows:46px minmax(0,1fr) 26px;background:var(--bg);color:var(--tx);font:12px/1.4 var(--mono);-webkit-font-smoothing:antialiased}
@@ -137,7 +137,7 @@ body.resizing{user-select:none}body.resizing iframe,body.resizing canvas{pointer
 #wires{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;z-index:1}
 #nodes{position:absolute;left:0;top:0}
 .wire{fill:none;stroke:var(--t-number);stroke-opacity:.85;stroke-width:2;cursor:pointer;pointer-events:stroke;transition:stroke .1s,stroke-width .1s}
-.wire.shape{stroke:var(--t-shape)}.wire.image{stroke:var(--t-image)}.wire.audio{stroke:var(--t-audio)}
+.wire.shape{stroke:var(--t-shape)}.wire.image{stroke:var(--t-image)}.wire.audio{stroke:var(--t-audio)}.wire.any{stroke:var(--t-any)}
 .wire:hover{stroke:#fff;stroke-opacity:1;stroke-width:3.5}
 .wire.wedge{stroke:#fff;stroke-opacity:1;stroke-width:5;stroke-dasharray:10 6;filter:drop-shadow(0 0 6px #fff8)}
 .wire-ghost{fill:none;stroke:#fff;stroke-opacity:.6;stroke-width:2;stroke-dasharray:6 5;pointer-events:none}
@@ -159,7 +159,7 @@ body.resizing{user-select:none}body.resizing iframe,body.resizing canvas{pointer
 .port.out{text-align:right}
 .port.out::before{left:auto;right:-5px;background:var(--pc)}
 .port.connected::before{background:var(--pc)}
-.port.number{--pc:var(--t-number)}.port.shape{--pc:var(--t-shape)}.port.image{--pc:var(--t-image)}.port.audio{--pc:var(--t-audio)}.port.visual{--pc:var(--t-visual)}
+.port.number{--pc:var(--t-number)}.port.shape{--pc:var(--t-shape)}.port.image{--pc:var(--t-image)}.port.audio{--pc:var(--t-audio)}.port.visual{--pc:var(--t-visual)}.port.any{--pc:var(--t-any)}
 .port:hover{color:var(--tx2)}
 .port:hover::before{transform:scale(1.2)}
 .port.pending,.port.drop-target{color:var(--tx)}
