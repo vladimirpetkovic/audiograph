@@ -462,12 +462,52 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.locator('#modeMap').click();await page.locator('#modeAuto').click();assert.ok(!(await page.locator('#mapPanel').isVisible()),'Mapping panel hides in Autopilot');
     for(const sel of ['.graph-region','.inspector'])assert.ok(!(await page.locator(sel).isVisible()),sel+' hides in Autopilot');
     await page.evaluate(()=>pro.autopilot.settings({match:100}));
-    await page.fill('[data-property=apPrompt]','');await page.locator('[data-property=apPrompt]').pressSequentially('pink spiral');await page.waitForTimeout(2600);
+    await page.fill('[data-property=apPrompt]','');await page.locator('[data-property=apPrompt]').pressSequentially('pink spiral');
+    await page.waitForFunction(()=>pro.autopilot.status().slots.some(s=>s.role===0&&s.layout==='spiral'),null,{timeout:15000});
     assert.ok((await page.evaluate(()=>pro.autopilot.status())).slots.some(s=>s.role===0&&s.layout==='spiral'),'Typing builds after a pause');
     await page.locator('[data-property=apLive] [data-value=false]').click();
     await page.evaluate(()=>pro.autopilot.settings({match:85}));await page.locator('#modeStudio').click();}
 
+    // Off and Hold must not brighten a deliberately dark Autopilot scene.
+    await page.waitForFunction(()=>!pro.autopilot.status().fading&&pro.autopilot.status().tweens===0,null,{timeout:20000});
+    await page.evaluate(async()=>{
+      const G=await import('/pro/graph.js'),P=pro.getProject();pro.autopilot.stop();
+      for(const g of P.layers)for(const n of g.nodes){
+        if(/^ap-r/.test(n.id)){n.type='waveform2d';n.props={...G.defaults(n.type),mode:'circle',sensitivity:5};}
+        if(n.type==='palette'){n.props.stops=n.props.stops.map(s=>({...s,c:'#000000'}));n.props.fade=0;}
+      }
+      pro.importProject(P);
+    });
+    const dark=await project();
+    await page.waitForTimeout(3500);
+    assert.deepEqual(await project(),dark,'Off preserves the dark scene');
+    await page.evaluate(()=>{pro.autopilot.start();pro.autopilot.settings({hold:true});});
+    await page.waitForTimeout(3500);
+    assert.deepEqual(await project(),dark,'Hold preserves the dark scene');
+    await page.evaluate(()=>pro.autopilot.stop());
+    // A steady quiet opening is not a drop, however the detector's history starts.
+    const opening=await page.evaluate(async()=>{const {Pilot}=await import('/pro/pilot.js'),pl=new Pilot(),seen=new Set();
+      for(let i=0;i<1800;i++){pl.step(1/60,{energy:.12+.015*Math.sin(i/40)+.005*Math.cos(i/7),treble:.05},24,false);seen.add(pl.section);}return [...seen];});
+    assert.ok(!opening.includes('drop'),'Calm opening read as '+opening.join(','));
+    // Random creates a wired, editable scene, stops Autopilot and remains one undo step.
+    for(let i=0;i<3;i++){
+      await page.evaluate(()=>pro.pause(true));
+      const before=await project();
+      await page.locator('#randomGraph').click();
+      const random=await project();
+      assert.notDeepEqual(random.layers.map(g=>g.id),before.layers.map(g=>g.id),'Random replaces the graph');
+      assert.ok(random.layers.every(g=>g.nodes.some(n=>n.type==='output')&&g.edges.length>=3),'Random builds wired nodes');
+      assert.equal(await page.evaluate(()=>pro.autopilot.status().live),false,'Random stops Autopilot');
+      await page.evaluate(()=>pro.pause(false));
+      await page.waitForTimeout(4000);
+      await lit(.02,25000);
+      await page.evaluate(()=>{pro.pause(true);pro.undo();});
+      assert.deepEqual(await project(),before,'Undo restores the scene before Random');
+      await page.evaluate(()=>pro.pause(false));
+    }
     // 10. Save / restore round trip.
+    // Exercise the download/browser-storage path without a native Save dialog stealing keyboard focus.
+    await page.evaluate(()=>{window.showSaveFilePicker=undefined;});
     await page.locator('#save').click();const saved=await project();
     await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));await page.locator('#restore').click();
     assert.deepEqual((await project()).layers.map(l=>l.name),saved.layers.map(l=>l.name));

@@ -159,9 +159,9 @@ export const TYPES = {
     source:pick('Source','iss',['iss','space','ocean','weather','quakes','wiki'],{labels:[['iss','ISS orbit'],['space','Space weather'],['ocean','Ocean swell'],['weather','Weather'],['quakes','Earthquakes'],['wiki','Wikipedia edits']]}),
     place:pick('Place','here',['here','newyork','lisbon','reykjavik','tokyo','sydney','capetown','honolulu'],{labels:[['here','Here'],['newyork','New York'],['lisbon','Lisbon'],['reykjavik','Reykjavík'],['tokyo','Tokyo'],['sydney','Sydney'],['capetown','Cape Town'],['honolulu','Honolulu']]}),
     glide:n('Glide (s)',4,0,30,.5,{noPort:true}),stretch:n('Auto range',.6,0,1,.05,{noPort:true})}},
-  midi:{category:'inputs',group:'Data',label:'MIDI',description:'A MIDI controller or keyboard: one CC knob/fader, a note (or any note), gate, pitch and pitch bend.',
+  midi:{category:'inputs',group:'Data',label:'MIDI',description:'A MIDI controller or keyboard: one CC knob/fader, a note (or any note), gate, pitch and pitch bend. Channel 0 listens to every channel; Note -1 to every note.',
     inputs:{},outputs:{cc:'number',note:'number',gate:'number',pitch:'number',bend:'number'},
-    props:{channel:n('Channel (0 = any)',0,0,16,1,{noPort:true}),cc:n('CC number',1,0,127,1,{noPort:true}),note:n('Note (-1 = any)',-1,-1,127,1,{noPort:true})}},
+    props:{channel:n('Channel',0,0,16,1,{noPort:true}),cc:n('CC number',1,0,127,1,{noPort:true}),note:n('Note',-1,-1,127,1,{noPort:true})}},
   // Pictures: Image, Video and Camera are sources, not renderers. They give an image (warped by audio when it is wired),
   // brightness and motion numbers, a palette from their colours, and feed GPU Particles' "emit" input.
   image:MEDIA('Image','A picture. Wire audio in to warp it; its image, palette and brightness drive other nodes (e.g. GPU Particles emit).'),

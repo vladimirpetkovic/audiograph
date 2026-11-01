@@ -726,6 +726,8 @@ function visiblePorts(g,n){
   return {ins,outs:Object.entries(t.outputs)};
 }
 const jobOf=n=>({...engineSpec(n),chips:n.props.chips,look:n.props.look});
+// Engine knob labels that don't fit under a knob.
+const OPT_SHORT={'Pressure iterations':'Pressure','Emitter spin':'Spin','Temperature':'Temp.'};
 function optLabel(n,key){const r=engines.get(n.id)?.optRange(jobOf(n),key.slice(4));return r?.label||key.slice(4);}
 function portLabel(n,key){return TYPES[n.type].props[key]?.label||(OPT_PORT.test(key)?optLabel(n,key):key);}
 function renderGraph(){
@@ -1229,7 +1231,7 @@ function renderEmitter(root,n){
         if(c.type!=='range'){box.append(chip(c));continue;}
         if(!grid){grid=el('div','knob-grid');box.append(grid);}
         const cur=n.props.opts[c.id]??c.value;
-        grid.append(ui.knob({label:c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),...autoOpts(n,'opt:'+c.id),
+        grid.append(ui.knob({label:OPT_SHORT[c.label]||c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),...autoOpts(n,'opt:'+c.id),
           onInput:v=>live(()=>{const x=findNode(n.id);if(x)x.props.opts={...x.props.opts,[c.id]:v};}),onChange:()=>liveCommit('Emitter: '+c.label)}));
       }
     }
@@ -1936,6 +1938,20 @@ function apTick(dt){
   for(const f of T.fades){const g=apLayer(f.k);if(g)g.opacity=Math.round(f.to*100)/100;}
   apTrans=null;renderLayers();
 }
+// Exposure: a quiet passage on fine, faded looks can sit near black, so Autopilot gently opens its layers up
+// (louder response, quiet tones shown) and eases a blinding stack back. New looks start from their own values.
+let apExpT=0,apDim=0;
+function apExposure(dt){
+  if(!ap.live||ap.hold||ap.changes!=='everything'||!apIsSlots()){apExpT=0;apDim=0;return;}
+  if((apExpT+=dt)<1)return;apExpT=0;
+  const ks=apActive();if(apTrans||apWant||!ks.length||!frame){apDim=0;return;}
+  const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=64)s+=d[i]+d[i+1]+d[i+2];
+  const lv=s/(d.length/64)/3;apDim=lv<1.5?Math.max(0,apDim)+1:lv>45?Math.min(0,apDim)-1:0;
+  if(Math.abs(apDim)<2)return;const up=apDim>0;apDim=0;
+  for(const k of ks){const g=apLayer(k),r=apNode(k,'r'),pl=apNode(k,'p');if(!r||isSim(r.props.mode))continue;
+    if('sensitivity' in TYPES[r.type].props){const v=+r.props.sensitivity||100,to=Math.max(up?v:Math.min(v,80),Math.min(200,v+(up?25:-20)));if(to!==v)apTween(g,r,'sensitivity',to,1.5);}
+    if(up&&pl&&pl.props.fade<1)apTween(g,pl,'fade',Math.min(1,Math.round((pl.props.fade+.25)*20)/20),1.5);}
+}
 // A written prompt types itself into the box.
 function apShowPrompt(){const ta=document.querySelector('[data-property=apPrompt]');if(!ta||workspace!=='auto')return;const t=ap.prompt;let k=0;clearInterval(ta._type);
   ta._type=setInterval(()=>{k=Math.min(t.length,k+2);ta.value=t.slice(0,k);if(k>=t.length){clearInterval(ta._type);ta._showRead?.();}},18);}
@@ -1956,7 +1972,7 @@ function autopilotStep(dt){
   if(apPending&&!apTrans&&ap.live&&!ap.hold&&pilot.since>=MIN_GAP){const k=apPending;apPending=null;apChange(k,k==='calm'?9:7);}
   const c=ap.live?pilot.step(dt,features(A.freq),ap.hold?1e9:ap.every,!!apTrans||ap.hold):null;
   if(c&&!ap.hold)apChange(c.kind,c.dur);
-  apTick(dt);
+  apTick(dt);apExposure(dt);
   if(apTweens.size){
     const nodes=new Map();for(const g of state.layers)for(const n of g.nodes)nodes.set(n.id,n);let ended=false;
     for(const [key,tw] of apTweens){const n=nodes.get(tw.n);if(!n){apTweens.delete(key);continue;}
@@ -1979,10 +1995,22 @@ function apStatus(full=false){
   if(full){const l=$('apLast');if(l)l.textContent=ap.last?'Last change: '+ap.last:'';}
 }
 function apStart(){
-  ap.live=true;ap.hold=false;pilot.reset();
+  if(!ap.live)pilot.reset();ap.live=true;ap.hold=false;
   if(ap.changes==='everything'&&!apActive().length)apCreate(ap.prompt);
 }
 function apStop(){ap.live=false;ap.hold=false;apPending=null;}
+function randomGraph(){
+  return attempt(()=>{
+    const seed=(Math.random()*1e9)|0,energy=35+Math.random()*50;
+    const text=autopilot.write({seed,energy});
+    const next=validate({...clone(state),layers:autopilot.build(autopilot.parse(text),{seed,energy,match:50})});
+    apStop();apWant=null;apTrans=null;apTweens.clear();
+    for(const s of apSlots)Object.assign(s,{role:-1,layer:null,f0:0});
+    nextFade=2.5;importProject(next,'Random graph: '+text);apStatus(true);
+    return true;
+  });
+}
+$('randomGraph').onclick=randomGraph;
 function renderAutoPanel(){
   const root=$('autoPanel');if(!root||workspace!=='auto')return;root.replaceChildren();
   const top=el('div','ws-top');root.append(top);
@@ -2016,6 +2044,7 @@ function renderAutoPanel(){
   apStatus(true);
 }
 window.pro={
+  randomGraph,
   pause:v=>setPaused(v===undefined?!paused:!!v),
   getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;multi.clear();renderUI();},selectNodes:ids=>setSelection(ids),selection:()=>selIds(),copy:()=>copySel(),paste:(x,y)=>pasteNodes(clip,x,y),saveCustom:n=>saveCustom(n),customNodes:()=>customNodes(),removeCustom:n=>removeCustom(n),selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},

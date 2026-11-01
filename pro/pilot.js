@@ -17,7 +17,6 @@ export function features(freq){
   return {energy:e/(n*255),treble:h/((n-hs)*255)};
 }
 
-// Song structure from loudness: the level is relative to the song's own recent range (8th–95th percentile).
 // Saturated, mid-light version of a #rrggbb colour (alpha suffix kept).
 export function vivid(c){
   if(!/^#[0-9a-f]{6}/i.test(c))return c;
@@ -28,6 +27,7 @@ export function vivid(c){
   const [R,G,B]=[[C,X,0],[X,C,0],[0,C,X],[0,X,C],[X,0,C],[C,0,X]][Math.floor(h)%6];
   return '#'+[R,G,B].map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('')+c.slice(7);
 }
+// Song structure from loudness: the level is relative to the song's own recent range (8th–95th percentile).
 export class Pilot{
   constructor(){this.reset();}
   reset(){Object.assign(this,{fast:0,mid:0,slow:0,treb:0,hist:[],levHist:[],histT:0,lo:0,hi:1,level:0,section:'waiting',secT:0,since:MIN_GAP,silentT:0});}
@@ -35,10 +35,14 @@ export class Pilot{
   step(dt,f,every,fading){
     if(f.energy<.004){this.silentT+=dt;if(this.silentT>2){this.section='waiting';return null;}}else this.silentT=0;
     const k=tau=>1-Math.exp(-dt/tau);
+    // The first sound seeds the smoothers, or their ramp up from silence would read as the song's quiet floor.
+    if(!this.mid&&f.energy>=.004)this.fast=this.mid=this.slow=f.energy;
     this.fast+=(f.energy-this.fast)*k(.25);this.mid+=(f.energy-this.mid)*k(1.2);this.slow+=(f.energy-this.slow)*k(6);this.treb+=(f.treble-this.treb)*k(1.5);
     this.histT+=dt;
     if(this.histT>=.25){this.histT=0;this.hist.push(this.mid);if(this.hist.length>360)this.hist.shift();
-      if(this.hist.length>8){this.lo=q(this.hist,.08);this.hi=Math.max(this.lo+.02,q(this.hist,.95));}
+      if(this.hist.length>8){this.lo=q(this.hist,.08);this.hi=Math.max(this.lo+.02,q(this.hist,.95));
+        // Until the song has shown its range, ordinary swells within a third of the floor are not drops.
+        if(this.hist.length<120)this.hi=Math.max(this.hi,this.lo*1.35+.02);}
       this.levHist.push(this.level);if(this.levHist.length>24)this.levHist.shift();}
     this.level=clamp((this.mid-this.lo)/(this.hi-this.lo),0,1);
     this.secT+=dt;this.since+=dt;
@@ -162,6 +166,8 @@ export class Generator{
     p.pSfIter=Math.min(p.pSfIter||24,16);p.pSmIter=Math.min(p.pSmIter||24,16);
     // Hot, thick smoke presets saturate to white once coloured: keep them in the ramp's range.
     if(l.layout==='simsmoke')for(const [k,v] of [['pSmHeat',110],['pSmEmit',105],['pSmOpac',100],['pSmLightI',100],['pSmEmber',45]])if(p[k]>v)p[k]=v;
+    // Fluid dye adds up: slow-fading, heavy presets pile it into a white sheet within a few bars of a drop.
+    if(l.layout==='simfluid'){p.pSfDye=Math.min(p.pSfDye??100,75);p.pSfFade=Math.max(p.pSfFade??40,35);}
     // Dense simulations sit on the ramp's top stop: a near-white one would wash the frame out, so it takes the colour below.
     const ts=p._toneStops;
     if(Array.isArray(ts)&&ts.length>1){const hx=c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)),a=hx(ts[ts.length-1]);

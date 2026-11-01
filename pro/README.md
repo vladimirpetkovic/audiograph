@@ -192,6 +192,8 @@ process the finished image.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when
     you switch templates.
+- **Random** (beside Templates) creates a new wired node graph with random
+  emitters, colours, motion and effects. It stops Autopilot; Undo restores your scene.
 - **Autopilot** (third switch at the top) is the original Audiograph's Automation:
   - Turn it **On** and it listens for the song's sections (breakdown, groove,
     build-up, drop) and at each one slowly crossfades to a fitting variation,
