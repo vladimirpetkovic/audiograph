@@ -21,6 +21,9 @@ each with its own opacity and blend mode (up to four).
     into **WebGPU particles → emit** to spawn particles from its bright parts
     (coloured by the picture or the palette), into a Palette's colors, or into any
     image input. Projects from v10 and earlier convert automatically.
+- **WebGPU particles → emit** takes anything visual: a picture, a waveform or
+    emitter shape, or a **3D Object** (it emits from the object's live render, so a
+    turning object's particles follow it). The sound still sets how many spawn.
   - **Text**, **Gaussian Splat** (.ply / .splat, demo cloud by default).
   - **Data** inputs give 0–1 numbers for any knob, with live meters in the inspector:
     - **Computer**: cpu, core (busiest core), gpu, memory, fps, network, battery and
@@ -42,7 +45,7 @@ each with its own opacity and blend mode (up to four).
   solid, lit object with size, detail and stretch), **Waveform** (audio-reactive
   lines) or, for a Model, **Points**. Every 3D Object has an `object` output:
   **Cloner** (layout, counts, spacing, steps, rotation, variety) takes up to three and
-  clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links) and **Look** (Material,
+  clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links with width, glow and sound pulse) and **Look** (Material,
   Light, Camera). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
   coloured bounce light and an optional floor that catches the shadows. Chain effectors and look nodes after the Cloner. The original's
   cloner presets are templates under **3D cloner**. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
@@ -148,7 +151,7 @@ process the finished image.
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
-- **Templates** include **Data tunnel** (a flight through flowing particles, coloured and pushed by space weather) and **Living archive** (a slow fluid painting with drifting strokes, fed by Wikipedia edits).
+- **Templates**: saved **Scenes** (exported .ag projects in `scenes.js`, e.g. **Cloned**), the original Audiograph presets and the 3D cloner set.
 - **Tips stay hidden**: node descriptions and help notes sit behind the **?** in
   the inspector header (and the graph toolbar); click it to show them. The choice is
   remembered.

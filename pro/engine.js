@@ -8,8 +8,8 @@ import {TEMPLATE_BY_NAME} from './morph.js';
 // palette-coloured bounce light (colour bleeding between clones and the floor) and an optional floor that catches
 // shadows and fades into the background.
 function patch3dLighting(patch){
-  patch("hist:array<vec4f,256>};","hist:array<vec4f,256>,lvp:mat4x4f,sh:vec4f,gi:vec4f,fl:vec4f};");
-  patch("G3UF=1232,","G3UF=1260,");
+  patch("hist:array<vec4f,256>};","hist:array<vec4f,256>,lvp:mat4x4f,sh:vec4f,gi:vec4f,fl:vec4f,rs3:vec4f};");
+  patch("G3UF=1232,","G3UF=1264,");
   patch("struct VIn{@location(0) pos:vec3f",`@group(0) @binding(6) var shT:texture_depth_2d;
 @group(0) @binding(7) var shS:sampler_comparison;
 fn shadowAt(wp:vec3f,n:vec3f,px:vec2f)->f32{
@@ -80,7 +80,7 @@ fn envC(r:vec3f,rough:f32)->vec3f{`);
     "var lvw=new Float32Array([lX[0],lY[0],l[0],0,lX[1],lY[1],l[1],0,lX[2],lY[2],l[2],0,-dt3(lX),-dt3(lY),-dt3(l),1]),lpr=new Float32Array(16);"+
     "lpr[0]=1/shR;lpr[5]=1/shR;lpr[10]=-1/(4*shR);lpr[15]=1;U.set(g3Mul(lpr,lvw),1232);"+
     "set(1248,shA,(1.2+shSz*shSz*40*Math.max(1,rad/shR*12))/(st.g3shN||2048),2*shR/(st.g3shN||2048),0.0008);"+
-    "set(1252,K('pG3Bounce',40)/100,shSz,fy,bnd*2.4);set(1256,K('pG3FloorTint',30)/100,0,0,flA);"+
+    "set(1252,K('pG3Bounce',40)/100,shSz,fy,bnd*2.4);set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,0,flA);"+
     "dev.queue.writeBuffer(st.cub,0,U);");
   patch("var pipe=(style===1||alpha<0.995)?P.g3t:P.g3o;",
     "if(shA>0.001&&P.g3sh&&st.g3bgS){var shp=enc.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:st.g3shV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});shp.setPipeline(P.g3sh);shp.setBindGroup(0,st.g3bgS);shp.setVertexBuffer(0,m.buf);shp.draw(m.verts,n);shp.end();S.dispatches++}"+
@@ -104,6 +104,25 @@ fn envC(r:vec3f,rough:f32)->vec3f{`);
     "['pG3FloorTint','Floor tint',0,100,30,5,'%','0 is a neutral grey floor, 100 takes the palette colours.'],"+
     "['pG3Ao','Ambient occlusion',");
   patch("['Light',['pG3Light','pG3Amb','pG3LitAz','pG3LitEl']]","['Light',['pG3Light','pG3Amb','pG3LitAz','pG3LitEl','pG3Shadow','pG3LitSize','pG3Bounce','pG3Floor','pG3FloorY','pG3FloorTint']]");
+  // Random effector on each axis: rotation X / Y / Z and scale X / Z next to the original's Y stretch.
+  patch("['pG3RndRot','Random tilt',0,180,0,5,'deg','Random orientation of each clone.'],",
+    "['pG3RndRX','Random rotate X',0,180,0,5,'deg','Random turn of each clone around X.'],['pG3RndRY','Random rotate Y',0,180,0,5,'deg','Random turn of each clone around Y.'],"+
+    "['pG3RndRZ','Random rotate Z',0,180,0,5,'deg','Random turn of each clone around Z.'],"+
+    "['pG3RndSX','Random scale X',0,100,0,5,'%','Random stretch of each clone along X.'],['pG3RndSZ','Random scale Z',0,100,0,5,'%','Random stretch of each clone along Z.'],");
+  patch("'pG3RndCol','pG3RndRot','pG3RndPosX'","'pG3RndCol','pG3RndRX','pG3RndRY','pG3RndRZ','pG3RndSX','pG3RndSZ','pG3RndPosX'");
+  patch("'g3-r-b':['pG3RndCol','pG3RndRot']","'g3-r-b':['pG3RndCol','pG3RndRX','pG3RndRY','pG3RndRZ','pG3RndSX','pG3RndSZ']");
+  patch("var rr=K('pG3RndRot',0)*dg;set(76,rr,rr,rr,","set(1260,K('pG3RndSX',0)/100,0,K('pG3RndSZ',0)/100,0);set(76,K('pG3RndRX',0)*dg,K('pG3RndRY',0)*dg,K('pG3RndRZ',0)*dg,");
+  patch("S.y=S.y*exp(c.lt.x*1.6*(2.0*hr(ii,60u)-1.0));return S;}","S=S*exp(1.6*vec3f(c.rs3.x*(2.0*hr(ii,61u)-1.0),c.lt.x*(2.0*hr(ii,60u)-1.0),c.rs3.z*(2.0*hr(ii,62u)-1.0)));return S;}");
+  patch("rad*(Math.exp(1.6*rndH)-1)*0.8","rad*(Math.exp(1.6*Math.max(rndH,K('pG3RndSX',0)/100,K('pG3RndSZ',0)/100))-1)*0.8");
+  // Links: width, glow and how much they pulse with the clones they join (the original's hidden width and glow).
+  patch("['pG3LinkDist','Link distance',20,400,150,5,'%','Longest link, in clone spacings.'],",
+    "['pG3LinkDist','Link distance',20,400,150,5,'%','Longest link, in clone spacings.'],"+
+    "['pG3LinkW','Link width',0.2,8,1.2,0.1,'px','Thickness of the link lines.'],"+
+    "['pG3LinkA','Link glow',0,200,80,5,'%','Brightness of the link lines.'],"+
+    "['pG3LinkPulse','Link pulse',0,100,100,5,'%','How much links flash with the sound of the clones they join. 0 keeps them steady.'],");
+  patch("['Links',['pG3Links','pG3LinkDist']]","['Links',['pG3Links','pG3LinkDist','pG3LinkW','pG3LinkA','pG3LinkPulse']]");
+  patch("'g3-l-a':['pG3Links','pG3LinkDist']","'g3-l-a':['pG3Links','pG3LinkDist','pG3LinkW','pG3LinkA','pG3LinkPulse']");
+  patch("let pulse=0.55+0.9*clamp(0.5*(A.pos.w+B.pos.w),0.0,1.4);","let pulse=mix(1.0,0.55+0.9*clamp(0.5*(A.pos.w+B.pos.w),0.0,1.4),c.fl.y);");
   patch("'g3-fx':['pG3Ao','pG3AoRad','pG3Mb']","'g3-sh':['pG3Shadow','pG3LitSize','pG3Bounce'],'g3-fl':['pG3Floor','pG3FloorY','pG3FloorTint'],'g3-fx':['pG3Ao','pG3AoRad','pG3Mb']");
 }
 const VIEW3D=['terrain','sphere','tetrahedron','dna','object','fractal'];
@@ -361,7 +380,8 @@ export class EmitterEngine {
     if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
     w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;
     if(!sameParams(p,this.applied)){this.realSet(p);this.applied=p;}
-    if(this.viewMode==='sim'){const so=w.simOpt;so.vYaw=v.yaw||0;so.vPit=v.pit||0;so.vPx=v.px||0;so.vPy=v.py||0;so.vZm=v.zm||1;}
+    // A node's own 3D tilt / rotate turn the sim camera (3D Object drawn Normal, Cloner, splats) on top of the viewport orbit.
+    if(this.viewMode==='sim'){const so=w.simOpt;so.vYaw=(v.yaw||0)-(p._dragRotY||0)/dg;so.vPit=(v.pit||0)+(p._dragRotX||0)/dg;so.vPx=v.px||0;so.vPy=v.py||0;so.vZm=v.zm||1;}
     if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
     if(mode==='video'||(mode==='pixelwarp'&&(this.mediaKind==='video'||w.vidCamStream)))w.sampleVideoFrame?.();

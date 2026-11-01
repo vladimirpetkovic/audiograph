@@ -272,7 +272,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,11);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    assert.equal(migrated.version,12);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
     // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
     const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
     assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.warp]),[['camera','wave'],['image','wave']]);
@@ -301,7 +301,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       edges:[{from:'b',out:'shape',to:'f',input:'shape'},{from:'f',out:'shape',to:'out',input:'image'}]}]}));
     assert.deepEqual([v7.layers[0].nodes.map(n=>n.props.mode||n.type),v7.layers[0].edges.map(e=>[e.from,e.to])],[['simparticles','simfluid','output'],[['b','out']]],'v8 retires Boids / Ferrofluid / Flocking');
     // Templates and Autopilot build the nodes too.
-    const tm=await page.evaluate(()=>{pro.loadTemplate('Kaleido spectrum');const a=pro.getProject().layers[0].nodes.map(n=>n.type);pro.autopilot.create('kaleidoscope spiral, fast spin');const b=pro.getProject().layers.flatMap(g=>g.nodes.map(n=>n.type));return [a.includes('symmetry'),b.includes('symmetry'),b.includes('spin')];});
+    const tm=await page.evaluate(()=>{pro.loadTemplate('Glass');const a=pro.getProject().layers[0].nodes.map(n=>n.type);pro.autopilot.create('kaleidoscope spiral, fast spin');const b=pro.getProject().layers.flatMap(g=>g.nodes.map(n=>n.type));return [a.includes('symmetry'),b.includes('symmetry'),b.includes('spin')];});
     assert.deepEqual(tm,[true,true,true],'Templates and Autopilot add Symmetry / Spin nodes');
     // Auto knobs: only number knobs (and renderer options), saved with the node.
     const auto=await page.evaluate(()=>{const g={format:'audiograph-pro',version:4,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'w',type:'waveform2d',x:0,y:0,props:{mode:'circle'},auto:['thick','opt:pSimDrag','mode','nope']}],edges:[]}]};return pro.validate(g).layers[0].nodes[0].auto;});
@@ -355,8 +355,29 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     for(const t of await page.evaluate(()=>pro.templates)){
       await page.locator('#templates').selectOption(t);await lit(.05,25000).catch(async()=>assert.fail(`${t}: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));
     }
-    await page.locator('#templates').selectOption('Two layers');await lit(.05,25000);
-    for(const t of ['Data tunnel','Living archive']){await page.locator('#templates').selectOption(t);await lit(.05,25000);assert.ok((await layer0()).nodes.some(n=>n.type==='liveData'),t+' uses live data');}
+    {const t=await page.evaluate(()=>[pro.templates.includes('Cloned'),[...document.querySelectorAll('#templates optgroup')].map(g=>g.label)]);
+     assert.ok(t[0],'The Cloned scene is a template');assert.deepEqual(t[1],['Scenes','Audiograph presets','3D cloner'],'No Pro starters group');}
+    await page.locator('#templates').selectOption('Cloned');await lit(.05,25000);assert.ok((await layer0()).nodes.some(n=>n.type==='cloner'&&n.props.layout==='network'),'Cloned scene loads');
+    {const r=await page.evaluate(async()=>{const L=pro.getProject().layers[0],lk=L.nodes.find(n=>n.type==='links'),cl=L.nodes.find(n=>n.type==='cloner');
+       pro.select(lk.id);const knobs=[...document.querySelectorAll('#properties [data-property]')].map(k=>k.dataset.property);
+       const P=pro.getProject();P.layers[0].nodes.find(n=>n.id===lk.id).props.width=4.5;pro.importProject(P,'links');await new Promise(r=>setTimeout(r,1200));
+       return {knobs,w:+pro.engine(cl.id).w.document.getElementById('pG3LinkW')?.value};});
+     assert.ok(['width','glow','pulse'].every(k=>r.knobs.includes(k)),'Links has width, glow and sound pulse: '+r.knobs);assert.equal(r.w,4.5,'Link width reaches the cloner');}
+    // Random effector: scale, rotation and position on each axis; an old single Tilt turns every axis.
+    {const r=await page.evaluate(async()=>{
+      const P=pro.validate({format:'audiograph-pro',version:11,layers:[{id:'R',name:'R',visible:true,opacity:1,blend:'source-over',nodes:[
+        {id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'cube',render:'normal'}},{id:'c',type:'cloner',x:200,y:0,props:{}},
+        {id:'r',type:'randomEffector',x:400,y:0,props:{tilt:90,scaleX:0}},{id:'v',type:'value',x:400,y:200,props:{}},{id:'out',type:'output',x:600,y:0,props:{}}],
+        edges:[{from:'a',out:'audio',to:'c',input:'audio'},{from:'o',out:'object',to:'c',input:'object'},{from:'c',out:'shape',to:'r',input:'shape'},{from:'r',out:'shape',to:'out',input:'image'},{from:'v',out:'value',to:'r',input:'tilt'}]}]});
+      const rn=P.layers[0].nodes.find(n=>n.id==='r');pro.importProject(P,'random');pro.select('r');
+      const groups=[...document.querySelectorAll('#properties [data-group]')].map(g=>g.dataset.group);
+      const Q=pro.getProject();Object.assign(Q.layers[0].nodes.find(n=>n.id==='r').props,{scaleX:60,scaleZ:30});pro.importProject(Q,'random2');await new Promise(r=>setTimeout(r,1500));
+      const d=pro.engine('c').w.document;
+      return {rot:[rn.props.rotX,rn.props.rotY,rn.props.rotZ,'tilt' in rn.props],wire:P.layers[0].edges.find(e=>e.from==='v').input,groups,sx:+d.getElementById('pG3RndSX')?.value,sz:+d.getElementById('pG3RndSZ')?.value,ry:+d.getElementById('pG3RndRY')?.value,err:pro.stats().errors};});
+    assert.deepEqual(r.rot,[90,90,90,false],'Old Tilt becomes rotation on every axis');assert.equal(r.wire,'rotY','Wired tilt follows to Y');
+    assert.ok(['Scale','Rotation','Position'].every(g=>r.groups.includes(g)),'Scale / Rotation / Position groups: '+r.groups);
+    assert.deepEqual([r.sx,r.sz],[60,30],'Per-axis scale reaches the cloner');assert.ok(r.ry>0&&!r.err.length,'Rotation Y is driven: '+JSON.stringify(r));}
+    await page.evaluate(()=>pro.loadTemplate('Glass'));await lit(.05,25000);
     // Knobs turn like the original: dragging clockwise around the centre raises the value; the centre dot toggles Auto.
     await page.evaluate(()=>{const l=pro.getProject().layers.find(l=>l.nodes.some(n=>n.type==='waveform2d'));pro.selectLayer(l.id);const id=pro.addNode('waveform2d',undefined,undefined,{mode:'growth'});pro.select(id);});
     await page.waitForFunction(()=>[...document.querySelectorAll('#properties [data-property^="chip:"] .on')].some(b=>b.textContent==='Coral'),null,{timeout:8000});
@@ -372,7 +393,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       await dial.locator('.knob-auto').click();
       assert.ok((await project()).layers.some(l=>l.nodes.some(n=>n.auto?.includes('thick'))),'Auto dot switches the knob to Auto');
     }else assert.fail('No Thickness knob in the inspector');
-    await page.locator('#addLayer').click();assert.equal((await project()).layers.length,3,'Two-layer template + one more');
+    await page.locator('#addLayer').click();await page.locator('#addLayer').click();assert.equal((await project()).layers.length,3,'One template layer + two more');
     await page.locator('[data-property="layerBlend"] [data-value="difference"]').click().catch(()=>{});
     await page.locator('.layer-tab.active .layer-x').click();assert.equal((await project()).layers.length,2);
 
@@ -438,7 +459,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
         return {groups:[...document.querySelectorAll('#properties [data-group]')].map(g=>g.dataset.group),props:keys};};
       return {cl:await groups('cloner',{}),old:await groups('cloner',{intensity:150}),wf:await groups('waveform2d',{}),w3:await groups('waveform3d',{tilt:30}),rot:await new Promise(r=>setTimeout(()=>r(pro.engine('n').applied?._dragRotX),800))};});
     assert.equal(r.cl.groups.filter(g=>g==='Sound').length,1,'Cloner has one Sound section');
-    assert.ok(!r.cl.groups.some(g=>['Sound response','Cloner','3D nodes'].includes(g)),'No duplicate or node-named sections: '+r.cl.groups);
+    assert.ok(!r.cl.groups.some(g=>['Sound response','Cloner','3D nodes','Look','Objects'].includes(g)),'No duplicate or node-named sections: '+r.cl.groups);
     assert.ok(r.cl.props.includes('opt:pSimSens')&&!r.cl.props.includes('intensity')&&!r.cl.props.includes('tilt'),'Sim sound knobs only; no dead 3D tilt');
     assert.ok(r.old.props.includes('intensity'),'A changed generic sound knob stays visible');
     assert.ok(r.wf.props.includes('sensitivity')&&!r.wf.props.includes('intensity')&&!r.wf.props.includes('tilt'),'Waveform: Sensitivity is the gain; no 3D tilt on 2D');
@@ -454,7 +475,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.deepEqual(r.edges,['w.shape>m.in','m.out>o.image'],'Amplify ports are renamed');}
 
     // Deleting a node dissolves instead of cutting to black.
-    {await page.evaluate(()=>{pro.dissolve(true);pro.loadTemplate('Kaleido spectrum');});await page.waitForTimeout(1500);
+    {await page.evaluate(()=>{pro.dissolve(true);pro.loadTemplate('Glass');});await page.waitForTimeout(1500);
      const lit0=await page.evaluate(()=>pro.pixels());
      const after=await page.evaluate(async()=>{const p=pro.getProject(),g=p.layers[0],w=g.nodes.find(n=>n.type==='waveform2d');g.nodes=g.nodes.filter(n=>n!==w);g.edges=g.edges.filter(e=>e.from!==w.id&&e.to!==w.id);pro.importProject(p);
        await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const a=pro.pixels();await new Promise(r=>setTimeout(r,1500));return [a,pro.pixels()];});
@@ -475,7 +496,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(()=>pro.undo());assert.deepEqual((await page.evaluate(()=>pro.mapping())).surfaces[0].pts[0],m.surfaces[0].pts[0],'Point moves undo');
     await page.selectOption('[data-property=surfGrid]','2x2');assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].pts.length,9,'Curved warp adds points');
     await page.locator('[data-property=mapTest] [data-value=false]').click();
-    const kept=await page.evaluate(()=>{pro.loadTemplate('Fluid bloom');return pro.getProject().mapping.surfaces.length;});assert.equal(kept,3,'Templates keep the venue mapping');
+    const kept=await page.evaluate(()=>{pro.loadTemplate('Ink');return pro.getProject().mapping.surfaces.length;});assert.equal(kept,3,'Templates keep the venue mapping');
     for(const bad of [{on:true,surfaces:[{id:'a',cols:2,rows:1,pts:[[0,0]]}]},{on:true,surfaces:Array.from({length:9},(_,i)=>({id:'s'+i,cols:1,rows:1,pts:[[0,0],[1,0],[0,1],[1,1]]}))}])
       assert.ok(await page.evaluate(b=>{try{const P=pro.getProject();P.mapping=b;pro.validate(P);return false;}catch{return true;}},bad),'Invalid mapping is rejected');
     await page.locator('[data-property=mapOn] [data-value=false]').click();
@@ -487,6 +508,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.fill('[data-property=apPrompt]','blue fluid with gold spirals');
     assert.match(await page.locator('[data-property=apRead]').textContent(),/fluid/,'The panel shows what it understood');
     await page.press('[data-property=apPrompt]','Enter');await lit(.5,25000);
+    // The four renderers start in their own frames; wait until the base look is up.
+    await page.waitForFunction(()=>pro.autopilot.status().slots.some(s=>s.role===0&&s.opacity>.9),null,{timeout:40000});
     const apIds=()=>page.evaluate(()=>({layers:pro.getProject().layers.map(g=>g.id),engines:Object.keys(pro.stats().engines)}));
     assert.deepEqual((await apIds()).layers,['ap-L0','ap-L1','ap-L2','ap-L3'],'Everything runs in four Autopilot layers');
     const settle=()=>page.waitForFunction(()=>!pro.autopilot.status().fading,null,{timeout:20000});
@@ -496,12 +519,12 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       await page.evaluate(k=>pro.autopilot.change(k,1),k);let min=1e9;
       for(let t=0;t<12;t++){min=Math.min(min,await page.evaluate(()=>pro.pixels()));if(!(await page.evaluate(()=>pro.autopilot.status().fading)))break;await page.waitForTimeout(250);}
       await settle();const st=await page.evaluate(()=>pro.autopilot.status());
-      assert.ok(st.slots.some(s=>s.role===0&&s.opacity>.9),`${k}: a lit base layer`);assert.ok(min>.3,`${k}: no blank frame (${min})`);
+      assert.ok(st.slots.some(s=>s.role===0&&s.opacity>.9),`${k}: a lit base layer ${JSON.stringify(st.slots)} ${JSON.stringify(await page.evaluate(()=>pro.stats().engines))}`);assert.ok(min>.3,`${k}: no blank frame (${min})`);
       assert.ok((await apIds()).engines.every(id=>/^ap-r[0-3]$/.test(id)),`${k}: changes reuse the four engines`);
       assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],`${k}: renders without errors`);
     }
     // Colours and Mood restyle your own project in place.
-    await page.evaluate(()=>{pro.loadTemplate('Kaleido spectrum');pro.autopilot.settings({changes:'colors'});});await lit(.02,25000);
+    await page.evaluate(()=>{pro.loadTemplate('Cloned');pro.autopilot.settings({changes:'colors'});});await lit(.02,25000);
     const pal=()=>page.evaluate(()=>pro.getProject().layers.flatMap(g=>g.nodes.filter(n=>n.type==='palette').map(n=>n.props.stops.map(s=>s.c).join())).join());
     const p0=await pal(),ids0=JSON.stringify(await apIds());await page.evaluate(()=>pro.autopilot.change('phrase',.3));await page.waitForTimeout(1000);
     assert.notEqual(await pal(),p0,'Colours glide to a new palette');assert.equal((await page.evaluate(()=>pro.autopilot.status())).tweens,0,'Tweens finish');
@@ -569,12 +592,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(()=>{window.showSaveFilePicker=undefined;});
     const [sceneDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#save').click()]);
     await sceneDownload.path();const saved=await project();
-    await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));await page.locator('#restore').click();
+    await page.evaluate(()=>pro.loadTemplate('Ink'));await page.locator('#restore').click();
     assert.deepEqual((await project()).layers.map(l=>l.name),saved.layers.map(l=>l.name));
     // .ag scenes: ⌘O opens one (also by dropping it), the file holds the project.
-    await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));
+    await page.evaluate(()=>pro.loadTemplate('Ink'));
     await page.locator('#graphViewport').focus();
-    const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.keyboard.press('Meta+o')]);
+    // Headless Chrome sometimes drops a picker under load: press again before giving up.
+    let chooser;for(let i=0;i<3&&!chooser;i++)[chooser]=await Promise.all([page.waitForEvent('filechooser',{timeout:8000}).catch(()=>null),page.keyboard.press('Meta+o')]);
+    assert.ok(chooser,'⌘O opens the file picker');
     await chooser.setFiles({name:'scene.ag',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(saved))});await page.waitForTimeout(300);
     assert.deepEqual((await project()).layers.map(l=>l.name),saved.layers.map(l=>l.name),'Opens an .ag scene');
     assert.ok(await page.evaluate(()=>getComputedStyle(document.body).zoom)==='1.2'||(await page.viewportSize()).width<1440,'UI is 20% bigger on wide screens');
@@ -608,6 +633,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v9=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:9,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'p',type:'primitive',x:0,y:0,props:{shape:'cone',size:40}},{id:'o',type:'object',x:0,y:0,props:{render:'cloud'}},{id:'w',type:'waveform3d',x:0,y:0,props:{mode:'dna'}},{id:'q',type:'palette',x:0,y:0,props:{c1:'#000000',c2:'#ff0000',c3:'#00ff00',c4:'#0000ff',colors:'3'}}],edges:[]}]}));
     assert.deepEqual(v9.layers[0].nodes.map(n=>[n.type,n.props.mode,n.props.render]),[['waveform3d','cone','normal'],['waveform3d','model','points'],['waveform3d','dna','waveform'],['palette','toneramp',undefined]],'v9 objects become 3D Objects');
     assert.deepEqual(v9.layers[0].nodes[3].props.stops.map(s=>s.c),['#000000','#ff0000','#00ff00','#0000ff'],'Old palette colours become ramp stops');
+    // Any visual feeds WebGPU particles' emit; a 3D Object emits from its live pose.
+    const emitFrom=async tilt=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'cone',render:'normal',tilt}},{id:'e',type:'gpuParticles',x:200,y:0,props:{mode:'simparticles'}}],
+      [{from:'a',out:'audio',to:'e',input:'audio'},{from:'o',out:'object',to:'e',input:'emit'},{from:'e',out:'shape',to:'out',input:'image'}]));
+      await page.waitForFunction(()=>pro.emitPoints('e')?.length>1000,null,{timeout:15000});await page.waitForTimeout(1500);const pts=await page.evaluate(()=>pro.emitPoints('e'));
+      let y=0;for(let i=1;i<pts.length;i+=5)y+=pts[i];return y/(pts.length/5);};
+    const up=await emitFrom(0),side=await emitFrom(90);
+    assert.ok(Math.abs(up-side)>.02,`A 3D Object wired into emit spawns from its current pose (${up.toFixed(3)} vs ${side.toFixed(3)})`);
     assert.deepEqual(errors,[],'No page errors in 3D');
     // Live data: every source gives the same normalized numbers and a palette that can drive a Palette's colors.
     await page.evaluate(p=>pro.importProject(p),L([{id:'d',type:'liveData',x:0,y:200,props:{source:'quakes'}},{id:'o',type:'waveform3d',x:200,y:0,props:{mode:'sphere',render:'waveform'}},{id:'p',type:'palette',x:400,y:0,props:{}}],
@@ -626,7 +658,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const desc=page.locator('#properties .insp-desc');assert.ok(!(await desc.isVisible()),'Tips hidden by default');
     await page.click('#properties .tips-btn');assert.ok(await desc.isVisible(),'? shows tips');await page.click('#properties .tips-btn');
     // Multi-select: a box on empty graph space selects nodes; copy/paste, delete and Save as custom node work on the group.
-    await page.setViewportSize({width:1540,height:1020});await page.evaluate(()=>{pro.loadTemplate('Fluid bloom');});await page.click('#fit');await page.waitForTimeout(400);
+    await page.setViewportSize({width:1540,height:1020});await page.evaluate(()=>{pro.loadTemplate('Ink');});await page.click('#fit');await page.waitForTimeout(400);
     const vpb=await page.locator('#graphViewport').boundingBox(),last=await page.locator('#nodes .node').nth(2).boundingBox(),count=async()=>page.evaluate(()=>pro.getProject().layers[0].nodes.length),c0=await count();
     void last;await page.mouse.move(vpb.x+vpb.width-30,vpb.y+vpb.height-12);await page.mouse.down();await page.mouse.move(vpb.x+12,vpb.y+40,{steps:8});await page.mouse.up();
     assert.equal((await page.evaluate(()=>pro.selection())).length,c0,'Selection box picks nodes');
@@ -648,7 +680,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     }
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     // Template Morph reuses the original interpolation and keeps a stable renderer while blending.
-    await page.evaluate(()=>{pro.autopilot.stop();pro.loadTemplate('Kaleido spectrum');pro.pause(true);pro.morph.settings({list:['Firepit','Glass'],duration:10,random:false,beat:false,ping:false});pro.workspace('auto');});
+    await page.evaluate(()=>{pro.autopilot.stop();pro.loadTemplate('Glass');pro.pause(true);pro.morph.settings({list:['Firepit','Glass'],duration:10,random:false,beat:false,ping:false});pro.workspace('auto');});
     const beforeMorph=await project();
     await page.evaluate(()=>pro.morph.scrub(0));
     const morphID=await page.evaluate(()=>pro.morph.status().node);
@@ -765,7 +797,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(capCheck.curved,'flat','Changing to a curved grid leaves cap mapping');
     assert.equal(capCheck.cap,'cap','Cap mode survives project validation');
     // Resolution changes the render itself, not just CSS, without replacing the graph or its engines.
-    await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));
+    await page.evaluate(()=>pro.loadTemplate('Ink'));
     const fluidID=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='gpuParticles').id);
     await page.waitForFunction(id=>pro.engine(id)?.w?.agSim.stats().live>0,fluidID,{timeout:30000});
     const simCreated=await page.evaluate(id=>pro.engine(id).w.agSim.stats().created,fluidID);
@@ -832,7 +864,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     }
     {
     // First Mile: builds one real scene step by step, keeps its renderer, highlights each target, and is one undo step.
-    await page.evaluate(()=>{pro.autopilot.stop();pro.morph.stop();pro.workspace('studio');pro.loadTemplate('Glowing DNA');pro.pause(false);});
+    await page.evaluate(()=>{pro.autopilot.stop();pro.morph.stop();pro.workspace('studio');pro.loadTemplate('Firepit');pro.pause(false);});
     const beforeTour=JSON.stringify(await page.evaluate(()=>pro.getProject()));
     const titles=await page.evaluate(()=>pro.tour.steps);
     assert.ok(titles.length>=12,'Tutorial has its steps');

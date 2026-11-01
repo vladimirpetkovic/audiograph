@@ -8,6 +8,7 @@ import {cleanView} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as autopilot from './autopilot.js';
+import {SCENES} from './scenes.js';
 import {Pilot,Generator,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
 import {ORIGINAL_PRESETS,CLONER_PRESETS} from './templates.js';
 import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
@@ -33,7 +34,7 @@ function cloneObjects(objs,p,shape){
   for(const o of objs){if(o.prim&&o.shape!=='knot')names.push(o.shape);else{names.push('mesh'+meshes.length);meshes.push(o.prim?'knot':o.mesh);}}
   const first=objs.find(o=>o.prim)||PRIM_DEFAULT,mods=shape.mods;
   Object.assign(mods,{pG3Size:first.size,pG3Detail:first.detail,pG3ObjX:first.stretchX,pG3ObjY:first.stretchY,pG3ObjZ:first.stretchZ});
-  for(const [k,s] of Object.entries(TYPES.cloner.props))if(s.key)mods[s.key]=p[k];
+  for(const [k,s] of Object.entries(TYPES.cloner.props))if(s.key?.startsWith('pG3'))mods[s.key]=p[k];
   mods._sim={...mods._sim,g3Mode:p.layout,g3Shape:names.join(',')};
   shape.job.meshes=meshes;
 }
@@ -431,8 +432,9 @@ function execute(g,time,dt){
       if(n.type==='waveform3d'){const e=engines.get(n.id);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
       if(n.type==='gpuParticles'&&byInput.has(n.id+':emit')){
-        // A picture wired into "emit": particles spawn from its bright parts (the original's image emitter).
-        const key={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'}[p.mode],img=key&&asImage(input(n,'emit'),n.id+'e');
+        // Anything visual wired into "emit" spawns particles from its bright parts (the original's image emitter).
+        // A 3D object emits from its own node's live render, so it follows the object as it turns or animates.
+        const key={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'}[p.mode],src=byInput.get(n.id+':emit'),v=input(n,'emit'),img=key&&asImage(v&&!v.emitter&&!(v instanceof HTMLCanvasElement)?outputs.get(src.from)?.shape:v,n.id+'e');
         const a=img&&emitterAsset(nstate(n.id+':emit',()=>({name:'Picture'})),img,time);
         if(a){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a;}
       }
@@ -1185,7 +1187,8 @@ function renderEmitter(root,n){
   }
   if(T.props.render)s.append(ui.chips({options:T.props.render.labels.filter(l=>!(n.type==='waveform3d'&&l[0]==='points'&&n.props.mode!=='model')),value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)}));
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
-  if(n.type==='cloner')renderProps(root,n,CLONER_KEYS);
+  // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
+  if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k)));
   if(n.type==='gpuParticles'&&graph().edges.some(e=>e.to===n.id&&e.input==='emit'))renderProps(root,n,['emitColors']);
   if(n.type==='waveform3d'&&n.props.render==='normal'&&n.props.mode!=='model')renderProps(root,n,Object.keys(PRIM_DEFAULT).filter(k=>k!=='shape'&&k!=='prim'));
   const kind=mediaKind(n);
@@ -1237,7 +1240,7 @@ function renderEmitter(root,n){
     const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||n.type==='cloner'&&FORCE_KNOBS.simcloner||{};
     controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
     // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
-    if(n.type==='cloner')controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3'):!/\('g3|simApplyPreset/.test(c.onclick));
+    if(n.type==='cloner')controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3')&&(optGroup(c.label)!=='Look'||n.props.opts?.[c.id]!==undefined&&n.props.opts[c.id]!==c.def):!/\('g3|simApplyPreset/.test(c.onclick));
     // Leftover knobs share one "Form" section; sound, look and quality always keep their own.
     const ranges=controls.filter(c=>c.type==='range'),few=ranges.length<=9,main='Form',KEEP=['Sound','Look','Quality'];
     const lineChip=c=>/line|stroke|style/i.test(c.label),first=controls.find(c=>c.type!=='range'&&!c.action&&!lineChip(c));
@@ -1324,35 +1327,11 @@ function chain(name,specs,extra){
   }
   extra?.(g);return g;
 }
-const drive=(g,ctrlType,ctrlProps,targetType,input,y=300)=>{const t=g.nodes.find(n=>n.type===targetType),c=node(ctrlType,t.x,y,ctrlProps);g.nodes.push(c);g.edges.push({from:c.id,out:'value',to:t.id,input});};
-const liveTo=(g,source,links,y=320)=>{const d=node('liveData',40,y,{source});g.nodes.push(d);for(const [out,type,input] of links){const t=g.nodes.find(n=>n.type===type);if(t)g.edges.push({from:d.id,out,to:t.id,input});}};
-const E=(mode,extra={})=>[Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode)),{mode,...extra}];
 // Renderers without a Palette node downstream draw in grayscale.
 const GRAY={_colorMode:'toneramp',_toneStops:['#00000000','#555555','#aaaaaa','#ffffff'],_simpleStops:['#555555','#aaaaaa','#ffffff']};
-const PAL=(c1,c2,c3,c4)=>['palette',{c1,c2,c3,c4}];
-// Wire one of the layer's Audio node numbers into a knob.
-const audioTo=(g,out,targetType,input,via)=>{const a=g.nodes.find(n=>n.type==='audioIn'),t=g.nodes.find(n=>n.type===targetType);
-  if(via){const s=node(via[0],a.x+210,300,via[1]);g.nodes.push(s);g.edges.push({from:a.id,out,to:s.id,input:'value'},{from:s.id,out:'value',to:t.id,input});}
-  else g.edges.push({from:a.id,out,to:t.id,input});};
-const TEMPLATES={
-  'Fluid bloom':()=>[chain('Fluid',[['audioIn',{}],E('simfluid'),PAL('#03071e','#370617','#e85d04','#ffba08'),['bloom',{}],['output',{}]])],
-  'Kaleido spectrum':()=>[chain('Kaleido',[['audioIn',{}],E('circle'),['symmetry',{mode:'r6'}],['twist',{amount:35}],['palette',{c1:'#10002b',c2:'#ff00e5',c3:'#00f0ff',c4:'#b6ff00'}],['bloom',{bloom:45}],['output',{}]],g=>drive(g,'oscillator',{rate:.1,depth:1,offset:0},'twist','amount'))],
-  'Particle storm':()=>[chain('Storm',[['audioIn',{}],E('linear'),['particles',{density:30,trail:20}],['flowField',{curl:60,perlin:20}],PAL('#000814','#003566','#00b4d8','#caf0f8'),['trails',{trails:70}],['output',{}]])],
-  'Shattered rings':()=>[chain('Shatter',[['audioIn',{}],E('concentric'),['palette',{c1:'#200000',c2:'#c1121f',c3:'#ff6d00',c4:'#ffd60a'}],['fracture',{}],['output',{}]])],
-  'Bass bulge sphere':()=>[chain('Sphere',[['audioIn',{}],E('sphere'),['bulge',{amount:0}],['palette',{c1:'#0b132b',c2:'#5bc0be',c3:'#a9def9',c4:'#ffffff'}],['hue',{hue:0,cycle:20}],['output',{}]],g=>{g.nodes.find(n=>n.type==='audioIn').props.gain=2;audioTo(g,'bass','bulge','amount',['smooth',{attack:10,release:250}]);})],
-  'Beat kaleidoscope':()=>[chain('Beat',[['audioIn',{}],E('phyllotaxis',{thick:3,height:140}),['ripple',{amount:0}],['palette',{c1:'#03001c',c2:'#7b2cbf',c3:'#ff4d6d',c4:'#ffd166'}],['kaleido',{kaleido:70}],['bloom',{bloom:50}],['output',{}]],g=>{g.nodes.find(n=>n.type==='audioIn').props.decay=400;audioTo(g,'beat','ripple','amount');})],
-  'Glowing DNA':()=>[chain('DNA',[['audioIn',{}],E('dna'),['palette',{c1:'#001219',c2:'#0a9396',c3:'#94d2bd',c4:'#e9d8a6'}],['bloom',{bloom:55}],['output',{}]])],
-  'Drifting terrain':()=>[chain('Terrain',[['audioIn',{}],E('terrain'),['wave',{amount:20}],['palette',{c1:'#0d1b2a',c2:'#1b998b',c3:'#c5d86d',c4:'#f4f1de'}],['output',{}]],g=>drive(g,'oscillator',{rate:.05,depth:.4,offset:0},'waveform3d','tilt'))],
-  'Glitch sand':()=>[chain('Sand',[['audioIn',{}],E('simsand'),PAL('#1a1a1a','#ff006e','#fb5607','#ffbe0b'),['lens',{chroma:70,scanlines:40,vignette:30}],['fracture',{}],['output',{}]])],
-  'Webcam mirror':()=>[chain('Mirror',[['audioIn',{}],E('circle'),['symmetry',{mode:'x'}],['mirror',{reflect:true}],['webcam',{displace:60}],PAL('#000000','#14213d','#fca311','#e5e5e5'),['bloom',{bloom:45}],['output',{}]])],
-  'Data tunnel':()=>[chain('Tunnel',[['audioIn',{}],E('concentric'),['particles',{density:35,speed:5,spread:85,trail:30,size:6}],['flowField',{vortex:45,curl:30,perlin:20}],PAL('#020212','#1b1464','#00b4d8','#e0fbfc'),['blur',{x:0,radial:40}],['trails',{trails:85,feedback:70}],['bloom',{bloom:50}],['output',{}]],
-    g=>liveTo(g,'space',[['palette','palette','colors'],['level','flowField','vortex'],['pulse','bloom','bloom']]))],
-  'Living archive':()=>[chain('Archive',[['audioIn',{}],E('simfluid'),['vorticity',{}],['swirl',{}],PAL('#0b0614','#3a0ca3','#f72585','#ffd6ff'),['trails',{trails:65}],['bloom',{bloom:18}],['output',{}]],
-      g=>liveTo(g,'wiki',[['palette','palette','colors'],['level','vorticity','fluid'],['phase','swirl','fluidSwirl']])),
-    chain('Strokes',[['audioIn',{}],E('phyllotaxis'),['particles',{density:18,speed:1,life:260,trail:45,size:4}],['flowField',{perlin:60,curl:40,speed:8}],PAL('#000000','#4361ee','#4cc9f0','#ffffff'),['output',{}]],
-      g=>liveTo(g,'wiki',[['palette','palette','colors'],['pulse','particles','energy']]))],
-  'Two layers':()=>[chain('Smoke',[['audioIn',{}],E('simsmoke'),PAL('#0b090a','#660708','#e5383b','#f5f3f4'),['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['audioIn',{}],E('spiral'),['symmetry',{mode:'x'}],PAL('#03045e','#0077b6','#90e0ef','#ffffff'),['hue',{cycle:30}],['output',{}]])]
-};
+const TEMPLATES={};
+for(const [name,layers] of SCENES)TEMPLATES[name]=()=>clone(layers);
+const SCENE_NAMES=SCENES.map(([name])=>name);
 // The original Audiograph's built-in presets: one renderer per original layer (carrying that layer's look),
 // stacked by Merge nodes over the preset background, then the preset's Post FX as a chain of FX nodes.
 const SOLID_MODELS=['knot','cube','torus'];
@@ -1399,11 +1378,13 @@ const ORIGINAL_NAMES=ORIGINAL_PRESETS.map(P=>P.name);
 // The original 3D cloner presets as node networks: primitives → Cloner → effectors → material, light, camera → palette → bloom.
 const CLONER_CHAIN=['soundEffector','fieldEffector','randomEffector','links','material','light','camera3d'];
 // Knobs a chain node leaves at the original's resting value when the preset does not set them.
-const CLONER_REST={fieldEffector:{strength:0},randomEffector:{size:0,color:0,tilt:0},links:{links:0},camera3d:{dof:0,orbitSound:50}};
+const CLONER_REST={fieldEffector:{strength:0},randomEffector:{size:0,color:0,rotX:0,rotY:0,rotZ:0},links:{links:0},camera3d:{dof:0,orbitSound:50}};
 const CLONER_PALETTES=['Lagoon','Synthwave','Sunset','Aurora','Fire','Tropic','Dusk'];
 function clonerGraph(P,i){
   const g={id:crypto.randomUUID(),name:P.name,visible:true,opacity:1,blend:'source-over',nodes:[],edges:[]};
-  const k=P.knobs,o=P.opts,used=new Set();let x=260;
+  const k={...P.knobs},o=P.opts,used=new Set();let x=260;
+  // The original's one random tilt turns clones on every axis.
+  if(k.pG3RndRot!==undefined)for(const a of ['pG3RndRX','pG3RndRY','pG3RndRZ'])k[a]??=k.pG3RndRot;
   const add=(type,xx,y,props={})=>{const n=node(type,xx,y,props);g.nodes.push(n);return n;},wire=(a,out,b,input)=>g.edges.push({from:a.id,out,to:b.id,input});
   const take=type=>{const props={};let any=false;
     for(const [pk,s] of Object.entries(TYPES[type].props)){
@@ -1548,7 +1529,7 @@ addEventListener('pagehide',()=>{if(outWin&&!outWin.closed)outWin.close();});
 $('snap').onclick=()=>preview.toBlob(blob=>{if(!blob)return message('Snapshot failed',true);const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);message('Snapshot saved');},'image/png');
 $('fullscreen').onclick=toggleFullscreen;
 $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
-for(const [label,names] of [['Audiograph presets',ORIGINAL_NAMES],['3D cloner',CLONER_NAMES],['Pro starters',Object.keys(TEMPLATES).filter(n=>!ORIGINAL_NAMES.includes(n)&&!CLONER_NAMES.includes(n))]]){
+for(const [label,names] of [['Scenes',SCENE_NAMES],['Audiograph presets',ORIGINAL_NAMES],['3D cloner',CLONER_NAMES]]){
   const grp=el('optgroup');grp.label=label;for(const name of names){const o=el('option','',name);o.value=name;grp.append(o);}$('templates').append(grp);}
 $('templates').onchange=()=>{const v=$('templates').value;$('templates').value='';if(v)attempt(()=>loadTemplate(v));};
 $('restore').onclick=()=>attempt(()=>{const raw=localStorage.getItem('audiograph-pro-v2')||localStorage.getItem('audiograph-pro-v1');if(!raw)throw Error('Nothing saved in this browser yet');importProject(JSON.parse(raw),'Restored saved project');});
@@ -1577,7 +1558,7 @@ $('helpBody').innerHTML=`
 <nav class="help-toc" aria-label="Guide contents"><a href="#h-start">Quick start</a><a href="#h-screen">The screen</a><a href="#h-graph">Nodes &amp; wires</a><a href="#h-library">The library</a><a href="#h-audio">Audio</a><a href="#h-drive">Driving knobs</a><a href="#h-layers">Layers</a><a href="#h-mapping">Mapping</a><a href="#h-auto">Autopilot</a><a href="#h-files">Saving &amp; output</a><a href="#h-keys">Keys</a></nav>
 <h3 id="h-start">Quick start</h3>
 <p>New here? Press <b>Tutorial</b> (top right) for the First Mile: it builds a scene with you node by node, then shows Mapping, Autopilot, recording and saving.</p>
-<ol><li>Pick a look from <b>Templates</b> (top right): the original Audiograph presets, the 3D cloner set, or a Pro starter.</li>
+<ol><li>Pick a look from <b>Templates</b> (top right): a saved scene, the original Audiograph presets or the 3D cloner set.</li>
 <li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. A demo beat plays until you do.</li>
 <li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
 <li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li></ol>
@@ -2232,7 +2213,7 @@ window.pro={
     change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),start:()=>apStart(),stop:()=>apStop(),
     settings:o=>{const {live,...rest}=o||{};Object.assign(ap,rest);if(live===true&&!ap.live)apStart();else if(live===false)apStop();apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,live:ap.live,hold:ap.hold,write:ap.write};},
     status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
-  draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
+  draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),emitPoints:id=>nodeState.get(id+':emit')?.asset?.points,view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 attempt(()=>{const h=localStorage.getItem('agpro.resolution');if(h!==null)changeResolution(+h);});
 sensors.autoMidi();reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});

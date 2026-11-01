@@ -22,7 +22,7 @@ export const CATEGORIES = [
   {id:'audio',label:'Audio analysis',color:'#f471a8',hint:'Turn sound into numbers or reshape it'},
   {id:'composite',label:'Composite',color:'#f4717f',hint:'Mix and output'}
 ];
-export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',object3d:'#fde047',colors:'#c084fc',any:'#e5e7eb'};
+export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',source:'#fb7185',object3d:'#fde047',colors:'#c084fc',any:'#e5e7eb'};
 
 const n=(label,value,min,max,step=1,extra={})=>({kind:'number',label,value,min,max,step,...extra});
 const pick=(label,value,choices,extra={})=>({kind:'select',label,value,choices,...extra});
@@ -179,7 +179,7 @@ export const TYPES = {
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal) or as audio-reactive lines (Waveform). Its “object” output feeds a Cloner.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
     render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS},{object:'object3d'},'Objects'),
-  gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'image'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Wire an image (a Camera, Video, Image or any picture) into “emit” to spawn from its bright parts.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
+  gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Wire anything visual into “emit” (Camera, Video, Image, a waveform or emitter, a 3D Object, even a turning one) and particles spawn from its bright parts; the sound still sets how many.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU particles')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
@@ -197,11 +197,14 @@ export const TYPES = {
   fieldEffector:C3D('Effectors','Field effector','A moving pattern lifts and scales the clones.',{
     field:C3P('Field','wave',[['noise','Noise'],['wave','Wave'],['ripple','Ripple']],'g3Field'),
     strength:C3('Strength',100,0,200,'pG3FieldAmt',5),size:C3('Size',100,20,400,'pG3FieldSize',5),speed:C3('Speed',50,0,300,'pG3FieldSpd',5)}),
-  randomEffector:C3D('Effectors','Random effector','Random size, height, colour, tilt and position per clone.',{
-    seed:C3('Seed',1,0,999,'pG3Seed'),size:C3('Size',40,0,100,'pG3RndScale',5),height:C3('Height',0,0,100,'pG3RndH',5),color:C3('Colour',30,0,100,'pG3RndCol',5),tilt:C3('Tilt',45,0,180,'pG3RndRot',5),
+  randomEffector:C3D('Effectors','Random effector','Random scale, rotation and position per clone, on each axis, plus colour.',{
+    seed:C3('Seed',1,0,999,'pG3Seed'),color:C3('Colour',30,0,100,'pG3RndCol',5),
+    size:G('Scale',C3('Uniform',40,0,100,'pG3RndScale',5)),scaleX:G('Scale',C3('X',0,0,100,'pG3RndSX',5)),height:G('Scale',C3('Y',0,0,100,'pG3RndH',5)),scaleZ:G('Scale',C3('Z',0,0,100,'pG3RndSZ',5)),
+    rotX:G('Rotation',C3('X',45,0,180,'pG3RndRX',5)),rotY:G('Rotation',C3('Y',45,0,180,'pG3RndRY',5)),rotZ:G('Rotation',C3('Z',45,0,180,'pG3RndRZ',5)),
     posX:G('Position',C3('X',0,0,300,'pG3RndPosX',5)),posY:G('Position',C3('Y',0,0,300,'pG3RndPosY',5)),posZ:G('Position',C3('Z',0,0,300,'pG3RndPosZ',5))}),
-  links:C3D('Effectors','Links','Connect each clone to its nearest neighbours with glowing lines.',{
-    links:C3('Links per clone',3,0,8,'pG3Links'),distance:C3('Distance',150,20,400,'pG3LinkDist',5)}),
+  links:C3D('Effectors','Links','Connect each clone to its nearest neighbours with glowing lines: how many, how far, how thick, how bright and how much they pulse. Their colour is Material › Edges.',{
+    links:C3('Links per clone',3,0,8,'pG3Links'),distance:C3('Distance',150,20,400,'pG3LinkDist',5),
+    width:C3('Width',1.2,.2,8,'pG3LinkW',.1),glow:C3('Glow',80,0,200,'pG3LinkA',5),pulse:C3('Sound pulse',100,0,100,'pG3LinkPulse',5)}),
   material:C3D('Look','Material','Surface of the clones: shading, gloss, metal, glow and colour.',{
     display:C3P('Display','solid',[['solid','Shaded'],['wire','Wireframe'],['edges','Shaded + edges']],'g3Style'),
     shading:C3P('Normals','smooth',[['smooth','Smooth'],['flat','Faceted']],'g3Shade'),
@@ -375,7 +378,7 @@ export const mediaKind=n=>n.type==='waveform3d'?(n.props.mode==='model'?'object'
 export function nodeTitle(n){return TYPES[n.type].props.mode?.kind==='select'&&isEngine(n.type)?emitterNames[n.props.mode]:TYPES[n.type].label;}
 // A 'visual' input (Palette, Hue shift) takes a shape or an image.
 // 'any' (Amplify) passes through whatever is wired into it.
-export const compatible=(out,input)=>out===input||out==='any'||input==='any'||(out==='shape'&&input==='image')||(input==='visual'&&(out==='shape'||out==='image'));
+export const compatible=(out,input)=>out===input||out==='any'||input==='any'||(out==='shape'&&input==='image')||(input==='visual'&&(out==='shape'||out==='image'))||(input==='source'&&['shape','image','object3d'].includes(out));
 export const clone = value => JSON.parse(JSON.stringify(value));
 const uid=()=>crypto.randomUUID();
 export function defaults(type){return Object.fromEntries(Object.entries(TYPES[type].props).map(([k,v])=>[k,clone(v.value)]));}
@@ -393,7 +396,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=11;
+export const VERSION=12;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -518,7 +521,18 @@ function migrate(raw){
   if(raw.version<9)for(const g of out.layers||[])splitCloner(g);
   if(raw.version<10)for(const g of out.layers||[])unifyObjects(g);
   if(raw.version<11)for(const g of out.layers||[])mediaInputs(g);
+  if(raw.version<12)for(const g of out.layers||[])randomAxes(g);
   out.version=VERSION;return out;
+}
+// Version 12: the Random effector's single Tilt became rotation on each axis (wires and Auto go to Y).
+function randomAxes(g){
+  if(!Array.isArray(g?.nodes)||!Array.isArray(g.edges))return;
+  for(const nd of g.nodes){
+    if(nd?.type!=='randomEffector'||!nd.props)continue;
+    if('tilt' in nd.props){const t=nd.props.tilt;delete nd.props.tilt;if(typeof t==='number')for(const k of ['rotX','rotY','rotZ'])nd.props[k]=t;}
+    for(const e of g.edges)if(e&&e.to===nd.id&&e.input==='tilt')e.input='rotY';
+    if(Array.isArray(nd.auto))nd.auto=nd.auto.map(a=>a==='tilt'?'rotY':a);
+  }
 }
 // Version 11: Image, Video and Camera stopped being renderers. They output an image (plus palette and numbers);
 // their old "shape" wires become image wires where the target takes one, other wires into them are dropped.
@@ -595,6 +609,8 @@ function splitCloner(g){
 // Simulation knobs that belong to a Forces / Noise node, by simulation: {mode: {knob key: [node type, prop]}}.
 export const FORCE_KNOBS={};
 for(const [t,T] of Object.entries(TYPES))for(const [k,s] of Object.entries(T.props))for(const m of s.sims||[])(FORCE_KNOBS[m]||={})[s.key]=[t,k];
+// Old cloner projects kept one random tilt; it becomes Tilt on the Random effector, then rotation on every axis (version 12).
+FORCE_KNOBS.simcloner.pG3RndRot=['randomEffector','tilt'];
 // Version 7: Spin / Speed and Symmetry / Mirror left the renderers for their own nodes, inserted right after the renderer.
 const MOTION_PROPS={symmetry:['symmetry','mode'],symGap:['symmetry','gap'],flipH:['mirror','flipH'],flipV:['mirror','flipV'],mirror:['mirror','reflect'],spin:['spin','spin'],speed:['spin','speed']};
 function extractMotion(g){
