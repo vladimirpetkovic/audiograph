@@ -142,7 +142,9 @@ process the finished image.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
 - **Templates** include **Data tunnel** (a flight through flowing particles, coloured and pushed by space weather) and **Living archive** (a slow fluid painting with drifting strokes, fed by Wikipedia edits).
-- **Templates, Save/Restore** (in this browser), **Export/Import** JSON, and
+- **Open/Save .ag scene files** (⌘O, ⌘S, ⇧⌘S Save As; drop an .ag on the window
+  to open it). Save also keeps a copy in this browser for **Restore**. On screens
+  1440px and wider the whole UI is drawn 20% larger. **Templates**, and
   The transport has icon buttons: **Play/Pause**, **Stop**, **Rec** (records the
   preview with audio to WebM and shows elapsed time), and **Snap** (saves a PNG).
   **Detach**, in the middle of the transport, opens the live picture in its own

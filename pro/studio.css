@@ -5,7 +5,9 @@
   --t-number:#6ee7b7;--t-shape:#f59e0b;--t-image:#8aa2ff;--t-audio:#a3e635;--t-visual:#f472b6;--t-any:#e5e7eb;--t-colors:#c084fc;color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{height:100dvh;overflow:hidden;display:grid;grid-template-rows:46px minmax(0,1fr) 26px;background:var(--bg);color:var(--tx);font:12px/1.4 var(--mono);-webkit-font-smoothing:antialiased}
+/* The whole UI is drawn 20% bigger on screens wide enough for it (studio.js divides pointer math by this zoom). */
+:root{--uiz:1}@media (min-width:1440px){:root{--uiz:1.2}}
+body{zoom:var(--uiz);height:calc(100dvh / var(--uiz));overflow:hidden;display:grid;grid-template-rows:46px minmax(0,1fr) 26px;background:var(--bg);color:var(--tx);font:12px/1.4 var(--mono);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:1px solid var(--accent2);outline-offset:1px}

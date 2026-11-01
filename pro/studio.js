@@ -41,6 +41,8 @@ function simKeys(g,n){
   const own=keys.filter(k=>!t.props[k].sims||t.props[k].sims.includes(mode));return own.length?own:keys;
 }
 let state=project(),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
+// The UI is drawn with CSS zoom: pointer and rect values are screen pixels, CSS lengths are divided by it.
+const uiZ=()=>parseFloat(getComputedStyle(document.body).zoom)||1;
 const DATA_INPUTS=new Set(['computer','clock','pointer','midi','liveData']),lastOuts=new Map();
 const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new Map(),view={x:20,y:20,zoom:.9},nodeState=new Map(),fxSlots=new Map(),thumbs=new Map();
 let plans=new Map(),frame=0,lastTime=0,elapsed=0,renderErrors=[],nodeErrors=new Set(),statusSource='action',liveBefore=null;
@@ -682,7 +684,7 @@ function renderGraph(){
 const portEl=(id,port,dir)=>$('nodes').querySelector(`.port[data-node="${id}"][data-port="${port}"][data-direction="${dir}"]`);
 function portXY(p,dir){
   const r=p.getBoundingClientRect(),b=$('graphViewport').getBoundingClientRect();
-  return [((dir==='out'?r.right:r.left)-b.left-view.x)/view.zoom,(r.top+r.height/2-b.top-view.y)/view.zoom];
+  const z=uiZ();return [(((dir==='out'?r.right:r.left)-b.left)/z-view.x)/view.zoom,((r.top+r.height/2-b.top)/z-view.y)/view.zoom];
 }
 const curve=(x1,y1,x2,y2)=>{const bend=Math.max(40,Math.abs(x2-x1)*.45);return `M ${x1} ${y1} C ${x1+bend} ${y1},${x2-bend} ${y2},${x2} ${y2}`;};
 function renderWires(){
@@ -704,7 +706,7 @@ function startWire(event,n,key,type){
   const move=e=>{
     if(!moved&&Math.hypot(e.clientX-start.x,e.clientY-start.y)<5)return;
     if(!moved){moved=true;svg.append(ghost);}
-    const b=vb(),x2=(e.clientX-b.left-view.x)/view.zoom,y2=(e.clientY-b.top-view.y)/view.zoom;ghost.setAttribute('d',curve(x1,y1,x2,y2));
+    const b=vb(),z=uiZ(),x2=((e.clientX-b.left)/z-view.x)/view.zoom,y2=((e.clientY-b.top)/z-view.y)/view.zoom;ghost.setAttribute('d',curve(x1,y1,x2,y2));
     const hit=document.elementFromPoint(e.clientX,e.clientY)?.closest('.port.in,.node');
     if(target!==hit){target?.classList.remove('drop-target');target=hit&&hit.classList.contains('port')&&compatible(type,hit.dataset.ptype)?hit:hit?.classList.contains('node')?hit:null;if(target?.classList.contains('port'))target.classList.add('drop-target');}
   };
@@ -757,7 +759,7 @@ function openSearch(){
   closeSearch();closeMenu();
   const vp=$('graphViewport'),r=vp.getBoundingClientRect();
   const cx=pointer.inGraph?pointer.x:r.left+r.width/2,cy=pointer.inGraph?pointer.y:r.top+r.height/3;
-  const gx=(cx-r.left-view.x)/view.zoom,gy=(cy-r.top-view.y)/view.zoom;
+  const z=uiZ(),gx=((cx-r.left)/z-view.x)/view.zoom,gy=((cy-r.top)/z-view.y)/view.zoom;
   const w=document.elementsFromPoint(cx,cy).find(x=>x.classList?.contains('wire')),wire=w?{...w.dataset}:null;
   const box=el('div','node-search'),input=el('input'),list=el('div','node-search-list'),items=searchItems();
   input.type='search';input.placeholder=wire?'Insert into wire…':'Search nodes…';input.setAttribute('aria-label','Search nodes');list.setAttribute('role','listbox');
@@ -781,9 +783,9 @@ function openSearch(){
   };
   input.onblur=()=>setTimeout(()=>{if(!box.contains(document.activeElement))closeSearch();},0);
   box.append(input,list);document.body.append(box);render();
-  const b=box.getBoundingClientRect();box.style.left=Math.max(8,Math.min(cx,innerWidth-b.width-8))+'px';
+  const b=box.getBoundingClientRect(),W=innerWidth/z,H=innerHeight/z,bw=b.width/z,bh=b.height/z,mx=cx/z,my=cy/z;box.style.left=Math.max(8,Math.min(mx,W-bw-8))+'px';
   // Near the bottom edge the box grows upward from the cursor, so filtering keeps it next to the cursor.
-  if(cy+b.height+8>innerHeight&&cy>innerHeight/2){box.style.bottom=Math.max(8,innerHeight-cy)+'px';box.style.flexDirection=list.style.flexDirection='column-reverse';}else box.style.top=Math.max(8,cy)+'px';
+  if(my+bh+8>H&&my>H/2){box.style.bottom=Math.max(8,H-my)+'px';box.style.flexDirection=list.style.flexDirection='column-reverse';}else box.style.top=Math.max(8,my)+'px';
   input.focus();
 }
 function closeMenu(){document.querySelector('.port-menu')?.remove();}
@@ -800,7 +802,7 @@ function portMenu(target,from,x,y){
   menu.append(el('div','port-menu-title',`Connect to ${t.label}`));
   for(const [k] of options){const b=el('button','',portLabel(target,k));b.type='button';b.dataset.port=k;b.onclick=()=>{closeMenu();connection(from.id,from.port,target.id,k);};menu.append(b);}
   document.body.append(menu);
-  const r=menu.getBoundingClientRect();menu.style.left=Math.min(x,innerWidth-r.width-8)+'px';menu.style.top=Math.min(y,innerHeight-r.height-8)+'px';
+  const z=uiZ(),r=menu.getBoundingClientRect();menu.style.left=Math.min(x/z,(innerWidth-r.width)/z-8)+'px';menu.style.top=Math.min(y/z,(innerHeight-r.height)/z-8)+'px';
   menu.querySelector('button')?.focus();
 }
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('.port-menu'))closeMenu();},true);
@@ -822,7 +824,7 @@ function startMove(event,n,box){
   if(event.altKey)detach();
   const move=e=>{
     if(!moved&&Math.hypot(e.clientX-start.x,e.clientY-start.y)<4)return;moved=true;clearTimeout(hold);
-    live.x=Math.round(Math.max(-10000,Math.min(10000,start.nx+(e.clientX-start.x)/view.zoom)));live.y=Math.round(Math.max(-10000,Math.min(10000,start.ny+(e.clientY-start.y)/view.zoom)));box.style.left=live.x+'px';box.style.top=live.y+'px';renderWires();
+    const z=uiZ()*view.zoom;live.x=Math.round(Math.max(-10000,Math.min(10000,start.nx+(e.clientX-start.x)/z)));live.y=Math.round(Math.max(-10000,Math.min(10000,start.ny+(e.clientY-start.y)/z)));box.style.left=live.x+'px';box.style.top=live.y+'px';renderWires();
     // An unconnected node dropped on a wire wedges itself in between.
     target=null;mark(loose()&&isChain(n.type)?wireAt(e.clientX,e.clientY,n.id)||null:null);
   };
@@ -950,7 +952,7 @@ function paletteRamp(s,n){
     pick.onchange=()=>{liveCommit('Palette: colour');renderProperties();};
     m.onpointerdown=e=>{
       if(e.button!==0)return;e.preventDefault();const y0=e.clientY,x0=e.clientX;let off=false,moved=false;m.setPointerCapture(e.pointerId);
-      m.onpointermove=ev=>{moved||=Math.hypot(ev.clientX-x0,ev.clientY-y0)>4;off=stops.length>2&&Math.abs(ev.clientY-y0)>28;m.classList.toggle('removing',off);m.style.transform=moved?`translate(-50%,${ev.clientY-y0}px)`:'';};
+      m.onpointermove=ev=>{moved||=Math.hypot(ev.clientX-x0,ev.clientY-y0)>4;off=stops.length>2&&Math.abs(ev.clientY-y0)>28;m.classList.toggle('removing',off);m.style.transform=moved?`translate(-50%,${(ev.clientY-y0)/uiZ()}px)`:'';};
       m.onpointerup=()=>{m.onpointermove=m.onpointerup=null;m.style.transform='';
         if(off)setStops(st=>{st.splice(i,1);return st;},'Palette: remove colour');else if(!moved)pick.click();};
     };
@@ -1306,10 +1308,26 @@ $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
 for(const [label,names] of [['Audiograph presets',ORIGINAL_NAMES],['3D cloner',CLONER_NAMES],['Pro starters',Object.keys(TEMPLATES).filter(n=>!ORIGINAL_NAMES.includes(n)&&!CLONER_NAMES.includes(n))]]){
   const grp=el('optgroup');grp.label=label;for(const name of names){const o=el('option','',name);o.value=name;grp.append(o);}$('templates').append(grp);}
 $('templates').onchange=()=>{const v=$('templates').value;$('templates').value='';if(v)attempt(()=>loadTemplate(v));};
-$('save').onclick=()=>attempt(()=>{localStorage.setItem('audiograph-pro-v2',JSON.stringify(validate(state)));message('Saved in this browser (media files are not stored)');});
 $('restore').onclick=()=>attempt(()=>{const raw=localStorage.getItem('audiograph-pro-v2')||localStorage.getItem('audiograph-pro-v1');if(!raw)throw Error('Nothing saved in this browser yet');importProject(JSON.parse(raw),'Restored saved project');});
-$('export').onclick=()=>attempt(()=>{const blob=new Blob([JSON.stringify(validate(state),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download='audiograph-pro.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message('Exported project JSON');});
-$('import').onchange=async()=>{try{const file=$('import').files[0];if(!file)return;if(file.size>1024*1024)throw Error('Project JSON limit is 1 MB');importProject(JSON.parse(await file.text()));}catch(error){message('Import: '+error.message,true);}finally{$('import').value='';}};
+// Scenes save as .ag files (the project JSON). Where the browser allows it, ⌘S keeps writing to the same file.
+let agHandle=null;
+async function saveScene(as=false){
+  try{const text=JSON.stringify(validate(state),null,2),name=(state.layers[0]?.name||'scene').replace(/[^\w -]+/g,'').trim()||'scene';
+    try{localStorage.setItem('audiograph-pro-v2',text);}catch{}message('Saved in this browser');
+    if(window.showSaveFilePicker){
+      if(as||!agHandle)agHandle=await showSaveFilePicker({suggestedName:name+'.ag',types:[{description:'Audiograph scene',accept:{'application/json':['.ag']}}]});
+      const w=await agHandle.createWritable();await w.write(text);await w.close();message(`Saved ${agHandle.name}`);return;}
+    const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=el('a');a.href=url;a.download=name+'.ag';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message(`Saved ${name}.ag`);
+  }catch(error){if(error.name!=='AbortError')message('Save: '+error.message,true);}
+}
+async function openScene(file){
+  try{if(!file)return;if(file.size>1024*1024)throw Error('Scene file limit is 1 MB');importProject(JSON.parse(await file.text()),`Opened ${file.name}`);agHandle=null;}
+  catch(error){message('Open: '+(error instanceof SyntaxError?'not an Audiograph scene':error.message),true);}
+}
+$('save').onclick=e=>saveScene(e.shiftKey);
+$('import').onchange=async()=>{await openScene($('import').files[0]);$('import').value='';};
+addEventListener('dragover',e=>{if([...e.dataTransfer.items].some(i=>i.kind==='file'))e.preventDefault();});
+addEventListener('drop',e=>{const f=[...e.dataTransfer.files].find(f=>/\.(ag|json)$/i.test(f.name));if(f){e.preventDefault();openScene(f);}});
 $('helpBody').innerHTML=`
 <p class="help-credit">Made by Vladimir Petković<br><a href="https://www.vladimirpetkovic.com" target="_blank" rel="noopener">www.vladimirpetkovic.com</a></p>
 <p>Audiograph Pro turns sound into moving images you build from nodes. Each node does one thing: bring something in, draw it, bend it, colour it, polish it. Wire them into a chain, end the chain in <b>Output</b>, and everything reacts to the music as it plays.</p>
@@ -1351,7 +1369,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-auto">Autopilot</h3>
 <p>Describe a look in words, for example “slow dreamy blue and gold smoke with soft glow”, and Autopilot builds the graph as you type. Turn Autopilot on and it keeps following the music, changing colours, mood or everything at the pace you set, always with a fade. Turn <b>Write</b> on and it writes its own descriptions too. Next jumps to a new look now; Hold keeps the current one.</p>
 <h3 id="h-files">Saving &amp; output</h3>
-<ul><li><b>Save</b> / <b>Restore</b> keep the project in this browser. <b>Export</b> / <b>Import</b> use a project file. Media files are not stored: reload them in their input nodes.</li>
+<ul><li><b>Save</b> (⌘S) writes an <b>.ag</b> scene file and keeps a copy in this browser; ⇧⌘S saves as a new file. <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Restore</b> brings back the browser copy. Media files are not stored: reload them in their input nodes.</li>
 <li>Record (●) captures the preview with its audio to video; the camera button saves a PNG.</li>
 <li>Older projects open automatically and are updated to the current nodes.</li></ul>
 <h3 id="h-keys">Keys</h3>
@@ -1362,7 +1380,7 @@ const viewport=$('graphViewport');
 viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
 viewport.addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;pointer.inGraph=true;});
 viewport.addEventListener('pointerleave',()=>{pointer.inGraph=false;});
-viewport.ondrop=e=>{e.preventDefault();let d;try{d=JSON.parse(e.dataTransfer.getData('application/audiograph-node'));}catch{return;}if(!Object.hasOwn(TYPES,d?.type))return;const r=viewport.getBoundingClientRect(),gx=(e.clientX-r.left-view.x)/view.zoom,gy=(e.clientY-r.top-view.y)/view.zoom;
+viewport.ondrop=e=>{e.preventDefault();let d;try{d=JSON.parse(e.dataTransfer.getData('application/audiograph-node'));}catch{return;}if(!Object.hasOwn(TYPES,d?.type))return;const r=viewport.getBoundingClientRect(),z=uiZ(),gx=((e.clientX-r.left)/z-view.x)/view.zoom,gy=((e.clientY-r.top)/z-view.y)/view.zoom;
   const w=wireAt(e.clientX,e.clientY);if(w){placeNode({type:d.type,label:TYPES[d.type].label,props:d.props||{}},gx,gy,{...w.dataset});return;}
   addNode(d.type,gx-84,gy-20,d.props||{});};
 viewport.onpointerdown=event=>{
@@ -1370,7 +1388,7 @@ viewport.onpointerdown=event=>{
   viewport.focus();if(pending){pending=null;renderGraph();}
   if(selected){selected=null;renderProperties();document.querySelectorAll('#nodes .node.selected').forEach(x=>x.classList.remove('selected'));}
   const start={x:event.clientX,y:event.clientY,vx:view.x,vy:view.y};viewport.setPointerCapture(event.pointerId);viewport.classList.add('panning');
-  const move=e=>{view.x=start.vx+e.clientX-start.x;view.y=start.vy+e.clientY-start.y;applyView();};
+  const z=uiZ(),move=e=>{view.x=start.vx+(e.clientX-start.x)/z;view.y=start.vy+(e.clientY-start.y)/z;applyView();};
   const end=()=>{viewport.classList.remove('panning');viewport.removeEventListener('pointermove',move);viewport.removeEventListener('pointerup',end);viewport.removeEventListener('pointercancel',end);};
   viewport.addEventListener('pointermove',move);viewport.addEventListener('pointerup',end);viewport.addEventListener('pointercancel',end);
 };
@@ -1378,9 +1396,10 @@ function zoom(factor,cx=viewport.clientWidth/2,cy=viewport.clientHeight/2){const
 // Trackpads (pixel deltas, no 120-step notches) pan with two fingers in any direction; pinch or ⌘-scroll zooms.
 // A notched mouse wheel zooms, Shift + wheel pans sideways.
 const isTrackpad=e=>e.deltaMode===0&&(e.deltaX!==0||!(e.wheelDeltaY&&e.wheelDeltaY%120===0));
-viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();if(e.ctrlKey||e.metaKey||!isTrackpad(e)&&!e.shiftKey)zoom(e.ctrlKey?Math.exp(-e.deltaY*.01):e.deltaY<0?1.08:1/1.08,e.clientX-r.left,e.clientY-r.top);else{view.x-=e.deltaX;view.y-=e.deltaY;applyView();}},{passive:false});
+viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();if(e.ctrlKey||e.metaKey||!isTrackpad(e)&&!e.shiftKey)zoom(e.ctrlKey?Math.exp(-e.deltaY*.01):e.deltaY<0?1.08:1/1.08,(e.clientX-r.left)/uiZ(),(e.clientY-r.top)/uiZ());else{view.x-=e.deltaX/uiZ();view.y-=e.deltaY/uiZ();applyView();}},{passive:false});
 $('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit').onclick=fit;
 document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&!e.altKey&&/^[so]$/i.test(e.key)){e.preventDefault();if(e.key.toLowerCase()==='s')saveScene(e.shiftKey);else $('import').click();return;}
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
   const k=e.key.toLowerCase();
   if(mapKey(e))return;
@@ -1440,7 +1459,7 @@ for(const g of document.querySelectorAll('.gutter')){
         const y=ev.clientY-st.top,pct=y/st.height*100;
         if(pct<8){layout.hidden.preview=true;}else{layout.hidden.preview=false;layout.preview=pct;}
       }else{
-        const w=k==='library'?ev.clientX-sr.left:sr.right-ev.clientX;
+        const w=(k==='library'?ev.clientX-sr.left:sr.right-ev.clientX)/uiZ();
         if(w<PANES[k].min*.5)layout.hidden[k]=true;else{layout.hidden[k]=false;layout[k]=w;}
       }
       applyLayout(false);
@@ -1524,7 +1543,7 @@ function renderMapPanel(){
 }
 function overlayBox(){
   const r=preview.getBoundingClientRect(),w=$('previewWrap').getBoundingClientRect();
-  overlay.style.left=(r.left-w.left)+'px';overlay.style.top=(r.top-w.top)+'px';overlay.style.width=r.width+'px';overlay.style.height=r.height+'px';
+  const z=uiZ();overlay.style.left=(r.left-w.left)/z+'px';overlay.style.top=(r.top-w.top)/z+'px';overlay.style.width=r.width/z+'px';overlay.style.height=r.height/z+'px';
   overlay.setAttribute('viewBox',`0 0 ${WIDTH} ${HEIGHT}`);overlay.setAttribute('preserveAspectRatio','none');return r;
 }
 function svg(tag,attrs){const n=document.createElementNS(SVGNS,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);return n;}

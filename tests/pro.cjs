@@ -441,6 +441,12 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.locator('#save').click();const saved=await project();
     await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));await page.locator('#restore').click();
     assert.deepEqual((await project()).layers.map(l=>l.name),saved.layers.map(l=>l.name));
+    // .ag scenes: ⌘O opens one (also by dropping it), the file holds the project.
+    await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));
+    const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.keyboard.press('Meta+o')]);
+    await chooser.setFiles({name:'scene.ag',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(saved))});await page.waitForTimeout(300);
+    assert.deepEqual((await project()).layers.map(l=>l.name),saved.layers.map(l=>l.name),'Opens an .ag scene');
+    assert.ok(await page.evaluate(()=>getComputedStyle(document.body).zoom)==='1.2'||(await page.viewportSize()).width<1440,'UI is 20% bigger on wide screens');
 
     assert.deepEqual(errors,[],'No page errors');
     await page.screenshot({path:path.join(root,'..','pro-prototype.png')});
