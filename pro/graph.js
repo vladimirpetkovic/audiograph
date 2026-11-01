@@ -220,7 +220,7 @@ export const TYPES = {
     shadow:G('Shadows',C3('Cast shadows',60,0,100,'pG3Shadow',5)),size:G('Shadows',C3('Light size',35,0,100,'pG3LitSize',5)),
     ao:G('Shadows',C3('Occlusion',50,0,100,'pG3Ao',5)),aoRadius:G('Shadows',C3('Radius',60,10,300,'pG3AoRad',5)),bounce:G('Shadows',C3('Bounce light',40,0,100,'pG3Bounce',5)),
     floor:G('Floor',C3('Floor',0,0,100,'pG3Floor',5)),floorHeight:G('Floor',C3('Height',0,-100,100,'pG3FloorY',5)),floorTint:G('Floor',C3('Tint',30,0,100,'pG3FloorTint',5))}),
-  camera3d:C3D('Look','3D camera','Orbit (on its own or with the music), tilt and zoom, depth of field and motion blur. Drag in the preview to look around.',{
+  camera3d:C3D('Look','3D camera','Orbit (on its own or with the music), tilt and zoom, depth of field (every 3D Object render, Waveform included) and motion blur. Drag in the preview to look around.',{
     orbit:C3('Orbit',0,-100,100,'pG3Orbit'),orbitSound:C3('Orbit with sound',0,0,100,'pG3OrbitSnd',5),tilt:C3('Tilt',18,-80,80,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
     dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
   // Deformers

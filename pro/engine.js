@@ -127,6 +127,57 @@ fn envC(r:vec3f,rough:f32)->vec3f{`);
   patch("'g3-fx':['pG3Ao','pG3AoRad','pG3Mb']","'g3-sh':['pG3Shadow','pG3LitSize','pG3Bounce'],'g3-fl':['pG3Floor','pG3FloorY','pG3FloorTint'],'g3-fx':['pG3Ao','pG3AoRad','pG3Mb']");
 }
 const VIEW3D=['terrain','sphere','tetrahedron','dna','object','fractal'];
+// Depth of field for the classic 3D drawers (Canvas 2D lines have no depth buffer): the drawer renders offscreen while its
+// projected vertices fill a coarse nearest-depth grid; the frame is then rebuilt from four blur levels, each masked to
+// the grid cells whose distance from the focus plane calls for it. Focus 0 is the near side of the object, 100 the far side.
+const DOF_DRAWERS=['drawTerrain','drawSphere','drawPolyhedron','drawDNA','drawObjModel'];
+function installDof(w){
+  const d=w.document,cv=()=>{const c=d.createElement('canvas');return [c,c.getContext('2d')];};
+  const [off,octx]=cv(),[lay,lctx]=cv(),[acc,actx]=cv(),[mask,mctx]=cv();
+  const GW=64;let gh=36,grid=new Float32Array(GW*gh),zmin=0,zmax=0,sw=1,sh=1;
+  const dz=(x,y,z)=>{const i=Math.floor(x*sw),j=Math.floor(y*sh);if(i<0||j<0||i>=GW||j>=gh||!(z===z))return;const k=j*GW+i;if(z<grid[k])grid[k]=z;if(z<zmin)zmin=z;if(z>zmax)zmax=z;};
+  for(const name of DOF_DRAWERS){
+    const orig=w[name];if(typeof orig!=='function')continue;
+    w[name]=function(ctx,W,H,values,p,forExport,...rest){
+      const cfg=w.__agDofCfg;
+      if(!cfg||forExport||!ctx?.canvas)return orig.call(this,ctx,W,H,values,p,forExport,...rest);
+      const cw=ctx.canvas.width,ch=ctx.canvas.height;
+      for(const c of [off,lay,acc])if(c.width!==cw||c.height!==ch){c.width=cw;c.height=ch;}
+      gh=Math.max(4,Math.round(GW*H/W));if(grid.length!==GW*gh)grid=new Float32Array(GW*gh);
+      grid.fill(Infinity);zmin=Infinity;zmax=-Infinity;sw=GW/W;sh=gh/H;
+      octx.setTransform(1,0,0,1,0,0);octx.clearRect(0,0,cw,ch);octx.setTransform(ctx.getTransform());
+      for(const k of ['globalCompositeOperation','strokeStyle','fillStyle','lineWidth','lineCap','lineJoin','font','textAlign','textBaseline'])octx[k]=ctx[k];
+      octx.globalAlpha=1;
+      w.__agDz=dz;let out;
+      try{out=orig.call(this,octx,W,H,values,p,forExport,...rest);}finally{w.__agDz=null;}
+      composite(ctx,cw,ch,cfg);
+      return out;
+    };
+  }
+  function composite(ctx,cw,ch,cfg){
+    const n=GW*gh,span=zmax-zmin;
+    // Fill empty cells (between vertices) from their nearest neighbours.
+    for(let pass=0;pass<8;pass++){let open=0;const g=grid.slice();
+      for(let j=0;j<gh;j++)for(let i=0;i<GW;i++){const k=j*GW+i;if(g[k]!==Infinity)continue;let m=Infinity;
+        if(i>0)m=Math.min(m,g[k-1]);if(i<GW-1)m=Math.min(m,g[k+1]);if(j>0)m=Math.min(m,g[k-GW]);if(j<gh-1)m=Math.min(m,g[k+GW]);
+        if(m===Infinity)open++;else grid[k]=m;}
+      if(!open)break;}
+    const f=(cfg.focus??50)/100,R=Math.min(cw,ch)*.028*Math.min(1,cfg.amt/100),lv=[0,R/3,R*2/3,R],wts=new Float32Array(n*4);
+    for(let k=0;k<n;k++){const z=grid[k],t=z===Infinity||!(span>1e-6)?f:(z-zmin)/span,r=Math.min(1,Math.abs(t-f)*2)*3,a=Math.min(2,Math.floor(r)),fr=Math.min(1,r-a);wts[k*4+a]=1-fr;wts[k*4+a+1]=fr;}
+    if(mask.width!==GW||mask.height!==gh){mask.width=GW;mask.height=gh;}
+    actx.setTransform(1,0,0,1,0,0);actx.globalCompositeOperation='source-over';actx.clearRect(0,0,cw,ch);actx.globalCompositeOperation='lighter';
+    const img=mctx.createImageData(GW,gh);
+    for(let L=0;L<4;L++){let any=false;
+      for(let k=0;k<n;k++){const v=wts[k*4+L];img.data[k*4+3]=Math.round(v*255);if(v>0)any=true;}
+      if(!any)continue;
+      mctx.putImageData(img,0,0);
+      lctx.setTransform(1,0,0,1,0,0);lctx.globalCompositeOperation='source-over';lctx.clearRect(0,0,cw,ch);
+      lctx.filter=lv[L]>.3?`blur(${lv[L].toFixed(1)}px)`:'none';lctx.drawImage(off,0,0);lctx.filter='none';
+      lctx.globalCompositeOperation='destination-in';lctx.imageSmoothingEnabled=true;lctx.drawImage(mask,0,0,cw,ch);
+      actx.drawImage(lay,0,0);}
+    ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';ctx.drawImage(acc,0,0);ctx.restore();
+  }
+}
 let sourcePromise;
 async function engineSource() {
   if(!sourcePromise)sourcePromise=fetch(new URL('../index.html',location.href)).then(async r=>{
@@ -159,6 +210,14 @@ async function engineSource() {
     // A selected output resolution controls render targets; simulation grid/particle quality stays independent.
     patch("var tr=st.tr,sc=Math.min(1,tr.o/Math.max(W,H));","var tr=st.tr,sc=window.__agProOutputResolution?1:Math.min(1,tr.o/Math.max(W,H));");
     patch3dLighting(patch);
+    // Depth of field for the classic 3D line drawers: every projected vertex reports its screen position and depth.
+    const DZ='window.__agDz&&window.__agDz';
+    patch("rowPts.push({sx:sx,sy:sy,h:hVal/Math.max(1,maxH)});",DZ+"(sx,sy,d);rowPts.push({sx:sx,sy:sy,h:hVal/Math.max(1,maxH)});");
+    patch("rowPts.push({sx:sx,sy:sy,h:grid[la][lo]/Math.max(1,maxBump),vis:visible,depth:rz,",DZ+"(sx,sy,rz);rowPts.push({sx:sx,sy:sy,h:grid[la][lo]/Math.max(1,maxBump),vis:visible,depth:rz,");
+    patch("projected.push({sx:sx,sy:sy,h:pt.h,nz:tnz,depth:tz,",DZ+"(sx,sy,tz);projected.push({sx:sx,sy:sy,h:pt.h,nz:tnz,depth:tz,");
+    patch("projected[vi]={sx:sx,sy:sy,h:Math.max(0,h/Math.max(1,maxBump)),nz:tnz,depth:tz,",DZ+"(sx,sy,tz);projected[vi]={sx:sx,sy:sy,h:Math.max(0,h/Math.max(1,maxBump)),nz:tnz,depth:tz,");
+    patch("strand1.push({sx:sx1,sy:sy1,z:rz1,",DZ+"(sx1,sy1,rz1);"+DZ+"(sx2,sy2,rz2);strand1.push({sx:sx1,sy:sy1,z:rz1,");
+    patch("if(o.d3){var q=distortLinear(sx,sy,W,H,o.d3);sx=q.x;sy=q.y}return[sx,sy,c[2]]}","if(o.d3){var q=distortLinear(sx,sy,W,H,o.d3);sx=q.x;sy=q.y}"+DZ+"(sx,sy,c[2]);return[sx,sy,c[2]]}");
     // Pro's emit assets are whole frames: map the frame onto the frame so particles spawn where the driver is drawn
     // (Emitter size stays a multiplier, its default 65 % meaning 1:1).
     patch("o.emitScale=K('pEmitScale',65)/100;","o.emitScale=K('pEmitScale',65)/100*(asset&&asset.frame?(st.asp||1)/.65:1);");
@@ -270,6 +329,7 @@ export class EmitterEngine {
     Object.assign(this.defaults,{_particlesOn:false,_simId:1});
     this.defaults._sim={...w.AG_SIM_DEF_OPT};
     w.stackMode=true;w.activeLayerIdx=0;w.stackLayouts=[{layout:'linear',opacity:100,params:this.defaults}];
+    installDof(w);
     this.status='ready';return true;
   }
   fail(message) {if(this.disposed)return;this.status='error';this.error=message;this.onError(message);}
@@ -379,6 +439,8 @@ export class EmitterEngine {
       w.__agG3MeshVer=(w.__agG3MeshVer||0)+1;
     }
     this.camera(cam);
+    // The 3D camera node's lens (Depth of field, Focus) reaches the classic 3D line drawers too.
+    w.__agDofCfg=VIEW3D.includes(mode)&&mode!=='fractal'&&job.mods?.pG3Dof>0?{amt:job.mods.pG3Dof,focus:job.mods.pG3Focus??50}:null;
     // Viewport camera: the 3D cloner and splats orbit, pan and zoom natively; classic 3D modes take the orbit.
     const v=job.view||{},dg=Math.PI/180;
     this.viewMode=mode==='simcloner'||mode==='simsplat'?'sim':VIEW3D.includes(mode)?'classic':null;

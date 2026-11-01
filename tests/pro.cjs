@@ -657,6 +657,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      await page.waitForFunction(()=>pro.emitPoints('e')?.length>1000,null,{timeout:15000});await page.waitForTimeout(3000);
      const hole=await page.evaluate(()=>{const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(c.width/2-45,c.height/2-45,90,90).data;let n=0;for(let i=0;i<x.length;i+=4)if(x[i]+x[i+1]+x[i+2]>60)n++;return n;});
      assert.ok(hole<300,'Particles spawn at the waveform\'s drawn size: '+hole+' lit pixels inside a scale-150 ring');}
+    // A 3D camera's depth of field also reaches the Waveform render of a 3D Object (classic Canvas 2D line drawers).
+    {const sharp=async dof=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'sphere',render:'waveform'}},{id:'c',type:'camera3d',x:200,y:0,props:{dof,focus:100}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'c',input:'shape'},{from:'c',out:'shape',to:'out',input:'image'}]));
+       await page.waitForTimeout(900);return page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(0,0,c.width,c.height).data,W=c.width;let g=0,n=0;for(let y=0;y<c.height;y+=2)for(let X=1;X<W;X+=2){const i=(y*W+X)*4;g+=Math.abs(x[i]+x[i+1]+x[i+2]-x[i-4]-x[i-3]-x[i-2]);n++;}return g/n;});};
+     const s0=await sharp(0),s1=await sharp(100);
+     assert.ok(s1<s0*.5,'Depth of field blurs a Waveform-render sphere: sharpness '+s0.toFixed(2)+' → '+s1.toFixed(2));}
     // Animated GLB / glTF models play in the 3D Object (and so in Cloners and emit); skinned rigs follow their joints.
     {await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'model',render:'normal'}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'out',input:'image'}]));
      await page.evaluate(()=>pro.select('o'));await page.waitForTimeout(1200);await page.setInputFiles('#emitterMedia',gltfFile());await page.waitForTimeout(800);

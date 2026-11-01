@@ -28,6 +28,8 @@ each with its own opacity and blend mode (up to four).
     (node, skinned and morph animation) play in place, with **Animation speed** and
     a **Clip** picker; Cloners and particle emission follow the moving mesh. Export
     glTF as a single .glb (or with embedded buffers).
+- **3D camera → Depth of field / Focus** works on every 3D Object render, the
+  Waveform (line) render included. Focus 0 is the near side, 100 the far side.
   - **Text**, **Gaussian Splat** (.ply / .splat, demo cloud by default).
   - **Data** inputs give 0–1 numbers for any knob, with live meters in the inspector:
     - **Computer**: cpu, core (busiest core), gpu, memory, fps, network, battery and
