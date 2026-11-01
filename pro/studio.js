@@ -1,7 +1,7 @@
 import * as sensors from './sensors.js';
 import {liveData,liveStatus} from './livedata.js';
 import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
-import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
+import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
@@ -1394,16 +1394,38 @@ function loadTemplate(name){
 }
 
 // ---------- record / fullscreen ----------
-let recorder=null,chunks=[];
-function toggleRecord(){
+let recorder=null,chunks=[],recordStarting=false;
+function changeResolution(height){
+  if(recorder)throw Error('Stop recording before changing resolution');
+  setRenderResolution(height);
+  const temp=document.createElement('canvas'),ctx=temp.getContext('2d');
+  const canvases=new Set([preview,program,fadeCv,...surfaces.values(),...mapped.values(),...layerImages.values()]);
+  for(const s of nodeState.values())if(s.c instanceof HTMLCanvasElement)canvases.add(s.c);
+  for(const c of canvases){
+    temp.width=c.width;temp.height=c.height;ctx.drawImage(c,0,0);
+    c.width=WIDTH;c.height=HEIGHT;c.getContext('2d').drawImage(temp,0,0,WIDTH,HEIGHT);
+  }
+  temp.width=temp.height=1;
+  for(const e of engines.values())e.resize();
+  $('engines').style.width=WIDTH+'px';$('engines').style.height=HEIGHT+'px';
+  $('resolution').value=String(HEIGHT);overlayBox();renderOverlay();
+  try{localStorage.setItem('agpro.resolution',String(HEIGHT));}catch(error){message('Resolution changed, but could not be saved: '+error.message,true);return;}
+  message(`Output: ${WIDTH} × ${HEIGHT}`);
+}
+$('resolution').onchange=()=>{if(!attempt(()=>changeResolution(+$('resolution').value)))$('resolution').value=String(HEIGHT);};
+async function toggleRecord(){
   if(recorder){recorder.stop();return;}
+  if(recordStarting)return;
+  recordStarting=true;
+  try{if(audio.context?.state==='suspended')await audio.context.resume();}finally{recordStarting=false;}
   const stream=preview.captureStream(30);
-  if(audio.dest)for(const t of audio.dest.stream.getAudioTracks())stream.addTrack(t);
+  // An idle audio destination produces no samples, which can stall Chromium's entire video encoder.
+  if(audio.dest&&(audio.source||audio.live))for(const t of audio.dest.stream.getAudioTracks())stream.addTrack(t);
   const type=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t));
   recorder=new MediaRecorder(stream,{mimeType:type,videoBitsPerSecond:12e6});chunks=[];
   recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-  recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.${type.includes('mp4')?'mp4':'webm'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);recorder=null;clearInterval(recClock);$('record').classList.remove('on');$('record').setAttribute('aria-label','Record');message('Recording saved');};
-  recorder.start(500);$('record').classList.add('on');$('record').setAttribute('aria-label','Stop recording');{const t0=performance.now(),tm=$('record').querySelector('.rec-time'),tick=()=>{const s=Math.floor((performance.now()-t0)/1000);tm.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};tick();clearInterval(recClock);recClock=setInterval(tick,500);}message('Recording… press Rec again to save');
+  recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.${type.includes('mp4')?'mp4':'webm'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);recorder=null;$('resolution').disabled=false;clearInterval(recClock);$('record').classList.remove('on');$('record').setAttribute('aria-label','Record');message('Recording saved');};
+  recorder.start(500);$('resolution').disabled=true;$('record').classList.add('on');$('record').setAttribute('aria-label','Stop recording');{const t0=performance.now(),tm=$('record').querySelector('.rec-time'),tick=()=>{const s=Math.floor((performance.now()-t0)/1000);tm.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};tick();clearInterval(recClock);recClock=setInterval(tick,500);}message('Recording… press Rec again to save');
 }
 function toggleFullscreen(){if(document.fullscreenElement)document.exitFullscreen();else $('previewWrap').requestFullscreen?.().catch(e=>message(e.message,true));}
 
@@ -1423,7 +1445,7 @@ $('play').onclick=()=>{
 syncPlay();
 $('stop').onclick=()=>{stopAudio();stopLive();setPaused(true);updateAudioUI();message('Stopped');};
 let recClock=0;
-$('record').onclick=()=>attempt(toggleRecord);
+$('record').onclick=()=>toggleRecord().catch(e=>message('Recording: '+e.message,true));
 // With a Corner pin selected, its corners can be dragged directly on the preview.
 const PIN_KEYS=[['tlx','tly',0,0],['trx','try',100,0],['brx','bry',100,100],['blx','bly',0,100]];
 function pinNode(){const n=graph().nodes.find(n=>n.id===selected);return n?.type==='cornerPin'?n:null;}
@@ -1699,8 +1721,9 @@ function renderMapPanel(){
   const src=el('select');src.dataset.property='surfSource';src.append(new Option('All layers','all'));state.layers.forEach((g,i)=>src.append(new Option(`Layer ${i+1} · ${g.name}`,String(i+1))));src.value=String(s.source);
   src.onchange=()=>upd(t=>{t.source=src.value==='all'?'all':+src.value;},'Surface source');ss.append(ui.field('Shows',src));
   const grid=el('select');grid.dataset.property='surfGrid';for(const [c,r,l] of [[1,1,'Flat · 4 corners'],[2,1,'Bend sideways · 2×1'],[2,2,'Curved · 3×3 points'],[3,2,'Curved · 4×3 points'],[3,3,'Curved · 4×4 points'],[4,4,'Fine · 5×5 points']])grid.append(new Option(l,c+'x'+r));
-  grid.value=s.cols+'x'+s.rows;if(!grid.value){grid.append(new Option(`${s.cols}×${s.rows}`,s.cols+'x'+s.rows));grid.value=s.cols+'x'+s.rows;}
-  grid.onchange=()=>{const [c,r]=grid.value.split('x').map(Number);mapPt=-1;upd(t=>Object.assign(t,mapping.regrid(t,c,r)),'Surface grid');};ss.append(ui.field('Warp',grid));
+  grid.append(new Option('Cube cap · wrap sides','cap'));
+  grid.value=s.wrap==='cap'?'cap':s.cols+'x'+s.rows;if(!grid.value){grid.append(new Option(`${s.cols}×${s.rows}`,s.cols+'x'+s.rows));grid.value=s.cols+'x'+s.rows;}
+  grid.onchange=()=>{const cap=grid.value==='cap',[c,r]=cap?[1,1]:grid.value.split('x').map(Number);mapPt=-1;upd(t=>{Object.assign(t,mapping.regrid(t,c,r));if(cap)t.wrap='cap';},'Surface grid');};ss.append(ui.field('Warp',grid));
   ss.append(ui.field('Mask',ui.chips({options:[['rect','Rectangle'],['ellipse','Ellipse']],value:s.mask,property:'surfMask',onChange:v=>upd(t=>{t.mask=v;},'Surface mask')})));
   const kn=el('div','knob-grid'),liveSurf=fn=>{live(st=>{const t=st.mapping?.surfaces.find(y=>y.id===s.id);if(t)fn(t);});renderOverlay();};
   kn.append(ui.knob({label:'Opacity',min:0,max:100,step:1,value:Math.round(s.opacity*100),def:100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
@@ -1712,8 +1735,8 @@ function renderMapPanel(){
   cs.append(ck);
   const sa=el('div','map-actions');cs.append(sa);
   const sb=(label,title,fn)=>{const b=el('button','mbtn',label);b.type='button';b.title=title;b.onclick=fn;sa.append(b);};
-  sb('Match crop','Place the surface exactly where its crop sits in the picture (no warp)',()=>upd(t=>{const [l,tp,r,b]=t.crop;t.pts=mapping.gridPoints(t.cols,t.rows,[[l,tp],[r,tp],[r,b],[l,b]]);},'Surface matches crop'));
-  sb('Full frame','Stretch the surface over the whole output',()=>upd(t=>{t.pts=mapping.gridPoints(t.cols,t.rows);},'Surface full frame'));
+  sb('Match crop','Place the surface exactly where its crop sits in the picture (no warp)',()=>upd(t=>{const [l,tp,r,b]=t.crop;t.wrap='flat';t.pts=mapping.gridPoints(t.cols,t.rows,[[l,tp],[r,tp],[r,b],[l,b]]);},'Surface matches crop'));
+  sb('Full frame','Stretch the surface over the whole output',()=>upd(t=>{t.wrap='flat';t.pts=mapping.gridPoints(t.cols,t.rows);},'Surface full frame'));
   sb('Flatten','Remove the curve, keep the four corners',()=>upd(t=>{t.pts=mapping.gridPoints(t.cols,t.rows,mapping.corners(t));},'Surface flattened'));
   sb('Flip ↔','Mirror the surface left to right',()=>upd(t=>{const w=t.cols+1;t.pts=t.pts.map((_,k)=>t.pts[Math.floor(k/w)*w+(t.cols-k%w)]);},'Surface flipped'));
 }
@@ -2057,5 +2080,6 @@ window.pro={
     status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
+attempt(()=>{const h=localStorage.getItem('agpro.resolution');if(h!==null)changeResolution(+h);});
 sensors.autoMidi();reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
 requestAnimationFrame(loop);

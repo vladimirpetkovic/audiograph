@@ -29,6 +29,8 @@ async function engineSource() {
     patch("o.pos=vec4f(cl,0.0,1.0);o.uv=cr;o.col=c*u.pglow","o.pos=vec4f(cl,0.0,1.0);o.uv=uvv;o.col=dim*c*u.pglow");
     patch("@fragment fn pFS(i:VO)->@location(0) vec4f{let d=dot(i.uv,i.uv);","@fragment fn pFS(i:VO)->@location(0) vec4f{let qx=i.uv.x-clamp(i.uv.x,-i.seg,0.0);let d=qx*qx+i.uv.y*i.uv.y;");
     patch("var o=baseUniforms(st,k,st.lastDt||1/60);setU(st,o);upload(st);","var o=baseUniforms(st,k,(st.lastDt||1/60)*(kd==='particles'?(st.subs||1):1));setU(st,o);upload(st);");
+    // A selected output resolution controls render targets; simulation grid/particle quality stays independent.
+    patch("var tr=st.tr,sc=Math.min(1,tr.o/Math.max(W,H));","var tr=st.tr,sc=window.__agProOutputResolution?1:Math.min(1,tr.o/Math.max(W,H));");
     const base=new URL('../',location.href).href;
     const policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:";
     // Smoke takes its palette: the original keeps a quarter of a fixed grey in its albedo, which turns coloured smoke grey.
@@ -37,7 +39,12 @@ async function engineSource() {
   });
   return sourcePromise;
 }
-export const WIDTH=960,HEIGHT=540,BINS=2048;
+export let WIDTH=960,HEIGHT=540;
+export const BINS=2048;
+export function setRenderResolution(height){
+  if(![540,720,1080,1440,2160].includes(height))throw Error('Unsupported output resolution');
+  HEIGHT=height;WIDTH=height*16/9;
+}
 // A small preview of a loaded picture or video frame for the inspector.
 function thumb(src,w,h){try{const k=Math.min(1,160/Math.max(w,h,1)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*k));c.height=Math.max(1,Math.round(h*k));c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.8);}catch{return '';}}
 const SOLIDS=['knot','cube','torus','cylinder','cone','ico','pyramid','frame'];
@@ -119,7 +126,7 @@ export class EmitterEngine {
     if(w.rafId)w.cancelVisualFrame(w.rafId);
     w.requestVisualFrame=()=>0;w.cancelVisualFrame=()=>{};
     w.audioBuffer=null;w.playing=false;w.particlesOn=false;w.agSim.noPrewarm=true;w.dprCap=1;w.canvasBg='rgba(0,0,0,0)';
-    const fc=w.frameCv;fc.style.cssText=`position:fixed;left:0;top:0;width:${WIDTH}px;height:${HEIGHT}px;display:block`;
+    this.resize();
     w.analyser=fakeAnalyser(this.audio);w.liveMode=true;w.livePaused=false;
     try{w.localStorage.removeItem('audiograph_bass');}catch{}
     // The app's stacked render loop reads the panel back (getLayoutParams) and re-applies it (setLayoutParams) twice per
@@ -135,6 +142,11 @@ export class EmitterEngine {
     this.status='ready';return true;
   }
   fail(message) {if(this.disposed)return;this.status='error';this.error=message;this.onError(message);}
+  resize(){
+    this.canvas.width=WIDTH;this.canvas.height=HEIGHT;
+    if(this.iframe){this.iframe.style.width=WIDTH+'px';this.iframe.style.height=HEIGHT+'px';}
+    if(this.w){this.w.__agProOutputResolution=HEIGHT>540;const fc=this.w.frameCv;fc.style.cssText=`position:fixed;left:0;top:0;width:${WIDTH}px;height:${HEIGHT}px;display:block`;this.w.sizeCanvas(fc);}
+  }
   container(mode=this.mode){return this.w?.document.getElementById('layoutOpts_'+mode);}
   // Switch the trusted app to a layout, replay chip choices, snapshot the resulting parameters.
   prepare(job) {

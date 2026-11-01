@@ -194,6 +194,12 @@ process the finished image.
     you switch templates.
 - **Random** (beside Templates) creates a new wired node graph with random
   emitters, colours, motion and effects. It stops Autopilot; Undo restores your scene.
+- **Resolution** (beside fullscreen) sets the actual 16:9 output to 540p, 720p,
+  1080p, 1440p or 4K, including snapshots, recordings and Detach. It is remembered
+  in this browser and locked during recording. Higher resolutions use more GPU.
+- The **Cube** mapping layout uses a folded cap so the image meets both side
+  faces at their shared edges. Choose **Cube cap · wrap sides** under Warp to
+  restore this on a surface, or **Flat · 4 corners** for ordinary corner pinning.
 - **Autopilot** (third switch at the top) is the original Audiograph's Automation:
   - Turn it **On** and it listens for the song's sections (breakdown, groove,
     build-up, drop) and at each one slowly crossfades to a fitting variation,

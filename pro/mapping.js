@@ -15,7 +15,7 @@ export function surface(id,name,q,extra={}){return {id,name,source:'all',cols:1,
 export function regrid(s,cols,rows){
   const old={...s},sample=(u,v)=>pointAt(old,u,v),pts=[];
   for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++)pts.push(sample(i/cols,j/rows).map(x=>Math.round(x*10000)/10000));
-  return {...s,cols,rows,pts};
+  return {...s,cols,rows,pts,wrap:'flat'};
 }
 
 export function cleanMapping(m){
@@ -32,9 +32,16 @@ export function cleanMapping(m){
     const c=Array.isArray(s.crop)&&s.crop.length===4?s.crop.map((v,i)=>num(v,0,1,i<2?0:1)):[0,0,1,1];
     if(c[2]-c[0]<.01||c[3]-c[1]<.01)throw Error('Mapping crop is too small');
     const source=s.source==='all'||s.source===undefined?'all':Math.round(num(s.source,1,4,1));
+    if(s.wrap!==undefined&&!['flat','cap'].includes(s.wrap))throw Error('Invalid mapping wrap');
+    if(s.wrap==='cap'&&(cols!==1||rows!==1))throw Error('Cube cap needs four corners');
     return {id,name:typeof s.name==='string'&&s.name.trim()?s.name.slice(0,40):`Surface ${k+1}`,source,cols,rows,pts,crop:c,
-      opacity:num(s.opacity,0,1,1),feather:num(s.feather,0,.5,0),mask:s.mask==='ellipse'?'ellipse':'rect'};
+      opacity:num(s.opacity,0,1,1),feather:num(s.feather,0,.5,0),mask:s.mask==='ellipse'?'ellipse':'rect',...(s.wrap!==undefined?{wrap:s.wrap}:{})};
   });
+  // Older cube presets used a rectangle on the cap, which cannot meet both side crops at their shared vertex.
+  const top=surfaces.find(s=>s.id==='top'),left=surfaces.find(s=>s.id==='left'),right=surfaces.find(s=>s.id==='right');
+  if(top&&left&&right&&top.wrap===undefined&&top.cols===1&&top.rows===1&&
+    JSON.stringify([top.crop,left.crop,right.crop])==='[[0,0,1,0.5],[0,0.5,0.5,1],[0.5,0.5,1,1]]'&&
+    JSON.stringify([corners(top)[0],corners(top)[2],corners(top)[3]])===JSON.stringify([corners(left)[0],corners(right)[1],corners(left)[1]]))top.wrap='cap';
   return {on:!!m.on,test:!!m.test,surfaces};
 }
 
@@ -79,6 +86,13 @@ function tri(ctx,img,sw,sh,s0,s1,s2,d0,d1,d2){
   ctx.setTransform(a,b,c,d,d0[0]-a*s0[0]-c*s0[1],d0[1]-b*s0[0]-d*s0[1]);ctx.drawImage(img,0,0,sw,sh);ctx.restore();
 }
 function warp(ctx,img,s,W,H){
+  if(s.wrap==='cap'){
+    // Two source triangles share the vertical crease; their bottom edges continue the two side faces' top edges.
+    const sw=img.width,sh=img.height,S=[[0,sh],[sw/2,0],[sw,sh],[sw/2,sh]],D=corners(s).map(([x,y])=>[x*W,y*H]);
+    tri(ctx,img,sw,sh,S[0],S[1],S[3],D[0],D[1],D[3]);
+    tri(ctx,img,sw,sh,S[1],S[2],S[3],D[1],D[2],D[3]);
+    return;
+  }
   const flat=s.cols===1&&s.rows===1,N=flat?10:Math.max(12,4*Math.max(s.cols,s.rows)),sw=img.width,sh=img.height,P=[];
   for(let j=0;j<=N;j++)for(let i=0;i<=N;i++){const p=pointAt(s,i/N,j/N);P.push([p[0]*W,p[1]*H]);}
   const S=(i,j)=>[i/N*sw,j/N*sh],D=(i,j)=>P[j*(N+1)+i];
@@ -129,7 +143,7 @@ export const PRESETS={
   'Single screen':()=>[surface('s1','Screen',R(.1,.1,.9,.9))],
   'Cube (3 faces)':()=>{
     const c=[.5,.5],t=[.5,.14],l=[.21,.31],r=[.79,.31],bl=[.21,.69],br=[.79,.69],b=[.5,.86];
-    return [surface('top','Top',[l,t,r,c],{crop:[0,0,1,.5]}),surface('left','Left',[l,c,b,bl],{crop:[0,.5,.5,1]}),surface('right','Right',[c,r,br,b],{crop:[.5,.5,1,1]})];
+    return [surface('top','Top',[l,t,r,c],{crop:[0,0,1,.5],wrap:'cap'}),surface('left','Left',[l,c,b,bl],{crop:[0,.5,.5,1]}),surface('right','Right',[c,r,br,b],{crop:[.5,.5,1,1]})];
   },
   'Span 2 (side by side)':()=>[surface('a','Left',R(.03,.2,.48,.8),{crop:[0,0,.5,1]}),surface('b','Right',R(.52,.2,.97,.8),{crop:[.5,0,1,1]})],
   'Span 3 (triptych)':()=>[0,1,2].map(i=>surface('p'+(i+1),['Left','Centre','Right'][i],R(.02+i*.33,.25,.31+i*.33,.75),{crop:[i/3,0,(i+1)/3,1]})),

@@ -39,6 +39,9 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.waitForFunction(()=>window.pro&&Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});
     await page.evaluate(()=>pro.dissolve(false));
     const project=()=>page.evaluate(()=>pro.getProject());
+    const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
+    const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
+    if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY){
     const layer0=async()=>(await project()).layers[0];
     const idOf=async type=>(await layer0()).nodes.find(n=>n.type===type)?.id;
     const ids={emitter:await idOf('gpuParticles'),audio:await idOf('audioIn'),bloom:await idOf('bloom'),output:await idOf('output')};
@@ -51,7 +54,6 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       // The editing tests below start from Fluid → Bloom.
       await page.evaluate(id=>{const p=pro.getProject(),l=p.layers[0],pal=l.nodes.find(n=>n.type==='palette');l.nodes=l.nodes.filter(n=>n!==pal);l.edges=l.edges.filter(e=>e.to!==pal.id&&e.from!==pal.id);
         l.edges.push({from:id,out:'shape',to:l.nodes.find(n=>n.type==='bloom').id,input:'image'});pro.importProject(p);},ids.emitter);}
-    const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
 
     // 1. Default graph: the native WebGPU Fluid runs inside the real Audiograph engine and reaches the preview.
     const native=await page.evaluate(async id=>{const e=pro.engine(id);await e.ready;return {status:await e.w.agSim.ready(),stats:e.w.agSim.stats()};},ids.emitter);
@@ -411,6 +413,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       for(const sel of ['.graph-region','.inspector','#templates','#library'])assert.ok(!(await page.locator(sel).isVisible()),sel+' is Studio only');
     await page.selectOption('[data-property=mapPreset]','Cube (3 faces)');await page.waitForTimeout(300);
     let m=await page.evaluate(()=>pro.mapping());assert.deepEqual(m.surfaces.map(s=>s.name),['Top','Left','Right']);assert.ok(m.on);
+    assert.equal(await page.locator('[data-property=surfGrid]').inputValue(),'cap','Cube preset selects folded cap mapping');
     await page.locator('[data-property=mapTest] [data-value=true]').click();await page.evaluate(()=>pro.draw());
     const corner=await page.evaluate(()=>{const d=document.getElementById('preview').getContext('2d').getImageData(0,0,40,40).data;let s=0;for(let i=0;i<d.length;i+=4)s+=d[i]+d[i+1]+d[i+2];return s;});
     assert.equal(corner,0,'Outside the surfaces the mapped output is black');assert.ok(await page.evaluate(()=>pro.pixels())>3,'The test card is drawn on the surfaces');
@@ -512,11 +515,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     // 10. Save / restore round trip.
     // Exercise the download/browser-storage path without a native Save dialog stealing keyboard focus.
     await page.evaluate(()=>{window.showSaveFilePicker=undefined;});
-    await page.locator('#save').click();const saved=await project();
+    const [sceneDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#save').click()]);
+    await sceneDownload.path();const saved=await project();
     await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));await page.locator('#restore').click();
     assert.deepEqual((await project()).layers.map(l=>l.name),saved.layers.map(l=>l.name));
     // .ag scenes: ⌘O opens one (also by dropping it), the file holds the project.
     await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));
+    await page.locator('#graphViewport').focus();
     const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.keyboard.press('Meta+o')]);
     await chooser.setFiles({name:'scene.ag',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(saved))});await page.waitForTimeout(300);
     assert.deepEqual((await project()).layers.map(l=>l.name),saved.layers.map(l=>l.name),'Opens an .ag scene');
@@ -541,7 +546,6 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     // 3D Object: one node for every shape (and your OBJ as Model), drawn Normal or as a Waveform; any of them feeds a Cloner.
     const objItems=await page.evaluate(()=>[...document.querySelectorAll('#library .library-node[data-type="waveform3d"]')].map(b=>b.textContent.trim()));
     for(const s of ['Sphere','Cylinder','Frame','DNA','Terrain','Model'])assert.ok(objItems.some(t=>t.startsWith(s)),`3D Objects lists ${s}`);
-    const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
     for(const [mode,render] of [['cylinder','normal'],['frame','waveform'],['dna','normal'],['cone','waveform']]){
       await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:200,y:0,props:{mode,render}},{id:'p',type:'palette',x:400,y:0,props:{}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'}]));
       await page.waitForTimeout(2500);assert.ok(await litCount()>300,`3D Object ${mode} renders ${render}`);
@@ -589,5 +593,96 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.click('[data-property=mediaRemove]');await page.locator('#properties .media-choose').waitFor({timeout:8000});
     assert.equal(await page.locator('#properties .media-item').count(),0,'Removing the picture brings back Choose');
     void img;
+    }
+    // A cube cap shares the same source pixels with both front faces, not a separately rotated rectangle.
+    const capCheck=await page.evaluate(async()=>{
+      const M=await import(new URL('mapping.js',location.href).href),W=960,H=540,src=document.createElement('canvas');src.width=W;src.height=H;
+      const x=src.getContext('2d'),im=x.createImageData(W,H);
+      for(let j=0;j<H;j++)for(let i=0;i<W;i++){const k=(j*W+i)*4;im.data[k]=Math.round(i/W*180);im.data[k+1]=Math.round(j/H*180);im.data[k+3]=255;}x.putImageData(im,0,0);
+      const ss=M.PRESETS['Cube (3 faces)'](),draw=s=>{const c=document.createElement('canvas');c.width=W;c.height=H;M.render(c.getContext('2d'),{test:false,surfaces:[s]},()=>src,W,H);return c.getContext('2d');};
+      const top=draw(ss[0]),flat=draw({...ss[0],wrap:'flat'}),back=M.corners(ss[0])[1];let max=0,oldMax=0;
+      for(const face of ss.slice(1)){const side=draw(face);
+        for(const u of [.13,.27,.43,.57,.73,.87]){
+          const edge=M.pointAt(face,u,0),above=edge.map((v,i)=>v+(back[i]-v)*.02),below=M.pointAt(face,u,.01);
+          const sample=(ctx,[px,py])=>[...ctx.getImageData(Math.round(px*W),Math.round(py*H),1,1).data].slice(0,2),a=sample(top,above),b=sample(side,below),c=sample(flat,above);
+          max=Math.max(max,...a.map((v,i)=>Math.abs(v-b[i])));oldMax=Math.max(oldMax,...c.map((v,i)=>Math.abs(v-b[i])));
+        }
+      }
+      const legacy=structuredClone(ss);delete legacy[0].wrap;
+      const explicit=structuredClone(ss);explicit[0].wrap='flat';
+      return {max,oldMax,migrated:M.cleanMapping({on:true,surfaces:legacy}).surfaces[0].wrap,explicit:M.cleanMapping({on:true,surfaces:explicit}).surfaces[0].wrap,
+        curved:M.regrid(ss[0],2,2).wrap,cap:M.cleanMapping({on:true,surfaces:ss}).surfaces[0].wrap};
+    });
+    assert.ok(capCheck.max<=5,'Cube cap joins both sides: max colour gap '+capCheck.max);
+    assert.ok(capCheck.oldMax>30,'The regression detects the old rectangular cap');
+    assert.equal(capCheck.migrated,'cap','Old cube presets gain the corrected cap');
+    assert.equal(capCheck.explicit,'flat','An explicitly flat cap remains flat');
+    assert.equal(capCheck.curved,'flat','Changing to a curved grid leaves cap mapping');
+    assert.equal(capCheck.cap,'cap','Cap mode survives project validation');
+    // Resolution changes the render itself, not just CSS, without replacing the graph or its engines.
+    await page.evaluate(()=>pro.loadTemplate('Fluid bloom'));
+    const fluidID=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='gpuParticles').id);
+    await page.waitForFunction(id=>pro.engine(id)?.w?.agSim.stats().live>0,fluidID,{timeout:30000});
+    const simCreated=await page.evaluate(id=>pro.engine(id).w.agSim.stats().created,fluidID);
+    for(const height of [720,1080,540]){
+      await page.selectOption('#resolution',String(height));
+      await page.waitForFunction(({id,h})=>Object.values(pro.engine(id).w.agSim.stats().layers).some(s=>s.out[0]===h*16/9&&s.out[1]===h),{id:fluidID,h:height},{timeout:30000});
+      assert.equal(await page.evaluate(id=>pro.engine(id).w.agSim.stats().created,fluidID),simCreated,'Resizing preserves the running simulation');
+    }
+    await page.evaluate(p=>pro.importProject(p),L([{id:'r',type:'waveform2d',x:200,y:0,props:{mode:'circle'}},{id:'p',type:'palette',x:400,y:0,props:{}}],
+      [{from:'a',out:'audio',to:'r',input:'audio'},{from:'r',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'}]));
+    await page.waitForFunction(()=>pro.engine('r')?.status==='ready'&&pro.engine('r').frames>8,null,{timeout:30000});
+    await lit(.02,25000);
+    const resolutionProject=await project(),generation=await page.evaluate(()=>pro.engine('r').generation);
+    for(const height of [720,1080,1440,2160,540]){
+      await page.selectOption('#resolution',String(height));
+      await page.waitForFunction(h=>{const c=document.querySelector('#preview'),e=pro.engine('r');return c.width===h*16/9&&c.height===h&&e.canvas.width===c.width&&e.w.frameCv.width===c.width&&e.w.frameCv.height===h;},height);
+      await lit(.02,25000);
+      assert.deepEqual(await project(),resolutionProject,'Resolution preserves the graph');
+      assert.equal(await page.evaluate(()=>pro.engine('r').generation),generation,'Resolution reuses the engine');
+    }
+    await page.evaluate(()=>pro.pause(true));await page.selectOption('#resolution','720');
+    assert.equal(await page.evaluate(()=>pro.stats().paused),true,'Resolution preserves pause');
+    assert.ok(await page.evaluate(()=>pro.pixels())>.02,'A paused frame survives resizing');
+    const [snapshot]=await Promise.all([page.waitForEvent('download'),page.click('#snap')]);
+    const snapshotData=fs.readFileSync(await snapshot.path());
+    assert.deepEqual([snapshotData.readUInt32BE(16),snapshotData.readUInt32BE(20)],[1280,720],'PNG has selected resolution');
+    await page.evaluate(()=>pro.pause(false));
+    const [detached]=await Promise.all([page.waitForEvent('popup'),page.click('#output')]);
+    await detached.waitForFunction(()=>document.querySelector('video').videoWidth===1280);
+    await page.selectOption('#resolution','1080');
+    await detached.waitForFunction(()=>document.querySelector('video').videoWidth===1920&&document.querySelector('video').videoHeight===1080);
+    await detached.close();
+    await page.click('#audioName');await page.click('#mic');
+    await page.waitForFunction(()=>pro.stats().audio.input==='mic');
+    await page.click('#mic');await page.waitForFunction(()=>!pro.stats().audio.input);
+    await page.click('#record');await page.waitForFunction(()=>document.querySelector('#resolution').disabled);
+    assert.ok(await page.locator('#resolution').isDisabled(),'Resolution locks while recording');
+    const recordingFrame=await page.evaluate(()=>pro.stats().frame);
+    await page.waitForFunction(f=>pro.stats().frame>f+20,recordingFrame,{timeout:15000});
+    await page.waitForTimeout(1000);
+    const [recording]=await Promise.all([page.waitForEvent('download'),page.click('#record')]);
+    assert.ok(fs.statSync(await recording.path()).size>0,'Recording is saved');
+    const videoSize=await page.evaluate(async b64=>{
+      const v=document.createElement('video'),url=URL.createObjectURL(new Blob([Uint8Array.from(atob(b64),c=>c.charCodeAt(0))],{type:'video/webm'}));
+      try{await new Promise((resolve,reject)=>{v.onloadedmetadata=resolve;v.onerror=()=>reject(Error('Recorded video could not be read'));v.src=url;});return [v.videoWidth,v.videoHeight];}
+      finally{v.removeAttribute('src');v.load();URL.revokeObjectURL(url);}
+    },fs.readFileSync(await recording.path()).toString('base64'));
+    assert.deepEqual(videoSize,[1920,1080],'Recorded video has selected resolution');
+    assert.ok(await page.locator('#resolution').isEnabled(),'Resolution unlocks after recording');
+    await page.reload();
+    await page.waitForFunction(()=>window.pro&&document.querySelector('#preview').width===1920&&Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});
+    assert.equal(await page.locator('#resolution').inputValue(),'1080','Resolution survives reload');
+    await page.selectOption('#resolution','540');
+    for(const width of [1540,1100,700,390]){
+      await page.setViewportSize({width,height:900});
+      const fits=await page.evaluate(()=>{
+        const r=document.querySelector('#resolution').getBoundingClientRect(),s=document.querySelector('#spectrum').getBoundingClientRect(),t=document.querySelector('.transport').getBoundingClientRect();
+        return r.left>=t.left&&r.right<=t.right&&!(r.left<s.right&&r.right>s.left&&r.top<s.bottom&&r.bottom>s.top);
+      });
+      assert.ok(fits,'Resolution fits without overlapping the spectrum at '+width+'px');
+    }
+    assert.deepEqual(errors,[],'No page errors during resolution changes');
+    console.log('Resolution tests passed');
   }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exit(1);});
