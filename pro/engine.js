@@ -357,7 +357,7 @@ export class EmitterEngine {
     // Viewport camera: the 3D cloner and splats orbit, pan and zoom natively; classic 3D modes take the orbit.
     const v=job.view||{},dg=Math.PI/180;
     this.viewMode=mode==='simcloner'||mode==='simsplat'?'sim':VIEW3D.includes(mode)?'classic':null;
-    if(this.viewMode==='classic'){p._dragRotX=(v.pit||0)*dg;p._dragRotY=-(v.yaw||0)*dg;}
+    if(this.viewMode==='classic'){p._dragRotX=(p._dragRotX||0)+(v.pit||0)*dg;p._dragRotY=(p._dragRotY||0)-(v.yaw||0)*dg;}
     if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
     w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;
     if(!sameParams(p,this.applied)){this.realSet(p);this.applied=p;}

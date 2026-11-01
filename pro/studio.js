@@ -977,6 +977,8 @@ function fold(root,label){
   root.append(s);return body;
 }
 // Renderer option knobs (read from the original's panels) are sorted into groups by their label.
+// Nodes that run a WebGPU simulation with its own sound knobs.
+const SIM_NODES=['gpuParticles','cloner','splat'];
 const OPT_GROUPS=[['Setup',/preset|^emitter$|bound|source|model|^type|mode|shape|cloud|scene/i],['Sound',/sensitiv|attack|release|audio|sound|bass|energy|beat|spectrum|react|loud/i],
   ['Emission',/amount|lifetime|life|size|launch|emit|jet|spawn|count|density|rate|particles|radius/i],['Forces',/drag|gravity|pull|swirl|spin|turbul|curl|flow|wind|speed|attract|viscos|vortic|force|cohes|align|separ|noise|friction|damp|pressure|diffus/i],
   ['Look',/trail|bloom|exposure|glow|colou?r|opacity|contrast|saturat|hue|fade|bright|light|shad|edge|thick|point/i],['Quality',/quality|precision|budget|simulation|time ?scale|step|resolution|iteration|detail/i]];
@@ -1206,11 +1208,23 @@ function renderEmitter(root,n){
   const wiredOf=k=>graph().edges.some(e=>e.to===n.id&&e.input===k);
   const top=el('div','insp-options');s.append(top);
   const opts=el('div','insp-options');opts.dataset.emitterOptions='';root.append(opts);
-  const geo={};for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){const gr=T.props[k].group;if(gr==='Lines'&&['gpuParticles','splat','cloner'].includes(n.type)||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;(geo[gr]||=[]).push(k);}
+  // One Sound section per node. Simulations hear through their own sound knobs, so the generic ones only show when already changed;
+  // waveforms use line Sensitivity as their gain. 3D tilt / rotate only exist where a classic 3D mode can use them.
+  const sim=SIM_NODES.includes(n.type),classic3d=n.type==='waveform3d'||n.type==='waveform2d'&&n.props.mode==='fractal';
+  const used=k=>wiredOf(k)||n.auto?.includes(k)||n.props[k]!==undefined&&n.props[k]!==T.props[k].value;
+  const geo={};let lineSens=false;
+  for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){
+    const gr=T.props[k].group;if(gr==='Lines'&&sim||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;
+    if((k==='tilt'||k==='turn')&&!classic3d&&!used(k))continue;
+    if(k==='sensitivity'){lineSens=true;continue;}
+    (geo[gr]||=[]).push(k);
+  }
+  const sndWrap=el('div');root.append(sndWrap);
   for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr),n,ks,true);
-  const d=fold(root,'Sound response');
+  const d=fold(sndWrap,'Sound');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
-  const rg=el('div','knob-grid');for(const k of ['intensity','punch','release','dynamics'])rg.append(propControl(n,k,T.props[k],wiredOf(k)));d.append(rg);
+  const sndKeys=sim?['intensity','punch','release','dynamics'].filter(used):[lineSens?'sensitivity':'intensity',...(lineSens&&used('intensity')?['intensity']:[]),'punch','release','dynamics'];
+  if(sndKeys.length){const rg=el('div','knob-grid');for(const k of sndKeys)rg.append(propControl(n,k,T.props[k],wiredOf(k)));d.append(rg);}
   const wiredAudio=graph().edges.find(e=>e.to===n.id&&e.input==='audio'),from=wiredAudio&&findNode(wiredAudio.from);
   d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':from?`Hears ${TYPES[from.type].label} (${sourceName()}).`:T.category==='inputs'?'Still until you wire audio into it.':`Hears the project sound (${sourceName()}).`));
   const e=engineFor(n.id);
@@ -1224,12 +1238,13 @@ function renderEmitter(root,n){
     controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
     // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
     if(n.type==='cloner')controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3'):!/\('g3|simApplyPreset/.test(c.onclick));
-    const ranges=controls.filter(c=>c.type==='range'),few=ranges.length<=9,main=nodeTitle(n);
+    // Leftover knobs share one "Form" section; sound, look and quality always keep their own.
+    const ranges=controls.filter(c=>c.type==='range'),few=ranges.length<=9,main='Form',KEEP=['Sound','Look','Quality'];
     const lineChip=c=>/line|stroke|style/i.test(c.label),first=controls.find(c=>c.type!=='range'&&!c.action&&!lineChip(c));
-    const groupOf=c=>c.type!=='range'?(c===first?null:lineChip(c)?'Look':main):few?(optGroup(c.label)==='Look'?'Look':main):optGroup(c.label);
-    const order=[main,...OPT_GROUPS.map(([g])=>g),'Form'],bins=new Map(order.map(g=>[g,[]]));
+    const groupOf=c=>{const g=optGroup(c.label);if(c.type!=='range')return c===first||g==='Setup'?null:lineChip(c)?'Look':g==='Quality'?g:main;return few?(KEEP.includes(g)?g:main):g;};
+    const order=[...new Set([main,...OPT_GROUPS.map(([g])=>g)])],bins=new Map(order.map(g=>[g,[]]));
     for(const c of controls){const gr=groupOf(c);if(gr)bins.get(gr).push(c);}
-    for(const [gr,list] of bins)if(gr!==main&&gr!=='Look'&&list.length&&list.length<3){bins.get(main).push(...list);list.length=0;}
+    for(const [gr,list] of bins)if(gr!==main&&gr!=='Sound'&&list.length&&list.length<(KEEP.includes(gr)?2:3)){bins.get(main).push(...list);list.length=0;}
     const chip=c=>{
       const wrap=el('div','opt-chips');if(c.label)wrap.append(el('div','insp-sublabel',c.label));
       const current=c.options.find(o=>o.on)?.label;
@@ -1246,7 +1261,8 @@ function renderEmitter(root,n){
     const boxes=new Map();
     for(const [gr,list] of bins){
       if(!list.length)continue;
-      const box=fold(opts,gr);boxes.set(gr,box);let grid=null;
+      // The node's Sound section (with its note) moves into place and takes the simulation's sound knobs.
+      const box=gr==='Sound'?(opts.append(d.parentElement),d):fold(opts,gr);boxes.set(gr,box);let grid=null;
       for(const c of [...list.filter(c=>c.type!=='range'),...list.filter(c=>c.type==='range')]){
         if(c.type!=='range'){box.append(chip(c));continue;}
         if(!grid){grid=el('div','knob-grid');box.append(grid);}
@@ -1257,8 +1273,9 @@ function renderEmitter(root,n){
     }
     if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer or Color nodes after it.'));
     const forces=[...new Set(Object.values(moved).map(([t])=>t))];
-    if(forces.length){
-      const fg=n.type==='cloner'?'3D nodes':'Forces',box=boxes.get(fg)||fold(opts,fg),chips=el('div','chips');chips.dataset.property='forces';
+    // Shortcuts to the Forces nodes that own a simulation's physics (the cloner's 3D nodes are already in its chain).
+    if(forces.length&&n.type!=='cloner'){
+      const fg='Forces',box=boxes.get(fg)||fold(opts,fg),chips=el('div','chips');chips.dataset.property='forces';
       for(const t of forces){
         const b=el('button','mbtn library-node',TYPES[t].label);b.type='button';b.dataset.type=t;b.title=TYPES[t].description;b.style.setProperty('--cat',catOf(t).color);
         b.onclick=()=>{const g=graph(),have=g.nodes.find(m=>m.type===t&&upstreamSim(g,m)&&chainFrom(g,n.id,m.id));if(have){selected=have.id;renderUI();}else addNode(t);};

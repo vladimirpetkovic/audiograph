@@ -97,7 +97,7 @@ export function geoFromLook(look){
 }
 // Renderer nodes: each owns one isolated Audiograph engine. "audio" overrides the project sound; "drive" replaces it with a number.
 const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number'},outputs:{shape:'shape',...outputs},
-  props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound response',n('Intensity',100,0,200,5)),punch:G('Sound response',n('Bass punch',60,0,100,1)),release:G('Sound response',n('Bass release',220,60,800,10)),dynamics:G('Sound response',n('Dynamics',50,0,100,1)),
+  props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound',n('Intensity',100,0,200,5)),punch:G('Sound',n('Bass punch',60,0,100,1)),release:G('Sound',n('Bass release',220,60,800,10)),dynamics:G('Sound',n('Dynamics',50,0,100,1)),
     opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}}}});
 const MEDIA=(label,description,cam)=>({category:'inputs',group:'Media',label,description,inputs:{audio:'audio'},
   outputs:{image:'image',palette:'colors',brightness:'number',...(label==='Image'?{}:{motion:'number'})},

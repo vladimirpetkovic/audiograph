@@ -428,6 +428,22 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.ok(r.chips.includes('Gravity')&&r.chips.includes('Swirl')&&!r.chips.includes('Flocking'),'Force shortcuts match the simulation');
     assert.deepEqual(r.gravKnobs,['gravity'],'Gravity shows only the Particles knob');
     assert.equal(r.slider,60,'The Gravity node drives the simulation');}
+    // Lean inspector: one Sound section, no section named after the node, sim nodes skip the generic sound knobs and 3D tilt.
+    {const r=await page.evaluate(async()=>{
+      const groups=async(type,props)=>{pro.dissolve(false);pro.importProject({format:'audiograph-pro',version:11,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',
+        nodes:[{id:'o',type:'waveform3d',x:0,y:200,props:{}},{id:'n',type,x:200,y:0,props},{id:'out',type:'output',x:600,y:0,props:{}}],
+        edges:[...(type==='cloner'?[{from:'o',out:'object',to:'n',input:'object'}]:[]),{from:'n',out:'shape',to:'out',input:'image'}]}]},'lean');pro.select('n');
+        await new Promise(r=>{const t=setInterval(()=>{if(document.querySelector('#properties [data-property^="opt:"]')){clearInterval(t);r();}},100);setTimeout(r,8000);});
+        const keys=[...document.querySelectorAll('#properties [data-property]')].map(k=>k.dataset.property);
+        return {groups:[...document.querySelectorAll('#properties [data-group]')].map(g=>g.dataset.group),props:keys};};
+      return {cl:await groups('cloner',{}),old:await groups('cloner',{intensity:150}),wf:await groups('waveform2d',{}),w3:await groups('waveform3d',{tilt:30}),rot:await new Promise(r=>setTimeout(()=>r(pro.engine('n').applied?._dragRotX),800))};});
+    assert.equal(r.cl.groups.filter(g=>g==='Sound').length,1,'Cloner has one Sound section');
+    assert.ok(!r.cl.groups.some(g=>['Sound response','Cloner','3D nodes'].includes(g)),'No duplicate or node-named sections: '+r.cl.groups);
+    assert.ok(r.cl.props.includes('opt:pSimSens')&&!r.cl.props.includes('intensity')&&!r.cl.props.includes('tilt'),'Sim sound knobs only; no dead 3D tilt');
+    assert.ok(r.old.props.includes('intensity'),'A changed generic sound knob stays visible');
+    assert.ok(r.wf.props.includes('sensitivity')&&!r.wf.props.includes('intensity')&&!r.wf.props.includes('tilt'),'Waveform: Sensitivity is the gain; no 3D tilt on 2D');
+    assert.ok(r.w3.props.includes('tilt'),'Classic 3D keeps 3D tilt');
+    assert.ok(Math.abs(r.rot-Math.PI/6)<1e-6,'3D tilt still reaches the engine with the viewport orbit: '+r.rot);}
     // The old Amplify deformer becomes the pass-through Amplify node.
     {const r=await page.evaluate(()=>{
       const P=pro.validate({format:'audiograph-pro',version:4,layers:[{id:'a',name:'A',visible:true,opacity:1,blend:'source-over',nodes:[

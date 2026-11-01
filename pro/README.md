@@ -170,7 +170,7 @@ process the finished image.
   simulations, the Cloner, Growth, Fractal…) get Twist, Bulge, Wave, Shear, Depth,
   Ripple and Jitter as a GPU image warp, and Symmetry on the rendered picture.
 - **Inspector sections** work like an accordion: the basics sit at the top, and
-  opening a section (Lines, Outline, Sound response…) closes the others. The open
+  opening a section (Lines, Outline, Sound…) closes the others. The open
   section is remembered per node type. Choice chips such as Growth's Type sit at the
   top; Growth starts as Coral.
 - **Open/Save .ag scene files** (⌘O, ⌘S, ⇧⌘S Save As; drop an .ag on the window
