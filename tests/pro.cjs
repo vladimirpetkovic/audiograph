@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const { chromium } = require('playwright');
+const gltfFile = require('./gltf-fixture.cjs');
 function audioFile(seconds=6) {
   const rate=8000,samples=rate*seconds,wav=Buffer.alloc(44+samples*2);
   wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);
@@ -457,8 +458,9 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
         await new Promise(r=>{const t=setInterval(()=>{if(document.querySelector('#properties [data-property^="opt:"]')){clearInterval(t);r();}},100);setTimeout(r,8000);});
         const keys=[...document.querySelectorAll('#properties [data-property]')].map(k=>k.dataset.property);
         return {groups:[...document.querySelectorAll('#properties [data-group]')].map(g=>g.dataset.group),props:keys};};
-      return {cl:await groups('cloner',{}),old:await groups('cloner',{intensity:150}),wf:await groups('waveform2d',{}),w3:await groups('waveform3d',{tilt:30}),rot:await new Promise(r=>setTimeout(()=>r(pro.engine('n').applied?._dragRotX),800))};});
+      return {cl:await groups('cloner',{}),old:await groups('cloner',{intensity:150}),wf:await groups('waveform2d',{}),w3n:await groups('waveform3d',{render:'normal'}),w3:await groups('waveform3d',{tilt:30}),rot:await new Promise(r=>setTimeout(()=>r(pro.engine('n').applied?._dragRotX),800))};});
     assert.equal(r.cl.groups.filter(g=>g==='Sound').length,1,'Cloner has one Sound section');
+    assert.ok(r.w3n.props.length<40&&!r.w3n.props.some(k=>/^opt:pG3/.test(k))&&!r.w3n.props.includes('intensity'),'A Normal 3D Object is not a full Cloner inspector: '+r.w3n.props.length);
     assert.ok(!r.cl.groups.some(g=>['Sound response','Cloner','3D nodes','Look','Objects'].includes(g)),'No duplicate or node-named sections: '+r.cl.groups);
     assert.ok(r.cl.props.includes('opt:pSimSens')&&!r.cl.props.includes('intensity')&&!r.cl.props.includes('tilt'),'Sim sound knobs only; no dead 3D tilt');
     assert.ok(r.old.props.includes('intensity'),'A changed generic sound knob stays visible');
@@ -640,6 +642,19 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       let y=0;for(let i=1;i<pts.length;i+=5)y+=pts[i];return y/(pts.length/5);};
     const up=await emitFrom(0),side=await emitFrom(90);
     assert.ok(Math.abs(up-side)>.02,`A 3D Object wired into emit spawns from its current pose (${up.toFixed(3)} vs ${side.toFixed(3)})`);
+    // Animated GLB / glTF models play in the 3D Object (and so in Cloners and emit); skinned rigs follow their joints.
+    {await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'model',render:'normal'}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'out',input:'image'}]));
+     await page.evaluate(()=>pro.select('o'));await page.waitForTimeout(1200);await page.setInputFiles('#emitterMedia',gltfFile());await page.waitForTimeout(800);
+     const cx=()=>page.evaluate(()=>{const m=pro.engine('o').w.objModelData;return m.verts.slice(0,8).reduce((s,v)=>s+v[0],0)/8;});
+     const xs=[];for(let i=0;i<4;i++){xs.push(await cx());await page.waitForTimeout(260);}
+     assert.ok(Math.max(...xs)-Math.min(...xs)>.3,'An animated glTF moves: '+xs.map(x=>x.toFixed(2)));
+     assert.ok(await page.locator('#properties [data-property=animSpeed]').count(),'Animated models get an Animation speed knob');
+     const q=await project();q.layers[0].nodes.find(n=>n.id==='o').props.animSpeed=0;await page.evaluate(p=>pro.importProject(p,'still'),q);await page.waitForTimeout(400);
+     const s0=await cx();await page.waitForTimeout(500);assert.equal(await cx(),s0,'Speed 0 holds the pose');
+     assert.ok(await litCount()>200,'The animated model renders');
+     const sk=await page.evaluate(async t=>{const {parseGLTF,pose}=await import('./gltf.js');const m=parseGLTF(new TextEncoder().encode(t).buffer);
+       const at=s=>pose(m,0,s).verts.slice(0,8).reduce((a,v)=>a+v[0],0)/8;return [m.skins.length,at(0),at(.5),at(.99)];},gltfFile.skinned().buffer.toString());
+     assert.ok(sk[0]===1&&sk[1]<sk[2]&&sk[2]<sk[3],'A skinned mesh follows its animated joint: '+sk);}
     assert.deepEqual(errors,[],'No page errors in 3D');
     // Live data: every source gives the same normalized numbers and a palette that can drive a Palette's colors.
     await page.evaluate(p=>pro.importProject(p),L([{id:'d',type:'liveData',x:0,y:200,props:{source:'quakes'}},{id:'o',type:'waveform3d',x:200,y:0,props:{mode:'sphere',render:'waveform'}},{id:'p',type:'palette',x:400,y:0,props:{}}],

@@ -429,7 +429,7 @@ function execute(g,time,dt){
       }
       r.shape={emitter:n,mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
-      if(n.type==='waveform3d'){const e=engines.get(n.id);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
+      if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
       if(n.type==='gpuParticles'&&byInput.has(n.id+':emit')){
         // Anything visual wired into "emit" spawns particles from its bright parts (the original's image emitter).
@@ -1193,7 +1193,7 @@ function renderEmitter(root,n){
   if(n.type==='waveform3d'&&n.props.render==='normal'&&n.props.mode!=='model')renderProps(root,n,Object.keys(PRIM_DEFAULT).filter(k=>k!=='shape'&&k!=='prim'));
   const kind=mediaKind(n);
   if(kind){
-    const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj';
+    const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj,.glb,.gltf';
     f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);message('Loaded '+f.files[0].name);renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
     // One button; once loaded, a thumbnail (or the file name) with × to remove it.
     const eng=engines.get(n.id),name=eng?.mediaName,box=el('div','media-pick');f.hidden=true;
@@ -1204,16 +1204,19 @@ function renderEmitter(root,n){
       x.onclick=()=>{eng.clearMedia();if(kind==='splat')edit((p,g)=>{const y=g.nodes.find(y=>y.id===n.id);for(const [k,v] of Object.entries(y.props.chips||{}))if(v==='Loaded file')delete y.props.chips[k];},'Gaussian Splat: removed file');message('Removed '+name);renderUI();if(paused)draw(elapsed);};
       item.append(x);box.append(item);
     }else{
-      const b=el('button','mbtn media-choose',`Choose ${kind==='object'?'OBJ':kind==='splat'?'splat':kind}`);b.type='button';b.onclick=()=>f.click();box.append(b);
+      const b=el('button','mbtn media-choose',`Choose ${kind==='object'?'model':kind==='splat'?'splat':kind}`);b.type='button';b.onclick=()=>f.click();box.append(b);
     }
     box.append(f);s.append(box);
   }
+  // Animated model: speed (wireable, so the sound can drive it) and, with several clips, which one plays.
+  const clips=n.type==='waveform3d'&&n.props.mode==='model'&&engines.get(n.id)?.anim?.clips;
+  if(clips?.length){renderProps(root,n,clips.length>1?['animSpeed','clip']:['animSpeed']);if(clips.length>1)section(root).append(el('p','insp-note','Clips: '+clips.map((c,i)=>`${i+1} ${c.name}`).join(' · ')));}
   const wiredOf=k=>graph().edges.some(e=>e.to===n.id&&e.input===k);
   const top=el('div','insp-options');s.append(top);
   const opts=el('div','insp-options');opts.dataset.emitterOptions='';root.append(opts);
   // One Sound section per node. Simulations hear through their own sound knobs, so the generic ones only show when already changed;
   // waveforms use line Sensitivity as their gain. 3D tilt / rotate only exist where a classic 3D mode can use them.
-  const sim=SIM_NODES.includes(n.type),classic3d=n.type==='waveform3d'||n.type==='waveform2d'&&n.props.mode==='fractal';
+  const sim=SIM_NODES.includes(n.type)||n.type==='waveform3d'&&n.props.render==='normal',classic3d=n.type==='waveform3d'||n.type==='waveform2d'&&n.props.mode==='fractal';
   const used=k=>wiredOf(k)||n.auto?.includes(k)||n.props[k]!==undefined&&n.props[k]!==T.props[k].value;
   const geo={};let lineSens=false;
   for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){
@@ -1237,10 +1240,12 @@ function renderEmitter(root,n){
     if(!controls)return;
     opts.replaceChildren();top.replaceChildren();
     // Choice chips (Type, Direction…) sit at the top; line-look chips join Look. Few knobs share one section named after the node.
-    const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||n.type==='cloner'&&FORCE_KNOBS.simcloner||{};
+    // A 3D Object drawn Normal runs on the cloner (a Cloner of one), so it gets the same lean inspector.
+    const clonerLike=n.type==='cloner'||n.type==='waveform3d'&&n.props.render==='normal';
+    const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||clonerLike&&FORCE_KNOBS.simcloner||{};
     controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
     // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
-    if(n.type==='cloner')controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3')&&(optGroup(c.label)!=='Look'||n.props.opts?.[c.id]!==undefined&&n.props.opts[c.id]!==c.def):!/\('g3|simApplyPreset/.test(c.onclick));
+    if(clonerLike)controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3')&&(optGroup(c.label)!=='Look'||n.props.opts?.[c.id]!==undefined&&n.props.opts[c.id]!==c.def):!/\('g3|simApplyPreset/.test(c.onclick));
     // Leftover knobs share one "Form" section; sound, look and quality always keep their own.
     const ranges=controls.filter(c=>c.type==='range'),few=ranges.length<=9,main='Form',KEEP=['Sound','Look','Quality'];
     const lineChip=c=>/line|stroke|style/i.test(c.label),first=controls.find(c=>c.type!=='range'&&!c.action&&!lineChip(c));
@@ -1277,7 +1282,7 @@ function renderEmitter(root,n){
     if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer or Color nodes after it.'));
     const forces=[...new Set(Object.values(moved).map(([t])=>t))];
     // Shortcuts to the Forces nodes that own a simulation's physics (the cloner's 3D nodes are already in its chain).
-    if(forces.length&&n.type!=='cloner'){
+    if(forces.length&&!clonerLike){
       const fg='Forces',box=boxes.get(fg)||fold(opts,fg),chips=el('div','chips');chips.dataset.property='forces';
       for(const t of forces){
         const b=el('button','mbtn library-node',TYPES[t].label);b.type='button';b.dataset.type=t;b.title=TYPES[t].description;b.style.setProperty('--cat',catOf(t).color);

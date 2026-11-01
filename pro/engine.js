@@ -3,6 +3,7 @@
 // original feature that lives in the composite (symmetry, flip, mirror, spin, particles, per-layer Post FX)
 // renders exactly as in Audiograph.
 import {TEMPLATE_BY_NAME} from './morph.js';
+import {parseGLTF,pose} from './gltf.js';
 // 3D objects and Cloner, after the WebGPU Cornell box sample: soft cast shadows from the key light (a light-space
 // depth map read with rotated Poisson PCF), an area-light size that widens both the penumbra and the highlights,
 // palette-coloured bounce light (colour bleeding between clones and the floor) and an optional floor that catches
@@ -137,6 +138,8 @@ async function engineSource() {
     // Cloner: shapes "mesh0".."mesh2" are the 3D objects wired into the Cloner node (an OBJ or the knot).
     const patch=(from,to)=>{if(!html.includes(from))throw Error('Audiograph engine patch target missing');html=html.replace(from,to);};
     patch("if(shape==='sphere'){","if(/^mesh\\d$/.test(shape)){var om=(window.__agG3Meshes||[])[+shape[4]];if(om&&om.verts){var ov=om.verts,on=om.normals;for(var fi=0;fi<om.faces.length&&fi<40000;fi++)poly(om.faces[fi].map(function(ix){return V([ov[ix][0]*.7,ov[ix][1]*.7,ov[ix][2]*.7],on[ix])}))}}else if(shape==='sphere'){");
+    // Animated models: a new pose keeps the faces, so the wireframe edges are reused and only the positions change.
+    patch("var c=_objWireCache;if(c&&c.model===model&&c.maxFaces===maxFaces)return c.wire;","var c=_objWireCache;if(c&&c.model===model&&c.maxFaces===maxFaces)return c.wire;if(c&&c.model.faces===model.faces&&c.maxFaces===maxFaces&&model.faces.length<=maxFaces){c.model=model;c.wire={verts:model.verts,normals:model.normals,edges:c.wire.edges};return c.wire;}");
     patch("function g3MeshMix(list,D){","function g3MeshMix(list,D){if(G.g3mv!==window.__agG3MeshVer){G.g3mv=window.__agG3MeshVer;for(var _k in G.g3m)if(_k.indexOf('mesh')>=0)delete G.g3m[_k]}");
     // Cloner spacing: Y and Z reach as far as X.
     patch("['pG3SpY','Spacing Y',0,600,","['pG3SpY','Spacing Y',0,1000,");patch("['pG3SpZ','Spacing Z',0,600,","['pG3SpZ','Spacing Z',0,1000,");
@@ -485,17 +488,31 @@ export class EmitterEngine {
       Object.assign(w.AG_SPLAT,{file:r.data,n:r.n,name:file.name,err:''});w.AG_SPLAT.ver++;
       this.mediaKind=kind;this.mediaName=file.name;return {flip:!!r.flip};
     }else{
-      if(!file.name.toLowerCase().endsWith('.obj'))throw Error('Choose an OBJ file');
-      w.objModelData=w.agParseObj(await file.text());w.objBuiltin='file';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;
+      const lower=file.name.toLowerCase();
+      if(/\.(glb|gltf)$/.test(lower)){
+        // glTF / GLB: kept as a rig so animated models can be posed every frame (animate()).
+        const m=parseGLTF(await file.arrayBuffer(),file.name);this.anim=m;this.animT=null;
+        w.objModelData=pose(m,m.clips.length?0:-1,0);
+      }else if(lower.endsWith('.obj')){this.anim=null;w.objModelData=w.agParseObj(await file.text());}
+      else throw Error('Choose an OBJ, GLB or glTF model');
+      w.objBuiltin='file';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;
     }
     this.mediaKind=kind;this.mediaName=file.name;
+  }
+  // Animated model: pose the clip at time t (seconds × speed), at most ~30 times a second. The posed mesh is a new object,
+  // so Cloners and point clouds see it change; returns true when the pose moved.
+  animate(t,speed=1,clip=0) {
+    const m=this.anim,w=this.w;if(!m||!w||!m.clips.length)return false;
+    const c=Math.max(0,Math.min(m.clips.length-1,Math.round(clip))),tt=t*speed;
+    if(this.animT!==null&&this.animClip===c&&Math.abs(tt-this.animT)<1/30)return false;
+    this.animT=tt;this.animClip=c;w.objModelData=pose(m,c,tt);w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;return true;
   }
   // Forget the loaded file: the node falls back to its empty state (built-in model, demo cloud, no picture).
   clearMedia() {
     const w=this.w;if(!w)return;
     if(this.mediaKind==='image'){w.imgLayoutImg=null;try{w.agPixelWarp?.setImage?.(null);}catch{}}
     if(this.mediaKind==='video'&&this.video){this.video.pause();this.video.removeAttribute('src');if(this.videoURL)URL.revokeObjectURL(this.videoURL);this.video=null;this.videoURL='';w.vidEl=null;}
-    if(this.mediaKind==='object'){w.objModelData=null;w.objBuiltin='knot';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;}
+    if(this.mediaKind==='object'){this.anim=null;w.objModelData=null;w.objBuiltin='knot';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;}
     if(this.mediaKind==='splat'){Object.assign(w.AG_SPLAT,{file:null,n:0,name:''});w.AG_SPLAT.ver++;}
     this.mediaKind='';this.mediaName='';this.mediaThumb='';this.baseKey='';this.applied=null;
   }

@@ -24,6 +24,10 @@ each with its own opacity and blend mode (up to four).
 - **WebGPU particles → emit** takes anything visual: a picture, a waveform or
     emitter shape, or a **3D Object** (it emits from the object's live render, so a
     turning object's particles follow it). The sound still sets how many spawn.
+- **3D Object → Choose model** loads OBJ, GLB or glTF. Animated GLB/glTF models
+    (node, skinned and morph animation) play in place, with **Animation speed** and
+    a **Clip** picker; Cloners and particle emission follow the moving mesh. Export
+    glTF as a single .glb (or with embedded buffers).
   - **Text**, **Gaussian Splat** (.ply / .splat, demo cloud by default).
   - **Data** inputs give 0–1 numbers for any knob, with live meters in the inspector:
     - **Computer**: cpu, core (busiest core), gpu, memory, fps, network, battery and

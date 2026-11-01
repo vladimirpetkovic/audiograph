@@ -177,8 +177,9 @@ export const TYPES = {
     mix:n('Morph',0,0,100,1,{unit:'%'})}},
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
-  waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal) or as audio-reactive lines (Waveform). Its “object” output feeds a Cloner.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
-    render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS},{object:'object3d'},'Objects'),
+  waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal) or as audio-reactive lines (Waveform). Model loads an OBJ, GLB or glTF; animated GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
+    render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS,
+    animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
   gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Wire anything visual into “emit” (Camera, Video, Image, a waveform or emitter, a 3D Object, even a turning one) and particles spawn from its bright parts; the sound still sets how many.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU particles')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
