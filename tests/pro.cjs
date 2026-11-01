@@ -214,6 +214,15 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(()=>pro.setProperty('o','mode','knot'));await page.waitForTimeout(600);
     const drawn=await page.evaluate(async()=>{const before=pro.pixels();let changed=0;for(let i=0;i<8;i++){await new Promise(r=>setTimeout(r,150));if(Math.abs(pro.pixels()-before)>.001)changed++;}return changed;});
     assert.ok(drawn>2,'Preview keeps drawing after swapping the Cloner object: '+drawn);
+    // 6i. Light: cast shadows and a shadow-catching floor render without WebGPU errors; the floor adds lit pixels.
+    {const lightScene=props=>page.evaluate(props=>pro.importProject({format:'audiograph-pro',version:11,layers:[{id:'L1',name:'Lit',visible:true,opacity:1,blend:'source-over',
+        nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'o',type:'waveform3d',x:200,y:0,props:{mode:'cube'}},{id:'cl',type:'cloner',x:400,y:0,props:{countX:4,countY:1,countZ:4}},{id:'li',type:'light',x:600,y:0,props},{id:'out',type:'output',x:800,y:0,props:{}}],
+        edges:[{from:'a',out:'audio',to:'cl',input:'audio'},{from:'o',out:'object',to:'cl',input:'object'},{from:'cl',out:'shape',to:'li',input:'shape'},{from:'li',out:'shape',to:'out',input:'image'}]}]}),props);
+      await lightScene({shadow:80,floor:0});await lit(.05,25000);await page.waitForTimeout(1500);const bare=await page.evaluate(()=>pro.pixels());
+      await page.evaluate(()=>pro.setProperty('li','floor',90));await page.waitForTimeout(1500);
+      const floored=await page.evaluate(()=>({px:pro.pixels(),errors:pro.stats().errors}));
+      assert.deepEqual(floored.errors,[],'Shadows and floor render without errors');
+      assert.ok(floored.px>bare*1.2,'The floor catches light: '+bare+' → '+floored.px);}
 
     // 7. Post FX run on images without any emitter (background → kaleido → output) via a helper engine.
     await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:2,layers:[{id:'L1',name:'Bg',visible:true,opacity:1,blend:'source-over',

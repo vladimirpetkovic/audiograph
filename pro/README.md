@@ -43,7 +43,8 @@ each with its own opacity and blend mode (up to four).
   lines) or, for a Model, **Points**. Every 3D Object has an `object` output:
   **Cloner** (layout, counts, spacing, steps, rotation, variety) takes up to three and
   clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links) and **Look** (Material,
-  Light, Camera). Chain effectors and look nodes after the Cloner. The original's
+  Light, Camera). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
+  coloured bounce light and an optional floor that catches the shadows. Chain effectors and look nodes after the Cloner. The original's
   cloner presets are templates under **3D cloner**. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
   into these nodes automatically.
 - **Emitters** (particles): **Particles** (classic) and **WebGPU

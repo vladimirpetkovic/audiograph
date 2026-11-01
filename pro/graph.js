@@ -209,9 +209,11 @@ export const TYPES = {
     colorBy:G('Colour',C3P('Palette by','height',[['clone','Clone'],['face','Polygon'],['height','Height'],['sound','Sound']],'g3CBy')),
     surface:G('Colour',C3P('Surface','palette',[['palette','Palette'],['custom','Picked']],'g3CSrc')),surfaceColor:G('Colour',{...color('Picked surface','#4aa3ff'),key:'pG3Col'}),
     edges:G('Colour',C3P('Edges','custom',[['palette','Palette'],['custom','Picked']],'g3ESrc')),edgeColor:G('Colour',{...color('Picked edges','#ffffff'),key:'pG3EdgeCol'})}),
-  light:C3D('Look','Light','Key and ambient light, and soft shadows where clones meet.',{
+  light:C3D('Look','Light','Key and ambient light, soft cast shadows, bounce light and an optional floor.',{
     key:C3('Key light',100,0,200,'pG3Light',5),ambient:C3('Ambient',35,0,150,'pG3Amb',5),angle:C3('Angle',-42,-180,180,'pG3LitAz'),height:C3('Height',45,-20,89,'pG3LitEl'),
-    ao:G('Shadows',C3('Occlusion',50,0,100,'pG3Ao',5)),aoRadius:G('Shadows',C3('Radius',60,10,300,'pG3AoRad',5))}),
+    shadow:G('Shadows',C3('Cast shadows',60,0,100,'pG3Shadow',5)),size:G('Shadows',C3('Light size',35,0,100,'pG3LitSize',5)),
+    ao:G('Shadows',C3('Occlusion',50,0,100,'pG3Ao',5)),aoRadius:G('Shadows',C3('Radius',60,10,300,'pG3AoRad',5)),bounce:G('Shadows',C3('Bounce light',40,0,100,'pG3Bounce',5)),
+    floor:G('Floor',C3('Floor',0,0,100,'pG3Floor',5)),floorHeight:G('Floor',C3('Height',0,-100,100,'pG3FloorY',5)),floorTint:G('Floor',C3('Tint',30,0,100,'pG3FloorTint',5))}),
   camera3d:C3D('Look','3D camera','Orbit, tilt and zoom, depth of field and motion blur.',{
     orbit:C3('Orbit',12,-100,100,'pG3Orbit'),tilt:C3('Tilt',18,-80,80,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
     dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
