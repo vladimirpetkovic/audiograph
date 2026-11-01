@@ -1882,11 +1882,11 @@ function apSnapshot(dur){
   fadeCtx.globalAlpha=1;fadeCtx.globalCompositeOperation='copy';fadeCtx.drawImage(preview,0,0,WIDTH,HEIGHT);fadeCtx.globalCompositeOperation='source-over';
   fade={t:0,hold:0,dur};
 }
-function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false){
+function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,rebuild=false){
   if(liveBefore)return;
   if(changes==='everything'&&!apEnsure())return;
   const w=apWin();
-  if(!w){apWant={kind,dur,changes,force};return;}
+  if(!w){apWant={kind,dur,changes,force,rebuild};return;}
   if(apTrans&&kind!=='drop'&&!force&&!apWant){apPending=kind;return;}
   apWant=null;apPending=null;
   pilot.since=0;gen.section=pilot.section==='waiting'?'groove':pilot.section;gen.match=ap.match;gen.layers=String(ap.layers);
@@ -1898,7 +1898,7 @@ function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false)
     // Whatever was still fading lands where it was heading, under a short dissolve so nothing pops.
     if(apTrans){apSnapshot(Math.max(1,Math.min(dur,2.5)));for(const f of apTrans.fades){const g=apLayer(f.k);if(g)g.opacity=f.to>0?f.to:0;}apTrans=null;}
     for(let k=0;k<4;k++)if(apSlots[k].role<0&&apLayer(k))apLayer(k).opacity=0;
-    const cur=apActive(),st=gen.stack(w,kind,cur.map(k=>apSlots[k].layer)),fresh=st.roles.filter(r=>r.fresh).length;
+    const cur=apActive(),st=gen.stack(w,kind,rebuild?[]:cur.map(k=>apSlots[k].layer)),fresh=st.roles.filter(r=>r.fresh).length;
     const free=[0,1,2,3].filter(k=>!cur.includes(k)),fades=[],warm=[];
     if(fresh>free.length){
       // Full rebuild: everything changes under a frozen frame that dissolves once the new looks are drawing.
@@ -1960,14 +1960,14 @@ const apKind=()=>({waiting:'groove',drop:'phrase'})[pilot.section]||pilot.sectio
 function apCreate(prompt=ap.prompt){
   ap.prompt=String(prompt||'');apVibeFor=null;
   if(ap.changes!=='everything'&&!apIsSlots())ap.changes='everything';
-  apSave();apChange(apKind(),3,'everything',true);
+  apSave();apChange(apKind(),3,'everything',true,true);
   if(workspace==='auto')renderAutoPanel();
   return true;
 }
 let apStatusT=0;
 function autopilotStep(dt){
   if(liveBefore)return;
-  if(apWant&&apWin())apChange(apWant.kind,apWant.dur,apWant.changes,apWant.force);
+  if(apWant&&apWin())apChange(apWant.kind,apWant.dur,apWant.changes,apWant.force,apWant.rebuild);
   // A section change that arrived mid-fade follows once the fade is done and the minimum gap has passed.
   if(apPending&&!apTrans&&ap.live&&!ap.hold&&pilot.since>=MIN_GAP){const k=apPending;apPending=null;apChange(k,k==='calm'?9:7);}
   const c=ap.live?pilot.step(dt,features(A.freq),ap.hold?1e9:ap.every,!!apTrans||ap.hold):null;

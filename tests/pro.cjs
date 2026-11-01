@@ -465,6 +465,10 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.fill('[data-property=apPrompt]','');await page.locator('[data-property=apPrompt]').pressSequentially('pink spiral');
     await page.waitForFunction(()=>pro.autopilot.status().slots.some(s=>s.role===0&&s.layout==='spiral'),null,{timeout:15000});
     assert.ok((await page.evaluate(()=>pro.autopilot.status())).slots.some(s=>s.role===0&&s.layout==='spiral'),'Typing builds after a pause');
+    for(const layout of ['concentric','spiral']){
+      await page.evaluate(layout=>pro.autopilot.create('pink '+layout),layout);
+      assert.ok((await page.evaluate(()=>pro.autopilot.status())).slots.some(s=>s.role===0&&s.layout===layout),'A new description replaces the base with '+layout);
+    }
     await page.locator('[data-property=apLive] [data-value=false]').click();
     await page.evaluate(()=>pro.autopilot.settings({match:85}));await page.locator('#modeStudio').click();}
 
