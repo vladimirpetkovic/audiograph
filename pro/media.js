@@ -75,5 +75,5 @@ export function emitterAsset(m,img,time,still){
     const x=((lo%w+r())/w*2-1)*w/side,y=((Math.floor(lo/w)+r())/h*2-1)*h/side;
     pts.push(Math.max(-1,Math.min(1,Math.round(x*1e5)/1e5)),Math.max(-1,Math.min(1,Math.round(y*1e5)/1e5)),data[lo*4]/255,data[lo*4+1]/255,data[lo*4+2]/255);
   }
-  return m.asset={kind:'image',name:m.name||m.kind,points:pts};
+  return m.asset={kind:'image',name:m.name||m.kind,points:pts,frame:true};
 }

@@ -159,6 +159,9 @@ async function engineSource() {
     // A selected output resolution controls render targets; simulation grid/particle quality stays independent.
     patch("var tr=st.tr,sc=Math.min(1,tr.o/Math.max(W,H));","var tr=st.tr,sc=window.__agProOutputResolution?1:Math.min(1,tr.o/Math.max(W,H));");
     patch3dLighting(patch);
+    // Pro's emit assets are whole frames: map the frame onto the frame so particles spawn where the driver is drawn
+    // (Emitter size stays a multiplier, its default 65 % meaning 1:1).
+    patch("o.emitScale=K('pEmitScale',65)/100;","o.emitScale=K('pEmitScale',65)/100*(asset&&asset.frame?(st.asp||1)/.65:1);");
     const base=new URL('../',location.href).href;
     const policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:";
     // Smoke takes its palette: the original keeps a quarter of a fixed grey in its albedo, which turns coloured smoke grey.
