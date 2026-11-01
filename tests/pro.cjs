@@ -41,7 +41,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const project=()=>page.evaluate(()=>pro.getProject());
     const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
     const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
-    if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY){
+    if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY){
     const layer0=async()=>(await project()).layers[0];
     const idOf=async type=>(await layer0()).nodes.find(n=>n.type===type)?.id;
     const ids={emitter:await idOf('gpuParticles'),audio:await idOf('audioIn'),bloom:await idOf('bloom'),output:await idOf('output')};
@@ -594,6 +594,99 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(await page.locator('#properties .media-item').count(),0,'Removing the picture brings back Choose');
     void img;
     }
+    if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY){
+    // Template Morph reuses the original interpolation and keeps a stable renderer while blending.
+    await page.evaluate(()=>{pro.autopilot.stop();pro.loadTemplate('Kaleido spectrum');pro.pause(true);pro.morph.settings({list:['Firepit','Glass'],duration:10,random:false,beat:false,ping:false});pro.workspace('auto');});
+    const beforeMorph=await project();
+    await page.evaluate(()=>pro.morph.scrub(0));
+    const morphID=await page.evaluate(()=>pro.morph.status().node);
+    await page.waitForFunction(id=>pro.engine(id)?.status==='ready',morphID,{timeout:30000});
+    await page.evaluate(()=>{pro.draw();pro.pause(false);});
+    await lit(.02,25000);
+    assert.ok(await page.evaluate(id=>pro.engine(id).w.pmActive,morphID),'Preview uses the original morph render loop');
+    const morphGeneration=await page.evaluate(id=>pro.engine(id).generation,morphID);
+    const blends=await page.evaluate(id=>{
+      const e=pro.engine(id),a=e.templateBlend('Glass','Sacred circle',0),b=e.templateBlend('Glass','Sacred circle',1),m=e.templateBlend('Glass','Sacred circle',.5);
+      const same=a.layers[0].layout===b.layers[0].layout;
+      const numeric=Object.keys(a.layers[0].params).find(k=>typeof a.layers[0].params[k]==='number'&&typeof b.layers[0].params[k]==='number'&&a.layers[0].params[k]!==b.layers[0].params[k]);
+      return {same,numeric,mid:m.layers[0].params[numeric],expected:(a.layers[0].params[numeric]+b.layers[0].params[numeric])/2,
+        different:e.templateBlend('Echo','Firepit',.5).layers.map(l=>({layout:l.layout,opacity:l.opacity}))};
+    },morphID);
+    assert.ok(blends.numeric,'Templates have a varying numeric parameter');
+    assert.ok(blends.same,'The interpolation test uses matching layouts');
+    assert.equal(blends.mid,blends.expected,'Matching layouts interpolate numeric parameters');
+    assert.ok(blends.different.length>1&&blends.different.some(l=>l.opacity>0&&l.opacity<100),'Different layouts crossfade');
+    for(const v of [10,25,40]){
+      await page.evaluate(v=>pro.morph.scrub(v),v);await page.waitForTimeout(400);
+      assert.equal(await page.evaluate(()=>pro.morph.status().node),morphID,'Scrub keeps one renderer');
+      assert.equal(await page.evaluate(id=>pro.engine(id).generation,morphID),morphGeneration,'Scrub does not reinitialize the renderer');
+      assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],'Morph renders without errors');
+      const renderedBlend=await page.evaluate(id=>pro.engine(id).w.stackLayouts.map(l=>({layout:l.layout,opacity:l.opacity})),morphID);
+      assert.ok(renderedBlend.some(l=>l.layout==='phyllotaxis')&&renderedBlend.some(l=>l.layout==='spiral'),'Both template layouts are actually rendered');
+      assert.ok(renderedBlend.every(l=>l.opacity>0&&l.opacity<100),'Rendered layer opacity follows the scrub position');
+    }
+    await page.evaluate(()=>pro.morph.start());
+    const pos=await page.evaluate(()=>pro.morph.status().position);
+    await page.waitForFunction(p=>pro.morph.status().position>p+.1,pos,{timeout:10000});
+    assert.equal(await page.evaluate(()=>pro.autopilot.status().live),false,'Template Morph excludes generative Autopilot');
+    await page.evaluate(()=>{pro.morph.stop();pro.pause(true);});
+    const held=await project();await page.waitForTimeout(700);assert.deepEqual(await project(),held,'Pause freezes the morph');
+    await page.evaluate(()=>pro.morph.scrub(25));
+    assert.equal(await page.evaluate(()=>pro.morph.apply()),true,'Apply produces editable nodes');
+    assert.ok((await project()).layers[0].nodes.some(n=>n.type==='output'),'Applied blend is wired');
+    assert.ok(!(await project()).layers[0].nodes.some(n=>n.type==='templateMorph'),'Small blends expand into renderer nodes');
+    await page.evaluate(()=>{pro.undo();pro.undo();});
+    assert.deepEqual(await project(),beforeMorph,'Undo restores the pre-morph graph');
+    await page.evaluate(()=>{pro.morph.settings({list:['Cell','Zodiac']});pro.morph.scrub(25);});
+    const denseID=await page.evaluate(()=>pro.morph.status().node);
+    await page.waitForFunction(id=>pro.engine(id)?.status==='ready',denseID,{timeout:30000});
+    await page.evaluate(()=>pro.draw());
+    assert.equal(await page.evaluate(()=>pro.morph.apply()),true,'Dense blends remain an exact editable stack');
+    const dense=await project();assert.ok(dense.layers[0].nodes.some(n=>n.type==='templateMorph'),'Dense blend keeps a Template Morph node');
+    await page.evaluate(()=>pro.validate(pro.getProject()));
+    await page.evaluate(()=>pro.pause(false));
+    await page.waitForFunction(id=>pro.engine(id)?.frames>8,denseID,{timeout:30000});
+    await lit(.02,25000);
+    await page.evaluate(id=>pro.select(id),denseID);
+    assert.equal(await page.locator('#properties [data-property=from]').count(),1,'Applied stack has an editable source template');
+    assert.equal(await page.locator('#properties [data-property=to]').count(),1,'Applied stack has an editable target template');
+    await page.evaluate(()=>pro.autopilot.start());
+    assert.equal(await page.evaluate(()=>pro.morph.status().playing),false,'Starting generative Autopilot stops morph transport');
+    await page.evaluate(()=>pro.autopilot.stop());
+    await page.evaluate(()=>{pro.morph.settings({list:['Waves','Glass'],random:false});pro.morph.scrub(0);});
+    const customID=await page.evaluate(()=>pro.morph.status().node);
+    await page.waitForFunction(id=>pro.engine(id)?.status==='ready',customID,{timeout:30000});
+    await page.evaluate(()=>pro.draw());
+    const customFn=await page.evaluate(id=>pro.engine(id).templateBlend('Waves','Glass',0).layers[0].params.customFnX,customID);
+    assert.equal(await page.evaluate(()=>pro.morph.apply()),true,'Custom template can be baked');
+    assert.ok((await project()).layers[0].nodes.some(n=>n.props.mode==='custom'&&n.props.look.customFnX===customFn),'Apply preserves the shipped math expression');
+    const timing=await page.evaluate(async()=>{
+      const {TemplateMorph}=await import(new URL('morph.js',location.href).href),p=new TemplateMorph();
+      p.configure({list:['Firepit','Glass'],duration:10});p.start(0);for(let i=0;i<101;i++)p.step(.1,0);
+      const next=p.pair();p.configure({beat:true,beatMode:'glide4'});p.position=0;p.start(0);p.step(.01,1);for(let i=0;i<150;i++)p.step(.01,1);
+      const beat=p.position;p.configure({random:true,beat:false,ping:false});p.position=.999;p.start(1);const old=p.pair().to;p.step(.1,1);
+      const random=p.pair();p.configure({random:false,ping:true});p.position=1.999;p.direction=1;p.start(1);p.step(.1,1);const reversed=p.direction;
+      p.configure({beat:true,beatMode:'snap',ping:false});p.position=0;p.start(0);for(let i=0;i<46;i++)p.step(.01,1);
+      const snap=p.position;p.configure({list:['Echo','Echo'],random:true});const duplicate=p.pair();
+      let invalid=false;try{p.scrub(NaN);}catch{invalid=true;}
+      return {next,beat,random,old,reversed,snap,duplicate,invalid};
+    });
+    assert.equal(timing.next.from,'Glass','Sequential playback advances to the next template');
+    assert.ok(Math.abs(timing.beat-.25)<.002,'Beat glide advances a quarter template then settles');
+    assert.equal(timing.random.from,timing.old,'Random continues from its prior target');
+    assert.notEqual(timing.random.from,timing.random.to,'Random does not repeat a template');
+    assert.equal(timing.reversed,-1,'Ping-pong reverses at the playlist end');
+    assert.equal(timing.snap,1,'Snap completes one transition over 0.45 seconds');
+    assert.notEqual(timing.duplicate.from,timing.duplicate.to,'Random handles a playlist containing only repeated copies');
+    assert.ok(timing.invalid,'Invalid scrub position is rejected');
+    await page.evaluate(()=>pro.morph.settings({list:['Echo','Glass'],duration:30,beatMode:'glide1'}));
+    await page.reload();await page.waitForFunction(()=>window.pro);
+    assert.deepEqual(await page.evaluate(()=>pro.morph.settings().list),['Echo','Glass'],'Playlist is remembered');
+    assert.equal(await page.evaluate(()=>pro.morph.status().playing),false,'Reload does not start morph playback');
+    assert.deepEqual(errors,[],'No page errors during template morph');
+    console.log('Template Morph tests passed');
+    }
+    if(!process.env.AUDIOGRAPH_MORPH_ONLY){
     // A cube cap shares the same source pixels with both front faces, not a separately rotated rectangle.
     const capCheck=await page.evaluate(async()=>{
       const M=await import(new URL('mapping.js',location.href).href),W=960,H=540,src=document.createElement('canvas');src.width=W;src.height=H;
@@ -684,5 +777,6 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     }
     assert.deepEqual(errors,[],'No page errors during resolution changes');
     console.log('Resolution tests passed');
+    }
   }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

@@ -200,6 +200,14 @@ process the finished image.
 - The **Cube** mapping layout uses a folded cap so the image meets both side
   faces at their shared edges. Choose **Cube cap · wrap sides** under Warp to
   restore this on a surface, or **Flat · 4 corners** for ordinary corner pinning.
+- **Template Morph** in Autopilot blends the original Audiograph templates.
+  Add a playlist, or leave it empty to use all templates; Play cycles it over
+  Duration, Random chooses pairs, On Beat offers quarter-beat/full-beat glide
+  or Snap, and Ping-pong reverses timer playback. Morph scrubs the sequence.
+  Starting it stops generative Autopilot, and Undo restores your prior graph.
+  Apply expands the current blend into editable nodes. Stacks exceeding the
+  eight-renderer limit remain exactly editable through a Template Morph node.
+  Playlist and playback options are remembered, but playback never starts on reload.
 - **Autopilot** (third switch at the top) is the original Audiograph's Automation:
   - Turn it **On** and it listens for the song's sections (breakdown, groove,
     build-up, drop) and at each one slowly crossfades to a fitting variation,

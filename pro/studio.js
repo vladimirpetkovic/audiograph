@@ -9,6 +9,7 @@ import * as mapping from './mapping.js';
 import * as autopilot from './autopilot.js';
 import {Pilot,Generator,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
 import {ORIGINAL_PRESETS,CLONER_PRESETS} from './templates.js';
+import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
 const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
@@ -93,11 +94,11 @@ function liveCommit(label){
   const before=liveBefore||clone(state);liveBefore=null;
   try{commit(clone(state),label,before);}catch(error){state=before;reconcile();renderUI();message(error.message,true);}
 }
-function restoreSnapshot(snapshot){state=validate(snapshot);pending=null;reconcile();renderUI();if(paused)draw(elapsed);}
+function restoreSnapshot(snapshot){tm.playing=false;state=validate(snapshot);pending=null;reconcile();renderUI();if(paused)draw(elapsed);}
 function undo(){if(history.length){future.push(clone(state));restoreSnapshot(history.pop());message('Undone');}}
 function redo(){if(future.length){history.push(clone(state));restoreSnapshot(future.pop());message('Redone');}}
 function importProject(raw,label='Imported project. Reload media files in the Input nodes.'){
-  const clean=validate(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
+  const clean=validate(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
 }
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
 const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);if(!o.length)return false;
@@ -422,6 +423,7 @@ function execute(g,time,dt){
         if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
       }
       r.shape={emitter:n,mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
+      if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
       if(n.type==='waveform3d'){const e=engines.get(n.id);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
       if(n.type==='gpuParticles'&&byInput.has(n.id+':emit')){
@@ -522,6 +524,7 @@ function execute(g,time,dt){
           r.shape={...s,mods,hue:((hue%360)+360)%360};
         }
     }
+    if(n.type==='templateMorph'){r.image=asImage(r.shape,n.id);delete r.shape;}
     outputs.set(n.id,r);if(DATA_INPUTS.has(n.type))lastOuts.set(n.id,{...r});{const v=r.value??(typeof r.out==='number'?r.out:n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
     if(r.image&&thumbs.has(n.id)&&frame%4===0)drawThumb(n.id,r.image);
   }
@@ -710,6 +713,7 @@ function summary(n){
   if(n.type==='text')return p.text;
   if(['image','video'].includes(n.type))return mediaEls.get(n.id)?.name||'no file';
   if(n.type==='camera')return 'live';
+  if(n.type==='templateMorph')return `${p.from} → ${p.to} · ${Math.round(p.mix)}%`;
   if(isEngine(n.type)){const m=engines.get(n.id)?.mediaName,r=t.props.render?.labels.find(l=>l[0]===p.render)?.[1];return [r,m||(mediaKind(n)?(mediaKind(n)==='object'?'built-in knot':n.type==='splat'?'demo cloud':'no file'):'')].filter(Boolean).join(' · ');}
   if(n.type==='value')return String(p.value);
   if(n.type==='oscillator')return `${p.wave} · ${p.rate} Hz`;
@@ -1006,7 +1010,13 @@ function renderProperties(){
   const t=TYPES[n.type],cat=catOf(n.type),head=el('div','insp-head'),h=el('h3');
   h.style.color=cat.color;h.append(document.createTextNode(nodeTitle(n)));
   head.append(h,el('div','insp-desc',t.description));root.append(head);
-  if(t.engine)renderEmitter(root,n);
+  if(n.type==='templateMorph'){
+    for(const key of ['from','to']){const sel=el('select');sel.dataset.property=key;for(const name of TEMPLATE_NAMES)sel.append(new Option(name,name));sel.value=n.props[key];
+      sel.onchange=()=>{tm.playing=false;edit((p,g)=>{g.nodes.find(m=>m.id===n.id).props[key]=sel.value;},'Morph template');};root.append(ui.field(TYPES[n.type].props[key].label,sel));}
+    const knobs=el('div','knob-grid');knobs.append(ui.knob({label:'Morph',min:0,max:100,step:1,value:n.props.mix,def:0,unit:'%',property:'mix',
+      onInput:v=>{tm.playing=false;live(()=>{findNode(n.id).props.mix=v;});},onChange:()=>liveCommit('Morph blend')}));root.append(knobs);
+  }
+  else if(t.engine)renderEmitter(root,n);
   else{
     if(n.type==='audioIn')renderAudioSource(root);
     if(n.type==='palette')renderPalettePresets(root,n);
@@ -1798,6 +1808,46 @@ function mapKey(e){
 // out, so a change never rebuilds the graph or starts new engines. Full rebuilds (drops) dissolve from the last frame.
 const AP_KEY='agpro.autopilot';
 const ap={prompt:'',changes:'everything',layers:'auto',every:24,match:85,live:false,hold:false,write:false,last:''};
+const tm=new TemplateMorph();
+try{tm.configure(JSON.parse(localStorage.getItem('agpro.templateMorph')||'{}'));}catch(error){message('Template Morph settings: '+error.message,true);}
+let tmNode=null,tmStatusT=0;
+function tmSave(){try{localStorage.setItem('agpro.templateMorph',JSON.stringify(tm.settings()));}catch(error){message('Template Morph settings: '+error.message,true);}}
+function tmEnsure(){
+  apStop();apTrans=null;apWant=null;apTweens.clear();clearTimeout(apTyping);
+  let n=tmNode&&findNode(tmNode);if(n?.type==='templateMorph')return n;
+  const pair=tm.pair(),g=chain('Template Morph',[['audioIn',{}],['templateMorph',{from:pair.from,to:pair.to,mix:pair.mix*100}],['output',{}]]);
+  nextFade=2.5;
+  importProject({...clone(state),layers:[g]},'Template Morph (Undo restores your scene)');
+  n=g.nodes.find(n=>n.type==='templateMorph');tmNode=n.id;return findNode(tmNode);
+}
+function tmSetPair(){
+  const n=tmEnsure(),p=tm.pair();Object.assign(n.props,{from:p.from,to:p.to,mix:p.mix*100});
+  if(paused)draw(elapsed);tmStatus();return p;
+}
+function tmStart(){tmEnsure();apStop();clearTimeout(apTyping);tm.start(A.beat);tmStatus();}
+function tmApply(){
+  const n=tmNode&&findNode(tmNode);if(!n)throw Error('Start or scrub Template Morph first');
+  const e=engines.get(n.id);if(!e||e.status!=='ready')throw Error('Wait for the template renderer to start');
+  const blend=e.templateBlend(n.props.from,n.props.to,n.props.mix/100),kept=blend.layers.filter(l=>l.opacity>.01);
+  tm.playing=false;
+  if(kept.length>LIMITS.emitters){message('Applied as an editable Template Morph node (this blend has more than 8 renderers)');tmStatus();return true;}
+  const P={name:'Morphed templates',bg:'#000000',layers:kept.map(l=>({layout:l.layout,opacity:l.opacity,
+    look:{...lookDiff(e.w,l.params),...(l.layout==='custom'?{customFnX:l.params.customFnX,customFnY:l.params.customFnY}:{})}})),postFx:blend.postFx};
+  const next=validate({...clone(state),layers:presetGraph(P)});nextFade=1;importProject(next,'Applied Template Morph to editable nodes');tmNode=null;tmStatus();
+  return true;
+}
+function tmStatus(){
+  const label=document.querySelector('[data-property=tmStatus]'),p=tm.pair();
+  if(label)label.textContent=`${p.from} → ${p.to} · ${Math.round(p.mix*100)}%${tm.playing?' · playing':''}`;
+  const knob=document.querySelector('[data-property=tmMix]');knob?.show?.(tm.progress());
+  document.querySelector('[data-property=tmPlay]')?.setValue?.(tm.playing);
+}
+function tmStep(dt){
+  if(!tm.playing)return;
+  const n=tmNode&&findNode(tmNode);if(!n||n.type!=='templateMorph'){tm.playing=false;return;}
+  const p=tm.step(dt,A.beat);Object.assign(n.props,{from:p.from,to:p.to,mix:p.mix*100});
+  if((tmStatusT+=dt)>.15){tmStatusT=0;tmStatus();}
+}
 try{const s=JSON.parse(localStorage.getItem(AP_KEY)||'{}');if(s.v!==2){delete s.changes;delete s.match;delete s.every;delete s.fade;}Object.assign(ap,s,{live:false,hold:false});}catch{}
 if(!['colors','mood','everything'].includes(ap.changes))ap.changes='everything';
 if(!['auto','1','2','3'].includes(String(ap.layers)))ap.layers='auto';
@@ -1981,6 +2031,7 @@ function apShowPrompt(){const ta=document.querySelector('[data-property=apPrompt
 const apKind=()=>({waiting:'groove',drop:'phrase'})[pilot.section]||pilot.section;
 // Describe → a new Everything stack now (whether Autopilot runs or not).
 function apCreate(prompt=ap.prompt){
+  tm.playing=false;
   ap.prompt=String(prompt||'');apVibeFor=null;
   if(ap.changes!=='everything'&&!apIsSlots())ap.changes='everything';
   apSave();apChange(apKind(),3,'everything',true,true);
@@ -1990,6 +2041,7 @@ function apCreate(prompt=ap.prompt){
 let apStatusT=0;
 function autopilotStep(dt){
   if(liveBefore)return;
+  tmStep(dt);
   if(apWant&&apWin())apChange(apWant.kind,apWant.dur,apWant.changes,apWant.force,apWant.rebuild);
   // A section change that arrived mid-fade follows once the fade is done and the minimum gap has passed.
   if(apPending&&!apTrans&&ap.live&&!ap.hold&&pilot.since>=MIN_GAP){const k=apPending;apPending=null;apChange(k,k==='calm'?9:7);}
@@ -2018,6 +2070,7 @@ function apStatus(full=false){
   if(full){const l=$('apLast');if(l)l.textContent=ap.last?'Last change: '+ap.last:'';}
 }
 function apStart(){
+  tm.playing=false;
   if(!ap.live)pilot.reset();ap.live=true;ap.hold=false;
   if(ap.changes==='everything'&&!apActive().length)apCreate(ap.prompt);
 }
@@ -2064,10 +2117,41 @@ function renderAutoPanel(){
   const hb=el('button','mbtn',ap.hold?'Release':'Hold');hb.title='Keep the current look';hb.dataset.property='apHold';hb.disabled=!ap.live;hb.onclick=()=>{ap.hold=!ap.hold;hb.textContent=ap.hold?'Release':'Hold';apStatus();};
   r2.append(nb,hb);live.append(r2);
   const last=el('div','ap-last');last.id='apLast';live.append(last);
-  apStatus(true);
+  renderTemplateMorph(root);apStatus(true);
+}
+function renderTemplateMorph(root){
+  const s=section(root,'Template Morph'),row=el('div','map-actions'),add=el('select');add.dataset.property='tmAdd';
+  add.append(new Option('+ Add template…',''));for(const name of TEMPLATE_NAMES)add.append(new Option(name,name));
+  add.onchange=()=>{if(add.value)attempt(()=>{tm.configure({list:[...tm.list,add.value]});tmSave();renderAutoPanel();});};s.append(ui.field('Playlist',add));
+  const button=(label,key,fn)=>{const b=el('button','mbtn',label);b.dataset.property=key;b.onclick=()=>attempt(fn);row.append(b);};
+  button('All','tmAll',()=>{tm.configure({list:TEMPLATE_NAMES});tmSave();renderAutoPanel();});
+  button('Clear','tmClear',()=>{tm.playing=false;tm.configure({list:[]});tmSave();renderAutoPanel();});
+  button('Apply','tmApply',tmApply);s.append(row);
+  const list=el('div','chips tm-list');list.dataset.property='tmList';
+  tm.list.forEach((name,i)=>{const b=el('button','mbtn',`${i+1}. ${name} ×`);b.title='Remove '+name;b.onclick=()=>attempt(()=>{tm.configure({list:tm.list.filter((_,k)=>k!==i)});tmSave();renderAutoPanel();});list.append(b);});s.append(list);
+  const knobs=el('div','knob-grid');
+  knobs.append(ui.knob({label:'Morph',min:0,max:100,step:1,value:tm.progress(),def:0,unit:'%',property:'tmMix',
+    onInput:v=>{tm.playing=false;tm.scrub(v);attempt(tmSetPair);},onChange:()=>tmStatus()}));
+  knobs.append(ui.knob({label:'Duration',min:10,max:60,step:1,value:tm.duration,def:20,unit:'s',property:'tmDuration',
+    onInput:v=>{tm.duration=v;},onChange:tmSave}));s.append(knobs);
+  s.append(ui.field('Playback',ui.toggle({value:tm.playing,labels:['Play','Pause'],property:'tmPlay',onChange:v=>{attempt(()=>{if(v)tmStart();else tm.playing=false;});tmStatus();}})));
+  const options=el('div','chips');options.dataset.property='tmOptions';
+  // Independent switches keep the original morph transport's combination of modes.
+  for(const [key,label] of [['random','Random'],['beat','On Beat'],['ping','Ping-pong']]){
+    const b=el('button','mbtn'+(tm[key]?' on':''),label);b.dataset.value=key;b.setAttribute('aria-pressed',String(tm[key]));
+    b.onclick=()=>attempt(()=>{const was=tm.playing;tm.configure({[key]:!tm[key]});if(key==='random'){tm.position=0;tm.from=tm.to=null;}tmSave();if(was||tm[key]&&key==='random')tmStart();renderAutoPanel();});options.append(b);
+  }
+  s.append(options);
+  const beat=el('select');beat.dataset.property='tmBeatMode';
+  for(const [v,label] of [['glide4','Glide ¼ / beat'],['glide1','Glide 1 / beat'],['snap','Snap']])beat.append(new Option(label,v));
+  beat.value=tm.beatMode;beat.onchange=()=>attempt(()=>{tm.configure({beatMode:beat.value});tmSave();});s.append(ui.field('Beat style',beat));
+  const status=el('div','ap-read');status.dataset.property='tmStatus';s.append(status);tmStatus();
 }
 window.pro={
   randomGraph,
+  morph:{settings:o=>{if(o){tm.configure(o);tmSave();if(workspace==='auto')renderAutoPanel();}return tm.settings();},
+    start:tmStart,stop:()=>{tm.playing=false;tmStatus();},scrub:v=>{tm.playing=false;tm.scrub(v);return tmSetPair();},apply:()=>attempt(tmApply),
+    status:()=>({...tm.pair(),playing:tm.playing,position:tm.position,node:tmNode})},
   pause:v=>setPaused(v===undefined?!paused:!!v),
   getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;multi.clear();renderUI();},selectNodes:ids=>setSelection(ids),selection:()=>selIds(),copy:()=>copySel(),paste:(x,y)=>pasteNodes(clip,x,y),saveCustom:n=>saveCustom(n),customNodes:()=>customNodes(),removeCustom:n=>removeCustom(n),selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},

@@ -2,6 +2,7 @@
 // the app's own live render loop (liveAnimLoop) one frame at a time with a synthetic analyser, so every
 // original feature that lives in the composite (symmetry, flip, mirror, spin, particles, per-layer Post FX)
 // renders exactly as in Audiograph.
+import {TEMPLATE_BY_NAME} from './morph.js';
 let sourcePromise;
 async function engineSource() {
   if(!sourcePromise)sourcePromise=fetch(new URL('../index.html',location.href)).then(async r=>{
@@ -233,6 +234,7 @@ export class EmitterEngine {
     if(this.status==='error')throw Error(this.error);
     this.drawnAt=performance.now();
     if(this.status!=='ready')return null;
+    if(job.templateMorph)return this.drawTemplateMorph(job);
     const w=this.w,mode=this.prepare(job);
     if(job.need&&this.mediaKind!==job.need)throw Error(`${job.label||job.mode}: load ${job.need==='image'?'an image':'a video'} in its properties`);
     const p={...this.base};
@@ -272,6 +274,35 @@ export class EmitterEngine {
       this.backend='Native WebGPU';
     }else this.backend=w.agGpu.status().t;
     return this.canvas;
+  }
+  templateBlend(from,to,mix){
+    const w=this.w;
+    if(!w)throw Error('Template renderer is not ready');
+    const normalize=name=>{
+      if(!this.templateCache)this.templateCache=new Map();
+      if(!this.templateCache.has(name)){
+        const p=TEMPLATE_BY_NAME.get(name);if(!p)throw Error('Unknown morph template');
+        this.templateCache.set(name,{layers:p.layers.map(l=>({layout:l.layout,opacity:l.opacity??100,params:{...w.getDefaultLayerParams(),...l.look}})),postFx:p.postFx||{}});
+      }
+      return this.templateCache.get(name);
+    };
+    const A=normalize(from),B=normalize(to),fx={enabled:true};
+    for(const k of new Set([...Object.keys(A.postFx),...Object.keys(B.postFx)]))fx[k]=(A.postFx[k]||0)*(1-mix)+(B.postFx[k]||0)*mix;
+    return {layers:w.pmBlendNorm(A,B,mix),postFx:fx};
+  }
+  drawTemplateMorph(job){
+    const w=this.w,{from,to,mix}=job.templateMorph,blend=this.templateBlend(from,to,mix/100);
+    this.mode='templateMorph';w.pmActive=true;w.pmSpinLive=true;w.stackMode=true;
+    w.stackLayouts=blend.layers;w.activeLayerIdx=0;w.layoutMode=blend.layers[0].layout;w.canvasBg='#000000';
+    w.compFx=w.pfxNorm(blend.postFx);w.postFxEnabled=true;
+    if(!w.postFxGl)w.initPostFx();
+    const pf=w.document.getElementById('postFxCv');pf.style.display='block';
+    this.audio.freq.set(job.audio.freq);this.audio.wave.set(job.audio.wave);w.analyser.context.sampleRate=job.audio.rate||48000;
+    this.realSet(blend.layers[0].params);
+    w.liveAnimLoop();this.frames++;
+    this.ctx.resetTransform();this.ctx.globalCompositeOperation='copy';this.ctx.drawImage(pf,0,0,WIDTH,HEIGHT);this.ctx.globalCompositeOperation='source-over';
+    const sim=w.agSim.stats();if(sim.errors?.length)throw Error('Template WebGPU: '+sim.errors[0]);
+    this.backend='Original template morph';return this.canvas;
   }
   // Webcam node: start/stop the app's own camera colour and displacement feature and set its controls.
   camera(cam) {

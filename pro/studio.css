@@ -344,6 +344,7 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .studio.map-mode .library,.studio.auto-mode .library{visibility:visible}
 .studio.map-mode #librarySearch,.studio.map-mode #library{display:none}
 .map-panel{display:flex;flex-direction:column;gap:18px}
+.tm-list{flex-wrap:wrap;gap:5px}
 .map-panel>.insp-section{display:flex;flex-direction:column;gap:14px}.map-panel>.insp-section>.insp-label{margin-bottom:-4px}
 .map-panel .prop-row{gap:12px}.map-panel .prop-row .chips{flex-wrap:wrap;justify-content:flex-end}
 /* A chip group that doesn't fit beside its label moves below it whole, rather than splitting across lines. */

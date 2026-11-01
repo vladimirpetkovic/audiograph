@@ -1,6 +1,7 @@
 // Audiograph Pro graph model: categorized node catalog, typed ports, validation and migration.
 // Emitter modes by node type: each is one of the original Audiograph renderers.
 import {cleanMapping} from './mapping.js';
+import {TEMPLATE_NAMES} from './morph.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
   waveform3d: [['sphere','Sphere'],['cube','Cube'],['torus','Torus'],['cylinder','Cylinder'],['cone','Cone'],['ico','Icosphere'],['pyramid','Pyramid'],['frame','Frame'],['knot','Knot'],['tetrahedron','Tetrahedron'],['dna','DNA'],['terrain','Terrain'],['model','Model']],
@@ -170,6 +171,10 @@ export const TYPES = {
   text:ENGINE('inputs','Text','Your words drawn as audio-reactive lines.',{text:text('Text','AUDIOGRAPH')}),
   splat:ENGINE('inputs','Gaussian Splat','A .ply / .splat point cloud that reacts to the sound (a demo cloud until you load one).',{}),
   // Waveforms and Emitters (particles)
+  templateMorph:{category:'composite',group:'Templates',label:'Template Morph',engine:true,description:'Blend original Audiograph templates: matching layouts interpolate; different layouts crossfade. Audio drives the full stack; its finished image feeds palettes, post effects and Output.',
+    inputs:{audio:'audio',drive:'number'},outputs:{image:'image'},props:{
+    from:pick('From',TEMPLATE_NAMES[0],TEMPLATE_NAMES,{noPort:true}),to:pick('To',TEMPLATE_NAMES[1],TEMPLATE_NAMES,{noPort:true}),
+    mix:n('Morph',0,0,100,1,{unit:'%'})}},
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal) or as audio-reactive lines (Waveform). Its “object” output feeds a Cloner.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
@@ -352,6 +357,7 @@ export function objectOf(p,modelMesh){
 export function engineSpec(n){
   const p=n.props;
   switch(n.type){
+    case 'templateMorph':return {mode:'templateMorph'};
     case 'text':return {mode:'text'};
     case 'waveform3d':
       if(p.render==='normal')return {mode:'simcloner',single:true};
