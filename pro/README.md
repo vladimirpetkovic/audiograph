@@ -141,6 +141,7 @@ process the finished image.
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
+- **Templates** include **Data tunnel** (a flight through flowing particles, coloured and pushed by space weather) and **Living archive** (a slow fluid painting with drifting strokes, fed by Wikipedia edits).
 - **Templates, Save/Restore** (in this browser), **Export/Import** JSON, and
   The transport has icon buttons: **Play/Pause**, **Stop**, **Rec** (records the
   preview with audio to WebM and shows elapsed time), and **Snap** (saves a PNG).
@@ -177,8 +178,12 @@ process the finished image.
   - The **Autopilot** On/Off toggle at the top of the panel follows the song (calm, groove, build, drop) and changes the look
     at most every **Every** seconds, or at once on a drop. **Changes**: Colours
     (palettes glide), Colours + mood (also glides bloom, intensity, spin… to the
-    section's energy) or Everything (a new look on drops and builds; one undo
-    step each). **Prompt match** sets how closely it sticks to your words,
+    section's energy) or Everything (a new look on peaks; one undo step each).
+    Between song sections it paces itself in arcs: **rest** (slow colour
+    changes, held longer) → **build** (one to three rising steps with mood) →
+    **peak** (a new look, sooner) → rest; a drop is always a peak. It remembers
+    recent palettes, looks and written prompts and never loops back to them.
+    **Prompt match** sets how closely it sticks to your words,
     **Fade** the glide time; **Next** changes now and **Hold** freezes the look.
 - **Panels**: drag the borders between the library, preview, graph and
   properties to resize them. Drag a border nearly closed or double-click it to

@@ -1134,6 +1134,7 @@ function chain(name,specs,extra){
   extra?.(g);return g;
 }
 const drive=(g,ctrlType,ctrlProps,targetType,input,y=300)=>{const t=g.nodes.find(n=>n.type===targetType),c=node(ctrlType,t.x,y,ctrlProps);g.nodes.push(c);g.edges.push({from:c.id,out:'value',to:t.id,input});};
+const liveTo=(g,source,links,y=320)=>{const d=node('liveData',40,y,{source});g.nodes.push(d);for(const [out,type,input] of links){const t=g.nodes.find(n=>n.type===type);if(t)g.edges.push({from:d.id,out,to:t.id,input});}};
 const E=(mode,extra={})=>[Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode)),{mode,...extra}];
 // Renderers without a Palette node downstream draw in grayscale.
 const GRAY={_colorMode:'toneramp',_toneStops:['#00000000','#555555','#aaaaaa','#ffffff'],_simpleStops:['#555555','#aaaaaa','#ffffff']};
@@ -1153,6 +1154,12 @@ const TEMPLATES={
   'Drifting terrain':()=>[chain('Terrain',[['audioIn',{}],E('terrain'),['wave',{amount:20}],['palette',{c1:'#0d1b2a',c2:'#1b998b',c3:'#c5d86d',c4:'#f4f1de'}],['output',{}]],g=>drive(g,'oscillator',{rate:.05,depth:.4,offset:0},'waveform3d','tilt'))],
   'Glitch sand':()=>[chain('Sand',[['audioIn',{}],E('simsand'),PAL('#1a1a1a','#ff006e','#fb5607','#ffbe0b'),['lens',{chroma:70,scanlines:40,vignette:30}],['fracture',{}],['output',{}]])],
   'Webcam mirror':()=>[chain('Mirror',[['audioIn',{}],E('circle'),['symmetry',{mode:'x'}],['mirror',{reflect:true}],['webcam',{displace:60}],PAL('#000000','#14213d','#fca311','#e5e5e5'),['bloom',{bloom:45}],['output',{}]])],
+  'Data tunnel':()=>[chain('Tunnel',[['audioIn',{}],E('concentric'),['particles',{density:35,speed:5,spread:85,trail:30,size:6}],['flowField',{vortex:45,curl:30,perlin:20}],PAL('#020212','#1b1464','#00b4d8','#e0fbfc'),['blur',{x:0,radial:40}],['trails',{trails:85,feedback:70}],['bloom',{bloom:50}],['output',{}]],
+    g=>liveTo(g,'space',[['palette','palette','colors'],['level','flowField','vortex'],['pulse','bloom','bloom']]))],
+  'Living archive':()=>[chain('Archive',[['audioIn',{}],E('simfluid'),['vorticity',{}],['swirl',{}],PAL('#0b0614','#3a0ca3','#f72585','#ffd6ff'),['trails',{trails:65}],['bloom',{bloom:18}],['output',{}]],
+      g=>liveTo(g,'wiki',[['palette','palette','colors'],['level','vorticity','fluid'],['phase','swirl','fluidSwirl']])),
+    chain('Strokes',[['audioIn',{}],E('phyllotaxis'),['particles',{density:18,speed:1,life:260,trail:45,size:4}],['flowField',{perlin:60,curl:40,speed:8}],PAL('#000000','#4361ee','#4cc9f0','#ffffff'),['output',{}]],
+      g=>liveTo(g,'wiki',[['palette','palette','colors'],['pulse','particles','energy']]))],
   'Two layers':()=>[chain('Smoke',[['audioIn',{}],E('simsmoke'),PAL('#0b090a','#660708','#e5383b','#f5f3f4'),['grade',{saturation:60}],['output',{}]]),chain('Spiral',[['audioIn',{}],E('spiral'),['symmetry',{mode:'x'}],PAL('#03045e','#0077b6','#90e0ef','#ffffff'),['hue',{cycle:30}],['output',{}]])]
 };
 // The original Audiograph's built-in presets: one renderer per original layer (carrying that layer's look),
@@ -1599,7 +1606,9 @@ function apTween(g,n,key,to,dur){
   apTweens.set(g.id+'|'+n.id+'|'+key,{g:g.id,n:n.id,key,from,to,t:0,dur:Math.max(.05,dur),color:typeof to==='string',stops:Array.isArray(to)});
 }
 function apColors(kind){
-  const E=director.energy(kind),seed=(Math.random()*1e9)|0;
+  const E=director.energy(kind);
+  // Never come back to a palette it showed recently.
+  let seed,key;for(let k=0;k<8;k++){seed=(Math.random()*1e9)|0;key=autopilot.paletteFor(ap.intent,{seed,energy:E,index:0}).map(c=>c[1]+c[3]+c[5]).join('');if(!apSeen(key))break;}apRemember(key);
   state.layers.forEach((g,i)=>{const stops=autopilot.paletteFor(ap.intent,{seed,energy:E,index:i});
     for(const n of g.nodes)if(n.type==='palette')apTween(g,n,'stops',stops.slice(0,MAX_STOPS).map((c,j)=>({c,auto:!!n.props.stops[j]?.auto})),ap.fade);});
 }
@@ -1613,16 +1622,25 @@ function apMood(kind){
         if(g.edges.some(e=>e.to===n.id&&e.input===key))continue;
         let v=m.props[key];if(key==='spin'&&Math.sign(v)!==Math.sign(n.props[key])&&n.props[key])v=-v;apTween(g,n,key,Math.max(spec[key].min,Math.min(spec[key].max,v)),ap.fade*1.5);}}});
 }
+// Memory of recent looks, palettes and prompts so Autopilot never loops back to them.
+const apRecent=[],apSeen=k=>apRecent.includes(k),apRemember=k=>{apRecent.push(k);if(apRecent.length>24)apRecent.shift();};
 function apChange(kind,forced=false){
   if(!ap.intent)apIntent();ap.changes_n++;
+  const arc=director.advance(kind);
   // Write: Autopilot writes the next description itself, matched to the music, and builds it.
-  if(ap.write){ap.prompt=autopilot.write({energy:director.energy(kind),seed:(Math.random()*1e9)|0,prev:ap.prompt,keep:ap.match/100*.5});apBuilt=ap.prompt;apSave();apIntent();apShowPrompt();}
-  const big=ap.write||(ap.changes==='all'&&(forced||kind==='drop'||kind==='build'||ap.changes_n%3===0));
+  if(ap.write){let t;for(let k=0;k<10;k++){t=autopilot.write({energy:director.energy(kind),seed:(Math.random()*1e9)|0,prev:ap.prompt,keep:ap.match/100*.5});if(!apSeen(t))break;}
+    apRemember(t);ap.prompt=t;apBuilt=ap.prompt;apSave();apIntent();apShowPrompt();}
+  // Pacing: rests only recolour (slowly), builds add mood, peaks bring a new look.
+  const big=ap.write||(ap.changes==='all'&&(forced||arc==='peak'));
+  const slow=arc==='rest'?2:arc==='peak'?.7:1,fade0=ap.fade;ap.fade=Math.max(.3,fade0*slow);
   if(big)nextFade=Math.max(.7,ap.fade);
-  if(big){ap.seed=(Math.random()*1e9)|0;apTweens.clear();const layers=autopilot.build(ap.intent,{seed:ap.seed,energy:director.energy(kind),match:ap.match});
+  if(big){let layers;for(let k=0;k<6;k++){ap.seed=(Math.random()*1e9)|0;layers=autopilot.build(ap.intent,{seed:ap.seed,energy:director.energy(kind),match:ap.match});
+      const key=layers.map(g=>g.nodes.map(n=>n.type+(n.props.mode||'')).sort().join()).join('|');if(!apSeen(key)||k===5){apRemember(key);break;}}
+    apTweens.clear();
     commit(validate(apProject(layers)),'Autopilot: '+kind);active=state.layers[0].id;if(!state.layers.some(g=>g.nodes.some(n=>n.id===selected)))selected=null;renderUI();}
-  else{apColors(kind);if(ap.changes!=='colors')apMood(kind);}
-  ap.last=`${kind[0].toUpperCase()+kind.slice(1)} → ${ap.write?'new prompt':big?'new look':ap.changes==='colors'?'new colours':'colours + mood'}`;
+  else{apColors(kind);if(ap.changes!=='colors'&&arc!=='rest')apMood(kind);}
+  ap.fade=fade0;
+  ap.last=`${kind[0].toUpperCase()+kind.slice(1)} · ${arc} → ${ap.write?'new prompt':big?'new look':ap.changes==='colors'||arc==='rest'?'new colours':'colours + mood'}`;
   apStatus(true);
 }
 let apStatusT=0;
@@ -1642,8 +1660,8 @@ function autopilotStep(dt){
 function apStatus(full=false){
   $('modeAuto').classList.toggle('live',ap.live);
   const box=$('apStatus');if(!box||workspace!=='auto')return;
-  const left=Math.max(0,ap.every-director.since);
-  box.querySelector('b').textContent=ap.live?(ap.hold?'Hold':director.section):'Off';
+  const left=Math.max(0,ap.every*director.pace()-director.since);
+  box.querySelector('b').textContent=ap.live?(ap.hold?'Hold':director.section+' · '+director.arc):'Off';
   box.querySelector('.ap-bar i').style.width=Math.round(director.level*100)+'%';
   box.querySelector('span').textContent=ap.live&&!ap.hold?`next ≤ ${Math.ceil(left)}s`:'';
   if(full){const l=$('apLast');if(l)l.textContent=ap.last?'Last change: '+ap.last:'';}

@@ -301,6 +301,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       await page.locator('#templates').selectOption(t);await lit(.05,25000).catch(async()=>assert.fail(`${t}: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));
     }
     await page.locator('#templates').selectOption('Two layers');await lit(.05,25000);
+    for(const t of ['Data tunnel','Living archive']){await page.locator('#templates').selectOption(t);await lit(.05,25000);assert.ok((await layer0()).nodes.some(n=>n.type==='liveData'),t+' uses live data');}
     // Knobs turn like the original: dragging clockwise around the centre raises the value; the centre dot toggles Auto.
     await page.evaluate(()=>{const l=pro.getProject().layers.find(l=>l.nodes.some(n=>n.type==='waveform2d'));pro.selectLayer(l.id);pro.select(l.nodes.find(n=>n.type==='waveform2d').id);});
     const dial=page.locator('#properties .knob').filter({has:page.locator('[data-property="thick"]')}).first();
@@ -421,6 +422,10 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const n0=await page.evaluate(()=>pro.getProject().layers[0].id);await page.evaluate(()=>{pro.autopilot.settings({changes:'all'});pro.autopilot.change('drop');});
     assert.notEqual(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'Everything mode builds a new look on a drop');
     await page.evaluate(()=>pro.undo());assert.equal(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'A rebuilt look is one undo step');
+    // Pacing: phrase changes move through rest → build → peak arcs; colours never repeat.
+    const arcs=await page.evaluate(()=>{pro.autopilot.settings({changes:'colors',fade:.3});const out=[],pals=new Set();
+      for(let i=0;i<9;i++){pro.autopilot.change('phrase');out.push(pro.autopilot.status().last.split(' · ')[1].split(' ')[0]);}return out;});
+    assert.ok(['rest','build','peak'].every(a=>arcs.includes(a))&&arcs.indexOf('peak')>arcs.indexOf('build'),'Autopilot paces changes in arcs: '+arcs.join(','));
     // Write: Autopilot writes and builds its own description; typing takes over.
     await page.locator('[data-property=apWrite] [data-value=true]').click();await page.waitForTimeout(400);
     const wr=await page.evaluate(()=>pro.autopilot.settings());assert.ok(wr.write&&wr.live&&wr.prompt.length>8,'Write turns Autopilot on and writes a prompt');

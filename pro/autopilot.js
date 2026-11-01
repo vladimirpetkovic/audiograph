@@ -371,9 +371,20 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
 
 // ---------- live director ----------
 // Follows the song: waiting → calm / groove / build / drop, and asks for a change when a section starts
-// or when nothing has changed for a while. The studio applies the change (colours, mood or everything).
+// or when nothing has changed for a while. Between sections it paces itself like a curator: arcs of
+// rest → build (1–3 steps, rising) → peak → rest, so changes breathe instead of cutting at random.
 export class Director{
-  constructor(){this.section='waiting';this.secT=0;this.since=0;this.level=0;this.hist=[];this.changes=0;}
+  constructor(){this.section='waiting';this.secT=0;this.since=0;this.level=0;this.hist=[];this.changes=0;this.arc='rest';this.arcStep=0;this.builds=2;}
+  // How long the current arc stage holds, relative to “every”.
+  pace(){return {rest:1.4,build:1,peak:.75}[this.arc];}
+  // The next stage of the arc (sections of the song pull it along: a drop is a peak, a calm is a rest).
+  advance(kind){
+    if(kind==='drop')this.arc='peak';else if(kind==='calm')this.arc='rest';else if(kind==='build'){this.arc='build';this.arcStep=1;}
+    else if(this.arc==='rest'){this.arc='build';this.arcStep=1;this.builds=1+Math.floor(Math.random()*3);}
+    else if(this.arc==='build'){if(this.arcStep>=this.builds)this.arc='peak';else this.arcStep++;}
+    else this.arc='rest';
+    return this.arc;
+  }
   step(full,dt,every){
     this.level+=(full-this.level)*Math.min(1,dt*2.5);this.hist.push(this.level);if(this.hist.length>90)this.hist.shift();
     this.secT+=dt;this.since+=dt;const L=this.level,rise=this.hist.length>=45?L-this.hist[this.hist.length-45]:0,s=this.section;let next=s;
@@ -385,8 +396,10 @@ export class Director{
     else if((s==='groove'||s==='calm')&&rise>.18&&L>.35&&L<.66&&this.secT>3)next='build';
     else if(s==='build'&&rise<.02&&this.secT>6)next='groove';
     if(next!==s){this.section=next;this.secT=0;if(s!=='waiting'&&(this.since>=4||next==='drop')){this.since=0;this.changes++;return next;}}
-    if(this.since>=every){this.since=0;this.changes++;return 'phrase';}
+    if(this.since>=every*this.pace()){this.since=0;this.changes++;return 'phrase';}
     return null;
   }
-  energy(kind){return {calm:22,groove:52,build:72,drop:92,phrase:{drop:85,calm:25,build:70}[this.section]??52,waiting:45}[kind]??50;}
+  energy(kind){
+    const arc={rest:25,build:Math.min(80,40+this.arcStep*14),peak:90}[this.arc],music={drop:85,calm:25,build:70}[this.section];
+    return {calm:22,groove:52,build:72,drop:92,phrase:music!==undefined?Math.round((music+arc)/2):arc,waiting:45}[kind]??50;}
 }
