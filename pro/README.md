@@ -15,9 +15,12 @@ each with its own opacity and blend mode (up to four).
     **System**; every Audio node hears that one source. Outputs: `audio` (the
     signal, for emitters and Audio EQ) and the numbers level, bass, mids, high
     and beat.
-  - **Image**, **Video**: drawn as lines, or **Pixel warp**.
-  - **Camera**: lines or Pixel warp from the camera. It also outputs the numbers
-    **motion** and **brightness**.
+  - **Image**, **Video**, **Camera**: picture sources, not renderers. Each outputs an
+    `image`, a `palette` (its four main colours), **brightness** and (Video, Camera)
+    **motion**. Wire audio into one to warp it (Wave, Slices or Pulse). Wire its image
+    into **WebGPU particles → emit** to spawn particles from its bright parts
+    (coloured by the picture or the palette), into a Palette's colors, or into any
+    image input. Projects from v10 and earlier convert automatically.
   - **Text**, **Gaussian Splat** (.ply / .splat, demo cloud by default).
   - **Data** inputs give 0–1 numbers for any knob, with live meters in the inspector:
     - **Computer**: cpu, core (busiest core), gpu, memory, fps, network, battery and
@@ -155,6 +158,13 @@ process the finished image.
 - **Media inputs** (Image, Video, OBJ, splat) have a single Choose button; a loaded
   file shows as a thumbnail (or its name) with × to remove it. Image, Video and Camera
   stay still until audio is wired into them.
+- **Transport**: Play / pause (Space) also pauses the visuals; Stop stops the audio and
+  freezes the picture. Fullscreen (F) sits next to Detach.
+- **Port colours**: every port label and wire is tinted by its type (audio, shape,
+  image, number, colors, 3D object).
+- **Deformers on every shape**: renderers that ignore the classic deformers (WebGPU
+  simulations, the Cloner, Growth, Fractal…) get Twist, Bulge, Wave, Shear, Depth,
+  Ripple and Jitter as a GPU image warp, and Symmetry on the rendered picture.
 - **Inspector sections** work like an accordion: the basics sit at the top, and
   opening a section (Lines, Outline, Sound response…) closes the others. The open
   section is remembered per node type. Choice chips such as Growth's Type sit at the

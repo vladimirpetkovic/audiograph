@@ -98,6 +98,11 @@ export function geoFromLook(look){
 const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number'},outputs:{shape:'shape',...outputs},
   props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound response',n('Intensity',100,0,200,5)),punch:G('Sound response',n('Bass punch',60,0,100,1)),release:G('Sound response',n('Bass release',220,60,800,10)),dynamics:G('Sound response',n('Dynamics',50,0,100,1)),
     opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}}}});
+const MEDIA=(label,description,cam)=>({category:'inputs',group:'Media',label,description,inputs:{audio:'audio'},
+  outputs:{image:'image',palette:'colors',brightness:'number',...(label==='Image'?{}:{motion:'number'})},
+  props:{fit:pick('Fit','cover',['cover','contain'],{labels:[['cover','Fill'],['contain','Fit']]}),
+    warp:pick('Audio warp','wave',['none','wave','slices','pulse'],{labels:[['none','Off'],['wave','Wave'],['slices','Slices'],['pulse','Pulse']]}),
+    amount:n('Warp amount',50,0,100,1),...(cam?{mirror:bool('Mirror',true)}:{})}});
 const PART_SHAPES=[['circle','Circle'],['square','Square'],['star','Star'],['diamond','Diamond'],['ring','Ring'],['triangle','Triangle'],['spark','Spark'],['line','Line'],['numbers','Numbers'],['symbols','Symbols'],['words','Words']];
 // The original Audiograph's gradient presets: [background (fades by "Low opacity"), colors…].
 export const PALETTES={
@@ -157,9 +162,11 @@ export const TYPES = {
   midi:{category:'inputs',group:'Data',label:'MIDI',description:'A MIDI controller or keyboard: one CC knob/fader, a note (or any note), gate, pitch and pitch bend.',
     inputs:{},outputs:{cc:'number',note:'number',gate:'number',pitch:'number',bend:'number'},
     props:{channel:n('Channel (0 = any)',0,0,16,1,{noPort:true}),cc:n('CC number',1,0,127,1,{noPort:true}),note:n('Note (-1 = any)',-1,-1,127,1,{noPort:true})}},
-  image:ENGINE('inputs','Image','A picture drawn as audio-reactive lines, or warped by the sound.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})}),
-  video:ENGINE('inputs','Video','A video file drawn as audio-reactive lines, or warped by the sound.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})}),
-  camera:ENGINE('inputs','Camera','Your camera drawn as audio-reactive lines, or warped by the sound. Its motion and brightness are numbers for any knob.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})},{motion:'number',brightness:'number'}),
+  // Pictures: Image, Video and Camera are sources, not renderers. They give an image (warped by audio when it is wired),
+  // brightness and motion numbers, a palette from their colours, and feed GPU Particles' "emit" input.
+  image:MEDIA('Image','A picture. Wire audio in to warp it; its image, palette and brightness drive other nodes (e.g. GPU Particles emit).'),
+  video:MEDIA('Video','A video file. Wire audio in to warp it; its image, palette, brightness and motion drive other nodes.'),
+  camera:MEDIA('Camera','Your camera. Wire audio in to warp it; its image, palette, brightness and motion drive other nodes.',true),
   text:ENGINE('inputs','Text','Your words drawn as audio-reactive lines.',{text:text('Text','AUDIOGRAPH')}),
   splat:ENGINE('inputs','Gaussian Splat','A .ply / .splat point cloud that reacts to the sound (a demo cloud until you load one).',{}),
   // Waveforms and Emitters (particles)
@@ -167,12 +174,13 @@ export const TYPES = {
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal) or as audio-reactive lines (Waveform). Its “object” output feeds a Cloner.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
     render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS},{object:'object3d'},'Objects'),
-  gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
+  gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'image'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Wire an image (a Camera, Video, Image or any picture) into “emit” to spawn from its bright parts.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
+    emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU particles')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
     layout:pick('Layout','grid',CLONER_LAYOUTS.map(c=>c[0]),{labels:CLONER_LAYOUTS,sim:'g3Mode'}),
     countX:G('Count',n('Count X',5,1,60,1,{key:'pG3Nx'})),countY:G('Count',n('Count Y',5,1,60,1,{key:'pG3Ny'})),countZ:G('Count',n('Count Z',5,1,60,1,{key:'pG3Nz'})),
-    spacingX:G('Spacing',n('Spacing X',150,20,1000,5,{key:'pG3SpX'})),spacingY:G('Spacing',n('Spacing Y',150,0,600,5,{key:'pG3SpY'})),spacingZ:G('Spacing',n('Spacing Z',150,0,600,5,{key:'pG3SpZ'})),
+    spacingX:G('Spacing',n('Spacing X',150,20,1000,5,{key:'pG3SpX'})),spacingY:G('Spacing',n('Spacing Y',150,0,1000,5,{key:'pG3SpY'})),spacingZ:G('Spacing',n('Spacing Z',150,0,1000,5,{key:'pG3SpZ'})),
     twist:G('Steps',n('Twist',0,-45,45,1,{key:'pG3StRotY'})),endScale:G('Steps',n('End scale',100,10,300,5,{key:'pG3StScale'})),cloneSpin:G('Steps',n('Spin',15,-100,100,5,{key:'pG3Spin'})),
     rotX:G('Rotate',n('Rotate X',0,-180,180,1,{key:'pG3GrX'})),rotY:G('Rotate',n('Rotate Y',0,-180,180,1,{key:'pG3GrY'})),rotZ:G('Rotate',n('Rotate Z',0,-180,180,1,{key:'pG3GrZ'})),
     variety:G('Objects',n('Variety',100,0,100,5,{key:'pG3Mix'}))},{},'Cloner'),inputs:{audio:'audio',drive:'number',object:'object3d',object2:'object3d',object3:'object3d'}},
@@ -305,7 +313,6 @@ export function inputsOf(type){
 export const OPT_PORT=/^opt_[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 export function portType(n,key){return inputsOf(n.type)[key]??(isEngine(n.type)&&OPT_PORT.test(key)?'number':undefined);}
 export const isEngine=type=>!!TYPES[type]?.engine;
-const MEDIA_SOURCE={image:"setPixelWarpSource('image'",video:"setPixelWarpSource('video'",camera:"setPixelWarpSource('camera'"};
 // How a renderer node maps onto the original app: layout mode, forced source button, required media.
 // Meshes for shapes the original has no line model for (Waveform render) or no clone shape for (Cloner).
 const meshCache={};
@@ -345,9 +352,6 @@ export function objectOf(p,modelMesh){
 export function engineSpec(n){
   const p=n.props;
   switch(n.type){
-    case 'image':return p.render==='warp'?{mode:'pixelwarp',source:MEDIA_SOURCE.image,need:'image'}:{mode:'image',need:'image'};
-    case 'video':return p.render==='warp'?{mode:'pixelwarp',source:MEDIA_SOURCE.video,need:'video'}:{mode:'video',source:"setVidSource('file'",need:'video'};
-    case 'camera':return p.render==='warp'?{mode:'pixelwarp',source:MEDIA_SOURCE.camera}:{mode:'video',source:"setVidSource('camera'"};
     case 'text':return {mode:'text'};
     case 'waveform3d':
       if(p.render==='normal')return {mode:'simcloner',single:true};
@@ -358,7 +362,7 @@ export function engineSpec(n){
     default:return {mode:p.mode};
   }
 }
-export const MEDIA_KIND={image:'image',video:'video',splat:'splat'};
+export const MEDIA_KIND={splat:'splat'};
 export const mediaKind=n=>n.type==='waveform3d'?(n.props.mode==='model'?'object':undefined):MEDIA_KIND[n.type];
 export function nodeTitle(n){return TYPES[n.type].props.mode?.kind==='select'&&isEngine(n.type)?emitterNames[n.props.mode]:TYPES[n.type].label;}
 // A 'visual' input (Palette, Hue shift) takes a shape or an image.
@@ -381,7 +385,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=10;
+export const VERSION=11;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -505,7 +509,38 @@ function migrate(raw){
   if(raw.version<8)for(const g of out.layers||[])dropRetired(g);
   if(raw.version<9)for(const g of out.layers||[])splitCloner(g);
   if(raw.version<10)for(const g of out.layers||[])unifyObjects(g);
+  if(raw.version<11)for(const g of out.layers||[])mediaInputs(g);
   out.version=VERSION;return out;
+}
+// Version 11: Image, Video and Camera stopped being renderers. They output an image (plus palette and numbers);
+// their old "shape" wires become image wires where the target takes one, other wires into them are dropped.
+const MEDIA_TYPES=new Set(['image','video','camera']);
+function mediaInputs(g){
+  if(!Array.isArray(g?.nodes)||!Array.isArray(g.edges))return;
+  const media=new Set(),types=new Map(g.nodes.filter(Boolean).map(n=>[n.id,n.type]));
+  for(const nd of g.nodes)if(nd&&MEDIA_TYPES.has(nd.type)){media.add(nd.id);nd.props=defaults(nd.type);}
+  const added=[],emitters=new Map();
+  g.edges=g.edges.filter(e=>{
+    if(!e)return false;
+    if(media.has(e.to))return e.input==='audio';
+    if(!media.has(e.from))return true;
+    const t=TYPES[types.get(e.to)]?.inputs?.[e.input];
+    // A media shape used to be drawn as lines: keep the layer alive with particles emitted from the picture.
+    if(e.out==='shape'&&t==='shape'){
+      let id=emitters.get(e.from);
+      if(!id){
+        const src=g.nodes.find(n=>n?.id===e.from),aud=g.edges.find(x=>x?.to===e.from&&x.input==='audio');
+        id=e.from+'_particles';emitters.set(e.from,id);
+        g.nodes.push({id,type:'gpuParticles',x:(+src.x||0)+40,y:(+src.y||0)+180,props:defaults('gpuParticles')});
+        added.push({from:e.from,out:'image',to:id,input:'emit'});
+        if(aud)added.push({from:aud.from,out:aud.out,to:id,input:'audio'});
+      }
+      e.from=id;return true;
+    }
+    if(e.out==='shape')e.out='image';
+    return !!t&&compatible(TYPES[types.get(e.from)].outputs[e.out]||'none',t);
+  });
+  g.edges.push(...added);
 }
 // Version 10: Primitive, 3D Object (OBJ) and the 3D waveforms became one 3D Object node with a Render mode.
 function unifyObjects(g){

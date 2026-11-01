@@ -107,12 +107,12 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await lit(.3);
 
     // 4. Deformers change the real render.
-    await page.locator('#pause').click();
+    await page.evaluate(()=>pro.pause(true));
     for(let i=0;i<3;i++)await page.evaluate(()=>pro.draw());
     const before=await pixels();
     await page.evaluate(id=>pro.setProperty(id,'amount',100),twist.id);for(let i=0;i<3;i++)await page.evaluate(()=>pro.draw());
     assert.ok(difference(before,await pixels())>.2,'Twist changes the rendered output');
-    await page.locator('#pause').click();
+    await page.evaluate(()=>pro.pause(false));
 
     // 5. Drag a wire from an LFO onto the Twist node body, pick the knob in the port menu.
     const lfo=await page.evaluate(()=>pro.addNode('oscillator',40,330));
@@ -189,12 +189,29 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(id=>pro.select(id),cam);await page.keyboard.press('Delete');
     await page.waitForFunction(id=>!pro.engine(id).w.camActive,ids.emitter,{timeout:5000});
 
-    // 6e. Camera input renders the original's camera lines; its brightness number drives knobs.
+    // 6e. Camera input gives the live picture (no renderer of its own); its brightness number drives knobs.
     await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:3,layers:[{id:'L1',name:'Cam',visible:true,opacity:1,blend:'source-over',
       nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'c',type:'camera',x:200,y:0,props:{}},{id:'m',type:'map',x:200,y:200,props:{}},{id:'b',type:'bloom',x:400,y:0,props:{}},{id:'out',type:'output',x:600,y:0,props:{}}],
       edges:[{from:'a',out:'audio',to:'c',input:'audio'},{from:'c',out:'shape',to:'b',input:'image'},{from:'c',out:'brightness',to:'m',input:'value'},{from:'m',out:'value',to:'b',input:'bloom'},{from:'b',out:'image',to:'out',input:'image'}]}]}));
     await lit(.05,25000);await page.waitForFunction(()=>pro.value('m')>0,null,{timeout:10000});
-    await page.waitForFunction(()=>pro.engine('c').w.vidSource==='camera'&&!!pro.engine('c').w.vidCamStream,null,{timeout:10000});
+    assert.ok(!(await page.evaluate(()=>Object.keys(pro.stats().engines))).includes('c'),'Camera is an input, not an engine');
+    // 6f. Camera image → WebGPU particles emit: the sim spawns from the picture.
+    await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:11,layers:[{id:'L1',name:'Emit',visible:true,opacity:1,blend:'source-over',
+      nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'c',type:'camera',x:200,y:0,props:{}},{id:'g',type:'gpuParticles',x:400,y:0,props:{}},{id:'out',type:'output',x:600,y:0,props:{}}],
+      edges:[{from:'a',out:'audio',to:'g',input:'audio'},{from:'c',out:'image',to:'g',input:'emit'},{from:'g',out:'shape',to:'out',input:'image'}]}]}));
+    await page.waitForFunction(()=>pro.engine('g')?.w?.simEmitterData?.kind==='image',null,{timeout:20000});
+    // 6g. A v10 camera that fed a deformer keeps the layer alive through a particle emitter.
+    const v10=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'c',type:'camera',x:0,y:0,props:{render:'lines'}},{id:'d',type:'twist',x:0,y:0,props:{}},{id:'out',type:'output',x:0,y:0,props:{}}],
+      edges:[{from:'a',out:'audio',to:'c',input:'audio'},{from:'c',out:'shape',to:'d',input:'shape'},{from:'d',out:'shape',to:'out',input:'image'}]}]}));
+    assert.deepEqual(v10.layers[0].edges.filter(e=>e.to==='c_particles'||e.from==='c_particles').map(e=>e.from+'.'+e.out+'>'+e.to+'.'+e.input).sort(),['a.audio>c_particles.audio','c.image>c_particles.emit','c_particles.shape>d.shape']);
+    // 6h. Swapping the 3D object under a Cloner keeps drawing (idle helper engines no longer hold the fade), and Ripple bends the clones.
+    await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:11,layers:[{id:'L1',name:'Cl',visible:true,opacity:1,blend:'source-over',
+      nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'o',type:'waveform3d',x:200,y:0,props:{}},{id:'cl',type:'cloner',x:400,y:0,props:{}},{id:'out',type:'output',x:600,y:0,props:{}}],
+      edges:[{from:'a',out:'audio',to:'cl',input:'audio'},{from:'o',out:'object',to:'cl',input:'object'},{from:'cl',out:'shape',to:'out',input:'image'}]}]}));
+    await lit(.05,25000);
+    await page.evaluate(()=>pro.setProperty('o','mode','knot'));await page.waitForTimeout(600);
+    const drawn=await page.evaluate(async()=>{const before=pro.pixels();let changed=0;for(let i=0;i<8;i++){await new Promise(r=>setTimeout(r,150));if(Math.abs(pro.pixels()-before)>.001)changed++;}return changed;});
+    assert.ok(drawn>2,'Preview keeps drawing after swapping the Cloner object: '+drawn);
 
     // 7. Post FX run on images without any emitter (background → kaleido → output) via a helper engine.
     await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:2,layers:[{id:'L1',name:'Bg',visible:true,opacity:1,blend:'source-over',
@@ -217,10 +234,10 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,10);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    assert.equal(migrated.version,11);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
     // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
     const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
-    assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.render]),[['camera','lines'],['image','warp']]);
+    assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.warp]),[['camera','wave'],['image','wave']]);
     assert.equal(v2.layers[0].edges[0].input,'audio');
     // Version 3 Geometry nodes fold into the renderer they follow.
     const v3=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:3,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[

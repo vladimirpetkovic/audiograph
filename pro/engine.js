@@ -14,6 +14,8 @@ async function engineSource() {
     const patch=(from,to)=>{if(!html.includes(from))throw Error('Audiograph engine patch target missing');html=html.replace(from,to);};
     patch("if(shape==='sphere'){","if(/^mesh\\d$/.test(shape)){var om=(window.__agG3Meshes||[])[+shape[4]];if(om&&om.verts){var ov=om.verts,on=om.normals;for(var fi=0;fi<om.faces.length&&fi<40000;fi++)poly(om.faces[fi].map(function(ix){return V([ov[ix][0]*.7,ov[ix][1]*.7,ov[ix][2]*.7],on[ix])}))}}else if(shape==='sphere'){");
     patch("function g3MeshMix(list,D){","function g3MeshMix(list,D){if(G.g3mv!==window.__agG3MeshVer){G.g3mv=window.__agG3MeshVer;for(var _k in G.g3m)if(_k.indexOf('mesh')>=0)delete G.g3m[_k]}");
+    // Cloner spacing: Y and Z reach as far as X.
+    patch("['pG3SpY','Spacing Y',0,600,","['pG3SpY','Spacing Y',0,1000,");patch("['pG3SpZ','Spacing Z',0,600,","['pG3SpZ','Spacing Z',0,1000,");
     patch("return AG_G3_SHAPES.some(function(q){return q[0]===x})","return /^mesh\\d$/.test(x)?!!(window.__agG3Meshes||[])[+x[4]]:AG_G3_SHAPES.some(function(q){return q[0]===x})");
     const base=new URL('../',location.href).href;
     const policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:";
@@ -202,6 +204,7 @@ export class EmitterEngine {
   // Render one frame of the emitter with parameter overrides. Returns the engine canvas.
   draw(job) {
     if(this.status==='error')throw Error(this.error);
+    this.drawnAt=performance.now();
     if(this.status!=='ready')return null;
     const w=this.w,mode=this.prepare(job);
     if(job.need&&this.mediaKind!==job.need)throw Error(`${job.label||job.mode}: load ${job.need==='image'?'an image':'a video'} in its properties`);
@@ -210,6 +213,7 @@ export class EmitterEngine {
     const cam=job.mods?._cam;
     Object.assign(p,job.mods||{});delete p._cam;
     if(job.mods?._sim)p._sim={...this.base._sim,...job.mods._sim};
+    if(job.emitAsset)p._simEmitter=job.emitAsset;
     if(job.meshes&&!(this.meshes&&this.meshes.length===job.meshes.length&&this.meshes.every((m,i)=>m===job.meshes[i]))){
       this.meshes=job.meshes;
       w.__agG3Meshes=job.meshes.map(m=>m==='knot'?(w._objDefault||(w._objDefault=w._objDefaultModel())):m);

@@ -3,6 +3,8 @@ import {liveData,liveStatus} from './livedata.js';
 import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
+import {needsWarp,warpInto} from './warp.js';
+import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as autopilot from './autopilot.js';
 import {ORIGINAL_PRESETS,CLONER_PRESETS} from './templates.js';
@@ -61,7 +63,8 @@ function reconcile(){
   for(const [id,engine] of engines)if(id==='__fx'?(!anyFx||emitterIDs.size>0):!emitterIDs.has(id)){engine.dispose();engines.delete(id);}
   const nodeIDs=new Set(state.layers.flatMap(g=>g.nodes.map(n=>n.id)));
   for(const map of [surfaces,thumbs])for(const [id,cv] of map)if(!nodeIDs.has(id.split(':')[0])){cv.width=cv.height=1;map.delete(id);}
-  for(const id of nodeState.keys())if(!nodeIDs.has(id))nodeState.delete(id);
+  for(const id of nodeState.keys())if(!nodeIDs.has(id.split(':')[0]))nodeState.delete(id);
+  for(const [id,m] of mediaEls)if(!nodeIDs.has(id)){m.clear();mediaEls.delete(id);}
   plans=new Map(state.layers.map(g=>{
     // Outputs and everything feeding them run; data inputs always run (cheap) so their meters stay live.
     const needed=new Set(g.nodes.filter(n=>n.type==='output'||DATA_INPUTS.has(n.type)).map(n=>n.id)),queue=[...needed];
@@ -225,7 +228,7 @@ async function ensureRunning(){
 }
 function stopAudio(keepOffset=false){
   if(audio.source){audio.source.onended=null;try{audio.source.stop();}catch{}audio.source.disconnect();if(keepOffset)audio.offset+=audio.context.currentTime-audio.startedAt;audio.source=null;}
-  if(!keepOffset)audio.offset=0;$('play').classList.remove('on');$('play').setAttribute('aria-label','Play');
+  if(!keepOffset)audio.offset=0;syncPlay();
 }
 // Source buttons live in the Audio node's inspector, so they may not exist right now.
 function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:'Demo beat';}
@@ -239,14 +242,17 @@ function stopLive(){
   if(!audio.live)return;const {kind,stream,node}=audio.live;audio.live=null;
   stream.getTracks().forEach(t=>t.stop());node.disconnect();if(audio.monitor)audio.monitor.gain.value=1;updateAudioUI();
 }
+// Play shows Pause while something runs: the audio file if one is loaded, else the visuals.
+function syncPlay(){const on=audio.buffer?!!audio.source:!paused;$('play').classList.toggle('on',on);$('play').setAttribute('aria-label',on?'Pause':'Play');}
+function setPaused(v){paused=v;lastTime=0;syncPlay();}
 async function play(){
   if(!audio.buffer)throw Error('Load an audio file first (or use Mic / System)');
   if(audio.source){stopAudio(true);message('Paused audio');return;}
   stopLive();unlockAudio();audio.monitor.gain.value=1;
   const source=audio.context.createBufferSource();source.buffer=audio.buffer;source.connect(audio.analyser);audio.source=source;
   const offset=audio.offset%audio.buffer.duration;audio.startedAt=audio.context.currentTime;audio.offset=offset;
-  source.onended=()=>{if(audio.source===source){audio.source=null;audio.offset=0;$('play').classList.remove('on');$('play').setAttribute('aria-label','Play');}};
-  source.start(0,offset);$('play').classList.add('on');$('play').setAttribute('aria-label','Pause');message('Playing '+audio.name);updateAudioUI();
+  source.onended=()=>{if(audio.source===source){audio.source=null;audio.offset=0;syncPlay();}};
+  source.start(0,offset);syncPlay();message('Playing '+audio.name);updateAudioUI();
   await ensureRunning();
 }
 async function startLive(kind,getStream){
@@ -393,7 +399,12 @@ function execute(g,time,dt){
     if(rendered.has(key))return rendered.get(key);
     const e=engineFor(v.emitter.id),out=e.draw({...v.job,mods:v.mods,hue:v.hue});
     if(!out)return null;
-    const {canvas,ctx}=surface(consumer+':r');ctx.drawImage(out,0,0);rendered.set(key,canvas);return canvas;
+    const {canvas,ctx}=surface(consumer+':r');
+    // Renderers that ignore the classic deformers (simulations, Cloner, Growth...) get them as an image warp.
+    if(!(needsWarp(v.mods)&&e.w?.AG_LAYOUT_NA?.rowRipple?.includes(e.mode)&&warpInto(ctx,out,v.mods,time)))ctx.drawImage(out,0,0);
+    const sym=v.mods?._symmetryMode;
+    if(sym&&sym!=='none'&&e.mode?.startsWith('sim')&&e.w?.applySymmetry){const sc=e.w.applySymmetry(canvas,sym,v.mods._symGap||0,'proSym');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(sc,0,0);}
+    rendered.set(key,canvas);return canvas;
   };
   const need=(n,key,label)=>{const v=input(n,key);if(v===undefined){nodeErrors.add(n.id);throw Error(`${g.name}: connect ${label} to ${TYPES[n.type].label}`);}return v;};
   for(const n of plans.get(g.id)||[]){
@@ -412,8 +423,18 @@ function execute(g,time,dt){
       r.shape={emitter:n,mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='waveform3d'){const e=engines.get(n.id);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
-      if(n.type==='camera'&&g.edges.some(e=>e.from===n.id&&e.out!=='shape')){const c=cameraNumbers();r.motion=c.motion;r.brightness=c.brightness;}
+      if(n.type==='gpuParticles'&&byInput.has(n.id+':emit')){
+        // A picture wired into "emit": particles spawn from its bright parts (the original's image emitter).
+        const key={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'}[p.mode],img=key&&asImage(input(n,'emit'),n.id+'e');
+        const a=img&&emitterAsset(nstate(n.id+':emit',()=>({name:'Picture'})),img,time);
+        if(a){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a;}
+      }
     }else switch(n.type){
+      case 'image':case 'video':case 'camera':{
+        const m=mediaOf(n),{canvas,ctx}=surface(n.id);
+        if(drawMedia(m,ctx,WIDTH,HEIGHT,p,input(n,'audio'),time)){analyse(m,canvas,time);r.palette=m.palette;r.brightness=m.brightness;if(n.type!=='image')r.motion=m.motion;}
+        else{r.brightness=0;r.motion=0;}
+        r.image=canvas;break;}
       case 'value':r.value=p.value;break;
       case 'oscillator':{const s=nstate(n.id,()=>({phase:0,v:0,next:0}));s.phase+=dt*p.rate;
         let w;if(p.wave==='random'){if(s.phase>=s.next){s.next=Math.floor(s.phase)+1;s.target=Math.random();}s.v+=((s.target??.5)-s.v)*Math.min(1,dt*8);w=s.v;}else w=waves[p.wave](s.phase);
@@ -555,7 +576,8 @@ function dissolveCheck(){
 }
 function dissolveDraw(dt){
   if(!fade)return;
-  const waiting=[...engines.values()].some(e=>e.status==='starting'||(e.mode?.startsWith?.('sim')&&e.w?.agSim?.status?.()!=='ready'));
+  // Only engines drawn in the last moment hold the fade; idle ones (an Object feeding a Cloner) never get ready.
+  const now=performance.now(),waiting=[...engines.values()].some(e=>now-(e.drawnAt||0)<500&&(e.status==='starting'||(e.mode?.startsWith?.('sim')&&e.w?.agSim?.status?.()!=='ready')));
   if(waiting&&(fade.hold+=dt)<10){}else fade.t=Math.min(1,fade.t+dt/fade.dur);
   const a=1-fade.t*fade.t*(3-2*fade.t);
   if(a>0){previewCtx.globalAlpha=a;previewCtx.globalCompositeOperation='source-over';previewCtx.drawImage(fadeCv,0,0);previewCtx.globalAlpha=1;}
@@ -581,7 +603,6 @@ function draw(time,dt=1/30){
   if(frame%2===0){drawSpectrum();showAutoKnobs();}
   if(frame%4===0)updatePalettePreview();
   const list=[...engines.values()],starting=list.some(e=>e.status==='starting');
-  $('backend').textContent=starting?'':[...new Set(list.map(e=>e.backend||(e.status==='ready'?'Canvas2D':e.status)))].join(' / ')||'No Emitters';
   if(renderErrors.length&&!starting)message(renderErrors[0]+(renderErrors.length>1?` (+${renderErrors.length-1})`:''),true,'render');
   else if(statusSource==='render'&&!renderErrors.length)message('Rendering');
   if(prevErrors.size!==nodeErrors.size||[...nodeErrors].some(id=>!prevErrors.has(id)))document.querySelectorAll('.node').forEach(e=>e.classList.toggle('error',nodeErrors.has(e.dataset.id)));
@@ -602,25 +623,16 @@ function camProvider(){
   return camPromise;
 }
 setCameraProvider(camProvider);
-// Camera motion / brightness numbers: a tiny grey copy of the shared stream, compared frame to frame.
-const camNum={video:null,canvas:null,prev:null,frame:-1,used:-1e9,motion:0,brightness:0};
-function cameraNumbers(){
-  camNum.used=frame;if(camNum.frame===frame)return camNum;camNum.frame=frame;
-  if(!camNum.video){
-    const v=camNum.video=document.createElement('video');v.muted=true;v.playsInline=true;
-    camProvider().then(s=>{if(camNum.video===v){v.srcObject=s;v.play().catch(()=>{});}}).catch(e=>{message(e.message,true,'render');});
-    camNum.canvas=document.createElement('canvas');camNum.canvas.width=32;camNum.canvas.height=24;
-  }
-  const v=camNum.video;if(v.readyState<2)return camNum;
-  const c=camNum.canvas.getContext('2d',{willReadFrequently:true});c.drawImage(v,0,0,32,24);
-  const d=c.getImageData(0,0,32,24).data,g=new Float32Array(768);let sum=0,diff=0;
-  for(let i=0;i<768;i++){g[i]=(d[i*4]*.3+d[i*4+1]*.59+d[i*4+2]*.11)/255;sum+=g[i];if(camNum.prev)diff+=Math.abs(g[i]-camNum.prev[i]);}
-  camNum.prev=g;camNum.brightness=sum/768;camNum.motion+=(Math.min(1,diff/768*12)-camNum.motion)*.5;
-  return camNum;
+// Image / Video / Camera nodes: one picture source each (files are not saved in projects).
+const mediaEls=new Map();
+function mediaOf(n){
+  let m=mediaEls.get(n.id);
+  if(!m){m=new Media(n.type);mediaEls.set(n.id,m);if(n.type==='camera')camProvider().then(st=>{if(mediaEls.get(n.id)===m)m.stream(st);}).catch(e=>message(e.message,true,'render'));}
+  return m;
 }
 function releaseCameraIfUnused(){
-  if(camNum.video&&frame-camNum.used>30){camNum.video.srcObject=null;camNum.video=null;camNum.prev=null;}
-  if(!camStream||camNum.video||[...engines.values()].some(e=>e.usesCamera()))return;
+  if(!camStream||state.layers.some(g=>g.nodes.some(n=>n.type==='camera'))||[...engines.values()].some(e=>e.usesCamera()))return;
+  for(const [id,m] of mediaEls)if(m.kind==='camera'){m.clear();mediaEls.delete(id);}
   camStream.getTracks().forEach(t=>t.stop());camStream=null;camPromise=null;
 }
 function loop(now){
@@ -695,6 +707,8 @@ function summary(n){
   if(n.type==='pointer')return 'mouse · keys';
   if(MODES[n.type])return t.label;
   if(n.type==='text')return p.text;
+  if(['image','video'].includes(n.type))return mediaEls.get(n.id)?.name||'no file';
+  if(n.type==='camera')return 'live';
   if(isEngine(n.type)){const m=engines.get(n.id)?.mediaName,r=t.props.render?.labels.find(l=>l[0]===p.render)?.[1];return [r,m||(mediaKind(n)?(mediaKind(n)==='object'?'built-in knot':n.type==='splat'?'demo cloud':'no file'):'')].filter(Boolean).join(' · ');}
   if(n.type==='value')return String(p.value);
   if(n.type==='oscillator')return `${p.wave} · ${p.rate} Hz`;
@@ -994,6 +1008,7 @@ function renderProperties(){
     if(n.type==='audioIn')renderAudioSource(root);
     if(n.type==='palette')renderPalettePresets(root,n);
     if(DATA_INPUTS.has(n.type))renderDataInput(root,n);
+    if(['image','video','camera'].includes(n.type))renderMediaPicker(root,n);
     if(SIM_PROPS(n.type)&&t.category!=='3d')renderSimNote(root,g,n);
     renderProps(root,n,n.type==='palette'?paletteKeys(n.props):simKeys(g,n));
     const wired=Object.keys(t.props).filter(k=>t.props[k].kind==='number'&&!t.props[k].noPort);
@@ -1107,13 +1122,33 @@ async function loadAudioFile(file){
   try{
     if(file.size>200*1024*1024)throw Error('Audio limit is 200 MB');
     stopAudio();stopLive();audio.buffer=await audioContext().decodeAudioData(await file.arrayBuffer());audio.name=file.name;
-    updateAudioUI();await play();
+    updateAudioUI();setPaused(false);await play();
   }catch(error){message('Audio: '+error.message,true);}
 }
 // After a splat file loads, pick the "Loaded file" cloud and apply the parser's orientation hint.
 function useSplatFile(n,e,res){
   const job=jobOf(n),cloud=(e.controls(job)||[]).find(c=>c.type==='chips'&&c.options.some(o=>o.label==='Loaded file'));
   edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);if(cloud)x.props.chips={...x.props.chips,[cloud.key]:'Loaded file'};if(res?.flip)x.props.opts={...x.props.opts,pGsRX:180};},'Gaussian Splat: loaded file');
+}
+// Image / Video: one Choose button, then a thumbnail with × to remove. Camera: its live preview.
+function renderMediaPicker(root,n){
+  const s=section(root),box=el('div','media-pick');s.append(box);
+  if(n.type==='camera'){
+    const item=el('div','media-item cam-thumb'),v=el('video');v.muted=true;v.playsInline=true;v.autoplay=true;v.dataset.property='cameraPreview';item.append(v);
+    camProvider().then(st=>{if(item.isConnected){v.srcObject=st;v.play().catch(()=>{});}}).catch(()=>{item.replaceChildren(el('span','media-name','Camera blocked'));});
+    box.append(item);return;
+  }
+  const m=mediaOf(n),f=el('input');f.type='file';f.id='emitterMedia';f.hidden=true;
+  f.accept=n.type==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':'video/*';
+  f.onchange=async()=>{try{if(!f.files[0])return;await m.load(f.files[0]);message('Loaded '+m.name);renderProperties();updateSummaries();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
+  if(m.name){
+    const item=el('div','media-item');item.title=m.name+' · not saved in projects';
+    if(m.thumb){const img=el('img');img.src=m.thumb;img.alt=m.name;item.append(img);}else item.append(el('span','media-name',m.name));
+    const x=el('button','media-x','×');x.type='button';x.title='Remove';x.setAttribute('aria-label','Remove '+m.name);x.dataset.property='mediaRemove';
+    x.onclick=()=>{const name=m.name;m.clear();message('Removed '+name);renderProperties();updateSummaries();if(paused)draw(elapsed);};
+    item.append(x);box.append(item);
+  }else{const b=el('button','mbtn media-choose',`Choose ${n.type}`);b.type='button';b.onclick=()=>f.click();box.append(b);}
+  box.append(f);
 }
 function renderEmitter(root,n){
   const T=TYPES[n.type],s=section(root,MODES[n.type]?T.label:'Source');
@@ -1126,13 +1161,8 @@ function renderEmitter(root,n){
   if(T.props.render)s.append(ui.chips({options:T.props.render.labels.filter(l=>!(n.type==='waveform3d'&&l[0]==='points'&&n.props.mode!=='model')),value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)}));
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS);
+  if(n.type==='gpuParticles'&&graph().edges.some(e=>e.to===n.id&&e.input==='emit'))renderProps(root,n,['emitColors']);
   if(n.type==='waveform3d'&&n.props.render==='normal'&&n.props.mode!=='model')renderProps(root,n,Object.keys(PRIM_DEFAULT).filter(k=>k!=='shape'&&k!=='prim'));
-  if(n.type==='camera'){
-    // Live preview of the shared camera stream.
-    const box=el('div','media-item cam-thumb'),v=el('video');v.muted=true;v.playsInline=true;v.autoplay=true;v.dataset.property='cameraPreview';box.append(v);
-    camProvider().then(st=>{if(box.isConnected){v.srcObject=st;v.play().catch(()=>{});}}).catch(()=>{box.replaceChildren(el('span','media-name','Camera blocked'));});
-    const pick=el('div','media-pick');pick.append(box);s.append(pick,el('p','insp-note','Uses your camera (the browser asks once). Its motion and brightness outputs are numbers for any knob.'));
-  }
   const kind=mediaKind(n);
   if(kind){
     const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj';
@@ -1382,8 +1412,13 @@ $('audioName').onclick=()=>{
     for(const m of e)if(!g.edges.some(w=>w.to===m.id&&w.input==='audio'))g.edges.push({from:n.id,out:'audio',to:m.id,input:'audio'});},'Added Audio');
   if(id){selected=id;renderUI();}
 };
-$('play').onclick=()=>play().catch(e=>message(e.message,true));
-$('stop').onclick=()=>{stopAudio();stopLive();updateAudioUI();message('Audio stopped');};
+$('play').onclick=()=>{
+  if(!audio.buffer){setPaused(!paused);message(paused?'Paused':'Playing');return;}
+  if(audio.source){stopAudio(true);setPaused(true);message('Paused');return;}
+  setPaused(false);play().catch(e=>message(e.message,true));
+};
+syncPlay();
+$('stop').onclick=()=>{stopAudio();stopLive();setPaused(true);updateAudioUI();message('Stopped');};
 let recClock=0;
 $('record').onclick=()=>attempt(toggleRecord);
 // With a Corner pin selected, its corners can be dragged directly on the preview.
@@ -1422,7 +1457,6 @@ $('output').onclick=()=>{
 addEventListener('pagehide',()=>{if(outWin&&!outWin.closed)outWin.close();});
 $('snap').onclick=()=>preview.toBlob(blob=>{if(!blob)return message('Snapshot failed',true);const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);message('Snapshot saved');},'image/png');
 $('fullscreen').onclick=toggleFullscreen;
-$('pause').onclick=()=>{paused=!paused;lastTime=0;$('pause').textContent=paused?'Resume':'Pause';$('pause').classList.toggle('on',paused);message(paused?'Visuals paused':'Visuals resumed');};
 $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
 for(const [label,names] of [['Audiograph presets',ORIGINAL_NAMES],['3D cloner',CLONER_NAMES],['Pro starters',Object.keys(TEMPLATES).filter(n=>!ORIGINAL_NAMES.includes(n)&&!CLONER_NAMES.includes(n))]]){
   const grp=el('optgroup');grp.label=label;for(const name of names){const o=el('option','',name);o.value=name;grp.append(o);}$('templates').append(grp);}
@@ -1457,9 +1491,9 @@ $('helpBody').innerHTML=`
 <li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
 <li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li></ol>
 <h3 id="h-screen">The screen</h3>
-<p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play, stop, record to video, snapshot, the audio source, the live spectrum and <b>Detach</b>. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
+<p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play / pause (Space; it pauses the visuals too), stop, record to video, snapshot, the audio source, the live spectrum, fullscreen (F) and <b>Detach</b>. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
 <h3 id="h-graph">Nodes &amp; wires</h3>
-<p>Wires carry typed values, colour-coded on their ports: <span style="color:${PORT_COLORS.audio}">audio</span> (the sound), <span style="color:${PORT_COLORS.shape}">shape</span> (something that can still be bent and recoloured), <span style="color:${PORT_COLORS.image}">image</span> (finished pixels), <span style="color:${PORT_COLORS.number}">number</span> (a value that drives knobs) and <span style="color:${PORT_COLORS.object3d}">3D object</span>. A typical chain is Audio → Waveform or Emitter → Deformers → Palette → Post FX → Output.</p>
+<p>Wires carry typed values, colour-coded on their ports: <span style="color:${PORT_COLORS.audio}">audio</span> (the sound), <span style="color:${PORT_COLORS.shape}">shape</span> (something that can still be bent and recoloured), <span style="color:${PORT_COLORS.image}">image</span> (finished pixels), <span style="color:${PORT_COLORS.number}">number</span> (a value that drives knobs), <span style="color:${PORT_COLORS.colors}">colors</span> (a palette) and <span style="color:${PORT_COLORS.object3d}">3D object</span>. A shape wired into an image input is rendered at that point; after that it is pixels. A typical chain is Audio → Waveform or Emitter → Deformers → Palette → Post FX → Output.</p>
 <ul><li>Drag from an output port to an input port to connect. Click a wire to remove it.</li>
 <li><b>Tab</b> over the graph searches every node and drops it at the cursor; over a wire it is inserted into the wire.</li>
 <li>Drag empty space to pan, wheel or pinch to zoom, <b>Fit</b> frames everything.</li>
@@ -1548,7 +1582,7 @@ document.addEventListener('keydown',e=>{
   else if((e.metaKey||e.ctrlKey)&&k==='a'&&(pointer.inGraph||e.target.closest?.('#graphViewport'))){e.preventDefault();setSelection(graph().nodes.map(n=>n.id));}
   else if(e.key==='Delete'||e.key==='Backspace'){if(selected||multi.size){e.preventDefault();removeSelected();}}
   else if(e.key==='Escape'){closeMenu();if(pending){pending=null;renderGraph();message('Connection cancelled');}}
-  else if(e.key===' '&&!e.target.closest('button')){e.preventDefault();$('pause').click();}
+  else if(e.key===' '&&!e.target.closest('button')){e.preventDefault();$('play').click();}
   else if(k==='f'&&!e.metaKey&&!e.ctrlKey){toggleFullscreen();}
 });
 window.addEventListener('resize',()=>requestAnimationFrame(renderWires));
@@ -1856,6 +1890,7 @@ function renderAutoPanel(){
   apStatus(true);
 }
 window.pro={
+  pause:v=>setPaused(v===undefined?!paused:!!v),
   getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;multi.clear();renderUI();},selectNodes:ids=>setSelection(ids),selection:()=>selIds(),copy:()=>copySel(),paste:(x,y)=>pasteNodes(clip,x,y),saveCustom:n=>saveCustom(n),customNodes:()=>customNodes(),removeCustom:n=>removeCustom(n),selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),

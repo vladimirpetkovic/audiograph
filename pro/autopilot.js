@@ -220,7 +220,7 @@ export function parse(text){
   const LIVE=[['iss',/\biss\b|space station|orbit/,'the ISS'],['space',/space weather|solar wind|aurora|geomagnetic|sun ?storm/,'space weather'],['ocean',/ocean|\bsea\b|swell|tide|surf/,'the ocean'],
     ['weather',/weather|\bwind\b|rain|storm|temperature/,'the weather'],['quakes',/earthquake|quake|seismic|tectonic/,'earthquakes'],['wiki',/wikipedia|wiki edits|edits/,'Wikipedia edits']];
   for(const [src,re,label] of LIVE)if(has(re)&&!it.live){it.live=src;add('Input','live data: '+label);}
-  if(has(/webcam|camera|my face|see me|mirror me/)&&!it.visuals.length){it.visuals.push({mode:'camera',type:'camera',colors:null});add('Visual','Camera');}
+  if(has(/webcam|camera|my face|see me|mirror me/)&&!it.visuals.length){it.visuals.push({mode:'simparticles',type:'gpuParticles',camera:true,colors:null});add('Visual','Camera');}
   if(has(/\bcpu|computer load|processor/)&&has(/\bdata\b/)){/* already handled */}
   it.read=read;return it;
 }
@@ -287,7 +287,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   const sound=add('audioIn',{});
   const sim=SIM_MODES.includes(v.mode),props={};
   if(v.type==='text'){props.text=it.text;props.scale=it.scale??130;props.thick=it.thick??1.5;}
-  else if(!['camera','gpuParticles','cloner'].includes(v.type)){props.mode=v.mode;Object.assign(props,LOOK[v.mode]||{});}
+  else if(!['gpuParticles','cloner'].includes(v.type)){props.mode=v.mode;Object.assign(props,LOOK[v.mode]||{});}
   if(v.type==='gpuParticles')props.mode=v.mode;
   const mo={},T=TYPES[v.type].props,set=(k,val)=>{if(T[k]&&val!=null){const s=T[k];props[k]=s.kind==='number'?clamp(val,s.min,s.max):val;}};
   if(!sim){
@@ -309,11 +309,12 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
     if(it.symmetry&&it.symmetry!=='x'&&['simparticles','simcloner'].includes(v.mode))mo.symmetry=it.symmetry;
     if(it.spin)mo.spin=clamp(it.spin*.5,-5,5);
   }
-  if(v.type==='camera')set('render','lines');
   const reactive=it.intensity??Math.round(70+E*.8);set('intensity',i?reactive*.8:reactive);
   if(T.punch)set('punch',Math.round(40+E*.6));if(T.release)set('release',Math.round(380-E*2.4));
   if(i&&!sim){set('thick',(props.thick||1.5)*.6);set('density',(props.density||350)*.6);}
   const vis=add(v.type,props);wire(sound,'audio',vis,'audio');
+  // The camera picture is where the particles spawn.
+  if(v.camera)wire(add('camera',{},Y+170),'image',vis,'emit');
   let prev=vis;
   // The Cloner copies a primitive and a Sound effector makes the clones move.
   if(v.type==='cloner'){wire(add('waveform3d',{mode:pick(r,['cube','sphere','ico','torus','cylinder']),render:'normal'},Y+170),'object',vis,'object');prev=chainTo(prev,add('soundEffector',{}));}
