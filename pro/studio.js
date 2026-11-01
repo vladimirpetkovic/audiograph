@@ -247,6 +247,8 @@ function ampSignal(a,g){
   return {...a,freq:f,wave:w,bands:bandsOf(f),pulse:Math.min(1,(a.pulse??0)*g)};
 }
 const projectSignal=()=>({freq:A.freq,wave:A.wave,bands:A.bands,beat:A.beat,pulse:A.beatPulse});
+// Pictures (image, video, camera) stay still until audio is wired in.
+const SILENT={freq:new Uint8Array(BINS),wave:new Float32Array(2048),bands:{bass:0,mids:0,high:0,full:0},beat:0,pulse:0};
 // An emitter driven by a number: a synthetic spectrum whose loudness follows the number.
 function driveSpectrum(level,t){
   const freq=new Uint8Array(BINS),wave=new Float32Array(2048),hz=A.rate/(BINS*2),l=Math.max(0,level),gain=l>0?20*Math.log10(l):-100;
@@ -340,7 +342,7 @@ function execute(g,time,dt){
   for(const n of plans.get(g.id)||[]){
     const t=TYPES[n.type],p=props(n);let r={};
     if(t.engine){
-      const sig=input(n,'audio')??projectSignal(),driven=byInput.has(n.id+':drive');let freq=sig.freq,wave=sig.wave;
+      const sig=input(n,'audio')??(t.category==='inputs'?SILENT:projectSignal()),driven=byInput.has(n.id+':drive');let freq=sig.freq,wave=sig.wave;
       if(driven){const d=driveSpectrum(Math.max(0,input(n,'drive')??0),time);freq=d.freq;wave=d.wave;}
       const lvl=driven?Math.max(0,input(n,'drive')??0):sig.bands.bass,spec=engineSpec(n);
       let opts=p.opts;
@@ -844,13 +846,20 @@ function fit(){
 
 // ---------- inspector ----------
 function section(root,label){const s=el('div','insp-section');if(label)s.append(el('div','insp-label',label));root.append(s);return s;}
-// Collapsible inspector group; its open state is remembered per group name.
-function fold(root,label,open=true){
-  const s=el('div','insp-section insp-fold'),key='agpro.fold.'+label,saved=localStorage.getItem(key);
-  const head=el('button','insp-label insp-fold-head',label);head.type='button';s.dataset.group=label;
+// Inspector sections are an accordion: one open at a time, remembered per node type (the first one opens by default).
+const foldKey=()=>'agpro.open.'+(findNode(selected)?.type||'layer');
+function setFolds(open){
+  for(const f of $('properties').querySelectorAll('.insp-fold')){const v=f.dataset.group===open;f.classList.toggle('closed',!v);f.firstChild.setAttribute('aria-expanded',v?'true':'false');}
+}
+function syncFolds(){
+  const saved=localStorage.getItem(foldKey()),folds=[...$('properties').querySelectorAll('.insp-fold')];
+  setFolds(saved!==null&&folds.some(f=>f.dataset.group===saved)||saved===''?saved:folds[0]?.dataset.group);
+}
+function fold(root,label){
+  const s=el('div','insp-section insp-fold closed');
+  const head=el('button','insp-label insp-fold-head',label);head.type='button';s.dataset.group=label;head.setAttribute('aria-expanded','false');
   const body=el('div','insp-fold-body');s.append(head,body);
-  const set=v=>{s.classList.toggle('closed',!v);head.setAttribute('aria-expanded',v?'true':'false');};
-  set(saved===null?open:saved==='1');head.onclick=()=>{const v=s.classList.contains('closed');set(v);try{localStorage.setItem(key,v?'1':'0');}catch{}};
+  head.onclick=()=>{const v=s.classList.contains('closed')?label:'';setFolds(v);try{localStorage.setItem(foldKey(),v);}catch{}};
   root.append(s);return body;
 }
 // Renderer option knobs (read from the original's panels) are sorted into groups by their label.
@@ -911,6 +920,7 @@ function renderProperties(){
   const dup=el('button','btn','Duplicate');dup.id='duplicateNode';dup.onclick=duplicateSelected;
   const del=el('button','btn danger','Delete');del.id='deleteNode';del.onclick=removeSelected;actions.append(dup,del);
   updateHint();
+  syncFolds();
 }
 // True when node `to` sits downstream of `from` along shape wires.
 function chainFrom(g,from,to){const seen=new Set();let cur=g.nodes.find(m=>m.id===to);while(cur&&!seen.has(cur.id)){if(cur.id===from)return true;seen.add(cur.id);const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}return false;}
@@ -1038,56 +1048,75 @@ function renderEmitter(root,n){
   if(kind){
     const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj';
     f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);message('Loaded '+f.files[0].name);renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
-    s.append(ui.field(`Load ${kind==='object'?'OBJ':kind==='splat'?'.ply / .splat':kind}`,f),el('p','insp-note',engines.get(n.id)?.mediaName?`Loaded: ${engines.get(n.id).mediaName} (not saved in projects)`:'Media files are not saved in projects.'));
+    // One button; once loaded, a thumbnail (or the file name) with × to remove it.
+    const eng=engines.get(n.id),name=eng?.mediaName,box=el('div','media-pick');f.hidden=true;
+    if(name){
+      const item=el('div','media-item');item.title=name+' · not saved in projects';
+      if(eng.mediaThumb){const img=el('img');img.src=eng.mediaThumb;img.alt=name;item.append(img);}else item.append(el('span','media-name',name));
+      const x=el('button','media-x','×');x.type='button';x.title='Remove';x.setAttribute('aria-label','Remove '+name);x.dataset.property='mediaRemove';
+      x.onclick=()=>{eng.clearMedia();if(kind==='splat')edit((p,g)=>{const y=g.nodes.find(y=>y.id===n.id);for(const [k,v] of Object.entries(y.props.chips||{}))if(v==='Loaded file')delete y.props.chips[k];},'Gaussian Splat: removed file');message('Removed '+name);renderUI();if(paused)draw(elapsed);};
+      item.append(x);box.append(item);
+    }else{
+      const b=el('button','mbtn media-choose',`Choose ${kind==='object'?'OBJ':kind==='splat'?'splat':kind}`);b.type='button';b.onclick=()=>f.click();box.append(b);
+    }
+    box.append(f);s.append(box);
   }
   const wiredOf=k=>graph().edges.some(e=>e.to===n.id&&e.input===k);
+  const top=el('div','insp-options');s.append(top);
+  const opts=el('div','insp-options');opts.dataset.emitterOptions='';root.append(opts);
   const geo={};for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){const gr=T.props[k].group;if(gr==='Lines'&&['gpuParticles','splat','cloner'].includes(n.type)||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;(geo[gr]||=[]).push(k);}
-  for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr,!['Symmetry','Line style','Outline'].includes(gr)),n,ks,true);
+  for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr),n,ks,true);
   const d=fold(root,'Sound response');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
   const rg=el('div','knob-grid');for(const k of ['intensity','punch','release','dynamics'])rg.append(propControl(n,k,T.props[k],wiredOf(k)));d.append(rg);
   const wiredAudio=graph().edges.find(e=>e.to===n.id&&e.input==='audio'),from=wiredAudio&&findNode(wiredAudio.from);
-  d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':`Hears ${from?TYPES[from.type].label:'the project sound'} (${sourceName()}). Connect a number to “drive” to override.`));
-  const opts=el('div','insp-options');opts.dataset.emitterOptions='';root.append(opts);
+  d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':from?`Hears ${TYPES[from.type].label} (${sourceName()}).`:T.category==='inputs'?'Still until you wire audio into it.':`Hears the project sound (${sourceName()}).`));
   const e=engineFor(n.id);
   const fill=()=>{
     if(selected!==n.id||!opts.isConnected)return;
     let controls;try{controls=e.controls(jobOf(n));}catch(err){opts.append(el('p','insp-note',err.message));return;}
     if(!controls)return;
-    opts.replaceChildren();
-    // Chips first (they choose what the knobs mean), then the knobs sorted into labelled, collapsible groups.
-    const bins=new Map(OPT_GROUPS.map(([g])=>[g,[]]));bins.set('Form',[]);
+    opts.replaceChildren();top.replaceChildren();
+    // Choice chips (Type, Direction…) sit at the top; line-look chips join Look. Few knobs share one section named after the node.
     const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||n.type==='cloner'&&FORCE_KNOBS.simcloner||{};
     controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
     // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
     if(n.type==='cloner')controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3'):!/\('g3|simApplyPreset/.test(c.onclick));
-    for(const c of controls)if(c.type==='range')bins.get(optGroup(c.label)).push(c);
-    const ordered=[...controls.filter(c=>c.type!=='range'),...[...bins.values()].flat()];
-    let grid=null,lastGroup=null,box=opts;
-    for(const c of ordered){
-      if(c.type==='range'){
-        const gr=optGroup(c.label);if(gr!==lastGroup){lastGroup=gr;box=fold(opts,gr,true);grid=null;}
+    const ranges=controls.filter(c=>c.type==='range'),few=ranges.length<=9,main=nodeTitle(n);
+    const lineChip=c=>/line|stroke|style/i.test(c.label),first=controls.find(c=>c.type!=='range'&&!c.action&&!lineChip(c));
+    const groupOf=c=>c.type!=='range'?(c===first?null:lineChip(c)?'Look':main):few?(optGroup(c.label)==='Look'?'Look':main):optGroup(c.label);
+    const order=[main,...OPT_GROUPS.map(([g])=>g),'Form'],bins=new Map(order.map(g=>[g,[]]));
+    for(const c of controls){const gr=groupOf(c);if(gr)bins.get(gr).push(c);}
+    for(const [gr,list] of bins)if(gr!==main&&gr!=='Look'&&list.length&&list.length<3){bins.get(main).push(...list);list.length=0;}
+    const chip=c=>{
+      const wrap=el('div','opt-chips');if(c.label)wrap.append(el('div','insp-sublabel',c.label));
+      const current=c.options.find(o=>o.on)?.label;
+      wrap.append(ui.chips({options:c.options.map(o=>[o.label,o.label]),value:c.action?null:current,property:'chip:'+c.key,onChange:label=>{
+        attempt(()=>{
+          const job=jobOf(n),res=e.click(job,c.key,label);
+          if(c.action){message(label);if(Object.keys(res.ranges).length)edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);x.props.opts={...x.props.opts,...res.ranges};},'Emitter: '+label);return;}
+          edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);x.props.chips={...x.props.chips,[c.key]:label};x.props.opts={...x.props.opts,...res.ranges};},'Emitter: '+label);
+        });
+      }}));
+      return wrap;
+    };
+    for(const c of controls)if(!groupOf(c))top.append(chip(c));
+    const boxes=new Map();
+    for(const [gr,list] of bins){
+      if(!list.length)continue;
+      const box=fold(opts,gr);boxes.set(gr,box);let grid=null;
+      for(const c of [...list.filter(c=>c.type!=='range'),...list.filter(c=>c.type==='range')]){
+        if(c.type!=='range'){box.append(chip(c));continue;}
         if(!grid){grid=el('div','knob-grid');box.append(grid);}
         const cur=n.props.opts[c.id]??c.value;
         grid.append(ui.knob({label:c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),...autoOpts(n,'opt:'+c.id),
           onInput:v=>live(()=>{const x=findNode(n.id);if(x)x.props.opts={...x.props.opts,[c.id]:v};}),onChange:()=>liveCommit('Emitter: '+c.label)}));
-      }else{
-        grid=null;const wrap=el('div','opt-chips');if(c.label)wrap.append(el('div','insp-sublabel',c.label));
-        const current=c.options.find(o=>o.on)?.label;
-        wrap.append(ui.chips({options:c.options.map(o=>[o.label,o.label]),value:c.action?null:current,property:'chip:'+c.key,onChange:label=>{
-          attempt(()=>{
-            const job=jobOf(n),res=e.click(job,c.key,label);
-            if(c.action){message(label);if(Object.keys(res.ranges).length)edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);x.props.opts={...x.props.opts,...res.ranges};},'Emitter: '+label);return;}
-            edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);x.props.chips={...x.props.chips,[c.key]:label};x.props.opts={...x.props.opts,...res.ranges};},'Emitter: '+label);
-          });
-        }}));
-        opts.append(wrap);
       }
     }
     if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer or Color nodes after it.'));
     const forces=[...new Set(Object.values(moved).map(([t])=>t))];
     if(forces.length){
-      const box=fold(opts,n.type==='cloner'?'3D nodes':'Forces',true),chips=el('div','chips');chips.dataset.property='forces';
+      const fg=n.type==='cloner'?'3D nodes':'Forces',box=boxes.get(fg)||fold(opts,fg),chips=el('div','chips');chips.dataset.property='forces';
       for(const t of forces){
         const b=el('button','mbtn library-node',TYPES[t].label);b.type='button';b.dataset.type=t;b.title=TYPES[t].description;b.style.setProperty('--cat',catOf(t).color);
         b.onclick=()=>{const g=graph(),have=g.nodes.find(m=>m.type===t&&upstreamSim(g,m)&&chainFrom(g,n.id,m.id));if(have){selected=have.id;renderUI();}else addNode(t);};
@@ -1095,6 +1124,7 @@ function renderEmitter(root,n){
       }
       box.append(chips);
     }
+    syncFolds();
   };
   if(e.status==='ready')fill();else{e.ready.then(()=>{if(opts.isConnected){opts.replaceChildren();fill();}});}
 }

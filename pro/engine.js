@@ -22,6 +22,8 @@ async function engineSource() {
   return sourcePromise;
 }
 export const WIDTH=960,HEIGHT=540,BINS=2048;
+// A small preview of a loaded picture or video frame for the inspector.
+function thumb(src,w,h){try{const k=Math.min(1,160/Math.max(w,h,1)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*k));c.height=Math.max(1,Math.round(h*k));c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.8);}catch{return '';}}
 const SOLIDS=['knot','cube','torus','cylinder','cone','ico','pyramid','frame'];
 // The page owns the one camera stream; engines receive clones, so the frames never ask for permission themselves.
 let cameraProvider=null;
@@ -137,6 +139,9 @@ export class EmitterEngine {
     if(job.mesh){w.simOpt.spSrc='mesh';w.simOpt.spMesh=this.mediaKind==='object'?'obj':'knot';try{w.syncSimUI();}catch{}w.agSim.reset();}
     else if(job.splat&&w.simOpt.spSrc==='mesh'){w.simOpt.spSrc='galaxy';try{w.syncSimUI();}catch{}}
     const groups=this.chipGroups();
+    // Growth starts as Coral unless the look or a chip picks the type.
+    if(mode==='growth'&&!job.look?._growType){const b=groups.flatMap(g=>g.buttons).find(b=>/setGrowType\('coral'/.test(b.getAttribute('onclick')||''));
+      if(b&&!b.classList.contains('on')&&!Object.values(job.chips||{}).includes('Vine'))try{b.click();}catch(e){console.warn(e);}}
     for(const [k,label] of Object.entries(job.chips||{})){
       const g=groups[k];if(!g)continue;
       const b=g.buttons.find(b=>b.textContent.trim()===label);
@@ -257,12 +262,14 @@ export class EmitterEngine {
   async media(file,kind) {
     if(file.size>80*1024*1024)throw Error('Media limit is 80 MB per file');
     await this.ready;if(!this.w||this.disposed)throw Error('Emitter engine is not ready');
-    const w=this.w;this.mediaKind='';this.mediaName='';this.baseKey='';this.applied=null;
+    const w=this.w;this.mediaKind='';this.mediaName='';this.mediaThumb='';this.baseKey='';this.applied=null;
     if(kind==='image') {
       if(!['image/png','image/jpeg','image/webp','image/gif','image/avif'].includes(file.type))throw Error('Use a raster PNG, JPEG, WebP, GIF or AVIF image');
       const bitmap=await createImageBitmap(file);
       if(bitmap.width*bitmap.height>16000000){bitmap.close();throw Error('Image limit is 16 megapixels');}
       const cv=w.document.createElement('canvas');cv.width=bitmap.width;cv.height=bitmap.height;cv.getContext('2d').drawImage(bitmap,0,0);bitmap.close();
+      cv.complete=true;// Pixel warp only samples images that report complete.
+      this.mediaThumb=thumb(cv,cv.width,cv.height);
       w.imgLayoutImg=cv;w.imgSource='raster';w.sampleLayoutImage();
       if(w.agPixelWarp?.setImage)try{w.agPixelWarp.setImage(cv);}catch(e){console.warn(e);}
     }else if(kind==='video') {
@@ -279,7 +286,7 @@ export class EmitterEngine {
       }catch(error){URL.revokeObjectURL(url);throw error;}
       if(this.video){this.video.pause();this.video.removeAttribute('src');}
       if(this.videoURL)URL.revokeObjectURL(this.videoURL);
-      this.videoURL=url;this.video=video;w.vidEl=video;w.sampleVideoFrame();
+      this.videoURL=url;this.video=video;w.vidEl=video;w.sampleVideoFrame();this.mediaThumb=thumb(video,video.videoWidth,video.videoHeight);
     }else if(kind==='splat') {
       if(!/\.(ply|splat)$/i.test(file.name))throw Error('Choose a .ply or .splat file');
       const r=w.agSplatParse(await file.arrayBuffer(),file.name);
@@ -290,6 +297,15 @@ export class EmitterEngine {
       w.objModelData=w.agParseObj(await file.text());w.objBuiltin='file';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;
     }
     this.mediaKind=kind;this.mediaName=file.name;
+  }
+  // Forget the loaded file: the node falls back to its empty state (built-in model, demo cloud, no picture).
+  clearMedia() {
+    const w=this.w;if(!w)return;
+    if(this.mediaKind==='image'){w.imgLayoutImg=null;try{w.agPixelWarp?.setImage?.(null);}catch{}}
+    if(this.mediaKind==='video'&&this.video){this.video.pause();this.video.removeAttribute('src');if(this.videoURL)URL.revokeObjectURL(this.videoURL);this.video=null;this.videoURL='';w.vidEl=null;}
+    if(this.mediaKind==='object'){w.objModelData=null;w.objBuiltin='knot';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;}
+    if(this.mediaKind==='splat'){Object.assign(w.AG_SPLAT,{file:null,n:0,name:''});w.AG_SPLAT.ver++;}
+    this.mediaKind='';this.mediaName='';this.mediaThumb='';this.baseKey='';this.applied=null;
   }
   stats() {return this.w?{status:this.status,mode:this.mode,generation:this.generation,frames:this.frames,sim:this.w.agSim.stats(),renderer:this.w.agGpu.stats()}: {status:this.status};}
   dispose() {

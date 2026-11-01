@@ -303,7 +303,12 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.locator('#templates').selectOption('Two layers');await lit(.05,25000);
     for(const t of ['Data tunnel','Living archive']){await page.locator('#templates').selectOption(t);await lit(.05,25000);assert.ok((await layer0()).nodes.some(n=>n.type==='liveData'),t+' uses live data');}
     // Knobs turn like the original: dragging clockwise around the centre raises the value; the centre dot toggles Auto.
-    await page.evaluate(()=>{const l=pro.getProject().layers.find(l=>l.nodes.some(n=>n.type==='waveform2d'));pro.selectLayer(l.id);pro.select(l.nodes.find(n=>n.type==='waveform2d').id);});
+    await page.evaluate(()=>{const l=pro.getProject().layers.find(l=>l.nodes.some(n=>n.type==='waveform2d'));pro.selectLayer(l.id);const id=pro.addNode('waveform2d',undefined,undefined,{mode:'growth'});pro.select(id);});
+    await page.waitForFunction(()=>[...document.querySelectorAll('#properties [data-property^="chip:"] .on')].some(b=>b.textContent==='Coral'),null,{timeout:8000});
+    await page.evaluate(()=>{const l=pro.getProject().layers.find(l=>l.nodes.some(n=>n.type==='waveform2d'));pro.select(l.nodes.find(n=>n.type==='waveform2d').id);});
+    // Inspector sections are an accordion: opening one closes the others.
+    await page.locator('#properties .insp-fold[data-group="Lines"] > .insp-fold-head').click();
+    assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('#properties .insp-fold:not(.closed)')].map(f=>f.dataset.group)),['Lines'],'One inspector section open at a time');
     const dial=page.locator('#properties .knob').filter({has:page.locator('[data-property="thick"]')}).first();
     if(await dial.count()){
       const before=await dial.evaluate(k=>k.getValue());const b=await dial.locator('.knob-dial').boundingBox(),cx=b.x+b.width/2,cy=b.y+b.height/2;
@@ -491,5 +496,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(()=>pro.setProperty('d','source','ocean'));await page.waitForTimeout(300);
     assert.ok((await page.locator('#properties').textContent()).includes('Place'),'Ocean asks for a place');
     assert.ok(await litCount()>300,'Live data palette renders');
+    // Media inputs: one Choose button; a loaded picture shows as a thumbnail with × to remove it.
+    const img=await page.evaluate(()=>{const id=pro.addNode('image');pro.select(id);return id;});
+    const png=Buffer.from((await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#f00';g.fillRect(0,0,64,64);return c.toDataURL('image/png');})).split(',')[1],'base64');
+    await page.locator('#properties .media-choose').waitFor({timeout:15000});
+    await page.locator('#emitterMedia').setInputFiles({name:'red.png',mimeType:'image/png',buffer:png});
+    await page.locator('#properties .media-item img').waitFor({timeout:8000});
+    await page.click('[data-property=mediaRemove]');await page.locator('#properties .media-choose').waitFor({timeout:8000});
+    assert.equal(await page.locator('#properties .media-item').count(),0,'Removing the picture brings back Choose');
+    void img;
   }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

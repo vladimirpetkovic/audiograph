@@ -142,6 +142,13 @@ process the finished image.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
 - **Templates** include **Data tunnel** (a flight through flowing particles, coloured and pushed by space weather) and **Living archive** (a slow fluid painting with drifting strokes, fed by Wikipedia edits).
+- **Media inputs** (Image, Video, OBJ, splat) have a single Choose button; a loaded
+  file shows as a thumbnail (or its name) with × to remove it. Image, Video and Camera
+  stay still until audio is wired into them.
+- **Inspector sections** work like an accordion: the basics sit at the top, and
+  opening a section (Lines, Outline, Sound response…) closes the others. The open
+  section is remembered per node type. Choice chips such as Growth's Type sit at the
+  top; Growth starts as Coral.
 - **Open/Save .ag scene files** (⌘O, ⌘S, ⇧⌘S Save As; drop an .ag on the window
   to open it). Save also keeps a copy in this browser for **Restore**. On screens
   1440px and wider the whole UI is drawn 20% larger. **Templates**, and
