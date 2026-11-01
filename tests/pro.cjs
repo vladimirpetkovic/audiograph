@@ -273,7 +273,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,12);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    assert.equal(migrated.version,13);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
     // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
     const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
     assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.warp]),[['camera','wave'],['image','wave']]);
@@ -292,8 +292,10 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       edges:[{from:'o',out:'value',to:'w',input:'spin'},{from:'w',out:'shape',to:'out',input:'image'}]}]}));
     const n6=t=>v6.layers[0].nodes.find(n=>n.type===t),e6=v6.layers[0].edges;
     assert.deepEqual([n6('symmetry')?.props,n6('mirror')?.props,n6('spin')?.props,n6('symmetry')?.auto,n6('waveform2d').props.spin],
-      [{mode:'r4',gap:0},{flipH:true,flipV:false,reflect:false},{spin:-2,speed:1.5},['gap'],undefined],'Motion props moved into nodes');
+      [{mode:'r4',gap:0},{flipH:true,flipV:false,reflect:false},{spin:2,dir:'left',speed:1.5},['gap'],undefined],'Motion props moved into nodes');
     assert.ok(e6.some(e=>e.from==='o'&&e.to===n6('spin').id&&e.input==='spin')&&e6.some(e=>e.from===n6('spin').id&&e.to==='out'),'Motion wires follow');
+    const sd=await page.evaluate(async()=>{const {applyShapeNode}=await import('./graph.js');const d=p=>applyShapeNode('spin',{speed:1,...p},{})._spinDir;return [d({spin:2,dir:'right'}),d({spin:2,dir:'left'})];});
+    assert.deepEqual(sd,[1,-1],'Spin right / Spin left turn opposite ways');
     const r6=await page.evaluate(async p=>{pro.importProject(p);for(let i=0;i<6;i++){pro.draw();await new Promise(r=>requestAnimationFrame(r));}return pro.stats().errors;},v6);
     assert.deepEqual(r6,[],'Spin / Symmetry / Mirror nodes render');
     // Version 8: Boids / Ferrofluid become Particles / Fluid; Flocking nodes are removed and the chain heals.
@@ -457,13 +459,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
         edges:[...(type==='cloner'?[{from:'o',out:'object',to:'n',input:'object'}]:[]),{from:'n',out:'shape',to:'out',input:'image'}]}]},'lean');pro.select('n');
         await new Promise(r=>{const t=setInterval(()=>{if(document.querySelector('#properties [data-property^="opt:"]')){clearInterval(t);r();}},100);setTimeout(r,8000);});
         const keys=[...document.querySelectorAll('#properties [data-property]')].map(k=>k.dataset.property);
-        return {groups:[...document.querySelectorAll('#properties [data-group]')].map(g=>g.dataset.group),props:keys};};
+        return {groups:[...document.querySelectorAll('#properties [data-group]')].map(g=>g.dataset.group),props:keys,sound:[...document.querySelectorAll('#properties [data-group="Sound"] [data-property]')].map(k=>k.dataset.property)};};
       return {cl:await groups('cloner',{}),old:await groups('cloner',{intensity:150}),wf:await groups('waveform2d',{}),w3n:await groups('waveform3d',{render:'normal'}),w3:await groups('waveform3d',{tilt:30}),rot:await new Promise(r=>setTimeout(()=>r(pro.engine('n').applied?._dragRotX),800))};});
     assert.equal(r.cl.groups.filter(g=>g==='Sound').length,1,'Cloner has one Sound section');
     assert.ok(r.w3n.props.length<40&&!r.w3n.props.some(k=>/^opt:pG3/.test(k))&&!r.w3n.props.includes('intensity'),'A Normal 3D Object is not a full Cloner inspector: '+r.w3n.props.length);
     assert.ok(!r.cl.groups.some(g=>['Sound response','Cloner','3D nodes','Look','Objects'].includes(g)),'No duplicate or node-named sections: '+r.cl.groups);
     assert.ok(r.cl.props.includes('opt:pSimSens')&&!r.cl.props.includes('intensity')&&!r.cl.props.includes('tilt'),'Sim sound knobs only; no dead 3D tilt');
     assert.ok(r.old.props.includes('intensity'),'A changed generic sound knob stays visible');
+    assert.ok(['sensitivity','contrast','fade'].every(k=>r.wf.sound.includes(k)),'Waveform Sound has Sensitivity, Contrast, Fade edges: '+r.wf.sound);
     assert.ok(r.wf.props.includes('sensitivity')&&!r.wf.props.includes('intensity')&&!r.wf.props.includes('tilt'),'Waveform: Sensitivity is the gain; no 3D tilt on 2D');
     assert.ok(r.w3.props.includes('tilt'),'Classic 3D keeps 3D tilt');
     assert.ok(Math.abs(r.rot-Math.PI/6)<1e-6,'3D tilt still reaches the engine with the viewport orbit: '+r.rot);}
@@ -642,6 +645,12 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       let y=0;for(let i=1;i<pts.length;i+=5)y+=pts[i];return y/(pts.length/5);};
     const up=await emitFrom(0),side=await emitFrom(90);
     assert.ok(Math.abs(up-side)>.02,`A 3D Object wired into emit spawns from its current pose (${up.toFixed(3)} vs ${side.toFixed(3)})`);
+    // A Palette after particles emitted from a waveform recolours them (the waveform's own colours no longer win).
+    {await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:0,y:200,props:{mode:'circle'}},{id:'e',type:'gpuParticles',x:200,y:0,props:{mode:'simparticles'}},{id:'q',type:'palette',x:400,y:0,props:{mode:'solid',solid:'#ff0000'}}],
+      [{from:'a',out:'audio',to:'w',input:'audio'},{from:'a',out:'audio',to:'e',input:'audio'},{from:'w',out:'shape',to:'e',input:'emit'},{from:'e',out:'shape',to:'q',input:'shape'},{from:'q',out:'shape',to:'out',input:'image'}]));
+     await page.waitForFunction(()=>pro.emitPoints('e')?.length>1000,null,{timeout:15000});await page.waitForTimeout(2500);
+     const [r,g,b,n]=await page.evaluate(()=>{const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let r=0,g=0,b=0,n=0;for(let i=0;i<x.length;i+=16)if(x[i]+x[i+1]+x[i+2]>60){r+=x[i];g+=x[i+1];b+=x[i+2];n++;}return [r,g,b,n];});
+     assert.ok(n>100&&r>2*(g+b)/2,`Palette colours emitted particles (rgb ${r},${g},${b} over ${n})`);}
     // Animated GLB / glTF models play in the 3D Object (and so in Cloners and emit); skinned rigs follow their joints.
     {await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'model',render:'normal'}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'out',input:'image'}]));
      await page.evaluate(()=>pro.select('o'));await page.waitForTimeout(1200);await page.setInputFiles('#emitterMedia',gltfFile());await page.waitForTimeout(800);

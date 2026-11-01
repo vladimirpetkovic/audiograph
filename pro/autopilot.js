@@ -1,6 +1,6 @@
 // Autopilot: turns a plain-language description into a node graph, and keeps it moving with the music.
 // parse(text) reads the description; build(intent,options) makes project layers; Director follows the song's sections.
-import {TYPES,MODES,PALETTES,node} from './graph.js';
+import {TYPES,MODES,PALETTES,node,spinProps} from './graph.js';
 
 // ---------- small helpers ----------
 export function rng(seed=Date.now()){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return ((s>>>0)%100000)/100000;};}
@@ -320,7 +320,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   if(v.type==='cloner'){wire(add('waveform3d',{mode:pick(r,['cube','sphere','ico','torus','cylinder']),render:'normal'},Y+170),'object',vis,'object');prev=chainTo(prev,add('soundEffector',{}));}
   // Symmetry (deformer) and Spin (force) follow the visual as their own nodes.
   if(mo.symmetry)prev=chainTo(prev,add('symmetry',{mode:mo.symmetry,gap:0}));
-  const spinN=mo.spin!=null&&(mo.spin||(mo.speed??1)!==1||it.data.includes('computer'))?add('spin',{spin:mo.spin,speed:mo.speed??1}):null;if(spinN)prev=chainTo(prev,spinN);
+  const spinN=mo.spin!=null&&(mo.spin||(mo.speed??1)!==1||it.data.includes('computer'))?add('spin',{...spinProps(mo.spin),speed:mo.speed??1}):null;if(spinN)prev=chainTo(prev,spinN);
   // Deformers bend the shape; forces push simulations.
   for(const d of it.deformers){if(sim&&!['turbulence','jitter','disorder','flowField'].includes(d.type))continue;prev=chainTo(prev,add(d.type,d.props));}
   if(sim)for(const f of it.forces){const keys=Object.keys(f.props).filter(k=>TYPES[f.type].props[k]?.sims?.includes(v.mode)||!TYPES[f.type].props[k]?.sims);if(!keys.some(k=>TYPES[f.type].props[k]?.sims?.includes(v.mode)))continue;prev=chainTo(prev,add(f.type,f.props));}

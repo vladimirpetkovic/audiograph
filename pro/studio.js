@@ -4,7 +4,7 @@ import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engine
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
-import {cleanView} from './graph.js';
+import {cleanView,spinProps} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as autopilot from './autopilot.js';
@@ -1223,13 +1223,14 @@ function renderEmitter(root,n){
     const gr=T.props[k].group;if(gr==='Lines'&&sim||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;
     if((k==='tilt'||k==='turn')&&!classic3d&&!used(k))continue;
     if(k==='sensitivity'){lineSens=true;continue;}
+    if(k==='contrast'||k==='fade')continue;
     (geo[gr]||=[]).push(k);
   }
   const sndWrap=el('div');root.append(sndWrap);
   for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr),n,ks,true);
   const d=fold(sndWrap,'Sound');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
-  const sndKeys=sim?['intensity','punch','release','dynamics'].filter(used):[lineSens?'sensitivity':'intensity',...(lineSens&&used('intensity')?['intensity']:[]),'punch','release','dynamics'];
+  const sndKeys=sim?['intensity','punch','release','dynamics'].filter(used):[...(lineSens?['sensitivity','contrast','fade']:['intensity']),...(lineSens&&used('intensity')?['intensity']:[]),'punch','release','dynamics'].filter(k=>T.props[k]);
   if(sndKeys.length){const rg=el('div','knob-grid');for(const k of sndKeys)rg.append(propControl(n,k,T.props[k],wiredOf(k)));d.append(rg);}
   const wiredAudio=graph().edges.find(e=>e.to===n.id&&e.input==='audio'),from=wiredAudio&&findNode(wiredAudio.from);
   d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':from?`Hears ${TYPES[from.type].label} (${sourceName()}).`:T.category==='inputs'?'Still until you wire audio into it.':`Hears the project sound (${sourceName()}).`));
@@ -1917,7 +1918,7 @@ function apEnsure(){
   if(apIsSlots()){
     // A saved Autopilot project: its visible layers become the stack again.
     if(!apSlots.some(s=>s.role>=0)){let role=0;for(let k=0;k<4;k++){const g=apLayer(k),r=apNode(k,'r'),s=apNode(k,'s');
-      if(g.visible&&g.opacity>.01&&role<3)apSlots[k]={role:role++,layer:{layout:r.props.mode,params:{...r.props.look},opacity:g.opacity*100,spin:s.props.spin,speed:s.props.speed},f0:0};}}
+      if(g.visible&&g.opacity>.01&&role<3)apSlots[k]={role:role++,layer:{layout:r.props.mode,params:{...r.props.look},opacity:g.opacity*100,spin:s.props.spin*(s.props.dir==='left'?-1:1),speed:s.props.speed},f0:0};}}
     return true;
   }
   apTrans=null;apTweens.clear();for(const s of apSlots)Object.assign(s,{role:-1,layer:null,f0:0});
@@ -1957,7 +1958,7 @@ function apAssign(w,k,l,role,opacity=.001){
   r.type=type;r.props={...defaults(type),mode:l.layout,look:lookDiff(w,l.params),...geoFromLook(l.params)};
   const cs=apColorsOf(l.params);if(cs.length)Object.assign(apNode(k,'p').props,apPalette(cs));
   const sym=l.params._symmetryMode;apNode(k,'y').props.mode=['x','y','xy','r3','r4','r6','r8'].includes(sym)?sym:'none';
-  Object.assign(apNode(k,'s').props,{spin:apSpin(l.spin),speed:Math.max(.1,Math.min(5,+l.speed||1))});
+  Object.assign(apNode(k,'s').props,{...spinProps(apSpin(l.spin)),speed:Math.max(.1,Math.min(5,+l.speed||1))});
   for(const key of apTweens.keys())if(key.startsWith(g.id+'|'))apTweens.delete(key);
   g.visible=true;g.opacity=opacity;g.blend=role?'screen':'source-over';
   apSlots[k]={role,layer:l,f0:engines.get(r.id)?.frames||0};
@@ -1988,7 +1989,7 @@ function apMood(g,p,spinAmt,speed,dur,flip){
   for(const n of g.nodes){
     const wired=k=>g.edges.some(e=>e.to===n.id&&e.input===k);
     if(TYPES[n.type].engine&&!isSim(n.props.mode))for(const [k,v] of Object.entries(geo)){const s=TYPES[n.type].props[k];if(s?.kind==='number'&&MOOD_GEO.has(s.key)&&!wired(k))apTween(g,n,k,v,dur);}
-    if(n.type==='spin'&&!wired('spin')){const sg=(Math.sign(n.props.spin)||1)*(flip||1);apTween(g,n,'spin',apSpin(spinAmt*sg),dur);if(!wired('speed'))apTween(g,n,'speed',speed,dur);}
+    if(n.type==='spin'&&!wired('spin')){const amt=apSpin(spinAmt*(flip||1));if(amt<0)n.props.dir=n.props.dir==='left'?'right':'left';apTween(g,n,'spin',Math.abs(amt),dur);if(!wired('speed'))apTween(g,n,'speed',speed,dur);}
   }
 }
 const apActive=()=>[0,1,2,3].filter(k=>apSlots[k].role>=0&&apLayer(k)).sort((a,b)=>apSlots[a].role-apSlots[b].role);

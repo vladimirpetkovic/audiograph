@@ -76,9 +76,11 @@ export function motionNodes(v){
   const out=[];
   if((v.symmetry&&v.symmetry!=='none')||v.symGap)out.push(['symmetry',{mode:SYMS.some(s=>s[0]===v.symmetry)?v.symmetry:'none',gap:v.symGap??0}]);
   if(v.flipH||v.flipV||v.mirror)out.push(['mirror',{flipH:!!v.flipH,flipV:!!v.flipV,reflect:!!v.mirror}]);
-  if((v.spin??0)!==0||(v.speed??1)!==1)out.push(['spin',{spin:v.spin??0,speed:v.speed??1}]);
+  if((v.spin??0)!==0||(v.speed??1)!==1)out.push(['spin',{...spinProps(v.spin??0),speed:v.speed??1}]);
   return out;
 }
+// A signed spin amount as the Spin node's knob (0–5) and direction.
+export const spinProps=v=>({spin:Math.abs(v),dir:v<0?'left':'right'});
 export function motionFromLook(look){
   const sp=typeof look._spin==='number'?look._spin*(look._spinDir<0?-1:1):0;
   return motionNodes({symmetry:look._symmetryMode,symGap:look._symGap,flipH:look._flipH===true,flipV:look._flipV===true,mirror:look._mirrorOn===true,
@@ -241,8 +243,8 @@ export const TYPES = {
     dir:pick('Direction','radial',['radial','vertical','horizontal'],{labels:[['radial','Radial'],['vertical','Vertical'],['horizontal','Horiz.']]}),smooth:n('Smoothing',5,1,20,1)}},
   turbulence:{category:'deformers',group:'Noise',label:'Turbulence',description:'Noise that churns WebGPU Particles and Smoke.',...SHAPE_IO,props:{
     amount:F('Turbulence',46,0,100,'pSpTurb',['simparticles']),scale:F('Noise scale',66,10,100,'pSpTurbScale',['simparticles']),smoke:F('Smoke turbulence',30,0,100,'pSmTurb',['simsmoke'])}},
-  spin:{category:'forces',label:'Spin',description:'Keep the shape turning. Negative spins the other way; Speed sets how fast its animation runs.',...SHAPE_IO,props:{
-    spin:n('Spin',1,-5,5,.1,{key:'_spin'}),speed:n('Speed',1,.1,5,.1,{key:'_speed'})}},
+  spin:{category:'forces',label:'Spin',description:'Keep the shape turning, right (clockwise) or left. Speed sets how fast its animation runs.',...SHAPE_IO,props:{
+    spin:n('Spin',1,0,5,.1,{key:'_spin'}),dir:pick('Direction','right',['right','left'],{labels:[['right','Spin right ↻'],['left','Spin left ↺']]}),speed:n('Speed',1,.1,5,.1,{key:'_speed'})}},
   // Forces: WebGPU simulation physics, one idea per node. Each knob lists the simulations it moves; defaults match the simulation.
   gravity:FORCE('Gravity','Pull down (or up). Smoke rises by buoyancy.',{gravity:F('Gravity',-3,-100,100,'pSpGravity',['simparticles']),sand:F('Sand gravity',100,0,100,'pSaGravity',['simsand']),buoyancy:F('Buoyancy',100,0,200,'pSmBuoy',['simsmoke'])}),
   drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand'])}),
@@ -397,7 +399,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=12;
+export const VERSION=13;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -523,6 +525,7 @@ function migrate(raw){
   if(raw.version<10)for(const g of out.layers||[])unifyObjects(g);
   if(raw.version<11)for(const g of out.layers||[])mediaInputs(g);
   if(raw.version<12)for(const g of out.layers||[])randomAxes(g);
+  if(raw.version<13)for(const g of out.layers||[])for(const nd of g?.nodes||[])if(nd?.type==='spin'&&typeof nd.props?.spin==='number'&&nd.props.spin<0)Object.assign(nd.props,spinProps(nd.props.spin));
   out.version=VERSION;return out;
 }
 // Version 12: the Random effector's single Tilt became rotation on each axis (wires and Auto go to Y).
@@ -749,9 +752,11 @@ export function applyShapeNode(type,props,mods){
   if(type==='palette'){
     const st=paletteStops(props);
     out._colorMode=props.mode;out._solidColor=props.solid;out._toneStops=st.tone;out._simpleStops=st.simple;
+    // A Palette after particles emitted from a picture recolours them instead of keeping the picture's colours.
+    if(out._sim?.emitColor==='source')out._sim={...out._sim,emitColor:'palette'};
     return out;
   }
-  if(type==='motion'||type==='spin'){out._spin=Math.abs(props.spin);out._spinDir=props.spin<0?-1:1;out._speed=props.speed;return out;}
+  if(type==='motion'||type==='spin'){out._spin=Math.abs(props.spin);out._spinDir=(props.spin<0?-1:1)*(props.dir==='left'?-1:1);out._speed=props.speed;return out;}
   if(type==='particles')out._particlesOn=true;
   if(type==='webcam'){out._cam={displace:props.displace,colors:props.colors==='on',dir:props.dir,smooth:props.smooth};return out;}
   for(const [k,s] of Object.entries(TYPES[type].props)){
