@@ -10,6 +10,7 @@ import * as autopilot from './autopilot.js';
 import {Pilot,Generator,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
 import {ORIGINAL_PRESETS,CLONER_PRESETS} from './templates.js';
 import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
+import {createTour} from './tour.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
 const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
@@ -1521,6 +1522,7 @@ $('helpBody').innerHTML=`
 <p>Audiograph Pro turns sound into moving images you build from nodes. Each node does one thing: bring something in, draw it, bend it, colour it, polish it. Wire them into a chain, end the chain in <b>Output</b>, and everything reacts to the music as it plays.</p>
 <nav class="help-toc" aria-label="Guide contents"><a href="#h-start">Quick start</a><a href="#h-screen">The screen</a><a href="#h-graph">Nodes &amp; wires</a><a href="#h-library">The library</a><a href="#h-audio">Audio</a><a href="#h-drive">Driving knobs</a><a href="#h-layers">Layers</a><a href="#h-mapping">Mapping</a><a href="#h-auto">Autopilot</a><a href="#h-files">Saving &amp; output</a><a href="#h-keys">Keys</a></nav>
 <h3 id="h-start">Quick start</h3>
+<p>New here? Press <b>Tutorial</b> (top right) for the First Mile: it builds a scene with you node by node, then shows Mapping, Autopilot, recording and saving.</p>
 <ol><li>Pick a look from <b>Templates</b> (top right): the original Audiograph presets, the 3D cloner set, or a Pro starter.</li>
 <li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. A demo beat plays until you do.</li>
 <li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
@@ -2147,8 +2149,21 @@ function renderTemplateMorph(root){
   beat.value=tm.beatMode;beat.onchange=()=>attempt(()=>{tm.configure({beatMode:beat.value});tmSave();});s.append(ui.field('Beat style',beat));
   const status=el('div','ap-read');status.dataset.property='tmStatus';s.append(status);tmStatus();
 }
+// First Mile tutorial: the first step is one undo step; later steps rebuild the same scene in place.
+const tour=createTour({
+  setScene:(layers,first)=>{const raw={format:'audiograph-pro',version:VERSION,layers,...(state.mapping?{mapping:state.mapping}:{})};
+    if(first){importProject(raw,'Tutorial');return;}
+    state=validate(raw);pending=null;reconcile();active=state.layers[0].id;renderUI();requestAnimationFrame(fit);if(paused)draw(elapsed);},
+  select:id=>{selected=id;multi.clear();renderUI();},
+  workspace:w=>{if(workspace!==w)setWorkspace(w);},
+  play:()=>{if(paused)setPaused(false);},
+  stopAutomation:()=>{apStop();tm.playing=false;if(workspace==='auto')renderAutoPanel();},
+  zoom:uiZ
+});
+$('tourButton').onclick=()=>tour.start();
 window.pro={
   randomGraph,
+  tour:{start:()=>tour.start(),stop:()=>tour.stop(),go:i=>tour.go(i),next:()=>tour.next(),invite:()=>tour.invite(),steps:tour.steps.map(s=>s.t),status:()=>({index:tour.index,live:tour.live,ids:tour.ids})},
   morph:{settings:o=>{if(o){tm.configure(o);tmSave();if(workspace==='auto')renderAutoPanel();}return tm.settings();},
     start:tmStart,stop:()=>{tm.playing=false;tmStatus();},scrub:v=>{tm.playing=false;tm.scrub(v);return tmSetPair();},apply:()=>attempt(tmApply),
     status:()=>({...tm.pair(),playing:tm.playing,position:tm.position,node:tmNode})},
@@ -2167,3 +2182,4 @@ window.pro={
 attempt(()=>{const h=localStorage.getItem('agpro.resolution');if(h!==null)changeResolution(+h);});
 sensors.autoMidi();reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
 requestAnimationFrame(loop);
+tour.maybeInvite();

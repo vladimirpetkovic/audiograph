@@ -192,6 +192,13 @@ process the finished image.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when
     you switch templates.
+- **Tutorial** (top right) is the First Mile, like the original's interactive
+  tutorial: it builds a real scene step by step (Audio → Waveform → Particles →
+  Twist → Palette → Bloom → Trails → Output, an LFO driving a knob, a second
+  layer), then highlights Templates, Mapping, Autopilot, recording and saving.
+  It is offered once on the first visit (`?notour` skips that), Esc or Skip
+  leaves it, the tutorial scene stays editable, and one Undo restores your
+  previous scene.
 - **Random** (beside Templates) creates a new wired node graph with random
   emitters, colours, motion and effects. It stops Autopilot; Undo restores your scene.
 - **Resolution** (beside fullscreen) sets the actual 16:9 output to 540p, 720p,

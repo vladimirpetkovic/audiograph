@@ -396,3 +396,20 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .tips-btn:hover{color:var(--tx);border-color:var(--border-h)}.tips-btn[aria-pressed=true]{color:var(--on-tx);background:var(--on);border-color:var(--on)}
 #graphTips{min-width:0}.graph-hint:not(.show){visibility:hidden}
 .cam-thumb video{display:block;width:160px;aspect-ratio:4/3;object-fit:cover;transform:scaleX(-1);background:#000}
+
+/* ── First Mile tutorial ─────────────────────────────── */
+#tourRing{position:fixed;z-index:900;pointer-events:none;border:2px solid var(--t-number);border-radius:8px;box-shadow:0 0 18px 2px #6ee7b780;opacity:0;transition:opacity .25s,left .35s ease,top .35s ease,width .35s ease,height .35s ease}
+#tourCard{position:fixed;z-index:901;max-width:400px;padding:14px 16px;background:var(--surface);border:1px solid var(--t-number);border-radius:10px;box-shadow:0 8px 32px #000a;color:var(--tx);font-family:var(--sans);opacity:0;visibility:hidden;transform:translateY(6px);transition:opacity .25s,transform .25s,visibility 0s .25s}
+#tourCard.show,#tourRing.show,#tourBanner.show{opacity:1;visibility:visible;transform:none;transition-delay:0s}
+@media(max-width:900px){#tourCard{max-width:none}}
+#tourCard .tour-step{font:.58rem/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--t-number)}
+#tourCard .tour-title{font-size:1rem;font-weight:600;margin:6px 0}
+#tourCard .tour-txt{font-size:.8rem;line-height:1.5;color:var(--tx2)}
+#tourCard .tour-dots{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+#tourCard .tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--border-h)}
+#tourCard .tour-dots i.on{background:var(--t-number)}
+#tourCard .tour-btns{display:flex;gap:8px;align-items:center}
+#tourBanner{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:5;max-width:90%;padding:8px 16px;border-radius:999px;background:#08080ac7;border:1px solid var(--t-number);color:#fff;font:600 .85rem/1.3 var(--sans);text-align:center;white-space:nowrap;box-shadow:0 0 24px #6ee7b759;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s}
+#tourBanner.show{transform:translateX(-50%)}
+#tourBanner b{color:var(--t-number)}
+.tbtn.tour-btn{color:var(--t-number);border-color:#6ee7b766}

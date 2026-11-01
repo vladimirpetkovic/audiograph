@@ -41,7 +41,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const project=()=>page.evaluate(()=>pro.getProject());
     const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
     const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
-    if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY){
+    if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     const layer0=async()=>(await project()).layers[0];
     const idOf=async type=>(await layer0()).nodes.find(n=>n.type===type)?.id;
     const ids={emitter:await idOf('gpuParticles'),audio:await idOf('audioIn'),bloom:await idOf('bloom'),output:await idOf('output')};
@@ -594,7 +594,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(await page.locator('#properties .media-item').count(),0,'Removing the picture brings back Choose');
     void img;
     }
-    if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY){
+    if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     // Template Morph reuses the original interpolation and keeps a stable renderer while blending.
     await page.evaluate(()=>{pro.autopilot.stop();pro.loadTemplate('Kaleido spectrum');pro.pause(true);pro.morph.settings({list:['Firepit','Glass'],duration:10,random:false,beat:false,ping:false});pro.workspace('auto');});
     const beforeMorph=await project();
@@ -686,7 +686,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.deepEqual(errors,[],'No page errors during template morph');
     console.log('Template Morph tests passed');
     }
-    if(!process.env.AUDIOGRAPH_MORPH_ONLY){
+    if(!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     // A cube cap shares the same source pixels with both front faces, not a separately rotated rectangle.
     const capCheck=await page.evaluate(async()=>{
       const M=await import(new URL('mapping.js',location.href).href),W=960,H=540,src=document.createElement('canvas');src.width=W;src.height=H;
@@ -777,6 +777,55 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     }
     assert.deepEqual(errors,[],'No page errors during resolution changes');
     console.log('Resolution tests passed');
+    }
+    {
+    // First Mile: builds one real scene step by step, keeps its renderer, highlights each target, and is one undo step.
+    await page.evaluate(()=>{pro.autopilot.stop();pro.morph.stop();pro.workspace('studio');pro.loadTemplate('Glowing DNA');pro.pause(false);});
+    const beforeTour=JSON.stringify(await page.evaluate(()=>pro.getProject()));
+    const titles=await page.evaluate(()=>pro.tour.steps);
+    assert.ok(titles.length>=12,'Tutorial has its steps');
+    await page.click('#tourButton');
+    await page.locator('#tourCard.show').waitFor({timeout:5000});
+    const ids=await page.evaluate(()=>pro.tour.status().ids);
+    await page.waitForFunction(id=>pro.engine(id)?.status==='ready',ids.W,{timeout:30000});
+    await page.evaluate(id=>{pro.engine(id).__tourMark=1;},ids.W);
+    const ringFits=()=>page.evaluate(()=>{const r=document.querySelector('#tourRing');if(!r.classList.contains('show'))return null;const a=r.getBoundingClientRect();
+      const t=document.querySelector('#audioName').getBoundingClientRect();return {a:[a.left,a.top,a.right,a.bottom],t:[t.left,t.top,t.right,t.bottom]};});
+    await page.waitForTimeout(500);
+    const fit0=await ringFits();assert.ok(fit0,'Ring shows on step 1');
+    assert.ok(fit0.a[0]<=fit0.t[0]+1&&fit0.a[1]<=fit0.t[1]+1&&fit0.a[3]>=fit0.t[3]-1,'Ring surrounds the audio source at UI zoom: '+JSON.stringify(fit0));
+    for(let i=0;i<titles.length;i++){
+      assert.equal(await page.textContent('#tourTitle'),titles[i],'Step title '+i);
+      assert.equal(await page.textContent('#tourStep'),`Step ${i+1} of ${titles.length}`);
+      await page.waitForTimeout(450);
+      assert.ok(await page.evaluate(()=>document.querySelector('#tourRing').classList.contains('show')),'Step highlights its target: '+titles[i]);
+      const card=await page.evaluate(()=>{const c=document.querySelector('#tourCard').getBoundingClientRect(),r=document.querySelector('#tourRing').getBoundingClientRect();
+        return {inside:c.left>=0&&c.top>=0&&c.right<=innerWidth&&c.bottom<=innerHeight,overlap:Math.max(0,Math.min(c.right,r.right)-Math.max(c.left,r.left))*Math.max(0,Math.min(c.bottom,r.bottom)-Math.max(c.top,r.top))/(c.width*c.height)};});
+      assert.ok(card.inside,'Card on screen at step '+i);
+      if(!['Nodes and wires','Tune it in the Inspector','Add from the Library'].includes(titles[i]))assert.ok(card.overlap<.35,'Card mostly clear of the highlight at '+titles[i]+': '+card.overlap);
+      if(titles[i]==='Tune it in the Inspector')assert.equal(await page.evaluate(id=>pro.getProject().layers[0].nodes.find(n=>n.id===id).props.mode,ids.W),'spiral');
+      if(titles[i]==='Let something drive a knob')assert.ok(await page.evaluate(i=>pro.getProject().layers[0].edges.some(e=>e.from===i.L&&e.to===i.T&&e.input==='amount'),ids),'LFO drives Twist');
+      if(titles[i]==='Stack Layers')assert.equal(await page.evaluate(()=>pro.getProject().layers.length),2,'Tutorial adds a layer');
+      if(i===2)await page.screenshot({path:process.env.AUDIOGRAPH_TOUR_SHOT||'/tmp/ag-tour.png'});
+      await page.click('#tourNext');
+    }
+    await page.waitForFunction(()=>!document.querySelector('#tourCard').classList.contains('show'));
+    const tourScene=await page.evaluate(()=>pro.getProject());
+    assert.deepEqual(tourScene.layers[0].nodes.map(n=>n.type),['audioIn','waveform2d','particles','twist','palette','bloom','trails','output','oscillator'],'Finished tutorial scene stays');
+    assert.equal(await page.evaluate(id=>pro.engine(id).__tourMark,ids.W),1,'Tutorial steps reuse the same renderer');
+    assert.equal(await page.evaluate(()=>pro.stats().paused),false,'Tutorial plays');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('agpro.tourSeen')),'1','Tutorial is remembered');
+    await lit(.02,25000);
+    await page.evaluate(()=>pro.undo());
+    assert.equal(JSON.stringify(await page.evaluate(()=>pro.getProject())),beforeTour,'One Undo restores the scene before the tutorial');
+    await page.evaluate(()=>pro.tour.start());await page.locator('#tourCard.show').waitFor();
+    await page.keyboard.press('ArrowRight');assert.equal(await page.textContent('#tourTitle'),titles[1],'Arrow keys step');
+    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('#tourCard').classList.contains('show'));
+    await page.evaluate(()=>pro.tour.invite());await page.locator('#tourCard.show').waitFor();
+    assert.equal(await page.textContent('#tourTitle'),'New to Audiograph Pro?');
+    await page.click('#tourSkip');await page.waitForFunction(()=>!document.querySelector('#tourCard').classList.contains('show'));
+    assert.deepEqual(errors,[],'No page errors during the tutorial');
+    console.log('First Mile tests passed');
     }
   }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exit(1);});
