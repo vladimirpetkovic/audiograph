@@ -38,11 +38,11 @@ export const STEPS=[
   {t:'Projection Mapping',sel:'#modeMap',ban:'Projection <b>Mapping</b>',
     txt:'Mapping fits the output onto walls, objects and screens: start from a layout such as a cube or triptych, then drag the corners onto what the projector hits.'},
   {t:'Autopilot',sel:'#modeAuto',ban:'Let <b>Autopilot</b> play',
-    txt:'Autopilot follows the music and makes new looks at each section. Describe a vibe to steer it, or use Template Morph to glide between the original presets.'},
+    txt:'Autopilot follows the music and makes new looks at each section. Describe a vibe to steer it, or use Preset Morph to glide between the original presets.'},
   {t:'Record and Perform',sel:['#record','#snap','.transport-side.end'],ban:'Record and <b>Perform</b>',
     txt:'Record captures video with its audio and the camera saves a PNG. Pick the resolution, go fullscreen (F), or Detach the output into a window for a projector.'},
   {t:'Save your Scene',sel:['label:has(#import)','#save','#restore'],last:true,ban:'Save your <b>Scene</b>',
-    txt:'Save writes an .ag scene file (⌘S) and keeps a copy in this browser; Open loads one back. The ? button opens the full Guide. Your tutorial scene stays: keep playing!'}
+    txt:'Save → Save scene writes an .ag file wherever you choose (⌘S); Save as template adds it to Templates → User templates. Open loads a scene back. The ? button opens the full Guide. Your tutorial scene stays: keep playing!'}
 ];
 STEPS.forEach((s,i)=>{if(!s.keys){const prev=STEPS.slice(0,i).reverse().find(p=>p.keys);Object.assign(s,{keys:prev.keys,spiral:prev.spiral,lfo:prev.lfo,layer2:prev.layer2,scene:'keep'});}});
 

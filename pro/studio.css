@@ -353,6 +353,9 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .ws-top{display:flex;flex-direction:column;gap:8px}
 .map-panel[hidden]{display:none}
 .ws-top{padding-bottom:14px;border-bottom:1px solid var(--border)}
+.ws-block{display:flex;flex-direction:column;gap:18px}.ws-block>.insp-section{display:flex;flex-direction:column;gap:14px}.ws-block>.insp-section>.insp-label{margin-bottom:-4px}
+.ws-block+.ws-block{margin-top:10px;padding-top:18px;border-top:2px solid var(--border)}
+.ws-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
 .map-overlay{position:absolute;z-index:1;touch-action:none;cursor:crosshair;overflow:visible}
 .map-overlay .surf{fill:rgba(210,255,58,.04);stroke:rgba(255,255,255,.45);stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:move}
 .map-overlay .surf.sel{fill:rgba(255,255,255,.06);stroke:#fff;stroke-width:2}

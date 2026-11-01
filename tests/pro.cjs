@@ -359,7 +359,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       await page.locator('#templates').selectOption(t);await lit(.05,25000).catch(async()=>assert.fail(`${t}: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));
     }
     {const t=await page.evaluate(()=>[pro.templates.includes('Cloned'),[...document.querySelectorAll('#templates optgroup')].map(g=>g.label)]);
-     assert.ok(t[0],'The Cloned scene is a template');assert.deepEqual(t[1],['Scenes','Audiograph presets','3D cloner'],'No Pro starters group');}
+     assert.ok(t[0],'The Cloned scene is a template');assert.deepEqual(t[1],['Audiograph presets'],'Only Audiograph presets until a user template is saved');}
     await page.locator('#templates').selectOption('Cloned');await lit(.05,25000);assert.ok((await layer0()).nodes.some(n=>n.type==='cloner'&&n.props.layout==='network'),'Cloned scene loads');
     {const r=await page.evaluate(async()=>{const L=pro.getProject().layers[0],lk=L.nodes.find(n=>n.type==='links'),cl=L.nodes.find(n=>n.type==='cloner');
        pro.select(lk.id);const knobs=[...document.querySelectorAll('#properties [data-property]')].map(k=>k.dataset.property);
@@ -595,7 +595,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     // 10. Save / restore round trip.
     // Exercise the download/browser-storage path without a native Save dialog stealing keyboard focus.
     await page.evaluate(()=>{window.showSaveFilePicker=undefined;});
-    const [sceneDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#save').click()]);
+    const [sceneDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#save').selectOption('scene')]);
+    // Save as template: it appears under User templates and loads back.
+    {page.once('dialog',d=>d.accept('My look'));await page.locator('#save').selectOption('template');
+     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('#templates optgroup')].map(g=>g.label)),['User templates','Audiograph presets'],'User templates group appears');
+     const mine=await project();await page.evaluate(()=>pro.loadTemplate('Ink'));await page.locator('#templates').selectOption('user:My look');
+     assert.deepEqual((await project()).layers.map(l=>l.nodes.length),mine.layers.map(l=>l.nodes.length),'A user template loads back');
+     page.once('dialog',d=>d.accept('My look'));await page.locator('#save').selectOption('remove');
+     assert.ok(!(await page.evaluate(()=>!!document.querySelector('#templates option[value="user:My look"]'))),'A user template can be removed');}
     await sceneDownload.path();const saved=await project();
     await page.evaluate(()=>pro.loadTemplate('Ink'));await page.locator('#restore').click();
     assert.deepEqual((await project()).layers.map(l=>l.name),saved.layers.map(l=>l.name));
@@ -616,9 +623,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'No horizontal overflow at 390px');
     console.log('Audiograph Pro tests passed');
-    // 3D category: a Cloner template is a primitive → Cloner → effectors → look network that renders; v8 cloner projects split into nodes.
-    await page.evaluate(()=>pro.loadTemplate('Toy blocks'));await page.waitForTimeout(4000);
-    const toy=await layer0();assert.ok(toy.nodes.filter(n=>n.type==='waveform3d'&&n.props.render==='normal').length>1&&toy.edges.some(e=>e.input==='object2'),'Cloner clones several primitives');
+    // 3D category: a Cloner clones several primitives and renders; v8 cloner projects split into nodes.
+    await page.evaluate(p=>pro.importProject(p),L([{id:'s',type:'waveform3d',x:0,y:300,props:{mode:'sphere',render:'normal'}},{id:'k',type:'waveform3d',x:0,y:420,props:{mode:'cube',render:'normal'}},
+      {id:'c',type:'cloner',x:200,y:0,props:{layout:'scatter'}},{id:'p',type:'palette',x:400,y:0,props:{}}],
+      [{from:'a',out:'audio',to:'c',input:'audio'},{from:'s',out:'object',to:'c',input:'object'},{from:'k',out:'object',to:'c',input:'object2'},{from:'c',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'}]));
+    await page.waitForTimeout(4000);
     const litCount=()=>page.evaluate(()=>{const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<x.length;i+=16)if(x[i]+x[i+1]+x[i+2]>60)n++;return n;});
     assert.ok(await litCount()>500,'Cloner renders');
     const v8=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:8,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'c',type:'gpuParticles',x:200,y:0,props:{mode:'simcloner',opts:{pG3Nx:9,pG3Links:4,pG3Size:30},chips:{'1':'Cube','2':'Spiral'}}},{id:'o',type:'output',x:400,y:0,props:{}}],edges:[{from:'a',out:'audio',to:'c',input:'audio'},{from:'c',out:'shape',to:'o',input:'image'}]}]}));

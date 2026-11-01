@@ -10,7 +10,7 @@ import * as mapping from './mapping.js';
 import * as autopilot from './autopilot.js';
 import {SCENES} from './scenes.js';
 import {Pilot,Generator,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
-import {ORIGINAL_PRESETS,CLONER_PRESETS} from './templates.js';
+import {ORIGINAL_PRESETS} from './templates.js';
 import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
 import {createTour} from './tour.js';
 
@@ -1337,7 +1337,6 @@ function chain(name,specs,extra){
 const GRAY={_colorMode:'toneramp',_toneStops:['#00000000','#555555','#aaaaaa','#ffffff'],_simpleStops:['#555555','#aaaaaa','#ffffff']};
 const TEMPLATES={};
 for(const [name,layers] of SCENES)TEMPLATES[name]=()=>clone(layers);
-const SCENE_NAMES=SCENES.map(([name])=>name);
 // The original Audiograph's built-in presets: one renderer per original layer (carrying that layer's look),
 // stacked by Merge nodes over the preset background, then the preset's Post FX as a chain of FX nodes.
 const SOLID_MODELS=['knot','cube','torus'];
@@ -1380,37 +1379,7 @@ function presetGraph(P){
   return [g];
 }
 for(const P of ORIGINAL_PRESETS)TEMPLATES[P.name]=()=>presetGraph(P);
-const ORIGINAL_NAMES=ORIGINAL_PRESETS.map(P=>P.name);
-// The original 3D cloner presets as node networks: primitives → Cloner → effectors → material, light, camera → palette → bloom.
-const CLONER_CHAIN=['soundEffector','fieldEffector','randomEffector','links','material','light','camera3d'];
-// Knobs a chain node leaves at the original's resting value when the preset does not set them.
-const CLONER_REST={fieldEffector:{strength:0},randomEffector:{size:0,color:0,rotX:0,rotY:0,rotZ:0},links:{links:0},camera3d:{dof:0,orbitSound:50}};
-const CLONER_PALETTES=['Lagoon','Synthwave','Sunset','Aurora','Fire','Tropic','Dusk'];
-function clonerGraph(P,i){
-  const g={id:crypto.randomUUID(),name:P.name,visible:true,opacity:1,blend:'source-over',nodes:[],edges:[]};
-  const k={...P.knobs},o=P.opts,used=new Set();let x=260;
-  // The original's one random tilt turns clones on every axis.
-  if(k.pG3RndRot!==undefined)for(const a of ['pG3RndRX','pG3RndRY','pG3RndRZ'])k[a]??=k.pG3RndRot;
-  const add=(type,xx,y,props={})=>{const n=node(type,xx,y,props);g.nodes.push(n);return n;},wire=(a,out,b,input)=>g.edges.push({from:a.id,out,to:b.id,input});
-  const take=type=>{const props={};let any=false;
-    for(const [pk,s] of Object.entries(TYPES[type].props)){
-      if(s.sim&&o[s.sim]!==undefined&&s.choices.includes(o[s.sim])){props[pk]=o[s.sim];any=true;}
-      else if(s.key&&k[s.key]!==undefined){props[pk]=s.kind==='number'?clampProp(type,pk,k[s.key]):k[s.key];used.add(s.key);any=true;}
-      else if(CLONER_REST[type]?.[pk]!==undefined)props[pk]=CLONER_REST[type][pk];}
-    return any&&props;};
-  const sound=add('audioIn',40,80),cl=add('cloner',x,80,take('cloner')||{});wire(sound,'audio',cl,'audio');
-  const shapes=String(o.g3Shape||'sphere').split(',').slice(0,3),prim={size:k.pG3Size??60,detail:k.pG3Detail??4,stretchX:k.pG3ObjX??100,stretchY:k.pG3ObjY??100,stretchZ:k.pG3ObjZ??100};
-  shapes.forEach((sh,j)=>wire(add('waveform3d',x-220,330+j*120,{...prim,mode:sh,render:'normal'}),'object',cl,['object','object2','object3'][j]));
-  let prev=cl;x+=220;
-  for(const t of CLONER_CHAIN){const props=take(t);if(!props&&t!=='soundEffector')continue;const n=add(t,x,80,props||{});wire(prev,'shape',n,'shape');prev=n;x+=220;}
-  const pal=PALETTES[CLONER_PALETTES[i%CLONER_PALETTES.length]],pn=add('palette',x,80,{c1:pal[0],c2:pal[1],c3:pal[2],c4:pal[3],c5:pal[4]||pal[3],colors:pal.length>4?'4':'3'});wire(prev,'shape',pn,'shape');x+=220;
-  const bl=add('bloom',x,80,{bloom:k.pSimBloom??20});wire(pn,'shape',bl,'image');x+=220;
-  wire(bl,'image',add('output',x,80),'image');
-  const rest=Object.fromEntries(Object.entries(k).filter(([key])=>!used.has(key)&&!key.startsWith('pG3')&&key!=='pSimBloom'));if(Object.keys(rest).length)cl.props.opts=rest;
-  return [g];
-}
-CLONER_PRESETS.forEach((P,i)=>{TEMPLATES[P.name]=()=>clonerGraph(P,i);});
-const CLONER_NAMES=CLONER_PRESETS.map(P=>P.name);
+const ORIGINAL_NAMES=[...SCENES.map(([name])=>name),...ORIGINAL_PRESETS.map(P=>P.name)];
 function loadTemplate(name){
   if(!Object.hasOwn(TEMPLATES,name))throw Error('Unknown template '+name);
   const layers=TEMPLATES[name]();layers.forEach((g,i)=>{if(i===0)g.blend='source-over';});
@@ -1535,26 +1504,47 @@ addEventListener('pagehide',()=>{if(outWin&&!outWin.closed)outWin.close();});
 $('snap').onclick=()=>preview.toBlob(blob=>{if(!blob)return message('Snapshot failed',true);const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);message('Snapshot saved');},'image/png');
 $('fullscreen').onclick=toggleFullscreen;
 $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
-for(const [label,names] of [['Scenes',SCENE_NAMES],['Audiograph presets',ORIGINAL_NAMES],['3D cloner',CLONER_NAMES]]){
-  const grp=el('optgroup');grp.label=label;for(const name of names){const o=el('option','',name);o.value=name;grp.append(o);}$('templates').append(grp);}
-$('templates').onchange=()=>{const v=$('templates').value;$('templates').value='';if(v)attempt(()=>loadTemplate(v));};
+// User templates live in this browser; Save → Save as template adds one.
+const USER_KEY='audiograph-pro-user-templates';
+const userTemplates=()=>{try{return JSON.parse(localStorage.getItem(USER_KEY))||{};}catch{return {};}};
+function fillTemplates(){
+  const sel=$('templates');sel.replaceChildren(Object.assign(el('option','','Templates…'),{value:''}));
+  for(const [label,names,pre] of [['User templates',Object.keys(userTemplates()),'user:'],['Audiograph presets',ORIGINAL_NAMES,'']]){
+    if(!names.length)continue;
+    const grp=el('optgroup');grp.label=label;for(const name of names){const o=el('option','',name);o.value=pre+name;grp.append(o);}sel.append(grp);}
+}
+fillTemplates();
+$('templates').onchange=()=>{const v=$('templates').value;$('templates').value='';if(!v)return;
+  if(v.startsWith('user:')){const name=v.slice(5),p=userTemplates()[name];attempt(()=>{if(!p)throw Error('Template '+name+' is gone');importProject(clone(p),'Loaded '+name);});}
+  else attempt(()=>loadTemplate(v));};
+function saveTemplate(){
+  const all=userTemplates(),name=prompt('Template name',state.layers[0]?.name||'My template')?.trim();if(!name)return;
+  if(all[name]&&!confirm(`Replace the template “${name}”?`))return;
+  try{all[name]=validate(clone(state));localStorage.setItem(USER_KEY,JSON.stringify(all));}catch(error){return message('Template: '+error.message,true);}
+  fillTemplates();message(`Saved template ${name}`);
+}
+function removeTemplate(){
+  const all=userTemplates(),names=Object.keys(all);if(!names.length)return message('No user templates yet');
+  const name=prompt('Remove which template?\n'+names.join('\n'),names[names.length-1])?.trim();if(!name)return;
+  if(!all[name])return message('No template called '+name,true);
+  delete all[name];localStorage.setItem(USER_KEY,JSON.stringify(all));fillTemplates();message(`Removed template ${name}`);
+}
 $('restore').onclick=()=>attempt(()=>{const raw=localStorage.getItem('audiograph-pro-v2')||localStorage.getItem('audiograph-pro-v1');if(!raw)throw Error('Nothing saved in this browser yet');importProject(JSON.parse(raw),'Restored saved project');});
-// Scenes save as .ag files (the project JSON). Where the browser allows it, ⌘S keeps writing to the same file.
-let agHandle=null;
-async function saveScene(as=false){
+// Scenes save as .ag files (the project JSON); every save asks where.
+async function saveScene(){
   try{const text=JSON.stringify(validate(state),null,2),name=(state.layers[0]?.name||'scene').replace(/[^\w -]+/g,'').trim()||'scene';
     try{localStorage.setItem('audiograph-pro-v2',text);}catch{}message('Saved in this browser');
     if(window.showSaveFilePicker){
-      if(as||!agHandle)agHandle=await showSaveFilePicker({suggestedName:name+'.ag',types:[{description:'Audiograph scene',accept:{'application/json':['.ag']}}]});
-      const w=await agHandle.createWritable();await w.write(text);await w.close();message(`Saved ${agHandle.name}`);return;}
+      const h=await showSaveFilePicker({suggestedName:name+'.ag',startIn:'desktop',types:[{description:'Audiograph scene',accept:{'application/json':['.ag']}}]});
+      const w=await h.createWritable();await w.write(text);await w.close();message(`Saved ${h.name}`);return;}
     const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=el('a');a.href=url;a.download=name+'.ag';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message(`Saved ${name}.ag`);
   }catch(error){if(error.name!=='AbortError')message('Save: '+error.message,true);}
 }
 async function openScene(file){
-  try{if(!file)return;if(file.size>1024*1024)throw Error('Scene file limit is 1 MB');importProject(JSON.parse(await file.text()),`Opened ${file.name}`);agHandle=null;}
+  try{if(!file)return;if(file.size>1024*1024)throw Error('Scene file limit is 1 MB');importProject(JSON.parse(await file.text()),`Opened ${file.name}`);}
   catch(error){message('Open: '+(error instanceof SyntaxError?'not an Audiograph scene':error.message),true);}
 }
-$('save').onclick=e=>saveScene(e.shiftKey);
+$('save').onchange=()=>{const v=$('save').value;$('save').value='';({scene:saveScene,template:saveTemplate,remove:removeTemplate})[v]?.();};
 $('import').onchange=async()=>{await openScene($('import').files[0]);$('import').value='';};
 addEventListener('dragover',e=>{if([...e.dataTransfer.items].some(i=>i.kind==='file'))e.preventDefault();});
 addEventListener('drop',e=>{const f=[...e.dataTransfer.files].find(f=>/\.(ag|json)$/i.test(f.name));if(f){e.preventDefault();openScene(f);}});
@@ -1564,7 +1554,7 @@ $('helpBody').innerHTML=`
 <nav class="help-toc" aria-label="Guide contents"><a href="#h-start">Quick start</a><a href="#h-screen">The screen</a><a href="#h-graph">Nodes &amp; wires</a><a href="#h-library">The library</a><a href="#h-audio">Audio</a><a href="#h-drive">Driving knobs</a><a href="#h-layers">Layers</a><a href="#h-mapping">Mapping</a><a href="#h-auto">Autopilot</a><a href="#h-files">Saving &amp; output</a><a href="#h-keys">Keys</a></nav>
 <h3 id="h-start">Quick start</h3>
 <p>New here? Press <b>Tutorial</b> (top right) for the First Mile: it builds a scene with you node by node, then shows Mapping, Autopilot, recording and saving.</p>
-<ol><li>Pick a look from <b>Templates</b> (top right): a saved scene, the original Audiograph presets or the 3D cloner set.</li>
+<ol><li>Pick a look from <b>Templates</b> (top right): your own <b>User templates</b> or the <b>Audiograph presets</b>.</li>
 <li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. A demo beat plays until you do.</li>
 <li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
 <li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li></ol>
@@ -1601,7 +1591,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-auto">Autopilot</h3>
 <p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”) is optional and steers it; <b>Prompt match</b> sets how closely. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look.</p>
 <h3 id="h-files">Saving &amp; output</h3>
-<ul><li><b>Save</b> (⌘S) writes an <b>.ag</b> scene file and keeps a copy in this browser; ⇧⌘S saves as a new file. <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Restore</b> brings back the browser copy. Media files are not stored: reload them in their input nodes.</li>
+<ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Restore</b> brings back the browser copy. Media files are not stored: reload them in their input nodes.</li>
 <li>Record (●) captures the preview with its audio to video; the camera button saves a PNG.</li>
 <li>Older projects open automatically and are updated to the current nodes.</li></ul>
 <h3 id="h-keys">Keys</h3>
@@ -1648,7 +1638,7 @@ const isTrackpad=e=>e.deltaMode===0&&(e.deltaX!==0||!(e.wheelDeltaY&&e.wheelDelt
 viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();if(e.ctrlKey||e.metaKey||!isTrackpad(e)&&!e.shiftKey)zoom(e.ctrlKey?Math.exp(-e.deltaY*.01):e.deltaY<0?1.08:1/1.08,(e.clientX-r.left)/uiZ(),(e.clientY-r.top)/uiZ());else{view.x-=e.deltaX/uiZ();view.y-=e.deltaY/uiZ();applyView();}},{passive:false});
 $('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit').onclick=fit;
 document.addEventListener('keydown',e=>{
-  if((e.metaKey||e.ctrlKey)&&!e.altKey&&/^[so]$/i.test(e.key)){e.preventDefault();if(e.key.toLowerCase()==='s')saveScene(e.shiftKey);else $('import').click();return;}
+  if((e.metaKey||e.ctrlKey)&&!e.altKey&&/^[so]$/i.test(e.key)){e.preventDefault();if(e.key.toLowerCase()==='s')(e.shiftKey?saveTemplate:saveScene)();else $('import').click();return;}
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
   const k=e.key.toLowerCase();
   if(mapKey(e))return;
@@ -1853,15 +1843,15 @@ function mapKey(e){
 const AP_KEY='agpro.autopilot';
 const ap={prompt:'',changes:'everything',layers:'auto',every:24,match:85,live:false,hold:false,write:false,last:''};
 const tm=new TemplateMorph();
-try{tm.configure(JSON.parse(localStorage.getItem('agpro.templateMorph')||'{}'));}catch(error){message('Template Morph settings: '+error.message,true);}
+try{tm.configure(JSON.parse(localStorage.getItem('agpro.templateMorph')||'{}'));}catch(error){message('Preset Morph settings: '+error.message,true);}
 let tmNode=null,tmStatusT=0;
-function tmSave(){try{localStorage.setItem('agpro.templateMorph',JSON.stringify(tm.settings()));}catch(error){message('Template Morph settings: '+error.message,true);}}
+function tmSave(){try{localStorage.setItem('agpro.templateMorph',JSON.stringify(tm.settings()));}catch(error){message('Preset Morph settings: '+error.message,true);}}
 function tmEnsure(){
   apStop();apTrans=null;apWant=null;apTweens.clear();clearTimeout(apTyping);
   let n=tmNode&&findNode(tmNode);if(n?.type==='templateMorph')return n;
   const pair=tm.pair(),g=chain('Template Morph',[['audioIn',{}],['templateMorph',{from:pair.from,to:pair.to,mix:pair.mix*100}],['output',{}]]);
   nextFade=2.5;
-  importProject({...clone(state),layers:[g]},'Template Morph (Undo restores your scene)');
+  importProject({...clone(state),layers:[g]},'Preset Morph (Undo restores your scene)');
   n=g.nodes.find(n=>n.type==='templateMorph');tmNode=n.id;return findNode(tmNode);
 }
 function tmSetPair(){
@@ -1870,14 +1860,14 @@ function tmSetPair(){
 }
 function tmStart(){tmEnsure();apStop();clearTimeout(apTyping);tm.start(A.beat);tmStatus();}
 function tmApply(){
-  const n=tmNode&&findNode(tmNode);if(!n)throw Error('Start or scrub Template Morph first');
+  const n=tmNode&&findNode(tmNode);if(!n)throw Error('Start or scrub Preset Morph first');
   const e=engines.get(n.id);if(!e||e.status!=='ready')throw Error('Wait for the template renderer to start');
   const blend=e.templateBlend(n.props.from,n.props.to,n.props.mix/100),kept=blend.layers.filter(l=>l.opacity>.01);
   tm.playing=false;
-  if(kept.length>LIMITS.emitters){message('Applied as an editable Template Morph node (this blend has more than 8 renderers)');tmStatus();return true;}
+  if(kept.length>LIMITS.emitters){message('Applied as an editable Preset Morph node (this blend has more than 8 renderers)');tmStatus();return true;}
   const P={name:'Morphed templates',bg:'#000000',layers:kept.map(l=>({layout:l.layout,opacity:l.opacity,
     look:{...lookDiff(e.w,l.params),...(l.layout==='custom'?{customFnX:l.params.customFnX,customFnY:l.params.customFnY}:{})}})),postFx:blend.postFx};
-  const next=validate({...clone(state),layers:presetGraph(P)});nextFade=1;importProject(next,'Applied Template Morph to editable nodes');tmNode=null;tmStatus();
+  const next=validate({...clone(state),layers:presetGraph(P)});nextFade=1;importProject(next,'Applied Preset Morph to editable nodes');tmNode=null;tmStatus();
   return true;
 }
 function tmStatus(){
@@ -2133,10 +2123,12 @@ function randomGraph(){
 $('randomGraph').onclick=randomGraph;
 function renderAutoPanel(){
   const root=$('autoPanel');if(!root||workspace!=='auto')return;root.replaceChildren();
-  const top=el('div','ws-top');root.append(top);
-  top.append(ui.field('Autopilot',ui.toggle({value:ap.live,labels:['On','Off'],property:'apLive',onChange:v=>{if(v)apStart();else apStop();message(v?'Autopilot is following the music':'Autopilot off');renderAutoPanel();}})));
+  // Two separate blocks: generative Autopilot, then Preset Morph.
+  const apb=el('div','ws-block');root.append(apb);apb.append(el('div','ws-title','Autopilot'));
+  const top=el('div','ws-top');apb.append(top);
+  top.append(ui.field('On',ui.toggle({value:ap.live,labels:['On','Off'],property:'apLive',onChange:v=>{if(v)apStart();else apStop();message(v?'Autopilot is following the music':'Autopilot off');renderAutoPanel();}})));
   top.append(ui.field('Write',ui.toggle({value:ap.write,labels:['On','Off'],property:'apWrite',onChange:v=>{ap.write=v;apSave();if(v){if(!ap.live)apStart();apChange('phrase',4,ap.changes,true);}renderAutoPanel();}})));
-  const d=section(root,'Describe');
+  const d=section(apb,'Describe');
   const ta=el('textarea','ap-prompt');ta.dataset.property='apPrompt';ta.placeholder='Optional: a mood, colours, shapes or motion, e.g. slow dreamy blue and gold spirals';ta.value=ap.prompt;ta.spellcheck=false;
   const read=el('div','ap-read');read.dataset.property='apRead';
   const showRead=()=>{const w=apWin();read.textContent=!ta.value.trim()?'Empty: Autopilot roams freely.':w?vibeText(readVibe(w,ta.value)):'';};
@@ -2149,7 +2141,7 @@ function renderAutoPanel(){
   const mk=el('div','knob-grid');
   mk.append(ui.knob({label:'Prompt match',min:0,max:100,step:1,value:ap.match,def:85,unit:'%',property:'apMatch',onInput:v=>{ap.match=v;},onChange:v=>{ap.match=v;apSave();}}));
   d.append(mk);
-  const live=section(root,'Follow the music');
+  const live=section(apb,'Follow the music');
   const st=el('div','ap-status');st.id='apStatus';st.append(el('b'),Object.assign(el('div','ap-bar'),{innerHTML:'<i></i>'}),el('span'));live.append(st);
   live.append(ui.field('Changes',ui.chips({options:[['colors','Colours'],['mood','Mood'],['everything','Everything']],value:ap.changes,property:'apChanges',onChange:v=>{ap.changes=v;apSave();renderAutoPanel();}})));
   if(ap.changes==='everything')live.append(ui.field('Layers',ui.chips({options:[['auto','Auto'],['1','1'],['2','2'],['3','3']],value:String(ap.layers),property:'apLayers',onChange:v=>{ap.layers=v;apSave();}})));
@@ -2164,8 +2156,9 @@ function renderAutoPanel(){
   renderTemplateMorph(root);apStatus(true);
 }
 function renderTemplateMorph(root){
-  const s=section(root,'Template Morph'),row=el('div','map-actions'),add=el('select');add.dataset.property='tmAdd';
-  add.append(new Option('+ Add template…',''));for(const name of TEMPLATE_NAMES)add.append(new Option(name,name));
+  const blk=el('div','ws-block');root.append(blk);blk.append(el('div','ws-title','Preset Morph'));
+  const s=section(blk,''),row=el('div','map-actions'),add=el('select');add.dataset.property='tmAdd';
+  add.append(new Option('+ Add preset…',''));for(const name of TEMPLATE_NAMES)add.append(new Option(name,name));
   add.onchange=()=>{if(add.value)attempt(()=>{tm.configure({list:[...tm.list,add.value]});tmSave();renderAutoPanel();});};s.append(ui.field('Playlist',add));
   const button=(label,key,fn)=>{const b=el('button','mbtn',label);b.dataset.property=key;b.onclick=()=>attempt(fn);row.append(b);};
   button('All','tmAll',()=>{tm.configure({list:TEMPLATE_NAMES});tmSave();renderAutoPanel();});

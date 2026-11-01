@@ -23,7 +23,7 @@
       <button class="tbtn studio-only" id="randomGraph" title="Create a random node graph (Undo restores your scene)">Random</button>
       <span class="sep"></span>
       <label class="tbtn" title="Open an .ag scene (⌘O)">Open<input id="import" type="file" accept=".ag,.json,application/json" hidden></label>
-      <button class="tbtn" id="save" title="Save the scene as an .ag file (⌘S; ⇧⌘S saves a copy). A copy also stays in this browser.">Save</button>
+      <select class="tbtn" id="save" aria-label="Save" title="Save a scene file (⌘S) or a template (⇧⌘S)"><option value="">Save…</option><option value="scene">Save scene…</option><option value="template">Save as template…</option><option value="remove">Remove a template…</option></select>
       <button class="tbtn" id="restore" title="Restore the last scene saved in this browser">Restore</button>
       <span class="sep"></span>
       <button class="tbtn tour-btn" id="tourButton" title="Interactive tutorial: build a scene step by step">Tutorial</button>

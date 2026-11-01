@@ -53,8 +53,7 @@ each with its own opacity and blend mode (up to four).
   **Cloner** (layout, counts, spacing, steps, rotation, variety) takes up to three and
   clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links with width, glow and sound pulse) and **Look** (Material,
   Light, Camera). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
-  coloured bounce light and an optional floor that catches the shadows. Chain effectors and look nodes after the Cloner. The original's
-  cloner presets are templates under **3D cloner**. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
+  coloured bounce light and an optional floor that catches the shadows. Chain effectors and look nodes after the Cloner. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
   into these nodes automatically.
 - **Viewport camera**: drag in the preview to orbit a 3D layer (right- or Shift-drag pans), or to move a 2D
   layer; the wheel zooms and a double-click resets. It applies to the active layer and is saved with it.
@@ -157,7 +156,8 @@ process the finished image.
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
-- **Templates**: saved **Scenes** (exported .ag projects in `scenes.js`, e.g. **Cloned**), the original Audiograph presets and the 3D cloner set.
+- **Templates**: **User templates** (Save → Save as template, kept in the browser) and the **Audiograph presets** (the originals plus scenes in `scenes.js`, e.g. **Cloned**).
+- **Save**: Save scene writes an .ag file wherever you choose (⌘S); Save as template (⇧⌘S) adds a User template.
 - **Tips stay hidden**: node descriptions and help notes sit behind the **?** in
   the inspector header (and the graph toolbar); click it to show them. The choice is
   remembered.
@@ -220,13 +220,13 @@ process the finished image.
 - The **Cube** mapping layout uses a folded cap so the image meets both side
   faces at their shared edges. Choose **Cube cap · wrap sides** under Warp to
   restore this on a surface, or **Flat · 4 corners** for ordinary corner pinning.
-- **Template Morph** in Autopilot blends the original Audiograph templates.
+- **Preset Morph** (its own section of the Autopilot tab) blends the original Audiograph templates.
   Add a playlist, or leave it empty to use all templates; Play cycles it over
   Duration, Random chooses pairs, On Beat offers quarter-beat/full-beat glide
   or Snap, and Ping-pong reverses timer playback. Morph scrubs the sequence.
   Starting it stops generative Autopilot, and Undo restores your prior graph.
   Apply expands the current blend into editable nodes. Stacks exceeding the
-  eight-renderer limit remain exactly editable through a Template Morph node.
+  eight-renderer limit remain exactly editable through a Preset Morph node.
   Playlist and playback options are remembered, but playback never starts on reload.
 - **Autopilot** (third switch at the top) is the original Audiograph's Automation:
   - Turn it **On** and it listens for the song's sections (breakdown, groove,
