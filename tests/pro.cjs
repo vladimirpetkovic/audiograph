@@ -63,7 +63,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
     assert.equal(await page.locator('.library-node[data-mode]').count(),30,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
     assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','3D','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
-    assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','Gaussian Splat','Computer','Clock','Mouse & keys','MIDI'],'Inputs');
+    assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','Gaussian Splat','Computer','Clock','Mouse & keys','Live data','MIDI'],'Inputs');
     assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','Particles','WebGPU particles','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
     assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
 
@@ -468,5 +468,17 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.deepEqual(v9.layers[0].nodes.map(n=>[n.type,n.props.mode,n.props.render]),[['waveform3d','cone','normal'],['waveform3d','model','points'],['waveform3d','dna','waveform'],['palette','toneramp',undefined]],'v9 objects become 3D Objects');
     assert.deepEqual(v9.layers[0].nodes[3].props.stops.map(s=>s.c),['#000000','#ff0000','#00ff00','#0000ff'],'Old palette colours become ramp stops');
     assert.deepEqual(errors,[],'No page errors in 3D');
+    // Live data: every source gives the same normalized numbers and a palette that can drive a Palette's colors.
+    await page.evaluate(p=>pro.importProject(p),L([{id:'d',type:'liveData',x:0,y:200,props:{source:'quakes'}},{id:'o',type:'waveform3d',x:200,y:0,props:{mode:'sphere',render:'waveform'}},{id:'p',type:'palette',x:400,y:0,props:{}}],
+      [{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'},{from:'d',out:'palette',to:'p',input:'colors'},{from:'d',out:'level',to:'p',input:'mix'}]));
+    await page.waitForTimeout(3000);
+    const ld=await page.evaluate(()=>pro.outputs('d'));
+    assert.ok(['level','change','pulse','phase'].every(k=>ld[k]>=0&&ld[k]<=1)&&ld.palette.length===4,'Live data gives normalized numbers and a palette');
+    await page.evaluate(()=>pro.select('d'));await page.waitForTimeout(1200);
+    assert.ok(await page.locator('#properties .data-status').textContent()>'' && await page.locator('.live-value .meter.swatches i').count()===4,'Live data shows status and palette');
+    assert.ok(!(await page.locator('#properties').textContent()).includes('Place'),'Place only for local sources');
+    await page.evaluate(()=>pro.setProperty('d','source','ocean'));await page.waitForTimeout(300);
+    assert.ok((await page.locator('#properties').textContent()).includes('Place'),'Ocean asks for a place');
+    assert.ok(await litCount()>300,'Live data palette renders');
   }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

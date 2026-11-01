@@ -30,6 +30,7 @@ each with its own opacity and blend mode (up to four).
       **Local helper**. Chrome / Edge only (allow local network access when Chrome asks); Safari blocks local connections.
     - **Clock**: second, minute, hour, day (phase of each), beat and pulse at a tempo.
     - **Mouse & keys**: x, y, speed, click, held, keys (typing rate), scroll.
+    - **Live data**: the ISS orbit, space weather (NOAA), ocean swell and weather (Open-Meteo, for a city or your location), earthquakes (USGS) or Wikipedia edits. Every source gives the same smooth level, change, pulse (events: a quake, a wave crest, the ISS entering sunlight) and phase, plus a palette made from the data; wire it into a Palette's **colors** to let the data pick the colours. Glide smooths slow feeds; Auto range stretches small swings. Offline it keeps moving on a simulated stream.
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
 - **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…).
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,

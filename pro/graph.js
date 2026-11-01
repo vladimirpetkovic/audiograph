@@ -21,7 +21,7 @@ export const CATEGORIES = [
   {id:'audio',label:'Audio analysis',color:'#f471a8',hint:'Turn sound into numbers or reshape it'},
   {id:'composite',label:'Composite',color:'#f4717f',hint:'Mix and output'}
 ];
-export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',object3d:'#fde047',any:'#e5e7eb'};
+export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',object3d:'#fde047',colors:'#c084fc',any:'#e5e7eb'};
 
 const n=(label,value,min,max,step=1,extra={})=>({kind:'number',label,value,min,max,step,...extra});
 const pick=(label,value,choices,extra={})=>({kind:'select',label,value,choices,...extra});
@@ -149,6 +149,11 @@ export const TYPES = {
   pointer:{category:'inputs',group:'Data',label:'Mouse & keys',description:'Your hands as numbers: mouse position and speed, clicks, held button, typing and scrolling.',
     inputs:{},outputs:{x:'number',y:'number',speed:'number',click:'number',held:'number',keys:'number',scroll:'number'},
     props:{decay:n('Pulse decay (ms)',400,30,3000,10,{noPort:true}),flipY:bool('Up is 1',true)}},
+  liveData:{category:'inputs',group:'Data',label:'Live data',description:'The world as numbers: the ISS orbit, space weather, ocean swell, weather, earthquakes or Wikipedia edits. Every source gives the same smooth level, change, pulse (events) and phase, plus a palette made from the data for a Palette’s “colors” input.',
+    inputs:{},outputs:{level:'number',change:'number',pulse:'number',phase:'number',palette:'colors'},props:{
+    source:pick('Source','iss',['iss','space','ocean','weather','quakes','wiki'],{labels:[['iss','ISS orbit'],['space','Space weather'],['ocean','Ocean swell'],['weather','Weather'],['quakes','Earthquakes'],['wiki','Wikipedia edits']]}),
+    place:pick('Place','here',['here','newyork','lisbon','reykjavik','tokyo','sydney','capetown','honolulu'],{labels:[['here','Here'],['newyork','New York'],['lisbon','Lisbon'],['reykjavik','Reykjavík'],['tokyo','Tokyo'],['sydney','Sydney'],['capetown','Cape Town'],['honolulu','Honolulu']]}),
+    glide:n('Glide (s)',4,0,30,.5,{noPort:true}),stretch:n('Auto range',.6,0,1,.05,{noPort:true})}},
   midi:{category:'inputs',group:'Data',label:'MIDI',description:'A MIDI controller or keyboard: one CC knob/fader, a note (or any note), gate, pitch and pitch bend.',
     inputs:{},outputs:{cc:'number',note:'number',gate:'number',pitch:'number',bend:'number'},
     props:{channel:n('Channel (0 = any)',0,0,16,1,{noPort:true}),cc:n('CC number',1,0,127,1,{noPort:true}),note:n('Note (-1 = any)',-1,-1,127,1,{noPort:true})}},
@@ -228,7 +233,7 @@ export const TYPES = {
   wind:FORCE('Wind','Blow sideways.',{smoke:F('Wind',0,-100,100,'pSmWind',['simsmoke']),sand:F('Sand wind',0,-100,100,'pSaWind',['simsand'])}),
   vorticity:FORCE('Vorticity','Curl the flow into eddies.',{fluid:F('Fluid vorticity',45,0,100,'pSfVort',['simfluid']),smoke:F('Smoke vorticity',55,0,100,'pSmVort',['simsmoke'])}),
   // Color
-  palette:{category:'color',label:'Palette',description:'Recolor anything: a shape or any image (a Merge, Post FX…). Normal replaces the colors before it; the other blend modes mix with them.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{
+  palette:{category:'color',label:'Palette',description:'Recolor anything: a shape or any image (a Merge, Post FX…). Normal replaces the colors before it; the other blend modes mix with them. Wire a Live data palette into “colors” to let the data pick them.',inputs:{shape:'visual',colors:'colors'},outputs:{shape:'shape'},props:{
     mode:pick('Mode','toneramp',['toneramp','simpleramp','solid'],{labels:[['toneramp','Tone ramp'],['simpleramp','Simple ramp'],['solid','Solid']]}),
     stops:{kind:'stops',label:'Colors',value:[{c:'#1a1a2e',auto:false},{c:'#e94560',auto:false},{c:'#f5a623',auto:false},{c:'#6ee7b7',auto:false}]},
     fade:n('Low opacity',0,0,1,.05),solid:color('Solid','#dddde0'),

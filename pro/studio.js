@@ -1,4 +1,5 @@
 import * as sensors from './sensors.js';
+import {liveData,liveStatus} from './livedata.js';
 import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
@@ -33,12 +34,14 @@ function cloneObjects(objs,p,shape){
 // Physics nodes (Forces, Turbulence) only show the knobs for the simulation they are wired after.
 const SIM_PROPS=type=>Object.values(TYPES[type].props).some(s=>s.sims);
 function simKeys(g,n){
-  const t=TYPES[n.type],keys=Object.keys(t.props);if(!SIM_PROPS(n.type))return keys;
+  const t=TYPES[n.type],keys=Object.keys(t.props);
+  if(n.type==='liveData')return keys.filter(k=>k!=='place'||['ocean','weather'].includes(n.props.source));
+  if(!SIM_PROPS(n.type))return keys;
   const mode=upstreamSim(g,n);if(!mode)return keys;
   const own=keys.filter(k=>!t.props[k].sims||t.props[k].sims.includes(mode));return own.length?own:keys;
 }
 let state=project(),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
-const DATA_INPUTS=new Set(['computer','clock','pointer','midi']),lastOuts=new Map();
+const DATA_INPUTS=new Set(['computer','clock','pointer','midi','liveData']),lastOuts=new Map();
 const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new Map(),view={x:20,y:20,zoom:.9},nodeState=new Map(),fxSlots=new Map(),thumbs=new Map();
 let plans=new Map(),frame=0,lastTime=0,elapsed=0,renderErrors=[],nodeErrors=new Set(),statusSource='action',liveBefore=null;
 const preview=$('preview'),previewCtx=preview.getContext('2d');
@@ -319,6 +322,7 @@ function execute(g,time,dt){
     const p={...n.props};
     if(n.auto)for(const k of n.auto){const s=TYPES[n.type].props[k];if(s){p[k]=autoDrift(s,p[k],n.id+k,autoClock);autoValues.set(n.id+':'+k,p[k]);}}
     for(const [k,s] of Object.entries(TYPES[n.type].props))if(s.kind==='number'&&!s.noPort&&byInput.has(n.id+':'+k))p[k]=modulate(s,p[k],input(n,k));
+    if(n.type==='palette'){const live=input(n,'colors');if(Array.isArray(live)&&live.length>1)p.stops=live.map(c=>({c,auto:false}));}
     return n.type==='palette'?paletteAuto(p,n.id,autoClock):p;
   };
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
@@ -367,6 +371,7 @@ function execute(g,time,dt){
       case 'computer':Object.assign(r,sensors.computer(p,dt));break;
       case 'clock':Object.assign(r,sensors.clock(p,nstate(n.id,()=>({})),dt));break;
       case 'pointer':Object.assign(r,sensors.pointer(p,dt));break;
+      case 'liveData':Object.assign(r,liveData(p,nstate(n.id,()=>({})),dt));break;
       case 'midi':Object.assign(r,sensors.midiValues(p));break;
       case 'amplify':{const v=need(n,'in','something to amplify'),g2=p.gain;
         if(typeof v==='number')r.out=v*g2;
@@ -1317,7 +1322,7 @@ $('helpBody').innerHTML=`
 <li><b>Delete</b> removes the selected node and heals the chain. Press and hold a node's title (or Alt-drag) to pull it out of its chain.</li>
 <li>Each node shows a live thumbnail of what it outputs. Changes always fade in and out, never cut.</li></ul>
 <h3 id="h-library">The library</h3>
-<ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, MIDI).</li>
+<ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, Live data from the ISS, space weather, the ocean, weather, earthquakes or Wikipedia, MIDI). Live data also makes a palette: wire it into a Palette’s colors.</li>
 <li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Harmonic, Math…).</li>
 <li><b>Emitters</b>: classic Particles and native WebGPU simulations (Particles, Fluid, Smoke, Granular sand).</li>
 <li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and Model for your OBJ), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
@@ -1393,8 +1398,11 @@ setInterval(()=>{
   if(DATA_INPUTS.has(n.type)){
     const o=lastOuts.get(n.id);v.replaceChildren();
     if(!o){v.textContent='Not running yet';return;}
-    for(const k of Object.keys(TYPES[n.type].outputs)){const row=el('div','meter'),bar=el('i');bar.style.width=(Math.max(0,Math.min(1,o[k]??0))*100).toFixed(1)+'%';row.append(el('span','',k),el('b'),el('em','',(o[k]??0).toFixed(2)));row.children[1].append(bar);v.append(row);}
+    for(const k of Object.keys(TYPES[n.type].outputs)){
+      if(Array.isArray(o[k])){const row=el('div','meter swatches');row.append(el('span','',k));for(const c of o[k]){const sw=el('i');sw.style.background=c;row.append(sw);}v.append(row);continue;}
+      const row=el('div','meter'),bar=el('i');bar.style.width=(Math.max(0,Math.min(1,o[k]??0))*100).toFixed(1)+'%';row.append(el('span','',k),el('b'),el('em','',(o[k]??0).toFixed(2)));row.children[1].append(bar);v.append(row);}
     const st=document.querySelector('#properties .data-status');if(st&&n.type==='computer')st.textContent=sensors.computerStatus(n.props);
+    if(st&&n.type==='liveData')st.textContent=liveStatus(n.props);
     if(st&&n.type==='midi'){const m=sensors.midiInfo();st.textContent=m.error||(m.connected?(m.devices.length?'Connected: '+m.devices.join(', '):'Connected, but no MIDI devices are plugged in.'):'Not connected.');}
     return;
   }

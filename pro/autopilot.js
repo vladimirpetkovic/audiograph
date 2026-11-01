@@ -217,6 +217,9 @@ export function parse(text){
   // Other inputs.
   if(has(/\bcpu|computer load|my (computer|machine)|processor/)){it.data.push('computer');add('Input','computer activity');}
   if(has(/mouse|cursor|pointer|follows? me/)){it.data.push('pointer');add('Input','mouse');}
+  const LIVE=[['iss',/\biss\b|space station|orbit/,'the ISS'],['space',/space weather|solar wind|aurora|geomagnetic|sun ?storm/,'space weather'],['ocean',/ocean|\bsea\b|swell|tide|surf/,'the ocean'],
+    ['weather',/weather|\bwind\b|rain|storm|temperature/,'the weather'],['quakes',/earthquake|quake|seismic|tectonic/,'earthquakes'],['wiki',/wikipedia|wiki edits|edits/,'Wikipedia edits']];
+  for(const [src,re,label] of LIVE)if(has(re)&&!it.live){it.live=src;add('Input','live data: '+label);}
   if(has(/webcam|camera|my face|see me|mirror me/)&&!it.visuals.length){it.visuals.push({mode:'camera',type:'camera',colors:null});add('Visual','Camera');}
   if(has(/\bcpu|computer load|processor/)&&has(/\bdata\b/)){/* already handled */}
   it.read=read;return it;
@@ -357,6 +360,11 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   }
   if(it.react.includes('high')){const h=find('hue')||find('jitter');if(h)drive(sound,'high',h,h.type==='hue'?'hue':'amount',['smooth',{attack:5,release:150}]);}
   if(!i&&it.data.includes('computer')){const c=node('computer',40,dy);g.nodes.push(c);const t=find('turbulence')||find('hue')||find('twist');if(t)wire(c,'activity',t,t.type==='hue'?'cycle':'amount');else if(spinN)wire(c,'activity',spinN,'spin');dy+=110;}
+  if(!i&&it.live){const d=node('liveData',40,dy,{source:it.live});g.nodes.push(d);dy+=110;
+    const free=(n,k)=>n&&!g.edges.some(e=>e.to===n.id&&e.input===k),link=(out,n,k)=>{if(free(n,k)){wire(d,out,n,k);return true;}};
+    link('palette',find('palette'),'colors');
+    const b=find('bloom')||find('ripple');if(b)link('pulse',b,b.type==='bloom'?'bloom':'amount');
+    const t=find('wave')||find('twist')||find('turbulence');if(!(t&&link('level',t,'amount'))&&T.scale)link('level',vis,'scale');}
   if(!i&&it.data.includes('pointer')){const p=node('pointer',40,dy);g.nodes.push(p);if(T.rotation)wire(p,'x',vis,'rotation');if(T.tilt)wire(p,'y',vis,'tilt');}
   return g;
 }
