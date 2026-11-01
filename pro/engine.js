@@ -31,6 +31,8 @@ async function engineSource() {
     patch("var o=baseUniforms(st,k,st.lastDt||1/60);setU(st,o);upload(st);","var o=baseUniforms(st,k,(st.lastDt||1/60)*(kd==='particles'?(st.subs||1):1));setU(st,o);upload(st);");
     const base=new URL('../',location.href).href;
     const policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:";
+    // Smoke takes its palette: the original keeps a quarter of a fixed grey in its albedo, which turns coloured smoke grey.
+    patch("let albedo=mix(vec3f(0.78,0.8,0.84),tint,select(u.tintMix,1.0,sourceColor));","let albedo=mix(vec3f(0.78,0.8,0.84),tint,select(max(u.tintMix,0.95),1.0,sourceColor));");
     return html.replace('<head>',`<head><base href="${base}"><meta http-equiv="Content-Security-Policy" content="${policy}">`);
   });
   return sourcePromise;

@@ -18,6 +18,16 @@ export function features(freq){
 }
 
 // Song structure from loudness: the level is relative to the song's own recent range (8th–95th percentile).
+// Saturated, mid-light version of a #rrggbb colour (alpha suffix kept).
+export function vivid(c){
+  if(!/^#[0-9a-f]{6}/i.test(c))return c;
+  const [r,g,b]=[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  if(d<.05)return c;
+  let h=0;h=mx===r?((g-b)/d+6)%6:mx===g?(b-r)/d+2:(r-g)/d+4;
+  const L=Math.min(.62,Math.max(.4,(mx+mn)/2)),S=Math.max(.8,d?d/(1-Math.abs(mx+mn-1)):0),C=(1-Math.abs(2*L-1))*S,X=C*(1-Math.abs(h%2-1)),m=L-C/2;
+  const [R,G,B]=[[C,X,0],[X,C,0],[0,C,X],[0,X,C],[X,0,C],[C,0,X]][Math.floor(h)%6];
+  return '#'+[R,G,B].map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('')+c.slice(7);
+}
 export class Pilot{
   constructor(){this.reset();}
   reset(){Object.assign(this,{fast:0,mid:0,slow:0,treb:0,hist:[],levHist:[],histT:0,lo:0,hi:1,level:0,section:'waiting',secT:0,since:MIN_GAP,silentT:0});}
@@ -156,6 +166,8 @@ export class Generator{
     const ts=p._toneStops;
     if(Array.isArray(ts)&&ts.length>1){const hx=c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)),a=hx(ts[ts.length-1]);
       if(Math.min(...a)>215){const b=hx(ts[ts.length-2]);p._toneStops=[...ts.slice(0,-1),'#'+a.map((v,i)=>Math.round(v*.45+b[i]*.55).toString(16).padStart(2,'0')).join('')];}}
+    // Smoke mixes a quarter grey into its tint and lights it from above: a muted ramp reads as grey, so it gets vivid mid tones.
+    if(l.layout==='simsmoke'&&Array.isArray(p._toneStops))p._toneStops=p._toneStops.map(vivid);
     p._particlesOn=false;p._spin=0;p._symmetryMode='none';p._simId=1;
     const fx=w.pfxNorm(p._postFx);fx.pfxTrails=0;p._postFx=fx;
     return l;
@@ -180,6 +192,9 @@ export class Generator{
     l.spin=+(s.spinAmt*(i?.7:1)).toFixed(2)*(i===1?-this.dir:this.dir);
     l.speed=clamp(+((l.params._speed||1)*(this.vb&&this.vb.tempo!==1?this.vb.tempo:1)).toFixed(1),.1,5);
     if(isSim(l.layout))l.spin=0;
+    // The original frames most layouts small in the middle; Pro's larger canvas wants them to fill it.
+    else{const L=l.layout,[a,b]=SOLIDS.includes(L)||L==='tetrahedron'||L==='dna'?[150,185]:/^(circle|concentric|spiral|phyllotaxis|sacred|fractal|harmonic|sphere|lissajous)$/.test(L)?[125,160]:[100,120];
+      l.params._zoom=Math.round(a+Math.random()*(b-a)+(i?15:0));}
     l.opacity=ROLE_OP[i]||50;return l;
   }
   makeLayer(w,kind,s,base,i,used){
