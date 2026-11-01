@@ -17,6 +17,18 @@ async function engineSource() {
     // Cloner spacing: Y and Z reach as far as X.
     patch("['pG3SpY','Spacing Y',0,600,","['pG3SpY','Spacing Y',0,1000,");patch("['pG3SpZ','Spacing Z',0,600,","['pG3SpZ','Spacing Z',0,1000,");
     patch("return AG_G3_SHAPES.some(function(q){return q[0]===x})","return /^mesh\\d$/.test(x)?!!(window.__agG3Meshes||[])[+x[4]]:AG_G3_SHAPES.some(function(q){return q[0]===x})");
+    // WebGPU particles: each particle is drawn as a streak from where it was last frame (motion blur), so fast
+    // particles leave continuous trails instead of rings of separate dots.
+    patch("struct VO{@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) col:vec3f};","struct VO{@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) col:vec3f,@location(2) seg:f32};");
+    patch("var o:VO;o.uv=vec2f(0.0);o.col=vec3f(0.0);o.pos=vec4f(2.0,2.0,0.0,1.0);","var o:VO;o.uv=vec2f(0.0);o.col=vec3f(0.0);o.seg=0.0;o.pos=vec4f(2.0,2.0,0.0,1.0);");
+    patch("let cl=vec2f(p.pos.x/u.asp,-p.pos.y)+corner*szp*2.0/vec2f(u.ow,u.oh);",
+      "var cl=vec2f(p.pos.x/u.asp,-p.pos.y)+corner*szp*2.0/vec2f(u.ow,u.oh);var uvv=cr;var dim=1.0;"+
+      "if(u.x12<0.5){let dpx=vec2f(p.vel.x/u.asp,-p.vel.y)*u.dt*0.5*vec2f(u.ow,u.oh);let dl=length(dpx);let L=min(dl,szp*28.0);"+
+      "if(L>szp*0.3){let dir=dpx/max(dl,1e-5);let nrm=vec2f(-dir.y,dir.x);let sg=L/szp;let along=mix(-sg-1.0,1.0,(cr.x+1.0)*0.5);"+
+      "cl=vec2f(p.pos.x/u.asp,-p.pos.y)+(dir*along+nrm*cr.y)*szp*2.0/vec2f(u.ow,u.oh);uvv=vec2f(along,cr.y);o.seg=sg;dim=1.0/(1.0+0.12*sg);}}");
+    patch("o.pos=vec4f(cl,0.0,1.0);o.uv=cr;o.col=c*u.pglow","o.pos=vec4f(cl,0.0,1.0);o.uv=uvv;o.col=dim*c*u.pglow");
+    patch("@fragment fn pFS(i:VO)->@location(0) vec4f{let d=dot(i.uv,i.uv);","@fragment fn pFS(i:VO)->@location(0) vec4f{let qx=i.uv.x-clamp(i.uv.x,-i.seg,0.0);let d=qx*qx+i.uv.y*i.uv.y;");
+    patch("var o=baseUniforms(st,k,st.lastDt||1/60);setU(st,o);upload(st);","var o=baseUniforms(st,k,(st.lastDt||1/60)*(kd==='particles'?(st.subs||1):1));setU(st,o);upload(st);");
     const base=new URL('../',location.href).href;
     const policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:";
     return html.replace('<head>',`<head><base href="${base}"><meta http-equiv="Content-Security-Policy" content="${policy}">`);
@@ -69,7 +81,8 @@ function fakeAnalyser(audio) {
 // beat bursts than the original's calm defaults (measured: about 2x the beat-driven motion). Presets and knobs override it.
 const PUNCH={pSimSens:60,pSimReact:70,pSimBurst:100,pSimBass:170,pSimAttack:12,pSimRelease:180,pSimEnergy:115};
 // Fluid fills the frame quickly: half energy keeps it readable.
-export const SIM_TUNE={simparticles:PUNCH,simfluid:{...PUNCH,pSimEnergy:50},simsand:PUNCH,
+// Particles keep the original's defaults: its long, smooth flowing strands are the look.
+export const SIM_TUNE={simparticles:{},simfluid:{...PUNCH,pSimEnergy:50},simsand:PUNCH,
   // Smoke accumulates density: full punch clips it to white, so it gets faster timing and bigger bursts only.
   simsmoke:{pSimSens:60,pSimReact:45,pSimBurst:100,pSimBass:120,pSimAttack:25,pSimRelease:250}};
 export class EmitterEngine {
