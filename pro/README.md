@@ -106,6 +106,13 @@ process the finished image.
 
 ## Using it
 
+- **Guide** (?): starts with the credit (Made by Vladimir Petković,
+  www.vladimirpetkovic.com) and explains the screen, nodes and wires, every library
+  category, audio, driving knobs, layers, Mapping, Autopilot, saving and keys.
+- **Transport** (under the preview): play, stop, record, snapshot and the audio
+  source on the left, the live spectrum in the centre, **Detach** on the right.
+- Buttons and selected states are grayscale; colour is kept for node categories
+  (the inspector title takes its category colour) and wire types.
 - **Quick build**: select a node, then click a library node. It is inserted right
   after the selection. Deleting a node heals the chain.
 - **Tab search**: press Tab with the mouse over the graph, type (e.g. "fluid",

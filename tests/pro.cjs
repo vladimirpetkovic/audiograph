@@ -278,8 +278,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       await page.locator('.gutter[data-resize=inspector]').dblclick();assert.ok((await page.locator('.inspector').boundingBox()).width>200,'Double-click brings properties back');
       for(const id of ['play','stop','record','snap'])assert.equal(await page.locator(`#${id} svg`).count(),1,id+' has an icon');
       assert.match(await page.locator('#output').textContent(),/Detach/);
-      const t=await page.locator('.transport').boundingBox(),d=await page.locator('#output').boundingBox();
-      assert.ok(Math.abs(d.x+d.width/2-(t.x+t.width/2))<t.width*.15,'Detach is centred in the transport bar');
+      const t=await page.locator('.transport').boundingBox(),d=await page.locator('#output').boundingBox(),sp=await page.locator('#spectrum').boundingBox();
+      assert.ok(Math.abs(sp.x+sp.width/2-(t.x+t.width/2))<t.width*.05&&d.x+d.width>t.x+t.width*.85,'Spectrum centred, Detach on the right');assert.equal(await page.locator('#audioMeter').count(),0,'No level bar');
       await page.evaluate(()=>{localStorage.removeItem('agpro.layout');});}
     // Two-finger trackpad scroll pans the graph vertically (pixel deltas), pinch zooms.
     {const vp=await page.locator('#graphViewport').boundingBox(),before=await page.evaluate(()=>pro.view());

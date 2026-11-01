@@ -461,7 +461,7 @@ function warpQuad(ctx,img,q){
 }
 function drawPinGrid(ctx,q){ctx.save();ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=1.5;
   for(let k=0;k<=8;k++){const t=k/8;ctx.beginPath();ctx.moveTo(...quadPoint(q,t,0));ctx.lineTo(...quadPoint(q,t,1));ctx.moveTo(...quadPoint(q,0,t));ctx.lineTo(...quadPoint(q,1,t));ctx.stroke();}
-  ctx.fillStyle='#d2ff3a';for(const p of q){ctx.beginPath();ctx.arc(p[0],p[1],7,0,7);ctx.fill();}ctx.restore();}
+  ctx.fillStyle='#e6e6ea';for(const p of q){ctx.beginPath();ctx.arc(p[0],p[1],7,0,7);ctx.fill();}ctx.restore();}
 // Layer nodes read other layers' pictures: this frame's if already drawn, otherwise the previous frame's.
 const layerImages=new Map();let layerReaders=new Set(),mapLayers=new Set();
 // With projection mapping on, layers composite into the program picture, which is then warped onto the surfaces.
@@ -512,7 +512,6 @@ function draw(time,dt=1/30){
   dissolveDraw(paused?0:dt);
   frame++;
   if(frame%2===0){drawSpectrum();showAutoKnobs();}
-  $('audioMeter').value=A.bands.full;
   const list=[...engines.values()],starting=list.some(e=>e.status==='starting');
   $('backend').textContent=starting?'':[...new Set(list.map(e=>e.backend||(e.status==='ready'?'Canvas2D':e.status)))].join(' / ')||'No Emitters';
   if(renderErrors.length&&!starting)message(renderErrors[0]+(renderErrors.length>1?` (+${renderErrors.length-1})`:''),true,'render');
@@ -886,7 +885,7 @@ function renderProperties(){
   const g=graph(),n=g.nodes.find(n=>n.id===selected);
   if(!n){renderLayerInspector(root,g);return;}
   const t=TYPES[n.type],cat=catOf(n.type),head=el('div','insp-head'),h=el('h3');
-  const dot=el('span','dot');dot.style.background=cat.color;h.append(dot,document.createTextNode(nodeTitle(n)));
+  h.style.color=cat.color;h.append(document.createTextNode(nodeTitle(n)));
   head.append(h,el('div','insp-desc',t.description));root.append(head);
   if(t.engine)renderEmitter(root,n);
   else{
@@ -1055,7 +1054,7 @@ function renderEmitter(root,n){
   if(e.status==='ready')fill();else{e.ready.then(()=>{if(opts.isConnected){opts.replaceChildren();fill();}});}
 }
 function renderLayerInspector(root,g){
-  const head=el('div','insp-head'),h=el('h3');h.append(el('span','dot'),document.createTextNode(g.name));head.append(h,el('div','insp-desc','Layer settings. Select a node in the graph to edit it.'));root.append(head);
+  const head=el('div','insp-head'),h=el('h3');h.append(document.createTextNode(g.name));head.append(h,el('div','insp-desc','Layer settings. Select a node in the graph to edit it.'));root.append(head);
   const s=section(root,null),name=el('input');name.type='text';name.maxLength=80;name.value=g.name;name.dataset.property='layerName';
   name.onchange=()=>edit((p,l)=>{l.name=name.value.trim()||l.name;},'Renamed layer');s.append(ui.field('Name',name));
   s.append(ui.field('Visible',ui.toggle({value:g.visible,property:'layerVisible',onChange:v=>edit((p,l)=>{l.visible=v;},'Layer visibility')})));
@@ -1262,13 +1261,52 @@ $('restore').onclick=()=>attempt(()=>{const raw=localStorage.getItem('audiograph
 $('export').onclick=()=>attempt(()=>{const blob=new Blob([JSON.stringify(validate(state),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download='audiograph-pro.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message('Exported project JSON');});
 $('import').onchange=async()=>{try{const file=$('import').files[0];if(!file)return;if(file.size>1024*1024)throw Error('Project JSON limit is 1 MB');importProject(JSON.parse(await file.text()));}catch(error){message('Import: '+error.message,true);}finally{$('import').value='';}};
 $('helpBody').innerHTML=`
-<p>Build visuals by chaining nodes. Every graph is one <b>layer</b>; layers stack in the preview using each layer's blend mode.</p>
-<p><b>Inputs</b> are what you bring in: the <b>Audio</b> source, an Image, Video, Camera, Text, 3D Object or Gaussian Splat. <b>Waveforms</b> are audio-reactive line patterns (2D and 3D). <b>Emitters</b> are particles: classic Particles / Flow field and the native WebGPU simulations. Every visual input, waveform and emitter has a <span style="color:${PORT_COLORS.shape}">shape</span> output that flows through <b>Geometry</b>, <b>Deformer</b>, <b>Color</b> and <b>Style</b> nodes, which change how it draws. <b>Post FX</b> nodes process the finished <span style="color:${PORT_COLORS.image}">image</span>. End every chain in <b>Output</b>.</p>
-<p><b>Quick build:</b> select a node, then click a node in the library. It is inserted right after the selection.</p>
-<p><b>Drive any knob:</b> drag from a <span style="color:${PORT_COLORS.number}">number</span> output (Audio bass / beat, LFO, Random, Camera motion…) onto a node and pick the knob. 0 keeps the knob setting, 1 pushes it to the maximum.</p>
-<p><b>Audio:</b> select an <b>Audio</b> node (or click the source name in the transport) to load a file, use the Mic or System audio. Without audio, a demo beat plays. Its <span style="color:${PORT_COLORS.audio}">audio</span> wire feeds emitters; put an <b>Audio EQ</b> in the wire to reshape what one emitter hears. Connecting a number to an emitter's <b>drive</b> replaces the music for that emitter.</p>
-<p><b>Graph:</b> drag empty space to pan, wheel to zoom, click a wire to delete it, Delete removes the selected node (the chain heals), press and hold a node's title (or Alt-drag) to pull it out of its chain, <b>Tab</b> over the graph searches every node and drops it at the cursor (over a wire it is inserted into the wire), ⌘Z / ⇧⌘Z undo and redo. <b>Space</b> pauses, <b>F</b> goes fullscreen.</p>
-<p><b>Map</b> (top centre) is projection mapping: add surfaces or pick a layout (cube, triptych, corridor, curved wall…), drag their points on the preview to fit walls and objects, crop which part of the picture each one shows (or give it its own layer), feather edges and use the test card to line up. <b>Detach</b> sends the mapped output to the projector. The mapping is saved with the project.</p>\n<p><b>Autopilot</b> (top centre) builds a graph from a description such as “intense red fluid, swirling, sparks on the beat”. Press Enter or Create; Variation gives another take. Turn Live on and it follows the song, gliding colours and mood or building a new look on drops.</p><p>Not in Pro (use the original Audiograph): morphing between presets.</p>`;
+<p class="help-credit">Made by Vladimir Petković<br><a href="https://www.vladimirpetkovic.com" target="_blank" rel="noopener">www.vladimirpetkovic.com</a></p>
+<p>Audiograph Pro turns sound into moving images you build from nodes. Each node does one thing: bring something in, draw it, bend it, colour it, polish it. Wire them into a chain, end the chain in <b>Output</b>, and everything reacts to the music as it plays.</p>
+<nav class="help-toc" aria-label="Guide contents"><a href="#h-start">Quick start</a><a href="#h-screen">The screen</a><a href="#h-graph">Nodes &amp; wires</a><a href="#h-library">The library</a><a href="#h-audio">Audio</a><a href="#h-drive">Driving knobs</a><a href="#h-layers">Layers</a><a href="#h-mapping">Mapping</a><a href="#h-auto">Autopilot</a><a href="#h-files">Saving &amp; output</a><a href="#h-keys">Keys</a></nav>
+<h3 id="h-start">Quick start</h3>
+<ol><li>Pick a look from <b>Templates</b> (top right): the original Audiograph presets, the 3D cloner set, or a Pro starter.</li>
+<li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. A demo beat plays until you do.</li>
+<li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
+<li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li></ol>
+<h3 id="h-screen">The screen</h3>
+<p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play, stop, record to video, snapshot, the audio source, the live spectrum and <b>Detach</b>. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
+<h3 id="h-graph">Nodes &amp; wires</h3>
+<p>Wires carry typed values, colour-coded on their ports: <span style="color:${PORT_COLORS.audio}">audio</span> (the sound), <span style="color:${PORT_COLORS.shape}">shape</span> (something that can still be bent and recoloured), <span style="color:${PORT_COLORS.image}">image</span> (finished pixels), <span style="color:${PORT_COLORS.number}">number</span> (a value that drives knobs) and <span style="color:${PORT_COLORS.object3d}">3D object</span>. A typical chain is Audio → Waveform or Emitter → Deformers → Palette → Post FX → Output.</p>
+<ul><li>Drag from an output port to an input port to connect. Click a wire to remove it.</li>
+<li><b>Tab</b> over the graph searches every node and drops it at the cursor; over a wire it is inserted into the wire.</li>
+<li>Drag empty space to pan, wheel or pinch to zoom, <b>Fit</b> frames everything.</li>
+<li><b>Delete</b> removes the selected node and heals the chain. Press and hold a node's title (or Alt-drag) to pull it out of its chain.</li>
+<li>Each node shows a live thumbnail of what it outputs. Changes always fade in and out, never cut.</li></ul>
+<h3 id="h-library">The library</h3>
+<ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, 3D Object, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, MIDI).</li>
+<li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Harmonic, Math…).</li>
+<li><b>Emitters</b>: classic Particles and native WebGPU simulations (Particles, Fluid, Smoke, Granular sand).</li>
+<li><b>3D</b>: 3D waveforms (Terrain, Sphere, DNA, Knot…), Primitives, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
+<li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
+<li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
+<li><b>Color</b>: Palette (without one, shapes draw in grayscale), Hue shift, Color correct.</li>
+<li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Corner pin, Quick filter.</li>
+<li><b>Controls</b> make numbers: Value, LFO, Map range, Smooth, Math, Amplify, Random. <b>Audio analysis</b>: Audio band, Beat, Audio EQ.</li>
+<li><b>Composite</b>: Background, Blend, Merge, Mask, Feedback, Image transform, Layer and <b>Output</b>.</li></ul>
+<h3 id="h-audio">Audio</h3>
+<p>One sound source feeds the whole project: a file, the microphone or system audio (pick it in the Audio node or from the transport). Every Audio node hears it and gives an <span style="color:${PORT_COLORS.audio}">audio</span> wire plus numbers: level, bass, mids, high and beat. Put an <b>Audio EQ</b> in a wire to change what one emitter hears. Visual nodes have their own audio response (intensity, bass punch, release, dynamics); <b>Amplify</b> makes anything react harder.</p>
+<h3 id="h-drive">Driving knobs</h3>
+<p>Drag a <span style="color:${PORT_COLORS.number}">number</span> output (bass, beat, an LFO, the clock, your mouse, MIDI, computer load…) onto a node and pick the knob it should move: 0 keeps the knob's setting, 1 pushes it to the maximum. Wiring a number into an emitter's <b>drive</b> replaces the music for that emitter.</p>
+<p>Knobs: drag around the knob (Shift for fine), double-click to type a value. The small dot in the centre switches a knob to <b>Auto</b>: it drifts by itself around its value.</p>
+<h3 id="h-layers">Layers</h3>
+<p>Each graph is one layer. <b>+ Layer</b> adds another; layers stack in the preview using each layer's opacity and blend mode (select empty graph space to see the layer settings). Use the tabs above the graph to switch layers and the checkbox to show or hide one. A <b>Layer</b> node brings another layer into this graph.</p>
+<h3 id="h-mapping">Mapping</h3>
+<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p>
+<h3 id="h-auto">Autopilot</h3>
+<p>Describe a look in words, for example “slow dreamy blue and gold smoke with soft glow”, and Autopilot builds the graph as you type. Turn Autopilot on and it keeps following the music, changing colours, mood or everything at the pace you set, always with a fade. Turn <b>Write</b> on and it writes its own descriptions too. Next jumps to a new look now; Hold keeps the current one.</p>
+<h3 id="h-files">Saving &amp; output</h3>
+<ul><li><b>Save</b> / <b>Restore</b> keep the project in this browser. <b>Export</b> / <b>Import</b> use a project file. Media files are not stored: reload them in their input nodes.</li>
+<li>Record (●) captures the preview with its audio to video; the camera button saves a PNG.</li>
+<li>Older projects open automatically and are updated to the current nodes.</li></ul>
+<h3 id="h-keys">Keys</h3>
+<ul><li><kbd>Space</kbd> pause visuals · <kbd>F</kbd> fullscreen · <kbd>Tab</kbd> add node · <kbd>Delete</kbd> remove node</li>
+<li><kbd>⌘Z</kbd> undo · <kbd>⇧⌘Z</kbd> redo</li></ul>`;
 $('helpButton').onclick=()=>$('help').showModal();$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
 viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
