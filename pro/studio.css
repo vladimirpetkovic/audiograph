@@ -383,3 +383,14 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .mbtn.primary{color:var(--on-tx);background:var(--on);border-color:transparent;font-weight:600}.mbtn.primary:hover{color:var(--on-tx);background:var(--on);filter:brightness(1.1)}
 
 .live-value .meter.swatches{display:flex;gap:3px}.live-value .meter.swatches span{width:4.2em;margin-right:3px}.live-value .meter.swatches i{flex:1;height:10px;border-radius:2px}
+.marquee{position:absolute;z-index:5;pointer-events:none;border:1px solid rgba(236,236,240,.55);background:rgba(236,236,240,.06);border-radius:2px}
+.custom-save{display:flex;gap:6px}.custom-save input{flex:1;min-width:0;background:var(--elevated);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--tx)}
+.custom-node{padding-right:20px}.custom-x{position:absolute;right:5px;top:50%;transform:translateY(-50%);opacity:0;color:var(--tx2);font-size:12px;line-height:1;transition:opacity .15s}
+.custom-node:hover .custom-x,.custom-node:focus-visible .custom-x{opacity:1}.custom-x:hover{color:var(--tx)}
+/* Help text hides behind ? (inspector header and graph toolbar). */
+#properties .tip{display:none}#properties.tips-on .tip{display:block}
+#properties:not(.tips-on) .insp-section:not(:has(> :not(.tip))){display:none}
+.insp-head{position:relative}.insp-head .tips-btn{float:right;margin:-2px 0 0 8px}
+.tips-btn{width:20px;height:20px;padding:0;display:inline-grid;place-items:center;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--tx3);font:600 .58rem/1 var(--mono);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.tips-btn:hover{color:var(--tx);border-color:var(--border-h)}.tips-btn[aria-pressed=true]{color:var(--on-tx);background:var(--on);border-color:var(--on)}
+#graphTips{min-width:0}.graph-hint:not(.show){visibility:hidden}

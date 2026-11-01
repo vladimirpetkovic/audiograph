@@ -142,6 +142,15 @@ process the finished image.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
 - **Templates** include **Data tunnel** (a flight through flowing particles, coloured and pushed by space weather) and **Living archive** (a slow fluid painting with drifting strokes, fed by Wikipedia edits).
+- **Tips stay hidden**: node descriptions and help notes sit behind the **?** in
+  the inspector header (and the graph toolbar); click it to show them. The choice is
+  remembered.
+- **Multi-select**: drag on empty graph space to box-select (Shift adds, ⌘A selects
+  all, Shift/⌘-click toggles a node). Drag any selected node to move the group;
+  ⌘C / ⌘X / ⌘V copy, cut and paste (at the pointer), Delete removes, ⌘D duplicates.
+  Pan with Alt-drag, middle-drag or two fingers. **Save as custom node** keeps the
+  selected group in a **Custom** library category at the bottom (stored in this
+  browser); click it, or find it with Tab, to add the whole group.
 - **Media inputs** (Image, Video, OBJ, splat) have a single Choose button; a loaded
   file shows as a thumbnail (or its name) with × to remove it. Image, Video and Camera
   stay still until audio is wired into them.

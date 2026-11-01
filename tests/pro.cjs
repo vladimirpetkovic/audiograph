@@ -496,6 +496,21 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(()=>pro.setProperty('d','source','ocean'));await page.waitForTimeout(300);
     assert.ok((await page.locator('#properties').textContent()).includes('Place'),'Ocean asks for a place');
     assert.ok(await litCount()>300,'Live data palette renders');
+    // Help text sits behind the ? in the inspector header.
+    await page.evaluate(()=>{const id=pro.addNode('camera');pro.select(id);});
+    const desc=page.locator('#properties .insp-desc');assert.ok(!(await desc.isVisible()),'Tips hidden by default');
+    await page.click('#properties .tips-btn');assert.ok(await desc.isVisible(),'? shows tips');await page.click('#properties .tips-btn');
+    // Multi-select: a box on empty graph space selects nodes; copy/paste, delete and Save as custom node work on the group.
+    await page.setViewportSize({width:1540,height:1020});await page.evaluate(()=>{pro.loadTemplate('Fluid bloom');});await page.click('#fit');await page.waitForTimeout(400);
+    const vpb=await page.locator('#graphViewport').boundingBox(),last=await page.locator('#nodes .node').nth(2).boundingBox(),count=async()=>page.evaluate(()=>pro.getProject().layers[0].nodes.length),c0=await count();
+    void last;await page.mouse.move(vpb.x+vpb.width-30,vpb.y+vpb.height-12);await page.mouse.down();await page.mouse.move(vpb.x+12,vpb.y+40,{steps:8});await page.mouse.up();
+    assert.equal((await page.evaluate(()=>pro.selection())).length,c0,'Selection box picks nodes');
+    await page.keyboard.press('Meta+c');await page.keyboard.press('Meta+v');await page.waitForTimeout(200);
+    assert.equal(await count(),c0*2-1,'Paste adds the copied nodes (one Output per layer)');
+    await page.fill('[data-property=customName]','Test group');await page.click('[data-property=customSave]');
+    await page.keyboard.press('Delete');await page.waitForTimeout(200);assert.equal(await count(),c0,'Delete removes the selection');
+    await page.click('#library .custom-node[data-custom="Test group"]');await page.waitForTimeout(200);assert.equal(await count(),c0*2-1,'Custom node adds its group');
+    await page.evaluate(()=>pro.removeCustom('Test group'));
     // Media inputs: one Choose button; a loaded picture shows as a thumbnail with × to remove it.
     const img=await page.evaluate(()=>{const id=pro.addNode('image');pro.select(id);return id;});
     const png=Buffer.from((await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#f00';g.fillRect(0,0,64,64);return c.toDataURL('image/png');})).split(',')[1],'base64');

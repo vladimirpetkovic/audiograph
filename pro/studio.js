@@ -41,6 +41,8 @@ function simKeys(g,n){
   const own=keys.filter(k=>!t.props[k].sims||t.props[k].sims.includes(mode));return own.length?own:keys;
 }
 let state=project(),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
+// Several nodes selected (marquee or Shift-click): `multi` holds them and `selected` is null.
+let multi=new Set();
 // The UI is drawn with CSS zoom: pointer and rect values are screen pixels, CSS lengths are divided by it.
 const uiZ=()=>parseFloat(getComputedStyle(document.body).zoom)||1;
 const DATA_INPUTS=new Set(['computer','clock','pointer','midi','liveData']),lastOuts=new Map();
@@ -72,6 +74,7 @@ function reconcile(){
   if(mapSel&&!state.mapping?.surfaces.some(s=>s.id===mapSel)){mapSel=null;mapPt=-1;}
   if(!state.layers.some(g=>g.id===active))active=state.layers[0].id;
   if(!graph().nodes.some(n=>n.id===selected))selected=null;
+  for(const id of multi)if(!graph().nodes.some(n=>n.id===id))multi.delete(id);if(multi.size<2)multi.clear();
 }
 function commit(next,label='Updated graph',before=state){
   const clean=validate(next);
@@ -124,7 +127,7 @@ function addNode(type,x,y,props={}){
     const cl=TYPES[type].outputs.object&&sel?.type==='cloner'&&sel,slot=cl&&['object','object2','object3'].find(k=>!g.edges.some(e=>e.to===cl.id&&e.input===k));
     if(slot){n.x=cl.x-210;n.y=cl.y+40+130*['object','object2','object3'].indexOf(slot);g.edges.push({from:n.id,out:'object',to:cl.id,input:slot});}
   },`Added ${TYPES[type].label}`);
-  if(ok&&made){selected=made.id;renderUI();return made.id;}
+  if(ok&&made){selected=made.id;multi.clear();renderUI();return made.id;}
 }
 function addLayer(){
   const next=clone(state),g=layer(next.layers.length+1);next.layers.push(g);
@@ -137,12 +140,66 @@ function detachEdges(g,id){
   if(n&&inE&&isChain(n.type))for(const e of outE){const src=g.nodes.find(m=>m.id===inE.from),dst=g.nodes.find(m=>m.id===e.to);if(src&&dst&&compatible(TYPES[src.type].outputs[inE.out],inputsOf(dst.type)[e.input]))g.edges.push({from:inE.from,out:inE.out,to:e.to,input:e.input});}
 }
 function removeSelected(){
+  if(multi.size){const ids=new Set(multi);multi.clear();return edit((p,g)=>{g.edges=g.edges.filter(e=>!ids.has(e.from)&&!ids.has(e.to));g.nodes=g.nodes.filter(n=>!ids.has(n.id));},`Deleted ${ids.size} nodes`);}
   if(!selected)return;const id=selected;
   edit((p,g)=>{detachEdges(g,id);g.nodes=g.nodes.filter(n=>n.id!==id);},'Deleted node');
 }
 function duplicateSelected(){
+  if(multi.size){if(copySel(true))pasteNodes(clip);return;}
   const n=graph().nodes.find(n=>n.id===selected);if(!n)return;
   const id=addNode(n.type,n.x+30,n.y+30,clone(n.props));if(id)selected=id;
+}
+// ---------- multi-selection, clipboard, custom nodes ----------
+let clip=null;try{clip=JSON.parse(localStorage.getItem('agpro.clip')||'null');}catch{}
+const selIds=()=>multi.size?[...multi]:selected?[selected]:[];
+function setSelection(ids){
+  ids=[...new Set(ids)];multi=new Set(ids.length>1?ids:[]);selected=ids.length===1?ids[0]:null;
+  renderProperties();document.querySelectorAll('#nodes .node').forEach(x=>x.classList.toggle('selected',x.dataset.id===selected||multi.has(x.dataset.id)));updateHint();
+}
+function snippet(){
+  const g=graph(),ids=new Set(selIds());if(!ids.size)return null;
+  return {nodes:clone(g.nodes.filter(n=>ids.has(n.id))),edges:clone(g.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)))};
+}
+function copySel(quiet){
+  const c=snippet();if(!c)return false;clip=c;try{localStorage.setItem('agpro.clip',JSON.stringify(c));}catch{}
+  if(!quiet)message(`Copied ${c.nodes.length} node${c.nodes.length>1?'s':''}`);return true;
+}
+// Paste a snippet: fresh ids, internal wires kept, placed at (gx,gy) or offset from where it was copied.
+function pasteNodes(c,gx,gy,label='Pasted'){
+  if(!c?.nodes?.length)return null;
+  const minX=Math.min(...c.nodes.map(n=>n.x)),minY=Math.min(...c.nodes.map(n=>n.y)),dx=gx===undefined?40:Math.round(gx-minX),dy=gy===undefined?40:Math.round(gy-minY),ids=new Map();
+  const ok=edit((p,g)=>{
+    // A layer has one Output: a pasted Output joins only when the layer has none.
+    const hasOut=g.nodes.some(m=>m.type==='output');
+    for(const n of c.nodes){if(!Object.hasOwn(TYPES,n.type)||n.type==='output'&&hasOut)continue;const m=node(n.type,n.x+dx,n.y+dy,clone(n.props));if(n.auto)m.auto=[...n.auto];ids.set(n.id,m.id);g.nodes.push(m);}
+    for(const e of c.edges)if(ids.has(e.from)&&ids.has(e.to))g.edges.push({...e,from:ids.get(e.from),to:ids.get(e.to)});
+  },`${label} ${c.nodes.length} node${c.nodes.length>1?'s':''}`);
+  if(ok&&!ids.size)return null;
+  if(!ok)return null;
+  if(gx===undefined&&clip===c)clip={nodes:c.nodes.map(n=>({...n,x:n.x+40,y:n.y+40})),edges:c.edges};
+  const made=[...ids.values()];multi=new Set(made.length>1?made:[]);selected=made.length===1?made[0]:null;renderUI();return made;
+}
+const CUSTOM_KEY='agpro.custom';
+function customNodes(){try{const a=JSON.parse(localStorage.getItem(CUSTOM_KEY)||'[]');return Array.isArray(a)?a.filter(c=>c&&typeof c.name==='string'&&Array.isArray(c.nodes)):[];}catch{return [];}}
+function saveCustom(name){
+  const c=snippet();name=String(name||'').trim().slice(0,40);if(!c||!name)return false;
+  const list=customNodes().filter(x=>x.name!==name);list.push({name,...c});
+  try{localStorage.setItem(CUSTOM_KEY,JSON.stringify(list));}catch(e){message('Could not save: '+e.message,true);return false;}
+  renderLibrary();message(`Saved “${name}” to Custom`);return true;
+}
+function removeCustom(name){try{localStorage.setItem(CUSTOM_KEY,JSON.stringify(customNodes().filter(x=>x.name!==name)));}catch{}renderLibrary();message(`Removed “${name}” from Custom`);}
+// A custom node drops in where the view is centred.
+function insertCustom(c,gx,gy){
+  if(gx===undefined){const vp=$('graphViewport');gx=(vp.clientWidth/2-view.x)/view.zoom-120;gy=(vp.clientHeight/2-view.y)/view.zoom-60;}
+  return pasteNodes(c,gx,gy,`Added ${c.name}:`);
+}
+function renderMulti(root){
+  const head=el('div','insp-head'),h=el('h3','',`${multi.size} nodes`);head.append(h);root.append(head);
+  const a=section(root).appendChild(el('div','insp-actions'));
+  for(const [label,fn,prop] of [['Copy',()=>copySel(),'copy'],['Duplicate',duplicateSelected,'duplicate'],['Delete',removeSelected,'delete']]){const b=el('button','mbtn',label);b.type='button';b.dataset.property=prop;b.onclick=fn;a.append(b);}
+  const s=section(root,'Save as custom node'),row=el('div','custom-save'),name=el('input');name.type='text';name.maxLength=40;name.placeholder='Name';name.dataset.property='customName';
+  const save=el('button','mbtn','Save');save.type='button';save.dataset.property='customSave';save.onclick=()=>{if(saveCustom(name.value))name.value='';else name.focus();};
+  name.onkeydown=e=>{if(e.key==='Enter')save.click();};row.append(name,save);s.append(row);
 }
 function connection(from,out,to,input){return edit((p,g)=>connect(g,from,out,to,input),'Connected');}
 
@@ -591,7 +648,17 @@ function renderLibrary(){
     const box=el('div','chips');for(const t of types)box.append(libraryButton(t,TYPES[t].label,TYPES[t].description,{},cat.color));
     body.append(box);root.append(pr);
   }
+  // Your saved node groups: click to add, × to forget.
+  const custom=customNodes();if(!custom.length)return;
+  const {root:pr,body}=ui.panel({id:'custom',title:'Custom',color:CUSTOM_COLOR,count:custom.length}),box=el('div','chips');
+  for(const c of custom){
+    const b=el('button','mbtn library-node custom-node');b.type='button';b.dataset.custom=c.name;b.title=`${c.nodes.length} nodes · click to add`;b.style.setProperty('--cat',CUSTOM_COLOR);b.append(document.createTextNode(c.name));
+    const x=el('span','custom-x','×');x.title='Remove from Custom';x.setAttribute('role','button');x.setAttribute('aria-label','Remove '+c.name);x.onclick=e=>{e.stopPropagation();removeCustom(c.name);};
+    b.append(x);b.onclick=()=>insertCustom(c);box.append(b);
+  }
+  body.append(box);root.append(pr);
 }
+const CUSTOM_COLOR='#e5e7eb';
 // Waveforms and Emitters are listed per mode: each waveform / simulation is its own library entry.
 const GROUPS={inputs:['Media','Data'],waveforms:['2D'],emitters:['Particles','WebGPU particles'],'3d':['Objects','Cloner','Effectors','Look'],deformers:['Bend','Symmetry','Noise']};
 function groupedItems(cat){
@@ -650,7 +717,7 @@ function renderGraph(){
   const g=graph();$('nodes').replaceChildren();
   for(const old of thumbs.keys())thumbs.delete(old);
   for(const n of g.nodes){
-    const t=TYPES[n.type],box=el('article','node'+(n.id===selected?' selected':'')+(nodeErrors.has(n.id)?' error':''));
+    const t=TYPES[n.type],box=el('article','node'+(n.id===selected||multi.has(n.id)?' selected':'')+(nodeErrors.has(n.id)?' error':''));
     box.dataset.id=n.id;box.dataset.type=n.type;box.style.left=n.x+'px';box.style.top=n.y+'px';box.style.setProperty('--cat',catOf(n.type).color);
     const head=el('div','node-head');head.append(el('div','node-title',nodeTitle(n)),el('div','node-summary',summary(n)));box.append(head);
     if(t.engine||t.fx||n.type==='output'){const c=el('canvas','node-thumb');c.width=160;c.height=90;box.append(c);thumbs.set(n.id,c);}
@@ -675,7 +742,9 @@ function renderGraph(){
     box.addEventListener('pointerdown',e=>{
       if(e.target.closest('.port'))return;
       if(pending){e.stopPropagation();const p=pending;pending=null;portMenu(n,p,e.clientX,e.clientY);return;}
-      if(selected!==n.id){selected=n.id;renderProperties();document.querySelectorAll('#nodes .node').forEach(x=>x.classList.toggle('selected',x.dataset.id===n.id));updateHint();}
+      if(e.shiftKey||e.metaKey||e.ctrlKey){const ids=new Set(selIds());ids.has(n.id)?ids.delete(n.id):ids.add(n.id);setSelection([...ids]);return;}
+      if(multi.has(n.id))return;
+      if(selected!==n.id||multi.size)setSelection([n.id]);
     });
     head.addEventListener('pointerdown',e=>{if(!pending)startMove(e,n,box);});
     $('nodes').append(box);
@@ -728,6 +797,7 @@ function searchItems(){
     if(GROUPS[cat.id]){for(const it of groupedItems(cat.id))items.push({type:it.type,props:it.props,label:it.label,cat:`${cat.label} · ${it.group}`,color:cat.color,text:`${it.label} ${cat.label} ${it.group} ${it.description}`});continue;}
     for(const t of Object.keys(TYPES))if(TYPES[t].category===cat.id)items.push({type:t,props:{},label:TYPES[t].label,cat:cat.label,color:cat.color,text:`${TYPES[t].label} ${cat.label} ${TYPES[t].description}`});
   }
+  for(const c of customNodes())items.push({type:'custom',custom:c,props:{},label:c.name,cat:'Custom',color:CUSTOM_COLOR,text:`${c.name} Custom`});
   return items;
 }
 function rankItems(items,q){
@@ -749,6 +819,7 @@ function spliceInto(g,n,wire){
 }
 const wireAt=(x,y,exclude)=>document.elementsFromPoint(x,y).find(w=>w.classList?.contains('wire')&&w.dataset.from&&w.dataset.from!==exclude&&w.dataset.to!==exclude);
 function placeNode(it,gx,gy,wire){
+  if(it.custom)return insertCustom(it.custom,gx-84,gy-20);
   let made=null;
   const ok=edit((p,g)=>{
     const n=node(it.type,Math.round(gx-84),Math.round(gy-20),clone(it.props));made=n;g.nodes.push(n);
@@ -814,6 +885,8 @@ const HOLD_MS=380;
 function startMove(event,n,box){
   if(event.button!==0)return;event.preventDefault();const before=clone(state),start={x:event.clientX,y:event.clientY,nx:n.x,ny:n.y};box.setPointerCapture(event.pointerId);box.classList.add('dragging');
   const live=findNode(n.id);let moved=false,detached=false,target=null;
+  // Dragging one of several selected nodes moves them all.
+  const group=multi.has(n.id)?[...multi].filter(id=>id!==n.id).map(id=>{const m=findNode(id);return {m,x:m.x,y:m.y,box:$('nodes').querySelector(`.node[data-id="${id}"]`)};}):[];
   const loose=()=>{const g=state.layers.find(g=>g.id===active);return !g.edges.some(e=>e.from===n.id||e.to===n.id);};
   const mark=w=>{if(target===w)return;target?.classList.remove('wedge');target=w;w?.classList.add('wedge');};
   const detach=()=>{
@@ -822,17 +895,17 @@ function startMove(event,n,box){
     if(!had){box.classList.remove('hold');return;}
     detachEdges(g,n.id);box.classList.remove('hold');box.classList.add('detached');renderWires();message('Detached · drop it anywhere');
   };
-  const hold=setTimeout(()=>{if(!moved){box.classList.add('hold');detach();}},HOLD_MS);
-  if(event.altKey)detach();
+  const hold=group.length?0:setTimeout(()=>{if(!moved){box.classList.add('hold');detach();}},HOLD_MS);
+  if(event.altKey&&!group.length)detach();
   const move=e=>{
     if(!moved&&Math.hypot(e.clientX-start.x,e.clientY-start.y)<4)return;moved=true;clearTimeout(hold);
-    const z=uiZ()*view.zoom;live.x=Math.round(Math.max(-10000,Math.min(10000,start.nx+(e.clientX-start.x)/z)));live.y=Math.round(Math.max(-10000,Math.min(10000,start.ny+(e.clientY-start.y)/z)));box.style.left=live.x+'px';box.style.top=live.y+'px';renderWires();
+    const z=uiZ()*view.zoom;live.x=Math.round(Math.max(-10000,Math.min(10000,start.nx+(e.clientX-start.x)/z)));live.y=Math.round(Math.max(-10000,Math.min(10000,start.ny+(e.clientY-start.y)/z)));box.style.left=live.x+'px';box.style.top=live.y+'px';for(const o of group){o.m.x=o.x+live.x-start.nx;o.m.y=o.y+live.y-start.ny;if(o.box){o.box.style.left=o.m.x+'px';o.box.style.top=o.m.y+'px';}}renderWires();
     // An unconnected node dropped on a wire wedges itself in between.
-    target=null;mark(loose()&&isChain(n.type)?wireAt(e.clientX,e.clientY,n.id)||null:null);
+    target=null;mark(!group.length&&loose()&&isChain(n.type)?wireAt(e.clientX,e.clientY,n.id)||null:null);
   };
   const end=()=>{clearTimeout(hold);box.classList.remove('dragging','hold','detached');box.removeEventListener('pointermove',move);box.removeEventListener('pointerup',end);box.removeEventListener('pointercancel',end);
     const w=target&&{...target.dataset};mark(null);
-    attempt(()=>{let label=detached?'Detached node':'Moved node';
+    attempt(()=>{let label=detached?'Detached node':group.length?`Moved ${group.length+1} nodes`:'Moved node';
       if(w){const g=state.layers.find(g=>g.id===active);if(spliceInto(g,live,w))label=`Wedged ${TYPES[n.type].label} into the wire`;}
       commit(clone(state),label,before);});};
   box.addEventListener('pointermove',move);box.addEventListener('pointerup',end);box.addEventListener('pointercancel',end);
@@ -850,6 +923,16 @@ function section(root,label){const s=el('div','insp-section');if(label)s.append(
 const foldKey=()=>'agpro.open.'+(findNode(selected)?.type||'layer');
 function setFolds(open){
   for(const f of $('properties').querySelectorAll('.insp-fold')){const v=f.dataset.group===open;f.classList.toggle('closed',!v);f.firstChild.setAttribute('aria-expanded',v?'true':'false');}
+}
+// Help text (descriptions, notes, tips) sits behind a ? in each inspector header; the choice is remembered.
+let tipsOn=localStorage.getItem('agpro.tips')==='1';
+function tipify(root=$('properties')){
+  root.querySelectorAll('.insp-desc,.insp-note:not(.live-value):not(.data-status):not(.audio-source):not(.insp-err)').forEach(t=>t.classList.add('tip'));
+  root.classList.toggle('tips-on',tipsOn);
+  const head=root.querySelector('.insp-head');if(!head||head.querySelector('.tips-btn')||!root.querySelector('.tip'))return;
+  const b=el('button','tips-btn','?');b.type='button';b.title='Show tips';b.setAttribute('aria-label','Show tips');b.setAttribute('aria-pressed',String(tipsOn));b.dataset.property='tips';
+  b.onclick=()=>{tipsOn=!tipsOn;try{localStorage.setItem('agpro.tips',tipsOn?'1':'0');}catch{}root.classList.toggle('tips-on',tipsOn);b.setAttribute('aria-pressed',String(tipsOn));};
+  head.prepend(b);
 }
 function syncFolds(){
   const saved=localStorage.getItem(foldKey()),folds=[...$('properties').querySelectorAll('.insp-fold')];
@@ -901,7 +984,8 @@ function renderProperties(){
   $('previewWrap').classList.toggle('pinning',!!pinNode());
   const root=$('properties');root.replaceChildren();closeMenu();
   const g=graph(),n=g.nodes.find(n=>n.id===selected);
-  if(!n){renderLayerInspector(root,g);return;}
+  if(multi.size>1){renderMulti(root);tipify();return;}
+  if(!n){renderLayerInspector(root,g);tipify();return;}
   const t=TYPES[n.type],cat=catOf(n.type),head=el('div','insp-head'),h=el('h3');
   h.style.color=cat.color;h.append(document.createTextNode(nodeTitle(n)));
   head.append(h,el('div','insp-desc',t.description));root.append(head);
@@ -920,7 +1004,7 @@ function renderProperties(){
   const dup=el('button','btn','Duplicate');dup.id='duplicateNode';dup.onclick=duplicateSelected;
   const del=el('button','btn danger','Delete');del.id='deleteNode';del.onclick=removeSelected;actions.append(dup,del);
   updateHint();
-  syncFolds();
+  syncFolds();tipify();
 }
 // True when node `to` sits downstream of `from` along shape wires.
 function chainFrom(g,from,to){const seen=new Set();let cur=g.nodes.find(m=>m.id===to);while(cur&&!seen.has(cur.id)){if(cur.id===from)return true;seen.add(cur.id);const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}return false;}
@@ -1074,7 +1158,7 @@ function renderEmitter(root,n){
   const e=engineFor(n.id);
   const fill=()=>{
     if(selected!==n.id||!opts.isConnected)return;
-    let controls;try{controls=e.controls(jobOf(n));}catch(err){opts.append(el('p','insp-note',err.message));return;}
+    let controls;try{controls=e.controls(jobOf(n));}catch(err){opts.append(el('p','insp-note insp-err',err.message));return;}
     if(!controls)return;
     opts.replaceChildren();top.replaceChildren();
     // Choice chips (Type, Direction…) sit at the top; line-look chips join Look. Few knobs share one section named after the node.
@@ -1124,7 +1208,7 @@ function renderEmitter(root,n){
       }
       box.append(chips);
     }
-    syncFolds();
+    syncFolds();tipify();
   };
   if(e.status==='ready')fill();else{e.ready.then(()=>{if(opts.isConnected){opts.replaceChildren();fill();}});}
 }
@@ -1139,7 +1223,7 @@ function renderLayerInspector(root,g){
   section(root).append(el('p','insp-note','Tip: select a node, then click a Deformer, Color or Post FX node in the library to insert it right after.'));
   updateHint();
 }
-function updateHint(){const n=graph().nodes.find(n=>n.id===selected);$('selectionHint').textContent=n?`${TYPES[n.type].label} selected · library clicks insert after it`:`${graph().name}`;}
+function updateHint(){const n=graph().nodes.find(n=>n.id===selected);$('selectionHint').textContent=n?`${TYPES[n.type].label} selected`:multi.size?`${multi.size} nodes selected`:`${graph().name}`;}
 function renderLayers(){
   $('layers').replaceChildren();
   for(const g of state.layers){
@@ -1148,7 +1232,7 @@ function renderLayers(){
     vis.onclick=e=>e.stopPropagation();vis.onchange=()=>edit(p=>{p.layers.find(l=>l.id===g.id).visible=vis.checked;},'Layer visibility');
     const name=el('span','layer-name',g.name),x=el('button','layer-x','×');x.type='button';x.title='Delete layer';x.hidden=state.layers.length===1;
     x.onclick=e=>{e.stopPropagation();edit(p=>{p.layers=p.layers.filter(l=>l.id!==g.id);},'Deleted layer');};
-    tab.append(vis,name,x);tab.onclick=()=>{if(active!==g.id){active=g.id;selected=null;pending=null;renderUI();fit();}};
+    tab.append(vis,name,x);tab.onclick=()=>{if(active!==g.id){active=g.id;selected=null;multi.clear();pending=null;renderUI();fit();}};
     $('layers').append(tab);
   }
   $('addLayer').disabled=state.layers.length>=LIMITS.layers||state.layers.flatMap(g=>g.nodes).filter(n=>isEngine(n.type)).length>=LIMITS.emitters;
@@ -1404,8 +1488,11 @@ $('helpBody').innerHTML=`
 <li>Older projects open automatically and are updated to the current nodes.</li></ul>
 <h3 id="h-keys">Keys</h3>
 <ul><li><kbd>Space</kbd> pause visuals · <kbd>F</kbd> fullscreen · <kbd>Tab</kbd> add node · <kbd>Delete</kbd> remove node</li>
-<li><kbd>⌘Z</kbd> undo · <kbd>⇧⌘Z</kbd> redo</li></ul>`;
-$('helpButton').onclick=()=>$('help').showModal();$('closeHelp').onclick=()=>$('help').close();
+<li><kbd>⌘Z</kbd> undo · <kbd>⇧⌘Z</kbd> redo</li>
+<li>Drag on empty graph space to select several nodes (<kbd>Shift</kbd> adds, <kbd>⌘A</kbd> selects all) · <kbd>⌘C</kbd> / <kbd>⌘X</kbd> / <kbd>⌘V</kbd> copy, cut, paste · Alt-drag, middle-drag or two fingers pan</li>
+<li>With several nodes selected, <b>Save as custom node</b> keeps the group in the <b>Custom</b> library (at the bottom); click it to add the whole group again.</li></ul>`;
+$('helpButton').onclick=()=>$('help').showModal();
+$('graphTips').onclick=()=>{const on=$('graphHint').classList.toggle('show');$('graphTips').setAttribute('aria-pressed',String(on));};$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
 viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
 viewport.addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;pointer.inGraph=true;});
@@ -1413,15 +1500,29 @@ viewport.addEventListener('pointerleave',()=>{pointer.inGraph=false;});
 viewport.ondrop=e=>{e.preventDefault();let d;try{d=JSON.parse(e.dataTransfer.getData('application/audiograph-node'));}catch{return;}if(!Object.hasOwn(TYPES,d?.type))return;const r=viewport.getBoundingClientRect(),z=uiZ(),gx=((e.clientX-r.left)/z-view.x)/view.zoom,gy=((e.clientY-r.top)/z-view.y)/view.zoom;
   const w=wireAt(e.clientX,e.clientY);if(w){placeNode({type:d.type,label:TYPES[d.type].label,props:d.props||{}},gx,gy,{...w.dataset});return;}
   addNode(d.type,gx-84,gy-20,d.props||{});};
+// Drag on empty graph space draws a selection box (Shift adds to the selection); middle-drag or Alt-drag pans.
 viewport.onpointerdown=event=>{
-  if(event.target.closest('.node')||event.target.closest('.wire')||event.button!==0)return;
+  if(event.target.closest('.node')||event.target.closest('.wire')||event.button>1)return;
   viewport.focus();if(pending){pending=null;renderGraph();}
-  if(selected){selected=null;renderProperties();document.querySelectorAll('#nodes .node.selected').forEach(x=>x.classList.remove('selected'));}
+  if(event.button===0&&!event.altKey){event.preventDefault();window.getSelection()?.removeAllRanges();marquee(event);return;}
+  event.preventDefault();
   const start={x:event.clientX,y:event.clientY,vx:view.x,vy:view.y};viewport.setPointerCapture(event.pointerId);viewport.classList.add('panning');
   const z=uiZ(),move=e=>{view.x=start.vx+(e.clientX-start.x)/z;view.y=start.vy+(e.clientY-start.y)/z;applyView();};
   const end=()=>{viewport.classList.remove('panning');viewport.removeEventListener('pointermove',move);viewport.removeEventListener('pointerup',end);viewport.removeEventListener('pointercancel',end);};
   viewport.addEventListener('pointermove',move);viewport.addEventListener('pointerup',end);viewport.addEventListener('pointercancel',end);
 };
+function marquee(event){
+  const r=viewport.getBoundingClientRect(),z=uiZ(),loc=e=>[(e.clientX-r.left)/z,(e.clientY-r.top)/z],[x0,y0]=loc(event),keep=event.shiftKey?selIds():[];
+  const box=el('div','marquee');viewport.append(box);viewport.setPointerCapture(event.pointerId);let moved=false;
+  const hits=(x1,y1)=>{const a=(Math.min(x0,x1)-view.x)/view.zoom,b=(Math.min(y0,y1)-view.y)/view.zoom,c=(Math.max(x0,x1)-view.x)/view.zoom,d=(Math.max(y0,y1)-view.y)/view.zoom;
+    return [...$('nodes').querySelectorAll('.node')].filter(nb=>{const x=nb.offsetLeft,y=nb.offsetTop;return x<c&&x+nb.offsetWidth>a&&y<d&&y+nb.offsetHeight>b;}).map(nb=>nb.dataset.id);};
+  const move=e=>{const [x1,y1]=loc(e);if(!moved&&Math.hypot(x1-x0,y1-y0)<4)return;moved=true;
+    Object.assign(box.style,{left:Math.min(x0,x1)+'px',top:Math.min(y0,y1)+'px',width:Math.abs(x1-x0)+'px',height:Math.abs(y1-y0)+'px'});
+    const ids=new Set([...keep,...hits(x1,y1)]);document.querySelectorAll('#nodes .node').forEach(x=>x.classList.toggle('selected',ids.has(x.dataset.id)));};
+  const end=e=>{box.remove();viewport.removeEventListener('pointermove',move);viewport.removeEventListener('pointerup',end);viewport.removeEventListener('pointercancel',end);
+    const [x1,y1]=loc(e);setSelection(moved?[...keep,...hits(x1,y1)]:keep);};
+  viewport.addEventListener('pointermove',move);viewport.addEventListener('pointerup',end);viewport.addEventListener('pointercancel',end);
+}
 function zoom(factor,cx=viewport.clientWidth/2,cy=viewport.clientHeight/2){const next=Math.max(.3,Math.min(1.8,view.zoom*factor)),ratio=next/view.zoom;view.x=cx-(cx-view.x)*ratio;view.y=cy-(cy-view.y)*ratio;view.zoom=next;applyView();}
 // Trackpads (pixel deltas, no 120-step notches) pan with two fingers in any direction; pinch or ⌘-scroll zooms.
 // A notched mouse wheel zooms, Shift + wheel pans sideways.
@@ -1437,7 +1538,10 @@ document.addEventListener('keydown',e=>{
   else if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();}
   else if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redo();}
   else if((e.metaKey||e.ctrlKey)&&k==='d'){e.preventDefault();duplicateSelected();}
-  else if(e.key==='Delete'||e.key==='Backspace'){if(selected){e.preventDefault();removeSelected();}}
+  else if((e.metaKey||e.ctrlKey)&&(k==='c'||k==='x')&&!window.getSelection()?.toString()){if(copySel()){e.preventDefault();if(k==='x')removeSelected();}}
+  else if((e.metaKey||e.ctrlKey)&&k==='v'&&clip){e.preventDefault();if(pointer.inGraph){const r=viewport.getBoundingClientRect(),z=uiZ();pasteNodes(clip,((pointer.x-r.left)/z-view.x)/view.zoom,((pointer.y-r.top)/z-view.y)/view.zoom);}else pasteNodes(clip);}
+  else if((e.metaKey||e.ctrlKey)&&k==='a'&&(pointer.inGraph||e.target.closest?.('#graphViewport'))){e.preventDefault();setSelection(graph().nodes.map(n=>n.id));}
+  else if(e.key==='Delete'||e.key==='Backspace'){if(selected||multi.size){e.preventDefault();removeSelected();}}
   else if(e.key==='Escape'){closeMenu();if(pending){pending=null;renderGraph();message('Connection cancelled');}}
   else if(e.key===' '&&!e.target.closest('button')){e.preventDefault();$('pause').click();}
   else if(k==='f'&&!e.metaKey&&!e.ctrlKey){toggleFullscreen();}
@@ -1748,7 +1852,7 @@ function renderAutoPanel(){
 }
 window.pro={
   getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
-  select:id=>{selected=id;renderUI();},selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
+  select:id=>{selected=id;multi.clear();renderUI();},selectNodes:ids=>setSelection(ids),selection:()=>selIds(),copy:()=>copySel(),paste:(x,y)=>pasteNodes(clip,x,y),saveCustom:n=>saveCustom(n),customNodes:()=>customNodes(),removeCustom:n=>removeCustom(n),selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
   mapMode:on=>{setMapMode(on);return mapMode;},workspace:w=>{if(w)setWorkspace(w);return workspace;},
