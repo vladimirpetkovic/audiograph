@@ -475,7 +475,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     // Off and Hold must not brighten a deliberately dark Autopilot scene.
     await page.waitForFunction(()=>!pro.autopilot.status().fading&&pro.autopilot.status().tweens===0,null,{timeout:20000});
     await page.evaluate(async()=>{
-      const G=await import('/pro/graph.js'),P=pro.getProject();pro.autopilot.stop();
+      const G=await import(new URL('graph.js',location.href).href),P=pro.getProject();pro.autopilot.stop();
       for(const g of P.layers)for(const n of g.nodes){
         if(/^ap-r/.test(n.id)){n.type='waveform2d';n.props={...G.defaults(n.type),mode:'circle',sensitivity:5};}
         if(n.type==='palette'){n.props.stops=n.props.stops.map(s=>({...s,c:'#000000'}));n.props.fade=0;}
@@ -490,7 +490,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.deepEqual(await project(),dark,'Hold preserves the dark scene');
     await page.evaluate(()=>pro.autopilot.stop());
     // A steady quiet opening is not a drop, however the detector's history starts.
-    const opening=await page.evaluate(async()=>{const {Pilot}=await import('/pro/pilot.js'),pl=new Pilot(),seen=new Set();
+    const opening=await page.evaluate(async()=>{const {Pilot}=await import(new URL('pilot.js',location.href).href),pl=new Pilot(),seen=new Set();
       for(let i=0;i<1800;i++){pl.step(1/60,{energy:.12+.015*Math.sin(i/40)+.005*Math.cos(i/7),treble:.05},24,false);seen.add(pl.section);}return [...seen];});
     assert.ok(!opening.includes('drop'),'Calm opening read as '+opening.join(','));
     // Random creates a wired, editable scene, stops Autopilot and remains one undo step.
