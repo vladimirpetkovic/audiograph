@@ -394,3 +394,4 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .tips-btn{width:20px;height:20px;padding:0;display:inline-grid;place-items:center;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--tx3);font:600 .58rem/1 var(--mono);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
 .tips-btn:hover{color:var(--tx);border-color:var(--border-h)}.tips-btn[aria-pressed=true]{color:var(--on-tx);background:var(--on);border-color:var(--on)}
 #graphTips{min-width:0}.graph-hint:not(.show){visibility:hidden}
+.cam-thumb video{display:block;width:160px;aspect-ratio:4/3;object-fit:cover;transform:scaleX(-1);background:#000}

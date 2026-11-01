@@ -1127,7 +1127,12 @@ function renderEmitter(root,n){
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS);
   if(n.type==='waveform3d'&&n.props.render==='normal'&&n.props.mode!=='model')renderProps(root,n,Object.keys(PRIM_DEFAULT).filter(k=>k!=='shape'&&k!=='prim'));
-  if(n.type==='camera')s.append(el('p','insp-note','Uses your camera (the browser asks once). Its motion and brightness outputs are numbers for any knob.'));
+  if(n.type==='camera'){
+    // Live preview of the shared camera stream.
+    const box=el('div','media-item cam-thumb'),v=el('video');v.muted=true;v.playsInline=true;v.autoplay=true;v.dataset.property='cameraPreview';box.append(v);
+    camProvider().then(st=>{if(box.isConnected){v.srcObject=st;v.play().catch(()=>{});}}).catch(()=>{box.replaceChildren(el('span','media-name','Camera blocked'));});
+    const pick=el('div','media-pick');pick.append(box);s.append(pick,el('p','insp-note','Uses your camera (the browser asks once). Its motion and brightness outputs are numbers for any knob.'));
+  }
   const kind=mediaKind(n);
   if(kind){
     const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj';

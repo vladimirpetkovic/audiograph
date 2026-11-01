@@ -151,6 +151,7 @@ process the finished image.
   Pan with Alt-drag, middle-drag or two fingers. **Save as custom node** keeps the
   selected group in a **Custom** library category at the bottom (stored in this
   browser); click it, or find it with Tab, to add the whole group.
+- The **Camera** node shows a live thumbnail of your webcam in its inspector.
 - **Media inputs** (Image, Video, OBJ, splat) have a single Choose button; a loaded
   file shows as a thumbnail (or its name) with × to remove it. Image, Video and Camera
   stay still until audio is wired into them.
