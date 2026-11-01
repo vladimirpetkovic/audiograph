@@ -89,6 +89,7 @@ body.resizing{user-select:none}body.resizing iframe,body.resizing canvas{pointer
 .preview-wrap{container-type:size;position:relative;flex:var(--prev-flex,55) 1 0;min-height:120px;display:flex;align-items:center;justify-content:center;background:#000;padding:10px;overflow:hidden}
 #preview{display:block;max-width:100%;max-height:100%;width:min(100cqw,100cqh*16/9);height:auto;aspect-ratio:16/9;object-fit:contain;background:#000;box-shadow:0 0 0 1px var(--border)}
 #previewWrap:fullscreen{padding:0;background:#000}
+#preview{cursor:grab}.view-orbit #preview{cursor:grabbing}.view-pan #preview{cursor:move}.pinning #preview{cursor:crosshair}
 #previewWrap:fullscreen #preview{width:100%;height:100%;max-width:none;box-shadow:none}
 
 /* transport */

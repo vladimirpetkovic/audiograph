@@ -186,7 +186,7 @@ export const TYPES = {
     layout:pick('Layout','grid',CLONER_LAYOUTS.map(c=>c[0]),{labels:CLONER_LAYOUTS,sim:'g3Mode'}),
     countX:G('Count',n('Count X',5,1,60,1,{key:'pG3Nx'})),countY:G('Count',n('Count Y',5,1,60,1,{key:'pG3Ny'})),countZ:G('Count',n('Count Z',5,1,60,1,{key:'pG3Nz'})),
     spacingX:G('Spacing',n('Spacing X',150,20,1000,5,{key:'pG3SpX'})),spacingY:G('Spacing',n('Spacing Y',150,0,1000,5,{key:'pG3SpY'})),spacingZ:G('Spacing',n('Spacing Z',150,0,1000,5,{key:'pG3SpZ'})),
-    twist:G('Steps',n('Twist',0,-45,45,1,{key:'pG3StRotY'})),endScale:G('Steps',n('End scale',100,10,300,5,{key:'pG3StScale'})),cloneSpin:G('Steps',n('Spin',15,-100,100,5,{key:'pG3Spin'})),
+    twist:G('Steps',n('Twist',0,-45,45,1,{key:'pG3StRotY'})),endScale:G('Steps',n('End scale',100,10,300,5,{key:'pG3StScale'})),cloneSpin:G('Steps',n('Spin',0,-100,100,5,{key:'pG3Spin'})),
     rotX:G('Rotate',n('Rotate X',0,-180,180,1,{key:'pG3GrX'})),rotY:G('Rotate',n('Rotate Y',0,-180,180,1,{key:'pG3GrY'})),rotZ:G('Rotate',n('Rotate Z',0,-180,180,1,{key:'pG3GrZ'})),
     variety:G('Objects',n('Variety',100,0,100,5,{key:'pG3Mix'}))},{},'Cloner'),inputs:{audio:'audio',drive:'number',object:'object3d',object2:'object3d',object3:'object3d'}},
   soundEffector:C3D('Effectors','Sound effector','Loud clones move, grow and tumble.',{
@@ -214,8 +214,8 @@ export const TYPES = {
     shadow:G('Shadows',C3('Cast shadows',60,0,100,'pG3Shadow',5)),size:G('Shadows',C3('Light size',35,0,100,'pG3LitSize',5)),
     ao:G('Shadows',C3('Occlusion',50,0,100,'pG3Ao',5)),aoRadius:G('Shadows',C3('Radius',60,10,300,'pG3AoRad',5)),bounce:G('Shadows',C3('Bounce light',40,0,100,'pG3Bounce',5)),
     floor:G('Floor',C3('Floor',0,0,100,'pG3Floor',5)),floorHeight:G('Floor',C3('Height',0,-100,100,'pG3FloorY',5)),floorTint:G('Floor',C3('Tint',30,0,100,'pG3FloorTint',5))}),
-  camera3d:C3D('Look','3D camera','Orbit, tilt and zoom, depth of field and motion blur.',{
-    orbit:C3('Orbit',12,-100,100,'pG3Orbit'),tilt:C3('Tilt',18,-80,80,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
+  camera3d:C3D('Look','3D camera','Orbit (on its own or with the music), tilt and zoom, depth of field and motion blur. Drag in the preview to look around.',{
+    orbit:C3('Orbit',0,-100,100,'pG3Orbit'),orbitSound:C3('Orbit with sound',0,0,100,'pG3OrbitSnd',5),tilt:C3('Tilt',18,-80,80,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
     dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
   // Deformers
   symmetry:{category:'deformers',group:'Symmetry',label:'Symmetry',description:'Repeat the shape: mirror across X / Y or turn it into 3- to 8-fold rotations.',...SHAPE_IO,props:{
@@ -657,6 +657,14 @@ function foldGeometry(g){
     g.nodes=g.nodes.filter(n=>n!==old);
   }
 }
+// The layer's viewport camera, moved with the mouse in the preview: orbit (degrees), pan (half-frames) and zoom.
+export const VIEW_LIMITS={yaw:[-3600,3600],pit:[-85,85],px:[-4,4],py:[-4,4],zm:[.2,6]};
+export function cleanView(v){
+  if(!v||typeof v!=='object')return null;
+  const o={yaw:0,pit:0,px:0,py:0,zm:1};
+  for(const [k,[lo,hi]] of Object.entries(VIEW_LIMITS))if(Number.isFinite(v[k]))o[k]=Math.max(lo,Math.min(hi,v[k]));
+  return o.yaw||o.pit||o.px||o.py||o.zm!==1?o:null;
+}
 export function validate(input) {
   if(!input||input.format!=='audiograph-pro'||!(Number.isInteger(input.version)&&input.version>=1&&input.version<=VERSION))throw Error('Expected an Audiograph Pro project');
   const raw=migrate(input);
@@ -669,6 +677,7 @@ export function validate(input) {
     if(!Array.isArray(g.nodes)||g.nodes.length>LIMITS.nodes||!Array.isArray(g.edges)||g.edges.length>LIMITS.edges)throw Error(`Limit: ${LIMITS.nodes} nodes and ${LIMITS.edges} connections per layer`);
     const blend=g.blend??'screen';if(!LAYER_BLENDS.includes(blend))throw Error('Invalid layer blend');
     const clean={id:unique(g.id),name:g.name,visible:g.visible,opacity:finite(g.opacity,0,1,'Opacity'),blend,nodes:[],edges:[]};
+    const view=cleanView(g.view);if(view)clean.view=view;
     clean.nodes=g.nodes.map(nd=>{
       if(!nd||!Object.hasOwn(TYPES,nd.type))throw Error('Unknown node type');
       if(isEngine(nd.type))emitters++;

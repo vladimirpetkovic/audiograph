@@ -4,6 +4,7 @@ import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engine
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
+import {cleanView} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as autopilot from './autopilot.js';
@@ -386,6 +387,7 @@ function fxEngine(){
 const nstate=(id,init)=>{if(!nodeState.has(id))nodeState.set(id,init());return nodeState.get(id);};
 const waves={sine:p=>.5+.5*Math.sin(p*2*Math.PI),triangle:p=>1-Math.abs((p%1)*2-1),saw:p=>p%1,square:p=>(p%1)<.5?1:0};
 function execute(g,time,dt){
+  layerView.delete(g.id);
   const outputs=new Map(),byInput=new Map(g.edges.map(e=>[e.to+':'+e.input,e])),rendered=new Map();let image=null;
   const input=(n,key)=>{const e=byInput.get(n.id+':'+key);return e?outputs.get(e.from)?.[e.out]:undefined;};
   const props=n=>{
@@ -400,7 +402,8 @@ function execute(g,time,dt){
     if(!v||v instanceof HTMLCanvasElement)return v;
     const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1);
     if(rendered.has(key))return rendered.get(key);
-    const e=engineFor(v.emitter.id),out=e.draw({...v.job,mods:v.mods,hue:v.hue});
+    const e=engineFor(v.emitter.id),out=e.draw({...v.job,mods:v.mods,hue:v.hue,view:g.view});
+    if(e.viewMode)layerView.set(g.id,e.viewMode);
     if(!out)return null;
     const {canvas,ctx}=surface(consumer+':r');
     // Renderers that ignore the classic deformers (simulations, Cloner, Growth...) get them as an image warp.
@@ -588,6 +591,12 @@ function dissolveDraw(dt){
   if(a>0){previewCtx.globalAlpha=a;previewCtx.globalCompositeOperation='source-over';previewCtx.drawImage(fadeCv,0,0);previewCtx.globalAlpha=1;}
   if(fade.t>=1)fade=null;
 }
+// Layers the engine cannot frame itself (2D, and pan/zoom of classic 3D) are moved and scaled as a picture.
+const layerView=new Map();
+function drawLayer(out,g,image){
+  const v=g.view;if(!v||layerView.get(g.id)==='sim'||(v.zm===1&&!v.px&&!v.py)){out.drawImage(image,0,0);return;}
+  out.setTransform(v.zm,0,0,v.zm,WIDTH/2*(1-v.zm)+v.px*WIDTH/2,HEIGHT/2*(1-v.zm)-v.py*HEIGHT/2);out.drawImage(image,0,0);out.setTransform(1,0,0,1,0,0);
+}
 function draw(time,dt=1/30){
   if(pageHidden)return;
   dissolveCheck();
@@ -598,7 +607,7 @@ function draw(time,dt=1/30){
   for(const g of state.layers){
     // A hidden layer still renders when a mapping surface shows it on its own.
     const shown=g.visible&&g.opacity>0,forMap=mapped&&mapLayers.has(g.id);if(!shown&&!forMap)continue;
-    try{const image=execute(g,time,dt);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);if(shown){out.globalAlpha=g.opacity;out.globalCompositeOperation=g.blend;out.drawImage(image,0,0);}}}
+    try{const image=execute(g,time,dt);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);if(shown){out.globalAlpha=g.opacity;out.globalCompositeOperation=g.blend;drawLayer(out,g,image);}}}
     catch(error){renderErrors.push(error.message);}
   }
   out.globalAlpha=1;out.globalCompositeOperation='source-over';
@@ -1373,7 +1382,7 @@ const ORIGINAL_NAMES=ORIGINAL_PRESETS.map(P=>P.name);
 // The original 3D cloner presets as node networks: primitives → Cloner → effectors → material, light, camera → palette → bloom.
 const CLONER_CHAIN=['soundEffector','fieldEffector','randomEffector','links','material','light','camera3d'];
 // Knobs a chain node leaves at the original's resting value when the preset does not set them.
-const CLONER_REST={fieldEffector:{strength:0},randomEffector:{size:0,color:0,tilt:0},links:{links:0},camera3d:{dof:0}};
+const CLONER_REST={fieldEffector:{strength:0},randomEffector:{size:0,color:0,tilt:0},links:{links:0},camera3d:{dof:0,orbitSound:50}};
 const CLONER_PALETTES=['Lagoon','Synthwave','Sunset','Aurora','Fire','Tropic','Dusk'];
 function clonerGraph(P,i){
   const g={id:crypto.randomUUID(),name:P.name,visible:true,opacity:1,blend:'source-over',nodes:[],edges:[]};
@@ -1474,6 +1483,34 @@ preview.addEventListener('pointermove',ev=>{
 });
 const endPin=()=>{if(pinDrag){pinDrag=null;liveCommit('Moved corner');}};
 preview.addEventListener('pointerup',endPin);preview.addEventListener('pointercancel',endPin);
+// Viewport camera for the active layer. 3D: drag orbits, right / Shift-drag pans. 2D: drag pans. Wheel zooms, double-click resets.
+const VIEW0={yaw:0,pit:0,px:0,py:0,zm:1};
+const viewOff=()=>!!pinNode()||!!pinDrag||mapActive();
+let viewDrag=null,wheelTimer=0;
+function setView(fn){live(st=>{const g=st.layers.find(l=>l.id===graph().id);if(!g)return;const v={...VIEW0,...g.view};fn(v);const c=cleanView(v);if(c)g.view=c;else delete g.view;});}
+preview.addEventListener('pointerdown',ev=>{
+  if(viewOff()||ev.defaultPrevented)return;
+  const g=graph(),three=layerView.has(g.id);
+  viewDrag={x:ev.clientX,y:ev.clientY,v:{...VIEW0,...g.view},pan:!three||ev.button!==0||ev.shiftKey,moved:false};
+  preview.setPointerCapture(ev.pointerId);$('previewWrap').classList.add(viewDrag.pan?'view-pan':'view-orbit');ev.preventDefault();
+});
+preview.addEventListener('pointermove',ev=>{
+  const d=viewDrag;if(!d)return;const r=preview.getBoundingClientRect(),dx=ev.clientX-d.x,dy=ev.clientY-d.y;
+  if(!d.moved&&Math.hypot(dx,dy)<2)return;d.moved=true;
+  setView(v=>{if(d.pan){v.px=d.v.px+dx/r.width*2;v.py=d.v.py-dy/r.height*2;}else{v.yaw=d.v.yaw-dx*.4;v.pit=Math.max(-85,Math.min(85,d.v.pit+dy*.4));}});
+});
+const endView=()=>{const d=viewDrag;if(!d)return;viewDrag=null;$('previewWrap').classList.remove('view-pan','view-orbit');if(d.moved)liveCommit(d.pan?'Moved view':'Orbited view');};
+preview.addEventListener('pointerup',endView);preview.addEventListener('pointercancel',endView);
+preview.addEventListener('contextmenu',ev=>{if(!viewOff())ev.preventDefault();});
+preview.addEventListener('wheel',ev=>{
+  if(viewOff())return;ev.preventDefault();
+  const r=preview.getBoundingClientRect(),u=(ev.clientX-r.left)/r.width*2-1,w=(ev.clientY-r.top)/r.height*2-1,flat=layerView.get(graph().id)!=='sim';
+  setView(v=>{const z=Math.max(.2,Math.min(6,v.zm*Math.exp(-ev.deltaY*(ev.deltaMode?.05:.0015))));
+    // 2D zooms toward the pointer; 3D dollies the camera.
+    if(flat){v.px=u-z*(u-v.px)/v.zm;v.py=z*(w+v.py)/v.zm-w;}v.zm=z;});
+  clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit('Zoomed view'),350);
+},{passive:false});
+preview.addEventListener('dblclick',()=>{if(viewOff()||!graph().view)return;setView(v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
 
 // Output window for a projector / second display: mirrors the preview as a live stream.
 let outWin=null;
@@ -1529,6 +1566,7 @@ $('helpBody').innerHTML=`
 <li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li></ol>
 <h3 id="h-screen">The screen</h3>
 <p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play / pause (Space; it pauses the visuals too), stop, record to video, snapshot, the audio source, the live spectrum, fullscreen (F) and <b>Detach</b>. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
+<p><b>Move the view</b> with the mouse over the preview; it moves the active layer. On a 3D layer (Cloner, 3D Object, splats) drag orbits the camera, right-drag or Shift-drag pans. On a 2D layer drag moves the picture. The wheel zooms (2D zooms toward the pointer), double-click resets. Every move is undoable and saved with the project.</p>
 <h3 id="h-graph">Nodes &amp; wires</h3>
 <p>Wires carry typed values, colour-coded on their ports: <span style="color:${PORT_COLORS.audio}">audio</span> (the sound), <span style="color:${PORT_COLORS.shape}">shape</span> (something that can still be bent and recoloured), <span style="color:${PORT_COLORS.image}">image</span> (finished pixels), <span style="color:${PORT_COLORS.number}">number</span> (a value that drives knobs), <span style="color:${PORT_COLORS.colors}">colors</span> (a palette) and <span style="color:${PORT_COLORS.object3d}">3D object</span>. A shape wired into an image input is rendered at that point; after that it is pixels. A typical chain is Audio → Waveform or Emitter → Deformers → Palette → Post FX → Output.</p>
 <ul><li>Drag from an output port to an input port to connect. Click a wire to remove it.</li>

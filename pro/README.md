@@ -47,6 +47,9 @@ each with its own opacity and blend mode (up to four).
   coloured bounce light and an optional floor that catches the shadows. Chain effectors and look nodes after the Cloner. The original's
   cloner presets are templates under **3D cloner**. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
   into these nodes automatically.
+- **Viewport camera**: drag in the preview to orbit a 3D layer (right- or Shift-drag pans), or to move a 2D
+  layer; the wheel zooms and a double-click resets. It applies to the active layer and is saved with it.
+  Nothing rotates by default: Cloner Spin and 3D camera Orbit / Orbit with sound start at 0 (presets set their own).
 - **Emitters** (particles): **Particles** (classic) and **WebGPU
   particles** (Particles, Fluid, Smoke, Granular sand). WebGPU simulations react harder to sound than in the original
   (snappier attack, shorter release, bigger beat bursts; tuned per simulation),

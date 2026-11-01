@@ -222,7 +222,34 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       await page.evaluate(()=>pro.setProperty('li','floor',90));await page.waitForTimeout(1500);
       const floored=await page.evaluate(()=>({px:pro.pixels(),errors:pro.stats().errors}));
       assert.deepEqual(floored.errors,[],'Shadows and floor render without errors');
-      assert.ok(floored.px>bare*1.2,'The floor catches light: '+bare+' → '+floored.px);}
+      assert.ok(floored.px>bare*1.2,'The floor catches light: '+bare+' → '+floored.px);
+      // Nothing rotates by default: auto orbit, orbit with sound and clone spin start at 0.
+      const turn=await page.evaluate(()=>{const d=pro.engine('cl').w.document;return ['pG3Orbit','pG3OrbitSnd','pG3Spin'].map(id=>d.getElementById(id)?.value);});
+      assert.deepEqual(turn,['0','0','0'],'Cloner does not turn on its own');
+      // Viewport camera: dragging the preview orbits the 3D camera natively, double-click resets, undo restores.
+      const box=await page.locator('#preview').boundingBox(),cx=box.x+box.width/2,cy=box.y+box.height/2;
+      await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+100,cy+40,{steps:5});await page.mouse.up();
+      const orb=await page.evaluate(()=>({view:pro.getProject().layers[0].view,so:(({vYaw,vPit})=>({vYaw,vPit}))(pro.engine('cl').w.simOpt)}));
+      assert.ok(orb.view&&orb.view.yaw<-20&&orb.view.pit>5&&!orb.view.px,'Drag orbits a 3D layer: '+JSON.stringify(orb.view));
+      await page.waitForTimeout(200);
+      const so=await page.evaluate(()=>{const s=pro.engine('cl').w.simOpt;return [s.vYaw,s.vPit];});
+      assert.deepEqual(so,[orb.view.yaw,orb.view.pit],'The Cloner camera follows the view');
+      await page.mouse.dblclick(cx,cy);assert.equal((await project()).layers[0].view,undefined,'Double-click resets the view');
+      await page.evaluate(()=>pro.undo());assert.ok((await project()).layers[0].view?.yaw<-20,'Undo restores the view');}
+    // 6j. 2D layers: drag pans the picture, the wheel zooms toward the pointer, and the view is saved with the project.
+    {await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:2,layers:[{id:'L1',name:'Flat',visible:true,opacity:1,blend:'source-over',
+        nodes:[{id:'bg',type:'background',x:0,y:0,props:{fill:'flat',c1:'#ff00aa',c2:'#000000'}},{id:'out',type:'output',x:400,y:0,props:{}}],
+        edges:[{from:'bg',out:'image',to:'out',input:'image'}]}]}));
+      await page.waitForTimeout(400);
+      const box=await page.locator('#preview').boundingBox(),cx=box.x+box.width/2,cy=box.y+box.height/2;
+      await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+box.width/4,cy,{steps:4});await page.mouse.up();
+      const v=(await project()).layers[0].view;assert.ok(Math.abs(v.px-.5)<.05&&!v.yaw,'Drag pans a 2D layer: '+JSON.stringify(v));
+      await page.waitForTimeout(300);
+      const left=await page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(20,270,1,1).data));
+      assert.ok(left[0]<20,'The panned picture uncovers the left edge: '+left);
+      await page.mouse.move(cx,cy);await page.mouse.wheel(0,-300);await page.waitForTimeout(500);
+      const z=(await project()).layers[0].view;assert.ok(z.zm>1.3,'Wheel zooms: '+JSON.stringify(z));
+      const saved=await page.evaluate(()=>pro.validate(pro.getProject()).layers[0].view);assert.deepEqual(saved,z,'The view is saved with the project');}
 
     // 7. Post FX run on images without any emitter (background → kaleido → output) via a helper engine.
     await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:2,layers:[{id:'L1',name:'Bg',visible:true,opacity:1,blend:'source-over',

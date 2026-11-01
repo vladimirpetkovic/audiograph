@@ -89,6 +89,11 @@ fn envC(r:vec3f,rough:f32)->vec3f{`);
     "if(flA>0.001&&P.g3fl){rp.setPipeline(P.g3fl);rp.setBindGroup(0,st.g3bgR);rp.draw(6)}rp.setPipeline(pipe);rp.setBindGroup(0,st.g3bgR);");
   // Smooth cubes: face normals bent slightly toward the corners read as softly bevelled boxes, not blotchy spheres.
   patch("p[a[0]]=h*a[1];p[u]=h*(2*i/n-1);p[v]=h*(2*j/n-1);gg[i][j]=V(p)}}","p[a[0]]=h*a[1];p[u]=h*(2*i/n-1);p[v]=h*(2*j/n-1);var fq=[p[0]*0.3,p[1]*0.3,p[2]*0.3];fq[a[0]]=a[1];gg[i][j]=V(p,nrm(fq))}}");
+  // Nothing turns on its own by default: auto orbit, orbit with sound and clone spin start at 0 (presets set their own).
+  patch("['pG3Spin','Spin',-100,100,15,","['pG3Spin','Spin',-100,100,0,");patch("st.g3spin+=h*K('pG3Spin',15)","st.g3spin+=h*K('pG3Spin',0)");
+  patch("['pG3Orbit','Auto orbit',-100,100,12,","['pG3OrbitSnd','Orbit with sound',0,100,0,5,'%','The camera turns with the music.'],['pG3Orbit','Auto orbit',-100,100,0,");
+  patch("K('pG3Orbit',12)","K('pG3Orbit',0)");patch("K('pG3OrbitSnd',50)","K('pG3OrbitSnd',0)");
+  patch("['Camera',['pG3Orbit','pG3Tilt','pG3Zoom']]","['Camera',['pG3Orbit','pG3OrbitSnd','pG3Tilt','pG3Zoom']]");
   // The knobs the Light node drives.
   patch("['pG3Ao','Ambient occlusion',",
     "['pG3Shadow','Cast shadows',0,100,60,5,'%','Soft shadows the key light casts from clone to clone and onto the floor. 0 turns them off.'],"+
@@ -101,6 +106,7 @@ fn envC(r:vec3f,rough:f32)->vec3f{`);
   patch("['Light',['pG3Light','pG3Amb','pG3LitAz','pG3LitEl']]","['Light',['pG3Light','pG3Amb','pG3LitAz','pG3LitEl','pG3Shadow','pG3LitSize','pG3Bounce','pG3Floor','pG3FloorY','pG3FloorTint']]");
   patch("'g3-fx':['pG3Ao','pG3AoRad','pG3Mb']","'g3-sh':['pG3Shadow','pG3LitSize','pG3Bounce'],'g3-fl':['pG3Floor','pG3FloorY','pG3FloorTint'],'g3-fx':['pG3Ao','pG3AoRad','pG3Mb']");
 }
+const VIEW3D=['terrain','sphere','tetrahedron','dna','object','fractal'];
 let sourcePromise;
 async function engineSource() {
   if(!sourcePromise)sourcePromise=fetch(new URL('../index.html',location.href)).then(async r=>{
@@ -348,9 +354,14 @@ export class EmitterEngine {
       w.__agG3MeshVer=(w.__agG3MeshVer||0)+1;
     }
     this.camera(cam);
+    // Viewport camera: the 3D cloner and splats orbit, pan and zoom natively; classic 3D modes take the orbit.
+    const v=job.view||{},dg=Math.PI/180;
+    this.viewMode=mode==='simcloner'||mode==='simsplat'?'sim':VIEW3D.includes(mode)?'classic':null;
+    if(this.viewMode==='classic'){p._dragRotX=(v.pit||0)*dg;p._dragRotY=-(v.yaw||0)*dg;}
     if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
     w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;
     if(!sameParams(p,this.applied)){this.realSet(p);this.applied=p;}
+    if(this.viewMode==='sim'){const so=w.simOpt;so.vYaw=v.yaw||0;so.vPit=v.pit||0;so.vPx=v.px||0;so.vPy=v.py||0;so.vZm=v.zm||1;}
     if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
     if(mode==='video'||(mode==='pixelwarp'&&(this.mediaKind==='video'||w.vidCamStream)))w.sampleVideoFrame?.();
