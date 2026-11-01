@@ -22,7 +22,7 @@ async function engineSource() {
   return sourcePromise;
 }
 export const WIDTH=960,HEIGHT=540,BINS=2048;
-const SOLIDS=['knot','cube','torus'];
+const SOLIDS=['knot','cube','torus','cylinder','cone','ico','pyramid','frame'];
 // The page owns the one camera stream; engines receive clones, so the frames never ask for permission themselves.
 let cameraProvider=null;
 export function setCameraProvider(fn){cameraProvider=fn;}
@@ -129,6 +129,8 @@ export class EmitterEngine {
       if(mode.startsWith('sim')&&!w._agIsSim(mode))throw Error(`${job.mode} is not available in this Audiograph build`);
     }
     w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(this.withLook(job.look));
+    // Shapes the original has no built-in model for arrive as a mesh from the 3D Object node.
+    if(solid&&job.solidMesh&&!w._objBuiltinCache[job.mode]){const m=w._objNormalizeModel(job.solidMesh.verts.map(v=>v.slice()),job.solidMesh.faces.map(f=>f.slice()));m.isDefault=true;w._objBuiltinCache[job.mode]=m;}
     if(mode==='object'){w.objBuiltin=solid?job.mode:(this.mediaKind==='object'?'file':'knot');}
     try{if(mode==='object')w.setObjLayout(w.objBuiltin,null);else w.setLayout(mode,null);}catch(e){console.warn(e);}
     if(job.source){const b=[...(this.container()?.querySelectorAll('.mode-btns button')||[])].find(b=>(b.getAttribute('onclick')||'').includes(job.source));if(b&&!b.classList.contains('on'))try{b.click();}catch(e){console.warn(e);}}

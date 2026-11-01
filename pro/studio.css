@@ -307,6 +307,13 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 
 /* palette presets (as in the original Color panel) */
 .pal-preview{height:18px;border-radius:3px;border:1px solid var(--border);margin-bottom:8px;background-color:#000}
+.pal-ramp{position:relative;height:24px;margin:4px 7px 4px;cursor:copy;border-radius:4px}
+.pal-stop{position:absolute;top:-4px;bottom:-4px;width:12px;transform:translateX(-50%);border:2px solid #ececf0;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.6);cursor:pointer;touch-action:none;transition:opacity .15s}
+.pal-stop:hover{border-color:#fff;box-shadow:0 0 0 1px #000,0 1px 6px rgba(0,0,0,.7)}
+.pal-stop.removing{opacity:.3}
+.pal-stop input{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;border:0;padding:0}
+.pal-autos{position:relative;height:14px;margin:4px 7px 10px}
+.pal-autos .pal-auto{top:2px;margin:0 0 0 -5.5px}
 .pal-presets{display:flex;flex-wrap:wrap;gap:4px}
 .pal-swatch{width:44px;height:20px;padding:0;border-radius:3px;border:1px solid var(--border);cursor:pointer;background-color:#000}
 .pal-swatch.solid{width:20px;border-radius:50%}

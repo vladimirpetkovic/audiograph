@@ -61,10 +61,10 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await lit(1);
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
-    assert.equal(await page.locator('.library-node[data-mode]').count(),24,'Every waveform and WebGPU simulation is in the library');
+    assert.equal(await page.locator('.library-node[data-mode]').count(),30,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
     assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','3D','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
-    assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','3D Object','Gaussian Splat','Computer','Clock','Mouse & keys','MIDI'],'Inputs');
-    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','Particles','WebGPU particles','Waveforms','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
+    assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','Gaussian Splat','Computer','Clock','Mouse & keys','MIDI'],'Inputs');
+    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','Particles','WebGPU particles','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
     assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
 
     // 2. Emitter inspector exposes the original's own options; a preset chip changes knobs and survives undo/redo.
@@ -95,7 +95,15 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     g=await layer0();const palette=g.nodes.find(n=>n.type==='palette');
     assert.ok(g.edges.some(e=>e.from===twist.id&&e.to===palette.id)&&g.edges.some(e=>e.from===palette.id&&e.to===ids.bloom),'Twist → Palette → Bloom');
     await page.locator('[data-property="palettePreset"] [data-value="Fire"]').click();
-    assert.equal((await layer0()).nodes.find(n=>n.id===palette.id).props.c2,'#c92a2a');
+    assert.equal((await layer0()).nodes.find(n=>n.id===palette.id).props.stops[1].c,'#c92a2a');
+    {const stopsOf=async()=>(await layer0()).nodes.find(n=>n.id===palette.id).props.stops,n0=(await stopsOf()).length,ramp=page.locator('.pal-ramp'),box=await ramp.boundingBox();
+      await page.mouse.click(box.x+box.width*.37,box.y+box.height/2);assert.equal((await stopsOf()).length,n0+1,'Clicking the ramp adds a colour');
+      const st=page.locator('.pal-stop').nth(1),sb=await st.boundingBox();await page.mouse.move(sb.x+sb.width/2,sb.y+sb.height/2);await page.mouse.down();await page.mouse.move(sb.x+sb.width/2,sb.y+80,{steps:5});await page.mouse.up();
+      assert.equal((await stopsOf()).length,n0,'Dragging a stop off the ramp removes it');
+      await page.locator('.pal-auto').first().click();assert.equal((await stopsOf())[0].auto,true,'Per-colour Auto toggles');
+      const c0=await page.evaluate(()=>getComputedStyle(document.querySelectorAll('.pal-stop')[0]).backgroundColor);await page.waitForTimeout(2500);
+      assert.notEqual(await page.evaluate(()=>getComputedStyle(document.querySelectorAll('.pal-stop')[0]).backgroundColor),c0,'An Auto colour drifts');
+      await page.locator('.pal-auto').first().click();}
     await lit(.3);
 
     // 4. Deformers change the real render.
@@ -209,7 +217,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,9);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    assert.equal(migrated.version,10);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
     // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
     const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
     assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.render]),[['camera','lines'],['image','warp']]);
@@ -407,7 +415,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     for(const ex of await page.evaluate(()=>pro.autopilot.examples)){await page.evaluate(t=>pro.autopilot.create(t),ex);
       await lit(.02,25000).catch(async()=>assert.fail(`Autopilot “${ex}”: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));}
     await page.evaluate(()=>pro.autopilot.settings({changes:'mood',fade:.3}));await page.locator('[data-property=apLive] [data-value=true]').click();
-    const pal=()=>page.evaluate(()=>pro.getProject().layers.flatMap(g=>g.nodes.filter(n=>n.type==='palette').map(n=>[n.props.c1,n.props.c2,n.props.c3,n.props.c4].join())).join());
+    const pal=()=>page.evaluate(()=>pro.getProject().layers.flatMap(g=>g.nodes.filter(n=>n.type==='palette').map(n=>n.props.stops.map(s=>s.c).join())).join());
     const p0=await pal(),h0=await page.evaluate(()=>pro.stats().frame);await page.locator('[data-property=apNext]').click();await page.waitForTimeout(1200);
     assert.notEqual(await pal(),p0,'A live change glides to new colours');assert.equal((await page.evaluate(()=>pro.autopilot.status())).tweens,0,'Tweens finish');
     const n0=await page.evaluate(()=>pro.getProject().layers[0].id);await page.evaluate(()=>{pro.autopilot.settings({changes:'all'});pro.autopilot.change('drop');});
@@ -438,12 +446,27 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     console.log('Audiograph Pro tests passed');
     // 3D category: a Cloner template is a primitive → Cloner → effectors → look network that renders; v8 cloner projects split into nodes.
     await page.evaluate(()=>pro.loadTemplate('Toy blocks'));await page.waitForTimeout(4000);
-    const toy=await layer0();assert.ok(toy.nodes.filter(n=>n.type==='primitive').length>1&&toy.edges.some(e=>e.input==='object2'),'Cloner clones several primitives');
+    const toy=await layer0();assert.ok(toy.nodes.filter(n=>n.type==='waveform3d'&&n.props.render==='normal').length>1&&toy.edges.some(e=>e.input==='object2'),'Cloner clones several primitives');
     const litCount=()=>page.evaluate(()=>{const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<x.length;i+=16)if(x[i]+x[i+1]+x[i+2]>60)n++;return n;});
     assert.ok(await litCount()>500,'Cloner renders');
     const v8=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:8,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'c',type:'gpuParticles',x:200,y:0,props:{mode:'simcloner',opts:{pG3Nx:9,pG3Links:4,pG3Size:30},chips:{'1':'Cube','2':'Spiral'}}},{id:'o',type:'output',x:400,y:0,props:{}}],edges:[{from:'a',out:'audio',to:'c',input:'audio'},{from:'c',out:'shape',to:'o',input:'image'}]}]}));
     const vn=v8.layers[0].nodes,by=t=>vn.find(n=>n.type===t);
-    assert.deepEqual([by('cloner')?.props.layout,by('cloner')?.props.countX,by('primitive')?.props.shape,by('primitive')?.props.size,by('links')?.props.links],['spiral',9,'cube',30,4],'v8 Cloner migrates to 3D nodes');
-    assert.ok(v8.layers[0].edges.some(e=>e.from===by('primitive').id&&e.to===by('cloner').id&&e.input==='object'),'Primitive feeds the Cloner');
+    assert.deepEqual([by('cloner')?.props.layout,by('cloner')?.props.countX,by('waveform3d')?.props.mode,by('waveform3d')?.props.size,by('links')?.props.links],['spiral',9,'cube',30,4],'v8 Cloner migrates to 3D nodes');
+    assert.ok(v8.layers[0].edges.some(e=>e.from===by('waveform3d').id&&e.to===by('cloner').id&&e.input==='object'),'Primitive feeds the Cloner');
+    // 3D Object: one node for every shape (and your OBJ as Model), drawn Normal or as a Waveform; any of them feeds a Cloner.
+    const objItems=await page.evaluate(()=>[...document.querySelectorAll('#library .library-node[data-type="waveform3d"]')].map(b=>b.textContent.trim()));
+    for(const s of ['Sphere','Cylinder','Frame','DNA','Terrain','Model'])assert.ok(objItems.some(t=>t.startsWith(s)),`3D Objects lists ${s}`);
+    const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
+    for(const [mode,render] of [['cylinder','normal'],['frame','waveform'],['dna','normal'],['cone','waveform']]){
+      await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:200,y:0,props:{mode,render}},{id:'p',type:'palette',x:400,y:0,props:{}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'}]));
+      await page.waitForTimeout(2500);assert.ok(await litCount()>300,`3D Object ${mode} renders ${render}`);
+    }
+    await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'terrain',render:'waveform'}},{id:'m',type:'waveform3d',x:0,y:300,props:{mode:'model',render:'waveform'}},{id:'c',type:'cloner',x:200,y:0,props:{}}],
+      [{from:'a',out:'audio',to:'c',input:'audio'},{from:'o',out:'object',to:'c',input:'object'},{from:'m',out:'object',to:'c',input:'object2'},{from:'c',out:'shape',to:'out',input:'image'}]));
+    await page.waitForTimeout(3000);assert.ok(await litCount()>500,'A Cloner clones a Terrain form and a Model');
+    const v9=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:9,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'p',type:'primitive',x:0,y:0,props:{shape:'cone',size:40}},{id:'o',type:'object',x:0,y:0,props:{render:'cloud'}},{id:'w',type:'waveform3d',x:0,y:0,props:{mode:'dna'}},{id:'q',type:'palette',x:0,y:0,props:{c1:'#000000',c2:'#ff0000',c3:'#00ff00',c4:'#0000ff',colors:'3'}}],edges:[]}]}));
+    assert.deepEqual(v9.layers[0].nodes.map(n=>[n.type,n.props.mode,n.props.render]),[['waveform3d','cone','normal'],['waveform3d','model','points'],['waveform3d','dna','waveform'],['palette','toneramp',undefined]],'v9 objects become 3D Objects');
+    assert.deepEqual(v9.layers[0].nodes[3].props.stops.map(s=>s.c),['#000000','#ff0000','#00ff00','#0000ff'],'Old palette colours become ramp stops');
+    assert.deepEqual(errors,[],'No page errors in 3D');
   }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

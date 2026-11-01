@@ -313,7 +313,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   const vis=add(v.type,props);wire(sound,'audio',vis,'audio');
   let prev=vis;
   // The Cloner copies a primitive and a Sound effector makes the clones move.
-  if(v.type==='cloner'){wire(add('primitive',{shape:pick(r,['cube','sphere','ico','torus','cylinder'])},Y+170),'object',vis,'object');prev=chainTo(prev,add('soundEffector',{}));}
+  if(v.type==='cloner'){wire(add('waveform3d',{mode:pick(r,['cube','sphere','ico','torus','cylinder']),render:'normal'},Y+170),'object',vis,'object');prev=chainTo(prev,add('soundEffector',{}));}
   // Symmetry (deformer) and Spin (force) follow the visual as their own nodes.
   if(mo.symmetry)prev=chainTo(prev,add('symmetry',{mode:mo.symmetry,gap:0}));
   const spinN=mo.spin!=null&&(mo.spin||(mo.speed??1)!==1||it.data.includes('computer'))?add('spin',{spin:mo.spin,speed:mo.speed??1}):null;if(spinN)prev=chainTo(prev,spinN);

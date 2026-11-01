@@ -1,5 +1,5 @@
 import * as sensors from './sensors.js';
-import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider} from './engine.js';
 import * as ui from './ui.js';
 import * as mapping from './mapping.js';
@@ -16,10 +16,12 @@ function upstreamSim(g,n){
   return null;
 }
 // Cloner: the wired objects become the original cloner's shape list; primitives by name, OBJ / knot as meshes.
-const PRIM_DEFAULT={...defaults('primitive'),prim:true};
+const PRIM_DEFAULT={shape:'sphere',size:60,detail:4,stretchX:100,stretchY:100,stretchZ:100,prim:true};
 const CLONER_KEYS=Object.keys(TYPES.cloner.props).filter(k=>k==='layout'||TYPES.cloner.props[k].key?.startsWith('pG3'));
-function cloneObjects(n,p,shape,input){
-  const objs=['object','object2','object3'].map(k=>input(n,k)).filter(Boolean);if(!objs.length)objs.push(PRIM_DEFAULT);
+// A 3D Object drawn Normal is a Cloner of one: itself at the centre, framed with some room around it.
+const SINGLE={...defaults('cloner'),countX:1,countY:1,countZ:1};
+function cloneObjects(objs,p,shape){
+  if(!objs.length)objs.push(PRIM_DEFAULT);
   const names=[],meshes=[];
   for(const o of objs){if(o.prim&&o.shape!=='knot')names.push(o.shape);else{names.push('mesh'+meshes.length);meshes.push(o.prim?'knot':o.mesh);}}
   const first=objs.find(o=>o.prim)||PRIM_DEFAULT,mods=shape.mods;
@@ -113,7 +115,7 @@ function addNode(type,x,y,props={}){
     // A new renderer listens to the layer's Audio node straight away.
     const src=isEngine(type)&&g.nodes.find(m=>m.type==='audioIn');if(src)g.edges.push({from:src.id,out:'audio',to:n.id,input:'audio'});
     // A Cloner always starts with an object; a new object goes into the selected Cloner's first free slot.
-    if(type==='cloner'){const o=node('primitive',n.x-210,n.y+40);g.nodes.push(o);g.edges.push({from:o.id,out:'object',to:n.id,input:'object'});}
+    if(type==='cloner'){const o=node('waveform3d',n.x-210,n.y+40,{mode:'sphere',render:'normal'});g.nodes.push(o);g.edges.push({from:o.id,out:'object',to:n.id,input:'object'});}
     const cl=TYPES[type].outputs.object&&sel?.type==='cloner'&&sel,slot=cl&&['object','object2','object3'].find(k=>!g.edges.some(e=>e.to===cl.id&&e.input===k));
     if(slot){n.x=cl.x-210;n.y=cl.y+40+130*['object','object2','object3'].indexOf(slot);g.edges.push({from:n.id,out:'object',to:cl.id,input:slot});}
   },`Added ${TYPES[type].label}`);
@@ -317,7 +319,7 @@ function execute(g,time,dt){
     const p={...n.props};
     if(n.auto)for(const k of n.auto){const s=TYPES[n.type].props[k];if(s){p[k]=autoDrift(s,p[k],n.id+k,autoClock);autoValues.set(n.id+':'+k,p[k]);}}
     for(const [k,s] of Object.entries(TYPES[n.type].props))if(s.kind==='number'&&!s.noPort&&byInput.has(n.id+':'+k))p[k]=modulate(s,p[k],input(n,k));
-    return p;
+    return n.type==='palette'?paletteAuto(p,n.id,autoClock):p;
   };
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
   const asImage=(v,consumer)=>{
@@ -343,12 +345,11 @@ function execute(g,time,dt){
         if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
       }
       r.shape={emitter:n,mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
-      if(n.type==='object'){const e=engines.get(n.id);r.object={mesh:e?.mediaKind==='object'&&e.w?.objModelData||'knot'};}
-      if(n.type==='cloner')cloneObjects(n,p,r.shape,input);
+      if(n.type==='waveform3d'){const e=engines.get(n.id);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
+      if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
       if(n.type==='camera'&&g.edges.some(e=>e.from===n.id&&e.out!=='shape')){const c=cameraNumbers();r.motion=c.motion;r.brightness=c.brightness;}
     }else switch(n.type){
       case 'value':r.value=p.value;break;
-      case 'primitive':r.object={...p,prim:true};break;
       case 'oscillator':{const s=nstate(n.id,()=>({phase:0,v:0,next:0}));s.phase+=dt*p.rate;
         let w;if(p.wave==='random'){if(s.phase>=s.next){s.next=Math.floor(s.phase)+1;s.target=Math.random();}s.v+=((s.target??.5)-s.v)*Math.min(1,dt*8);w=s.v;}else w=waves[p.wave](s.phase);
         r.value=p.offset+p.depth*w;break;}
@@ -512,6 +513,7 @@ function draw(time,dt=1/30){
   dissolveDraw(paused?0:dt);
   frame++;
   if(frame%2===0){drawSpectrum();showAutoKnobs();}
+  if(frame%4===0)updatePalettePreview();
   const list=[...engines.values()],starting=list.some(e=>e.status==='starting');
   $('backend').textContent=starting?'':[...new Set(list.map(e=>e.backend||(e.status==='ready'?'Canvas2D':e.status)))].join(' / ')||'No Emitters';
   if(renderErrors.length&&!starting)message(renderErrors[0]+(renderErrors.length>1?` (+${renderErrors.length-1})`:''),true,'render');
@@ -519,10 +521,10 @@ function draw(time,dt=1/30){
   if(prevErrors.size!==nodeErrors.size||[...nodeErrors].some(id=>!prevErrors.has(id)))document.querySelectorAll('.node').forEach(e=>e.classList.toggle('error',nodeErrors.has(e.dataset.id)));
 }
 function drawSpectrum(){
-  const cv=$('spectrum'),c=cv.getContext('2d'),w=cv.width,h=cv.height,bars=48;c.clearRect(0,0,w,h);
+  const cv=$('spectrum'),c=cv.getContext('2d'),w=cv.width,h=cv.height,bars=32,step=w/bars,bw=step*.6;c.clearRect(0,0,w,h);
   for(let i=0;i<bars;i++){
     const a=Math.floor(Math.pow(BINS*.45,i/bars)),b=Math.max(a+1,Math.floor(Math.pow(BINS*.45,(i+1)/bars)));let m=0;for(let k=a;k<b;k++)m=Math.max(m,A.freq[k]);
-    const v=m/255;c.fillStyle=`hsl(${160-v*140} 80% ${40+v*20}%)`;c.fillRect(i*(w/bars),h-v*h,w/bars-1,v*h);
+    const v=m/255;c.fillStyle=`hsl(${160-v*140} 80% ${40+v*20}%)`;c.fillRect(Math.round(i*step+(step-bw)/2),h-v*h,Math.round(bw),v*h);
   }
 }
 // One shared camera stream for every engine (Webcam node, Video emitter camera source). Released when unused.
@@ -582,7 +584,7 @@ function renderLibrary(){
   }
 }
 // Waveforms and Emitters are listed per mode: each waveform / simulation is its own library entry.
-const GROUPS={inputs:['Media','Data'],waveforms:['2D'],emitters:['Particles','WebGPU particles'],'3d':['Waveforms','Objects','Cloner','Effectors','Look'],deformers:['Bend','Symmetry','Noise']};
+const GROUPS={inputs:['Media','Data'],waveforms:['2D'],emitters:['Particles','WebGPU particles'],'3d':['Objects','Cloner','Effectors','Look'],deformers:['Bend','Symmetry','Noise']};
 function groupedItems(cat){
   const items=[];
   for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat)){
@@ -617,7 +619,7 @@ function summary(n){
   if(n.type==='pointer')return 'mouse · keys';
   if(MODES[n.type])return t.label;
   if(n.type==='text')return p.text;
-  if(isEngine(n.type)){const m=engines.get(n.id)?.mediaName,r=t.props.render?.labels.find(l=>l[0]===p.render)?.[1];return [r,m||(MEDIA_KIND[n.type]?(n.type==='object'?'built-in knot':n.type==='splat'?'demo cloud':'no file'):'')].filter(Boolean).join(' · ');}
+  if(isEngine(n.type)){const m=engines.get(n.id)?.mediaName,r=t.props.render?.labels.find(l=>l[0]===p.render)?.[1];return [r,m||(mediaKind(n)?(mediaKind(n)==='object'?'built-in knot':n.type==='splat'?'demo cloud':'no file'):'')].filter(Boolean).join(' · ');}
   if(n.type==='value')return String(p.value);
   if(n.type==='oscillator')return `${p.wave} · ${p.rate} Hz`;
   if(n.type==='audio')return `${p.band} ×${p.gain}`;
@@ -911,26 +913,61 @@ function renderSimNote(root,g,n){
   const msg=!mode?`Wire this after a WebGPU simulation. Works on: ${names}.`:sims.includes(mode)?`Acting on ${emitterNames[mode]}. Also works on: ${sims.filter(m=>m!==mode).map(m=>emitterNames[m]).join(', ')||'—'}.`:`${emitterNames[mode]||'This renderer'} has no ${t.label.toLowerCase()} control. Works on: ${names}.`;
   section(root).append(el('p','insp-note',msg));
 }
-// Palette: live gradient preview of the active stops plus the original's preset swatches.
+// Palette: an editable ramp (click to add a colour, click a stop to pick, drag it off to remove, dot = Auto hue drift) plus presets.
 const gradientCss=stops=>stops.length>1?`linear-gradient(to right,${stops.join(',')})`:stops[0];
+const livePalette=n=>paletteAuto(n.props,n.id,autoClock);
 function paletteCss(p){return p.mode==='solid'?p.solid:gradientCss(p.mode==='simpleramp'?paletteStops(p).simple:paletteStops(p).tone);}
-function updatePalettePreview(){const pv=document.querySelector('.pal-preview');if(!pv)return;const n=findNode(pv.dataset.node);if(n)pv.style.background=paletteCss(n.props);}
+function updatePalettePreview(){
+  const pv=document.querySelector('.pal-preview');if(!pv)return;const n=findNode(pv.dataset.node);if(!n)return;const p=livePalette(n);pv.style.background=paletteCss(p);
+  if(p.stops)pv.querySelectorAll('.pal-stop').forEach((m,i)=>{if(p.stops[i])m.style.background=p.stops[i].c;});
+}
 function paletteKeys(p){
   if(p.mode==='solid')return ['mode','solid','blend','mix'];
-  return ['mode','colors',...(p.mode==='toneramp'?['c1']:[]),'c2','c3','c4',...(p.colors==='4'?['c5']:[]),...(p.mode==='toneramp'?['fade']:[]),'blend','mix'];
+  return ['mode',...(p.mode==='toneramp'?['fade']:[]),'blend','mix'];
+}
+const hexRgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),rgbHex=c=>'#'+c.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
+function paletteRamp(s,n){
+  const pv=el('div','pal-preview pal-ramp');pv.dataset.node=n.id;pv.dataset.property='stops';pv.style.background=paletteCss(livePalette(n));s.append(pv);
+  if(n.props.mode==='solid')return;
+  const stops=n.props.stops,last=stops.length-1,at=i=>`${i/last*100}%`;
+  const setStops=(fn,label)=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id).props;x.stops=fn(x.stops.map(st=>({...st})));},label);
+  pv.title='Click to add a colour';
+  pv.onclick=e=>{
+    if(e.target!==pv||stops.length>=MAX_STOPS)return;const r=pv.getBoundingClientRect(),f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),k=Math.min(last,Math.max(1,Math.ceil(f*last)));
+    const t=f*last-(k-1),a=hexRgb(stops[k-1].c),b=hexRgb(stops[k].c);
+    setStops(st=>{st.splice(k,0,{c:rgbHex(a.map((v,j)=>v+(b[j]-v)*Math.max(0,Math.min(1,t)))),auto:false});return st;},'Palette: add colour');
+  };
+  const autos=el('div','pal-autos');
+  stops.forEach((st,i)=>{
+    const m=el('div','pal-stop');m.style.left=at(i);m.style.background=st.c;m.dataset.index=i;m.title='Click to pick · drag off to remove';
+    const pick=el('input');pick.type='color';pick.value=st.c;pick.tabIndex=-1;pick.setAttribute('aria-label',`Colour ${i+1}`);m.append(pick);
+    pick.oninput=()=>live(()=>{findNode(n.id).props.stops[i].c=pick.value;});
+    pick.onchange=()=>{liveCommit('Palette: colour');renderProperties();};
+    m.onpointerdown=e=>{
+      if(e.button!==0)return;e.preventDefault();const y0=e.clientY,x0=e.clientX;let off=false,moved=false;m.setPointerCapture(e.pointerId);
+      m.onpointermove=ev=>{moved||=Math.hypot(ev.clientX-x0,ev.clientY-y0)>4;off=stops.length>2&&Math.abs(ev.clientY-y0)>28;m.classList.toggle('removing',off);m.style.transform=moved?`translate(-50%,${ev.clientY-y0}px)`:'';};
+      m.onpointerup=()=>{m.onpointermove=m.onpointerup=null;m.style.transform='';
+        if(off)setStops(st=>{st.splice(i,1);return st;},'Palette: remove colour');else if(!moved)pick.click();};
+    };
+    m.oncontextmenu=e=>{e.preventDefault();if(stops.length>2)setStops(st=>{st.splice(i,1);return st;},'Palette: remove colour');};
+    pv.append(m);
+    const a=el('button','knob-auto pal-auto'+(st.auto?' on':''));a.type='button';a.style.left=at(i);a.dataset.index=i;a.title='Auto: slowly wander the hue';a.setAttribute('aria-pressed',String(!!st.auto));
+    a.onclick=()=>setStops(x=>{x[i].auto=!x[i].auto;return x;},`Palette: auto colour ${i+1} ${st.auto?'off':'on'}`);autos.append(a);
+  });
+  s.append(autos);
 }
 function renderPalettePresets(root,n){
-  const s=section(root,'Palette'),pv=el('div','pal-preview');pv.dataset.node=n.id;pv.style.background=paletteCss(n.props);s.append(pv);
+  const s=section(root,'Palette');paletteRamp(s,n);
   const box=el('div','pal-presets');box.dataset.property=n.props.mode==='solid'?'solidPreset':'palettePreset';
   if(n.props.mode==='solid')for(const c of SOLID_PRESETS){
     const b=el('button','pal-swatch solid');b.type='button';b.title=c;b.dataset.value=c;b.style.background=c;b.classList.toggle('on',n.props.solid.toLowerCase()===c);
     b.onclick=()=>edit((p,g)=>{g.nodes.find(x=>x.id===n.id).props.solid=c;},'Palette: '+c);box.append(b);
   }
   else for(const [name,st] of Object.entries(PALETTES)){
-    const p=n.props,cur=[p.c1,p.c2,p.c3,p.c4,...(p.colors==='4'?[p.c5]:[])].join().toLowerCase();
+    const want=n.props.mode==='simpleramp'?st.slice(1):st,cur=n.props.stops.map(x=>x.c).join();
     const b=el('button','pal-swatch');b.type='button';b.title=name;b.dataset.value=name;b.setAttribute('aria-label','Palette '+name);
-    b.style.background=gradientCss(n.props.mode==='simpleramp'?st.slice(1):[st[0]+'00',...st.slice(1)]);b.classList.toggle('on',cur===st.join().toLowerCase());
-    b.onclick=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id).props;[x.c1,x.c2,x.c3,x.c4]=st;x.c5=st[4]||x.c5;x.colors=st.length>4?'4':'3';x.fade=0;},'Palette: '+name);
+    b.style.background=gradientCss(n.props.mode==='simpleramp'?want:[st[0]+'00',...st.slice(1)]);b.classList.toggle('on',cur===want.join().toLowerCase());
+    b.onclick=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id).props;x.stops=want.map((c,i)=>({c:c.toLowerCase(),auto:!!x.stops[i]?.auto}));x.fade=0;},'Palette: '+name);
     box.append(b);
   }
   s.append(box);
@@ -985,18 +1022,19 @@ function renderEmitter(root,n){
     sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);setMode(g,x,sel.value);},`${T.label}: ${emitterNames[sel.value]}`);
     s.append(ui.field(T.props.mode.label,sel));
   }
-  if(T.props.render)s.append(ui.chips({options:T.props.render.labels,value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)}));
+  if(T.props.render)s.append(ui.chips({options:T.props.render.labels.filter(l=>!(n.type==='waveform3d'&&l[0]==='points'&&n.props.mode!=='model')),value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)}));
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS);
+  if(n.type==='waveform3d'&&n.props.render==='normal'&&n.props.mode!=='model')renderProps(root,n,Object.keys(PRIM_DEFAULT).filter(k=>k!=='shape'&&k!=='prim'));
   if(n.type==='camera')s.append(el('p','insp-note','Uses your camera (the browser asks once). Its motion and brightness outputs are numbers for any knob.'));
-  const kind=MEDIA_KIND[n.type];
+  const kind=mediaKind(n);
   if(kind){
     const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj';
     f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);message('Loaded '+f.files[0].name);renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
     s.append(ui.field(`Load ${kind==='object'?'OBJ':kind==='splat'?'.ply / .splat':kind}`,f),el('p','insp-note',engines.get(n.id)?.mediaName?`Loaded: ${engines.get(n.id).mediaName} (not saved in projects)`:'Media files are not saved in projects.'));
   }
   const wiredOf=k=>graph().edges.some(e=>e.to===n.id&&e.input===k);
-  const geo={};for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){const gr=T.props[k].group;if(gr==='Lines'&&['gpuParticles','splat','cloner'].includes(n.type))continue;(geo[gr]||=[]).push(k);}
+  const geo={};for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){const gr=T.props[k].group;if(gr==='Lines'&&['gpuParticles','splat','cloner'].includes(n.type)||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;(geo[gr]||=[]).push(k);}
   for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr,!['Symmetry','Line style','Outline'].includes(gr)),n,ks,true);
   const d=fold(root,'Sound response');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
@@ -1172,7 +1210,7 @@ function clonerGraph(P,i){
     return any&&props;};
   const sound=add('audioIn',40,80),cl=add('cloner',x,80,take('cloner')||{});wire(sound,'audio',cl,'audio');
   const shapes=String(o.g3Shape||'sphere').split(',').slice(0,3),prim={size:k.pG3Size??60,detail:k.pG3Detail??4,stretchX:k.pG3ObjX??100,stretchY:k.pG3ObjY??100,stretchZ:k.pG3ObjZ??100};
-  shapes.forEach((sh,j)=>wire(add('primitive',x-220,330+j*120,{...prim,shape:sh}),'object',cl,['object','object2','object3'][j]));
+  shapes.forEach((sh,j)=>wire(add('waveform3d',x-220,330+j*120,{...prim,mode:sh,render:'normal'}),'object',cl,['object','object2','object3'][j]));
   let prev=cl;x+=220;
   for(const t of CLONER_CHAIN){const props=take(t);if(!props&&t!=='soundEffector')continue;const n=add(t,x,80,props||{});wire(prev,'shape',n,'shape');prev=n;x+=220;}
   const pal=PALETTES[CLONER_PALETTES[i%CLONER_PALETTES.length]],pn=add('palette',x,80,{c1:pal[0],c2:pal[1],c3:pal[2],c4:pal[3],c5:pal[4]||pal[3],colors:pal.length>4?'4':'3'});wire(prev,'shape',pn,'shape');x+=220;
@@ -1279,13 +1317,13 @@ $('helpBody').innerHTML=`
 <li><b>Delete</b> removes the selected node and heals the chain. Press and hold a node's title (or Alt-drag) to pull it out of its chain.</li>
 <li>Each node shows a live thumbnail of what it outputs. Changes always fade in and out, never cut.</li></ul>
 <h3 id="h-library">The library</h3>
-<ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, 3D Object, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, MIDI).</li>
+<ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, MIDI).</li>
 <li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Harmonic, Math…).</li>
 <li><b>Emitters</b>: classic Particles and native WebGPU simulations (Particles, Fluid, Smoke, Granular sand).</li>
-<li><b>3D</b>: 3D waveforms (Terrain, Sphere, DNA, Knot…), Primitives, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
+<li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and Model for your OBJ), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
-<li><b>Color</b>: Palette (without one, shapes draw in grayscale), Hue shift, Color correct.</li>
+<li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto), Hue shift, Color correct.</li>
 <li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Corner pin, Quick filter.</li>
 <li><b>Controls</b> make numbers: Value, LFO, Map range, Smooth, Math, Amplify, Random. <b>Audio analysis</b>: Audio band, Beat, Audio EQ.</li>
 <li><b>Composite</b>: Background, Blend, Merge, Mask, Feedback, Image transform, Layer and <b>Output</b>.</li></ul>
@@ -1550,12 +1588,12 @@ function apAddLayer(){
 // Tween a property towards a target without touching the undo history (the change is the music's, not the user's).
 function apTween(g,n,key,to,dur){
   const from=n.props[key];if(from===undefined||from===to)return;
-  apTweens.set(g.id+'|'+n.id+'|'+key,{g:g.id,n:n.id,key,from,to,t:0,dur:Math.max(.05,dur),color:typeof to==='string'});
+  apTweens.set(g.id+'|'+n.id+'|'+key,{g:g.id,n:n.id,key,from,to,t:0,dur:Math.max(.05,dur),color:typeof to==='string',stops:Array.isArray(to)});
 }
 function apColors(kind){
   const E=director.energy(kind),seed=(Math.random()*1e9)|0;
   state.layers.forEach((g,i)=>{const stops=autopilot.paletteFor(ap.intent,{seed,energy:E,index:i});
-    for(const n of g.nodes)if(n.type==='palette')['c1','c2','c3','c4'].forEach((k,j)=>apTween(g,n,k,stops[j]||stops[stops.length-1],ap.fade));});
+    for(const n of g.nodes)if(n.type==='palette')apTween(g,n,'stops',stops.slice(0,MAX_STOPS).map((c,j)=>({c,auto:!!n.props.stops[j]?.auto})),ap.fade);});
 }
 // Mood: rebuild the same description at the section's energy and glide matching knobs (bloom, intensity, spin…) there.
 const MOOD_KEYS=new Set(['bloom','intensity','punch','release','height','thick','spin','amount','strength','decay','fade','speed','density','glow','scale']);
@@ -1586,7 +1624,7 @@ function autopilotStep(dt){
     const nodes=new Map();for(const g of state.layers)for(const n of g.nodes)nodes.set(n.id,n);let ended=false;
     for(const [key,tw] of apTweens){const n=nodes.get(tw.n);if(!n){apTweens.delete(key);continue;}
       tw.t=Math.min(1,tw.t+dt/tw.dur);const e=tw.t*tw.t*(3-2*tw.t);
-      n.props[tw.key]=tw.color?autopilot.mixHex(tw.from,tw.to,e):(()=>{const v=tw.from+(tw.to-tw.from)*e,st=TYPES[n.type].props[tw.key]?.step||.01;return Math.round(v/st)*st;})();
+      n.props[tw.key]=tw.stops?tw.to.map((s,i)=>({...s,c:autopilot.mixHex((tw.from[Math.min(i,tw.from.length-1)]||s).c,s.c,e)})):tw.color?autopilot.mixHex(tw.from,tw.to,e):(()=>{const v=tw.from+(tw.to-tw.from)*e,st=TYPES[n.type].props[tw.key]?.step||.01;return Math.round(v/st)*st;})();
       if(tw.t>=1){n.props[tw.key]=tw.to;apTweens.delete(key);ended=true;}}
     if(frame%6===0||ended)updateSummaries();
     if(ended&&!apTweens.size&&selected&&!document.activeElement?.closest?.('#properties'))renderProperties();

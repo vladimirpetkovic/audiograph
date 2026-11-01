@@ -18,8 +18,7 @@ each with its own opacity and blend mode (up to four).
   - **Image**, **Video**: drawn as lines, or **Pixel warp**.
   - **Camera**: lines or Pixel warp from the camera. It also outputs the numbers
     **motion** and **brightness**.
-  - **Text**, **3D Object** (built-in knot or your OBJ, as a mesh or a
-    **point cloud**), **Gaussian Splat** (.ply / .splat, demo cloud by default).
+  - **Text**, **Gaussian Splat** (.ply / .splat, demo cloud by default).
   - **Data** inputs give 0–1 numbers for any knob, with live meters in the inspector:
     - **Computer**: cpu, core (busiest core), gpu, memory, fps, network, battery and
       activity (spikes whenever a reading changes). **Range: Auto** (default) stretches each
@@ -33,13 +32,15 @@ each with its own opacity and blend mode (up to four).
     - **Mouse & keys**: x, y, speed, click, held, keys (typing rate), scroll.
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
 - **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…).
-- **3D**: **Waveforms** (Terrain, Sphere, DNA, Knot…), **Objects**
-  (Primitive: cube, sphere, ico, torus, cylinder, cone, knot…, with size, detail
-  and stretch), **Cloner** (layout, counts, spacing, steps, rotation, variety;
-  takes up to three `object` inputs: Primitives or a 3D Object, whose loaded OBJ is
-  cloned), **Effectors** (Sound, Field, Random, Links) and **Look** (Material,
+- **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
+  Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain and **Model** (your
+  imported OBJ, the built-in knot until you load one). **Render** is **Normal** (a
+  solid, lit object with size, detail and stretch), **Waveform** (audio-reactive
+  lines) or, for a Model, **Points**. Every 3D Object has an `object` output:
+  **Cloner** (layout, counts, spacing, steps, rotation, variety) takes up to three and
+  clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links) and **Look** (Material,
   Light, Camera). Chain effectors and look nodes after the Cloner. The original's
-  cloner presets are templates under **3D cloner**. Older cloner projects split
+  cloner presets are templates under **3D cloner**. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
   into these nodes automatically.
 - **Emitters** (particles): **Particles** (classic) and **WebGPU
   particles** (Particles, Fluid, Smoke, Granular sand). WebGPU simulations react harder to sound than in the original
@@ -75,7 +76,10 @@ each with its own opacity and blend mode (up to four).
   Disorder, Randomize, Flow field for classic Particles, Turbulence for WebGPU
   Particles and Smoke).
 - **Color**: Palette (tone ramp, simple ramp or solid, with the original's 14
-  presets and a live gradient preview), Hue shift (static or cycling) and
+  presets). Its colours live on the ramp itself: click the ramp to add a colour
+  (2–8), click a stop to pick its colour, drag a stop off the ramp (or right-click)
+  to remove it. The dot under each stop is **Auto**: that colour's hue slowly
+  wanders on its own path. Hue shift (static or cycling) and
   Color correct (brightness, contrast, saturation, hue, invert). Palette and Hue
   shift take a shape *or* any image (a Merge, Post FX…), so
   they fit anywhere in a chain. Palette **Blend** Normal replaces the colors that

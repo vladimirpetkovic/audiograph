@@ -3,7 +3,7 @@
 import {cleanMapping} from './mapping.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
-  waveform3d: [['terrain','Terrain'],['sphere','Sphere'],['tetrahedron','Tetrahedron'],['dna','DNA'],['knot','Knot'],['cube','Cube'],['torus','Torus']],
+  waveform3d: [['sphere','Sphere'],['cube','Cube'],['torus','Torus'],['cylinder','Cylinder'],['cone','Cone'],['ico','Icosphere'],['pyramid','Pyramid'],['frame','Frame'],['knot','Knot'],['tetrahedron','Tetrahedron'],['dna','DNA'],['terrain','Terrain'],['model','Model']],
   gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand']]
 };
 export const emitterNames = {...Object.fromEntries(Object.values(MODES).flat()),simcloner:'Cloner'};
@@ -39,6 +39,8 @@ const FORCE=(label,description,props)=>({category:'forces',label,description,...
 const C3=(label,value,min,max,key,step=1)=>n(label,value,min,max,step,{key,sims:['simcloner']});
 const C3P=(label,value,choices,sim)=>pick(label,value,choices.map(c=>c[0]),{labels:choices,sim,sims:['simcloner']});
 const C3D=(group,label,description,props)=>({category:'3d',group,label,description,...SHAPE_IO,props});
+export const OBJECT_RENDERS=[['normal','Normal'],['waveform','Waveform'],['points','Points']];
+export const PRIM_PROPS={size:n('Size',60,2,300,5),detail:n('Detail',4,1,10,1),stretchX:n('Stretch X',100,10,500,5),stretchY:n('Stretch Y',100,10,500,5),stretchZ:n('Stretch Z',100,10,500,5)};
 export const PRIMITIVES=[['sphere','Sphere'],['cube','Cube'],['cylinder','Cylinder'],['cone','Cone'],['pyramid','Pyramid'],['torus','Torus'],['ico','Icosphere'],['frame','Frame'],['knot','Knot']];
 export const CLONER_LAYOUTS=[['grid','Grid'],['linear','Linear'],['ring','Radial'],['sphere','Sphere'],['scatter','Scatter'],['spiral','Spiral'],['helix','Helix'],['network','Network']];
 const FX=(label,description,props)=>({category:'postfx',label,description,...FX_IO,fx:true,props});
@@ -111,8 +113,27 @@ export const SOLID_PRESETS=['#dddde0','#ffffff','#f87171','#fb923c','#fbbf24','#
 export const PALETTE_BLENDS=[['normal','Normal'],['multiply','Multiply'],['screen','Screen'],['overlay','Overlay'],['soft-light','Soft light'],['hard-light','Hard light'],
   ['color','Color'],['hue','Hue'],['saturation','Saturation'],['luminosity','Luminosity'],['color-dodge','Dodge'],['color-burn','Burn'],['lighter','Add'],['difference','Difference'],['exclusion','Exclusion']];
 export function paletteStops(props){
-  const cols=[props.c2,props.c3,props.c4];if(props.colors==='4')cols.push(props.c5);
-  return {tone:[props.c1+Math.round(props.fade*255).toString(16).padStart(2,'0'),...cols],simple:cols};
+  const cols=props.stops.map(s=>s.c);
+  return {tone:[cols[0]+Math.round(props.fade*255).toString(16).padStart(2,'0'),...cols.slice(1)],simple:cols};
+}
+export const MAX_STOPS=8;
+// Older Palette nodes (and templates) give fixed Low/Mid/High/Peak/Max colours; they become ramp stops.
+const LEGACY_PAL=['c1','c2','c3','c4','c5','colors'];
+export function legacyPalette(props){
+  if(!LEGACY_PAL.some(k=>k in props))return props;
+  const d={c1:'#1a1a2e',c2:'#e94560',c3:'#f5a623',c4:'#6ee7b7',c5:'#ffffff'},c=k=>props[k]??d[k];
+  const cols=[...(props.mode==='simpleramp'?[]:[c('c1')]),c('c2'),c('c3'),c('c4'),...(props.colors==='4'?[c('c5')]:[])];
+  const out={...props,stops:cols.map(x=>({c:x,auto:false}))};for(const k of LEGACY_PAL)delete out[k];return out;
+}
+const hexHsl=h=>{const r=parseInt(h.slice(1,3),16)/255,g=parseInt(h.slice(3,5),16)/255,b=parseInt(h.slice(5,7),16)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,d=mx-mn;
+  if(!d)return [0,0,l];const s=d/(1-Math.abs(2*l-1)),hh=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;return [hh*60,s,l];};
+const hslHex=(h,s,l)=>{h=((h%360)+360)%360;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>Math.round(255*(l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1)))).toString(16).padStart(2,'0');return '#'+f(0)+f(8)+f(4);};
+export const rotateHue=(hex,deg)=>{const [h,s,l]=hexHsl(hex);return hslHex(h+deg,s,l);};
+// Auto colours wander slowly around the whole hue circle, each on its own seeded path.
+export function paletteAuto(props,id,clock){
+  if(!props.stops.some(s=>s.auto))return props;
+  return {...props,stops:props.stops.map((s,i)=>{if(!s.auto)return s;let h=0;for(const ch of id+i)h=(h*31+ch.charCodeAt(0))>>>0;
+    const a=(h%1000)/1000*6.283,b=((h>>>10)%1000)/1000*6.283;return {...s,c:rotateHue(s.c,150*Math.sin(a+clock*.045)+90*Math.sin(b+clock*.071))};})};
 }
 
 export const TYPES = {
@@ -135,16 +156,14 @@ export const TYPES = {
   video:ENGINE('inputs','Video','A video file drawn as audio-reactive lines, or warped by the sound.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})}),
   camera:ENGINE('inputs','Camera','Your camera drawn as audio-reactive lines, or warped by the sound. Its motion and brightness are numbers for any knob.',{render:pick('Render','lines',['lines','warp'],{labels:[['lines','Lines'],['warp','Pixel warp']]})},{motion:'number',brightness:'number'}),
   text:ENGINE('inputs','Text','Your words drawn as audio-reactive lines.',{text:text('Text','AUDIOGRAPH')}),
-  object:ENGINE('inputs','3D Object','An OBJ model (the built-in knot until you load one), as a mesh or as a point cloud. Its “object” output feeds a Cloner.',{render:pick('Render','mesh',['mesh','cloud'],{labels:[['mesh','Mesh'],['cloud','Point cloud']]})},{object:'object3d'}),
   splat:ENGINE('inputs','Gaussian Splat','A .ply / .splat point cloud that reacts to the sound (a demo cloud until you load one).',{}),
   // Waveforms and Emitters (particles)
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
-  waveform3d:ENGINE('3d','Waveform 3D','Audio-reactive lines on 3D forms.',{mode:pick('Waveform','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),...STYLE_PROPS},{},'Waveforms'),
+  // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
+  waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal) or as audio-reactive lines (Waveform). Its “object” output feeds a Cloner.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
+    render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS},{object:'object3d'},'Objects'),
   gpuParticles:ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles})},{},'WebGPU particles'),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
-  primitive:{category:'3d',group:'Objects',label:'Primitive',description:'A 3D object for the Cloner.',inputs:{},outputs:{object:'object3d'},props:{
-    shape:pick('Shape','sphere',PRIMITIVES.map(p=>p[0]),{labels:PRIMITIVES}),size:n('Size',60,2,300,5),detail:n('Detail',4,1,10,1),
-    stretchX:n('Stretch X',100,10,500,5),stretchY:n('Stretch Y',100,10,500,5),stretchZ:n('Stretch Z',100,10,500,5)}},
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
     layout:pick('Layout','grid',CLONER_LAYOUTS.map(c=>c[0]),{labels:CLONER_LAYOUTS,sim:'g3Mode'}),
     countX:G('Count',n('Count X',5,1,60,1,{key:'pG3Nx'})),countY:G('Count',n('Count Y',5,1,60,1,{key:'pG3Ny'})),countZ:G('Count',n('Count Z',5,1,60,1,{key:'pG3Nz'})),
@@ -211,7 +230,7 @@ export const TYPES = {
   // Color
   palette:{category:'color',label:'Palette',description:'Recolor anything: a shape or any image (a Merge, Post FX…). Normal replaces the colors before it; the other blend modes mix with them.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{
     mode:pick('Mode','toneramp',['toneramp','simpleramp','solid'],{labels:[['toneramp','Tone ramp'],['simpleramp','Simple ramp'],['solid','Solid']]}),
-    c1:color('Low','#1a1a2e'),c2:color('Mid','#e94560'),c3:color('High','#f5a623'),c4:color('Peak','#6ee7b7'),c5:color('Max','#ffffff'),colors:pick('Colors','3',['3','4']),
+    stops:{kind:'stops',label:'Colors',value:[{c:'#1a1a2e',auto:false},{c:'#e94560',auto:false},{c:'#f5a623',auto:false},{c:'#6ee7b7',auto:false}]},
     fade:n('Low opacity',0,0,1,.05),solid:color('Solid','#dddde0'),
     blend:pick('Blend','normal',PALETTE_BLENDS.map(b=>b[0]),{labels:PALETTE_BLENDS}),mix:n('Mix',1,0,1,.01)}},
   hue:{category:'color',label:'Hue shift',description:'Rotate hues of a shape or any image, optionally cycling over time.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{hue:n('Hue',60,-180,180,1),cycle:n('Cycle (°/s)',0,-120,120,1)}},
@@ -283,6 +302,41 @@ export function portType(n,key){return inputsOf(n.type)[key]??(isEngine(n.type)&
 export const isEngine=type=>!!TYPES[type]?.engine;
 const MEDIA_SOURCE={image:"setPixelWarpSource('image'",video:"setPixelWarpSource('video'",camera:"setPixelWarpSource('camera'"};
 // How a renderer node maps onto the original app: layout mode, forced source button, required media.
+// Meshes for shapes the original has no line model for (Waveform render) or no clone shape for (Cloner).
+const meshCache={};
+function gridMesh(U,V,at,wrapU=false,wrapV=false){
+  const verts=[],faces=[];for(let i=0;i<U;i++)for(let j=0;j<V;j++)verts.push(at(i/(wrapU?U:U-1),j/(wrapV?V:V-1)));
+  for(let i=0;i<(wrapU?U:U-1);i++)for(let j=0;j<(wrapV?V:V-1);j++){const a=i*V+j,b=((i+1)%U)*V+j,c=((i+1)%U)*V+(j+1)%V,d=i*V+(j+1)%V;faces.push([a,b,c],[a,c,d]);}
+  return {verts,faces};
+}
+function joinMeshes(list){const verts=[],faces=[];for(const m of list){const o=verts.length;verts.push(...m.verts);faces.push(...m.faces.map(f=>f.map(i=>i+o)));}return {verts,faces};}
+function box(c,h){const v=[];for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])v.push([c[0]+x*h[0],c[1]+y*h[1],c[2]+z*h[2]]);
+  return {verts:v,faces:[[0,1,3],[0,3,2],[4,6,7],[4,7,5],[0,4,5],[0,5,1],[2,3,7],[2,7,6],[0,2,6],[0,6,4],[1,5,7],[1,7,3]]};}
+const TAU=Math.PI*2;
+const SHAPE_MESHES={
+  cylinder:()=>gridMesh(40,12,(u,v)=>[Math.cos(u*TAU),v*2-1,Math.sin(u*TAU)],true),
+  cone:()=>gridMesh(40,12,(u,v)=>[(1-v)*Math.cos(u*TAU),v*2-1,(1-v)*Math.sin(u*TAU)],true),
+  ico:()=>gridMesh(10,7,(u,v)=>{const a=u*TAU,b=v*Math.PI;return [Math.sin(b)*Math.cos(a),Math.cos(b),Math.sin(b)*Math.sin(a)];},true),
+  pyramid:()=>({verts:[[0,1,0],[-1,-1,-1],[1,-1,-1],[1,-1,1],[-1,-1,1]],faces:[[0,1,2],[0,2,3],[0,3,4],[0,4,1],[1,3,2],[1,4,3]]}),
+  tetrahedron:()=>({verts:[[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]],faces:[[0,1,2],[0,3,1],[0,2,3],[1,3,2]]}),
+  frame:()=>{const t=.08,bars=[];for(const a of [-1,1])for(const b of [-1,1])bars.push(box([0,a,b],[1,t,t]),box([a,0,b],[t,1,t]),box([a,b,0],[t,t,1]));return joinMeshes(bars);},
+  terrain:()=>gridMesh(28,28,(u,v)=>{const x=u*2-1,z=v*2-1;return [x,.22*Math.sin(x*5)*Math.cos(z*4)+.12*Math.sin((x+z)*9),z];}),
+  dna:()=>joinMeshes([0,Math.PI].map(off=>gridMesh(72,8,(u,v)=>{const t=u*TAU*2+off,a=v*TAU,r=.09;return [.45*Math.cos(t)+r*Math.cos(a)*Math.cos(t),u*2-1+r*Math.sin(a),.45*Math.sin(t)+r*Math.cos(a)*Math.sin(t)];},false,true)))
+};
+function withNormals(m){
+  const nm=m.verts.map(()=>[0,0,0]);
+  for(const f of m.faces){const [A,B,C]=f.map(i=>m.verts[i]),e1=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],e2=[C[0]-A[0],C[1]-A[1],C[2]-A[2]],c=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];for(const i of f)for(let k=0;k<3;k++)nm[i][k]+=c[k];}
+  return {...m,normals:nm.map(v=>{const l=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/l,v[1]/l,v[2]/l];})};
+}
+export const shapeMesh=name=>SHAPE_MESHES[name]?(meshCache[name]||=withNormals(SHAPE_MESHES[name]())):null;
+// What a 3D Object hands a Cloner: a clone shape the original knows, else a mesh.
+const CLONE_SHAPES=new Set(PRIMITIVES.map(p=>p[0]));
+export function objectOf(p,modelMesh){
+  if(p.mode==='model')return {mesh:modelMesh||'knot'};
+  const prim={shape:p.mode,size:p.size,detail:p.detail,stretchX:p.stretchX,stretchY:p.stretchY,stretchZ:p.stretchZ,prim:true};
+  if(CLONE_SHAPES.has(p.mode))return prim;
+  return {...prim,prim:false,mesh:shapeMesh(p.mode)};
+}
 export function engineSpec(n){
   const p=n.props;
   switch(n.type){
@@ -290,13 +344,17 @@ export function engineSpec(n){
     case 'video':return p.render==='warp'?{mode:'pixelwarp',source:MEDIA_SOURCE.video,need:'video'}:{mode:'video',source:"setVidSource('file'",need:'video'};
     case 'camera':return p.render==='warp'?{mode:'pixelwarp',source:MEDIA_SOURCE.camera}:{mode:'video',source:"setVidSource('camera'"};
     case 'text':return {mode:'text'};
-    case 'object':return p.render==='cloud'?{mode:'simsplat',mesh:true}:{mode:'object'};
+    case 'waveform3d':
+      if(p.render==='normal')return {mode:'simcloner',single:true};
+      if(p.mode==='model')return p.render==='points'?{mode:'simsplat',mesh:true}:{mode:'object'};
+      return SHAPE_MESHES[p.mode]&&!['tetrahedron','dna','terrain'].includes(p.mode)?{mode:p.mode,solidMesh:shapeMesh(p.mode)}:{mode:p.mode};
     case 'splat':return {mode:'simsplat',splat:true};
     case 'cloner':return {mode:'simcloner'};
     default:return {mode:p.mode};
   }
 }
-export const MEDIA_KIND={image:'image',video:'video',object:'object',splat:'splat'};
+export const MEDIA_KIND={image:'image',video:'video',splat:'splat'};
+export const mediaKind=n=>n.type==='waveform3d'?(n.props.mode==='model'?'object':undefined):MEDIA_KIND[n.type];
 export function nodeTitle(n){return TYPES[n.type].props.mode?.kind==='select'&&isEngine(n.type)?emitterNames[n.props.mode]:TYPES[n.type].label;}
 // A 'visual' input (Palette, Hue shift) takes a shape or an image.
 // 'any' (Amplify) passes through whatever is wired into it.
@@ -306,7 +364,8 @@ const uid=()=>crypto.randomUUID();
 export function defaults(type){return Object.fromEntries(Object.entries(TYPES[type].props).map(([k,v])=>[k,clone(v.value)]));}
 export function node(type,x=40,y=50,props={}) {
   if (!Object.hasOwn(TYPES,type)) throw Error('Unknown node type');
-  return {id:uid(),type,x,y,props:{...defaults(type),...props}};
+  const p={...defaults(type),...props};
+  return {id:uid(),type,x,y,props:type==='palette'?legacyPalette(p):p};
 }
 export function layer(index=1) {
   const sound=node('audioIn',40,70),emitter=index===1?node('gpuParticles',250,70):node('waveform2d',250,70),pal=node('palette',460,70),fx=node('bloom',670,70,{bloom:20}),output=node('output',880,70);
@@ -317,7 +376,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=9;
+export const VERSION=10;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -361,6 +420,10 @@ function cleanProp(s,v,label){
   if(s.kind==='select'){if(!s.choices.includes(v))throw Error(`Invalid ${label}`);return v;}
   if(s.kind==='bool'){if(typeof v!=='boolean')throw Error(`${label} must be on or off`);return v;}
   if(s.kind==='color'){if(typeof v!=='string'||!/^#[0-9a-fA-F]{6}$/.test(v))throw Error(`${label} must be a #rrggbb color`);return v.toLowerCase();}
+  if(s.kind==='stops'){
+    if(!Array.isArray(v)||v.length<2||v.length>MAX_STOPS)throw Error(`${label}: 2–${MAX_STOPS} colours`);
+    return v.map(x=>{const c=typeof x==='string'?x:x?.c;if(typeof c!=='string'||!/^#[0-9a-fA-F]{6}$/.test(c))throw Error(`${label} must be #rrggbb colours`);return {c:c.toLowerCase(),auto:typeof x==='object'&&x.auto===true};});
+  }
   if(s.kind==='dict'){
     if(!v||typeof v!=='object'||Array.isArray(v))throw Error(`Invalid ${label}`);
     const out={},entries=Object.entries(v);if(entries.length>s.limit)throw Error(`Too many ${label}`);
@@ -436,7 +499,17 @@ function migrate(raw){
   if(raw.version<7)for(const g of out.layers||[])extractMotion(g);
   if(raw.version<8)for(const g of out.layers||[])dropRetired(g);
   if(raw.version<9)for(const g of out.layers||[])splitCloner(g);
+  if(raw.version<10)for(const g of out.layers||[])unifyObjects(g);
   out.version=VERSION;return out;
+}
+// Version 10: Primitive, 3D Object (OBJ) and the 3D waveforms became one 3D Object node with a Render mode.
+function unifyObjects(g){
+  for(const nd of Array.isArray(g?.nodes)?g.nodes:[]){
+    if(!nd?.props)continue;
+    if(nd.type==='primitive'){const {shape,...rest}=nd.props;nd.type='waveform3d';nd.props={...rest,mode:shape||'sphere',render:'normal'};}
+    else if(nd.type==='object'){nd.type='waveform3d';nd.props={...nd.props,mode:'model',render:nd.props.render==='cloud'?'points':'waveform'};}
+    else if(nd.type==='waveform3d'&&!nd.props.render)nd.props.render='waveform';
+  }
 }
 // Version 8: Boids and Ferrofluid were retired (they become Particles and Fluid) along with the Flocking force.
 const RETIRED_MODE={simboids:'simparticles',simferro:'simfluid'};
@@ -462,7 +535,7 @@ function splitCloner(g){
     const props={},prim={id:`${c.id}_obj`.slice(0,60),type:'primitive',x:(c.x||0)-220,y:(c.y||0)+140,props:{}};
     for(const [k,v] of Object.entries(opts)){if(keyOf[k])props[keyOf[k]]=v;else if(PRIM_KEYS[k])prim.props[PRIM_KEYS[k]]=v;}
     for(const label of Object.values(chips)){if(G3_LAYOUT_LABEL[label])props.layout=G3_LAYOUT_LABEL[label];if(G3_SHAPE_LABEL[label])prim.props.shape=G3_SHAPE_LABEL[label];}
-    for(const [k,s] of Object.entries(TYPES.primitive.props))if(prim.props[k]===undefined)prim.props[k]=s.value;
+    for(const [k,s] of Object.entries({shape:{value:'sphere'},...PRIM_PROPS}))if(prim.props[k]===undefined)prim.props[k]=s.value;
     for(const [k,s] of Object.entries(TYPES.cloner.props))if(props[k]===undefined)props[k]=s.value;
     c.type='cloner';c.props=props;
     for(const e of g.edges)if(e&&e.to===c.id&&typeof e.input==='string'&&e.input.startsWith('opt_')){const k=e.input.slice(4);if(keyOf[k])e.input=keyOf[k];}
@@ -552,8 +625,8 @@ export function validate(input) {
       if(!nd||!Object.hasOwn(TYPES,nd.type))throw Error('Unknown node type');
       if(isEngine(nd.type))emitters++;
       if(!nd.props||typeof nd.props!=='object'||Array.isArray(nd.props))throw Error('Node properties are missing');
-      const props={};
-      for(const [key,s] of Object.entries(TYPES[nd.type].props))props[key]=cleanProp(s,nd.props[key],s.label);
+      const props={},src=nd.type==='palette'?legacyPalette(nd.props):nd.props;
+      for(const [key,s] of Object.entries(TYPES[nd.type].props))props[key]=cleanProp(s,src[key],s.label);
       const out={id:unique(nd.id),type:nd.type,x:finite(nd.x,-10000,10000,'Node X'),y:finite(nd.y,-10000,10000,'Node Y'),props};
       if(nd.auto!==undefined){
         if(!Array.isArray(nd.auto)||nd.auto.length>64)throw Error('Invalid auto knobs');
