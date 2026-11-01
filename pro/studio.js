@@ -7,6 +7,7 @@ import {needsWarp,warpInto} from './warp.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as autopilot from './autopilot.js';
+import {Pilot,Generator,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
 import {ORIGINAL_PRESETS,CLONER_PRESETS} from './templates.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
@@ -577,7 +578,7 @@ function dissolveCheck(){
 function dissolveDraw(dt){
   if(!fade)return;
   // Only engines drawn in the last moment hold the fade; idle ones (an Object feeding a Cloner) never get ready.
-  const now=performance.now(),waiting=[...engines.values()].some(e=>now-(e.drawnAt||0)<500&&(e.status==='starting'||(e.mode?.startsWith?.('sim')&&e.w?.agSim?.status?.()!=='ready')));
+  const now=performance.now(),waiting=apBusy()||[...engines.values()].some(e=>now-(e.drawnAt||0)<500&&(e.status==='starting'||(e.mode?.startsWith?.('sim')&&e.w?.agSim?.status?.()!=='ready')));
   if(waiting&&(fade.hold+=dt)<10){}else fade.t=Math.min(1,fade.t+dt/fade.dur);
   const a=1-fade.t*fade.t*(3-2*fade.t);
   if(a>0){previewCtx.globalAlpha=a;previewCtx.globalCompositeOperation='source-over';previewCtx.drawImage(fadeCv,0,0);previewCtx.globalAlpha=1;}
@@ -1520,7 +1521,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-mapping">Mapping</h3>
 <p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p>
 <h3 id="h-auto">Autopilot</h3>
-<p>Describe a look in words, for example “slow dreamy blue and gold smoke with soft glow”, and Autopilot builds the graph as you type. Turn Autopilot on and it keeps following the music, changing colours, mood or everything at the pace you set, always with a fade. Turn <b>Write</b> on and it writes its own descriptions too. Next jumps to a new look now; Hold keeps the current one.</p>
+<p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”) is optional and steers it; <b>Prompt match</b> sets how closely. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look.</p>
 <h3 id="h-files">Saving &amp; output</h3>
 <ul><li><b>Save</b> (⌘S) writes an <b>.ag</b> scene file and keeps a copy in this browser; ⇧⌘S saves as a new file. <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Restore</b> brings back the browser copy. Media files are not stored: reload them in their input nodes.</li>
 <li>Record (●) captures the preview with its audio to video; the camera button saves a PNG.</li>
@@ -1766,83 +1767,202 @@ function mapKey(e){
 }
 
 // ---------- autopilot ----------
-// Describe a look in plain words → a node graph. Live mode follows the song's sections and changes colours,
-// mood (tweened knobs) or everything, at most once per "Every" seconds unless the music drops.
+// Ported from the original Audiograph: it listens for the song's sections (breakdown, groove, build-up, drop) and at
+// each one slowly crossfades to a fitting variation. Colours / Mood restyle your own layers. Everything runs its own
+// stack of 1–3 layers in four fixed layers: a new look warms up out of sight and then fades in while the old one fades
+// out, so a change never rebuilds the graph or starts new engines. Full rebuilds (drops) dissolve from the last frame.
 const AP_KEY='agpro.autopilot';
-const ap={prompt:'',changes:'colors',every:24,match:85,fade:3,live:false,hold:false,write:false,intent:null,seed:1,last:'',changes_n:0};
-try{Object.assign(ap,JSON.parse(localStorage.getItem(AP_KEY)||'{}'),{live:false,hold:false});}catch{}
-const director=new autopilot.Director(),apTweens=new Map();
-function apSave(){try{localStorage.setItem(AP_KEY,JSON.stringify({prompt:ap.prompt,changes:ap.changes,every:ap.every,match:ap.match,fade:ap.fade,write:ap.write}));}catch{}}
-function apIntent(){ap.intent=autopilot.parse(ap.prompt||'');return ap.intent;}
-function apProject(layers){return {...clone(state),layers};}
-let apTyping=0,apBuilt=null;
+const ap={prompt:'',changes:'everything',layers:'auto',every:24,match:85,live:false,hold:false,write:false,last:''};
+try{const s=JSON.parse(localStorage.getItem(AP_KEY)||'{}');if(s.v!==2){delete s.changes;delete s.match;delete s.every;delete s.fade;}Object.assign(ap,s,{live:false,hold:false});}catch{}
+if(!['colors','mood','everything'].includes(ap.changes))ap.changes='everything';
+if(!['auto','1','2','3'].includes(String(ap.layers)))ap.layers='auto';
+ap.every=Math.max(8,Math.min(60,+ap.every||24));
+const pilot=new Pilot(),gen=new Generator(),apTweens=new Map(),apSlots=[0,1,2,3].map(()=>({role:-1,layer:null,f0:0}));
+let apTrans=null,apPending=null,apWant=null,apVibeFor=null,apTyping=0;
+function apSave(){try{localStorage.setItem(AP_KEY,JSON.stringify({v:2,prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,write:ap.write}));}catch{}}
+const AP_SECTION={waiting:'Waiting for music…',calm:'Breakdown',groove:'Groove',build:'Build-up',drop:'Drop',phrase:'New phrase'};
+const AP_PARTS=['a','r','p','y','s','o'],apIds=k=>({g:'ap-L'+k,a:'ap-a'+k,r:'ap-r'+k,p:'ap-p'+k,y:'ap-y'+k,s:'ap-s'+k,o:'ap-o'+k});
+const apLayer=k=>state.layers.find(g=>g.id==='ap-L'+k);
+const apNode=(k,key)=>apLayer(k)?.nodes.find(n=>n.id===apIds(k)[key]);
+const apIsSlots=()=>state.layers.length===4&&[0,1,2,3].every(k=>AP_PARTS.every(x=>apNode(k,x)));
+const apBusy=()=>!!(apWant||apTrans?.warm.length);
+// The original's look generator runs inside any ready engine frame.
+function apWin(){for(const e of engines.values())if(e.status==='ready'&&e.w?.agAI)return e.w;return null;}
+function apSlotLayer(k){
+  const id=apIds(k),y=60+k*30,mk=(type,nid,x,props)=>({...node(type,40+x,y,props),id:nid});
+  return {id:id.g,name:'Autopilot '+(k+1),visible:true,opacity:0,blend:k?'screen':'source-over',
+    nodes:[mk('audioIn',id.a,0,{}),mk('waveform2d',id.r,220,{mode:'circle'}),mk('palette',id.p,440,{}),mk('symmetry',id.y,660,{mode:'none'}),mk('spin',id.s,880,{spin:0}),mk('output',id.o,1100,{})],
+    edges:[{from:id.a,out:'audio',to:id.r,input:'audio'},{from:id.r,out:'shape',to:id.p,input:'shape'},{from:id.p,out:'shape',to:id.y,input:'shape'},{from:id.y,out:'shape',to:id.s,input:'shape'},{from:id.s,out:'shape',to:id.o,input:'image'}]};
+}
+// Everything needs its four layers: the first time they replace the project (one undo step).
+function apEnsure(){
+  if(apIsSlots()){
+    // A saved Autopilot project: its visible layers become the stack again.
+    if(!apSlots.some(s=>s.role>=0)){let role=0;for(let k=0;k<4;k++){const g=apLayer(k),r=apNode(k,'r'),s=apNode(k,'s');
+      if(g.visible&&g.opacity>.01&&role<3)apSlots[k]={role:role++,layer:{layout:r.props.mode,params:{...r.props.look},opacity:g.opacity*100,spin:s.props.spin,speed:s.props.speed},f0:0};}}
+    return true;
+  }
+  apTrans=null;apTweens.clear();for(const s of apSlots)Object.assign(s,{role:-1,layer:null,f0:0});
+  nextFade=2.5;
+  if(!attempt(()=>importProject({...clone(state),layers:[0,1,2,3].map(apSlotLayer)},'Autopilot: its own four layers')))return false;
+  // The first layer starts its engine at once (invisibly) so the first look can be generated.
+  apLayer(0).opacity=.001;
+  return true;
+}
+// Original layer parameters → a look the project can store (only what differs from the defaults).
+const LOOK_TOKEN=/^[A-Za-z0-9#_.-]{0,24}$/,LOOK_KEY=/^[a-zA-Z0-9_]{1,40}$/;
+function lookValue(x,inner){
+  if(typeof x==='number')return Number.isFinite(x)&&Math.abs(x)<=1e6;if(typeof x==='boolean')return true;if(typeof x==='string')return LOOK_TOKEN.test(x);
+  if(Array.isArray(x))return !inner&&x.length<=16&&x.every(y=>(typeof y==='number'&&Number.isFinite(y))||(typeof y==='string'&&LOOK_TOKEN.test(y)));
+  return false;
+}
+function lookDiff(w,p){
+  const d=w.getDefaultLayerParams(),out={};
+  for(const [k,v] of Object.entries(p)){
+    if(Object.keys(out).length>=190)break;
+    if(!LOOK_KEY.test(k)||k==='customFnX'||k==='customFnY'||JSON.stringify(v)===JSON.stringify(d[k]))continue;
+    if((k==='_postFx'||k==='_sim')&&v&&typeof v==='object'&&!Array.isArray(v)){const o={};for(const [a,b] of Object.entries(v))if(LOOK_KEY.test(a)&&lookValue(b,true))o[a]=b;out[k]=o;}
+    else if(lookValue(v))out[k]=v;
+  }
+  return out;
+}
+const apColorsOf=p=>(p._colorMode==='solid'?[p._solidColor]:p._toneStops||[]).filter(c=>/^#[0-9a-f]{6}/i.test(c||''));
+// Palette props for a colour list (the original fades quiet tones through the first stop's alpha).
+function apPalette(colors){
+  const cs=colors.slice(0,MAX_STOPS),a=cs[0].length>7?parseInt(cs[0].slice(7,9),16)/255:1,hex=c=>c.slice(0,7).toLowerCase();
+  return {mode:cs.length>1?'toneramp':'solid',stops:cs.map(c=>({c:hex(c),auto:false})),fade:Math.round(a*20)/20,solid:hex(cs[Math.min(2,cs.length-1)])};
+}
+const apSpin=v=>Math.max(-5,Math.min(5,Math.round((+v||0)*10)/10));
+// A new look in slot k: the renderer switches mode in place (same engine); the layer stays invisible until it is warm.
+function apAssign(w,k,l,role,opacity=.001){
+  const g=apLayer(k),r=apNode(k,'r'),type=Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===l.layout))||'waveform2d';
+  r.type=type;r.props={...defaults(type),mode:l.layout,look:lookDiff(w,l.params),...geoFromLook(l.params)};
+  const cs=apColorsOf(l.params);if(cs.length)Object.assign(apNode(k,'p').props,apPalette(cs));
+  const sym=l.params._symmetryMode;apNode(k,'y').props.mode=['x','y','xy','r3','r4','r6','r8'].includes(sym)?sym:'none';
+  Object.assign(apNode(k,'s').props,{spin:apSpin(l.spin),speed:Math.max(.1,Math.min(5,+l.speed||1))});
+  for(const key of apTweens.keys())if(key.startsWith(g.id+'|'))apTweens.delete(key);
+  g.visible=true;g.opacity=opacity;g.blend=role?'screen':'source-over';
+  apSlots[k]={role,layer:l,f0:engines.get(r.id)?.frames||0};
+}
+// Warm when its engine has drawn a few frames of the new look (simulations get a moment to fill the frame).
+function apReady(k){
+  const r=apNode(k,'r'),e=r&&engines.get(r.id),sim=isSim(r?.props.mode);
+  if(!e||e.status!=='ready')return false;
+  if(sim&&e.w?.agSim?.status?.()!=='ready')return false;
+  return e.frames-(apSlots[k].f0||0)>=(sim?45:8);
+}
+// Tween a property without touching the undo history (the change is the music's, not the user's).
+function apTween(g,n,key,to,dur){
+  const from=n.props[key];if(from===undefined||JSON.stringify(from)===JSON.stringify(to))return;
+  apTweens.set(g.id+'|'+n.id+'|'+key,{n:n.id,key,from:clone(from),to,t:0,dur:Math.max(.05,dur),stops:Array.isArray(to),color:typeof to==='string'&&/^#[0-9a-f]{6}$/i.test(to)});
+}
+function apRecolor(g,colors,dur){
+  if(!colors?.length)return;const to=apPalette(colors);
+  for(const n of g.nodes)if(n.type==='palette'&&!g.edges.some(e=>e.to===n.id&&e.input!=='shape'&&e.input!=='image'&&e.input!=='visual')){
+    if(n.props.mode==='solid')apTween(g,n,'solid',to.solid,dur);
+    else{apTween(g,n,'stops',to.stops,dur);if(g.id.startsWith('ap-L'))apTween(g,n,'fade',to.fade,dur);}
+  }
+}
+// Mood on your layers: shape knobs glide to the new look's values; spin keeps its direction unless the breakdown flips it.
+const MOOD_GEO=new Set(['_amplify','_height','_twist','_wave','_bulge']);
+function apMood(g,p,spinAmt,speed,dur,flip){
+  const geo=geoFromLook(p);
+  for(const n of g.nodes){
+    const wired=k=>g.edges.some(e=>e.to===n.id&&e.input===k);
+    if(TYPES[n.type].engine&&!isSim(n.props.mode))for(const [k,v] of Object.entries(geo)){const s=TYPES[n.type].props[k];if(s?.kind==='number'&&MOOD_GEO.has(s.key)&&!wired(k))apTween(g,n,k,v,dur);}
+    if(n.type==='spin'&&!wired('spin')){const sg=(Math.sign(n.props.spin)||1)*(flip||1);apTween(g,n,'spin',apSpin(spinAmt*sg),dur);if(!wired('speed'))apTween(g,n,'speed',speed,dur);}
+  }
+}
+const apActive=()=>[0,1,2,3].filter(k=>apSlots[k].role>=0&&apLayer(k)).sort((a,b)=>apSlots[a].role-apSlots[b].role);
+// Freeze the last frame on top; it fades out once the new looks are warm (see dissolveDraw).
+function apSnapshot(dur){
+  if(!dissolveOn||!frame)return;
+  fadeCtx.globalAlpha=1;fadeCtx.globalCompositeOperation='copy';fadeCtx.drawImage(preview,0,0,WIDTH,HEIGHT);fadeCtx.globalCompositeOperation='source-over';
+  fade={t:0,hold:0,dur};
+}
+function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false){
+  if(liveBefore)return;
+  if(changes==='everything'&&!apEnsure())return;
+  const w=apWin();
+  if(!w){apWant={kind,dur,changes,force};return;}
+  if(apTrans&&kind!=='drop'&&!force&&!apWant){apPending=kind;return;}
+  apWant=null;apPending=null;
+  pilot.since=0;gen.section=pilot.section==='waiting'?'groove':pilot.section;gen.match=ap.match;gen.layers=String(ap.layers);
+  if(ap.write){let t='';for(let i=0;i<6;i++){t=autopilot.write({energy:gen.energy(kind),seed:(Math.random()*1e9)|0,prev:ap.prompt,keep:ap.match/200});if(t!==ap.prompt)break;}
+    ap.prompt=t;apSave();apShowPrompt();}
+  if(apVibeFor!==ap.prompt){gen.setVibe(w,ap.prompt);apVibeFor=ap.prompt;}
+  let summary;
+  if(changes==='everything'){
+    // Whatever was still fading lands where it was heading, under a short dissolve so nothing pops.
+    if(apTrans){apSnapshot(Math.max(1,Math.min(dur,2.5)));for(const f of apTrans.fades){const g=apLayer(f.k);if(g)g.opacity=f.to>0?f.to:0;}apTrans=null;}
+    for(let k=0;k<4;k++)if(apSlots[k].role<0&&apLayer(k))apLayer(k).opacity=0;
+    const cur=apActive(),st=gen.stack(w,kind,cur.map(k=>apSlots[k].layer)),fresh=st.roles.filter(r=>r.fresh).length;
+    const free=[0,1,2,3].filter(k=>!cur.includes(k)),fades=[],warm=[];
+    if(fresh>free.length){
+      // Full rebuild: everything changes under a frozen frame that dissolves once the new looks are drawing.
+      apSnapshot(dur);const slots=[...cur,...free];
+      for(const k of slots){apSlots[k].role=-1;apLayer(k).opacity=0;}
+      st.roles.forEach((r,i)=>{const k=slots[i];apAssign(w,k,r.layer,i,r.layer.opacity/100);warm.push(k);});
+    }else{
+      st.roles.forEach((r,i)=>{
+        const old=cur[i];
+        if(r.fresh){const k=free.shift();apAssign(w,k,r.layer,i);warm.push(k);fades.push({k,from:0,to:r.layer.opacity/100,st:st.stagger[i]||0});
+          if(old!==undefined){apSlots[old].role=-1;fades.push({k:old,from:apLayer(old).opacity,to:0,st:st.stagger[i]||0});}}
+        else{const g=apLayer(old),l=r.layer;l.params={...l.params,...recolorLook(l.params,r.colors)};l.opacity=ROLE_OP[i]||50;apSlots[old].role=i;
+          apRecolor(g,r.colors,dur);fades.push({k:old,from:g.opacity,to:l.opacity/100,st:0});g.blend=i?'screen':'source-over';}
+      });
+      // Layers the stack no longer needs (it got smaller) fade out.
+      for(const k of cur.slice(st.roles.length)){apSlots[k].role=-1;fades.push({k,from:apLayer(k).opacity,to:0,st:.15});}
+    }
+    apTrans={t:0,dur:Math.max(.3,dur),fades,warm,wt:0,kind};
+    summary=st.roles.map(r=>nameOf(r.layer.layout)).join(' + ');
+    renderUI();
+  }else{
+    // Colours / Mood: your layers glide to the new palette (and, for Mood, to the new motion and shape).
+    const st=gen.restyle(w,kind,state.layers.length),flip=kind==='calm'&&Math.random()<.3?-1:1;
+    state.layers.forEach((g,i)=>{apRecolor(g,st.colors[i],dur);if(changes==='mood')apMood(g,st.params,st.spinAmt*(i?.7:1),st.speed,dur*1.2,flip);});
+    for(const k of apActive()){const l=apSlots[k].layer;l.params={...l.params,...recolorLook(l.params,st.colors[state.layers.indexOf(apLayer(k))]||st.colors[0])};}
+    summary=changes==='mood'?'colours + mood':'colours';
+  }
+  ap.last=(AP_SECTION[kind]||kind)+' → '+summary;apStatus(true);
+}
+function apTick(dt){
+  const T=apTrans;if(!T)return;
+  if(T.warm.length){T.wt+=dt;if(!T.warm.every(apReady)&&T.wt<(T.kind==='drop'?3:8))return;T.warm=[];}
+  T.t=Math.min(1,T.t+dt/T.dur);const mo=Math.max(0,...T.fades.map(f=>f.st));
+  for(const f of T.fades){const g=apLayer(f.k);if(!g)continue;const e=smoother(Math.max(0,Math.min(1,(T.t-f.st)/Math.max(.05,1-mo))));
+    g.opacity=f.from+(f.to-f.from)*e;if(f.to>0)g.opacity=Math.max(g.opacity,.001);}
+  if(T.t<1)return;
+  for(const f of T.fades){const g=apLayer(f.k);if(g)g.opacity=Math.round(f.to*100)/100;}
+  apTrans=null;renderLayers();
+}
 // A written prompt types itself into the box.
 function apShowPrompt(){const ta=document.querySelector('[data-property=apPrompt]');if(!ta||workspace!=='auto')return;const t=ap.prompt;let k=0;clearInterval(ta._type);
   ta._type=setInterval(()=>{k=Math.min(t.length,k+2);ta.value=t.slice(0,k);if(k>=t.length){clearInterval(ta._type);ta._showRead?.();}},18);}
-function apCreate(prompt=ap.prompt,{variation=false}={}){
-  ap.prompt=prompt;apBuilt=prompt;apSave();const it=apIntent();ap.seed=variation||!ap.seed?(Math.random()*1e9)|0:ap.seed;
-  if(!variation)ap.seed=(Math.random()*1e9)|0;
-  apTweens.clear();
-  const layers=autopilot.build(it,{seed:ap.seed,match:ap.match});nextFade=Math.max(.7,ap.fade);
-  const done=importProject(apProject(layers),variation?'Autopilot: new variation':'Autopilot: created “'+(prompt||'surprise me').slice(0,48)+'”');
-  if(done){selected=graph().nodes.find(n=>isEngine(n.type)||n.type==='text')?.id||null;renderUI();}
-  ap.last=variation?'New variation':'Created from the description';renderAutoPanel();return done;
-}
-function apAddLayer(){
-  const it=apIntent(),seed=(Math.random()*1e9)|0;
-  return edit(p=>{if(p.layers.length>=LIMITS.layers)throw Error(`Up to ${LIMITS.layers} layers`);const [g]=autopilot.build({...it,layers:1},{seed,match:ap.match});g.opacity=.85;g.blend='screen';p.layers.push(g);active=g.id;},'Autopilot: added a layer');
-}
-// Tween a property towards a target without touching the undo history (the change is the music's, not the user's).
-function apTween(g,n,key,to,dur){
-  const from=n.props[key];if(from===undefined||from===to)return;
-  apTweens.set(g.id+'|'+n.id+'|'+key,{g:g.id,n:n.id,key,from,to,t:0,dur:Math.max(.05,dur),color:typeof to==='string',stops:Array.isArray(to)});
-}
-function apColors(kind){
-  const E=director.energy(kind);
-  // Never come back to a palette it showed recently.
-  let seed,key;for(let k=0;k<8;k++){seed=(Math.random()*1e9)|0;key=autopilot.paletteFor(ap.intent,{seed,energy:E,index:0}).map(c=>c[1]+c[3]+c[5]).join('');if(!apSeen(key))break;}apRemember(key);
-  state.layers.forEach((g,i)=>{const stops=autopilot.paletteFor(ap.intent,{seed,energy:E,index:i});
-    for(const n of g.nodes)if(n.type==='palette')apTween(g,n,'stops',stops.slice(0,MAX_STOPS).map((c,j)=>({c,auto:!!n.props.stops[j]?.auto})),ap.fade);});
-}
-// Mood: rebuild the same description at the section's energy and glide matching knobs (bloom, intensity, spin…) there.
-const MOOD_KEYS=new Set(['bloom','intensity','punch','release','height','thick','spin','amount','strength','decay','fade','speed','density','glow','scale']);
-function apMood(kind){
-  const target=autopilot.build(ap.intent,{seed:ap.seed,energy:director.energy(kind),match:ap.match});
-  state.layers.forEach((g,i)=>{const t=target[i];if(!t)return;const seen={};
-    for(const n of g.nodes){const k=seen[n.type]=(seen[n.type]||0)+1,m=t.nodes.filter(x=>x.type===n.type)[k-1];if(!m)continue;const spec=TYPES[n.type].props;
-      for(const key of Object.keys(m.props)){if(!MOOD_KEYS.has(key)||spec[key]?.kind!=='number'||typeof n.props[key]!=='number')continue;
-        if(g.edges.some(e=>e.to===n.id&&e.input===key))continue;
-        let v=m.props[key];if(key==='spin'&&Math.sign(v)!==Math.sign(n.props[key])&&n.props[key])v=-v;apTween(g,n,key,Math.max(spec[key].min,Math.min(spec[key].max,v)),ap.fade*1.5);}}});
-}
-// Memory of recent looks, palettes and prompts so Autopilot never loops back to them.
-const apRecent=[],apSeen=k=>apRecent.includes(k),apRemember=k=>{apRecent.push(k);if(apRecent.length>24)apRecent.shift();};
-function apChange(kind,forced=false){
-  if(!ap.intent)apIntent();ap.changes_n++;
-  const arc=director.advance(kind);
-  // Write: Autopilot writes the next description itself, matched to the music, and builds it.
-  if(ap.write){let t;for(let k=0;k<10;k++){t=autopilot.write({energy:director.energy(kind),seed:(Math.random()*1e9)|0,prev:ap.prompt,keep:ap.match/100*.5});if(!apSeen(t))break;}
-    apRemember(t);ap.prompt=t;apBuilt=ap.prompt;apSave();apIntent();apShowPrompt();}
-  // Pacing: rests only recolour (slowly), builds add mood, peaks bring a new look.
-  const big=ap.write||(ap.changes==='all'&&(forced||arc==='peak'));
-  const slow=arc==='rest'?2:arc==='peak'?.7:1,fade0=ap.fade;ap.fade=Math.max(.3,fade0*slow);
-  if(big)nextFade=Math.max(.7,ap.fade);
-  if(big){let layers;for(let k=0;k<6;k++){ap.seed=(Math.random()*1e9)|0;layers=autopilot.build(ap.intent,{seed:ap.seed,energy:director.energy(kind),match:ap.match});
-      const key=layers.map(g=>g.nodes.map(n=>n.type+(n.props.mode||'')).sort().join()).join('|');if(!apSeen(key)||k===5){apRemember(key);break;}}
-    apTweens.clear();
-    commit(validate(apProject(layers)),'Autopilot: '+kind);active=state.layers[0].id;if(!state.layers.some(g=>g.nodes.some(n=>n.id===selected)))selected=null;renderUI();}
-  else{apColors(kind);if(ap.changes!=='colors'&&arc!=='rest')apMood(kind);}
-  ap.fade=fade0;
-  ap.last=`${kind[0].toUpperCase()+kind.slice(1)} · ${arc} → ${ap.write?'new prompt':big?'new look':ap.changes==='colors'||arc==='rest'?'new colours':'colours + mood'}`;
-  apStatus(true);
+const apKind=()=>({waiting:'groove',drop:'phrase'})[pilot.section]||pilot.section;
+// Describe → a new Everything stack now (whether Autopilot runs or not).
+function apCreate(prompt=ap.prompt){
+  ap.prompt=String(prompt||'');apVibeFor=null;
+  if(ap.changes!=='everything'&&!apIsSlots())ap.changes='everything';
+  apSave();apChange(apKind(),3,'everything',true);
+  if(workspace==='auto')renderAutoPanel();
+  return true;
 }
 let apStatusT=0;
 function autopilotStep(dt){
-  if(ap.live&&!ap.hold&&A.live!==undefined){const kind=director.step(A.bands.full,dt,ap.every);if(kind&&!liveBefore)apChange(kind);}
-  if(apTweens.size&&!liveBefore){
+  if(liveBefore)return;
+  if(apWant&&apWin())apChange(apWant.kind,apWant.dur,apWant.changes,apWant.force);
+  // A section change that arrived mid-fade follows once the fade is done and the minimum gap has passed.
+  if(apPending&&!apTrans&&ap.live&&!ap.hold&&pilot.since>=MIN_GAP){const k=apPending;apPending=null;apChange(k,k==='calm'?9:7);}
+  const c=ap.live?pilot.step(dt,features(A.freq),ap.hold?1e9:ap.every,!!apTrans||ap.hold):null;
+  if(c&&!ap.hold)apChange(c.kind,c.dur);
+  apTick(dt);
+  if(apTweens.size){
     const nodes=new Map();for(const g of state.layers)for(const n of g.nodes)nodes.set(n.id,n);let ended=false;
     for(const [key,tw] of apTweens){const n=nodes.get(tw.n);if(!n){apTweens.delete(key);continue;}
-      tw.t=Math.min(1,tw.t+dt/tw.dur);const e=tw.t*tw.t*(3-2*tw.t);
-      n.props[tw.key]=tw.stops?tw.to.map((s,i)=>({...s,c:autopilot.mixHex((tw.from[Math.min(i,tw.from.length-1)]||s).c,s.c,e)})):tw.color?autopilot.mixHex(tw.from,tw.to,e):(()=>{const v=tw.from+(tw.to-tw.from)*e,st=TYPES[n.type].props[tw.key]?.step||.01;return Math.round(v/st)*st;})();
+      tw.t=Math.min(1,tw.t+dt/tw.dur);const e=smoother(tw.t);
+      n.props[tw.key]=tw.stops?tw.to.map((s,i)=>({...s,c:autopilot.mixHex((tw.from[Math.min(i,tw.from.length-1)]||s).c,s.c,e)})):tw.color?autopilot.mixHex(tw.from,tw.to,e):
+        (()=>{const v=tw.from+(tw.to-tw.from)*e,st=TYPES[n.type].props[tw.key]?.step||.01;return Math.round(v/st)*st;})();
       if(tw.t>=1){n.props[tw.key]=tw.to;apTweens.delete(key);ended=true;}}
     if(frame%6===0||ended)updateSummaries();
     if(ended&&!apTweens.size&&selected&&!document.activeElement?.closest?.('#properties'))renderProperties();
@@ -1852,38 +1972,44 @@ function autopilotStep(dt){
 function apStatus(full=false){
   $('modeAuto').classList.toggle('live',ap.live);
   const box=$('apStatus');if(!box||workspace!=='auto')return;
-  const left=Math.max(0,ap.every*director.pace()-director.since);
-  box.querySelector('b').textContent=ap.live?(ap.hold?'Hold':director.section+' · '+director.arc):'Off';
-  box.querySelector('.ap-bar i').style.width=Math.round(director.level*100)+'%';
-  box.querySelector('span').textContent=ap.live&&!ap.hold?`next ≤ ${Math.ceil(left)}s`:'';
+  const on=ap.live&&pilot.section!=='waiting';
+  box.querySelector('b').textContent=ap.live?(ap.hold?'Hold':AP_SECTION[pilot.section]):'Off';
+  box.querySelector('.ap-bar i').style.width=(on?Math.round(pilot.level*100):0)+'%';
+  box.querySelector('span').textContent=on&&!ap.hold?`next change ≤ ${Math.ceil(Math.max(0,ap.every-pilot.since))}s`:'';
   if(full){const l=$('apLast');if(l)l.textContent=ap.last?'Last change: '+ap.last:'';}
 }
+function apStart(){
+  ap.live=true;ap.hold=false;pilot.reset();
+  if(ap.changes==='everything'&&!apActive().length)apCreate(ap.prompt);
+}
+function apStop(){ap.live=false;ap.hold=false;apPending=null;}
 function renderAutoPanel(){
   const root=$('autoPanel');if(!root||workspace!=='auto')return;root.replaceChildren();
   const top=el('div','ws-top');root.append(top);
-  top.append(ui.field('Autopilot',ui.toggle({value:ap.live,labels:['On','Off'],property:'apLive',onChange:v=>{ap.live=v;ap.hold=false;if(v){apIntent();director.since=0;if(!state.layers.some(g=>g.nodes.some(n=>n.type==='palette')))apCreate(ap.prompt);}message(v?'Autopilot is following the music':'Autopilot off');renderAutoPanel();}})));
-  top.append(ui.field('Write',ui.toggle({value:ap.write,labels:['On','Off'],property:'apWrite',onChange:v=>{ap.write=v;apSave();
-    if(v){ap.live=true;ap.hold=false;director.since=0;apChange(director.section==='waiting'?'phrase':director.section,true);}renderAutoPanel();}})));
+  top.append(ui.field('Autopilot',ui.toggle({value:ap.live,labels:['On','Off'],property:'apLive',onChange:v=>{if(v)apStart();else apStop();message(v?'Autopilot is following the music':'Autopilot off');renderAutoPanel();}})));
+  top.append(ui.field('Write',ui.toggle({value:ap.write,labels:['On','Off'],property:'apWrite',onChange:v=>{ap.write=v;apSave();if(v){if(!ap.live)apStart();apChange('phrase',4,ap.changes,true);}renderAutoPanel();}})));
   const d=section(root,'Describe');
-  const ta=el('textarea','ap-prompt');ta.dataset.property='apPrompt';ta.placeholder='slow dreamy blue and gold smoke with soft glow';ta.value=ap.prompt;ta.spellcheck=false;
-  const read=el('div','ap-read');
-  const showRead=()=>{read.replaceChildren();for(const c of autopilot.parse(ta.value).read){const x=el('span','ap-chip',c.text);x.dataset.kind=c.kind;x.title=c.kind;read.append(x);}};
-  // Typing builds the look after a short pause (Enter at once). Typing takes over from Write.
-  const build=()=>{clearTimeout(apTyping);apTyping=0;if(ta.value.trim()&&ta.value!==apBuilt)apCreate(ta.value);};
-  ta.oninput=()=>{ap.prompt=ta.value;if(ap.write){ap.write=false;root.querySelector('[data-property=apWrite]')?.setValue(false);}
-    apSave();showRead();clearTimeout(apTyping);apTyping=setTimeout(build,900);};
-  ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();clearTimeout(apTyping);apTyping=0;apCreate(ta.value);}};
+  const ta=el('textarea','ap-prompt');ta.dataset.property='apPrompt';ta.placeholder='Optional: a mood, colours, shapes or motion, e.g. slow dreamy blue and gold spirals';ta.value=ap.prompt;ta.spellcheck=false;
+  const read=el('div','ap-read');read.dataset.property='apRead';
+  const showRead=()=>{const w=apWin();read.textContent=!ta.value.trim()?'Empty: Autopilot roams freely.':w?vibeText(readVibe(w,ta.value)):'';};
+  // Typing steers the next looks; after a pause (or Enter) the current look changes to match. Typing takes over from Write.
+  const build=()=>{clearTimeout(apTyping);apTyping=0;apCreate(ta.value);};
+  ta.oninput=()=>{ap.prompt=ta.value;apVibeFor=null;if(ap.write){ap.write=false;root.querySelector('[data-property=apWrite]')?.setValue(false);}
+    apSave();showRead();clearTimeout(apTyping);apTyping=setTimeout(build,1200);};
+  ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();build();}};
   ta._showRead=showRead;showRead();d.append(ta,read);
+  const mk=el('div','knob-grid');
+  mk.append(ui.knob({label:'Prompt match',min:0,max:100,step:1,value:ap.match,def:85,unit:'%',property:'apMatch',onInput:v=>{ap.match=v;},onChange:v=>{ap.match=v;apSave();}}));
+  d.append(mk);
   const live=section(root,'Follow the music');
-  live.append(ui.field('Changes',ui.chips({options:[['colors','Colours'],['mood','Colours + mood'],['all','Everything']],value:ap.changes,property:'apChanges',onChange:v=>{ap.changes=v;apSave();}})));
-  const knobs=el('div','knob-grid');
-  knobs.append(ui.knob({label:'Every',min:6,max:90,step:1,value:ap.every,def:24,unit:'s',property:'apEvery',onInput:v=>{ap.every=v;},onChange:v=>{ap.every=v;apSave();}}));
-  knobs.append(ui.knob({label:'Prompt match',min:0,max:100,step:1,value:ap.match,def:85,unit:'%',property:'apMatch',onInput:v=>{ap.match=v;},onChange:v=>{ap.match=v;apSave();}}));
-  knobs.append(ui.knob({label:'Fade',min:0,max:12,step:.5,value:ap.fade,def:3,unit:'s',property:'apFade',onInput:v=>{ap.fade=v;},onChange:v=>{ap.fade=v;apSave();}}));
-  live.append(knobs);
   const st=el('div','ap-status');st.id='apStatus';st.append(el('b'),Object.assign(el('div','ap-bar'),{innerHTML:'<i></i>'}),el('span'));live.append(st);
+  live.append(ui.field('Changes',ui.chips({options:[['colors','Colours'],['mood','Mood'],['everything','Everything']],value:ap.changes,property:'apChanges',onChange:v=>{ap.changes=v;apSave();renderAutoPanel();}})));
+  if(ap.changes==='everything')live.append(ui.field('Layers',ui.chips({options:[['auto','Auto'],['1','1'],['2','2'],['3','3']],value:String(ap.layers),property:'apLayers',onChange:v=>{ap.layers=v;apSave();}})));
+  const knobs=el('div','knob-grid');
+  knobs.append(ui.knob({label:'Every',min:8,max:60,step:1,value:ap.every,def:24,unit:'s',property:'apEvery',onInput:v=>{ap.every=v;},onChange:v=>{ap.every=v;apSave();}}));
+  live.append(knobs);
   const r2=el('div','map-actions');
-  const nb=el('button','mbtn','Next');nb.title='Change now';nb.dataset.property='apNext';nb.onclick=()=>{if(!ap.intent)apIntent();director.since=0;apChange(director.section==='waiting'?'phrase':director.section,true);};
+  const nb=el('button','mbtn','Next');nb.title='Change now';nb.dataset.property='apNext';nb.onclick=()=>apChange(apKind(),pilot.section==='drop'?2.5:7,ap.changes,true);
   const hb=el('button','mbtn',ap.hold?'Release':'Hold');hb.title='Keep the current look';hb.dataset.property='apHold';hb.disabled=!ap.live;hb.onclick=()=>{ap.hold=!ap.hold;hb.textContent=ap.hold?'Release':'Hold';apStatus();};
   r2.append(nb,hb);live.append(r2);
   const last=el('div','ap-last');last.id='apLast';live.append(last);
@@ -1896,7 +2022,10 @@ window.pro={
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
   mapMode:on=>{setMapMode(on);return mapMode;},workspace:w=>{if(w)setWorkspace(w);return workspace;},
-  dissolve:on=>{dissolveOn=!!on;if(!on)fade=null;return dissolveOn;},autopilot:{examples:autopilot.EXAMPLES,write:o=>autopilot.write(o),parse:t=>autopilot.parse(t),create:(t,o)=>apCreate(t,o),addLayer:()=>apAddLayer(),change:k=>apChange(k||'phrase',true),settings:o=>{Object.assign(ap,o||{});apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,every:ap.every,match:ap.match,fade:ap.fade,live:ap.live,hold:ap.hold,write:ap.write};},status:()=>({section:director.section,level:director.level,since:director.since,tweens:apTweens.size,last:ap.last,live:ap.live})},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
+  dissolve:on=>{dissolveOn=!!on;if(!on)fade=null;return dissolveOn;},autopilot:{examples:autopilot.EXAMPLES,write:o=>autopilot.write(o),parse:t=>autopilot.parse(t),read:t=>{const w=apWin();return w?vibeText(readVibe(w,t)):null;},create:t=>apCreate(t),
+    change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),start:()=>apStart(),stop:()=>apStop(),
+    settings:o=>{const {live,...rest}=o||{};Object.assign(ap,rest);if(live===true&&!ap.live)apStart();else if(live===false)apStop();apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,live:ap.live,hold:ap.hold,write:ap.write};},
+    status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 sensors.autoMidi();reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});

@@ -426,38 +426,46 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.locator('[data-property=mapOn] [data-value=false]').click();
     await page.locator('#modeStudio').click();assert.ok(!(await page.locator('#mapOverlay').isVisible()),'Studio mode hides the handles');}
 
-    // Autopilot: words → graph, every example builds a valid rendering project, live changes glide the palette.
+    // Autopilot (the original's): it reads the prompt, runs its own four layers and crossfades looks at the music's sections.
     {await page.locator('#modeAuto').click();assert.ok(await page.locator('#autoPanel').isVisible(),'Autopilot workspace shows its panel');
-    const it=await page.evaluate(()=>{const r=pro.autopilot.parse('blue fluid with gold spiral, no glow');return {v:r.visuals.map(v=>v.mode+':'+(v.colors||[]).join('+')),no:[...r.no]};});
-    assert.deepEqual(it.v,['simfluid:blue','spiral:gold'],'Colours belong to the visual they describe');assert.ok(it.no.includes('glow'),'Negations are read');
-    await page.fill('[data-property=apPrompt]','intense red fluid, swirling, sparks on the beat, glitchy');
-    assert.ok((await page.locator('.ap-chip').allTextContents()).includes('Swirl'),'The panel shows what it understood');
+    await page.evaluate(()=>pro.autopilot.settings({changes:'everything',layers:'auto',match:85,every:24,write:false}));
+    await page.fill('[data-property=apPrompt]','blue fluid with gold spirals');
+    assert.match(await page.locator('[data-property=apRead]').textContent(),/fluid/,'The panel shows what it understood');
     await page.press('[data-property=apPrompt]','Enter');await lit(.5,25000);
-    const types=(await project()).layers[0].nodes.map(n=>n.type);
-    for(const t of ['gpuParticles','swirl','palette','fracture','bloom','output'])assert.ok(types.includes(t),`Autopilot builds ${t}`);
-    for(const ex of await page.evaluate(()=>pro.autopilot.examples)){await page.evaluate(t=>pro.autopilot.create(t),ex);
-      await lit(.02,25000).catch(async()=>assert.fail(`Autopilot “${ex}”: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));}
-    await page.evaluate(()=>pro.autopilot.settings({changes:'mood',fade:.3}));await page.locator('[data-property=apLive] [data-value=true]').click();
+    const apIds=()=>page.evaluate(()=>({layers:pro.getProject().layers.map(g=>g.id),engines:Object.keys(pro.stats().engines)}));
+    assert.deepEqual((await apIds()).layers,['ap-L0','ap-L1','ap-L2','ap-L3'],'Everything runs in four Autopilot layers');
+    const settle=()=>page.waitForFunction(()=>!pro.autopilot.status().fading,null,{timeout:20000});
+    await settle();
+    // Sections change the look: no new engines, never a blank frame.
+    for(const k of ['phrase','drop','calm','build','phrase']){
+      await page.evaluate(k=>pro.autopilot.change(k,1),k);let min=1e9;
+      for(let t=0;t<12;t++){min=Math.min(min,await page.evaluate(()=>pro.pixels()));if(!(await page.evaluate(()=>pro.autopilot.status().fading)))break;await page.waitForTimeout(250);}
+      await settle();const st=await page.evaluate(()=>pro.autopilot.status());
+      assert.ok(st.slots.some(s=>s.role===0&&s.opacity>.9),`${k}: a lit base layer`);assert.ok(min>.3,`${k}: no blank frame (${min})`);
+      assert.ok((await apIds()).engines.every(id=>/^ap-r[0-3]$/.test(id)),`${k}: changes reuse the four engines`);
+      assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],`${k}: renders without errors`);
+    }
+    // Colours and Mood restyle your own project in place.
+    await page.evaluate(()=>{pro.loadTemplate('Kaleido spectrum');pro.autopilot.settings({changes:'colors'});});await lit(.02,25000);
     const pal=()=>page.evaluate(()=>pro.getProject().layers.flatMap(g=>g.nodes.filter(n=>n.type==='palette').map(n=>n.props.stops.map(s=>s.c).join())).join());
-    const p0=await pal(),h0=await page.evaluate(()=>pro.stats().frame);await page.locator('[data-property=apNext]').click();await page.waitForTimeout(1200);
-    assert.notEqual(await pal(),p0,'A live change glides to new colours');assert.equal((await page.evaluate(()=>pro.autopilot.status())).tweens,0,'Tweens finish');
-    const n0=await page.evaluate(()=>pro.getProject().layers[0].id);await page.evaluate(()=>{pro.autopilot.settings({changes:'all'});pro.autopilot.change('drop');});
-    assert.notEqual(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'Everything mode builds a new look on a drop');
-    await page.evaluate(()=>pro.undo());assert.equal(await page.evaluate(()=>pro.getProject().layers[0].id),n0,'A rebuilt look is one undo step');
-    // Pacing: phrase changes move through rest → build → peak arcs; colours never repeat.
-    const arcs=await page.evaluate(()=>{pro.autopilot.settings({changes:'colors',fade:.3});const out=[],pals=new Set();
-      for(let i=0;i<9;i++){pro.autopilot.change('phrase');out.push(pro.autopilot.status().last.split(' · ')[1].split(' ')[0]);}return out;});
-    assert.ok(['rest','build','peak'].every(a=>arcs.includes(a))&&arcs.indexOf('peak')>arcs.indexOf('build'),'Autopilot paces changes in arcs: '+arcs.join(','));
-    // Write: Autopilot writes and builds its own description; typing takes over.
-    await page.locator('[data-property=apWrite] [data-value=true]').click();await page.waitForTimeout(400);
+    const p0=await pal(),ids0=JSON.stringify(await apIds());await page.evaluate(()=>pro.autopilot.change('phrase',.3));await page.waitForTimeout(1000);
+    assert.notEqual(await pal(),p0,'Colours glide to a new palette');assert.equal((await page.evaluate(()=>pro.autopilot.status())).tweens,0,'Tweens finish');
+    assert.equal(JSON.stringify(await apIds()),ids0,'Colours keep your graph');
+    await page.evaluate(()=>{pro.autopilot.settings({changes:'mood'});pro.autopilot.change('drop',.3);});await page.waitForTimeout(1000);
+    assert.equal(JSON.stringify(await apIds()),ids0,'Mood keeps your graph');
+    // Write: Autopilot writes its own description; typing takes over.
+    await page.evaluate(()=>pro.autopilot.settings({changes:'everything'}));
+    await page.locator('[data-property=apWrite] [data-value=true]').click();await page.waitForTimeout(600);
     const wr=await page.evaluate(()=>pro.autopilot.settings());assert.ok(wr.write&&wr.live&&wr.prompt.length>8,'Write turns Autopilot on and writes a prompt');
-    assert.equal(await page.evaluate(()=>pro.autopilot.parse(pro.autopilot.settings().prompt).read.length>2),true,'Written prompts are understood');
+    assert.match(await page.evaluate(()=>pro.autopilot.read(pro.autopilot.settings().prompt)),/·/,'Written prompts are understood');
     await page.locator('[data-property=apPrompt]').pressSequentially('x');assert.equal((await page.evaluate(()=>pro.autopilot.settings())).write,false,'Typing turns Write off');
     await page.locator('#modeMap').click();await page.locator('#modeAuto').click();assert.ok(!(await page.locator('#mapPanel').isVisible()),'Mapping panel hides in Autopilot');
     for(const sel of ['.graph-region','.inspector'])assert.ok(!(await page.locator(sel).isVisible()),sel+' hides in Autopilot');
-    await page.fill('[data-property=apPrompt]','');await page.locator('[data-property=apPrompt]').pressSequentially('pink spiral');await page.waitForTimeout(1800);
-    assert.ok((await project()).layers[0].nodes.some(n=>n.props.mode==='spiral'),'Typing builds after a pause');
-    await page.locator('[data-property=apLive] [data-value=false]').click();await page.locator('#modeStudio').click();}
+    await page.evaluate(()=>pro.autopilot.settings({match:100}));
+    await page.fill('[data-property=apPrompt]','');await page.locator('[data-property=apPrompt]').pressSequentially('pink spiral');await page.waitForTimeout(2600);
+    assert.ok((await page.evaluate(()=>pro.autopilot.status())).slots.some(s=>s.role===0&&s.layout==='spiral'),'Typing builds after a pause');
+    await page.locator('[data-property=apLive] [data-value=false]').click();
+    await page.evaluate(()=>pro.autopilot.settings({match:85}));await page.locator('#modeStudio').click();}
 
     // 10. Save / restore round trip.
     await page.locator('#save').click();const saved=await project();

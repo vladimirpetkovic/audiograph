@@ -55,7 +55,7 @@ export const GEO_PROPS={
   };
 // Spin (Forces), Symmetry and Mirror (Deformers) are nodes; a renderer without them draws still and unmirrored.
 const MOTION_BASE={_spin:0,_spinDir:1,_speed:1,_symmetryMode:'none',_symGap:0,_flipH:false,_flipV:false,_mirrorOn:false};
-const LINE_SHAPES=[['straight','Straight'],['rounded','Rounded'],['dotted','Dotted'],['dashed','Dashed'],['pins','Pins'],['tapered','Tapered'],['caps','Caps'],['cross','Cross'],['numbers','Numbers'],['symbols','Symbols'],['words','Words'],['cascade','Cascade'],['off','Off']];
+const LINE_SHAPES=[['straight','Straight'],['rounded','Rounded'],['dotted','Dotted'],['dashed','Dashed'],['pins','Pins'],['tapered','Tapered'],['caps','Caps'],['cross','Cross'],['numbers','Numbers'],['symbols','Symbols'],['words','Words'],['cascade','Cascade'],['barcode','Feather'],['circles','Circles'],['braille','Braille'],['arrows','Arrows'],['slash','Slash'],['needles','Needles'],['diamonds','Diamonds'],['inkwater','Ink in Water'],['off','Off']];
 // Line style and outline live on the waveform nodes (grouped, closed by default).
 export const STYLE_PROPS={
   lineShape:G('Line style',pick('Style','straight',LINE_SHAPES.map(s=>s[0]),{labels:LINE_SHAPES,key:'_lineShape'})),styleSize:G('Line style',n('Size',100,30,250,5,{key:'_styleSize'})),

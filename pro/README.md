@@ -192,28 +192,31 @@ process the finished image.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when
     you switch templates.
-- **Autopilot** (third switch at the top) turns a description into a node graph:
-  - Type what you want, e.g. *"slow dreamy blue and gold smoke with soft glow"* or
-    *"blue fluid with gold spiral, no glow"*; it builds when you pause typing,
-    or at once with Enter or **Create**. The
-    chips under the box show what it understood: visuals, colours (per visual),
-    themes, mood, motion, line style, symmetry, deformers, forces, effects, how
-    it reacts to the sound, "text in quotes", CPU/mouse data, and "no …".
-  - **Write** (On/Off under the Autopilot toggle) lets Autopilot write its own
-    descriptions, matched to the music, and build them; typing takes over again.
+- **Autopilot** (third switch at the top) is the original Audiograph's Automation:
+  - Turn it **On** and it listens for the song's sections (breakdown, groove,
+    build-up, drop) and at each one slowly crossfades to a fitting variation,
+    and otherwise every **Every** seconds (8–60, default 24). Changes take
+    7–10 s, 2.5 s on a drop, and are at least 8 s apart. The status line shows
+    the section, the level and the time to the next change.
+  - **Changes**: *Colours* (your layers' palettes glide along a hue walk),
+    *Mood* (also shape, spin and speed) or *Everything* (default). Everything
+    runs its own stack of 1–3 layers (**Layers**: Auto/1/2/3): a main look
+    plus lighter companions that share its palette, are finer and spin the
+    other way. It replaces the project once (one undo step) with four
+    *Autopilot* layers; each change warms the new look up out of sight in a
+    free layer and crossfades to it, so it never rebuilds the graph or starts
+    new engines. Drops rebuild the stack under a dissolve of the last frame.
+  - **Describe** is optional: mood, colours, emitters, line style and motion
+    (*"slow dreamy blue and gold spirals"*, *"ocean smoke"*, *"neon particles,
+    fast"*). The line under it shows what it read. Typing builds after a
+    pause (Enter at once). Empty, it roams freely through the 2D and 3D
+    emitters, solids and simulations. **Prompt match** (default 85%) sets how
+    closely it sticks to your words.
+  - **Write** lets Autopilot write its own descriptions at each change;
+    typing takes over again. **Next** changes now; **Hold** keeps the look.
   - Every change to what is drawn (Autopilot, templates, adding or deleting
     nodes, wires or layers) dissolves from the last frame; new engines start
     behind it, so there is no flash.
-  - The **Autopilot** On/Off toggle at the top of the panel follows the song (calm, groove, build, drop) and changes the look
-    at most every **Every** seconds, or at once on a drop. **Changes**: Colours
-    (palettes glide), Colours + mood (also glides bloom, intensity, spin… to the
-    section's energy) or Everything (a new look on peaks; one undo step each).
-    Between song sections it paces itself in arcs: **rest** (slow colour
-    changes, held longer) → **build** (one to three rising steps with mood) →
-    **peak** (a new look, sooner) → rest; a drop is always a peak. It remembers
-    recent palettes, looks and written prompts and never loops back to them.
-    **Prompt match** sets how closely it sticks to your words,
-    **Fade** the glide time; **Next** changes now and **Hold** freezes the look.
 - **Panels**: drag the borders between the library, preview, graph and
   properties to resize them. Drag a border nearly closed or double-click it to
   hide that panel, and double-click again to bring it back. The layout is saved in this browser.
