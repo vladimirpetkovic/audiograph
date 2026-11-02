@@ -214,7 +214,23 @@ function renderMulti(root){
   const save=el('button','mbtn','Save');save.type='button';save.dataset.property='customSave';save.onclick=()=>{if(saveCustom(name.value))name.value='';else name.focus();};
   name.onkeydown=e=>{if(e.key==='Enter')save.click();};row.append(name,save);s.append(row);
 }
-function connection(from,out,to,input){return edit((p,g)=>connect(g,from,out,to,input),'Connected');}
+// Wiring A into a picture chain node B whose output goes nowhere yet splices B in when A fed the Output:
+// A → Output becomes A → B → Output instead of leaving B dangling (one undo step; branching elsewhere is untouched).
+function connection(from,out,to,input){
+  let spliced=false;
+  const ok=edit((p,g)=>{
+    connect(g,from,out,to,input);
+    const tn=g.nodes.find(n=>n.id===to);if(!tn||!isChain(tn.type)||g.edges.some(e=>e.from===to))return;
+    const down=g.edges.filter(e=>e.from===from&&e.out===out&&e.to!==to);
+    if(!down.length||!down.every(e=>g.nodes.find(m=>m.id===e.to)?.type==='output')||Object.values(TYPES[tn.type].outputs).includes('audio'))return;
+    const outs=Object.entries(TYPES[tn.type].outputs),before=g.edges;
+    const moved=down.map(e=>{const t=inputsOf(g.nodes.find(m=>m.id===e.to).type)[e.input],o=outs.find(([,ty])=>compatible(ty,t));return o&&{...e,from:to,out:o[0]};});
+    if(moved.some(m=>!m))return;
+    try{const trial={...g,edges:[...g.edges.filter(e=>!down.includes(e)),...moved]};order(trial);g.edges=trial.edges;spliced=true;}catch{g.edges=before;}
+  },'Connected');
+  if(ok&&spliced)message(`${TYPES[findNode(to).type].label} spliced into the chain`);
+  return ok;
+}
 
 // ---------- audio ----------
 const audio={context:null,buffer:null,source:null,live:null,analyser:null,monitor:null,dest:null,startedAt:0,offset:0,name:''};
@@ -578,7 +594,10 @@ function execute(g,time,dt){
         const q=[[p.tlx,p.tly],[100+p.trx,p.try],[100+p.brx,100+p.bry],[p.blx,100+p.bly]].map(([x,y])=>[x*WIDTH/100,y*HEIGHT/100]);
         if(src)warpQuad(ctx,src,q);if(p.grid==='on')drawPinGrid(ctx,q);r.image=canvas;break;}
       case 'liquidGlass':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
-        if(src&&!glassInto(ctx,src,p,time,{bass:A.bands.bass,beat:A.beatPulse}))ctx.drawImage(src,0,0);r.image=canvas;break;}
+        // Raw bass and beat jump every frame and made the blobs flicker: ease them (quick swell, slow settle).
+        const k='glass:'+n.id,sm=nodeState.get(k)||{bass:A.bands.bass,beat:0,t:time},dt=Math.min(.1,Math.max(0,time-sm.t)),ease=(v,to)=>v+(to-v)*(1-Math.exp(-dt*(to>v?6:4)));
+        sm.bass=ease(sm.bass,A.bands.bass);sm.beat=ease(sm.beat,A.beatPulse);sm.t=time;nodeState.set(k,sm);
+        if(src&&!glassInto(ctx,src,p,time,{bass:sm.bass,beat:sm.beat}))ctx.drawImage(src,0,0);r.image=canvas;break;}
       case 'blend':{const a=asImage(need(n,'a','image A'),n.id+'a'),b=asImage(need(n,'b','image B'),n.id+'b'),{canvas,ctx}=surface(n.id);
         if(a)ctx.drawImage(a,0,0);if(b){ctx.globalAlpha=p.mix;ctx.globalCompositeOperation=p.mode;ctx.drawImage(b,0,0);}ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';r.image=canvas;break;}
       case 'merge':{const {canvas,ctx}=surface(n.id);let any=false;
@@ -799,7 +818,8 @@ function libraryButton(type,label,description,props,color){
   const b=el('button','mbtn library-node');b.type='button';b.draggable=true;b.dataset.type=type;if(props.mode)b.dataset.mode=props.mode;
   b.title=description+(isChain(type)?' · Click to insert after the selected node.':'');b.style.setProperty('--cat',color);
   b.append(document.createTextNode(label));
-  b.addEventListener('dragstart',e=>e.dataTransfer.setData('application/audiograph-node',JSON.stringify({type,props})));
+  b.addEventListener('dragstart',e=>{libDrag=type;e.dataTransfer.setData('application/audiograph-node',JSON.stringify({type,props}));});
+  b.addEventListener('dragend',()=>{libDrag=null;dropMark(null);});
   b.onclick=()=>addNode(type,undefined,undefined,props);
   return b;
 }
@@ -944,15 +964,33 @@ function rankItems(items,q){
 }
 // Place a node at a graph point; dropped on a wire, a chain node is spliced into it.
 // Splice node n into the wire (from→to): source → n → destination. Returns false when the ports don't fit.
-function spliceInto(g,n,wire){
+function spliceInto(g,n,wire,dry=false){
   const e=g.edges.find(e=>e.from===wire.from&&e.out===wire.out&&e.to===wire.to&&e.input===wire.input);
   if(!e||e.from===n.id||e.to===n.id||!isChain(n.type))return false;
   const src=g.nodes.find(m=>m.id===e.from),dst=g.nodes.find(m=>m.id===e.to),srcType=TYPES[src.type].outputs[e.out];
   const inPort=Object.entries(inputsOf(n.type)).find(([,t])=>compatible(srcType,t))?.[0],outPort=Object.entries(TYPES[n.type].outputs).find(([,t])=>compatible(t,inputsOf(dst.type)[e.input]))?.[0];
-  if(!inPort||!outPort)return false;
+  if(!inPort||!outPort)return false;if(dry)return true;
   g.edges=g.edges.filter(x=>x!==e);g.edges.push({from:e.from,out:e.out,to:n.id,input:inPort},{from:n.id,out:outPort,to:e.to,input:e.input});return true;
 }
-const wireAt=(x,y,exclude)=>document.elementsFromPoint(x,y).find(w=>w.classList?.contains('wire')&&w.dataset.from&&w.dataset.from!==exclude&&w.dataset.to!==exclude);
+// Generous wire targeting: the wire passing closest to a graph-space rect (a dragged node's body) or point, within tol.
+// Several wires under a node: the one nearest its centre wins. fits() skips wires whose ports would not take the node.
+function wireNear(rect,tol,fits){
+  let best=null,score=Infinity;const cx=rect.x+rect.w/2,cy=rect.y+rect.h/2;
+  for(const w of $('wires').querySelectorAll('.wire')){
+    if(!w.dataset.from||fits&&!fits(w.dataset))continue;
+    const L=w.getTotalLength(),steps=Math.max(8,Math.ceil(L/10));
+    for(let i=0;i<=steps;i++){const q=w.getPointAtLength(L*i/steps),d=Math.hypot(Math.max(rect.x-q.x,0,q.x-rect.x-rect.w),Math.max(rect.y-q.y,0,q.y-rect.y-rect.h));
+      if(d>tol)continue;const sc=d*1e3+Math.hypot(q.x-cx,q.y-cy);if(sc<score){score=sc;best=w;}}
+  }
+  return best;
+}
+const toGraph=(x,y)=>{const r=$('graphViewport').getBoundingClientRect(),z=uiZ();return {x:((x-r.left)/z-view.x)/view.zoom,y:((y-r.top)/z-view.y)/view.zoom};};
+// A wire near a screen point (drops, Tab search): ~22 screen px of slack.
+const wireAt=(x,y,fits)=>{const p=toGraph(x,y),t=22/view.zoom;return wireNear({x:p.x,y:p.y,w:0,h:0},t,fits);};
+// The library node being dragged (dragover cannot read its data) and the wire it would drop into.
+let libDrag=null,dropWire=null;
+const dropMark=w=>{if(dropWire===w)return;dropWire?.classList.remove('wedge');dropWire=w;w?.classList.add('wedge');};
+const fitsType=type=>d=>{const g=graph();return spliceInto({...g,edges:g.edges},node(type,0,0,{}),d,true);};
 function placeNode(it,gx,gy,wire){
   if(it.custom)return insertCustom(it.custom,gx-84,gy-20);
   let made=null;
@@ -968,7 +1006,7 @@ function openSearch(){
   const vp=$('graphViewport'),r=vp.getBoundingClientRect();
   const cx=pointer.inGraph?pointer.x:r.left+r.width/2,cy=pointer.inGraph?pointer.y:r.top+r.height/3;
   const z=uiZ(),gx=((cx-r.left)/z-view.x)/view.zoom,gy=((cy-r.top)/z-view.y)/view.zoom;
-  const w=document.elementsFromPoint(cx,cy).find(x=>x.classList?.contains('wire')),wire=w?{...w.dataset}:null;
+  const w=wireAt(cx,cy),wire=w?{...w.dataset}:null;
   const box=el('div','node-search'),input=el('input'),list=el('div','node-search-list'),items=searchItems();
   input.type='search';input.placeholder=wire?'Insert into wire…':'Search nodes…';input.setAttribute('aria-label','Search nodes');list.setAttribute('role','listbox');
   let shown=[],active=0;
@@ -1036,7 +1074,7 @@ function startMove(event,n,box){
     if(!moved&&Math.hypot(e.clientX-start.x,e.clientY-start.y)<4)return;moved=true;clearTimeout(hold);
     const z=uiZ()*view.zoom;live.x=Math.round(Math.max(-10000,Math.min(10000,start.nx+(e.clientX-start.x)/z)));live.y=Math.round(Math.max(-10000,Math.min(10000,start.ny+(e.clientY-start.y)/z)));box.style.left=live.x+'px';box.style.top=live.y+'px';for(const o of group){o.m.x=o.x+live.x-start.nx;o.m.y=o.y+live.y-start.ny;if(o.box){o.box.style.left=o.m.x+'px';o.box.style.top=o.m.y+'px';}}renderWires();
     // An unconnected node dropped on a wire wedges itself in between.
-    target=null;mark(!group.length&&loose()&&isChain(n.type)?wireAt(e.clientX,e.clientY,n.id)||null:null);
+    target=null;mark(!group.length&&loose()&&isChain(n.type)?wireNear({x:live.x,y:live.y,w:box.offsetWidth,h:box.offsetHeight},18,d=>d.from!==n.id&&d.to!==n.id&&spliceInto(graph(),live,d,true)):null);
   };
   const end=()=>{clearTimeout(hold);box.classList.remove('dragging','hold','detached');box.removeEventListener('pointermove',move);box.removeEventListener('pointerup',end);box.removeEventListener('pointercancel',end);
     const w=target&&{...target.dataset};mark(null);
@@ -1695,7 +1733,8 @@ $('helpBody').innerHTML=`
 <h3 id="h-graph">Nodes &amp; wires</h3>
 <p>Wires carry typed values, colour-coded on their ports: <span style="color:${PORT_COLORS.audio}">audio</span> (the sound), <span style="color:${PORT_COLORS.shape}">shape</span> (something that can still be bent and recoloured), <span style="color:${PORT_COLORS.image}">image</span> (finished pixels), <span style="color:${PORT_COLORS.number}">number</span> (a value that drives knobs), <span style="color:${PORT_COLORS.colors}">colors</span> (a palette) and <span style="color:${PORT_COLORS.object3d}">3D object</span>. A shape wired into an image input is rendered at that point; after that it is pixels. A typical chain is Audio → Waveform or Emitter → Deformers → Palette → Post FX → Output.</p>
 <ul><li>Drag from an output port to an input port to connect. Click a wire to remove it. Ports only accept matching types.</li>
-<li><b>Tab</b> over the graph searches every node and drops it at the cursor; over a wire it is inserted into the wire.</li>
+<li><b>Tab</b> over the graph searches every node and drops it at the cursor; over (or near) a wire it is inserted into the wire.</li>
+<li>Drag an unconnected node so its body covers a wire and the wire lights up; let go to wedge it in. Library items work the same way.</li>
 <li>Drag empty space to pan, wheel or pinch to zoom, <b>Fit</b> frames everything.</li>
 <li><b>Delete</b> removes the selected node and heals the chain. Press and hold a node's title (or Alt-drag) to pull it out of its chain.</li>
 <li><b>Bypass</b> (⏻ on a node, or <b>B</b>) switches it off: its input passes straight through, so you can compare with and without. Bypassed nodes look dashed and dim.</li>
@@ -1705,7 +1744,7 @@ $('helpBody').innerHTML=`
 <ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, Live data from the ISS, space weather, the ocean, weather, earthquakes or Wikipedia, MIDI). Live data also makes a palette: wire it into a Palette’s colors.</li>
 <li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Sacred, Math…).</li>
 <li><b>Emitters</b>: classic Particles and native WebGPU simulations (Particles, Fluid, Smoke, Granular sand).</li>
-<li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, GLB or glTF), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
+<li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, GLB or glTF), drawn <b>Normal</b> (solid), as a <b>Waveform</b> (lines) or as <b>Polygons</b> (filled faces that light up and move with the sound); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
 <li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto; the box under each stop is that colour's opacity: type a % or drag it up/down; Opacity makes the whole result see-through), Hue shift, Color correct.</li>
@@ -1722,7 +1761,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-layers">Layers</h3>
 <p>Each graph is one layer. <b>+ Layer</b> adds another; layers stack in the preview using each layer's opacity and blend mode (select empty graph space to see the layer settings). Use the tabs above the graph to switch layers and the checkbox to show or hide one. A <b>Layer</b> node brings another layer into this graph, so one layer can be refracted, masked or blended by another.</p>
 <h3 id="h-3d">3D &amp; models</h3>
-<ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (audio-reactive lines) or Points. Drag the preview to orbit.</li>
+<ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (audio-reactive lines), Polygons (faces that flash and push out with their band; Gap separates them, Edges outlines them) or Points (3D model). Drag the preview to orbit.</li>
 <li><b>3D model</b> loads <b>OBJ, FBX, GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers). Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound pushes clones with the music, Field, Random, Links draws lines between them) and <b>Look</b> nodes (Material, Light, 3D camera with Depth of field) after it.</li>
 <li>A 3D Object can also feed an emitter's <b>emit</b> input: particles, fluid, smoke or sand stream from the live (even animated) surface.</li></ul>
@@ -1731,8 +1770,9 @@ $('helpBody').innerHTML=`
 <h3 id="h-fx">Post FX</h3>
 <ul><li><b>Bloom</b> glow, <b>Blur</b> (directional, radial, focal), <b>Lens</b> (chromatic aberration, vignette, grain, scanlines), <b>Kaleido</b>, <b>Trails</b> (echoes with zoom feedback).</li>
 <li><b>Fracture</b> shatters the picture along cracks that burst open on bass and beats (Flow or Shatter).</li>
-<li><b>Liquid glass</b> floats blobs of glass over the picture that merge like liquid. Each blob refracts and flips what is behind it, with rainbow fringes (<b>Chromatic</b>), a bright <b>Rim</b> and a <b>Highlight</b>. <b>Blobs</b>, <b>Size</b>, <b>Merge</b> and <b>Spread</b> shape the liquid; <b>Refraction</b> and <b>Edge bend</b> set how strongly it bends; <b>Frost</b> blurs inside; <b>Tint</b> colours the glass; <b>Dim outside</b> darkens everything that is not under glass. Bass swells the blobs, beats make them wobble; <b>Seed</b> picks another arrangement.</li>
+<li><b>Liquid glass</b> floats blobs of glass over the picture that merge like liquid. Each blob refracts and flips what is behind it, with rainbow fringes (<b>Chromatic</b>), a bright <b>Rim</b> and a <b>Highlight</b>. <b>Blobs</b>, <b>Size</b>, <b>Merge</b> and <b>Spread</b> shape the liquid; <b>Refraction</b> and <b>Edge bend</b> set how strongly it bends; <b>Frost</b> blurs inside; <b>Tint</b> colours the glass; <b>Dim outside</b> darkens everything that is not under glass. The <b>Sound</b> section sets how much bass swells the blobs and beats make them wobble; <b>Seed</b> picks another arrangement.</li>
 <li><b>Corner pin</b> fits the picture to a wall (drag its corners on the preview).</li></ul>
+<p>Any FX can feed any other. Wiring a node into a fresh FX whose output is not connected yet slots that FX in before the Output for you.</p>
 <p>Order matters: FX later in the chain work on everything before them, so put Liquid glass after Bloom to refract the glow, or before it to make the glass itself glow.</p>
 <h3 id="h-ai">AI rendering</h3>
 <p>The AI nodes restyle your visuals in real time with a diffusion model that runs on your own computer through a small bridge program (nothing is uploaded).</p>
@@ -1769,11 +1809,12 @@ $('helpBody').innerHTML=`
 $('helpButton').onclick=()=>$('help').showModal();
 $('graphTips').onclick=()=>{const on=$('graphHint').classList.toggle('show');$('graphTips').setAttribute('aria-pressed',String(on));};$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
-viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';};
+viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';dropMark(libDrag&&isChain(libDrag)?wireAt(e.clientX,e.clientY,fitsType(libDrag)):null);};
+viewport.ondragleave=e=>{if(!viewport.contains(e.relatedTarget))dropMark(null);};
 viewport.addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;pointer.inGraph=true;});
 viewport.addEventListener('pointerleave',()=>{pointer.inGraph=false;});
 viewport.ondrop=e=>{e.preventDefault();let d;try{d=JSON.parse(e.dataTransfer.getData('application/audiograph-node'));}catch{return;}if(!Object.hasOwn(TYPES,d?.type))return;const r=viewport.getBoundingClientRect(),z=uiZ(),gx=((e.clientX-r.left)/z-view.x)/view.zoom,gy=((e.clientY-r.top)/z-view.y)/view.zoom;
-  const w=wireAt(e.clientX,e.clientY);if(w){placeNode({type:d.type,label:TYPES[d.type].label,props:d.props||{}},gx,gy,{...w.dataset});return;}
+  dropMark(null);const w=Object.hasOwn(TYPES,d.type)&&isChain(d.type)?wireAt(e.clientX,e.clientY,fitsType(d.type)):null;if(w){placeNode({type:d.type,label:TYPES[d.type].label,props:d.props||{}},gx,gy,{...w.dataset});return;}
   addNode(d.type,gx-84,gy-20,d.props||{});};
 // Drag on empty graph space draws a selection box (Shift adds to the selection); middle-drag or Alt-drag pans.
 viewport.onpointerdown=event=>{

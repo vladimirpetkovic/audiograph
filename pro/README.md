@@ -49,7 +49,9 @@ each with its own opacity and blend mode (up to four).
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain and **3D model** (your
   imported OBJ, the built-in knot until you load one). **Render** is **Normal** (a
   solid, lit object with size, detail and stretch), **Waveform** (audio-reactive
-  lines) or, for a Model, **Points**. Every 3D Object has an `object` output:
+  lines), **Polygons** (filled faces in palette colours: each face hears its own
+  band, brightens and moves out along its normal; Elevation, Noise, Gap and Edges
+  shape it; animated models play) or, for a Model, **Points**. Every 3D Object has an `object` output:
   **Cloner** (layout, counts, spacing, steps, rotation, variety) takes up to three and
   clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links with width, glow and sound pulse) and **Look** (Material,
   Light, Camera). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
@@ -109,8 +111,8 @@ each with its own opacity and blend mode (up to four).
   run the original GPU per-layer shaders.
   **Liquid glass** (WebGL2, `glass.js`) floats merging metaballs of glass over the
   picture: each refracts and flips what is behind it, with chromatic fringes, a
-  bright rim and highlight; Frost, Tint and Dim outside restyle it. Bass swells the
-  blobs, beats wobble them.
+  bright rim and highlight. Its knobs are split into Blobs, Glass, Tint (tint, amount,
+  dim outside) and Sound (bass swell, beat pulse, wobble).
   **Smooth** on Trails (with Feedback) and on the Feedback node fills the gaps
   between zoomed echoes so they read as one continuous smear instead of rings
   (default 100; lower it for a stepped, echo look).
@@ -163,14 +165,18 @@ process the finished image.
 - **Detach**: press and hold a node's title (or Alt-drag it) and pull it out. Its
   wires are removed and the chain heals.
 - **Wedge**: drag an unconnected node (or a library item) onto a wire; the wire
-  lights up, and on release the node is inserted between the two nodes.
+  lights up, and on release the node is inserted between the two nodes. No need to
+  aim: any wire passing under the dragged node's body (or within ~20 px of a library
+  item or the Tab-search cursor) counts, and only wires whose ports fit light up.
 - **Drive any knob**: drag a number output (teal) onto a node and pick the knob.
   On an Emitter, the menu also lists that emitter's own options (e.g. Fluid
   viscosity), so audio or an LFO can drive them.
   An input of 0 keeps the knob value and 1 pushes it to the maximum. A node with a
   single knob connects directly.
 - **Wires**: drag from an output dot to an input dot or to a node. Clicking an
-  output and then an input also works. Click a wire to delete it.
+  output and then an input also works. Click a wire to delete it. Wiring a node that
+  feeds the Output into a fresh FX whose output is still unwired splices that FX in
+  (A → Output becomes A → FX → Output); one undo puts it back.
 - **Audio**: select an Audio node (or click the source name in the transport) to
   load a file, use the Mic, or **System** (desktop Chrome/Edge: share a screen or
   tab and enable "Share audio"). Files play through the speakers; mic and system

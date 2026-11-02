@@ -785,6 +785,8 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
           <div class="prow"><span class="prow-label">Tilt</span><input type="range" min="-90" max="90" value="15" step="1" id="pObjTilt" oninput="upP()"><span class="prow-val" id="vObjTilt">15°</span></div>
           <div class="prow obj-shape-only"><span class="prow-label">Elevation</span><input type="range" min="0" max="200" value="60" step="5" id="pObjElev" oninput="upP()"><span class="prow-val" id="vObjElev">60%</span></div>
           <div class="prow obj-shape-only"><span class="prow-label">Noise</span><input type="range" min="0" max="100" value="50" step="5" id="pObjNoise" oninput="upP()"><span class="prow-val" id="vObjNoise">50%</span></div>
+          <div class="prow obj-poly-only" style="display:none" title="Shrink each polygon toward its centre so the facets separate (loud faces close up)."><span class="prow-label">Gap</span><input type="range" min="0" max="80" value="12" step="1" id="pObjGap" oninput="upP()"><span class="prow-val" id="vObjGap">12%</span></div>
+          <div class="prow obj-poly-only" style="display:none" title="Brightness of the polygon edges."><span class="prow-label">Edges</span><input type="range" min="0" max="100" value="35" step="5" id="pObjEdge" oninput="upP()"><span class="prow-val" id="vObjEdge">35%</span></div>
           <div class="prow"><span class="prow-label">Rotate</span><input type="range" min="0" max="50" value="5" step="1" id="pObjRotate" oninput="upP()"><span class="prow-val" id="vObjRotate">5</span></div>
         </div>
         <div style="border-top:1px solid var(--border);margin:4px 0"></div>
@@ -2012,6 +2014,7 @@ document.getElementById('vTetDetail').textContent=document.getElementById('pTetD
   document.getElementById('vObjElev').textContent=document.getElementById('pObjElev').value+'%';
   document.getElementById('vObjNoise').textContent=document.getElementById('pObjNoise').value+'%';
   document.getElementById('vObjRotate').textContent=document.getElementById('pObjRotate').value;
+  ['Gap','Edge'].forEach(function(k){var e=document.getElementById('pObj'+k);if(e)document.getElementById('vObj'+k).textContent=e.value+'%'});
   var _fd=document.getElementById('pFracDepth');if(_fd)document.getElementById('vFracDepth').textContent=_fd.value;
   var _fa=document.getElementById('pFracAngle');if(_fa)document.getElementById('vFracAngle').textContent=_fa.value+'°';
   var _fdc=document.getElementById('pFracDecay');if(_fdc)document.getElementById('vFracDecay').textContent=_fdc.value+'%';
@@ -5132,7 +5135,7 @@ function setLayoutParams(p){
   if('_pwDir' in p)pixelWarpDir=p._pwDir;
   if(!('pGrowNoise' in p)){var _gnz=document.getElementById('pGrowNoise');if(_gnz)_gnz.value=45}
   sacredPat=p._sacredPat||'flower';sacredMap=p._sacredMap||'along';sacredTick=p._sacredTick||'along';[['pSacSkel',35],['pSacBreathe',40],['pSacBloom',0]].forEach(function(d){if(!(d[0] in p)){var e=document.getElementById(d[0]);if(e)e.value=d[1]}});if(typeof syncSacredUI==='function')syncSacredUI();graphMap=p._graphMap||'along';graphTick=p._graphTick||'along';graphSeed=p._graphSeed||1;[['pGraphNodes',160],['pGraphHubs',5],['pGraphLinks',45],['pGraphLoose',16],['pGraphPulse',50],['pGraphDrift',30],['pGraphSize',100],['pGraphTwinkle',50],['pGraphSkel',45],['pGraphBloom',0]].forEach(function(d){if(!(d[0] in p)){var e=document.getElementById(d[0]);if(e)e.value=d[1]}});if(typeof syncGraphUI==='function')syncGraphUI();
-  objBuiltin=p._objModel||'knot';objSignal=p._objSignal||'shape';objFlow=p._objFlow||'rings';objTick=p._objTick||'across';[['pObjTravel',35],['pObjCount',35],['pObjWire',30],['pObjBack',15]].forEach(function(d){if(!(d[0] in p)){var e=document.getElementById(d[0]);if(e)e.value=d[1]}});growType=(p._growType==='neuron'?'vine':p._growType)||'vine';growDir=p._growDir||'bottom';growLine=p._growLine||'solid';if(typeof syncGrowUI==='function')syncGrowUI();if(typeof syncObjModelUI==='function')syncObjModelUI();
+  objBuiltin=p._objModel||'knot';objSignal=p._objSignal||'shape';objFlow=p._objFlow||'rings';objTick=p._objTick||'across';[['pObjTravel',35],['pObjCount',35],['pObjWire',30],['pObjBack',15],['pObjGap',12],['pObjEdge',35]].forEach(function(d){if(!(d[0] in p)){var e=document.getElementById(d[0]);if(e)e.value=d[1]}});growType=(p._growType==='neuron'?'vine':p._growType)||'vine';growDir=p._growDir||'bottom';growLine=p._growLine||'solid';if(typeof syncGrowUI==='function')syncGrowUI();if(typeof syncObjModelUI==='function')syncObjModelUI();
   textLayoutStyle=p._textStyle||'led';textLedCol=p._textLedCol||'eq';if('_textGap' in p)document.getElementById('pTextGap').value=p._textGap;if('_textFloor' in p)document.getElementById('pTextFloor').value=p._textFloor;
   if('_textSlant' in p&&+document.getElementById('pTextSlant').value!==+p._textSlant){document.getElementById('pTextSlant').value=p._textSlant;textLayoutData=null}
   if(typeof syncTextStyleUI==='function')syncTextStyleUI();
@@ -11705,7 +11708,7 @@ function syncLayoutRelevance(){_ag3dSignalHost();agSimHost();var sf=_ag3dSurf();
 function setObjSignal(m,btn){pushUndo();objSignal=m==='surface'?'surface':'shape';syncObjModelUI();renderDensity()}
 function setObjFlow(m,btn){pushUndo();objFlow=['rings','sweep','spiral','scatter'].indexOf(m)>=0?m:'rings';syncObjModelUI();renderDensity()}
 function setObjTick(m,btn){pushUndo();objTick=m==='along'?'along':'across';syncObjModelUI();renderDensity()}
-function syncObjSignalUI(){_ag3dSignalHost();var sf=objSignal==='surface';document.querySelectorAll('.obj-surf-only').forEach(function(e){e.style.display=sf?'':'none'});document.querySelectorAll('.obj-shape-only').forEach(function(e){e.style.display=sf?'none':''});
+function syncObjSignalUI(){_ag3dSignalHost();var sf=objSignal==='surface',pg=objSignal==='poly';document.querySelectorAll('.obj-poly-only').forEach(function(e){e.style.display=pg?'':'none'});var _sr=document.getElementById('objSignalRow');if(_sr)_sr.style.display=pg?'none':'';document.querySelectorAll('.obj-surf-only').forEach(function(e){e.style.display=sf?'':'none'});document.querySelectorAll('.obj-shape-only').forEach(function(e){e.style.display=sf?'none':''});
   [['setObjSignal',objSignal],['setObjFlow',objFlow],['setObjTick',objTick]].forEach(function(o){document.querySelectorAll('.mbtn[onclick^="'+o[0]+'"]').forEach(function(b){b.classList.toggle('on',b.getAttribute('onclick').indexOf("'"+o[1]+"'")>=0)})})}
 function syncObjModelUI(){syncObjSignalUI();var _om=layoutMode==='object';var _fr=document.getElementById('objFileRow');if(_fr)_fr.style.display=objBuiltin==='file'?'':'none';document.querySelectorAll('.mbtn[data-objm]').forEach(function(b){b.classList.toggle('on',_om&&b.getAttribute('data-objm')===objBuiltin)});document.querySelectorAll('.mbtn[onclick^="setObjModel"]').forEach(function(b){b.classList.toggle('on',b.getAttribute('onclick').indexOf("'"+objBuiltin+"'")>=0)});var fb=document.getElementById('objModelFileBtn');if(fb){fb.disabled=!objModelData;fb.style.opacity=objModelData?'':'0.4'}syncLayoutRelevance()}
 function objToPointCloud(){var m=objBuiltin==='file'&&objModelData?'obj':(objBuiltin==='cube'||objBuiltin==='torus'?objBuiltin:'knot');setLayout('simsplat',null);simOpt.spSrc='mesh';simOpt.spMesh=m;syncSimUI();_simStore();renderDensity()}
@@ -11729,7 +11732,7 @@ function _objWire(model,maxFaces){
         if(id===undefined){id=cv.length;ids.set(k,id);cv.push([0,0,0]);cn.push([0,0,0]);cc.push(0)}
         map[i]=id;cv[id][0]+=v[0];cv[id][1]+=v[1];cv[id][2]+=v[2];var n=Nm[i];cn[id][0]+=n[0];cn[id][1]+=n[1];cn[id][2]+=n[2];cc[id]++}
       for(var i=0;i<cv.length;i++){var k=cc[i];cv[i]=[cv[i][0]/k,cv[i][1]/k,cv[i][2]/k];var n=cn[i],l=Math.sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2])||1;cn[i]=[n[0]/l,n[1]/l,n[2]/l]}
-      return{verts:cv,normals:cn,edges:edgesOf(function(i){return i<V.length?map[i]:-1},cv.length)};
+      return{verts:cv,normals:cn,edges:edgesOf(function(i){return i<V.length?map[i]:-1},cv.length),map:map};
     }
     var lo=4,hi=512,best=cluster(lo);
     while(hi-lo>1){var mid=(lo+hi)>>1,w=cluster(mid);if(w.edges.length<=target){best=w;lo=mid}else hi=mid}
@@ -11759,6 +11762,7 @@ function drawObjModel(ctx,W,H,values,p,forExport){
 
   var _wire=_objWire(_model,maxFaces),srcVerts=_wire.verts,srcNormals=_wire.normals;
   if(objSignal==='surface')return _objSurface(ctx,W,H,values,p,forExport,_wire,{persp:persp,tilt:tiltRad,rot:rotAngle,baseR:baseR,cx:centerX,cy:centerY,d3:_d3any?_d3:null,time:time});
+  if(objSignal==='poly')return _objPolyDraw(ctx,W,H,values,p,forExport,_model,_wire,{persp:persp,tilt:tiltRad,rot:rotAngle,baseR:baseR,maxBump:maxBump,noise:noiseAmt,cx:centerX,cy:centerY,d3:_d3any?_d3:null,time:time});
 
   // Audio energy
   var audioEnergy=0;for(var i=0;i<n;i++)audioEnergy+=values[i];audioEnergy/=n;
@@ -11874,6 +11878,79 @@ function drawObjModel(ctx,W,H,values,p,forExport){
   ctx.globalAlpha=1;
   lastFrameLines={lines:lines,W:W,H:H,p:p,circle:false};
   return lines;
+}
+
+// Polygons signal: the mesh drawn as filled faces in palette colours. Each face hears its own band, lights up with it and
+// moves out along its normal (Elevation); Gap separates the facets and Edges outlines them. Quads stay quads.
+var _objPolyCache=null;
+function _objPolys(model,wire){
+  var c=_objPolyCache,F=model.faces,map=wire.map||null;
+  if(c&&c.faces===F&&c.map===map&&c.n===wire.verts.length)return c.polys;
+  var V=wire.verts,out=[],seen=new Set(),n=V.length;
+  function mapped(f){var r=[];for(var j=0;j<f.length;j++){var v=map?(f[j]<map.length?map[f[j]]:-1):f[j];if(v<0||v>=n)return null;r.push(v)}return r}
+  function nrm(f){var a=V[f[0]],b=V[f[1]],c=V[f[2]],e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]],x=e1[1]*e2[2]-e1[2]*e2[1],y=e1[2]*e2[0]-e1[0]*e2[2],z=e1[0]*e2[1]-e1[1]*e2[0],l=Math.hypot(x,y,z);return l>1e-12?[x/l,y/l,z/l]:null}
+  function key(f){return f.slice().sort(function(a,b){return a-b}).join(',')}
+  for(var i=0;i<F.length;i++){
+    var f=mapped(F[i]);if(!f||f[0]===f[1]||f[1]===f[2]||f[0]===f[2])continue;
+    var n0=nrm(f);if(!n0)continue;
+    var g=i+1<F.length?mapped(F[i+1]):null;
+    // [a,b,c] followed by [a,c,d] on (nearly) the same plane is one quad
+    if(g&&g[0]===f[0]&&g[1]===f[2]&&g[2]!==f[1]&&g[2]!==f[0]&&g[2]!==f[2]){var n1=nrm(g);if(n1&&n0[0]*n1[0]+n0[1]*n1[1]+n0[2]*n1[2]>0.9){f=[f[0],f[1],f[2],g[2]];i++}}
+    var k=key(f);if(seen.has(k))continue;seen.add(k);out.push(f);
+  }
+  _objPolyCache={faces:F,map:map,n:n,polys:out};
+  return out;
+}
+function _objPolyDraw(ctx,W,H,values,p,forExport,model,wire,o){
+  var n=values.length,V=wire.verts,polys=_objPolys(model,wire),P=polys.length;
+  var gEl=document.getElementById('pObjGap'),eEl=document.getElementById('pObjEdge');
+  var gap=(gEl?+gEl.value:12)/100,edge=(eEl?+eEl.value:35)/100;
+  var energy=0;for(var i=0;i<n;i++)energy+=values[i];energy/=Math.max(1,n);
+  var cosR=Math.cos(o.rot),sinR=Math.sin(o.rot),cosT=Math.cos(o.tilt+dragRotX),sinT=Math.sin(o.tilt+dragRotX);
+  var lw=Math.max(0.6,Math.min(W,H)/900),faces=[];
+  _objSpawnPts=[];
+  for(var fi=0;fi<P;fi++){
+    var f=polys[fi],k=f.length,cx=0,cy=0,cz=0;
+    for(var j=0;j<k;j++){var v=V[f[j]];cx+=v[0];cy+=v[1];cz+=v[2]}cx/=k;cy/=k;cz/=k;
+    var a=V[f[0]],b=V[f[1]],c=V[f[2]],e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+    var nx=e1[1]*e2[2]-e1[2]*e2[1],ny=e1[2]*e2[0]-e1[0]*e2[2],nz=e1[0]*e2[1]-e1[1]*e2[0],nl=Math.hypot(nx,ny,nz)||1;nx/=nl;ny/=nl;nz/=nl;
+    // its own band, from a spatial hash of the face centre (no seams or stripes), mixed with the overall level
+    var hsh=Math.abs(Math.sin(cx*7.3+cy*11.7+cz*5.1))*.5+Math.abs(Math.sin(cx*3.1-cz*8.9+cy*4.7))*.5,ai=(hsh*n)%n,a0=Math.floor(ai)%n,a1=(a0+1)%n,af=ai-Math.floor(ai);
+    var au=n?values[a0]*(1-af)+values[a1]*af:0,lvl=au*.65+energy*.35;
+    if(o.noise>0&&typeof perlin2==='function'){var nv=Math.max(0,Math.min(1,perlin2(cx*3+o.time*.3,cz*3+cy*2+o.time*.2)*.75+.5));lvl=lvl*(1-o.noise)+nv*lvl*2*o.noise}
+    lvl=Math.max(0,Math.min(1.5,lvl));
+    var push=lvl*o.maxBump*1.6,shrink=1-gap*(1-.5*Math.min(1,lvl));
+    var pts=[],depth=0,ok=true;
+    for(var j=0;j<k;j++){var v=V[f[j]];
+      var x=(cx+(v[0]-cx)*shrink)*o.baseR+nx*push,y=(cy+(v[1]-cy)*shrink)*o.baseR+ny*push,z=(cz+(v[2]-cz)*shrink)*o.baseR+nz*push;
+      var rx=x*cosR+z*sinR,rz=-x*sinR+z*cosR,ty=y*cosT-rz*sinT,tz=y*sinT+rz*cosT;
+      var d=tz+o.persp+o.baseR;if(d<o.persp*.55)d=o.persp*.55;
+      var sx=o.cx+rx*o.persp/d,sy=o.cy+ty*o.persp/d;
+      if(o.d3){var dp=distortLinear(sx,sy,W,H,o.d3);sx=dp.x;sy=dp.y}
+      if(!isFinite(sx)||!isFinite(sy)){ok=false;break}
+      pts.push(sx,sy);depth+=tz}
+    if(!ok)continue;
+    var rnx=nx*cosR+nz*sinR,rnz=-nx*sinR+nz*cosR,tnz=ny*sinT+rnz*cosT,tny=ny*cosT-rnz*sinT;
+    // light from the upper left, towards the viewer; back faces are dimmed
+    var lam=Math.abs(-rnx*.35-tny*.45-tnz*.82);
+    faces.push({pts:pts,depth:depth/k,lvl:lvl,lam:lam,back:tnz>0.05,h:(1-cy)/2,i:fi});
+  }
+  faces.sort(function(x,y){return y.depth-x.depth});
+  ctx.setLineDash([]);ctx.lineJoin='round';ctx.lineWidth=lw;
+  for(var q=0;q<faces.length;q++){
+    var F1=faces[q],t=F1.pts,pos=F1.i/Math.max(1,P);
+    var cv=Math.min(1,F1.lvl*.55+F1.h*.45),col=forExport?lineColHex(cv,pos,F1.i%Math.max(1,n),n):lineCol(cv,pos,F1.i%Math.max(1,n),n);
+    ctx.beginPath();ctx.moveTo(t[0],t[1]);for(var j=2;j<t.length;j+=2)ctx.lineTo(t[j],t[j+1]);ctx.closePath();
+    var al=(.55+.45*Math.min(1,F1.lvl*1.4))*(F1.back?.3:1);
+    ctx.globalAlpha=al;ctx.fillStyle=col;ctx.fill();
+    var shade=(1-(.25+.75*F1.lam))*.75;if(shade>.01){ctx.globalAlpha=al*shade;ctx.fillStyle='#000';ctx.fill()}
+    if(F1.lvl>.6){ctx.globalAlpha=Math.min(1,(F1.lvl-.6)*.9)*al;ctx.fillStyle='#fff';ctx.fill()}
+    if(edge>0){ctx.globalAlpha=edge*(F1.back?.3:.4+.6*Math.min(1,F1.lvl));ctx.strokeStyle=col;ctx.stroke()}
+    if(!F1.back&&q%3===0){var mx=0,my=0;for(var j=0;j<t.length;j+=2){mx+=t[j];my+=t[j+1]}_objSpawnPts.push({x:mx*2/t.length,y:my*2/t.length})}
+  }
+  ctx.globalAlpha=1;
+  lastFrameLines={lines:[],W:W,H:H,p:p,circle:false};
+  return[];
 }
 
 // v59: Surface signal — the mesh keeps its shape; the spectrum is laid over it by a flow field and travels with time.

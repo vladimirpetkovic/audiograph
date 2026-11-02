@@ -234,7 +234,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const bo=await page.evaluate(([a,b])=>{const w=document.querySelector(`.wire[data-from="${a}"][data-to="${b}"]`),q=w.getPointAtLength(w.getTotalLength()/2),m=w.getScreenCTM();return {x:q.x*m.a+m.e,y:q.y*m.d+m.f};},[ids.bloom,ids.output]);
     const p3=await page.locator(`.node[data-id="${pal3}"] .node-head`).boundingBox();
     await page.mouse.move(p3.x+20,p3.y+p3.height/2);await page.mouse.down();await page.mouse.move(p3.x+30,p3.y+p3.height/2,{steps:2});
-    await page.mouse.move(bo.x,bo.y,{steps:8});assert.ok(await page.locator('.wire.wedge').count(),'Target wire highlights while dragging');await page.mouse.up();
+    await page.mouse.move(bo.x+25,bo.y-40,{steps:8});assert.ok(await page.locator('.wire.wedge').count(),'Target wire highlights while the node body (not the cursor) is over it');await page.mouse.up();
     g=await layer0();assert.ok(g.edges.some(e=>e.from===ids.bloom&&e.to===pal3)&&g.edges.some(e=>e.from===pal3&&e.to===ids.output),'Dropping a node on a wire wedges it in');
     for(const blend of ['normal','multiply','screen','hue']){await page.evaluate(([id,b])=>{pro.setProperty(id,'blend',b);pro.draw();},[pal3,blend]);
       assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],`Palette (${blend}) recolors an image`);}
@@ -750,6 +750,28 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'terrain',render:'waveform'}},{id:'m',type:'waveform3d',x:0,y:300,props:{mode:'model',render:'waveform'}},{id:'c',type:'cloner',x:200,y:0,props:{}}],
       [{from:'a',out:'audio',to:'c',input:'audio'},{from:'o',out:'object',to:'c',input:'object'},{from:'m',out:'object',to:'c',input:'object2'},{from:'c',out:'shape',to:'out',input:'image'}]));
     await page.waitForTimeout(3000);assert.ok(await litCount()>500,'A Cloner clones a Terrain form and a Model');
+    // Wiring an FX into a fresh FX that goes nowhere splices it before the Output; any FX pair chains.
+    {await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:0,y:200,props:{mode:'circle'}},{id:'g',type:'liquidGlass',x:200,y:0,props:{}},{id:'b',type:'blur',x:400,y:200,props:{x:100}},{id:'m',type:'merge',x:400,y:400,props:{}}],
+       [{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'g',input:'image'},{from:'g',out:'image',to:'out',input:'image'}]));
+     const ed=()=>page.evaluate(()=>pro.getProject().layers[0].edges.filter(e=>e.from!=='a').map(e=>e.from+'>'+e.to).sort().join(' '));
+     await page.evaluate(()=>pro.connect('g','image','b','image'));assert.equal(await ed(),'b>out g>b w>g','Glass → Blur splices Blur before the Output');
+     await page.waitForTimeout(800);assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],'Glass → Blur renders');
+     await page.evaluate(()=>pro.undo());assert.equal(await ed(),'g>out w>g','Undo restores the old wiring');
+     await page.evaluate(()=>pro.connect('g','image','m','a'));assert.equal(await ed(),'g>m m>out w>g','A fresh Merge is spliced in too');}
+    // Liquid glass eases bass and beats, so the blobs swell smoothly instead of flickering frame to frame.
+    {await page.evaluate(p=>pro.importProject(p),L([{id:'bg',type:'background',x:0,y:200,props:{}},{id:'g',type:'liquidGlass',x:200,y:0,props:{}}],[{from:'bg',out:'image',to:'g',input:'image'},{from:'g',out:'image',to:'out',input:'image'}]));
+     await page.waitForTimeout(800);
+     const jerk=await page.evaluate(async()=>{const c=document.getElementById('preview'),x=c.getContext('2d');let prev=null,d=[];
+       for(let i=0;i<120;i++){await new Promise(r=>requestAnimationFrame(r));const a=x.getImageData(0,0,c.width,c.height).data;let s=0;
+         if(prev){for(let j=0;j<a.length;j+=16)s+=Math.abs(a[j]-prev[j]);if(s)d.push(s);}prev=a.slice();}
+       const m=d.reduce((a,b)=>a+b,0)/d.length;let j=0;for(let i=1;i<d.length;i++)j+=Math.abs(d[i]-d[i-1]);return j/(d.length-1)/m;});
+     assert.ok(jerk<.3,'Liquid glass blobs move smoothly with the music (jerk '+jerk.toFixed(2)+')');}
+    // Polygons: any 3D Object shape drawn as filled faces that light up and move with the sound; Waveform afterwards is lines again.
+    {const poly=async(mode,render)=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode,render}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'out',input:'image'}]));
+       await page.waitForTimeout(1200);return page.evaluate(()=>{const w=pro.engine('o').w;return {sig:w.objSignal,layout:w.layoutMode,builtin:w.objBuiltin,polys:w._objPolyCache?.polys.length||0,quads:w._objPolyCache?.polys.filter(f=>f.length===4).length||0};});};
+     for(const mode of ['sphere','cube','terrain','model']){const r=await poly(mode,'polygons');assert.equal(r.sig,'poly',mode+' draws Polygons');assert.equal(r.layout,'object');assert.ok(r.polys>20,mode+' has faces: '+r.polys);
+       assert.ok(await litCount()>500,mode+' Polygons are visible');if(mode==='cube'||mode==='sphere')assert.ok(r.quads>r.polys*.5,mode+' keeps quads: '+r.quads+'/'+r.polys);}
+     const back=await poly('model','waveform');assert.equal(back.sig,'shape','Waveform after Polygons is the Shape signal again');}
     const v9=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:9,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'p',type:'primitive',x:0,y:0,props:{shape:'cone',size:40}},{id:'o',type:'object',x:0,y:0,props:{render:'cloud'}},{id:'w',type:'waveform3d',x:0,y:0,props:{mode:'dna'}},{id:'q',type:'palette',x:0,y:0,props:{c1:'#000000',c2:'#ff0000',c3:'#00ff00',c4:'#0000ff',colors:'3'}}],edges:[]}]}));
     assert.deepEqual(v9.layers[0].nodes.map(n=>[n.type,n.props.mode,n.props.render]),[['waveform3d','cone','normal'],['waveform3d','model','points'],['waveform3d','dna','waveform'],['palette','toneramp',undefined]],'v9 objects become 3D Objects');
     assert.deepEqual(v9.layers[0].nodes[3].props.stops.map(s=>s.c),['#000000','#ff0000','#00ff00','#0000ff'],'Old palette colours become ramp stops');

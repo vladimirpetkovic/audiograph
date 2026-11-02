@@ -144,7 +144,7 @@ const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const HIDDEN=/setVidSource|setPixelWarpSource|objToPointCloud|setObjModel|setObjLayout/;
 const strCache=new WeakMap();
 const str=o=>{if(!o||typeof o!=='object')return JSON.stringify(o??{});let v=strCache.get(o);if(v===undefined){v=JSON.stringify(o);strCache.set(o,v);}return v;};
-const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|');
+const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',job.poly?'poly':'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|');
 // Same parameters as last frame? (objects compare by content; they are small)
 function sameParams(a,b){
   if(!a||!b)return false;
@@ -239,7 +239,7 @@ export class EmitterEngine {
   container(mode=this.mode){return this.w?.document.getElementById('layoutOpts_'+mode);}
   // Switch the trusted app to a layout, replay chip choices, snapshot the resulting parameters.
   prepare(job) {
-    const w=this.w,solid=SOLIDS.includes(job.mode),mode=solid?'object':job.mode;
+    const w=this.w,solid=SOLIDS.includes(job.mode)||!!(job.poly&&job.solidMesh),mode=solid?'object':job.mode;
     const key=jobKey(job);
     if(key===this.baseKey)return mode;
     this.applied=null;
@@ -265,6 +265,8 @@ export class EmitterEngine {
       const b=g.buttons.find(b=>b.textContent.trim()===label);
       if(b&&!b.classList.contains('on'))try{b.click();}catch(e){console.warn(e);}
     }
+    // Polygons: the 3D Object's faces drawn filled (after the chips, so a remembered Signal chip can't override it).
+    if(mode==='object'){w.objSignal=job.poly?'poly':w.objSignal==='poly'?'shape':w.objSignal;try{w.syncObjSignalUI();}catch(e){console.warn(e);}}
     this.base={...this.withLook(job.look),...w.getLayoutParams()};this.baseKey=key;return mode;
   }
   // Template looks: original layer parameters on top of the engine defaults (simulations never auto-switch).
@@ -348,7 +350,7 @@ export class EmitterEngine {
     if(!sameParams(p,this.applied)){this.realSet(p);this.applied=p;}
     // A node's own 3D tilt / rotate turn the sim camera (3D Object drawn Normal, Cloner, splats) on top of the viewport orbit.
     if(this.viewMode==='sim'){const so=w.simOpt;so.vYaw=(v.yaw||0)-(p._dragRotY||0)/dg;so.vPit=(v.pit||0)+(p._dragRotX||0)/dg;so.vPx=v.px||0;so.vPy=v.py||0;so.vZm=v.zm||1;}
-    if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)?job.mode:'file';
+    if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)||job.poly&&job.solidMesh?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
     if(mode==='video'||(mode==='pixelwarp'&&(this.mediaKind==='video'||w.vidCamStream)))w.sampleVideoFrame?.();
     const r=job.response;
