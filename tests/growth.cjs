@@ -23,7 +23,7 @@ const SHOTS = process.env.AG_SHOTS || '';
     const picker = await page.evaluate(() => [...document.querySelectorAll('.mbtn.amber')].map(b => b.getAttribute('onclick')).join(' '));
     assert.ok(!/kaleidoscope|ridgeplot/.test(picker), 'Kaleidoscope/Ridge removed');
     assert.ok(/setLayout\('growth'/.test(picker), 'Growth button present');
-    const lay = await page.evaluate(() => { const r = [...document.querySelectorAll('#panelAppear .prow-stack')].filter(e => !e.closest('.layout-opts')).map(e => { const l = e.querySelector('.prow-label').getBoundingClientRect(), c = e.querySelector('.mode-btns').getBoundingClientRect(); return { above: l.bottom <= c.top + 1, centred: Math.abs((l.left + l.right) / 2 - (c.left + c.right) / 2) < 30 }; }); return r; });
+    const lay = await page.evaluate(() => { const r = [...document.querySelectorAll('#panelAppear .prow-stack')].filter(e => !e.closest('.layout-opts') && e.querySelector('.prow-label')).map(e => { const l = e.querySelector('.prow-label').getBoundingClientRect(), c = e.querySelector('.mode-btns').getBoundingClientRect(); return { above: l.bottom <= c.top + 1, centred: Math.abs((l.left + l.right) / 2 - (c.left + c.right) / 2) < 30 }; }); return r; });
     assert.equal(lay.length, 2, 'Layout and Style rows are stacked');
     lay.forEach(r => assert.ok(r.above && r.centred, 'label above and centred: ' + JSON.stringify(lay)));
 

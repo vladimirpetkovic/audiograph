@@ -61,7 +61,7 @@ const { open } = require('./gpu-common.cjs');
     });
     assert.equal(await page.evaluate(() => agSim.ready()), 'ready', JSON.stringify(await page.evaluate(() => agSim.stats())));
     const naming = await page.evaluate(() => ({
-      picker: document.querySelector('#panelAppear .panel-body .prow-stack .prow-label').textContent,
+      picker: document.querySelector('#panelAppear .panel-title').textContent,
       guide: document.querySelector('#g-layout h3').textContent,
       tutorial: agTour.steps.find(s => s.grp === 'layout').t,
     }));
