@@ -12,7 +12,14 @@ function patch3dLighting(patch){
   patch("['pG3Spin','Spin',-100,100,15,","['pG3Spin','Spin',-100,100,0,");patch("st.g3spin+=h*K('pG3Spin',15)","st.g3spin+=h*K('pG3Spin',0)");
   patch("['pG3Orbit','Auto orbit',-100,100,12,","['pG3OrbitSnd','Orbit with sound',0,100,0,5,'%','The camera turns with the music.'],['pG3Orbit','Auto orbit',-100,100,0,");
   patch("K('pG3Orbit',12)","K('pG3Orbit',0)");patch("K('pG3OrbitSnd',50)","K('pG3OrbitSnd',0)");
-  patch("['Camera',['pG3Orbit','pG3Tilt','pG3Zoom']]","['Camera',['pG3Orbit','pG3OrbitSnd','pG3Tilt','pG3Zoom']]");
+  patch("['Camera',['pG3Orbit','pG3Tilt','pG3Zoom']]","['Camera',['pG3Orbit','pG3OrbitSnd','pG3Tilt','pG3Zoom','pG3Focal']]");
+  // Focal length (full-frame mm; 28 mm = the original 0.8 rad view). The distance follows so the array stays framed:
+  // short lenses exaggerate depth, long ones flatten it. Classic 3D modes scale their Perspective by the same ratio.
+  patch("['pG3Zoom','Zoom',30,300,100,5,'%','100% frames the whole array.'],","['pG3Zoom','Zoom',30,300,100,5,'%','100% frames the whole array.'],['pG3Focal','Focal length',10,200,28,1,'mm','Lens: short is wide with strong perspective, long is telephoto and flat. The array stays framed.'],");
+  patch("var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=0.8,","var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=2*Math.atan(Math.tan(0.4)*28/Math.max(8,K('pG3Focal',28))),");
+  for(const id of ['pTerrainPersp','pSpherePersp','pObjPersp','pDnaPersp'])patch(`var persp=+document.getElementById('${id}').value||`,`var persp=(window.__agFocal||1)*(+document.getElementById('${id}').value)||(window.__agFocal||1)*`);
+  patch("var persp=+document.getElementById(prefix+'Persp').value||","var persp=(window.__agFocal||1)*(+document.getElementById(prefix+'Persp').value)||(window.__agFocal||1)*");
+  patch("persp=g('pTerrainPersp',200),","persp=g('pTerrainPersp',200)*(window.__agFocal||1),");
   // Random effector on each axis: rotation X / Y / Z and scale X / Z next to the original's Y stretch.
   patch("['pG3RndRot','Random tilt',0,180,0,5,'deg','Random orientation of each clone.'],",
     "['pG3RndRX','Random rotate X',0,180,0,5,'deg','Random turn of each clone around X.'],['pG3RndRY','Random rotate Y',0,180,0,5,'deg','Random turn of each clone around Y.'],"+
@@ -340,6 +347,7 @@ export class EmitterEngine {
     }
     this.camera(cam);
     // The 3D camera node's lens (Depth of field, Focus) reaches the classic 3D line drawers too.
+    w.__agFocal=VIEW3D.includes(mode)&&job.mods?.pG3Focal>0?job.mods.pG3Focal/28:1;
     w.__agDofCfg=VIEW3D.includes(mode)&&mode!=='fractal'&&job.mods?.pG3Dof>0?{amt:job.mods.pG3Dof,focus:job.mods.pG3Focus??50}:null;
     // Viewport camera: the 3D cloner and splats orbit, pan and zoom natively; classic 3D modes take the orbit.
     const v=job.view||{},dg=Math.PI/180;

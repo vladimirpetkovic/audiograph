@@ -30,6 +30,10 @@ each with its own opacity and blend mode (up to four).
     glTF as a single .glb (or with embedded buffers).
 - **3D camera → Depth of field / Focus** works on every 3D Object render, the
   Waveform (line) render included. Focus 0 is the near side, 100 the far side.
+- **3D camera → Lens → Focal length** (14–200 mm, full-frame; 28 mm is the classic
+  view). The subject stays framed, so short lenses exaggerate depth and long lenses
+  flatten it. In the Cloner it sets the real field of view; classic 3D modes scale
+  their Perspective by the same ratio.
   - **Text**, **Gaussian Splat** (.ply / .splat, demo cloud by default).
   - **Data** inputs give 0–1 numbers for any knob, with live meters in the inspector:
     - **Computer**: cpu, core (busiest core), gpu, memory, fps, network, battery and

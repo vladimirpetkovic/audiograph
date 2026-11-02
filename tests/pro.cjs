@@ -795,6 +795,20 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      const hole=await page.evaluate(()=>{const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(c.width/2-45,c.height/2-45,90,90).data;let n=0;for(let i=0;i<x.length;i+=4)if(x[i]+x[i+1]+x[i+2]>60)n++;return n;});
      assert.ok(hole<300,'Particles spawn at the waveform\'s drawn size: '+hole+' lit pixels inside a scale-150 ring');}
     // A 3D camera's depth of field also reaches the Waveform render of a 3D Object (classic Canvas 2D line drawers).
+    // 3D camera focal length: the Cloner's lens (28 mm = the original view) and the classic 3D modes' perspective.
+    {await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'F',name:'F',visible:true,opacity:1,blend:'source-over',
+       nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'o',type:'waveform3d',x:200,y:0,props:{mode:'cube'}},{id:'cl',type:'cloner',x:400,y:0,props:{countX:4,countY:1,countZ:4}},{id:'c',type:'camera3d',x:600,y:0,props:{dof:0}},{id:'out',type:'output',x:800,y:0,props:{}}],
+       edges:[{from:'a',out:'audio',to:'cl',input:'audio'},{from:'o',out:'object',to:'cl',input:'object'},{from:'cl',out:'shape',to:'c',input:'shape'},{from:'c',out:'shape',to:'out',input:'image'}]}]}));
+     await page.waitForFunction(()=>pro.engine('cl')?.status==='ready',null,{timeout:30000});await page.waitForTimeout(1200);await page.evaluate(()=>pro.pause(true));
+     const shot=async f=>{await page.evaluate(f=>pro.setProperty('c','focal',f),f);await page.waitForTimeout(600);await page.evaluate(()=>pro.draw());await page.waitForTimeout(300);
+       return page.evaluate(()=>{const c=document.getElementById('preview');return Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data.filter((_,i)=>i%64===0));});};
+     const dif=(a,b)=>a.reduce((s,v,i)=>s+Math.abs(v-b[i]),0)/a.length,f28=await shot('28'),f14=await shot('14'),f200=await shot('200'),f28b=await shot('28');
+     assert.equal(await page.evaluate(()=>pro.engine('cl').w.document.getElementById('pG3Focal').value),'28','Focal length reaches the Cloner');
+     assert.ok(dif(f28,f14)>4*dif(f28,f28b)+1&&dif(f28,f200)>4*dif(f28,f28b)+1,'Wide and long lenses change the Cloner view');
+     await page.evaluate(()=>pro.pause(false));
+     await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'sphere',render:'waveform'}},{id:'c',type:'camera3d',x:200,y:0,props:{focal:'200'}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'c',input:'shape'},{from:'c',out:'shape',to:'out',input:'image'}]));
+     await page.waitForFunction(()=>pro.engine('o')?.status==='ready',null,{timeout:30000});await page.waitForTimeout(500);
+     assert.ok(Math.abs(await page.evaluate(()=>pro.engine('o').w.__agFocal)-200/28)<1e-6,'Classic 3D modes take the focal length as perspective');}
     {const sharp=async dof=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'sphere',render:'waveform'}},{id:'c',type:'camera3d',x:200,y:0,props:{dof,focus:100}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'c',input:'shape'},{from:'c',out:'shape',to:'out',input:'image'}]));
        await page.waitForTimeout(900);return page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(0,0,c.width,c.height).data,W=c.width;let g=0,n=0;for(let y=0;y<c.height;y+=2)for(let X=1;X<W;X+=2){const i=(y*W+X)*4;g+=Math.abs(x[i]+x[i+1]+x[i+2]-x[i-4]-x[i-3]-x[i-2]);n++;}return g/n;});};
      const s0=await sharp(0),s1=await sharp(100);
@@ -1069,9 +1083,11 @@ def Camera "Camera" {
     await page.waitForFunction(()=>pro.engine('w')?.status==='ready',null,{timeout:30000});await page.waitForTimeout(500);
     const lit=async()=>{let s=0;for(let i=0;i<4;i++)s+=await page.evaluate(()=>{pro.draw();return pro.pixels();});return s/4;},errs=()=>page.evaluate(()=>pro.stats().errors),bp=id=>page.evaluate(id=>pro.getProject().layers[0].nodes.find(n=>n.id===id).bypass,id);
     assert.equal(await bp('out'),undefined,'Output cannot be bypassed');assert.equal(await page.locator('.node[data-id="out"] .act-bypass').count(),0);assert.equal(await page.locator('.node[data-id="o"] .act-preview').count(),0,'Number nodes have no preview');
+    await page.evaluate(()=>pro.pause(true));
     const bloomOn=await lit();await page.locator('.node[data-id="b"] .node-head').hover();await page.locator('.node[data-id="b"] .act-bypass').click();
     assert.equal(await bp('b'),true,'Bypass is stored on the node');assert.ok(await page.locator('.node[data-id="b"].bypassed').count(),'Bypassed node is dimmed');
     const bloomOff=await lit();assert.deepEqual(await errs(),[]);assert.ok(bloomOff>0.3&&bloomOff<bloomOn*.9,'Bypassed Bloom passes the plain emitter through: '+bloomOff+' vs '+bloomOn);
+    await page.evaluate(()=>pro.pause(false));
     await page.locator('.node[data-id="w"] .node-head').click();await page.keyboard.press('b');assert.equal(await bp('w'),true,'B bypasses the selection');
     assert.equal(await lit(),0,'A bypassed emitter draws nothing');assert.deepEqual(await errs(),[],'Bypassing never breaks the chain');
     await page.evaluate(()=>pro.undo());assert.equal(await bp('w'),undefined,'Bypass is undoable');
