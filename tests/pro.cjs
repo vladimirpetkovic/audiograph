@@ -937,6 +937,14 @@ def Camera "Camera" {
     {const b=await page.locator('.map-overlay .lpt[data-lattice="16"]').boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(b.x+b.width/2,b.y-60,{steps:3});await page.mouse.up();}
     {const m=(await page.evaluate(()=>pro.mapping())).surfaces[0];assert.ok(m.lattice.d.slice(48,51).some(v=>Math.abs(v)>.01)&&m.lattice.d.filter(v=>v).length<=3,'Dragging a lattice point moves only that point');assert.equal(m.camera.yaw,projectorYaw,'A lattice drag does not orbit');}
     await page.evaluate(()=>pro.undo());assert.ok((await page.evaluate(()=>pro.mapping())).surfaces[0].lattice.d.every(v=>!v),'Lattice drag is undoable');
+    // Animated glTF on a mapping surface: Play shows its clip over time, Rest pose holds the bind pose.
+    {const [fc]=await Promise.all([page.waitForEvent('filechooser'),page.locator('[data-property=mapLoadModel]').click()]);await fc.setFiles(gltfFile());
+    await page.waitForSelector('[data-property=surf3dAnim]');
+    const an=await page.evaluate(()=>{const M=pro.mapping3d,s=pro.mapping().surfaces[0],sum=g=>{let a=0;for(let i=0;i<g.data.length;i+=8)a+=g.data[i];return a;};
+      return {clips:M.modelClips(s).map(c=>c.name),anim:s.anim,a:sum(M.meshOf(s,0)),b:sum(M.meshOf(s,.5)),rest:sum(M.meshOf({...s,anim:{...s.anim,on:false}},.5))};});
+    assert.deepEqual(an.clips,['Slide'],'Mapping lists the model clips');assert.equal(an.anim.on,true,'Animated models play by default');
+    assert.notEqual(an.a,an.b,'An animated model moves over time on the mapping surface');assert.notEqual(an.b,an.rest,'Rest pose holds the bind pose');
+    await page.locator('[data-property=surf3dAnim] .mbtn',{hasText:'Rest pose'}).click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].anim.on,false,'Rest pose toggle stops the animation');}
     await page.evaluate(()=>{const p=pro.getProject();p.mapping={on:false,surfaces:[]};pro.importProject(p);});await page.locator('#modeStudio').click();
     // Resolution changes the render itself, not just CSS, without replacing the graph or its engines.
     await page.evaluate(()=>pro.loadTemplate('Ink'));

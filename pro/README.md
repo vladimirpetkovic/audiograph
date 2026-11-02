@@ -220,6 +220,8 @@ process the finished image.
     **Transform** moves, rotates and scales the object about its centre; **Lattice**
     (2³, 3³ or 4³ points) bends it to match the real object — drag the yellow points
     in the view (each drag is undoable; Reset lattice straightens it).
+    Animated GLB/glTF models (skinned characters, node animation) play on the surface:
+    **Animation** toggles Play / Rest pose, picks the clip and sets the speed.
     Flat/unlit WebGL2 rendering includes depth testing and double-sided faces.
     Orbit, Tilt, Distance, Roll, Pan X/Y (lens shift), Focal length (10–200 mm,
     36 mm sensor width), Model units and opacity align the projector. Drag orbits,

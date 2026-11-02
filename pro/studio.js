@@ -1852,6 +1852,12 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   const ok=el('div','knob-grid');obj.append(ok);
   ok.append(ui.knob({label:'Opacity',min:0,max:100,step:1,def:100,value:s.opacity*100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
   knob(ok,'Model units','scale',.001,Math.max(10,s.scale*2),.001,1,'',()=>s.scale,(t,v)=>{t.scale=v;},'Model units');
+  // Animation: animated glTF characters play their clip, synced to the transport.
+  const clips=map3d.modelClips(s);
+  if(clips.length){const an=sub(ss,'Animation');
+    an.append(ui.field('Playback',ui.toggle({value:s.anim.on,labels:['Play','Rest pose'],property:'surf3dAnim',onChange:v=>upd(t=>{t.anim.on=v;},v?'Animation on':'Rest pose')})));
+    if(clips.length>1){const c=el('select');c.dataset.property='surf3dClip';clips.forEach((x,i)=>c.append(new Option(`${i+1}. ${x.name} · ${x.duration.toFixed(1)} s`,String(i))));c.value=String(Math.min(s.anim.clip,clips.length-1));c.onchange=()=>upd(t=>{t.anim.clip=+c.value;},'Animation clip');an.append(ui.field('Clip',c));}
+    const ak=el('div','knob-grid');an.append(ak);knob(ak,'Speed','AnimSpeed',.05,4,.05,1,'×',()=>s.anim.speed,(t,v)=>{t.anim.speed=v;},'Animation speed');}
   // Transform: line the virtual object up with the real one.
   const tr=sub(ss,'Transform'),tm=el('div','knob-grid'),trk=el('div','knob-grid'),tsk=el('div','knob-grid');tr.append(el('div','insp-sublabel minor','Move'),tm,el('div','insp-sublabel minor','Rotate'),trk,tsk);
   for(const a of ['x','y','z'])knob(tm,a.toUpperCase(),'Move'+a.toUpperCase(),-2,2,.001,0,'',()=>s.xf[a],(t,v)=>{t.xf[a]=v;},'Object move');
