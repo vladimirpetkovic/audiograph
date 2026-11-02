@@ -201,6 +201,26 @@ process the finished image.
     give a surface one layer of its own; a hidden layer still renders there.
   - Opacity, edge **Feather** (for overlapping projectors), Rectangle / Ellipse
     mask, Match crop, Full frame, Flatten and Flip.
+  - **+ 3D object**: Cube, Sphere, Cylinder or Two walls; load OBJ, GLB or
+    self-contained glTF with UVs (planar fallback), Front projection or Box content.
+    Flat/unlit WebGL2 rendering includes depth testing and double-sided faces.
+    Orbit, Tilt, Distance, Roll, Pan X/Y (lens shift), Focal length (10–200 mm,
+    36 mm sensor width), Object scale and opacity align the projector. Drag orbits,
+    Shift/right-drag pans; wheel zooms focal length, Shift-wheel changes distance.
+    Wireframe is opt-in; the test card also draws mesh edges. Neither selection
+    nor editing automatically adds lines to the clean projector output.
+  - **Import camera…** reads binary FBX 7.x (including deflate arrays), ASCII FBX,
+    USDA text and GLB/self-contained glTF perspective cameras. First camera/clip;
+    parent transforms, animated translation/rotation/focal and aperture supported.
+    Play/Hold, scrub Time, Speed and transport sync control the sampled track
+    (up to 30 fps, capped at 2000 samples, stored in the project). Binary USDC/USDZ
+    must be exported as USDA. Bake constraints, FBX pivots and inverse USD ops.
+    FBX cm and USD stage units/up-axis convert to metres/Y-up; model and camera
+    must use the same scene coordinates (OBJ assumes metres; use Object scale
+    for unit conversion and Object up for native Z-up OBJ files).
+    Model geometry stays in memory, not JSON: reopen the named file when loading
+    a project; until then the selected primitive is a placeholder. Primitives and
+    camera tracks require no external files. glTF mapping uses the rest pose.
   - The **Test card** draws a numbered grid on every surface for alignment.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when

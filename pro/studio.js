@@ -7,6 +7,8 @@ import {needsWarp,warpInto} from './warp.js';
 import {cleanView,spinProps} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
+import * as map3d from './map3d.js';
+import {parseCamera} from './camera-import.js';
 import * as autopilot from './autopilot.js';
 import {SCENES} from './scenes.js';
 import {Pilot,Generator,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
@@ -613,7 +615,7 @@ function draw(time,dt=1/30){
     catch(error){renderErrors.push(error.message);}
   }
   out.globalAlpha=1;out.globalCompositeOperation='source-over';
-  if(mapped)mapping.render(previewCtx,state.mapping,src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT);
+  if(mapped)mapping.render(previewCtx,state.mapping,src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time);
   dissolveDraw(paused?0:dt);
   frame++;
   if(frame%2===0){drawSpectrum();showAutoKnobs();}
@@ -982,6 +984,7 @@ function fold(root,label){
 // Nodes that run a WebGPU simulation with its own sound knobs.
 const SIM_NODES=['gpuParticles','cloner','splat'];
 const OPT_GROUPS=[['Setup',/preset|^emitter$|bound|source|model|^type|mode|shape|cloud|scene/i],['Sound',/sensitiv|attack|release|audio|sound|bass|energy|beat|spectrum|react|loud/i],
+  ['Camera',/orbit|tilt|zoom|^rotate|walkthrough|camera/i],
   ['Emission',/amount|lifetime|life|size|launch|emit|jet|spawn|count|density|rate|particles|radius/i],['Forces',/drag|gravity|pull|swirl|spin|turbul|curl|flow|wind|speed|attract|viscos|vortic|force|cohes|align|separ|noise|friction|damp|pressure|diffus/i],
   ['Look',/trail|bloom|exposure|glow|colou?r|opacity|contrast|saturat|hue|fade|bright|light|shad|edge|thick|point/i],['Quality',/quality|precision|budget|simulation|time ?scale|step|resolution|iteration|detail/i]];
 const optGroup=label=>(OPT_GROUPS.find(([,re])=>re.test(label||''))||['Form'])[0];
@@ -1250,7 +1253,7 @@ function renderEmitter(root,n){
     // Leftover knobs share one "Form" section; sound, look and quality always keep their own.
     const ranges=controls.filter(c=>c.type==='range'),few=ranges.length<=9,main='Form',KEEP=['Sound','Look','Quality'];
     const lineChip=c=>/line|stroke|style/i.test(c.label),first=controls.find(c=>c.type!=='range'&&!c.action&&!lineChip(c));
-    const groupOf=c=>{const g=optGroup(c.label);if(c.type!=='range')return c===first||g==='Setup'?null:lineChip(c)?'Look':g==='Quality'?g:main;return few?(KEEP.includes(g)?g:main):g;};
+    const groupOf=c=>{const g=optGroup(c.label);if(c.type!=='range')return c===first||g==='Setup'?null:lineChip(c)||/blend/i.test(c.label)?'Look':['Quality','Camera','Look'].includes(g)?g:main;return few?(KEEP.includes(g)?g:main):g;};
     const order=[...new Set([main,...OPT_GROUPS.map(([g])=>g)])],bins=new Map(order.map(g=>[g,[]]));
     for(const c of controls){const gr=groupOf(c);if(gr)bins.get(gr).push(c);}
     for(const [gr,list] of bins)if(gr!==main&&gr!=='Sound'&&list.length&&list.length<(KEEP.includes(gr)?2:3)){bins.get(main).push(...list);list.length=0;}
@@ -1587,7 +1590,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-layers">Layers</h3>
 <p>Each graph is one layer. <b>+ Layer</b> adds another; layers stack in the preview using each layer's opacity and blend mode (select empty graph space to see the layer settings). Use the tabs above the graph to switch layers and the checkbox to show or hide one. A <b>Layer</b> node brings another layer into this graph.</p>
 <h3 id="h-mapping">Mapping</h3>
-<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p>
+<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / GLB / self-contained glTF. Choose UV, Front projection or Box content. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
 <h3 id="h-auto">Autopilot</h3>
 <p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”) is optional and steers it; <b>Prompt match</b> sets how closely. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look.</p>
 <h3 id="h-files">Saving &amp; output</h3>
@@ -1757,13 +1760,15 @@ function renderMapPanel(){
   const acts=el('div','map-actions');ls.append(acts);
   const btn=(label,title,fn,dis=false)=>{const b=el('button','mbtn',label);b.type='button';b.title=title;b.disabled=dis;b.onclick=fn;acts.append(b);return b;};
   btn('+ Surface','Add a surface',()=>mapEdit(x=>{const id=newSurfaceId(x),k=x.surfaces.length*.04;x.surfaces.push(mapping.surface(id,'Surface '+(x.surfaces.length+1),[[.2+k,.2+k],[.8+k,.2+k],[.8+k,.8+k],[.2+k,.8+k]]));x.on=true;mapSel=id;mapPt=-1;},'Added surface'),m.surfaces.length>=mapping.MAX_SURFACES).dataset.property='mapAdd';
-  if(s)btn('Duplicate','Copy the selected surface',()=>mapEdit(x=>{const id=newSurfaceId(x),c=clone(s);c.id=id;c.name=s.name+' copy';c.pts=c.pts.map(([a,b])=>[a+.03,b+.03]);x.surfaces.push(c);mapSel=id;},'Duplicated surface'),m.surfaces.length>=mapping.MAX_SURFACES);
+  btn('+ 3D object','Add a 3D projection surface',()=>mapEdit(x=>{const id=newSurfaceId(x);x.surfaces.push(map3d.surface3d(id));x.on=true;mapSel=id;mapPt=-1;},'Added 3D surface'),m.surfaces.length>=mapping.MAX_SURFACES).dataset.property='mapAdd3d';
+  if(s)btn('Duplicate','Copy the selected surface',()=>mapEdit(x=>{const id=newSurfaceId(x),c=clone(s);c.id=id;c.name=s.name+' copy';if(c.kind!=='3d')c.pts=c.pts.map(([a,b])=>[a+.03,b+.03]);x.surfaces.push(c);mapSel=id;},'Duplicated surface'),m.surfaces.length>=mapping.MAX_SURFACES);
   if(!s)return;
   const upd=(fn,label)=>mapEdit(x=>{const t=x.surfaces.find(y=>y.id===s.id);if(t)fn(t);},label);
   const ss=section(root,'Selected surface');
   const name=el('input');name.type='text';name.maxLength=40;name.value=s.name;name.dataset.property='surfName';name.onchange=()=>upd(t=>{t.name=name.value.trim()||t.name;},'Renamed surface');ss.append(ui.field('Name',name));
   const src=el('select');src.dataset.property='surfSource';src.append(new Option('All layers','all'));state.layers.forEach((g,i)=>src.append(new Option(`Layer ${i+1} · ${g.name}`,String(i+1))));src.value=String(s.source);
   src.onchange=()=>upd(t=>{t.source=src.value==='all'?'all':+src.value;},'Surface source');ss.append(ui.field('Shows',src));
+  if(s.kind==='3d'){renderMap3d(root,ss,s,upd);return;}
   const grid=el('select');grid.dataset.property='surfGrid';for(const [c,r,l] of [[1,1,'Flat · 4 corners'],[2,1,'Bend sideways · 2×1'],[2,2,'Curved · 3×3 points'],[3,2,'Curved · 4×3 points'],[3,3,'Curved · 4×4 points'],[4,4,'Fine · 5×5 points']])grid.append(new Option(l,c+'x'+r));
   grid.append(new Option('Cube cap · wrap sides','cap'));
   grid.value=s.wrap==='cap'?'cap':s.cols+'x'+s.rows;if(!grid.value){grid.append(new Option(`${s.cols}×${s.rows}`,s.cols+'x'+s.rows));grid.value=s.cols+'x'+s.rows;}
@@ -1784,6 +1789,19 @@ function renderMapPanel(){
   sb('Flatten','Remove the curve, keep the four corners',()=>upd(t=>{t.pts=mapping.gridPoints(t.cols,t.rows,mapping.corners(t));},'Surface flattened'));
   sb('Flip ↔','Mirror the surface left to right',()=>upd(t=>{const w=t.cols+1;t.pts=t.pts.map((_,k)=>t.pts[Math.floor(k/w)*w+(t.cols-k%w)]);},'Surface flipped'));
 }
+function renderMap3d(root,ss,s,upd){
+  const select=(label,key,options)=>{const e=el('select');e.dataset.property='surf3d'+key;for(const [v,l] of options)e.append(new Option(l,v));e.value=s[key];e.onchange=()=>upd(t=>{if(key==='upAxis'&&t.upAxis!==e.value){const [x,y,z]=t.camera.target;t.camera.target=e.value==='Z'?[x,z,-y]:[x,-z,y];}t[key]=e.value;if(key==='primitive'){t.model='';t.modelKey='';t.camera.target=[0,0,0];t.camera.distance=6;t.scale=1;t.upAxis='Y';t.trackOn=false;}},label);ss.append(ui.field(label,e));};
+  select('Object','primitive',map3d.PRIMITIVES.map(v=>[v,v]));select('Object up','upAxis',[['Y','Y-up'],['Z','Z-up (OBJ)']]);select('Content','projection',[['uv','UV (fallback planar)'],['front','Front projection'],['box','Box']]);
+  const file=(label,accept,property,load,parent=ss)=>{const b=el('button','mbtn',label);b.dataset.property=property;b.onclick=()=>{const f=el('input');f.type='file';f.accept=accept;f.onchange=async()=>{if(!f.files[0])return;try{await load(f.files[0]);}catch(e){message(e.message,true);}};f.click();};parent.append(b);};
+  file(s.model?(map3d.hasModel(s)?s.model:'Load model… · '+s.model):'Load model…','.obj,.glb,.gltf','mapLoadModel',async f=>{const m=await map3d.loadModel(f);upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');});
+  ss.append(ui.field('Wireframe',ui.toggle({value:s.wire,labels:['On','Off'],property:'surf3dWire',onChange:v=>upd(t=>{t.wire=v;},'Mapping wireframe')})));
+  const camera=section(root,'Projector camera'),kn=el('div','knob-grid'),liveSurf=fn=>live(st=>{const t=st.mapping?.surfaces.find(v=>v.id===s.id);if(t)fn(t);});camera.append(kn);
+  for(const [key,label,min,max,step,def,unit] of [['yaw','Orbit',-180,180,.1,30,'°'],['pitch','Tilt',-89,89,.1,20,'°'],['distance','Distance',.01,Math.max(30,s.camera.distance*2),.01,6,''],['roll','Roll',-180,180,.1,0,'°'],['panX','Pan X',-2,2,.001,0,''],['panY','Pan Y',-2,2,.001,0,''],['focal','Focal length',10,200,.1,35,'mm'],['scale','Object scale',.001,Math.max(10,s.scale*2),.001,1,'']])kn.append(ui.knob({label,min,max,step,def,unit,value:key==='scale'?s.scale:s.camera[key],property:'surf3d'+key,onInput:v=>liveSurf(t=>{if(key==='scale')t.scale=v;else{t.camera[key]=v;if(!['panX','panY'].includes(key))t.trackOn=false;}}),onChange:()=>liveCommit('Projector '+label)}));
+  kn.append(ui.knob({label:'Opacity',min:0,max:100,step:1,def:100,value:s.opacity*100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
+  file('Import camera…','.fbx,.usda,.usd,.usdc,.usdz,.glb,.gltf','mapImportCamera',async f=>{const track=await parseCamera(await f.arrayBuffer(),f.name);upd(t=>{t.track=track;t.trackOn=true;t.playing=true;t.hold=0;t.offset=0;},'Imported camera');},camera);
+  if(s.track){const clip=section(root,s.track.name);clip.append(ui.field('Camera',ui.toggle({value:s.trackOn,labels:['Imported','Manual'],property:'mapTrackOn',onChange:v=>upd(t=>{t.trackOn=v;},'Camera mode')})),ui.field('Playback',ui.toggle({value:s.playing,labels:['Play','Hold'],property:'mapTrackPlay',onChange:v=>upd(t=>{const clock=s.sync?elapsed:performance.now()/1000;if(!v)t.hold=((clock*s.speed+s.offset)%(s.track.duration||1)+(s.track.duration||1))%(s.track.duration||1);else t.offset=t.hold-clock*s.speed;t.playing=v;},'Camera playback')})),ui.field('Sync transport',ui.toggle({value:s.sync,labels:['On','Off'],property:'mapTrackSync',onChange:v=>upd(t=>{const now=performance.now()/1000,oldClock=s.sync?elapsed:now,newClock=v?elapsed:now;t.offset+=(oldClock-newClock)*s.speed;t.sync=v;},'Camera clock')})));
+    clip.append(ui.knob({label:'Speed',min:.05,max:4,step:.05,def:1,value:s.speed,property:'mapTrackSpeed',onInput:v=>liveSurf(t=>{const clock=t.sync?elapsed:performance.now()/1000;t.offset+=clock*(t.speed-v);t.speed=v;}),onChange:()=>liveCommit('Camera speed')}),ui.knob({label:'Time',min:0,max:Math.max(.01,s.track.duration),step:.01,def:0,value:s.hold,unit:'s',property:'mapTrackTime',onInput:v=>liveSurf(t=>{t.hold=v;t.playing=false;}),onChange:()=>liveCommit('Camera time')}));}
+}
 function overlayBox(){
   const r=preview.getBoundingClientRect(),w=$('previewWrap').getBoundingClientRect();
   const z=uiZ();overlay.style.left=(r.left-w.left)/z+'px';overlay.style.top=(r.top-w.top)/z+'px';overlay.style.width=r.width/z+'px';overlay.style.height=r.height/z+'px';
@@ -1794,10 +1812,12 @@ function renderOverlay(){
   if(!overlay||overlay.hasAttribute('hidden'))return;overlay.replaceChildren();const r=overlayBox(),k=WIDTH/(r.width||WIDTH),m=curMap();
   const P=p=>`${(p[0]*WIDTH).toFixed(1)},${(p[1]*HEIGHT).toFixed(1)}`;
   for(const s of m.surfaces){
+    if(s.kind==='3d')continue;
     const sel=s.id===mapSel,poly=svg('polygon',{class:'surf'+(sel?' sel':''),points:mapping.outline(s,s.cols*s.rows>1?16:1).map(P).join(' ')});poly.dataset.surface=s.id;overlay.append(poly);
     const c=mapping.pointAt(s,.5,.5),t=svg('text',{x:c[0]*WIDTH,y:c[1]*HEIGHT,'text-anchor':'middle','font-size':13*k});t.textContent=s.name;overlay.append(t);
   }
   const s=selSurface();if(!s)return;
+  if(s.kind==='3d'){const hit=svg('rect',{x:0,y:0,width:WIDTH,height:HEIGHT,fill:'transparent','pointer-events':'all'});overlay.append(hit);return;}
   if(s.cols>1||s.rows>1){let d='';for(let j=0;j<=s.rows;j++){d+='M';for(let i=0;i<=16;i++)d+=P(mapping.pointAt(s,i/16,j/s.rows))+' ';}for(let i=0;i<=s.cols;i++){d+='M';for(let j=0;j<=16;j++)d+=P(mapping.pointAt(s,i/s.cols,j/16))+' ';}overlay.append(svg('path',{class:'mesh',d}));}
   const w=s.cols+1,cornerIdx=new Set([0,s.cols,s.rows*w,s.rows*w+s.cols]);
   s.pts.forEach((p,i)=>{const c=svg('circle',{class:'pt'+(cornerIdx.has(i)?' corner':'')+(i===mapPt?' on':''),cx:p[0]*WIDTH,cy:p[1]*HEIGHT,r:(cornerIdx.has(i)?7:5.5)*k});c.dataset.point=i;overlay.append(c);});
@@ -1806,12 +1826,12 @@ new ResizeObserver(()=>renderOverlay()).observe(preview);
 const normPoint=ev=>{const r=preview.getBoundingClientRect();return [(ev.clientX-r.left)/r.width,(ev.clientY-r.top)/r.height];};
 const round4=v=>Math.round(v*10000)/10000;
 overlay.addEventListener('pointerdown',ev=>{
-  if(ev.button!==0)return;ev.preventDefault();const [x,y]=normPoint(ev),r=preview.getBoundingClientRect(),m=curMap();
-  const s=selSurface();let hit=-1;
+  if(![0,2].includes(ev.button))return;ev.preventDefault();const [x,y]=normPoint(ev),r=preview.getBoundingClientRect(),m=curMap();
+  const s=selSurface();if(s?.kind==='3d'){mapDrag={kind:'camera',id:s.id,x,y,camera:clone(s.camera),pan:ev.shiftKey||ev.button===2};overlay.setPointerCapture(ev.pointerId);return;}let hit=-1;
   if(s){let best=16;s.pts.forEach((p,i)=>{const d=Math.hypot((p[0]-x)*r.width,(p[1]-y)*r.height);if(d<best){best=d;hit=i;}});}
   if(hit>=0){mapPt=hit;mapDrag={kind:'pt',id:s.id,i:hit};}
   else{
-    const under=[...m.surfaces].reverse().find(t=>mapping.inside(t,x,y));
+    const under=[...m.surfaces].reverse().find(t=>t.kind!=='3d'&&mapping.inside(t,x,y));
     if(!under){mapSel=null;mapPt=-1;renderMapPanel();renderOverlay();return;}
     mapSel=under.id;mapPt=-1;mapDrag={kind:'move',id:under.id,x,y,pts:clone(under.pts)};renderMapPanel();
   }
@@ -1820,16 +1840,19 @@ overlay.addEventListener('pointerdown',ev=>{
 overlay.addEventListener('pointermove',ev=>{
   if(!mapDrag)return;const [x,y]=normPoint(ev);
   live(st=>{const t=st.mapping?.surfaces.find(s=>s.id===mapDrag.id);if(!t)return;
+    if(mapDrag.kind==='camera'){const c=mapDrag.camera,dx=x-mapDrag.x,dy=y-mapDrag.y;t.trackOn=false;if(mapDrag.pan){t.camera.panX=Math.max(-2,Math.min(2,c.panX+dx));t.camera.panY=Math.max(-2,Math.min(2,c.panY-dy));}else{t.camera.yaw=c.yaw-dx*180;t.camera.pitch=Math.max(-89,Math.min(89,c.pitch+dy*180));}return;}
     if(mapDrag.kind==='pt')t.pts[mapDrag.i]=[round4(Math.max(-1,Math.min(2,x))),round4(Math.max(-1,Math.min(2,y)))];
     else{const dx=x-mapDrag.x,dy=y-mapDrag.y;t.pts=mapDrag.pts.map(([a,b])=>[round4(a+dx),round4(b+dy)]);}});
   renderOverlay();
 });
+overlay.addEventListener('contextmenu',e=>e.preventDefault());
+let mapWheel;overlay.addEventListener('wheel',e=>{const s=selSurface();if(s?.kind!=='3d')return;e.preventDefault();live(st=>{const t=st.mapping.surfaces.find(v=>v.id===s.id);t.trackOn=false;if(e.shiftKey)t.camera.distance=Math.max(.001,Math.min(100000,t.camera.distance*Math.exp(e.deltaY*.001)));else t.camera.focal=Math.max(10,Math.min(200,t.camera.focal*Math.exp(-e.deltaY*.001)));});clearTimeout(mapWheel);mapWheel=setTimeout(()=>liveCommit('Projector zoom'),200);},{passive:false});
 const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':'Moved surface');}};
 overlay.addEventListener('pointerup',endMapDrag);overlay.addEventListener('pointercancel',endMapDrag);
 function mapKey(e){
   if(!mapMode||!mapSel)return false;const s=selSurface();if(!s)return false;
   const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
-  if(d){e.preventDefault();const st=(e.shiftKey?10:1);mapEdit(x=>{const t=x.surfaces.find(y=>y.id===s.id);const idx=mapPt>=0?[mapPt]:t.pts.map((_,i)=>i);for(const i of idx)t.pts[i]=[round4(t.pts[i][0]+d[0]*st/WIDTH),round4(t.pts[i][1]+d[1]*st/HEIGHT)];},'Nudged mapping');return true;}
+  if(d&&s.kind!=='3d'){e.preventDefault();const st=(e.shiftKey?10:1);mapEdit(x=>{const t=x.surfaces.find(y=>y.id===s.id);const idx=mapPt>=0?[mapPt]:t.pts.map((_,i)=>i);for(const i of idx)t.pts[i]=[round4(t.pts[i][0]+d[0]*st/WIDTH),round4(t.pts[i][1]+d[1]*st/HEIGHT)];},'Nudged mapping');return true;}
   if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mapEdit(x=>{x.surfaces=x.surfaces.filter(y=>y.id!==s.id);},'Deleted surface');return true;}
   if(e.key==='Escape'){mapPt=-1;renderOverlay();return true;}
   return false;
@@ -2211,7 +2234,7 @@ window.pro={
   dissolve:on=>{dissolveOn=!!on;if(!on)fade=null;return dissolveOn;},autopilot:{examples:autopilot.EXAMPLES,write:o=>autopilot.write(o),parse:t=>autopilot.parse(t),read:t=>{const w=apWin();return w?vibeText(readVibe(w,t)):null;},create:t=>apCreate(t),
     change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),start:()=>apStart(),stop:()=>apStop(),
     settings:o=>{const {live,...rest}=o||{};Object.assign(ap,rest);if(live===true&&!ap.live)apStart();else if(live===false)apStop();apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,live:ap.live,hold:ap.hold,write:ap.write};},
-    status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
+    status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},cameraImport:parseCamera,mapping3d:map3d,mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),emitPoints:id=>nodeState.get(id+':emit')?.asset?.points,view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 attempt(()=>{const h=localStorage.getItem('agpro.resolution');if(h!==null)changeResolution(+h);});

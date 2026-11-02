@@ -4,6 +4,7 @@ const path = require('node:path');
 const http = require('node:http');
 const { chromium } = require('playwright');
 const gltfFile = require('./gltf-fixture.cjs');
+const cameraFixtures = require('./camera-fixture.cjs');
 function audioFile(seconds=6) {
   const rate=8000,samples=rate*seconds,wav=Buffer.alloc(44+samples*2);
   wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);
@@ -840,6 +841,38 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(capCheck.explicit,'flat','An explicitly flat cap remains flat');
     assert.equal(capCheck.curved,'flat','Changing to a curved grid leaves cap mapping');
     assert.equal(capCheck.cap,'cap','Cap mode survives project validation');
+    const three=await page.evaluate(async fixtures=>{
+      const M=await import('./mapping.js'),C=await import('./camera-import.js'),D=pro.mapping3d,W=480,H=270,src=document.createElement('canvas'),out=document.createElement('canvas');src.width=out.width=W;src.height=out.height=H;const x=src.getContext('2d');x.fillStyle='#ffae55';x.fillRect(0,0,W,H);const s=D.surface3d('cube'),ctx=out.getContext('2d');
+      const draw=(change={},test=false)=>{const a={...s,...change,camera:{...s.camera,...change.camera}};M.render(ctx,{on:true,test,surfaces:[a]},()=>src,W,H);const d=ctx.getImageData(0,0,W,H).data;let lit=0,hash=0;for(let i=0;i<d.length;i+=4){if(d[i]+d[i+1]+d[i+2]>15)lit++;hash=(hash+d[i]*(i%103+1)+d[i+1])%1e9;}return {lit,hash};};
+      const base=draw(),orbit=draw({camera:{yaw:65,pitch:35}}),zoom=draw({camera:{focal:55}}),card=draw({wire:true},true),P=pro.getProject();P.mapping={on:true,surfaces:[s]};const saved=pro.validate(JSON.parse(JSON.stringify(P))).mapping.surfaces[0],old=M.cleanMapping({on:true,surfaces:M.PRESETS['Single screen']()});
+      const tracks={};for(const [kind,bytes] of Object.entries(fixtures)){const track=await C.parseCamera(new Uint8Array(bytes).buffer,'camera.'+(kind==='binary'?'fbx':kind));tracks[kind]={...C.sampleTrack(track,.5),duration:track.duration,count:track.samples.length};if(kind==='usda'){P.mapping.surfaces[0].track=track;pro.validate(P);}}
+      const matrixUSD=`#usda 1.0
+(metersPerUnit = 1)
+def Camera "Camera" {
+ matrix4d xformOp:transform.timeSamples = {
+  0: ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,5,1)),
+  24: ((1,0,0,0),(0,1,0,0),(0,0,1,0),(2,0,5,1)),
+ }
+ uniform token[] xformOpOrder = ["xformOp:transform"]
+ float focalLength = 35
+ float horizontalAperture.timeSamples = {0: 36, 24: 72}
+}`;
+      const longTrack=await C.parseCamera(new TextEncoder().encode(new TextDecoder().decode(new Uint8Array(fixtures.usda)).replaceAll('24:', '2400:')).buffer,'long.usda');
+      const matrixTrack=await C.parseCamera(new TextEncoder().encode(matrixUSD).buffer,'matrix.usda'),matrixPose=C.sampleTrack(matrixTrack,.5),obj=await D.loadModel(new File(['v 10 20 0\nv 12 20 0\nv 12 22 0\nv 10 22 0\nf -4 -3 -2 -1 # quad\n'],'stage.obj'));
+      const imported=D.surface3d('imported');Object.assign(imported,obj);imported.camera={...imported.camera,target:obj.target,distance:obj.distance};M.render(ctx,{on:true,test:false,surfaces:[imported]},()=>src,W,H);const modelLit=[...ctx.getImageData(0,0,W,H).data].filter((v,i)=>i%4!==3&&v>0).length,missing=D.hasModel({...imported,modelKey:'missing'}),validTrack=M.cleanMapping({surfaces:[{...s,track:matrixTrack}]}).surfaces[0].track;
+      M.render(ctx,{on:true,test:true,surfaces:[{...imported,modelKey:'missing'}]},()=>src,W,H);const placeholderLit=[...ctx.getImageData(0,0,W,H).data].filter((v,i)=>i%4!==3&&v>0).length;
+      const held={...s,track:matrixTrack,trackOn:true,playing:false,hold:.5},holdA=D.cameraPose(held,0),holdB=D.cameraPose(held,100),loop=C.sampleTrack(matrixTrack,1.5);
+      let binaryUSD='';try{await C.parseCamera(new TextEncoder().encode('PXR-USDC').buffer,'scene.usdc');}catch(e){binaryUSD=e.message;}
+      P.mapping.test=true;P.mapping.surfaces[0].trackOn=false;pro.importProject(P);pro.selectSurface('cube');pro.draw(0);return {base,orbit,zoom,card,saved,old:old.surfaces[0].pts.length,tracks,binaryUSD,matrixPose,modelLit,placeholderLit,missing,longCount:longTrack.samples.length,trackSamples:validTrack.samples.length,holdA,holdB,loop,preview:pro.pixels()};
+    },cameraFixtures());
+    assert.ok(three.base.lit>1000,'3D cube renders textured pixels');assert.notEqual(three.base.hash,three.orbit.hash,'Projector orbit changes output');assert.ok(three.zoom.lit>three.base.lit*1.5,'Focal length zooms the model');assert.notEqual(three.card.hash,three.base.hash,'Test card and wireframe render on the mesh');assert.equal(three.saved.kind,'3d');assert.equal(three.saved.camera.focal,35);assert.equal(three.old,4,'Legacy 2D surfaces still load');assert.ok(three.preview>0,'3D mapping reaches program preview');
+    for(const kind of ['fbx','binary','usda','gltf']){const c=three.tracks[kind];assert.equal(c.duration,1);assert.equal(c.count,31);assert.ok(Math.abs(c.matrix[12]-1)<.00001,kind+' sampled translation');assert.ok(Math.abs(c.focal-(kind==='gltf'?35:52.5))<.0001,kind+' sampled focal length');}
+    assert.ok(Math.abs(three.tracks.fbx.matrix[14]-5)<.0001,'FBX centimetres convert to metres');assert.ok(Math.abs(three.tracks.usda.matrix[13]-7)<.0001,'USD parent and Z-up convert together');assert.ok(Math.abs(three.tracks.gltf.matrix[13]-2)<.0001,'glTF parent transform is preserved');assert.ok(Math.abs(three.tracks.gltf.matrix[0]-Math.SQRT1_2)<.0001,'glTF rotation interpolates');assert.ok(Math.abs(three.tracks.fbx.matrix[0]-Math.SQRT1_2)<.0001,'FBX rotation and camera axis convert');assert.match(three.binaryUSD,/export as \.usda/);assert.equal(three.matrixPose.matrix[12],1,'USD matrix timeSamples preserve translation');assert.ok(Math.abs(three.matrixPose.focal-35*2/3)<.00001,'Animated USD aperture changes equivalent focal');assert.ok(three.modelLit>100,'Imported OBJ renders without UVs');assert.equal(three.missing,false,'Missing model can request reload');assert.ok(three.placeholderLit>100,'Missing model placeholder remains in the saved camera frame');assert.equal(three.trackSamples,31,'Camera track survives validation');assert.equal(three.longCount,2000,'Long imported clips cap saved samples');assert.deepEqual(three.holdA,three.holdB,'Hold freezes the camera');assert.deepEqual(three.loop,three.matrixPose,'Imported tracks loop');
+    await page.locator('#modeMap').click();
+    await page.locator('[data-property=surf3dfocal]').evaluate(e=>{e.value='55';e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));});assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.focal,55,'Projector knob updates the surface');await page.evaluate(()=>pro.undo());assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.focal,35,'Projector knob is undoable');
+    const projectorRect=await page.locator('#preview').boundingBox(),projectorYaw=(await page.evaluate(()=>pro.mapping())).surfaces[0].camera.yaw;
+    await page.mouse.move(projectorRect.x+projectorRect.width*.5,projectorRect.y+projectorRect.height*.5);await page.mouse.down();await page.mouse.move(projectorRect.x+projectorRect.width*.6,projectorRect.y+projectorRect.height*.55,{steps:3});await page.mouse.up();assert.notEqual((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.yaw,projectorYaw,'Preview drag orbits the projector');await page.evaluate(()=>pro.undo());assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.yaw,projectorYaw,'Projector drag is undoable');
+    await page.evaluate(()=>{const p=pro.getProject();p.mapping={on:false,surfaces:[]};pro.importProject(p);});await page.locator('#modeStudio').click();
     // Resolution changes the render itself, not just CSS, without replacing the graph or its engines.
     await page.evaluate(()=>pro.loadTemplate('Ink'));
     const fluidID=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='gpuParticles').id);

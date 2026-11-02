@@ -66,14 +66,14 @@ function slerp(a,b,u){
   const o=[a[0]*k0+b[0]*k1,a[1]*k0+b[1]*k1,a[2]*k0+b[2]*k1,a[3]*k0+b[3]*k1],l=Math.hypot(...o)||1;return o.map(v=>v/l);
 }
 
-export function parseGLTF(buf,name=''){
+export function parseGLTF(buf,name='',cameraOnly=false){
   let g,bin=null;
   const glb=buf.byteLength>=12&&readGLB(buf);
   if(glb){g=glb.json;bin=glb.bin;}else g=JSON.parse(new TextDecoder().decode(buf));
   if(!g.asset||String(g.asset.version||'').split('.')[0]!=='2')throw Error('Only glTF 2.0 files are supported');
   const buffers=(g.buffers||[]).map((b,i)=>b.uri===undefined?(i===0&&bin?bin:(()=>{throw Error('GLB binary chunk is missing');})()):dataURI(b.uri));
   const nodes=(g.nodes||[]).map(n=>({children:n.children||[],mesh:n.mesh,skin:n.skin,weights:n.weights,
-    matrix:n.matrix?new Float32Array(n.matrix):null,t:n.translation||[0,0,0],r:n.rotation||[0,0,0,1],s:n.scale||[1,1,1]}));
+    camera:n.camera,matrix:n.matrix?new Float32Array(n.matrix):null,t:n.translation||[0,0,0],r:n.rotation||[0,0,0,1],s:n.scale||[1,1,1]}));
   const parent=new Int32Array(nodes.length).fill(-1);nodes.forEach((n,i)=>n.children.forEach(c=>{if(nodes[c])parent[c]=i;}));
   const scene=g.scenes?.[g.scene||0],roots=scene?.nodes||nodes.map((n,i)=>i).filter(i=>parent[i]<0);
   // Every node reachable from the scene, parents before children.
@@ -85,7 +85,7 @@ export function parseGLTF(buf,name=''){
     if(mode===5){const t=[];for(let i=2;i<idx.length;i++)i%2?t.push(idx[i-1],idx[i-2],idx[i]):t.push(idx[i-2],idx[i-1],idx[i]);idx=Uint32Array.from(t);}
     else if(mode===6){const t=[];for(let i=2;i<idx.length;i++)t.push(idx[0],idx[i-1],idx[i]);idx=Uint32Array.from(t);}
     for(const i of idx)if(i>=n)throw Error('A face references a missing vertex');
-    return {pos,idx,joints:p.attributes.JOINTS_0!==undefined?accessor(g,buffers,p.attributes.JOINTS_0,false):null,
+    return {pos,idx,uv:p.attributes.TEXCOORD_0!==undefined?accessor(g,buffers,p.attributes.TEXCOORD_0):null,joints:p.attributes.JOINTS_0!==undefined?accessor(g,buffers,p.attributes.JOINTS_0,false):null,
       weights:p.attributes.WEIGHTS_0!==undefined?accessor(g,buffers,p.attributes.WEIGHTS_0):null,
       targets:(p.targets||[]).map(t=>t.POSITION!==undefined?accessor(g,buffers,t.POSITION):null)};
   })}));
@@ -97,8 +97,9 @@ export function parseGLTF(buf,name=''){
     return {name:a.name||'Clip '+(i+1),channels:ch,duration};
   }).filter(c=>c.channels.length&&c.duration>0);
   let faces=0;for(const i of order){const n=nodes[i];if(n.mesh!==undefined&&meshes[n.mesh])for(const p of meshes[n.mesh].prims)faces+=p.idx.length/3;}
-  if(!faces)throw Error('No triangle geometry found in '+(name||'the model'));
-  const model={name,nodes,parent,order,meshes,skins,clips,faceStep:Math.max(1,Math.ceil(faces/MAX_FACES))};
+  if(!faces&&!cameraOnly)throw Error('No triangle geometry found in '+(name||'the model'));
+  const model={name,cameras:g.cameras||[],nodes,parent,order,meshes,skins,clips,faceStep:Math.max(1,Math.ceil(faces/MAX_FACES))};
+  if(cameraOnly)return model;
   // One fixed fit for the whole animation: bounds over the rest pose and samples of the first clip.
   const box=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity],grow=v=>{for(let i=0;i<v.length;i+=3)for(let k=0;k<3;k++){box[k]=Math.min(box[k],v[i+k]);box[k+3]=Math.max(box[k+3],v[i+k]);}};
   grow(rawPose(model,-1,0).pos);
@@ -120,7 +121,7 @@ function sample(c,t,out){
   return c.path==='rotation'?slerp(a,b,u):a.map((v,j)=>v+(b[j]-v)*u);
 }
 // World-space positions of every triangle vertex at time t of a clip (-1 = rest pose).
-function rawPose(m,clip,t){
+export function rawPose(m,clip,t){
   const loc=m.nodes.map(n=>({t:n.t,r:n.r,s:n.s,w:n.weights}));
   const c=m.clips[clip];
   if(c){const tt=((t%c.duration)+c.duration)%c.duration;for(const ch of c.channels){const v=sample(ch,tt);const L=loc[ch.node];if(ch.path==='translation')L.t=v;else if(ch.path==='rotation')L.r=v;else if(ch.path==='scale')L.s=v;else L.w=v;}}
@@ -161,3 +162,5 @@ export function pose(m,clip,t){
   for(const v of normals){const l=Math.hypot(v[0],v[1],v[2])||1;v[0]/=l;v[1]/=l;v[2]/=l;}
   return {verts,faces,normals};
 }
+
+export {I4,mul,trs,slerp,sample};

@@ -7,7 +7,7 @@
 <title>Audiograph — by Vladimir Petković</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Instrument+Serif&display=swap');
-:root{--bg:#08080a;--surface:#0f0f12;--elevated:#17171c;--border:#252529;--border-h:#3a3a40;--tx:#dddde0;--tx2:#8a8a92;--tx3:#55555c;--accent:#c4f0dc;--accent2:#6ee7b7;--accent-d:#1c3d30;--accent-g:rgba(110,231,183,0.06);--hot:#f87171;--sel:rgba(110,231,183,0.12);--sel-border:rgba(110,231,183,0.35);--crop:#f59e0b;--crop-dim:rgba(0,0,0,0.55)}
+:root{--bg:#08080a;--surface:#0f0f12;--elevated:#17171c;--border:#252529;--border-h:#3a3a40;--tx:#dddde0;--tx2:#8a8a92;--tx3:#55555c;--accent:#ececf0;--accent2:#c4c4ca;--accent-d:#24242a;--accent-g:rgba(236,236,240,0.05);--on:#d6d6da;--on-tx:#0b0b0d;--hot:#f87171;--sel:rgba(236,236,240,0.10);--sel-border:rgba(236,236,240,0.32);--crop:#f59e0b;--crop-dim:rgba(0,0,0,0.55)}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace;min-height:100vh;display:flex;flex-direction:column}
 .top-bar{display:flex;align-items:center;justify-content:space-between;padding:.8rem 1.5rem;border-bottom:1px solid var(--border)}
@@ -83,7 +83,12 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:6px}
 .panel-head{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;cursor:pointer;user-select:none}
 .panel-head:hover{background:var(--elevated)}
-.panel-title{font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--tx2)}
+.panel-title{font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--cat,var(--tx2));font-weight:700}
+#panelWebcam,#panelMapping{--cat:#71f4d3}#panelEQ{--cat:#f471a8}#panelAI,#panelAuto{--cat:#f471d1}#panelDist{--cat:#f4717f}#panelAppear,#panelParticles{--cat:#71c3f4}#panelGeo{--cat:#7271f4}#panelColor,#panelBg{--cat:#c471f4}#panelFx{--cat:#9b71f4}#panelPostFx{--cat:#ed71f4}
+#panelGeo .panel-title{color:#9493f7}.panel-body{--cat:initial}
+.tips-btn{width:18px;height:18px;padding:0;margin-left:auto;margin-right:6px;display:inline-grid;place-items:center;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--tx3);font:600 .5rem/1 'JetBrains Mono',monospace;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.tips-btn:hover{color:var(--tx);border-color:var(--border-h)}.tips-btn[aria-pressed=true]{color:var(--on-tx);background:var(--on);border-color:var(--on)}
+.panel .tip{display:none!important}.panel.tips-on .tip:not([style*="display: none"]){display:block!important}
 .panel-arrow{font-size:.6rem;color:var(--tx3);transition:transform .15s}
 .panel-rand{font-size:.5rem;padding:1px 5px;margin-left:auto;margin-right:6px;background:var(--elevated);border:1px solid var(--border);border-radius:3px;color:var(--tx2);cursor:pointer;opacity:0.4;transition:opacity .15s;letter-spacing:.04em}.panel-rand:hover{opacity:1;color:var(--accent2)}
 .panel.closed .panel-body{display:none}
@@ -92,7 +97,7 @@ body{background:var(--bg);color:var(--tx);font-family:'JetBrains Mono',monospace
 .ai-prompt{width:100%;box-sizing:border-box;min-height:52px;resize:vertical;background:var(--elevated);color:var(--tx);border:1px solid var(--border);border-radius:4px;padding:6px;font:inherit;font-size:.65rem}
 .ai-chips{display:flex;flex-wrap:wrap;gap:4px}.ai-chip{font-size:.5rem;padding:2px 6px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--tx2);cursor:pointer}.ai-chip:hover{color:var(--tx);border-color:var(--tx3)}
 .ap-status{display:flex;align-items:center;gap:8px;font-size:.55rem;color:var(--tx2)}.ap-status #apSection{min-width:84px}.ap-bar{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}.ap-bar span{display:block;height:100%;width:0;background:var(--accent,#3ddc97);transition:width .2s}#apNext{font-size:.5rem;color:var(--tx3)}.ap-last{font-size:.5rem;color:var(--tx3)}
-.auto-tabs{display:flex;width:100%}.auto-tabs .mbtn{flex:1;position:relative}.auto-dot{display:none;position:absolute;top:3px;right:4px;width:5px;height:5px;border-radius:50%;background:var(--accent,#3ddc97)}.auto-tabs .mbtn.live .auto-dot{display:block}.auto-sec{display:flex;flex-direction:column;gap:8px}#apVibe{min-height:2.6em}
+.auto-tabs{display:flex;width:100%}.auto-tabs .mbtn{flex:1;position:relative}.auto-dot{display:none}.auto-tabs .mbtn.live{color:#71f4d3}.auto-tabs .mbtn.live.on{color:var(--on-tx);text-decoration:underline;text-underline-offset:2px}.auto-sec{display:flex;flex-direction:column;gap:8px}#apVibe{min-height:2.6em}
 .ai-status{font-size:.55rem;color:var(--tx3);line-height:1.35;min-height:1em}.ai-status.ok{color:var(--tx2)}.ai-status.err{color:#e9a03b}
 .prow{display:flex;align-items:center;gap:7px;min-width:0;max-width:100%}
 .prow-label{font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);min-width:56px;flex-shrink:0}
@@ -137,12 +142,11 @@ input[type="range"].knob-src{position:absolute!important;left:0;top:0;width:1px!
 body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .mbtn{--chip-hint:rgba(255,255,255,.16);position:relative;min-height:22px;padding:4px 8px;font:.52rem/1 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.025em;background:#1b1b20;border:1px solid rgba(255,255,255,.055);border-radius:6px;color:#9a9aa3;cursor:pointer;transition:transform .12s,background .12s,border-color .12s,color .12s,box-shadow .12s;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
 .mbtn:hover{color:#d5d5dc;background:#23232a;border-color:rgba(255,255,255,.11);transform:translateY(-1px)}
-.mbtn.on{color:#061713;border-color:rgba(0,217,145,.72);background:#00d991;box-shadow:0 4px 12px rgba(0,217,145,.16),inset 0 1px 0 rgba(255,255,255,.22)}
-.mbtn.amber{--chip-hint:#f59e0b;color:#c4a66f}
-.mbtn.styleb{--chip-hint:#8aa2ff;color:#a8b7ec}
-.mbtn.amber::before,.mbtn.styleb::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--chip-hint);margin-right:5px;vertical-align:1px;opacity:.85}
-.mbtn.amber.on,.mbtn.styleb.on{color:#061713;border-color:rgba(0,217,145,.72);background:#00d991}
-.mbtn.amber.on::before,.mbtn.styleb.on::before{background:#061713;opacity:.45}
+.mbtn.on{color:var(--on-tx);border-color:var(--on);background:var(--on);box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
+.mbtn.amber{color:var(--cat,#71c3f4)}
+.mbtn.styleb{color:var(--cat,#c471f4)}
+.mbtn.amber:hover,.mbtn.styleb:hover{color:var(--cat,#71c3f4);filter:brightness(1.18)}.mbtn.styleb:hover{color:var(--cat,#c471f4)}
+.mbtn.amber.on,.mbtn.styleb.on{color:var(--on-tx);border-color:var(--on);background:var(--on);filter:none}
 .mode-btns{display:flex;gap:4px;flex-wrap:wrap;max-width:100%;min-width:0;align-items:center}
 .prow-label+.mode-btns{flex:1;max-width:calc(100% - 70px)}
 #panelPresets .preset-actions{gap:4px;flex-wrap:nowrap;align-items:stretch}
@@ -155,14 +159,14 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .prow.switch-cell.compact-switch-cell{flex-basis:96px;max-width:96px}
 .compact-switch-cell .mode-btns{max-width:100%;justify-content:center;gap:4px;flex-wrap:nowrap}
 .compact-switch-cell .mbtn{padding:4px 5px;font-size:.42rem;letter-spacing:0;min-height:22px}
-.ag-switch{width:56px;height:26px;border:0;border-radius:999px;padding:0;position:relative;cursor:pointer;outline:none;background:#d94a43;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),0 5px 14px rgba(0,0,0,.22);transition:background .16s,box-shadow .16s;-webkit-user-select:none;user-select:none}
+.ag-switch{width:56px;height:26px;border:0;border-radius:999px;padding:0;position:relative;cursor:pointer;outline:none;background:#2a2a31;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),0 5px 14px rgba(0,0,0,.22);transition:background .16s,box-shadow .16s;-webkit-user-select:none;user-select:none}
 .ag-switch::before{content:attr(data-text);position:absolute;top:0;bottom:0;display:flex;align-items:center;font:.58rem/1 'JetBrains Mono',monospace;font-weight:800;letter-spacing:.06em;color:rgba(9,18,18,.78)}
 .ag-switch::after{content:"";position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:#f4f4ef;box-shadow:0 1px 4px rgba(0,0,0,.34);transition:transform .16s}
-.ag-switch.on{background:#00d991}
+.ag-switch.on{background:var(--on)}.ag-switch.off::before{color:var(--tx2)}.ag-switch.off::after{background:#8a8a92}
 .ag-switch.on::before{left:12px}
 .ag-switch.off::before{right:8px}
 .ag-switch.on::after{transform:translateX(30px)}
-.ag-switch:focus-visible{box-shadow:0 0 0 2px rgba(255,255,255,.22),0 0 0 4px rgba(0,217,145,.22)}
+.ag-switch:focus-visible{box-shadow:0 0 0 2px rgba(255,255,255,.22),0 0 0 4px rgba(236,236,240,.18)}
 .prow.prow-stack{flex-direction:column;align-items:center;gap:6px}
 .prow-stack>.prow-label{min-width:0;text-align:center}
 .prow-stack .mode-btns,.layout-opts .mode-btns{justify-content:center}
@@ -210,7 +214,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .btn.rec-stop:hover{background:#ef4444}
 .rec-timer{font-size:.55rem;color:var(--hot);font-variant-numeric:tabular-nums}
 
-#agTourRing{position:fixed;z-index:9000;display:none;pointer-events:none;border:2px solid var(--accent2);border-radius:8px;box-shadow:0 0 18px 2px rgba(110,231,183,.6)}
+#agTourRing{position:fixed;z-index:9000;display:none;pointer-events:none;border:2px solid var(--accent2);border-radius:8px;box-shadow:0 0 18px 2px rgba(236,236,240,.45)}
 #agTourCard{position:fixed;z-index:9001;display:none;background:var(--surface);border:1px solid var(--accent2);border-radius:10px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,.6);color:var(--tx);font-family:'Inter','Helvetica Neue',Arial,sans-serif;max-width:420px}
 @media(max-width:900px){#agTourCard{max-width:none}}
 #agTourCard .tour-step{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2)}
@@ -234,8 +238,8 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .audio-source-group{transition:border-color .3s,box-shadow .3s}
 .audio-source-group.needs-src{border-color:var(--accent2);animation:srcPulse 1.8s ease-in-out infinite}
 .audio-source-group.needs-src .audio-source-label{color:var(--accent2)}
-@keyframes srcPulse{0%,100%{box-shadow:0 0 0 0 rgba(110,231,183,.0)}50%{box-shadow:0 0 14px 2px rgba(110,231,183,.45)}}
-@media (prefers-reduced-motion:reduce){.audio-source-group.needs-src{animation:none;box-shadow:0 0 10px 1px rgba(110,231,183,.35)}}
+@keyframes srcPulse{0%,100%{box-shadow:0 0 0 0 rgba(236,236,240,.0)}50%{box-shadow:0 0 14px 2px rgba(236,236,240,.35)}}
+@media (prefers-reduced-motion:reduce){.audio-source-group.needs-src{animation:none;box-shadow:0 0 10px 1px rgba(236,236,240,.3)}}
 @media(max-width:900px){.top-bar{flex-wrap:wrap;row-gap:8px}.top-actions{flex-wrap:wrap}}
 @media(min-width:901px){.top-bar{padding-right:0;position:relative}.audio-source-slot{width:420px;margin-left:0}.audio-source-slot .audio-source-group{margin-left:0}}
 .help-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;overflow-y:auto;padding:40px 20px}
@@ -254,7 +258,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
 .help-toc a{font-size:.48rem;padding:2px 7px;border:1px solid var(--border);border-radius:10px;color:var(--tx2);text-decoration:none;background:var(--elevated)}
 .help-toc a:hover{color:var(--accent);border-color:var(--accent)}
 .help-section{scroll-margin-top:12px}
-.mbtn.stack-on{border-color:var(--accent2);color:var(--accent2);background:rgba(110,231,183,0.12);border-style:solid}
+.mbtn.stack-on{border-color:var(--accent2);color:var(--accent2);background:rgba(236,236,240,0.08);border-style:solid}
 .layer-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:.5rem;color:var(--tx2)}
 .layer-row .layer-name{min-width:60px;text-transform:capitalize;color:var(--accent2)}
 .layer-row input[type=range]{flex:1;height:3px}
@@ -351,7 +355,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="Fullscreen (⌘F)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></button>
       <div class="rec-badge" id="recBadge"><div class="rec-dot"></div><span>REC</span><span class="rec-timer" id="recTimer">0:00</span></div>
       <div class="idle-overlay" id="idle"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>drop audio file here<br>or click Load Audio</span></div>
-      <div id="dropZone" style="display:none;position:absolute;inset:0;background:rgba(110,231,183,0.08);border:2px dashed var(--accent2);border-radius:8px;z-index:20;align-items:center;justify-content:center"><span style="color:var(--accent2);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase">drop to load</span></div>
+      <div id="dropZone" style="display:none;position:absolute;inset:0;background:rgba(236,236,240,0.06);border:2px dashed var(--accent2);border-radius:8px;z-index:20;align-items:center;justify-content:center"><span style="color:var(--accent2);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase">drop to load</span></div>
     </div>
     <div class="transport">
       <button class="btn" id="stopAudioBtn" onclick="audioTransportClick()" disabled title="Choose Load audio, Mic or System first" aria-label="Play audio source (choose Load audio, Mic or System first)"><svg id="stopAudioIco" viewBox="0 0 24 24" style="width:12px;height:12px"><polygon points="5 3 19 12 5 21 5 3"/></svg><span id="stopAudioLbl">Play</span></button><button class="btn" id="undoBtn" onclick="undo()" style="border-color:var(--accent2);color:var(--accent2)" disabled><svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Undo</button><button class="btn" onclick="resetAll()">Reset</button>
@@ -402,7 +406,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
   </div>
   <div class="controls-area" id="controlsArea">
     <div class="panel closed" id="panelMapping">
-      <div class="panel-head" onclick="projectionMap.toggleEditor()"><span class="panel-title">Projection Mapping</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-head" onclick="projectionMap.toggleEditor()"><span class="panel-title">Projection Mapping</span><button class="tips-btn" title="Tips" aria-pressed="false" onclick="event.stopPropagation();toggleTips('panelMapping',this)">?</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="map-controls">
           <button class="mbtn" id="mapEnabled" onclick="projectionMap.toggleEnabled()" aria-pressed="false">Mapping off</button>
@@ -417,7 +421,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
             <option value="custom">Custom per-plane crops</option>
           </select>
         </div>
-        <p class="map-help" id="mapSourceHelp"></p>
+        <p class="map-help tip" id="mapSourceHelp"></p>
         <div class="map-controls" id="mapSpanLayouts" style="display:none">
           <span class="map-help">Shared source emitter</span>
           <button class="mbtn" onclick="projectionMap.layoutSpan('horizontal')">Horizontal</button>
@@ -434,7 +438,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
           <label>Y <input id="mapSpanPanY" type="number" min="-100" max="100" step=".1" value="0" onchange="projectionMap.changeSpanPosition()">%</label>
         </div>
         <div class="map-editor-wrap" id="mapEditorWrap"><canvas id="mapEditor" tabindex="0" aria-label="Projection mapping editor. Double-click a visible plane to select it. Adjust planes: drag handles or shift-drag the plane. Span Move visuals: drag the shared artwork without moving geometry. Arrow keys nudge the current target."></canvas></div>
-        <p class="map-help">Double-click a face to select it. Adjust planes: drag corners or small grid points; Shift-drag moves the plane. Span: choose Move visuals and drag inside any face to slide the whole shared image, keeping plane alignment and source joins intact. Arrow keys nudge the current target (Shift: 10 pixels). Guides stay off the projector.</p>
+        <p class="map-help tip">Double-click a face to select it. Adjust planes: drag corners or small grid points; Shift-drag moves the plane. Span: choose Move visuals and drag inside any face to slide the whole shared image, keeping plane alignment and source joins intact. Arrow keys nudge the current target (Shift: 10 pixels). Guides stay off the projector.</p>
         <div class="map-controls">
           <select id="mapSurface" aria-label="Selected plane" onchange="projectionMap.select(+this.value)" style="flex:1"></select>
           <button class="mbtn" onclick="projectionMap.add()">+ Plane</button>
@@ -496,7 +500,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     <div class="panel closed" id="panelEQ"><div class="panel-head" onclick="togglePanel('panelEQ')"><span class="panel-title">Audio EQ</span><span class="panel-arrow">▼</span></div><div class="panel-body"><div class="prow" id="rowPlayback"><span class="prow-label">Playback</span><div class="mode-btns"><button class="mbtn" onclick="setPlayMode('off',this)">Off</button><button class="mbtn on" onclick="setPlayMode('continuous',this)">Continuous</button><button class="mbtn" onclick="setPlayMode('equalizer',this)">Equalizer</button></div></div><div class="prow" title="Spreads bar heights apart so loud, mastered tracks keep their shape instead of every line sitting near full height. 0 = previous response."><span class="prow-label">Dynamics</span><input type="range" min="0" max="100" value="50" step="1" id="pDynamics" oninput="setDynamics(this.value)"><span class="prow-val" id="vDynamics">50%</span></div><div class="prow"><span class="prow-label">Preset</span><div class="mode-btns"><button class="mbtn on" onclick="setEQPreset('flat',this)">Flat</button><button class="mbtn" onclick="setEQPreset('bass',this)">Bass+</button><button class="mbtn" onclick="setEQPreset('vshape',this)">V-Shape</button><button class="mbtn" onclick="setEQPreset('warm',this)">Warm</button><button class="mbtn" onclick="setEQPreset('bright',this)">Bright</button><button class="mbtn" onclick="setEQPreset('vocal',this)">Vocal</button></div></div><div class="prow"><span class="prow-label">Smoothing</span><input type="range" min="0" max="90" value="50" step="5" id="eqSmoothing" oninput="updateEQ()"><span class="prow-val" id="vEqSmoothing">50%</span></div><div class="prow"><span class="prow-label">32 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq32" oninput="updateEQ()"><span class="prow-val" id="vEq32">0 dB</span></div><div class="prow"><span class="prow-label">64 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq64" oninput="updateEQ()"><span class="prow-val" id="vEq64">0 dB</span></div><div class="prow"><span class="prow-label">125 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq125" oninput="updateEQ()"><span class="prow-val" id="vEq125">0 dB</span></div><div class="prow"><span class="prow-label">250 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq250" oninput="updateEQ()"><span class="prow-val" id="vEq250">0 dB</span></div><div class="prow"><span class="prow-label">500 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq500" oninput="updateEQ()"><span class="prow-val" id="vEq500">0 dB</span></div><div class="prow"><span class="prow-label">1 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq1k" oninput="updateEQ()"><span class="prow-val" id="vEq1k">0 dB</span></div><div class="prow"><span class="prow-label">2 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq2k" oninput="updateEQ()"><span class="prow-val" id="vEq2k">0 dB</span></div><div class="prow"><span class="prow-label">4 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq4k" oninput="updateEQ()"><span class="prow-val" id="vEq4k">0 dB</span></div><div class="prow"><span class="prow-label">8 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq8k" oninput="updateEQ()"><span class="prow-val" id="vEq8k">0 dB</span></div><div class="prow"><span class="prow-label">16 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq16k" oninput="updateEQ()"><span class="prow-val" id="vEq16k">0 dB</span></div></div></div>
     <!-- LAYERS (was Distribution) -->
     <div class="panel" id="panelAI" style="display:none">
-      <div class="panel-head" onclick="togglePanel('panelAI')"><span class="panel-title">✨ AI Look</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-head" onclick="togglePanel('panelAI')"><span class="panel-title">AI Look</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <textarea id="aiPrompt" class="ai-prompt" rows="2" placeholder="Describe a look, e.g. slow purple galaxy with glowing trails" onkeydown="if(event.key==='Enter'&amp;&amp;!event.shiftKey){event.preventDefault();agAI.generate(false)}"></textarea>
         <div class="ai-chips" style="display:none"><button class="ai-chip" onclick="agAI.example(this)">calm ocean waves, thin lines</button><button class="ai-chip" onclick="agAI.example(this)">aggressive neon kaleidoscope, fast spin</button><button class="ai-chip" onclick="agAI.example(this)">glowing coral reef with particles</button><button class="ai-chip" onclick="agAI.example(this)">golden planet, minimal, dreamy trails</button></div>
@@ -522,10 +526,10 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Appearance</span><button class="panel-rand" onclick="event.stopPropagation();randAppearance()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow prow-stack"><span class="prow-label">Emitters</span><div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:420px;min-width:0">
-          <div><div class="sublabel">General</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
-          <div id="simulationLayouts"><div class="sublabel">Simulation</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particles</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button><button class="mbtn amber" onclick="setLayout('simboids',this)" title="GPU flocking: neighboring agents align, gather and avoid one another. Music steers the flock and scatters it on beats.">Boids</button><button class="mbtn amber" onclick="setLayout('simsand',this)" title="GPU falling sand: colored grains accumulate, slide into piles and scatter on beats. Supports image and webcam colors.">Granular Sand</button><button class="mbtn amber" onclick="setLayout('simferro',this)" title="GPU ferrofluid-inspired surface: a dynamic 2.5D height field with moving magnets, sound-driven spikes and metallic lighting. Not a volumetric fluid solver.">Ferrofluid</button><button class="mbtn amber" onclick="setLayout('simcloner',this)" title="WebGPU 3D cloner: instanced 3D objects in a grid, ring or sphere cloud with a sound effector (move, scale, rotate), animated polygons (explode, shrink, spin, ripple) and a material editor (wireframe, shaded, colours, roughness, metallic, transparency).">3D Cloner</button></div></div>
-          <div><div class="sublabel">3D</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" data-objm="knot" onclick="setObjLayout('knot',this)">Knot</button><button class="mbtn amber" data-objm="cube" onclick="setObjLayout('cube',this)">Cube</button><button class="mbtn amber" data-objm="torus" onclick="setObjLayout('torus',this)">Torus</button></div></div>
-          <div><div class="sublabel">Input</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('simsplat',this)" title="WebGPU Gaussian splat viewer: load a .ply / .splat point cloud (or use a demo) and let the music push, ripple, twist and explode it.">Gaussian Splat</button><button class="mbtn amber" onclick="setLayout('pixelwarp',this)">Pixel Warp</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" data-objm="file" onclick="setObjLayout('file',this)">3D Object</button></div></div>
+          <div style="--cat:#71ecf4"><div class="sublabel" style="color:var(--cat)">Waveforms</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber on" onclick="setLayout('linear',this)">Linear</button><button class="mbtn amber" onclick="setLayout('circle',this)">Circle</button><button class="mbtn amber" onclick="setLayout('concentric',this)">Concentric</button><button class="mbtn amber" onclick="setLayout('spiral',this)">Spiral</button><button class="mbtn amber" onclick="setLayout('phyllotaxis',this)">Phyllotax.</button><button class="mbtn amber" onclick="setLayout('fractal',this)">Fractal</button><button class="mbtn amber" onclick="setLayout('growth',this)">Growth</button><button class="mbtn amber" onclick="setLayout('sacred',this)">Sacred</button><button class="mbtn amber" onclick="setLayout('graph',this)" title="Network graph: hubs, clusters and loose notes in a live force layout; audio lines run along the links and nodes pulse with the music.">Graph</button><button class="mbtn amber" onclick="setLayout('lissajous',this)" title="Harmonograph: audio lines stand on a Lissajous curve that slowly precesses and breathes with the bass.">Harmonic</button><button class="mbtn amber" onclick="setLayout('scatter',this)">Scatter</button></div></div>
+          <div id="simulationLayouts" style="--cat:#71c3f4"><div class="sublabel" style="color:var(--cat)">WebGPU</div><div class="mode-btns dense" style="max-width:none"><button class="mbtn amber" onclick="setLayout('simparticles',this)" title="GPU particle field: a persistent compute-shader particle system with force fields, drag, lifetimes and audio bursts.">Particles</button><button class="mbtn amber" onclick="setLayout('simfluid',this)" title="GPU fluid: stable-fluids advection, pressure projection, vorticity confinement and dye, driven by the sound.">Fluid</button><button class="mbtn amber" onclick="setLayout('simsmoke',this)" title="GPU smoke: density and temperature transport with buoyancy, vorticity and light-marched self-shadowing.">Smoke</button><button class="mbtn amber" onclick="setLayout('simboids',this)" title="GPU flocking: neighboring agents align, gather and avoid one another. Music steers the flock and scatters it on beats.">Boids</button><button class="mbtn amber" onclick="setLayout('simsand',this)" title="GPU falling sand: colored grains accumulate, slide into piles and scatter on beats. Supports image and webcam colors.">Granular Sand</button><button class="mbtn amber" onclick="setLayout('simferro',this)" title="GPU ferrofluid-inspired surface: a dynamic 2.5D height field with moving magnets, sound-driven spikes and metallic lighting. Not a volumetric fluid solver.">Ferrofluid</button><button class="mbtn amber" onclick="setLayout('simcloner',this)" title="WebGPU 3D cloner: instanced 3D objects in a grid, ring or sphere cloud with a sound effector (move, scale, rotate), animated polygons (explode, shrink, spin, ripple) and a material editor (wireframe, shaded, colours, roughness, metallic, transparency).">3D Cloner</button></div></div>
+          <div style="--cat:#7199f4"><div class="sublabel" style="color:var(--cat)">3D</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('terrain',this)">Terrain</button><button class="mbtn amber" onclick="setLayout('sphere',this)">Sphere</button><button class="mbtn amber" onclick="setLayout('tetrahedron',this)">Tetrahedron</button><button class="mbtn amber" onclick="setLayout('dna',this)">DNA</button><button class="mbtn amber" data-objm="knot" onclick="setObjLayout('knot',this)">Knot</button><button class="mbtn amber" data-objm="cube" onclick="setObjLayout('cube',this)">Cube</button><button class="mbtn amber" data-objm="torus" onclick="setObjLayout('torus',this)">Torus</button></div></div>
+          <div style="--cat:#71f4d3"><div class="sublabel" style="color:var(--cat)">Inputs</div><div class="mode-btns" style="max-width:none"><button class="mbtn amber" onclick="setLayout('image',this)">Image</button><button class="mbtn amber" onclick="setLayout('video',this)">Video</button><button class="mbtn amber" onclick="setLayout('simsplat',this)" title="WebGPU Gaussian splat viewer: load a .ply / .splat point cloud (or use a demo) and let the music push, ripple, twist and explode it.">Gaussian Splat</button><button class="mbtn amber" onclick="setLayout('pixelwarp',this)">Pixel Warp</button><button class="mbtn amber" onclick="setLayout('text',this)">Text</button><button class="mbtn amber" onclick="setLayout('custom',this)">Math</button><button class="mbtn amber" data-objm="file" onclick="setObjLayout('file',this)">3D Object</button></div></div>
         </div></div>
         <!-- Per-layout settings -->
         <div id="layoutOpts_sine" class="layout-opts" style="display:none">
@@ -953,7 +957,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     </div>
     <!-- DISTRIBUTION -->
     <div class="panel" id="panelAuto">
-      <div class="panel-head" onclick="togglePanel('panelAuto')"><span class="panel-title">🎛 Automation</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-head" onclick="togglePanel('panelAuto')"><span class="panel-title">Automation</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="mode-btns auto-tabs" id="autoTabs"><button class="mbtn on" data-tab="pilot" onclick="setAutoTab('pilot')">Autopilot<i class="auto-dot"></i></button><button class="mbtn" data-tab="mixer" onclick="setAutoTab('mixer')">Mixer<i class="auto-dot"></i></button><button class="mbtn" data-tab="reactive" onclick="setAutoTab('reactive')">Reactive<i class="auto-dot"></i></button></div>
         <div class="auto-sec" id="autoSecPilot">
@@ -975,12 +979,12 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
           <div class="prow"><span class="prow-label">Speed</span><input type="range" min="1" max="100" value="15" step="1" id="mixSpeed" oninput="document.getElementById('vMixSpeed').textContent=this.value"><span class="prow-val" id="vMixSpeed">15</span></div>
           <div class="prow"><span class="prow-label">Amount</span><input type="range" min="1" max="100" value="30" step="1" id="mixAmount" oninput="document.getElementById('vMixAmount').textContent=this.value+'%'"><span class="prow-val" id="vMixAmount">30%</span></div>
           <div style="border-top:1px solid var(--border);margin:2px 0"></div>
-          <div class="prow"><span class="prow-label" style="font-size:.42rem;opacity:.5">DRIFT</span></div>
+          <div class="sublabel" style="text-align:left">Drift</div>
           <div class="prow"><span class="prow-label">Colors</span><div class="mode-btns"><button class="mbtn on" onclick="mixerCats.colors=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn" onclick="mixerCats.colors=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
           <div class="prow"><span class="prow-label">Effects</span><div class="mode-btns"><button class="mbtn on" onclick="mixerCats.effects=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn" onclick="mixerCats.effects=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
           <div class="prow"><span class="prow-label">Particles</span><div class="mode-btns"><button class="mbtn on" onclick="mixerCats.particles=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn" onclick="mixerCats.particles=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
           <div style="border-top:1px solid var(--border);margin:2px 0"></div>
-          <div class="prow"><span class="prow-label" style="font-size:.42rem;opacity:.5">DROP</span></div>
+          <div class="sublabel" style="text-align:left">Drop</div>
           <div class="prow"><span class="prow-label">On Beat</span><div class="mode-btns"><button class="mbtn" onclick="mixerDrop=true;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">On</button><button class="mbtn on" onclick="mixerDrop=false;this.parentElement.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});this.classList.add('on')">Off</button></div></div>
           <div class="prow"><span class="prow-label">Punch</span><input type="range" min="1" max="100" value="40" step="1" id="mixPunch" oninput="document.getElementById('vMixPunch').textContent=this.value+'%'"><span class="prow-val" id="vMixPunch">40%</span></div>
         </div>
@@ -1000,14 +1004,14 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     </div>
     <!-- PRESET MORPH -->
     <div class="panel" id="panelMorph">
-      <div class="panel-head" onclick="togglePanel('panelMorph')"><span class="panel-title">Preset Morph</span><span class="panel-arrow">▼</span></div>
+      <div class="panel-head" onclick="togglePanel('panelMorph')"><span class="panel-title">Preset Morph</span><button class="tips-btn" title="Tips" aria-pressed="false" onclick="event.stopPropagation();toggleTips('panelMorph',this)">?</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow"><select id="morphAdd" onchange="morphAddPreset(this.value);this.selectedIndex=0" style="flex:1;background:var(--elevated);border:1px solid var(--border);border-radius:4px;color:var(--tx);font:.55rem 'JetBrains Mono',monospace;padding:3px 5px;min-width:0"><option value="">+ Add preset…</option></select><button class="mbtn" onclick="morphAddAll()">All</button><button class="mbtn" onclick="morphClearList()">Clear</button></div>
         <div id="morphList" style="display:flex;flex-wrap:wrap;gap:4px"></div>
         <div class="prow morph-combo-row"><span class="prow-label">Morph</span><input type="range" min="0" max="100" value="0" step="1" id="morphSlider" oninput="setMorphManual(this.value)" onchange="morphSliderRelease()"><span class="prow-val" id="vMorph">0%</span><div class="morph-duration-cell"><span class="prow-label">Duration</span><input type="range" min="10" max="60" value="20" step="1" id="morphDur" oninput="document.getElementById('vMorphDur').textContent=this.value+'s'"><span class="prow-val" id="vMorphDur">20s</span></div></div>
         <div class="prow"><div class="mode-btns"><button class="mbtn" id="morphAutoBtn" onclick="toggleMorphAuto()">Play</button><button class="mbtn" id="morphRandom" onclick="toggleMorphRandom()">Random</button><button class="mbtn" id="morphBeat" onclick="toggleMorphBeat()">On Beat</button><select id="morphBeatMode" onchange="setMorphBeatMode(this.value)" title="On Beat style. Glide: each bass beat moves the morph target forward and the blend eases there smoothly (rapid beats cannot pile up). Snap: original v30 0.45 s jump per detected beat."><option value="glide4">Glide ¼/beat</option><option value="glide1">Glide 1/beat</option><option value="snap">Snap (v30)</option></select><button class="mbtn" id="morphPing" onclick="this.classList.toggle('on')">Ping-pong</button><button class="mbtn" onclick="bakeMorph()">Apply</button></div></div>
         <div class="prow" style="justify-content:flex-end"><span id="morphNext" style="font-size:.5rem;color:var(--tx3)"></span></div>
-        <div style="font-size:.45rem;color:var(--tx3);line-height:1.5">Build a playlist of presets to blend through. <strong>Play</strong> cycles them in order over the chosen Duration each; <strong>Random</strong> jumps between random presets (your list, or all of them if the list is empty). Drag <strong>Morph</strong> to scrub the whole sequence. <strong>Apply</strong> bakes the current blend into editable layers.</div>
+        <div class="tip" style="font-size:.45rem;color:var(--tx3);line-height:1.5">Build a playlist of presets to blend through. <strong>Play</strong> cycles them in order over the chosen Duration each; <strong>Random</strong> jumps between random presets (your list, or all of them if the list is empty). Drag <strong>Morph</strong> to scrub the whole sequence. <strong>Apply</strong> bakes the current blend into editable layers.</div>
       </div>
     </div>
     <!-- EXPORT -->
@@ -2491,7 +2495,7 @@ fn camAt(uv:vec2f)->vec3f{return textureSampleLevel(tW,smp,vec2f(1.0-uv.x,uv.y),
 
 // ---- v113 shaders: 3D cloner (compute-driven instancing + per-polygon vertex animation + PBR-lite fragment) ----
 var AG_G3_HEAD=`
-struct C{vp:mat4x4f,cam:vec4f,lit:vec4f,grid:vec4f,sp:vec4f,ef:vec4f,er:vec4f,fx:vec4f,fx2:vec4f,mt:vec4f,mt2:vec4f,mt3:vec4f,col:vec4f,ecol:vec4f,env:vec4f,rp:vec4f,rr:vec4f,rm:vec4f,rs:vec4f,rx:vec4f,st:vec4f,spec:array<vec4f,16>,pvp:mat4x4f,vx:vec4f,vy:vec4f,vz:vec4f,nk:vec4f,sx:vec4f,rz:vec4f,lt:vec4f,l2:vec4f,hist:array<vec4f,256>};
+struct C{vp:mat4x4f,cam:vec4f,lit:vec4f,grid:vec4f,sp:vec4f,ef:vec4f,er:vec4f,fx:vec4f,fx2:vec4f,mt:vec4f,mt2:vec4f,mt3:vec4f,col:vec4f,ecol:vec4f,env:vec4f,rp:vec4f,rr:vec4f,rm:vec4f,rs:vec4f,rx:vec4f,st:vec4f,spec:array<vec4f,16>,pvp:mat4x4f,vx:vec4f,vy:vec4f,vz:vec4f,nk:vec4f,sx:vec4f,rz:vec4f,lt:vec4f,l2:vec4f,hist:array<vec4f,256>,lvp:mat4x4f,sh:vec4f,gi:vec4f,fl:vec4f,rs3:vec4f};
 @group(0) @binding(0) var<uniform> c:C;
 struct Inst{pos:vec4f,rot:vec4f,dat:vec4f};
 fn specAt(x:f32)->f32{let q=clamp(x,0.0,1.0);let f=q*63.0;let i=u32(floor(f));let j=min(i+1u,63u);let t=f-floor(f);
@@ -2586,6 +2590,23 @@ var AG_G3_R=AG_G3_HEAD+`
 @group(0) @binding(4) var<storage,read> pinst:array<Inst>;
 @group(0) @binding(2) var rampT:texture_2d<f32>;
 @group(0) @binding(3) var smp:sampler;
+@group(0) @binding(6) var shT:texture_depth_2d;
+@group(0) @binding(7) var shS:sampler_comparison;
+fn shadowAt(wp:vec3f,n:vec3f,px:vec2f)->f32{
+  if(c.sh.x<0.001){return 1.0;}
+  let L=normalize(c.lit.xyz);
+  let q=c.lvp*vec4f(wp+n*c.sh.z*2.0+L*c.sh.z,1.0);
+  let uv=vec2f(q.x*0.5+0.5,0.5-q.y*0.5);
+  if(uv.x<0.0||uv.y<0.0||uv.x>1.0||uv.y>1.0||q.z>1.0){return 1.0;}
+  let a=fract(sin(dot(px,vec2f(12.9898,78.233)))*43758.5453)*6.2831853;let cs=cos(a);let sn=sin(a);
+  var s=0.0;
+  for(var i=0u;i<12u;i=i+1u){
+    let fi=f32(i);let rr=sqrt((fi+0.5)/12.0);let th=fi*2.39996323;
+    let o=vec2f(cos(th),sin(th))*rr;
+    s=s+textureSampleCompareLevel(shT,shS,uv+vec2f(o.x*cs-o.y*sn,o.x*sn+o.y*cs)*c.sh.y,q.z-c.sh.w);}
+  return mix(1.0,s/12.0,c.sh.x);}
+fn palAvg()->vec3f{var s=vec3f(0.0);for(var i=0;i<5;i=i+1){s=s+pow(textureSampleLevel(rampT,smp,vec2f(0.1+0.2*f32(i),0.5),0.0).rgb,vec3f(2.2));}return s/5.0;}
+fn floorCol()->vec3f{return mix(vec3f(0.42,0.43,0.46),palAvg()*0.8,c.fl.x);}
 struct VIn{@location(0) pos:vec3f,@location(1) ctr:vec3f,@location(2) nf:vec3f,@location(3) ns:vec3f,@location(4) ew:vec3f,@location(5) fid:f32};
 struct VOut{@builtin(position) pos:vec4f,@location(0) nrm:vec3f,@location(1) wp:vec3f,@location(2) bary:vec3f,@location(3) ew:vec3f,@location(4) ct:f32,@location(5) fv:f32,@location(6) cp:vec4f,@location(7) pp:vec4f};
 struct FOut{@location(0) col:vec4f,@location(1) fx:vec4f,@location(2) nm:vec2f};
@@ -2616,6 +2637,27 @@ fn anch(p:vec3f,S:vec3f)->vec3f{let a=c.sx.w*0.7;return vec3f(p.x*S.x,(p.y+a)*S.
   else{ct=clamp(pv*0.9+0.1+0.3*I.pos.w,0.0,1.0);}
   o.ct=ct;o.fv=pv;
   return o;}
+@vertex fn vsh(vin:VIn,@builtin(instance_index) ii:u32)->@builtin(position) vec4f{
+  let I=inst[ii];
+  if(abs(floor(vin.fid+0.001)-I.dat.y)>0.5){return vec4f(2.0,2.0,2.0,1.0);}
+  let wp=I.pos.xyz+rotM(I.rot.xyz)*(anch(vin.pos,cloneS(I,ii))*c.sp.w*I.rot.w);
+  return c.lvp*vec4f(wp,1.0);}
+struct FlO{@builtin(position) pos:vec4f,@location(0) wp:vec3f,@location(1) cp:vec4f,@location(2) pp:vec4f};
+@vertex fn vsf(@builtin(vertex_index) vi:u32)->FlO{
+  let q=array<vec2f,6>(vec2f(-1.0,-1.0),vec2f(1.0,-1.0),vec2f(-1.0,1.0),vec2f(-1.0,1.0),vec2f(1.0,-1.0),vec2f(1.0,1.0));
+  let p=vec3f(q[vi].x*c.gi.w,c.gi.z,q[vi].y*c.gi.w);
+  var o:FlO;o.pos=c.vp*vec4f(p,1.0);o.wp=p;o.cp=o.pos;o.pp=c.pvp*vec4f(p,1.0);return o;}
+@fragment fn fsf(fi:FlO)->FOut{
+  let n=vec3f(0.0,1.0,0.0);let L=normalize(c.lit.xyz);let V=normalize(c.cam.xyz-fi.wp);
+  let r=length(fi.wp.xz)/c.gi.w;let a=c.fl.w*(1.0-smoothstep(0.3,1.0,r));
+  if(a<0.004){discard;}
+  let shd=shadowAt(fi.wp,n,fi.pos.xy);
+  let base=floorCol();
+  let H=normalize(L+V);
+  var col=base*(c.lit.w*max(L.y,0.0)*shd*0.95+c.l2.x*0.5*vec3f(0.85,0.9,1.05));
+  col=col+vec3f(0.05)*pow(max(H.y,0.0),40.0)*c.lit.w*shd*3.0;
+  let vel=fi.cp.xy/fi.cp.w-fi.pp.xy/max(fi.pp.w,0.001);
+  return FOut(vec4f(col*a,a),vec4f(vel,fi.cp.w-length(c.cam.xyz),1.0),vec2f(dot(n,c.vx.xyz),dot(n,c.vy.xyz)));}
 fn envC(r:vec3f,rough:f32)->vec3f{
   let sky=mix(vec3f(0.05,0.06,0.08),vec3f(0.7,0.78,0.95),smoothstep(-0.25,0.9,r.y));
   let b1=pow(max(dot(r,normalize(vec3f(-0.5,0.8,0.6))),0.0),mix(40.0,3.0,rough))*3.0;
@@ -2634,16 +2676,16 @@ fn envC(r:vec3f,rough:f32)->vec3f{
   let ec=mix(pal,pow(c.ecol.rgb,vec3f(2.2)),c.ecol.w);
   let style=c.mt2.y;let alpha=c.mt.z;
   let V=normalize(c.cam.xyz-fi.wp);let L=normalize(c.lit.xyz);let H=normalize(L+V);
-  let rough=clamp(c.mt.x,0.05,1.0);let met=c.mt.y;let a2=pow(rough,4.0);
+  let rough=clamp(c.mt.x,0.05,1.0);let met=c.mt.y;let a2=pow(clamp(rough+c.gi.y*0.3*(1.0-rough),0.05,1.0),4.0);
   let nl=max(dot(n,L),0.0);let nh=max(dot(n,H),0.0);let vh=max(dot(V,H),0.0);let nv=max(dot(n,V),0.001);
   let dn=nh*nh*(a2-1.0)+1.0;let D=a2/(3.14159265*dn*dn);
   let kk=(rough+1.0)*(rough+1.0)/8.0;let Gv=(nv/(nv*(1.0-kk)+kk))*(nl/(nl*(1.0-kk)+kk));
   let F0=mix(vec3f(0.04),base,met);let F=F0+(vec3f(1.0)-F0)*pow(1.0-vh,5.0);
   let spc=D*Gv*F/(4.0*nv);
   let dif=base*(1.0-met)*nl/3.14159265*3.0;
-  var col=c.lit.w*(dif+spc*3.0);
+  let shd=shadowAt(fi.wp,n,fi.pos.xy);var col=c.lit.w*(dif+spc*3.0)*shd;
   let hemi=mix(vec3f(0.07,0.06,0.09),vec3f(0.85,0.9,1.05),n.y*0.5+0.5);
-  col=col+base*(1.0-met)*(hemi*c.l2.x+envC(n,1.0)*0.12);
+  col=col+base*(1.0-met)*(hemi*c.l2.x+envC(n,1.0)*0.12);let bc=mix(mix(palAvg(),base,0.45),floorCol(),c.fl.w*0.7);col=col+base*(1.0-met*0.7)*bc*c.gi.x*(0.3+0.7*(0.5-0.5*n.y))*(c.lit.w*max(L.y,0.0)*1.2+c.l2.x*0.5);
   let Lf=normalize(vec3f(-L.x,0.15,-L.z));
   col=col+base*(1.0-met)*max(dot(n,Lf),0.0)*c.l2.y*vec3f(0.5,0.62,1.0);
   let Fe=F0+(max(vec3f(1.0-rough),F0)-F0)*pow(1.0-nv,5.0);
@@ -2708,7 +2750,7 @@ struct FO{@location(0) col:vec4f,@location(1) fx:vec4f,@location(2) nm:vec2f};
   o.cp=base;o.pp=mix(pa,pb,t);o.sd=sd;
   let pal=pow(textureSampleLevel(rampT,smp,vec2f(clamp(mix(A.dat.z,B.dat.z,t),0.0,1.0),0.5),0.0).rgb,vec3f(2.2));
   let lc=mix(pal,pow(c.ecol.rgb,vec3f(2.2)),c.ecol.w);
-  let pulse=0.55+0.9*clamp(0.5*(A.pos.w+B.pos.w),0.0,1.4);
+  let pulse=mix(1.0,0.55+0.9*clamp(0.5*(A.pos.w+B.pos.w),0.0,1.4),c.fl.y);
   o.col=vec4f(lc*E.z*c.nk.w*pulse*2.0,E.z*c.nk.w*0.5);
   return o;}
 @fragment fn fs(fi:LO)->FO{
@@ -3487,8 +3529,8 @@ AG_SIM_UI.simcloner=[
   ['pG3LitAz','Light angle',-180,180,-42,1,'deg','Direction of the key light around the camera: 0 is straight from the camera, negative from the left.'],
   ['pG3LitEl','Light height',-20,89,45,1,'deg','Elevation of the key light.'],
   ['pG3Links','Links per clone',0,8,0,1,'','Connects every clone to its nearest neighbours with glowing lines, so the array becomes a graph. 0 turns links off.'],
-  ['pG3LinkDist','Link distance',20,400,150,5,'%','Longest link, in clone spacings.'],
-  ['pG3Ao','Ambient occlusion',0,100,50,5,'%','Darkens creases and contact areas between clones, with a soft tinted shadow. Runs on the GPU. 0 turns it off.'],
+  ['pG3LinkDist','Link distance',20,400,150,5,'%','Longest link, in clone spacings.'],['pG3LinkW','Link width',0.2,8,1.2,0.1,'px','Thickness of the link lines.'],['pG3LinkA','Link glow',0,200,80,5,'%','Brightness of the link lines.'],['pG3LinkPulse','Link pulse',0,100,100,5,'%','How much links flash with the sound of the clones they join. 0 keeps them steady.'],
+  ['pG3Shadow','Cast shadows',0,100,60,5,'%','Soft shadows the key light casts from clone to clone and onto the floor. 0 turns them off.'],['pG3LitSize','Light size',0,100,35,5,'%','Size of the key light: a larger light gives softer shadow edges and broader highlights.'],['pG3Bounce','Bounce light',0,100,40,5,'%','Light bounced between clones and off the floor, tinted by their colours.'],['pG3Floor','Floor',0,100,0,5,'%','A floor under the objects that catches their shadows and fades into the background. 0 hides it.'],['pG3FloorY','Floor height',-100,100,0,5,'%','Moves the floor down or up from the bottom of the objects.'],['pG3FloorTint','Floor tint',0,100,30,5,'%','0 is a neutral grey floor, 100 takes the palette colours.'],['pG3Ao','Ambient occlusion',0,100,50,5,'%','Darkens creases and contact areas between clones, with a soft tinted shadow. Runs on the GPU. 0 turns it off.'],
   ['pG3AoRad','AO radius',10,300,60,5,'%','How far occlusion reaches, relative to a clone. Larger values darken the gaps between clones.'],
   ['pG3Dof','Depth of field',0,100,0,5,'%','Blurs what is in front of or behind the focus plane. Bright points turn into soft bokeh. 0 turns it off.'],
   ['pG3Focus','Focus distance',0,100,50,5,'%','Where the picture is sharp: 0 is the near side of the array, 50 the centre, 100 the far side.'],
@@ -3515,9 +3557,9 @@ var AG_G3_GROUPS=[
   ['Effector \u00b7 Sound',['o:g3Map','pG3EfX','pG3EfY','pG3EfZ','pG3ScX','pG3ScY','pG3ScZ','pG3EfRot','pG3Anchor','pG3Indep','pG3Delay']],
   ['Effector \u00b7 Field',['o:g3Field','pG3FieldAmt','pG3FieldSize','pG3FieldSpd']],
   ['Effector \u00b7 Random',['pG3Seed','pG3RndScale','pG3RndH','pG3RndCol','pG3RndRot','pG3RndPosX','pG3RndPosY','pG3RndPosZ']],
-  ['Links',['pG3Links','pG3LinkDist']],
+  ['Links',['pG3Links','pG3LinkDist','pG3LinkW','pG3LinkA','pG3LinkPulse']],
   ['Material',['o:g3Style','o:g3Shade','pG3Alpha','pG3Rough','pG3Metal','pG3Rim','pG3Emit','o:g3CSrc','c:pG3Col','o:g3CBy','o:g3ESrc','c:pG3EdgeCol']],
-  ['Light',['pG3Light','pG3Amb','pG3LitAz','pG3LitEl']],
+  ['Light',['pG3Light','pG3Amb','pG3LitAz','pG3LitEl','pG3Shadow','pG3LitSize','pG3Bounce','pG3Floor','pG3FloorY','pG3FloorTint']],
   ['Camera',['pG3Orbit','pG3Tilt','pG3Zoom']],
   ['Render FX',['pG3Ao','pG3AoRad','pG3Mb','pG3Dof','pG3Focus']]];
 // Related knobs share one knob row (consecutive rows with the same key are wrapped into one centred grid)
@@ -3535,7 +3577,7 @@ var AG_KNOB_GROUPS={
   'g3-r-a':['pG3Seed','pG3RndScale','pG3RndH'],'g3-r-b':['pG3RndCol','pG3RndRot'],'g3-rpos':['pG3RndPosX','pG3RndPosY','pG3RndPosZ'],
   'g3-m-a':['pG3Alpha','pG3Rough','pG3Metal'],'g3-m-b':['pG3Rim','pG3Emit'],
   'g3-c-a':['pG3Orbit','pG3Tilt','pG3Zoom'],'g3-c-b':['pG3Light','pG3Amb'],'g3-c-c':['pG3LitAz','pG3LitEl'],
-  'g3-fx':['pG3Ao','pG3AoRad','pG3Mb'],'g3-dof':['pG3Dof','pG3Focus'],'g3-l-a':['pG3Links','pG3LinkDist']};
+  'g3-sh':['pG3Shadow','pG3LitSize','pG3Bounce'],'g3-fl':['pG3Floor','pG3FloorY','pG3FloorTint'],'g3-fx':['pG3Ao','pG3AoRad','pG3Mb'],'g3-dof':['pG3Dof','pG3Focus'],'g3-l-a':['pG3Links','pG3LinkDist','pG3LinkW','pG3LinkA','pG3LinkPulse']};
 function agApplyKnobGroups(){Object.keys(AG_KNOB_GROUPS).forEach(function(k){AG_KNOB_GROUPS[k].forEach(function(id){var e=document.getElementById(id),r=e&&e.parentElement;if(r&&r.classList.contains('prow')&&!r.hasAttribute('data-knob-row'))r.setAttribute('data-knob-row',k)})})}
 AG_SIM_PRESETS.simcloner=[
   ['Cube wall',{pG3Nx:16,pG3Ny:12,pG3Nz:1,pG3SpX:120,pG3SpY:120,pG3Size:60,pG3Detail:2,pG3EfZ:160,pG3ScX:60,pG3ScY:60,pG3ScZ:60,pG3EfRot:60,pG3Spin:0,pG3Ao:85,pG3AoRad:100,pG3Dof:40,pG3Focus:50,pG3Rim:30,pG3Rough:35,pG3Metal:20,pG3Tilt:22,pG3Orbit:7,pSimBloom:10},{g3Shape:'cube',g3Shade:'flat',g3Map:'distance',g3CBy:'clone'}],
@@ -4456,19 +4498,19 @@ var agSim=(function(){
     if(kd==='bolt')return 'lightning \u00b7 '+(st.nseg||0)+' segments (generated on the CPU, drawn on the GPU)';
     return 'analytic magnetic field lines (point-pole model) \u00b7 '+(st.U?st.U[64+AG_SIM_UF.indexOf('poleN')]:0)+' poles'}
   // ---------- 3D cloner ----------
-  var G3CAP={low:4000,med:10000,high:20000,ultra:40000},G3TRI={low:1.2e6,med:2.5e6,high:5e6,ultra:9e6},G3UF=1232,G3NET=3000;
+  var G3CAP={low:4000,med:10000,high:20000,ultra:40000},G3TRI={low:1.2e6,med:2.5e6,high:5e6,ultra:9e6},G3UF=1264,G3NET=3000;
   function g3Build(dev,P){return (async function(){
     var C=GPUShaderStage.COMPUTE,V=GPUShaderStage.VERTEX,F=GPUShaderStage.FRAGMENT;
     var Lc=dev.createBindGroupLayout({entries:[{binding:0,visibility:C,buffer:{type:'uniform'}},{binding:1,visibility:C,buffer:{type:'storage'}}]});
     var Lr=dev.createBindGroupLayout({entries:[{binding:0,visibility:V|F,buffer:{type:'uniform'}},{binding:1,visibility:V,buffer:{type:'read-only-storage'}},{binding:2,visibility:V|F,texture:{sampleType:'float'}},{binding:3,visibility:V|F,sampler:{type:'filtering'}},{binding:4,visibility:V,buffer:{type:'read-only-storage'}},{binding:5,visibility:V,buffer:{type:'read-only-storage'}}]});
-    var mc=await mod(dev,'g3c',AG_G3_C),mr=await mod(dev,'g3r',AG_G3_R);
+    P.g3sL=Lr;Lr=dev.createBindGroupLayout({entries:[{binding:0,visibility:V|F,buffer:{type:'uniform'}},{binding:1,visibility:V,buffer:{type:'read-only-storage'}},{binding:2,visibility:V|F,texture:{sampleType:'float'}},{binding:3,visibility:V|F,sampler:{type:'filtering'}},{binding:4,visibility:V,buffer:{type:'read-only-storage'}},{binding:5,visibility:V,buffer:{type:'read-only-storage'}},{binding:6,visibility:F,texture:{sampleType:'depth'}},{binding:7,visibility:F,sampler:{type:'comparison'}}]});var mc=await mod(dev,'g3c',AG_G3_C),mr=await mod(dev,'g3r',AG_G3_R);
     P.g3L={c:Lc,r:Lr};
     P.g3c=dev.createComputePipeline({layout:dev.createPipelineLayout({bindGroupLayouts:[Lc]}),compute:{module:mc,entryPoint:'cs'}});
     var pl=dev.createPipelineLayout({bindGroupLayouts:[Lr]});
     var vb={arrayStride:64,attributes:[{shaderLocation:0,offset:0,format:'float32x3'},{shaderLocation:1,offset:12,format:'float32x3'},{shaderLocation:2,offset:24,format:'float32x3'},{shaderLocation:3,offset:36,format:'float32x3'},{shaderLocation:4,offset:48,format:'float32x3'},{shaderLocation:5,offset:60,format:'float32'}]};
     var blend={color:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}};
     var mk=function(tr){return dev.createRenderPipelineAsync({layout:pl,vertex:{module:mr,entryPoint:'vs',buffers:[vb]},fragment:{module:mr,entryPoint:'fs',targets:[tr?{format:'rgba16float',blend:blend}:{format:'rgba16float'},{format:'rgba16float'},{format:'rg16float'}]},primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:!tr,depthCompare:tr?'always':'less'},multisample:{count:4}})};
-    P.g3o=await mk(false);P.g3t=await mk(true);
+    P.g3o=await mk(false);P.g3t=await mk(true);P.g3sh=await dev.createRenderPipelineAsync({layout:dev.createPipelineLayout({bindGroupLayouts:[P.g3sL]}),vertex:{module:mr,entryPoint:'vsh',buffers:[vb]},primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less',depthBias:2,depthBiasSlopeScale:2.5}});P.g3fl=await dev.createRenderPipelineAsync({layout:pl,vertex:{module:mr,entryPoint:'vsf'},fragment:{module:mr,entryPoint:'fsf',targets:[{format:'rgba16float',blend:blend},{format:'rgba16float'},{format:'rg16float'}]},primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'},multisample:{count:4}});
     var me=await mod(dev,'g3e',AG_G3_E),ml=await mod(dev,'g3l',AG_G3_L);
     var Le=dev.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform'}},{binding:1,visibility:GPUShaderStage.COMPUTE,buffer:{type:'read-only-storage'}},{binding:2,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}}]});
     P.g3eL=Le;P.g3ec=dev.createComputePipeline({layout:dev.createPipelineLayout({bindGroupLayouts:[Le]}),compute:{module:me,entryPoint:'ce'}});
@@ -4510,7 +4552,7 @@ var agSim=(function(){
       var n=Math.max(1,Math.round(D/2)),h=0.7,ax=[[0,1],[0,-1],[1,1],[1,-1],[2,1],[2,-1]];
       ax.forEach(function(a){
         var u=(a[0]+1)%3,v=(a[0]+2)%3,gg=[];
-        for(var i=0;i<=n;i++){gg[i]=[];for(var j=0;j<=n;j++){var p=[0,0,0];p[a[0]]=h*a[1];p[u]=h*(2*i/n-1);p[v]=h*(2*j/n-1);gg[i][j]=V(p)}}
+        for(var i=0;i<=n;i++){gg[i]=[];for(var j=0;j<=n;j++){var p=[0,0,0];p[a[0]]=h*a[1];p[u]=h*(2*i/n-1);p[v]=h*(2*j/n-1);var fq=[p[0]*0.3,p[1]*0.3,p[2]*0.3];fq[a[0]]=a[1];gg[i][j]=V(p,nrm(fq))}}
         for(i=0;i<n;i++)for(j=0;j<n;j++)poly([gg[i][j],gg[i+1][j],gg[i+1][j+1],gg[i][j+1]])})
     }else if(shape==='torus'){
       var ma=8+D*3,mi=6+D*2,R=0.68,r=0.3,tg=[];
@@ -4565,7 +4607,7 @@ var agSim=(function(){
     st.g3yaw=0.6;st.g3spin=0;
     if(!G.P||G.P.g3err)return;
     st.g3bgC=dev.createBindGroup({layout:G.P.g3L.c,entries:[{binding:0,resource:{buffer:st.cub}},{binding:1,resource:{buffer:st.ibuf}}]});
-    st.g3bgR=dev.createBindGroup({layout:G.P.g3L.r,entries:[{binding:0,resource:{buffer:st.cub}},{binding:1,resource:{buffer:st.ibuf}},{binding:2,resource:st.rampV},{binding:3,resource:G.smp},{binding:4,resource:{buffer:st.ipv}},{binding:5,resource:{buffer:st.ebuf}}]});
+    var _e=[{binding:0,resource:{buffer:st.cub}},{binding:1,resource:{buffer:st.ibuf}},{binding:2,resource:st.rampV},{binding:3,resource:G.smp},{binding:4,resource:{buffer:st.ipv}},{binding:5,resource:{buffer:st.ebuf}}];if(st.g3shT)st.g3shT.destroy();st.g3shN=simOpt.q==='low'?1024:2048;st.g3shT=dev.createTexture({size:[st.g3shN,st.g3shN],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT|GPUTextureUsage.TEXTURE_BINDING});st.g3shV=st.g3shT.createView();G.g3shS=G.g3shS||dev.createSampler({compare:'less',magFilter:'linear',minFilter:'linear'});st.g3bgS=dev.createBindGroup({layout:G.P.g3sL,entries:_e});st.g3bgR=dev.createBindGroup({layout:G.P.g3L.r,entries:[{binding:6,resource:st.g3shV},{binding:7,resource:G.g3shS},{binding:0,resource:{buffer:st.cub}},{binding:1,resource:{buffer:st.ibuf}},{binding:2,resource:st.rampV},{binding:3,resource:G.smp},{binding:4,resource:{buffer:st.ipv}},{binding:5,resource:{buffer:st.ebuf}}]});
     st.g3bgE=G.P.g3eL?dev.createBindGroup({layout:G.P.g3eL,entries:[{binding:0,resource:{buffer:st.cub}},{binding:1,resource:{buffer:st.ibuf}},{binding:2,resource:{buffer:st.ebuf}}]}):null}
   function g3Step(st,h){
     st.g3spin+=h*K('pG3Spin',15)/100*1.5;
@@ -4657,7 +4699,7 @@ var agSim=(function(){
     var aoS=K('pG3Ao',40)/100,aoR=rad*K('pG3AoRad',60)/60,mbA=K('pG3Mb',0)/100*1.2;
     var vpNow=U.slice(0,16),fresh=st.g3ln!==n||st.g3lsh!==shape+'|'+D;
     U.set(fresh?vpNow:st.g3vp,160);st.g3vp=vpNow;set(176,xA[0],xA[1],xA[2],0);set(180,yA[0],yA[1],yA[2],0);set(184,zA[0],zA[1],zA[2],0);
-    dev.queue.writeBuffer(st.cub,0,U);
+    var shA=style===1?0:K('pG3Shadow',60)/100,shSz=K('pG3LitSize',35)/100,flA=K('pG3Floor',0)/100;var hy=[(ny-1)/2*sy,(ny-1)/2*sy,B,ny*sy/2,0,B,0,n/nx*sy/2][mdi]||0;hy+=rad*oY*(1+Math.max(0,scA[1])*0.8)+rpY*sy*0.9+Math.abs(mv[1])*sy*0.8+rad*(Math.exp(1.6*rndH)-1)*0.8;var fy=-hy*1.02+K('pG3FloorY',0)/100*bnd;if(eye[1]<fy+bnd*0.02)flA=0;var shR=bnd*1.2+(flA>0.001?bnd*1.0:0),lu=Math.abs(l[1])>0.95?[1,0,0]:[0,1,0];var lX=nrm3([lu[1]*l[2]-lu[2]*l[1],lu[2]*l[0]-lu[0]*l[2],lu[0]*l[1]-lu[1]*l[0]]),lY=[l[1]*lX[2]-l[2]*lX[1],l[2]*lX[0]-l[0]*lX[2],l[0]*lX[1]-l[1]*lX[0]],lp=[l[0]*shR*2,l[1]*shR*2,l[2]*shR*2];var dt3=function(a){return a[0]*lp[0]+a[1]*lp[1]+a[2]*lp[2]};var lvw=new Float32Array([lX[0],lY[0],l[0],0,lX[1],lY[1],l[1],0,lX[2],lY[2],l[2],0,-dt3(lX),-dt3(lY),-dt3(l),1]),lpr=new Float32Array(16);lpr[0]=1/shR;lpr[5]=1/shR;lpr[10]=-1/(4*shR);lpr[15]=1;U.set(g3Mul(lpr,lvw),1232);set(1248,shA,(1.2+shSz*shSz*40*Math.max(1,rad/shR*12))/(st.g3shN||2048),2*shR/(st.g3shN||2048),0.0008);set(1252,K('pG3Bounce',40)/100,shSz,fy,bnd*2.4);set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,0,flA);dev.queue.writeBuffer(st.cub,0,U);
     var dofA=K('pG3Dof',0)/100*oh*0.05,fxOn=aoS>0.001||mbA>0.001||dofA>0.01;
     if(!st.g3ms||st.g3w!==ow||st.g3h!==oh){
       if(st.g3ms)st.g3ms.destroy();if(st.g3dp)st.g3dp.destroy();
@@ -4679,10 +4721,10 @@ var agSim=(function(){
     var cp=enc.beginComputePass();cp.setPipeline(P.g3c);cp.setBindGroup(0,st.g3bgC);cp.dispatchWorkgroups(Math.ceil(n/64));cp.end();S.dispatches++;
     if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=enc.beginComputePass();ce.setPipeline(P.g3ec);ce.setBindGroup(0,st.g3bgE);ce.dispatchWorkgroups(Math.ceil(n/64));ce.end();S.dispatches++}
     if(fresh){enc.copyBufferToBuffer(st.ibuf,0,st.ipv,0,cnt);st.g3ln=n;st.g3lsh=shape+'|'+D}
-    var pipe=(style===1||alpha<0.995)?P.g3t:P.g3o;st.g3pipe=pipe===P.g3t?'blend':'opaque';
+    if(shA>0.001&&P.g3sh&&st.g3bgS){var shp=enc.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:st.g3shV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});shp.setPipeline(P.g3sh);shp.setBindGroup(0,st.g3bgS);shp.setVertexBuffer(0,m.buf);shp.draw(m.verts,n);shp.end();S.dispatches++}var pipe=(style===1||alpha<0.995)?P.g3t:P.g3o;st.g3pipe=pipe===P.g3t?'blend':'opaque';
     var direct=!fxOn||!st.g3pbg;
     var rp=enc.beginRenderPass({colorAttachments:[{view:st.g3msV,resolveTarget:direct?st.hdr.v:st.g3cV,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'discard'},{view:st.g3fmV,resolveTarget:st.g3fV,clearValue:{r:0,g:0,b:6e4,a:0},loadOp:'clear',storeOp:'discard'},{view:st.g3nmV,resolveTarget:st.g3nV,clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'discard'}],depthStencilAttachment:{view:st.g3dpV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
-    rp.setPipeline(pipe);rp.setBindGroup(0,st.g3bgR);rp.setVertexBuffer(0,m.buf);rp.draw(m.verts,n);
+    if(flA>0.001&&P.g3fl){rp.setPipeline(P.g3fl);rp.setBindGroup(0,st.g3bgR);rp.draw(6)}rp.setPipeline(pipe);rp.setBindGroup(0,st.g3bgR);rp.setVertexBuffer(0,m.buf);rp.draw(m.verts,n);
     if(nlk>0&&st.g3bgE&&n<=G3NET){rp.setPipeline(P.g3e);rp.setBindGroup(0,st.g3bgR);rp.draw(6,n*nlk)}
     rp.end();S.dispatches++;
     st.g3fx=!direct;
@@ -12931,6 +12973,7 @@ function resizeAll(){setTimeout(function(){sizeCanvas(frameCv);renderDensity()},
   // Stop iOS Safari page pinch/scroll and the synthetic mouse events on the canvas.
   ['touchstart','touchmove','gesturestart','gesturechange'].forEach(function(t){cv.addEventListener(t,function(e){e.preventDefault()},{passive:false})});
 })();
+function toggleTips(id,b){var p=document.getElementById(id),on=p.classList.toggle('tips-on');b.setAttribute('aria-pressed',on);if(on)p.classList.remove('closed')}
 function toggleHelp(){var o=document.getElementById('helpOverlay');o.style.display=o.style.display==='block'?'none':'block'}
 // --- AI Look (v45): text prompt -> look spec -> layer params. Engines: quick (keywords), webllm (in-browser), ollama (local). ---
 var agAI=(function(){
@@ -13610,10 +13653,10 @@ try{loadFromHash()}catch(e){}
 <h3>4 · Emitters</h3>
 <p>The Emitters row in <strong>Appearance</strong> decides how sound becomes shape. Each emitter's own settings appear in the framed box right under the picker. These are the existing visual generators, previously called layouts; presets keep working unchanged.</p>
 <ul>
-<li><strong>General</strong> — Linear, Circle, Concentric, Spiral, Phyllotaxis, Fractal (audio-driven tree), Scatter, <strong>Harmonic</strong> (Lissajous figure), <strong>Sacred</strong> (Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, Star 64, Vector Equilibrium, Torus: audio lines follow the figure's circles and edges; <em>Map</em> Along flows the spectrum through it, Shapes gives each circle/edge its own band; <em>Lines</em> Across or Along the paths; <em>Outline</em> shows the figure underneath, <em>Breathe</em> swells each ring with its band, <em>Bloom</em> unfolds the figure from the middle as the music gets louder), <strong>Graph</strong> (an Obsidian-style network: hubs, clusters and loose notes in a live force layout; audio lines run along the links, nodes are sized by their links and swell with their band; <em>Pulse</em> makes kicks push the graph apart, <em>Drift</em> keeps it moving, <em>Shuffle</em> builds a new network; Nodes, Hubs, Links, Loose, Map, Lines, Outline and Bloom), and <strong>Growth</strong>: living Vine or Coral simulations with Life, Trail, line type, Thickness, vine Direction (Bottom / Top / Center) and Neuron count. <strong>Noise</strong> shapes the linework: Coral branches meander with rough, organic edges, swell and pinch along their length, grow small knobs and fork unevenly — while the coral still grows from the same spot; Vine gets a gentle wobble. Set it to 0 for the old, perfectly regular coral.</li>
-<li><strong>Simulation</strong> (WebGPU) — Particles, Fluid, Smoke, <strong>Boids</strong> (neighbor-based alignment, cohesion and separation), <strong>Granular Sand</strong> (grains fall, slide, accumulate and scatter on beats; Solid floor retains piles, Drain lets them leave), <strong>Ferrofluid</strong> (a damped, magnet-driven 2.5D height field with metallic spikes, not a volumetric fluid solver), and <strong>3D Cloner</strong> (WebGPU-instanced 3D objects in X/Y/Z arrays, rings or sphere clouds; sound drives each clone's move, scale and rotation and animates the polygons themselves; material editor with solid, wireframe or edges, colours, roughness, metallic and transparency). Particles, Fluid, Smoke, Boids and Sand can emit from an image or webcam and pick up source colors. Each emitter has presets and a Quality tier. Restart clears the simulation; changing sand Grain size or boid Population also restarts that layer.</li>
+<li><strong>Waveforms</strong> — Linear, Circle, Concentric, Spiral, Phyllotaxis, Fractal (audio-driven tree), Scatter, <strong>Harmonic</strong> (Lissajous figure), <strong>Sacred</strong> (Seed, Flower, Egg and Fruit of Life, Metatron's Cube, Vesica Piscis, Germ of Life, Tree of Life, Merkaba, Star 64, Vector Equilibrium, Torus: audio lines follow the figure's circles and edges; <em>Map</em> Along flows the spectrum through it, Shapes gives each circle/edge its own band; <em>Lines</em> Across or Along the paths; <em>Outline</em> shows the figure underneath, <em>Breathe</em> swells each ring with its band, <em>Bloom</em> unfolds the figure from the middle as the music gets louder), <strong>Graph</strong> (an Obsidian-style network: hubs, clusters and loose notes in a live force layout; audio lines run along the links, nodes are sized by their links and swell with their band; <em>Pulse</em> makes kicks push the graph apart, <em>Drift</em> keeps it moving, <em>Shuffle</em> builds a new network; Nodes, Hubs, Links, Loose, Map, Lines, Outline and Bloom), and <strong>Growth</strong>: living Vine or Coral simulations with Life, Trail, line type, Thickness, vine Direction (Bottom / Top / Center) and Neuron count. <strong>Noise</strong> shapes the linework: Coral branches meander with rough, organic edges, swell and pinch along their length, grow small knobs and fork unevenly — while the coral still grows from the same spot; Vine gets a gentle wobble. Set it to 0 for the old, perfectly regular coral.</li>
+<li><strong>WebGPU</strong> simulations — Particles, Fluid, Smoke, <strong>Boids</strong> (neighbor-based alignment, cohesion and separation), <strong>Granular Sand</strong> (grains fall, slide, accumulate and scatter on beats; Solid floor retains piles, Drain lets them leave), <strong>Ferrofluid</strong> (a damped, magnet-driven 2.5D height field with metallic spikes, not a volumetric fluid solver), and <strong>3D Cloner</strong> (WebGPU-instanced 3D objects in X/Y/Z arrays, rings or sphere clouds; sound drives each clone's move, scale and rotation and animates the polygons themselves; material editor with solid, wireframe or edges, colours, roughness, metallic and transparency; Light adds soft cast shadows with a light size, bounce light and a floor, after the WebGPU Cornell box sample; Links have width, glow and pulse). Particles, Fluid, Smoke, Boids and Sand can emit from an image or webcam and pick up source colors. Each emitter has presets and a Quality tier. Restart clears the simulation; changing sand Grain size or boid Population also restarts that layer.</li>
 <li><strong>3D</strong> — Terrain, Sphere, Tetrahedron, DNA, Knot, Cube, Torus. Drag the visuals to orbit; 3D Tilt / Rotate are in Geometry. Every 3D emitter has a <strong>Signal</strong> switch: <em>Shape</em> pushes the mesh with the audio, while <em>Surface</em> keeps the geometry fixed and moves the audio over its skin as lines in any Style. Flow sets the pattern (Rings, Sweep, Spiral, Scatter), Lines sets the direction (Across or Along), and Travel, Count, Wire and Back tune it. On Terrain, Elevation and Noise shape the fixed landscape. In Shape mode, marker styles (Pins, Numbers, …) keep a faint wire underneath and stand out of the surface on every 3D emitter.</li>
-<li><strong>Input</strong> — <strong>Gaussian Splat</strong>: load a 3DGS <code>.ply</code> / <code>.splat</code> (or a plain point-cloud .ply) use a demo cloud, or turn any 3D object (Knot, Cube, Torus or your own .obj) into a point cloud; set <strong>Walkthrough</strong> (Fly through, Spiral, Glide) to fly the camera through the inside of the cloud; pick any mix of interactions (Pulse, Ripple, Equalizer, Explode, Flow, Twist, Wave, Reveal) and colour by original, height, distance or sound. <strong>Image</strong>: <em>Import raster</em> (PNG/JPG) becomes a brightness map drawn as Grid lines, Edge scans or an <em>LED</em> equalizer inside the picture (like Text LED); <em>Import vector</em> (SVG) traces the drawing's paths with audio lines exactly like Sacred (Map, Lines, Outline, Breathe, Bloom). <strong>Video</strong> (file or camera) becomes a brightness map drawn with lines; <strong>Pixel Warp</strong> keeps the real image colours and pushes pixels or a mesh with the music; <strong>Text</strong> (LED equalizer or scan lines); <strong>Math</strong> (your own formula); <strong>3D Object</strong> (load an .OBJ).</li>
+<li><strong>Inputs</strong> — <strong>Gaussian Splat</strong>: load a 3DGS <code>.ply</code> / <code>.splat</code> (or a plain point-cloud .ply) use a demo cloud, or turn any 3D object (Knot, Cube, Torus or your own .obj) into a point cloud; set <strong>Walkthrough</strong> (Fly through, Spiral, Glide) to fly the camera through the inside of the cloud; pick any mix of interactions (Pulse, Ripple, Equalizer, Explode, Flow, Twist, Wave, Reveal) and colour by original, height, distance or sound. <strong>Image</strong>: <em>Import raster</em> (PNG/JPG) becomes a brightness map drawn as Grid lines, Edge scans or an <em>LED</em> equalizer inside the picture (like Text LED); <em>Import vector</em> (SVG) traces the drawing's paths with audio lines exactly like Sacred (Map, Lines, Outline, Breathe, Bloom). <strong>Video</strong> (file or camera) becomes a brightness map drawn with lines; <strong>Pixel Warp</strong> keeps the real image colours and pushes pixels or a mesh with the music; <strong>Text</strong> (LED equalizer or scan lines); <strong>Math</strong> (your own formula); <strong>3D Object</strong> (load an .OBJ).</li>
 </ul>
 </div>
 
@@ -13674,7 +13717,7 @@ try{loadFromHash()}catch(e){}
 <li><strong>★ Built-in presets</strong> — click to load. <strong>Save</strong> stores your look.</li>
 <li><strong>Export / Import</strong> — preset files to share or back up. <strong>🔗 Link</strong> copies a URL that recreates your scene.</li>
 <li><strong>✨ Surprise</strong> — a fresh, coherent random scene.</li>
-<li><strong>Preset Morph</strong> — build a playlist (<strong>+ Add preset…</strong> or <strong>All</strong>) and press <strong>Play</strong> to blend through it over the chosen Duration. <strong>Random</strong> shuffles, <strong>On Beat</strong> advances with the music, <strong>Ping-pong</strong> goes back and forth, <strong>Apply</strong> keeps the current blend.</li>
+<li><strong>Preset Morph</strong> — build a playlist (<strong>+ Add preset…</strong> or <strong>All</strong>) and press <strong>Play</strong> to blend through it over the chosen Duration. <strong>Random</strong> shuffles, <strong>On Beat</strong> advances with the music, <strong>Ping-pong</strong> goes back and forth, <strong>Apply</strong> bakes the current blend into editable layers. Drag <strong>Morph</strong> to scrub the whole sequence; with an empty list Random and scrubbing use all presets.</li>
 </ul>
 </div>
 
@@ -13695,6 +13738,7 @@ try{loadFromHash()}catch(e){}
 <li>Drag each plane's four corners onto the physical faces. Small grid points add fine warping; Shift-drag moves a whole plane; double-click a face to select it.</li>
 <li><strong>Test grid</strong> helps alignment. Choose <strong>Duplicate</strong> (whole image on each face) or <strong>Span</strong> (one image across faces — <strong>Seamless cube</strong> keeps edges continuous). In Span, <strong>Move visuals</strong> slides the image without moving planes.</li>
 <li><strong>Save mapping</strong> restores it on next launch; Export/Import makes a backup. Mapping has its own Undo and is never changed by presets.</li>
+<li>Arrow keys nudge the current target (Shift: 10 pixels). Guides stay off the projector. The <strong>?</strong> on the panel shows these tips inline.</li>
 </ol>
 </div>
 

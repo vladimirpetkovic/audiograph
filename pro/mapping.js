@@ -1,3 +1,4 @@
+import {clean3d,render3d} from './map3d.js';
 // Projection mapping: the finished picture (or one layer) is cropped, masked and warped onto surfaces.
 // A surface is a grid of control points in output space (0–1). A 1×1 grid is a true perspective corner pin
 // (homography); bigger grids bend smoothly through every point (Catmull-Rom) for curved or uneven walls.
@@ -26,6 +27,8 @@ export function cleanMapping(m){
   const surfaces=m.surfaces.map((s,k)=>{
     if(!s||typeof s!=='object')throw Error('Invalid mapping surface');
     const id=String(s.id);if(!ID.test(id)||ids.has(id))throw Error('Invalid mapping surface ID');ids.add(id);
+    if(s.kind==='3d')return clean3d({...s,id});
+    if(s.kind!==undefined&&s.kind!=='2d')throw Error('Invalid mapping surface kind');
     const cols=Math.round(num(s.cols,1,MAX_GRID,1)),rows=Math.round(num(s.rows,1,MAX_GRID,1));
     if(!Array.isArray(s.pts)||s.pts.length!==(cols+1)*(rows+1))throw Error('Mapping surface points do not match its grid');
     const pts=s.pts.map(p=>{if(!Array.isArray(p)||p.length!==2)throw Error('Invalid mapping point');return [num(p[0],-1,2,0),num(p[1],-1,2,0)];});
@@ -39,7 +42,7 @@ export function cleanMapping(m){
   });
   // Older cube presets used a rectangle on the cap, which cannot meet both side crops at their shared vertex.
   const top=surfaces.find(s=>s.id==='top'),left=surfaces.find(s=>s.id==='left'),right=surfaces.find(s=>s.id==='right');
-  if(top&&left&&right&&top.wrap===undefined&&top.cols===1&&top.rows===1&&
+  if(top&&left&&right&&top.kind!=='3d'&&left.kind!=='3d'&&right.kind!=='3d'&&top.wrap===undefined&&top.cols===1&&top.rows===1&&
     JSON.stringify([top.crop,left.crop,right.crop])==='[[0,0,1,0.5],[0,0.5,0.5,1],[0.5,0.5,1,1]]'&&
     JSON.stringify([corners(top)[0],corners(top)[2],corners(top)[3]])===JSON.stringify([corners(left)[0],corners(right)[1],corners(left)[1]]))top.wrap='cap';
   return {on:!!m.on,test:!!m.test,surfaces};
@@ -115,10 +118,11 @@ function testCard(x,w,h,s,index){
   [[.06,.08],[.94,.08],[.94,.92],[.06,.92]].forEach(([u,v],i)=>x.fillText(m[i],u*w,v*h));
 }
 // Draw every surface onto ctx (W×H, cleared to black). sources(source) returns the picture for 'all' or a layer number.
-export function render(ctx,mapping,sources,W,H){
+export function render(ctx,mapping,sources,W,H,time=0){
   ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.restore();
   mapping.surfaces.forEach((s,index)=>{
     const img=sources(s.source);if(!img&&!mapping.test)return;
+    if(s.kind==='3d'){let tex=img;if(mapping.test){tex=scratch('3d-card',W,H);testCard(tex.getContext('2d'),W,H,s,index);}render3d(ctx,s,tex,W,H,time,mapping.test);return;}
     const [l,t,r,b]=s.crop,cw=Math.max(2,Math.round((r-l)*W)),ch=Math.max(2,Math.round((b-t)*H)),c=scratch(s.id,cw,ch),x=c.getContext('2d');
     x.globalCompositeOperation='source-over';x.clearRect(0,0,cw,ch);
     if(mapping.test)testCard(x,cw,ch,s,index);else x.drawImage(img,l*img.width,t*img.height,(r-l)*img.width,(b-t)*img.height,0,0,cw,ch);

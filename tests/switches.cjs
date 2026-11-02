@@ -40,11 +40,11 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
     assert.equal(await page.evaluate(() => varyHeight), true, 'keyboard toggles through hidden button');
 
     let onColor = rgb(await vary.evaluate(el => getComputedStyle(el).backgroundColor));
-    assert.ok(onColor[1] > 170 && onColor[0] < 40, 'ON switch is green: ' + onColor);
+    assert.ok(onColor.every(v => v > 190), 'ON switch is light (Pro on-state): ' + onColor);
     await vary.click();
     await page.waitForTimeout(220);
     let offColor = rgb(await vary.evaluate(el => getComputedStyle(el).backgroundColor));
-    assert.ok(offColor[0] > 150 && offColor[1] < 110, 'OFF switch is red: ' + offColor);
+    assert.ok(offColor.every(v => v < 60), 'OFF switch is dark: ' + offColor);
 
     await page.evaluate(() => applyState(JSON.parse(JSON.stringify(builtinPresets.flares))));
     await frames(page);
@@ -100,7 +100,7 @@ const rgb = s => (s.match(/[-\d.]+/g) || []).slice(0, 3).map(Number);
     assert.equal(chips.presetButtons, 6, 'preset action buttons in one row');
     assert.ok(chips.presetOneLine && !chips.presetOverflow, 'preset actions fit: ' + JSON.stringify(chips));
     const activeBg = rgb(chips.activeBg), inactiveBg = rgb(chips.inactiveBg);
-    assert.ok(activeBg[1] > 170 && activeBg[0] < 40, 'active chip filled green: ' + chips.activeBg);
+    assert.ok(activeBg.every(v => v > 190), 'active chip filled light (Pro on-state): ' + chips.activeBg);
     assert.ok(inactiveBg.every(v => v >= 20 && v <= 45), 'inactive chip is dark filled: ' + chips.inactiveBg);
     assert.ok(/rgba\(255, 255, 255, 0\.0/.test(chips.inactiveBorder) && chips.inactiveRadius >= 5, 'inactive chip has subtle border/radius: ' + JSON.stringify(chips));
     const switchRows = await page.evaluate(() => {

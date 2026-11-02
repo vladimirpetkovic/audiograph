@@ -4,107 +4,14 @@
 // renders exactly as in Audiograph.
 import {TEMPLATE_BY_NAME} from './morph.js';
 import {parseGLTF,pose} from './gltf.js';
-// 3D objects and Cloner, after the WebGPU Cornell box sample: soft cast shadows from the key light (a light-space
-// depth map read with rotated Poisson PCF), an area-light size that widens both the penumbra and the highlights,
-// palette-coloured bounce light (colour bleeding between clones and the floor) and an optional floor that catches
-// shadows and fades into the background.
+// The 3D lighting after the WebGPU Cornell box sample (soft cast shadows, light size, bounce light, floor), smooth
+// cube normals and the link width / glow / pulse knobs are built into the classic engine; Pro keeps only its own defaults.
 function patch3dLighting(patch){
-  patch("hist:array<vec4f,256>};","hist:array<vec4f,256>,lvp:mat4x4f,sh:vec4f,gi:vec4f,fl:vec4f,rs3:vec4f};");
-  patch("G3UF=1232,","G3UF=1264,");
-  patch("struct VIn{@location(0) pos:vec3f",`@group(0) @binding(6) var shT:texture_depth_2d;
-@group(0) @binding(7) var shS:sampler_comparison;
-fn shadowAt(wp:vec3f,n:vec3f,px:vec2f)->f32{
-  if(c.sh.x<0.001){return 1.0;}
-  let L=normalize(c.lit.xyz);
-  let q=c.lvp*vec4f(wp+n*c.sh.z*2.0+L*c.sh.z,1.0);
-  let uv=vec2f(q.x*0.5+0.5,0.5-q.y*0.5);
-  if(uv.x<0.0||uv.y<0.0||uv.x>1.0||uv.y>1.0||q.z>1.0){return 1.0;}
-  let a=fract(sin(dot(px,vec2f(12.9898,78.233)))*43758.5453)*6.2831853;let cs=cos(a);let sn=sin(a);
-  var s=0.0;
-  for(var i=0u;i<12u;i=i+1u){
-    let fi=f32(i);let rr=sqrt((fi+0.5)/12.0);let th=fi*2.39996323;
-    let o=vec2f(cos(th),sin(th))*rr;
-    s=s+textureSampleCompareLevel(shT,shS,uv+vec2f(o.x*cs-o.y*sn,o.x*sn+o.y*cs)*c.sh.y,q.z-c.sh.w);}
-  return mix(1.0,s/12.0,c.sh.x);}
-fn palAvg()->vec3f{var s=vec3f(0.0);for(var i=0;i<5;i=i+1){s=s+pow(textureSampleLevel(rampT,smp,vec2f(0.1+0.2*f32(i),0.5),0.0).rgb,vec3f(2.2));}return s/5.0;}
-fn floorCol()->vec3f{return mix(vec3f(0.42,0.43,0.46),palAvg()*0.8,c.fl.x);}
-struct VIn{@location(0) pos:vec3f`);
-  patch("fn envC(r:vec3f,rough:f32)->vec3f{",`@vertex fn vsh(vin:VIn,@builtin(instance_index) ii:u32)->@builtin(position) vec4f{
-  let I=inst[ii];
-  if(abs(floor(vin.fid+0.001)-I.dat.y)>0.5){return vec4f(2.0,2.0,2.0,1.0);}
-  let wp=I.pos.xyz+rotM(I.rot.xyz)*(anch(vin.pos,cloneS(I,ii))*c.sp.w*I.rot.w);
-  return c.lvp*vec4f(wp,1.0);}
-struct FlO{@builtin(position) pos:vec4f,@location(0) wp:vec3f,@location(1) cp:vec4f,@location(2) pp:vec4f};
-@vertex fn vsf(@builtin(vertex_index) vi:u32)->FlO{
-  let q=array<vec2f,6>(vec2f(-1.0,-1.0),vec2f(1.0,-1.0),vec2f(-1.0,1.0),vec2f(-1.0,1.0),vec2f(1.0,-1.0),vec2f(1.0,1.0));
-  let p=vec3f(q[vi].x*c.gi.w,c.gi.z,q[vi].y*c.gi.w);
-  var o:FlO;o.pos=c.vp*vec4f(p,1.0);o.wp=p;o.cp=o.pos;o.pp=c.pvp*vec4f(p,1.0);return o;}
-@fragment fn fsf(fi:FlO)->FOut{
-  let n=vec3f(0.0,1.0,0.0);let L=normalize(c.lit.xyz);let V=normalize(c.cam.xyz-fi.wp);
-  let r=length(fi.wp.xz)/c.gi.w;let a=c.fl.w*(1.0-smoothstep(0.3,1.0,r));
-  if(a<0.004){discard;}
-  let shd=shadowAt(fi.wp,n,fi.pos.xy);
-  let base=floorCol();
-  let H=normalize(L+V);
-  var col=base*(c.lit.w*max(L.y,0.0)*shd*0.95+c.l2.x*0.5*vec3f(0.85,0.9,1.05));
-  col=col+vec3f(0.05)*pow(max(H.y,0.0),40.0)*c.lit.w*shd*3.0;
-  let vel=fi.cp.xy/fi.cp.w-fi.pp.xy/max(fi.pp.w,0.001);
-  return FOut(vec4f(col*a,a),vec4f(vel,fi.cp.w-length(c.cam.xyz),1.0),vec2f(dot(n,c.vx.xyz),dot(n,c.vy.xyz)));}
-fn envC(r:vec3f,rough:f32)->vec3f{`);
-  patch("let rough=clamp(c.mt.x,0.05,1.0);let met=c.mt.y;let a2=pow(rough,4.0);",
-    "let rough=clamp(c.mt.x,0.05,1.0);let met=c.mt.y;let a2=pow(clamp(rough+c.gi.y*0.3*(1.0-rough),0.05,1.0),4.0);");
-  patch("var col=c.lit.w*(dif+spc*3.0);","let shd=shadowAt(fi.wp,n,fi.pos.xy);var col=c.lit.w*(dif+spc*3.0)*shd;");
-  patch("col=col+base*(1.0-met)*(hemi*c.l2.x+envC(n,1.0)*0.12);",
-    "col=col+base*(1.0-met)*(hemi*c.l2.x+envC(n,1.0)*0.12);"+
-    "let bc=mix(mix(palAvg(),base,0.45),floorCol(),c.fl.w*0.7);"+
-    "col=col+base*(1.0-met*0.7)*bc*c.gi.x*(0.3+0.7*(0.5-0.5*n.y))*(c.lit.w*max(L.y,0.0)*1.2+c.l2.x*0.5);");
-  // Pipelines: the main layout gains the shadow map; the depth-only shadow pass keeps the original layout.
-  patch("var mc=await mod(dev,'g3c',AG_G3_C)","P.g3sL=Lr;Lr=dev.createBindGroupLayout({entries:[{binding:0,visibility:V|F,buffer:{type:'uniform'}},{binding:1,visibility:V,buffer:{type:'read-only-storage'}},{binding:2,visibility:V|F,texture:{sampleType:'float'}},{binding:3,visibility:V|F,sampler:{type:'filtering'}},{binding:4,visibility:V,buffer:{type:'read-only-storage'}},{binding:5,visibility:V,buffer:{type:'read-only-storage'}},{binding:6,visibility:F,texture:{sampleType:'depth'}},{binding:7,visibility:F,sampler:{type:'comparison'}}]});var mc=await mod(dev,'g3c',AG_G3_C)");
-  patch("P.g3o=await mk(false);P.g3t=await mk(true);","P.g3o=await mk(false);P.g3t=await mk(true);"+
-    "P.g3sh=await dev.createRenderPipelineAsync({layout:dev.createPipelineLayout({bindGroupLayouts:[P.g3sL]}),vertex:{module:mr,entryPoint:'vsh',buffers:[vb]},primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less',depthBias:2,depthBiasSlopeScale:2.5}});"+
-    "P.g3fl=await dev.createRenderPipelineAsync({layout:pl,vertex:{module:mr,entryPoint:'vsf'},fragment:{module:mr,entryPoint:'fsf',targets:[{format:'rgba16float',blend:blend},{format:'rgba16float'},{format:'rg16float'}]},primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'},multisample:{count:4}});");
-  patch("st.g3bgR=dev.createBindGroup({layout:G.P.g3L.r,entries:[",
-    "var _e=[{binding:0,resource:{buffer:st.cub}},{binding:1,resource:{buffer:st.ibuf}},{binding:2,resource:st.rampV},{binding:3,resource:G.smp},{binding:4,resource:{buffer:st.ipv}},{binding:5,resource:{buffer:st.ebuf}}];"+
-    "if(st.g3shT)st.g3shT.destroy();st.g3shN=simOpt.q==='low'?1024:2048;st.g3shT=dev.createTexture({size:[st.g3shN,st.g3shN],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT|GPUTextureUsage.TEXTURE_BINDING});st.g3shV=st.g3shT.createView();"+
-    "G.g3shS=G.g3shS||dev.createSampler({compare:'less',magFilter:'linear',minFilter:'linear'});"+
-    "st.g3bgS=dev.createBindGroup({layout:G.P.g3sL,entries:_e});"+
-    "st.g3bgR=dev.createBindGroup({layout:G.P.g3L.r,entries:[{binding:6,resource:st.g3shV},{binding:7,resource:G.g3shS},");
-  // Light-space camera: an orthographic box round the array (and the floor), looking down the key light.
-  patch("dev.queue.writeBuffer(st.cub,0,U);",
-    "var shA=style===1?0:K('pG3Shadow',60)/100,shSz=K('pG3LitSize',35)/100,flA=K('pG3Floor',0)/100;"+
-    "var hy=[(ny-1)/2*sy,(ny-1)/2*sy,B,ny*sy/2,0,B,0,n/nx*sy/2][mdi]||0;"+
-    "hy+=rad*oY*(1+Math.max(0,scA[1])*0.8)+rpY*sy*0.9+Math.abs(mv[1])*sy*0.8+rad*(Math.exp(1.6*rndH)-1)*0.8;"+
-    "var fy=-hy*1.02+K('pG3FloorY',0)/100*bnd;if(eye[1]<fy+bnd*0.02)flA=0;"+
-    "var shR=bnd*1.2+(flA>0.001?bnd*1.0:0),lu=Math.abs(l[1])>0.95?[1,0,0]:[0,1,0];"+
-    "var lX=nrm3([lu[1]*l[2]-lu[2]*l[1],lu[2]*l[0]-lu[0]*l[2],lu[0]*l[1]-lu[1]*l[0]]),lY=[l[1]*lX[2]-l[2]*lX[1],l[2]*lX[0]-l[0]*lX[2],l[0]*lX[1]-l[1]*lX[0]],lp=[l[0]*shR*2,l[1]*shR*2,l[2]*shR*2];"+
-    "var dt3=function(a){return a[0]*lp[0]+a[1]*lp[1]+a[2]*lp[2]};"+
-    "var lvw=new Float32Array([lX[0],lY[0],l[0],0,lX[1],lY[1],l[1],0,lX[2],lY[2],l[2],0,-dt3(lX),-dt3(lY),-dt3(l),1]),lpr=new Float32Array(16);"+
-    "lpr[0]=1/shR;lpr[5]=1/shR;lpr[10]=-1/(4*shR);lpr[15]=1;U.set(g3Mul(lpr,lvw),1232);"+
-    "set(1248,shA,(1.2+shSz*shSz*40*Math.max(1,rad/shR*12))/(st.g3shN||2048),2*shR/(st.g3shN||2048),0.0008);"+
-    "set(1252,K('pG3Bounce',40)/100,shSz,fy,bnd*2.4);set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,0,flA);"+
-    "dev.queue.writeBuffer(st.cub,0,U);");
-  patch("var pipe=(style===1||alpha<0.995)?P.g3t:P.g3o;",
-    "if(shA>0.001&&P.g3sh&&st.g3bgS){var shp=enc.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:st.g3shV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});shp.setPipeline(P.g3sh);shp.setBindGroup(0,st.g3bgS);shp.setVertexBuffer(0,m.buf);shp.draw(m.verts,n);shp.end();S.dispatches++}"+
-    "var pipe=(style===1||alpha<0.995)?P.g3t:P.g3o;");
-  patch("rp.setPipeline(pipe);rp.setBindGroup(0,st.g3bgR);",
-    "if(flA>0.001&&P.g3fl){rp.setPipeline(P.g3fl);rp.setBindGroup(0,st.g3bgR);rp.draw(6)}rp.setPipeline(pipe);rp.setBindGroup(0,st.g3bgR);");
-  // Smooth cubes: face normals bent slightly toward the corners read as softly bevelled boxes, not blotchy spheres.
-  patch("p[a[0]]=h*a[1];p[u]=h*(2*i/n-1);p[v]=h*(2*j/n-1);gg[i][j]=V(p)}}","p[a[0]]=h*a[1];p[u]=h*(2*i/n-1);p[v]=h*(2*j/n-1);var fq=[p[0]*0.3,p[1]*0.3,p[2]*0.3];fq[a[0]]=a[1];gg[i][j]=V(p,nrm(fq))}}");
   // Nothing turns on its own by default: auto orbit, orbit with sound and clone spin start at 0 (presets set their own).
   patch("['pG3Spin','Spin',-100,100,15,","['pG3Spin','Spin',-100,100,0,");patch("st.g3spin+=h*K('pG3Spin',15)","st.g3spin+=h*K('pG3Spin',0)");
   patch("['pG3Orbit','Auto orbit',-100,100,12,","['pG3OrbitSnd','Orbit with sound',0,100,0,5,'%','The camera turns with the music.'],['pG3Orbit','Auto orbit',-100,100,0,");
   patch("K('pG3Orbit',12)","K('pG3Orbit',0)");patch("K('pG3OrbitSnd',50)","K('pG3OrbitSnd',0)");
   patch("['Camera',['pG3Orbit','pG3Tilt','pG3Zoom']]","['Camera',['pG3Orbit','pG3OrbitSnd','pG3Tilt','pG3Zoom']]");
-  // The knobs the Light node drives.
-  patch("['pG3Ao','Ambient occlusion',",
-    "['pG3Shadow','Cast shadows',0,100,60,5,'%','Soft shadows the key light casts from clone to clone and onto the floor. 0 turns them off.'],"+
-    "['pG3LitSize','Light size',0,100,35,5,'%','Size of the key light: a larger light gives softer shadow edges and broader highlights.'],"+
-    "['pG3Bounce','Bounce light',0,100,40,5,'%','Light bounced between clones and off the floor, tinted by their colours.'],"+
-    "['pG3Floor','Floor',0,100,0,5,'%','A floor under the objects that catches their shadows and fades into the background. 0 hides it.'],"+
-    "['pG3FloorY','Floor height',-100,100,0,5,'%','Moves the floor down or up from the bottom of the objects.'],"+
-    "['pG3FloorTint','Floor tint',0,100,30,5,'%','0 is a neutral grey floor, 100 takes the palette colours.'],"+
-    "['pG3Ao','Ambient occlusion',");
-  patch("['Light',['pG3Light','pG3Amb','pG3LitAz','pG3LitEl']]","['Light',['pG3Light','pG3Amb','pG3LitAz','pG3LitEl','pG3Shadow','pG3LitSize','pG3Bounce','pG3Floor','pG3FloorY','pG3FloorTint']]");
   // Random effector on each axis: rotation X / Y / Z and scale X / Z next to the original's Y stretch.
   patch("['pG3RndRot','Random tilt',0,180,0,5,'deg','Random orientation of each clone.'],",
     "['pG3RndRX','Random rotate X',0,180,0,5,'deg','Random turn of each clone around X.'],['pG3RndRY','Random rotate Y',0,180,0,5,'deg','Random turn of each clone around Y.'],"+
@@ -115,16 +22,6 @@ fn envC(r:vec3f,rough:f32)->vec3f{`);
   patch("var rr=K('pG3RndRot',0)*dg;set(76,rr,rr,rr,","set(1260,K('pG3RndSX',0)/100,0,K('pG3RndSZ',0)/100,0);set(76,K('pG3RndRX',0)*dg,K('pG3RndRY',0)*dg,K('pG3RndRZ',0)*dg,");
   patch("S.y=S.y*exp(c.lt.x*1.6*(2.0*hr(ii,60u)-1.0));return S;}","S=S*exp(1.6*vec3f(c.rs3.x*(2.0*hr(ii,61u)-1.0),c.lt.x*(2.0*hr(ii,60u)-1.0),c.rs3.z*(2.0*hr(ii,62u)-1.0)));return S;}");
   patch("rad*(Math.exp(1.6*rndH)-1)*0.8","rad*(Math.exp(1.6*Math.max(rndH,K('pG3RndSX',0)/100,K('pG3RndSZ',0)/100))-1)*0.8");
-  // Links: width, glow and how much they pulse with the clones they join (the original's hidden width and glow).
-  patch("['pG3LinkDist','Link distance',20,400,150,5,'%','Longest link, in clone spacings.'],",
-    "['pG3LinkDist','Link distance',20,400,150,5,'%','Longest link, in clone spacings.'],"+
-    "['pG3LinkW','Link width',0.2,8,1.2,0.1,'px','Thickness of the link lines.'],"+
-    "['pG3LinkA','Link glow',0,200,80,5,'%','Brightness of the link lines.'],"+
-    "['pG3LinkPulse','Link pulse',0,100,100,5,'%','How much links flash with the sound of the clones they join. 0 keeps them steady.'],");
-  patch("['Links',['pG3Links','pG3LinkDist']]","['Links',['pG3Links','pG3LinkDist','pG3LinkW','pG3LinkA','pG3LinkPulse']]");
-  patch("'g3-l-a':['pG3Links','pG3LinkDist']","'g3-l-a':['pG3Links','pG3LinkDist','pG3LinkW','pG3LinkA','pG3LinkPulse']");
-  patch("let pulse=0.55+0.9*clamp(0.5*(A.pos.w+B.pos.w),0.0,1.4);","let pulse=mix(1.0,0.55+0.9*clamp(0.5*(A.pos.w+B.pos.w),0.0,1.4),c.fl.y);");
-  patch("'g3-fx':['pG3Ao','pG3AoRad','pG3Mb']","'g3-sh':['pG3Shadow','pG3LitSize','pG3Bounce'],'g3-fl':['pG3Floor','pG3FloorY','pG3FloorTint'],'g3-fx':['pG3Ao','pG3AoRad','pG3Mb']");
 }
 const VIEW3D=['terrain','sphere','tetrahedron','dna','object','fractal'];
 // Depth of field for the classic 3D drawers (Canvas 2D lines have no depth buffer): the drawer renders offscreen while its
