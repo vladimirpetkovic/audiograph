@@ -144,7 +144,21 @@ body.resizing{user-select:none}body.resizing iframe,body.resizing canvas{pointer
 .node.selected{border-color:var(--cat);box-shadow:inset 0 2px 0 var(--cat),0 0 0 1px var(--cat),0 0 18px color-mix(in srgb,var(--cat) 30%,transparent),0 6px 18px #0006;z-index:3}
 .node.error{border-color:var(--hot)}
 .node.dragging{opacity:.92;z-index:4}
-.node-head{padding:8px 10px 6px;cursor:grab;user-select:none}
+.node-head{position:relative;padding:8px 10px 6px;cursor:grab;user-select:none}
+.node-acts{position:absolute;top:5px;right:5px;display:flex;gap:2px;opacity:0;transition:opacity .12s}
+.node:hover .node-acts,.node.selected .node-acts,.node-acts:has(.on){opacity:1}
+.node-act{width:18px;height:18px;padding:0;border:1px solid transparent;border-radius:4px;background:#0009;color:var(--tx3);font-size:11px;line-height:16px;cursor:pointer}
+.node-act:hover{color:var(--tx);border-color:#ffffff30}
+.node-act.act-preview.on{color:#000;background:#ffd34d}
+.node-act.act-bypass.on{color:#000;background:#ff9d4d}
+.node:hover .node-title,.node.selected .node-title,.node.bypassed .node-title,.node.previewing .node-title{padding-right:40px}
+.node.bypassed{opacity:.5;border-style:dashed;filter:saturate(.3)}
+.node.bypassed:hover,.node.bypassed.selected{opacity:.8}
+.node.bypassed .node-title{text-decoration:line-through;text-decoration-color:#ff9d4d}
+.node.previewing{outline:2px solid #ffd34d;outline-offset:2px}
+.preview-badge{position:absolute;top:10px;left:10px;z-index:5;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 10px;border-radius:6px;background:#ffd34de6;color:#000;font-size:.6rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.preview-badge[hidden]{display:none}
+.preview-badge .mbtn{background:#0008;color:#fff;border-color:transparent}
 .node-head:active{cursor:grabbing}
 .node-title{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .node-summary{margin-top:3px;font-size:.55rem;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -685,7 +685,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.ok(v8.layers[0].edges.some(e=>e.from===by('waveform3d').id&&e.to===by('cloner').id&&e.input==='object'),'Primitive feeds the Cloner');
     // 3D Object: one node for every shape (and your OBJ as Model), drawn Normal or as a Waveform; any of them feeds a Cloner.
     const objItems=await page.evaluate(()=>[...document.querySelectorAll('#library .library-node[data-type="waveform3d"]')].map(b=>b.textContent.trim()));
-    for(const s of ['Sphere','Cylinder','Frame','DNA','Terrain','Model'])assert.ok(objItems.some(t=>t.startsWith(s)),`3D Objects lists ${s}`);
+    for(const s of ['Sphere','Cylinder','Frame','DNA','Terrain','3D model'])assert.ok(objItems.some(t=>t.startsWith(s)),`3D Objects lists ${s}`);
     for(const [mode,render] of [['cylinder','normal'],['frame','waveform'],['dna','normal'],['cone','waveform']]){
       await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:200,y:0,props:{mode,render}},{id:'p',type:'palette',x:400,y:0,props:{}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'}]));
       await page.waitForTimeout(2500);assert.ok(await litCount()>300,`3D Object ${mode} renders ${render}`);
@@ -946,6 +946,20 @@ def Camera "Camera" {
     assert.notEqual(an.a,an.b,'An animated model moves over time on the mapping surface');assert.notEqual(an.b,an.rest,'Rest pose holds the bind pose');
     await page.locator('[data-property=surf3dAnim] .mbtn',{hasText:'Rest pose'}).click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].anim.on,false,'Rest pose toggle stops the animation');}
     await page.evaluate(()=>{const p=pro.getProject();p.mapping={on:false,surfaces:[]};pro.importProject(p);});await page.locator('#modeStudio').click();
+    // Bypass passes a node's input straight through; Preview shows one node's picture in the viewport.
+    {await page.evaluate(()=>{pro.dissolve(false);pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'BP',name:'BP',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'circle'}},{id:'b',type:'bloom',x:420,y:0,props:{}},{id:'o',type:'oscillator',x:420,y:220,props:{}},{id:'out',type:'output',x:640,y:0,props:{},bypass:true}],edges:[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'b',input:'image'},{from:'b',out:'image',to:'out',input:'image'}]}]});});
+    await page.waitForFunction(()=>pro.engine('w')?.status==='ready',null,{timeout:30000});await page.waitForTimeout(500);
+    const lit=async()=>{let s=0;for(let i=0;i<4;i++)s+=await page.evaluate(()=>{pro.draw();return pro.pixels();});return s/4;},errs=()=>page.evaluate(()=>pro.stats().errors),bp=id=>page.evaluate(id=>pro.getProject().layers[0].nodes.find(n=>n.id===id).bypass,id);
+    assert.equal(await bp('out'),undefined,'Output cannot be bypassed');assert.equal(await page.locator('.node[data-id="out"] .act-bypass').count(),0);assert.equal(await page.locator('.node[data-id="o"] .act-preview').count(),0,'Number nodes have no preview');
+    const bloomOn=await lit();await page.locator('.node[data-id="b"] .node-head').hover();await page.locator('.node[data-id="b"] .act-bypass').click();
+    assert.equal(await bp('b'),true,'Bypass is stored on the node');assert.ok(await page.locator('.node[data-id="b"].bypassed').count(),'Bypassed node is dimmed');
+    const bloomOff=await lit();assert.deepEqual(await errs(),[]);assert.ok(bloomOff>0.3&&bloomOff<bloomOn*.9,'Bypassed Bloom passes the plain emitter through: '+bloomOff+' vs '+bloomOn);
+    await page.locator('.node[data-id="w"] .node-head').click();await page.keyboard.press('b');assert.equal(await bp('w'),true,'B bypasses the selection');
+    assert.equal(await lit(),0,'A bypassed emitter draws nothing');assert.deepEqual(await errs(),[],'Bypassing never breaks the chain');
+    await page.evaluate(()=>pro.undo());assert.equal(await bp('w'),undefined,'Bypass is undoable');
+    await page.keyboard.press('v');await page.waitForTimeout(200);assert.ok(await page.locator('#previewBadge').isVisible(),'V previews the selected node');assert.match(await page.locator('#previewBadge').textContent(),/Circle/);
+    await page.evaluate(()=>{const p=pro.getProject();p.layers[0].visible=false;pro.importProject(p);});assert.ok(await lit()>0.3,'Preview shows the node even in a hidden layer');
+    await page.keyboard.press('Escape');assert.ok(await page.locator('#previewBadge').isHidden(),'Esc leaves preview');assert.equal(await lit(),0,'Back to the (hidden) composition');}
     // Resolution changes the render itself, not just CSS, without replacing the graph or its engines.
     await page.evaluate(()=>pro.loadTemplate('Ink'));
     const fluidID=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='gpuParticles').id);

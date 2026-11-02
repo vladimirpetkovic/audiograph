@@ -390,6 +390,34 @@ function fxEngine(){
 }
 const nstate=(id,init)=>{if(!nodeState.has(id))nodeState.set(id,init());return nodeState.get(id);};
 const waves={sine:p=>.5+.5*Math.sin(p*2*Math.PI),triangle:p=>1-Math.abs((p%1)*2-1),saw:p=>p%1,square:p=>(p%1)<.5?1:0};
+// Preview: one node's picture fills the viewport instead of the composition (not saved; Esc or V again returns).
+let previewId=null,previewImg=null;
+const canPreview=n=>!!n&&Object.values(TYPES[n.type].outputs).some(t=>VISUAL_OUT.has(t));
+const VISUAL_OUT=new Set(['image','shape']);
+function setPreview(id){
+  previewId=previewId===id?null:id;const n=previewId&&graph().nodes.find(m=>m.id===previewId);
+  document.querySelectorAll('.node').forEach(e=>e.classList.toggle('previewing',e.dataset.id===previewId));
+  const b=$('previewBadge');if(b){b.hidden=!previewId;b.querySelector('span').textContent=previewId?'Previewing '+(n?nodeTitle(n):'node'):'';}
+  if(id!==null)message(previewId?`Previewing ${n?nodeTitle(n):'node'} — V or Esc returns to the output`:'Showing the output');
+}
+function toggleBypass(ids){
+  const g=graph(),list=ids.map(id=>g.nodes.find(n=>n.id===id)).filter(n=>n&&n.type!=='output');if(!list.length)return;
+  const on=!list.every(n=>n.bypass);
+  edit((p,g)=>{for(const n of g.nodes)if(ids.includes(n.id)&&n.type!=='output'){if(on)n.bypass=true;else delete n.bypass;}},on?'Bypassed':'Enabled');
+}
+// Bypass: each output passes on the first input of the same kind (pictures to pictures, numbers to numbers);
+// a bypassed emitter or source with nothing to pass draws an empty frame so the chain after it keeps running.
+const VISUAL=new Set(['image','shape','visual','source']);let blankCv=null;
+function blank(){if(!blankCv||blankCv.width!==WIDTH||blankCv.height!==HEIGHT){blankCv=document.createElement('canvas');blankCv.width=WIDTH;blankCv.height=HEIGHT;}return blankCv;}
+function passThrough(n,input,asImage){
+  const t=TYPES[n.type],ins=t.engine?[]:Object.entries(t.inputs),r={};
+  for(const [key,type] of Object.entries(t.outputs)){
+    const vis=VISUAL.has(type),from=ins.find(([,t])=>vis?VISUAL.has(t):t===type);
+    const v=from?input(n,from[0]):undefined;
+    if(v!==undefined)r[key]=type==='image'?asImage(v,n.id)||blank():v;else if(vis)r[key]=blank();
+  }
+  return r;
+}
 function execute(g,time,dt){
   layerView.delete(g.id);
   const outputs=new Map(),byInput=new Map(g.edges.map(e=>[e.to+':'+e.input,e])),rendered=new Map();let image=null;
@@ -419,7 +447,8 @@ function execute(g,time,dt){
   const need=(n,key,label)=>{const v=input(n,key);if(v===undefined){nodeErrors.add(n.id);throw Error(`${g.name}: connect ${label} to ${TYPES[n.type].label}`);}return v;};
   for(const n of plans.get(g.id)||[]){
     const t=TYPES[n.type],p=props(n);let r={};
-    if(t.engine){
+    if(n.bypass)r=passThrough(n,input,asImage);
+    else if(t.engine){
       const sig=input(n,'audio')??(t.category==='inputs'?SILENT:projectSignal()),driven=byInput.has(n.id+':drive');let freq=sig.freq,wave=sig.wave;
       if(driven){const d=driveSpectrum(Math.max(0,input(n,'drive')??0),time);freq=d.freq;wave=d.wave;}
       const lvl=driven?Math.max(0,input(n,'drive')??0):sig.bands.bass,spec=engineSpec(n);
@@ -542,13 +571,14 @@ function execute(g,time,dt){
           const src=asImage(need(n,'shape'),n.id);r.shape=n.type==='palette'?recolor(n.id,src,p):hueImage(n.id,src,p.hue+p.cycle*time);
         }else if(t.outputs.shape){
           const s=need(n,'shape','a shape');
-          if(s instanceof HTMLCanvasElement)throw Error(`${g.name}: ${t.label} needs a shape from an Emitter, not an image`);
+          if(s===blank())r.shape=s;else if(s instanceof HTMLCanvasElement)throw Error(`${g.name}: ${t.label} needs a shape from an Emitter, not an image`);
           const mods=applyShapeNode(n.type,p,s.mods);let hue=s.hue;
           if(n.type==='hue')hue+=p.hue+p.cycle*time;
           r.shape={...s,mods,hue:((hue%360)+360)%360};
         }
     }
     if(n.type==='templateMorph'){r.image=asImage(r.shape,n.id);delete r.shape;}
+    if(n.id===previewId){const v=r.image??r.shape;if(v)previewImg=asImage(v,n.id+':pv');}
     outputs.set(n.id,r);if(DATA_INPUTS.has(n.type))lastOuts.set(n.id,{...r});{const v=r.value??(typeof r.out==='number'?r.out:n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
     if(r.image&&thumbs.has(n.id)&&frame%4===0)drawThumb(n.id,r.image);
   }
@@ -622,17 +652,19 @@ function draw(time,dt=1/30){
   dissolveCheck();
   if(!paused)autoClock+=dt*knobAutoSpeed;
   readAudio(time);if(!paused)autopilotStep(dt);renderErrors=[];const prevErrors=nodeErrors;nodeErrors=new Set();
-  const mapped=mapActive(),out=mapped?programCtx:previewCtx;
+  const mapped=mapActive(),out=mapped?programCtx:previewCtx;previewImg=null;
+  const previewLayer=previewId?state.layers.find(g=>g.nodes.some(n=>n.id===previewId)):null;if(previewId&&!previewLayer)setPreview(null);
   out.globalAlpha=1;out.filter='none';out.globalCompositeOperation='source-over';out.fillStyle='#000';out.fillRect(0,0,WIDTH,HEIGHT);
   for(const g of state.layers){
     // A hidden layer still renders when a mapping surface shows it on its own.
-    const shown=g.visible&&g.opacity>0,forMap=mapped&&mapLayers.has(g.id);if(!shown&&!forMap)continue;
+    const shown=g.visible&&g.opacity>0,forMap=mapped&&mapLayers.has(g.id);if(!shown&&!forMap&&previewLayer!==g)continue;
     try{const image=execute(g,time,dt);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);if(shown){out.globalAlpha=g.opacity;out.globalCompositeOperation=g.blend;drawLayer(out,g,image);}}}
     catch(error){renderErrors.push(error.message);}
   }
   out.globalAlpha=1;out.globalCompositeOperation='source-over';
   if(mapped)mapTime=time;
-  if(mapped)mapping.render(previewCtx,state.mapping,src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time);
+  if(previewImg){previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.drawImage(previewImg,0,0,WIDTH,HEIGHT);}
+  else if(mapped)mapping.render(previewCtx,state.mapping,src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time);
   dissolveDraw(paused?0:dt);
   frame++;
   if(frame%2===0){drawSpectrum();showAutoKnobs();}
@@ -771,7 +803,12 @@ function renderGraph(){
   for(const n of g.nodes){
     const t=TYPES[n.type],box=el('article','node'+(n.id===selected||multi.has(n.id)?' selected':'')+(nodeErrors.has(n.id)?' error':''));
     box.dataset.id=n.id;box.dataset.type=n.type;box.style.left=n.x+'px';box.style.top=n.y+'px';box.style.setProperty('--cat',catOf(n.type).color);
+    if(n.bypass)box.classList.add('bypassed');if(n.id===previewId)box.classList.add('previewing');
     const head=el('div','node-head');head.append(el('div','node-title',nodeTitle(n)),el('div','node-summary',summary(n)));box.append(head);
+    const acts=el('div','node-acts'),act=(cls,label,title,fn)=>{const b=el('button','node-act '+cls,label);b.type='button';b.title=title;b.setAttribute('aria-label',title);b.addEventListener('pointerdown',e=>e.stopPropagation());b.onclick=e=>{e.stopPropagation();fn();};acts.append(b);return b;};
+    if(canPreview(n))act('act-preview','\u25C9',n.id===previewId?'Stop previewing (V)':'Preview this node in the viewport (V)',()=>setPreview(n.id)).classList.toggle('on',n.id===previewId);
+    if(n.type!=='output')act('act-bypass','\u23FB',n.bypass?'Enable this node (B)':'Bypass this node — pass its input straight through (B)',()=>toggleBypass([n.id])).classList.toggle('on',!!n.bypass);
+    head.append(acts);
     if(t.engine||t.fx||n.type==='output'){const c=el('canvas','node-thumb');c.width=160;c.height=90;box.append(c);thumbs.set(n.id,c);}
     const ports=el('div','ports'),{ins,outs}=visiblePorts(g,n);
     for(const [dir,list] of [['in',ins],['out',outs]])for(const [key,type] of list){
@@ -1228,7 +1265,7 @@ function renderEmitter(root,n){
   const kind=mediaKind(n);
   if(kind){
     const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj,.glb,.gltf';
-    f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);message('Loaded '+f.files[0].name);renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
+    f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);const nc=kind==='object'?e.anim?.clips?.length||0:-1;message('Loaded '+f.files[0].name+(nc>0?` · playing ${nc>1?nc+' animation clips (pick one with Clip)':'its animation'}`:nc===0?' · no animation in this file (export a GLB with its animation baked in)':''));renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
     // One button; once loaded, a thumbnail (or the file name) with × to remove it.
     const eng=engines.get(n.id),name=eng?.mediaName,box=el('div','media-pick');f.hidden=true;
     if(name){
@@ -1601,12 +1638,13 @@ $('helpBody').innerHTML=`
 <li><b>Tab</b> over the graph searches every node and drops it at the cursor; over a wire it is inserted into the wire.</li>
 <li>Drag empty space to pan, wheel or pinch to zoom, <b>Fit</b> frames everything.</li>
 <li><b>Delete</b> removes the selected node and heals the chain. Press and hold a node's title (or Alt-drag) to pull it out of its chain.</li>
+<li><b>Bypass</b> (⏻ on a node, or <b>B</b>) switches it off: its input passes straight through. <b>Preview</b> (◉, or <b>V</b>) shows just that node's picture in the viewport; V, Esc or Show output returns.</li>
 <li>Each node shows a live thumbnail of what it outputs. Changes always fade in and out, never cut.</li></ul>
 <h3 id="h-library">The library</h3>
 <ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, Live data from the ISS, space weather, the ocean, weather, earthquakes or Wikipedia, MIDI). Live data also makes a palette: wire it into a Palette’s colors.</li>
 <li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Harmonic, Math…).</li>
 <li><b>Emitters</b>: classic Particles and native WebGPU simulations (Particles, Fluid, Smoke, Granular sand).</li>
-<li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and Model for your OBJ), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
+<li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, GLB or glTF), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
 <li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto), Hue shift, Color correct.</li>
@@ -1671,6 +1709,7 @@ function zoom(factor,cx=viewport.clientWidth/2,cy=viewport.clientHeight/2){const
 const isTrackpad=e=>e.deltaMode===0&&(e.deltaX!==0||!(e.wheelDeltaY&&e.wheelDeltaY%120===0));
 viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();if(e.ctrlKey||e.metaKey||!isTrackpad(e)&&!e.shiftKey)zoom(e.ctrlKey?Math.exp(-e.deltaY*.01):e.deltaY<0?1.08:1/1.08,(e.clientX-r.left)/uiZ(),(e.clientY-r.top)/uiZ());else{view.x-=e.deltaX/uiZ();view.y-=e.deltaY/uiZ();applyView();}},{passive:false});
 $('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit').onclick=fit;
+$('previewExit').onclick=()=>{if(previewId)setPreview(previewId);};
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&!e.altKey&&/^[so]$/i.test(e.key)){e.preventDefault();if(e.key.toLowerCase()==='s')(e.shiftKey?saveTemplate:saveScene)();else $('import').click();return;}
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
@@ -1684,7 +1723,9 @@ document.addEventListener('keydown',e=>{
   else if((e.metaKey||e.ctrlKey)&&k==='v'&&clip){e.preventDefault();if(pointer.inGraph){const r=viewport.getBoundingClientRect(),z=uiZ();pasteNodes(clip,((pointer.x-r.left)/z-view.x)/view.zoom,((pointer.y-r.top)/z-view.y)/view.zoom);}else pasteNodes(clip);}
   else if((e.metaKey||e.ctrlKey)&&k==='a'&&(pointer.inGraph||e.target.closest?.('#graphViewport'))){e.preventDefault();setSelection(graph().nodes.map(n=>n.id));}
   else if(e.key==='Delete'||e.key==='Backspace'){if(selected||multi.size){e.preventDefault();removeSelected();}}
-  else if(e.key==='Escape'){closeMenu();if(pending){pending=null;renderGraph();message('Connection cancelled');}}
+  else if(e.key==='Escape'){closeMenu();if(pending){pending=null;renderGraph();message('Connection cancelled');}else if(previewId)setPreview(previewId);}
+  else if(k==='b'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&selIds().length){e.preventDefault();toggleBypass(selIds());}
+  else if(k==='v'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){const n=graph().nodes.find(m=>m.id===selected);if(previewId&&(!n||n.id===previewId))setPreview(previewId);else if(canPreview(n))setPreview(n.id);}
   else if(e.key===' '&&!e.target.closest('button')){e.preventDefault();$('play').click();}
   else if(k==='f'&&!e.metaKey&&!e.ctrlKey){toggleFullscreen();}
 });

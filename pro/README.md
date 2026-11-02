@@ -46,7 +46,7 @@ each with its own opacity and blend mode (up to four).
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
 - **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…).
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
-  Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain and **Model** (your
+  Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain and **3D model** (your
   imported OBJ, the built-in knot until you load one). **Render** is **Normal** (a
   solid, lit object with size, detail and stretch), **Waveform** (audio-reactive
   lines) or, for a Model, **Points**. Every 3D Object has an `object` output:
@@ -145,6 +145,12 @@ process the finished image.
 - **Tab search**: press Tab with the mouse over the graph, type (e.g. "fluid",
   "bloom"), and press Enter. The node drops at the cursor; over a wire, it is
   inserted into that wire.
+- **Bypass** (⏻ on the node, or **B** for the selection): the node is switched off
+  and its input passes straight through, like a pedal. A bypassed emitter draws
+  nothing. Saved with the scene and undoable.
+- **Preview** (◉ on the node, or **V**): the viewport shows just that node's
+  picture, wherever it sits in the chain (even in a hidden layer). V again, Esc
+  or "Show output" returns to the full composition.
 - **Detach**: press and hold a node's title (or Alt-drag it) and pull it out. Its
   wires are removed and the chain heals.
 - **Wedge**: drag an unconnected node (or a library item) onto a wire; the wire
