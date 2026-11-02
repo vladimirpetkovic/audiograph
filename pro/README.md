@@ -233,8 +233,13 @@ process the finished image.
     self-contained glTF with UVs (planar fallback), Front projection or Box content.
     Normals are smoothed, so faceted models blend cleanly. **Box** content has a Box
     fade (soft blend between the three planar projections), Tiling (mirrored repeat)
-    and a Box transform (move, rotate, scale the projection box).
-    **Transform** moves, rotates and scales the object about its centre; **Lattice**
+    and a Box transform (move, rotate, and scale X / Y / Z or uniform).
+    **Transform** moves, rotates and scales the object about its centre (X / Y / Z
+    or uniform). A **Gizmo** for either transform (Off / Move / Rotate / Scale;
+    keys W, E, R, Q) draws coloured handles in the view: drag an arrow to move
+    along an axis, a ring to turn about it, a square to stretch one axis, or the
+    centre square to scale uniformly. The Box gizmo also outlines the box. Each
+    drag is undoable and the knobs follow it. **Lattice**
     (2³, 3³ or 4³ points) bends it to match the real object — drag the yellow points
     in the view (each drag is undoable; Reset lattice straightens it).
     Animated GLB/glTF models (skinned characters, node animation) play on the surface:

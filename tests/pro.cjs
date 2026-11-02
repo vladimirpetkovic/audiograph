@@ -967,11 +967,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const boxMix=await page.evaluate(async()=>{
       const M=await import('./mapping.js'),D=pro.mapping3d,W=320,H=200,src=document.createElement('canvas'),out=document.createElement('canvas');src.width=out.width=W;src.height=out.height=H;const x=src.getContext('2d');for(let i=0;i<8;i++){x.fillStyle=i%2?'#ff3060':'#30c0ff';x.fillRect(i*W/8,0,W/8,H);}
       const ctx=out.getContext('2d'),s={...D.surface3d('b'),primitive:'Sphere',projection:'box'};const draw=c=>{M.render(ctx,{on:true,surfaces:[{...s,...c}]},()=>src,W,H);const d=ctx.getImageData(0,0,W,H).data;let h=0,jump=0;for(let y=0;y<H;y++)for(let X=1;X<W;X++){const i=(y*W+X)*4;h=(h+d[i]*(i%97+1)+d[i+2])%1e9;if(d[i+3]&&d[i-1])jump+=Math.abs(d[i]-d[i-4])>90?1:0;}return {h,jump};};
-      return {hard:draw({fade:0}),soft:draw({fade:1}),tiled:draw({fade:.5,tile:3}),base:draw({fade:.5}),turned:draw({fade:.5,box:{...s.box,ry:45}}),moved:draw({fade:.5,box:{...s.box,x:.3,scale:.5}}),xf:draw({fade:.5,xf:{...s.xf,x:.3,rz:30,scale:.6}}),lat:draw({fade:.5,lattice:{res:2,d:Array.from({length:24},(_,i)=>i===22?.5:0)}}),badLat:M.cleanMapping({surfaces:[{...s,lattice:{res:5,d:[1]}}]}).surfaces[0].lattice,def:M.cleanMapping({surfaces:[{...s}]}).surfaces[0],wild:M.cleanMapping({surfaces:[{...s,box:{rx:900,scale:-1}}]}).surfaces[0].box};
+      return {hard:draw({fade:0}),soft:draw({fade:1}),tiled:draw({fade:.5,tile:3}),base:draw({fade:.5}),turned:draw({fade:.5,box:{...s.box,ry:45}}),moved:draw({fade:.5,box:{...s.box,x:.3,scale:.5}}),xf:draw({fade:.5,xf:{...s.xf,x:.3,rz:30,scale:.6}}),stretch:draw({fade:.5,box:{...s.box,sx:2.5}}),xfStretch:draw({fade:.5,xf:{...s.xf,sy:1.6}}),lat:draw({fade:.5,lattice:{res:2,d:Array.from({length:24},(_,i)=>i===22?.5:0)}}),badLat:M.cleanMapping({surfaces:[{...s,lattice:{res:5,d:[1]}}]}).surfaces[0].lattice,def:M.cleanMapping({surfaces:[{...s}]}).surfaces[0],wild:M.cleanMapping({surfaces:[{...s,box:{rx:900,scale:-1}}]}).surfaces[0].box};
     });
     assert.equal(boxMix.def.fade,.5,'Box fade defaults to 50%');assert.equal(boxMix.def.tile,1,'Tiling defaults to 1x');
     assert.notEqual(boxMix.hard.h,boxMix.soft.h,'Box fade blends the projections');assert.notEqual(boxMix.soft.h,boxMix.tiled.h,'Tiling changes the mapped picture');
-    assert.deepEqual(boxMix.def.box,{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1},'Box transform defaults to identity');assert.equal(boxMix.wild.rx,180);assert.equal(boxMix.wild.scale,.05,'Box transform is clamped');
+    assert.deepEqual(boxMix.def.box,{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1},'Box transform defaults to identity');assert.notEqual(boxMix.base.h,boxMix.stretch.h,'Box scale X stretches the projection');assert.notEqual(boxMix.base.h,boxMix.xfStretch.h,'Object scale Y stretches the model');assert.equal(boxMix.wild.rx,180);assert.equal(boxMix.wild.scale,.05,'Box transform is clamped');
     assert.notEqual(boxMix.base.h,boxMix.xf.h,'Object move/rotate/scale moves the model');assert.notEqual(boxMix.base.h,boxMix.lat.h,'Moving a lattice point bends the model');
     assert.deepEqual(boxMix.badLat,{res:0,d:[]},'Invalid lattices are dropped');assert.deepEqual(boxMix.def.lattice,{res:0,d:[]});
     assert.notEqual(boxMix.base.h,boxMix.turned.h,'Rotating the box turns the projection');assert.notEqual(boxMix.base.h,boxMix.moved.h,'Moving and scaling the box shifts the projection');
@@ -1012,6 +1012,27 @@ def Camera "Camera" {
     {const b=await page.locator('.map-overlay .lpt[data-lattice="16"]').boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(b.x+b.width/2,b.y-60,{steps:3});await page.mouse.up();}
     {const m=(await page.evaluate(()=>pro.mapping())).surfaces[0];assert.ok(m.lattice.d.slice(48,51).some(v=>Math.abs(v)>.01)&&m.lattice.d.filter(v=>v).length<=3,'Dragging a lattice point moves only that point');assert.equal(m.camera.yaw,projectorYaw,'A lattice drag does not orbit');}
     await page.evaluate(()=>pro.undo());assert.ok((await page.evaluate(()=>pro.mapping())).surfaces[0].lattice.d.every(v=>!v),'Lattice drag is undoable');
+    // Transform gizmo: Move / Rotate / Scale handles in the view edit the Object or the projection Box, one axis at a time.
+    {const giz=t=>page.evaluate(t=>{const D=pro.mapping3d,s=pro.mapping().surfaces[0],c=document.getElementById('preview'),r=c.getBoundingClientRect(),G=D.gizmo(s,t,c.width,c.height,0),f=p=>[r.left+p[0]/c.width*r.width,r.top+p[1]/c.height*r.height];
+        return {c:f(G.c),move:G.move.map(f),scale:G.scale.map(f),rings:G.rings.map(q=>q.pts.map(f))};},t);
+      const drag=async(a,b)=>{await page.mouse.move(a[0],a[1]);await page.mouse.down();await page.mouse.move(b[0],b[1],{steps:4});await page.mouse.up();};
+      const out=(G,tip,px=40)=>{const dx=tip[0]-G.c[0],dy=tip[1]-G.c[1],l=Math.hypot(dx,dy);return [tip[0]+dx/l*px,tip[1]+dy/l*px];},m3=async()=>(await page.evaluate(()=>pro.mapping())).surfaces[0];
+      await page.locator('[data-property=surf3dGizmo] button',{hasText:'Move'}).click();assert.equal(await page.locator('.map-overlay .gizmo[data-gizmo=move]').count(),1,'Move gizmo shows in the view');
+      let G=await giz('object');const yaw0=(await m3()).camera.yaw;await drag(G.move[0],out(G,G.move[0]));
+      let m=await m3();assert.ok(m.xf.x>.05&&!m.xf.y&&!m.xf.z,'Dragging the X arrow moves the object along X only: '+JSON.stringify(m.xf));assert.equal(m.camera.yaw,yaw0,'A gizmo drag does not orbit');
+      await page.evaluate(()=>pro.undo());assert.equal((await m3()).xf.x,0,'Gizmo drag is undoable');
+      await page.keyboard.press('r');assert.equal(await page.locator('.map-overlay .gizmo[data-gizmo=scale]').count(),1,'R switches to Scale');
+      G=await giz('object');await drag(G.scale[2],out(G,G.scale[2],30));m=await m3();assert.ok(m.xf.sz>1.05&&m.xf.sx===1&&m.xf.sy===1,'Scale Z handle stretches only Z: '+JSON.stringify(m.xf));
+      await page.evaluate(()=>pro.undo());
+      await page.locator('[data-property=surf3dprojection]').selectOption('box');
+      await page.locator('[data-property=surf3dBoxGizmo] button',{hasText:'Scale'}).click();assert.equal(await page.locator('[data-property=surf3dGizmo] .mbtn.on').textContent(),'Off','The gizmo edits one transform at a time');
+      G=await giz('box');await drag(G.scale[1],out(G,G.scale[1],30));m=await m3();assert.ok(m.box.sy>1.05&&m.box.sx===1&&m.box.sz===1&&m.xf.sy===1,'Box Scale Y handle stretches the projection box: '+JSON.stringify(m.box));
+      assert.ok(Math.abs(await page.locator('[data-property=surf3dBoxScaleY]').evaluate(e=>+e.value)-m.box.sy)<.01,'Box Scale Y knob follows the gizmo');
+      await page.keyboard.press('e');G=await giz('box');const ring=G.rings[2],a=ring[6],b=ring[14];await drag(a,b);m=await m3();
+      assert.ok(Math.abs(m.box.rz)>5&&!m.box.rx&&!m.box.ry,'Dragging the Z ring turns the box about Z only: '+JSON.stringify(m.box));
+      await page.keyboard.press('q');assert.equal(await page.locator('.map-overlay .gizmo').count(),0,'Q hides the gizmo');
+      await page.locator('[data-property=surf3dBoxReset]').click();m=await m3();assert.deepEqual(m.box,{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1},'Reset box clears per-axis scale');
+      await page.locator('[data-property=surf3dprojection]').selectOption('uv');}
     // Animated glTF on a mapping surface: Play shows its clip over time, Rest pose holds the bind pose.
     {const [fc]=await Promise.all([page.waitForEvent('filechooser'),page.locator('[data-property=mapLoadModel]').click()]);await fc.setFiles(gltfFile());
     await page.waitForSelector('[data-property=surf3dAnim]');

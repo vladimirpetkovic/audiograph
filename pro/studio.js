@@ -1744,7 +1744,7 @@ $('helpBody').innerHTML=`
 <li>On AI Render, <b>New seed</b> (Every beat / Every 4 beats) re-rolls details in time with the music; <b>Dream</b> feeds the last AI picture back in, zoomed by <b>Dream zoom</b> and turned by <b>Dream spin</b>, for endless evolving “dream zoom” imagery.</li></ol>
 <p>The first frame takes a while as the model loads; after that it streams a few frames a second on a modern GPU or Apple Silicon.</p>
 <h3 id="h-mapping">Mapping</h3>
-<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / GLB / self-contained glTF. Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object; <b>Lattice</b> bends it to match the real object; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
+<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / GLB / self-contained glTF. Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object (Scale X / Y / Z or Uniform); a <b>Gizmo</b> (W move · E rotate · R scale · Q off) does the same, or moves, turns and stretches the projection box, by dragging coloured handles in the view; <b>Lattice</b> bends it to match the real object; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
 <h3 id="h-auto">Autopilot</h3>
 <p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
@@ -1885,6 +1885,9 @@ new ResizeObserver(()=>renderWires()).observe($('graphViewport'));
 // ---------- projection mapping ----------
 // Map mode swaps the library for the mapping panel and shows draggable surfaces over the preview. The handles are
 // DOM (not drawn into the picture), so the Detach window only ever gets the clean mapped output.
+// The 3D transform gizmo (view state, not saved): which transform it edits and which tool is active.
+const mapGiz={target:'object',tool:null};
+const gizOn=s=>s?.kind==='3d'&&mapGiz.tool&&(mapGiz.target!=='box'||s.projection==='box');
 let mapTime=0,mapMode=false,mapSel=null,mapPt=-1,mapDrag=null,mapSnap=localStorage.getItem('agpro.mapSnap')!=='0',mapSnapAt=null;
 // Snap: a dragged point (or a moved surface's nearest point) sticks to points of other surfaces and to the frame corners within 12 px. Hold Alt to drag freely.
 function snapTargets(m,skip){const t=[[0,0],[1,0],[1,1],[0,1]];for(const s of m.surfaces)if(s.kind!=='3d'&&s.id!==skip)t.push(...s.pts);return t;}
@@ -1977,6 +1980,14 @@ function renderMapPanel(){
   cs.append(ck);const ca=el('div','map-actions');cs.append(ca);
   sb('Match crop','Place the surface exactly where its crop sits in the picture (no warp)',()=>upd(t=>{const [l,tp,r,b]=t.crop;t.wrap='flat';t.pts=mapping.gridPoints(t.cols,t.rows,[[l,tp],[r,tp],[r,b],[l,b]]);},'Surface matches crop'),ca);
 }
+// Gizmo tool chips for one transform (Object or Box); picking a tool points the gizmo at that transform.
+function gizmoChips(target,s){
+  const on=gizOn(s)&&mapGiz.target===target?mapGiz.tool:'off',w=el('div');
+  w.append(ui.field('Gizmo',ui.chips({options:[['off','Off'],['move','Move'],['rotate','Rotate'],['scale','Scale']],value:on,property:target==='box'?'surf3dBoxGizmo':'surf3dGizmo',
+    onChange:v=>setGizmo(v==='off'?null:v,target)})),el('p','insp-note','Drag the handles in the view. Keys: W move · E rotate · R scale · Q off.'));
+  return w;
+}
+function setGizmo(tool,target=mapGiz.target){mapGiz.tool=tool;mapGiz.target=target;renderMapPanel();renderOverlay();if(tool)message(`Gizmo: ${tool} ${target==='box'?'the projection box':'the object'}`);}
 function renderMap3d(root,ss,info,s,upd,liveSurf){
   const select=(parent,label,key,options)=>{const e=el('select');e.dataset.property='surf3d'+key;for(const [v,l] of options)e.append(new Option(l,v));e.value=s[key];e.onchange=()=>upd(t=>{if(key==='upAxis'&&t.upAxis!==e.value){const [x,y,z]=t.camera.target;t.camera.target=e.value==='Z'?[x,z,-y]:[x,-z,y];}t[key]=e.value;if(key==='primitive'){t.model='';t.modelKey='';t.camera.target=[0,0,0];t.camera.distance=6;t.scale=1;t.upAxis='Y';t.trackOn=false;}},label);parent.append(ui.field(label,e));};
   const file=(label,accept,property,load,parent)=>{const b=el('button','mbtn',label);b.dataset.property=property;b.onclick=()=>{const f=el('input');f.type='file';f.accept=accept;f.onchange=async()=>{if(!f.files[0])return;try{await load(f.files[0]);}catch(e){message(e.message,true);}};f.click();};parent.append(b);};
@@ -1998,8 +2009,10 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   const tr=sub(ss,'Transform'),tm=el('div','knob-grid'),trk=el('div','knob-grid'),tsk=el('div','knob-grid');tr.append(el('div','insp-sublabel minor','Move'),tm,el('div','insp-sublabel minor','Rotate'),trk,tsk);
   for(const a of ['x','y','z'])knob(tm,a.toUpperCase(),'Move'+a.toUpperCase(),-2,2,.001,0,'',()=>s.xf[a],(t,v)=>{t.xf[a]=v;},'Object move');
   for(const a of ['x','y','z'])knob(trk,a.toUpperCase(),'Rot'+a.toUpperCase(),-180,180,.1,0,'°',()=>s.xf['r'+a],(t,v)=>{t.xf['r'+a]=v;},'Object rotate');
-  knob(tsk,'Scale','Scale3',.01,10,.001,1,'×',()=>s.xf.scale,(t,v)=>{t.xf.scale=v;},'Object scale');
-  const ta=el('div','map-actions');tr.append(ta);const tb=el('button','mbtn','Reset transform');tb.type='button';tb.dataset.property='surf3dXfReset';tb.onclick=()=>upd(t=>{t.xf={x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1};},'Reset object transform');ta.append(tb);
+  tr.insertBefore(gizmoChips('object',s),tr.firstChild);tr.insertBefore(el('div','insp-sublabel minor','Scale'),tsk);
+  for(const a of ['x','y','z'])knob(tsk,a.toUpperCase(),'Scale'+a.toUpperCase(),.01,10,.001,1,'×',()=>s.xf['s'+a],(t,v)=>{t.xf['s'+a]=v;},'Object scale '+a.toUpperCase());
+  knob(tsk,'Uniform','Scale3',.01,10,.001,1,'×',()=>s.xf.scale,(t,v)=>{t.xf.scale=v;},'Object scale');
+  const ta=el('div','map-actions');tr.append(ta);const tb=el('button','mbtn','Reset transform');tb.type='button';tb.dataset.property='surf3dXfReset';tb.onclick=()=>upd(t=>{t.xf={x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1};},'Reset object transform');ta.append(tb);
   // Lattice: bend the model to match the real object; drag its points in the view.
   const lt=sub(ss,'Lattice');
   lt.append(ui.field('Points',ui.chips({options:map3d.LATTICE_RES.map(n=>[String(n),n?`${n}³`:'Off']),value:String(s.lattice.res),property:'surf3dLattice',onChange:v=>upd(t=>{t.lattice=map3d.cleanLattice({res:+v});},+v?`Lattice ${v}×${v}×${v}`:'Lattice off')})));
@@ -2012,11 +2025,12 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   knob(hk,'Tiling','Tile',.1,20,.01,1,'×',()=>s.tile,(t,v)=>{t.tile=v;},'Mapping tiling');
   if(s.projection==='box'){
     knob(hk,'Box fade','Fade',0,100,1,50,'%',()=>s.fade*100,(t,v)=>{t.fade=v/100;},'Box projection fade');
-    const bx=sub(pj,'Box transform'),mk=el('div','knob-grid'),rk=el('div','knob-grid'),sk=el('div','knob-grid');bx.append(el('div','insp-sublabel minor','Move'),mk,el('div','insp-sublabel minor','Rotate'),rk,sk);
+    const bx=sub(pj,'Box transform'),mk=el('div','knob-grid'),rk=el('div','knob-grid'),sk=el('div','knob-grid');bx.append(gizmoChips('box',s),el('div','insp-sublabel minor','Move'),mk,el('div','insp-sublabel minor','Rotate'),rk,el('div','insp-sublabel minor','Scale'),sk);
     for(const a of ['x','y','z'])knob(mk,a.toUpperCase(),'BoxMove'+a.toUpperCase(),-2,2,.001,0,'',()=>s.box[a],(t,v)=>{t.box[a]=v;},'Box move');
     for(const a of ['x','y','z'])knob(rk,a.toUpperCase(),'BoxRot'+a.toUpperCase(),-180,180,.1,0,'°',()=>s.box['r'+a],(t,v)=>{t.box['r'+a]=v;},'Box rotate');
-    knob(sk,'Scale','BoxScale',.05,20,.01,1,'×',()=>s.box.scale,(t,v)=>{t.box.scale=v;},'Box scale');
-    const ra=el('div','map-actions');bx.append(ra);const rb=el('button','mbtn','Reset box');rb.type='button';rb.dataset.property='surf3dBoxReset';rb.onclick=()=>upd(t=>{t.box={x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1};},'Reset box projection');ra.append(rb);
+    for(const a of ['x','y','z'])knob(sk,a.toUpperCase(),'BoxScale'+a.toUpperCase(),.05,20,.01,1,'×',()=>s.box['s'+a],(t,v)=>{t.box['s'+a]=v;},'Box scale '+a.toUpperCase());
+    knob(sk,'Uniform','BoxScale',.05,20,.01,1,'×',()=>s.box.scale,(t,v)=>{t.box.scale=v;},'Box scale');
+    const ra=el('div','map-actions');bx.append(ra);const rb=el('button','mbtn','Reset box');rb.type='button';rb.dataset.property='surf3dBoxReset';rb.onclick=()=>upd(t=>{t.box={x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1};},'Reset box projection');ra.append(rb);
   }
   // Camera: the projector's viewpoint, manual or imported.
   const cam=mapCat(root,'camera'),pose=sub(cam),kn=el('div','knob-grid');pose.append(kn);
@@ -2033,6 +2047,18 @@ function overlayBox(){
   overlay.setAttribute('viewBox',`0 0 ${WIDTH} ${HEIGHT}`);overlay.setAttribute('preserveAspectRatio','none');return r;
 }
 function svg(tag,attrs){const n=document.createElementNS(SVGNS,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);return n;}
+const GIZ_COLORS=['#ff5d6c','#7be36f','#5aa2ff'];
+function drawGizmo(s,k){
+  if(!gizOn(s))return;const G=map3d.gizmo(s,mapGiz.target,WIDTH,HEIGHT,mapTime);if(!G.front)return;
+  const tool=mapGiz.tool,act=mapDrag?.kind==='giz'?mapDrag.h.axis:-1,g=svg('g',{class:'gizmo','data-gizmo':tool}),P=p=>`${p[0].toFixed(1)},${p[1].toFixed(1)}`,line=(a,b,c,w=2.5)=>g.append(svg('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:c,'stroke-width':w*k,'stroke-linecap':'round'}));
+  if(mapGiz.target==='box'||tool==='scale')g.append(svg('path',{d:G.edges.map(([i,j])=>`M${P(G.corners[i])}L${P(G.corners[j])}`).join(''),fill:'none',stroke:'#ffe066','stroke-width':1.2*k,'stroke-dasharray':`${5*k} ${4*k}`,opacity:.85}));
+  if(tool==='move')G.move.forEach((t,a)=>{const c=GIZ_COLORS[a],w=act===a?4:2.5;line(G.c,t,c,w);const dx=t[0]-G.c[0],dy=t[1]-G.c[1],l=Math.hypot(dx,dy)||1,ux=dx/l,uy=dy/l,h=11*k;
+    g.append(svg('polygon',{points:[[t[0]+ux*h,t[1]+uy*h],[t[0]-uy*h*.45,t[1]+ux*h*.45],[t[0]+uy*h*.45,t[1]-ux*h*.45]].map(P).join(' '),fill:c}));});
+  if(tool==='scale'){G.scale.forEach((t,a)=>{const c=GIZ_COLORS[a];line(G.c,t,c,act===a?4:2.5);g.append(svg('rect',{x:t[0]-5*k,y:t[1]-5*k,width:10*k,height:10*k,fill:c}));});
+    g.append(svg('rect',{x:G.c[0]-7*k,y:G.c[1]-7*k,width:14*k,height:14*k,fill:act===3?'#fff':'none',stroke:'#fff','stroke-width':2*k}));}
+  if(tool==='rotate')G.rings.forEach((r,a)=>g.append(svg('polyline',{points:r.pts.map(P).join(' '),fill:'none',stroke:GIZ_COLORS[a],'stroke-width':(act===a?4:2.2)*k,opacity:act<0||act===a?1:.35})));
+  g.append(svg('circle',{cx:G.c[0],cy:G.c[1],r:3*k,fill:'#fff'}));overlay.append(g);
+}
 function renderOverlay(){
   if(!overlay||overlay.hasAttribute('hidden'))return;overlay.replaceChildren();const r=overlayBox(),k=WIDTH/(r.width||WIDTH),m=curMap();
   const P=p=>`${(p[0]*WIDTH).toFixed(1)},${(p[1]*HEIGHT).toFixed(1)}`;
@@ -2043,11 +2069,11 @@ function renderOverlay(){
   }
   const s=selSurface();if(!s)return;
   if(s.kind==='3d'){const hit=svg('rect',{x:0,y:0,width:WIDTH,height:HEIGHT,fill:'transparent','pointer-events':'all'});overlay.append(hit);
-    const hs=map3d.latticeHandles(s,WIDTH,HEIGHT,mapTime),n=s.lattice.res;if(!hs.length)return;let d='';
+    const hs=map3d.latticeHandles(s,WIDTH,HEIGHT,mapTime),n=s.lattice.res;if(!hs.length){drawGizmo(s,k);return;}let d='';
     for(const h of hs)for(let a=0;a<3;a++){if(h.ijk[a]+1>=n)continue;const ijk=[...h.ijk];ijk[a]++;const o=hs[(ijk[0]*n+ijk[1])*n+ijk[2]];if(h.front&&o.front)d+=`M${h.x.toFixed(1)},${h.y.toFixed(1)}L${o.x.toFixed(1)},${o.y.toFixed(1)}`;}
     overlay.append(svg('path',{class:'lat',d}));
     for(const h of hs)if(h.front){const c=svg('circle',{class:'lpt'+(mapDrag?.kind==='lat'&&mapDrag.h===h.id?' on':''),cx:h.x,cy:h.y,r:6*k});c.dataset.lattice=h.id;overlay.append(c);}
-    return;}
+    drawGizmo(s,k);return;}
   if(s.cols>1||s.rows>1){let d='';for(let j=0;j<=s.rows;j++){d+='M';for(let i=0;i<=16;i++)d+=P(mapping.pointAt(s,i/16,j/s.rows))+' ';}for(let i=0;i<=s.cols;i++){d+='M';for(let j=0;j<=16;j++)d+=P(mapping.pointAt(s,i/s.cols,j/16))+' ';}overlay.append(svg('path',{class:'mesh',d}));}
   const w=s.cols+1,cornerIdx=new Set([0,s.cols,s.rows*w,s.rows*w+s.cols]);
   s.pts.forEach((p,i)=>{const c=svg('circle',{class:'pt'+(cornerIdx.has(i)?' corner':'')+(i===mapPt?' on':''),cx:p[0]*WIDTH,cy:p[1]*HEIGHT,r:(cornerIdx.has(i)?7:5.5)*k});c.dataset.point=i;overlay.append(c);});
@@ -2059,6 +2085,8 @@ const round4=v=>Math.round(v*10000)/10000;
 overlay.addEventListener('pointerdown',ev=>{
   if(![0,2].includes(ev.button))return;ev.preventDefault();const [x,y]=normPoint(ev),r=preview.getBoundingClientRect(),m=curMap();
   const s=selSurface();if(s?.kind==='3d'){
+    if(gizOn(s)){const px=[x*WIDTH,y*HEIGHT],G=map3d.gizmo(s,mapGiz.target,WIDTH,HEIGHT,mapTime),h=G.front&&map3d.gizmoHit(G,mapGiz.tool,px[0],px[1],12*WIDTH/r.width);
+      if(h){mapDrag={kind:'giz',id:s.id,h,target:mapGiz.target,p0:px,s0:clone(s)};overlay.setPointerCapture(ev.pointerId);renderOverlay();return;}}
     let lh=null,best=14;for(const h of map3d.latticeHandles(s,WIDTH,HEIGHT,mapTime)){const d=Math.hypot((h.x/WIDTH-x)*r.width,(h.y/HEIGHT-y)*r.height);if(h.front&&d<best){best=d;lh=h;}}
     if(lh){mapDrag={kind:'lat',id:s.id,h:lh.id,depth:lh.depth,x,y,d0:[...s.lattice.d]};overlay.setPointerCapture(ev.pointerId);renderOverlay();return;}
     mapDrag={kind:'camera',id:s.id,x,y,camera:clone(s.camera),pan:ev.shiftKey||ev.button===2};overlay.setPointerCapture(ev.pointerId);return;}let hit=-1;
@@ -2075,6 +2103,7 @@ overlay.addEventListener('pointermove',ev=>{
   if(!mapDrag)return;const [x,y]=normPoint(ev);
   const snapOn=mapSnap&&!ev.altKey,box=preview.getBoundingClientRect();mapSnapAt=null;
   live(st=>{const t=st.mapping?.surfaces.find(s=>s.id===mapDrag.id);if(!t)return;
+    if(mapDrag.kind==='giz'){t[mapDrag.target==='box'?'box':'xf']=map3d.gizmoDrag(mapDrag.s0,mapDrag.target,mapDrag.h,mapDrag.p0,[x*WIDTH,y*HEIGHT],WIDTH,HEIGHT,mapTime);return;}
     if(mapDrag.kind==='lat'){t.lattice.d=map3d.latticeDrag(t,mapDrag.d0,mapDrag.h,mapDrag.depth,(x-mapDrag.x)*WIDTH,(y-mapDrag.y)*HEIGHT,WIDTH,HEIGHT,mapTime);return;}
     if(mapDrag.kind==='camera'){const c=mapDrag.camera,dx=x-mapDrag.x,dy=y-mapDrag.y;t.trackOn=false;if(mapDrag.pan){t.camera.panX=Math.max(-2,Math.min(2,c.panX+dx));t.camera.panY=Math.max(-2,Math.min(2,c.panY-dy));}else{t.camera.yaw=c.yaw-dx*180;t.camera.pitch=Math.max(-89,Math.min(89,c.pitch+dy*180));}return;}
     const targets=snapOn?snapTargets(st.mapping,t.id):[];
@@ -2087,12 +2116,14 @@ overlay.addEventListener('pointermove',ev=>{
 });
 overlay.addEventListener('contextmenu',e=>e.preventDefault());
 let mapWheel;overlay.addEventListener('wheel',e=>{const s=selSurface();if(s?.kind!=='3d')return;e.preventDefault();live(st=>{const t=st.mapping.surfaces.find(v=>v.id===s.id);t.trackOn=false;if(e.shiftKey)t.camera.distance=Math.max(.001,Math.min(100000,t.camera.distance*Math.exp(e.deltaY*.001)));else t.camera.focal=Math.max(10,Math.min(200,t.camera.focal*Math.exp(-e.deltaY*.001)));});clearTimeout(mapWheel);mapWheel=setTimeout(()=>liveCommit('Projector zoom'),200);},{passive:false});
-const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;mapSnapAt=null;renderOverlay();if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':k==='lat'?'Moved lattice point':k==='camera'?'Moved projector':'Moved surface');}};
+const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;mapSnapAt=null;renderOverlay();if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':k==='lat'?'Moved lattice point':k==='giz'?'Gizmo transform':k==='camera'?'Moved projector':'Moved surface');}};
 overlay.addEventListener('pointerup',endMapDrag);overlay.addEventListener('pointercancel',endMapDrag);
 function mapKey(e){
   if(!mapMode||!mapSel)return false;const s=selSurface();if(!s)return false;
   const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
   if(d&&s.kind!=='3d'){e.preventDefault();const st=(e.shiftKey?10:1);mapEdit(x=>{const t=x.surfaces.find(y=>y.id===s.id);const idx=mapPt>=0?[mapPt]:t.pts.map((_,i)=>i);for(const i of idx)t.pts[i]=[round4(t.pts[i][0]+d[0]*st/WIDTH),round4(t.pts[i][1]+d[1]*st/HEIGHT)];},'Nudged mapping');return true;}
+  const gk={w:'move',e:'rotate',r:'scale',q:null}[e.key.toLowerCase()];
+  if(s.kind==='3d'&&gk!==undefined&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();setGizmo(gk,mapGiz.target==='box'&&s.projection!=='box'?'object':mapGiz.target);return true;}
   if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mapEdit(x=>{x.surfaces=x.surfaces.filter(y=>y.id!==s.id);},'Deleted surface');return true;}
   if(e.key==='Escape'){mapPt=-1;renderOverlay();return true;}
   return false;
