@@ -613,6 +613,20 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.ok((await apIds()).engines.every(id=>/^ap-r[0-3]$/.test(id)),`${k}: changes reuse the four engines`);
       assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],`${k}: renders without errors`);
     }
+    // Scenes: each art-directed scene builds cleanly and its base carries the scene's post FX. A full change keeps the
+    // old base on screen while the new looks fade in (no frozen frame), rolling in one layer at a time.
+    {const ids=await page.evaluate(()=>pro.autopilot.scenes());assert.ok(ids.length>=10&&ids.includes('orbit')&&ids.includes('mandala'),'Autopilot has art-directed scenes');
+     for(const id of ['orbit','mandala','prism']){
+       const lit=()=>page.evaluate(()=>pro.autopilot.status().slots.map((x,k)=>x.opacity>.3?k+':'+x.layout:'').filter(Boolean));
+       const before=await lit();await page.evaluate(id=>pro.autopilot.scene(id,'drop'),id);const mid=await lit();
+       assert.ok(before.some(x=>mid.includes(x)),`${id}: the old look stays on screen while the new one fades in (${before} → ${mid})`);
+       await settle();const st=await page.evaluate(()=>pro.autopilot.status());
+       assert.match(st.last,new RegExp('^Drop → '+{orbit:'Orbit',mandala:'Mandala',prism:'Prism'}[id]+': '),'Status names the scene');
+       const base=await page.evaluate(()=>{const P=pro.getProject(),k=pro.autopilot.status().slots.findIndex(s=>s.role===0);return P.layers.find(g=>g.id==='ap-L'+k).nodes.find(n=>n.id==='ap-r'+k).props.look._postFx||{};});
+       const want={orbit:'pfxVignette',mandala:'pfxKaleido',prism:'pfxChroma'}[id];
+       assert.ok(base.enabled&&base[want]>0,`${id}: base layer carries ${want} ${JSON.stringify(base)}`);
+       assert.ok(await page.evaluate(()=>{const L=pro.getProject().layers,k=pro.autopilot.status().slots.findIndex(s=>s.role===0);return L.findIndex(g=>g.id==='ap-L'+k)===L.findIndex(g=>g.opacity>0);}),'The base draws beneath its accents');
+       assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],`${id}: renders without errors`);}}
     // Colours and Mood restyle your own project in place.
     await page.evaluate(()=>{pro.loadTemplate('Cloned');pro.autopilot.settings({changes:'colors'});});await lit(.02,25000);
     const pal=()=>page.evaluate(()=>pro.getProject().layers.flatMap(g=>g.nodes.filter(n=>n.type==='palette').map(n=>n.props.stops.map(s=>s.c).join())).join());

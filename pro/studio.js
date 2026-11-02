@@ -13,7 +13,7 @@ import * as map3d from './map3d.js';
 import {parseCamera} from './camera-import.js';
 import * as autopilot from './autopilot.js';
 import {SCENES} from './scenes.js';
-import {Pilot,Generator,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
+import {Pilot,Generator,SCENES as AP_SCENES,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
 import {ORIGINAL_PRESETS} from './templates.js';
 import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
 import {createTour} from './tour.js';
@@ -681,7 +681,7 @@ function dissolveDraw(dt){
   if(!fade)return;
   // Only engines drawn in the last moment hold the fade; idle ones (an Object feeding a Cloner) never get ready.
   const now=performance.now(),waiting=apBusy()||[...engines.values()].some(e=>now-(e.drawnAt||0)<500&&(e.status==='starting'||(e.mode?.startsWith?.('sim')&&e.w?.agSim?.status?.()!=='ready')));
-  if(waiting&&(fade.hold+=dt)<10){}else fade.t=Math.min(1,fade.t+dt/fade.dur);
+  if(waiting&&!fade.noHold&&(fade.hold+=dt)<10){}else fade.t=Math.min(1,fade.t+dt/fade.dur);
   const a=1-fade.t*fade.t*(3-2*fade.t);
   if(a>0){previewCtx.globalAlpha=a;previewCtx.globalCompositeOperation='source-over';previewCtx.drawImage(fadeCv,0,0);previewCtx.globalAlpha=1;}
   if(fade.t>=1)fade=null;
@@ -1745,7 +1745,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-mapping">Mapping</h3>
 <p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / GLB / self-contained glTF. Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object; <b>Lattice</b> bends it to match the real object; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
 <h3 id="h-auto">Autopilot</h3>
-<p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
+<p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
 <ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Restore</b> brings back the browser copy. Media files (songs, videos, models) are not stored: reload them in their nodes.</li>
 <li>Record (●) captures the preview with its audio to video; the camera button saves a PNG. The layer <b>Resolution</b> sets the render size.</li>
@@ -2246,17 +2246,52 @@ function apMood(g,p,spinAmt,speed,dur,flip){
 }
 const apActive=()=>[0,1,2,3].filter(k=>apSlots[k].role>=0&&apLayer(k)).sort((a,b)=>apSlots[a].role-apSlots[b].role);
 // Freeze the last frame on top; it fades out once the new looks are warm (see dissolveDraw).
-function apSnapshot(dur){
+function apSnapshot(dur,noHold=false){
   if(!dissolveOn||!frame)return;
   fadeCtx.globalAlpha=1;fadeCtx.globalCompositeOperation='copy';fadeCtx.drawImage(preview,0,0,WIDTH,HEIGHT);fadeCtx.globalCompositeOperation='source-over';
-  fade={t:0,hold:0,dur};
+  fade={t:0,hold:0,dur,noHold};
+}
+// New looks go into free layers and fade in over the old ones while those keep playing. With only one free layer
+// (three new looks over a three-layer stack) they roll in one after another: the music never stops on a frozen frame.
+function apSwap(w,roles,cur,free,dur){
+  const fades=[],warm=[],later=[];
+  for(const r of roles){
+    const i=r.i,old=cur[i];
+    if(r.fresh&&free.length){const k=free.shift();apAssign(w,k,r.layer,i);warm.push(k);fades.push({k,from:0,to:r.layer.opacity/100,st:r.st});
+      if(old!==undefined){apSlots[old].role=-1;fades.push({k:old,from:apLayer(old).opacity,to:0,st:r.st,out:i});}}
+    else if(r.fresh&&old===undefined)later.push(r);
+    else{
+      // Kept (or waiting for a free layer): the current look glides to the new colours in this role.
+      if(r.fresh)later.push(r);
+      const g=apLayer(old),l=apSlots[old].layer;l.params={...l.params,...recolorLook(l.params,r.colors)};l.opacity=ROLE_OP[i]||50;apSlots[old].role=i;
+      apRecolor(g,r.colors,dur);fades.push({k:old,from:g.opacity,to:l.opacity/100,st:0});g.blend=i?'screen':'source-over';
+    }
+  }
+  return {fades,warm,later};
+}
+// Layers draw in role order (the base underneath, accents screened on top); an outgoing layer sits just above its
+// replacement so the two crossfade. Only invisible or same-role layers change places, so nothing pops.
+function apOrder(fades){
+  const key=g=>{const k=+g.id.slice(4),r=apSlots[k]?.role,f=fades.find(f=>f.k===k&&f.out!==undefined);return r>=0?r*2:f?f.out*2+1:9;};
+  if(!apIsSlots())return;
+  const sorted=state.layers.slice().sort((a,b)=>key(a)-key(b));
+  if(sorted.some((g,i)=>g!==state.layers[i])){state.layers.splice(0,state.layers.length,...sorted);renderLayers();}
+}
+// The next looks of a rolling change, once the previous fade has freed a layer.
+function apRoll(T){
+  const w=apWin();if(!w||!T.later?.length)return;
+  const cur=[];for(let k=0;k<4;k++){const r=apSlots[k].role;if(r>=0)cur[r]=k;}
+  const free=[0,1,2,3].filter(k=>apSlots[k].role<0&&apLayer(k)&&apLayer(k).opacity<=.001),dur=Math.max(2,Math.min(T.dur,5));
+  const {fades,warm,later}=apSwap(w,T.later,cur,free,dur);apOrder(fades);
+  apTrans={t:0,dur,fades,warm,wt:0,kind:T.kind,later};renderUI();
 }
 function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,rebuild=false){
   if(liveBefore)return;
   if(changes==='everything'&&!apEnsure())return;
   const w=apWin();
   if(!w){apWant={kind,dur,changes,force,rebuild};return;}
-  if(apTrans&&kind!=='drop'&&!force&&!apWant){apPending=kind;return;}
+  // Mid-fade: a drop hurries the fade along and follows straight after; other changes wait their turn.
+  if(apTrans&&!force&&!apWant){apPending=kind;if(kind==='drop'){apTrans.fast=true;apTrans.later=null;}return;}
   apWant=null;apPending=null;
   pilot.since=0;gen.section=pilot.section==='waiting'?'groove':pilot.section;gen.match=ap.match;gen.layers=String(ap.layers);
   if(ap.write){let t='';for(let i=0;i<6;i++){t=autopilot.write({energy:gen.energy(kind),seed:(Math.random()*1e9)|0,prev:ap.prompt,keep:ap.match/200});if(t!==ap.prompt)break;}
@@ -2264,29 +2299,16 @@ function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,
   if(apVibeFor!==ap.prompt){gen.setVibe(w,ap.prompt);apVibeFor=ap.prompt;}
   let summary;
   if(changes==='everything'){
-    // Whatever was still fading lands where it was heading, under a short dissolve so nothing pops.
-    if(apTrans){apSnapshot(Math.max(1,Math.min(dur,2.5)));for(const f of apTrans.fades){const g=apLayer(f.k);if(g)g.opacity=f.to>0?f.to:0;}apTrans=null;}
+    // Whatever was still fading lands where it was heading under a short dissolve (never held: no frozen frame).
+    if(apTrans){apSnapshot(Math.max(.6,Math.min(dur,1.5)),true);for(const f of apTrans.fades){const g=apLayer(f.k);if(g)g.opacity=f.to>0?f.to:0;}apTrans=null;}
     for(let k=0;k<4;k++)if(apSlots[k].role<0&&apLayer(k))apLayer(k).opacity=0;
-    const cur=apActive(),st=gen.stack(w,kind,rebuild?[]:cur.map(k=>apSlots[k].layer)),fresh=st.roles.filter(r=>r.fresh).length;
-    const free=[0,1,2,3].filter(k=>!cur.includes(k)),fades=[],warm=[];
-    if(fresh>free.length){
-      // Full rebuild: everything changes under a frozen frame that dissolves once the new looks are drawing.
-      apSnapshot(dur);const slots=[...cur,...free];
-      for(const k of slots){apSlots[k].role=-1;apLayer(k).opacity=0;}
-      st.roles.forEach((r,i)=>{const k=slots[i];apAssign(w,k,r.layer,i,r.layer.opacity/100);warm.push(k);});
-    }else{
-      st.roles.forEach((r,i)=>{
-        const old=cur[i];
-        if(r.fresh){const k=free.shift();apAssign(w,k,r.layer,i);warm.push(k);fades.push({k,from:0,to:r.layer.opacity/100,st:st.stagger[i]||0});
-          if(old!==undefined){apSlots[old].role=-1;fades.push({k:old,from:apLayer(old).opacity,to:0,st:st.stagger[i]||0});}}
-        else{const g=apLayer(old),l=r.layer;l.params={...l.params,...recolorLook(l.params,r.colors)};l.opacity=ROLE_OP[i]||50;apSlots[old].role=i;
-          apRecolor(g,r.colors,dur);fades.push({k:old,from:g.opacity,to:l.opacity/100,st:0});g.blend=i?'screen':'source-over';}
-      });
-      // Layers the stack no longer needs (it got smaller) fade out.
-      for(const k of cur.slice(st.roles.length)){apSlots[k].role=-1;fades.push({k,from:apLayer(k).opacity,to:0,st:.15});}
-    }
-    apTrans={t:0,dur:Math.max(.3,dur),fades,warm,wt:0,kind};
-    summary=st.roles.map(r=>nameOf(r.layer.layout)).join(' + ');
+    const cur=apActive(),st=gen.stack(w,kind,rebuild?[]:cur.map(k=>apSlots[k].layer));
+    const free=[0,1,2,3].filter(k=>!cur.includes(k)),{fades,warm,later}=apSwap(w,st.roles.map((r,i)=>({...r,i,colors:r.colors||gen.paletteFor(st.spec,i),st:st.stagger[i]||0})),cur,free,dur);
+    // Layers the stack no longer needs (it got smaller) fade out.
+    for(const k of cur.slice(st.roles.length)){apSlots[k].role=-1;fades.push({k,from:apLayer(k).opacity,to:0,st:.15});}
+    apOrder(fades);
+    apTrans={t:0,dur:Math.max(.3,dur),fades,warm,wt:0,kind,later};
+    summary=(st.scene?st.scene.label+': ':'')+st.roles.map(r=>nameOf(r.layer.layout)).join(' + ');
     renderUI();
   }else{
     // Colours / Mood: your layers glide to the new palette (and, for Mood, to the new motion and shape).
@@ -2300,12 +2322,13 @@ function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,
 function apTick(dt){
   const T=apTrans;if(!T)return;
   if(T.warm.length){T.wt+=dt;if(!T.warm.every(apReady)&&T.wt<(T.kind==='drop'?3:8))return;T.warm=[];}
-  T.t=Math.min(1,T.t+dt/T.dur);const mo=Math.max(0,...T.fades.map(f=>f.st));
+  T.t=Math.min(1,T.t+dt*(T.fast?4:1)/T.dur);const mo=Math.max(0,...T.fades.map(f=>f.st));
   for(const f of T.fades){const g=apLayer(f.k);if(!g)continue;const e=smoother(Math.max(0,Math.min(1,(T.t-f.st)/Math.max(.05,1-mo))));
     g.opacity=f.from+(f.to-f.from)*e;if(f.to>0)g.opacity=Math.max(g.opacity,.001);}
   if(T.t<1)return;
   for(const f of T.fades){const g=apLayer(f.k);if(g)g.opacity=Math.round(f.to*100)/100;}
-  apTrans=null;renderLayers();
+  apTrans=null;apOrder([]);renderLayers();
+  if(T.later?.length&&ap.changes==='everything')apRoll(T);
 }
 // Exposure: a quiet passage on fine, faded looks can sit near black, so Autopilot gently opens its layers up
 // (louder response, quiet tones shown) and eases a blinding stack back. New looks start from their own values.
@@ -2340,7 +2363,7 @@ function autopilotStep(dt){
   tmStep(dt);
   if(apWant&&apWin())apChange(apWant.kind,apWant.dur,apWant.changes,apWant.force,apWant.rebuild);
   // A section change that arrived mid-fade follows once the fade is done and the minimum gap has passed.
-  if(apPending&&!apTrans&&ap.live&&!ap.hold&&pilot.since>=MIN_GAP){const k=apPending;apPending=null;apChange(k,k==='calm'?9:7);}
+  if(apPending&&!apTrans&&ap.live&&!ap.hold&&(pilot.since>=MIN_GAP||apPending==='drop')){const k=apPending;apPending=null;apChange(k,k==='calm'?9:k==='drop'?durFor('drop'):7);}
   const c=ap.live?pilot.step(dt,features(A.freq),ap.hold?1e9:ap.every,!!apTrans||ap.hold):null;
   if(c&&!ap.hold)apChange(c.kind,c.dur);
   apTick(dt);apExposure(dt);
@@ -2471,7 +2494,7 @@ window.pro={
   stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
   mapMode:on=>{setMapMode(on);return mapMode;},workspace:w=>{if(w)setWorkspace(w);return workspace;},
   dissolve:on=>{dissolveOn=!!on;if(!on)fade=null;return dissolveOn;},autopilot:{examples:autopilot.EXAMPLES,write:o=>autopilot.write(o),parse:t=>autopilot.parse(t),read:t=>{const w=apWin();return w?vibeText(readVibe(w,t)):null;},create:t=>apCreate(t),
-    change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),start:()=>apStart(),stop:()=>apStop(),
+    change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),scene:(id,k='groove')=>{gen.force=id;return apChange(k,1,'everything',true,true);},scenes:()=>AP_SCENES.map(x=>x.id),start:()=>apStart(),stop:()=>apStop(),
     settings:o=>{const {live,...rest}=o||{};Object.assign(ap,rest);if(live===true&&!ap.live)apStart();else if(live===false)apStop();apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,live:ap.live,hold:ap.hold,write:ap.write};},
     status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},cameraImport:parseCamera,mapping3d:map3d,mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),emitPoints:id=>nodeState.get(id+':emit')?.asset?.points,view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}

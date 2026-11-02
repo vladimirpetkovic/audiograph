@@ -101,10 +101,49 @@ export function vibeText(v){
   return o.length?'Reads: '+o.join(' · '):'No keywords recognised yet: try a tempo, mood, colours or shapes.';
 }
 
+// ---------- scenes ----------
+// Art-directed pairings, chosen by scoring rendered candidates: a base, a lighter accent (null = base alone), the
+// post FX that suit them, a colour harmony and an energy range (0 calm … 100 drop). A scene holds for a section;
+// phrases inside it vary one layer at a time, so the picture evolves instead of jumping.
+export const SCENES=[
+  {id:'halo',label:'Halo',E:[0,65],base:['concentric','circle'],accent:['phyllotaxis','circle'],shapes:['rounded','tapered','dotted'],harmony:'analogous',fx:{pfxBloom:45,pfxEdgeGlow:12,pfxVignette:30}},
+  {id:'orbit',label:'Orbit',E:[30,100],base:['sphere','torus','knot'],accent:['lissajous','circle'],shapes:['straight','pins','tapered'],harmony:'complement',fx:{pfxBloom:38,pfxVignette:40,pfxChroma:12}},
+  {id:'mandala',label:'Mandala',E:[25,90],base:['spiral','phyllotaxis','concentric'],accent:['circle'],shapes:['needles','diamonds','tapered'],harmony:'triad',fx:{pfxKaleido:45,pfxBloom:35,pfxVignette:20}},
+  {id:'liquid',label:'Liquid',E:[0,70],sim:true,base:['simfluid'],accent:['circle','concentric'],shapes:['straight','tapered'],harmony:'analogous',fx:{pfxBloom:22,pfxVignette:35}},
+  {id:'temple',label:'Smoke temple',E:[0,60],sim:true,base:['simsmoke'],accent:['tetrahedron','sphere'],shapes:['straight','pins'],harmony:'mono',fx:{pfxVignette:45,pfxBloom:20}},
+  {id:'helix',label:'Helix lab',E:[35,85],base:['dna'],accent:['graph','scatter'],shapes:['pins','dotted','straight'],harmony:'split',fx:{pfxChroma:22,pfxScanlines:12,pfxVignette:35,pfxBloom:25}},
+  {id:'shatter',label:'Shatter',E:[70,100],base:['concentric','sphere'],accent:['spiral'],shapes:['rounded','caps','straight'],harmony:'complement',fx:{pfxBloom:40,pfxFracture:true,pfxFracMode:'flow',pfxFracCells:36,pfxFracDisp:45,pfxFracBass:110}},
+  {id:'tunnel',label:'Tunnel',E:[45,95],base:['spiral','concentric'],accent:null,shapes:['tapered','needles','straight'],harmony:'analogous',fx:{pfxTrails:55,pfxFeedback:35,pfxBloom:30}},
+  {id:'stars',label:'Constellation',E:[0,55],base:['graph','scatter'],accent:['phyllotaxis'],shapes:['dotted','circles','pins'],harmony:'mono',fx:{pfxBloom:55,pfxEdgeGlow:20,pfxVignette:30}},
+  {id:'harmonic',label:'Harmonic',E:[0,50],base:['lissajous'],accent:['concentric','circle'],shapes:['straight','tapered'],harmony:'mono',fx:{pfxGrain:16,pfxVignette:45,pfxBloom:28}},
+  {id:'embers',label:'Embers',E:[55,100],sim:true,base:['simparticles'],accent:['sphere','knot'],shapes:['straight','pins'],harmony:'complement',fx:{pfxBloom:40,pfxVignette:30}},
+  {id:'mirror',label:'Mirror garden',E:[15,75],base:['phyllotaxis','spiral','sacred'],accent:['circle'],shapes:['tapered','rounded'],harmony:'analogous',fx:{pfxReflect:40,pfxBloom:30,pfxVignette:25}},
+  {id:'prism',label:'Prism',E:[60,100],base:['cube','knot','tetrahedron'],accent:['concentric','lissajous'],shapes:['straight','caps','pins'],harmony:'triad',fx:{pfxBloom:48,pfxEdgeGlow:22,pfxChroma:22,pfxVignette:30}}
+];
+const SCENE_BY=Object.fromEntries(SCENES.map(x=>[x.id,x]));
+// Colour harmonies: [dark, mid, bright, highlight] around one hue, kept in a calm saturation/lightness band.
+function harmony(hx,kind,h,E){
+  const sat=E>75?72:E<30?52:62,L=[12,48,64,80];
+  const hues={analogous:[h-25,h,h+22,h+45],complement:[h,h,h+180,h+165],triad:[h,h+120,h+240,h+120],split:[h,h+150,h+210,h+30],mono:[h,h,h+8,h+15]}[kind]||[h-20,h,h+35,h+70];
+  return hues.map((x,i)=>hx(((x%360)+360)%360,kind==='mono'&&i===3?sat-15:sat+(i===3?8:0),L[i]));
+}
+
 // ---------- looks ----------
 // A layer: {layout (Pro renderer mode), params (full original layer parameters), opacity, spin (signed), speed}.
 export class Generator{
-  constructor(){this.hue=Math.random()*360;this.dir=Math.random()<.5?-1:1;this.recent=[];this.layoutCursor=0;this.shapeCursor=0;this.slot=0;this.match=85;this.vb=null;this.layers='auto';this.section='groove';}
+  constructor(){this.hue=Math.random()*360;this.dir=Math.random()<.5?-1:1;this.recent=[];this.layoutCursor=0;this.shapeCursor=0;this.slot=0;this.match=85;this.vb=null;this.layers='auto';this.section='groove';
+    this.scene=null;this.sceneHist=[];this.phrases=0;this.role='base';}
+  // A scene that suits the energy (closest to the middle of its range most likely), not one of the last few.
+  pickScene(w,kind){
+    const E=this.energy(kind),sim=this.simOK(w),fits=x=>(sim||!x.sim)&&E>=x.E[0]&&E<=x.E[1];
+    const forced=SCENE_BY[this.force];this.force=null;
+    if(forced&&(sim||!forced.sim)){this.scene=forced;this.phrases=0;this.sceneHist.push(forced.id);if(this.sceneHist.length>4)this.sceneHist.shift();return forced;}
+    let list=SCENES.filter(x=>fits(x)&&!this.sceneHist.includes(x.id));if(!list.length)list=SCENES.filter(fits);if(!list.length)list=SCENES.filter(x=>!x.sim);
+    const wt=list.map(x=>{const mid=(x.E[0]+x.E[1])/2,half=(x.E[1]-x.E[0])/2+10;return Math.max(.15,1-Math.abs(E-mid)/half);});
+    let r=Math.random()*wt.reduce((a,b)=>a+b,0),i=0;while(i<list.length-1&&(r-=wt[i])>0)i++;
+    this.scene=list[i];this.phrases=0;this.sceneHist.push(this.scene.id);if(this.sceneHist.length>4)this.sceneHist.shift();
+    return this.scene;
+  }
   setVibe(w,text){this.vb=readVibe(w,text);this.layoutCursor=this.shapeCursor=0;return this.vb;}
   pick(list,free,key){
     const m=this.match;
@@ -124,20 +163,24 @@ export class Generator{
     const v=this.vb,r=Math.random,m=this.match;
     let E=this.energy(kind);if(v&&v.energy!=null)E=Math.round(E*.5+v.energy*.5);
     const j=x=>clamp(x+(r()-.5)*20*(1-m/100),0,100);
-    if(!companion)this.hue+=kind==='drop'?120+r()*60:kind==='phrase'?25+r()*30:kind==='calm'?-40:15;
-    const hue=this.hue,sat=E>70?80:E<30?45:62,hx=w._hslHex;
-    const s={layout:'circle',shape:'straight',colors:[hx(hue-20,sat,14),hx(hue,sat,45),hx(hue+35,sat+5,62),hx(hue+70,sat+10,E>70?66:76)],background:'#000000',energy:E,
-      density:E>70?60+r()*30:25+r()*35,thickness:E>70?18+r()*25:6+r()*20,spin:(E>60?40:15)*(r()<.5?-1:1),warp:E<30?20+r()*30:r()*25,glow:E>70?25+r()*20:20+r()*25,trails:E<40?35+r()*30:r()*15,
-      symmetry:E>80&&r()<.35?any(['r4','r6','xy']):'none',particles:E>80&&r()<.5,growth:any(['vine','coral']),pulse:E>60};
+    // Hue moves a little each phrase and further at a new section; only drops jump across the wheel.
+    if(!companion)this.hue+=kind==='drop'?100+r()*50:kind==='phrase'?10+r()*12:kind==='calm'?-30:kind==='build'?35:20;
+    const hue=this.hue,sat=E>70?80:E<30?45:62,hx=w._hslHex,sc=this.scene;
+    const s={layout:'circle',shape:'straight',colors:sc?harmony(hx,sc.harmony,hue,E):[hx(hue-20,sat,14),hx(hue,sat,45),hx(hue+35,sat+5,62),hx(hue+70,sat+10,E>70?66:76)],background:'#000000',energy:E,
+      density:35+r()*30+(E>70?10:0),thickness:12+r()*16+(E>70?6:0),spin:(E>60?30:15)*(r()<.5?-1:1),warp:E<30?15+r()*20:r()*15,glow:20+r()*20,trails:E<40?25+r()*25:r()*10,
+      symmetry:'none',particles:false,growth:any(['vine','coral']),pulse:false};
     const calmL=['spiral','phyllotaxis','concentric','sphere','growth','sacred','graph','lissajous','fractal'],hotL=['circle','concentric','spiral','tetrahedron','sphere','dna','scatter','sacred','lissajous','graph'];
     const shapes=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted'];
     s.layout=this.pick(v?.layouts,E>60?hotL:calmL,'layout');
-    if(!v?.layouts.length){
+    if(!v?.layouts.length&&sc){
+      const pool=this.role==='accent'&&sc.accent?sc.accent:sc.base;s.layout=any(pool);if(isSim(s.layout)&&!this.simOK(w))s.layout=any(sc.accent||['circle']);
+      s.shape=any(sc.shapes);
+    }else if(!v?.layouts.length){
       // Pro adds its 3D solids, drawn as waveforms, to the mix.
       if(r()<(E>60?.12:.06))s.layout=any(SOLIDS);
       else if(this.simOK(w)&&r()<(kind==='calm'?.35:kind==='drop'?.3:.22))s.layout=any(E>60?['simfluid','simparticles','simparticles','simsmoke']:['simsmoke','simfluid','simparticles']);
     }else if(isSim(s.layout)&&!this.simOK(w))s.layout=any(E>60?hotL:calmL);
-    s.shape=this.pick(v?.shapes,shapes,'shape');
+    if(!sc||v?.shapes.length||v?.layouts.length)s.shape=this.pick(v?.shapes,shapes,'shape');
     if(v){const kw=v.kw,h=v.hit;
       if(v.palette){s.colors=kw.colors.slice();if(m<100&&kind!=='calm'&&kind!=='drop'&&s.colors.length>2){const c=s.colors.slice(1);for(let n=Math.floor(r()*c.length);n>0;n--)c.push(c.shift());s.colors=[s.colors[0],...c];}}
       if(h.growth)s.growth=kw.growth;if(h.symmetry)s.symmetry=kw.symmetry;if(h.particles)s.particles=kw.particles;
@@ -188,9 +231,10 @@ export class Generator{
   }
   wantN(kind,curN){
     if(this.layers!=='auto')return +this.layers;
-    const r=Math.random();
-    if(kind==='drop')return 3;if(kind==='build')return r<.5?3:2;if(kind==='calm')return r<.35?1:2;
+    const r=Math.random(),sc=this.scene;
     if(kind==='phrase'&&curN)return curN;
+    if(sc&&!sc.accent)return kind==='drop'&&r<.3?2:1;
+    if(kind==='drop')return r<.3?3:2;if(kind==='calm')return r<.35?1:2;
     return 2;
   }
   paletteFor(s,i){if(!i||s.colors.length<3)return s.colors.slice();const c=s.colors.slice(1);for(let n=i%c.length;n>0;n--)c.push(c.shift());return [s.colors[0],...c];}
@@ -201,29 +245,45 @@ export class Generator{
     // The original frames most layouts small in the middle; Pro's larger canvas wants them to fill it.
     else{const L=l.layout,[a,b]=SOLIDS.includes(L)||L==='tetrahedron'||L==='dna'?[150,185]:/^(circle|concentric|spiral|phyllotaxis|sacred|fractal|harmonic|sphere|lissajous)$/.test(L)?[125,160]:[100,120];
       l.params._zoom=Math.round(a+Math.random()*(b-a)+(i?15:0));}
+    // Calmer reactions: the original's high-energy looks spike to full height on every hit, which reads as chaos.
+    const p=l.params,hot=this.section==='drop';
+    if(!isSim(l.layout)){p._sensitivity=Math.min(p._sensitivity,hot?125:105);p._amplify=Math.min(p._amplify,hot?1.6:1.3);p._height=Math.min(p._height,hot?130:105);
+      p._speed=Math.min(p._speed,hot?1.8:1.3);p._zoomLoud=false;p._particlesOn=false;}
+    const fx=this.scene?.fx;
+    if(fx){const o={...(p._postFx||{}),enabled:true};
+      for(const [k,v] of Object.entries(fx)){if(isSim(l.layout)&&(k==='pfxTrails'||k==='pfxFeedback'))continue;
+        // Accents keep only a softer glow; the base carries the scene's effects.
+        if(i===0)o[k]=v;else if(k==='pfxBloom'||k==='pfxEdgeGlow')o[k]=Math.round(v*.6);}
+      if(i>0){o.pfxTrails=Math.min(o.pfxTrails||0,15);o.pfxFracture=false;}
+      p._postFx=o;}
     l.opacity=ROLE_OP[i]||50;return l;
   }
   makeLayer(w,kind,s,base,i,used){
     if(i===0&&!used.includes(base.layout))return this.finish(this.toLayer(w,s),s,0);
     let c=null;
+    this.role=i?'accent':'base';
     for(let k=0;k<8;k++){c=this.spec(w,kind,true);if(!used.includes(c.layout)&&(i===0||c.layout!=='growth')&&!(isSim(c.layout)&&used.some(isSim)))break;}
     if(isSim(c.layout)&&used.some(isSim)){for(let k=0;k<8&&isSim(c.layout);k++)c=this.spec(w,kind,true);if(isSim(c.layout))c.layout='circle';}
     c.colors=this.paletteFor(s,i);c.trails=s.trails;
     if(i>0){const fine=['straight','tapered','needles','dotted','pins'];
       if(!(this.match>=90&&this.vb?.shapes.length)&&!fine.includes(c.shape))c.shape=any(fine);
       c.density*=.45;c.thickness*=.4;c.glow*=.5;c.particles=false;c.symmetry='none';}
-    c.spinAmt=s.spinAmt;
+    c.spinAmt=s.spinAmt;this.role='base';
     return this.finish(this.toLayer(w,c),s,i);
   }
   // Everything: a base layer plus lighter supporting layers that share its palette. Regular changes swap one layer
   // (the rest glide to the new colours); drops, and growing the stack on a build-up, rebuild it in a ripple.
   // Returns roles: [{layer, fresh}] plus a stagger per role.
   stack(w,kind,cur){
-    const s=this.spec(w,kind,false),base={layout:s.layout},n=this.wantN(kind,cur.length),out=[],used=[],stagger=[];
-    const full=!cur.length||kind==='drop'||n>cur.length&&kind==='build';
+    const fresh=!cur.length||kind!=='phrase'||!this.scene||++this.phrases>3;
+    if(fresh&&!(this.vb?.layouts.length&&this.match>=100))this.pickScene(w,kind);else if(fresh)this.scene=null;
+    this.role='base';
+    const s=this.spec(w,kind,false),base={layout:s.layout},n=this.wantN(kind,fresh?0:cur.length),out=[],used=[],stagger=[];
+    const full=fresh||n>cur.length&&kind==='build';
     if(full){for(let i=0;i<n;i++){const l=this.makeLayer(w,kind,s,base,i,used);used.push(l.layout);out.push({layer:l,fresh:true});stagger.push(i*.18);}}
     else{
-      const swap=this.slot++%n;
+      // Inside a scene the accent changes on most phrases, the base on the second.
+      const swap=n>1&&this.phrases!==2?1+(this.slot++%(n-1)):0;
       for(let i=0;i<n;i++)if(i!==swap&&cur[i])used.push(cur[i].layout);
       for(let i=0;i<n;i++){
         const c=cur[i];
@@ -233,7 +293,7 @@ export class Generator{
       }
     }
     if(out.length>1)for(const o of out)if(isSim(o.layer.layout)&&o.layer.params._sim)o.layer.params._sim={...o.layer.params._sim,q:'low'};
-    return {roles:out,stagger,spec:s};
+    return {roles:out,stagger,spec:s,scene:this.scene};
   }
   // Colours / Mood on your own layers: a palette per layer and (Mood) the new look's shape, spin and speed.
   restyle(w,kind,n){

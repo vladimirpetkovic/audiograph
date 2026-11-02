@@ -297,7 +297,20 @@ process the finished image.
     other way. It replaces the project once (one undo step) with four
     *Autopilot* layers; each change warms the new look up out of sight in a
     free layer and crossfades to it, so it never rebuilds the graph or starts
-    new engines. Drops rebuild the stack under a dissolve of the last frame.
+    new engines. When a whole stack changes (drops, Next) the new looks roll in
+    one layer at a time while the old ones keep playing, base first; the
+    picture never freezes. The base always draws beneath its accents.
+  - Everything is art-directed by **scenes**: curated pairings of a base, a
+    lighter accent, post FX (bloom, kaleido, reflect, chromatic, vignette,
+    grain, trails, fracture), a colour harmony (analogous, complementary,
+    triad, split, mono) and an energy range: Halo, Orbit, Mandala, Liquid,
+    Smoke temple, Helix lab, Shatter, Tunnel, Constellation, Harmonic, Embers,
+    Mirror garden and Prism (5 of 13 are 3D). A scene holds through a section;
+    its phrases swap the accent, then the base, so it evolves instead of
+    jumping. Audio response, height and speed are capped (more on drops) to
+    keep motion smooth. The scenes were tuned by rendering each one and
+    scoring brightness, coverage, clipping, colour and flicker. The status
+    line names the scene.
   - **Describe** is optional: mood, colours, emitters, line style and motion
     (*"slow dreamy blue and gold spirals"*, *"ocean smoke"*, *"neon particles,
     fast"*). The line under it shows what it read. Typing builds after a
