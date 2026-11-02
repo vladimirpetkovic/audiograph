@@ -892,11 +892,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const boxMix=await page.evaluate(async()=>{
       const M=await import('./mapping.js'),D=pro.mapping3d,W=320,H=200,src=document.createElement('canvas'),out=document.createElement('canvas');src.width=out.width=W;src.height=out.height=H;const x=src.getContext('2d');for(let i=0;i<8;i++){x.fillStyle=i%2?'#ff3060':'#30c0ff';x.fillRect(i*W/8,0,W/8,H);}
       const ctx=out.getContext('2d'),s={...D.surface3d('b'),primitive:'Sphere',projection:'box'};const draw=c=>{M.render(ctx,{on:true,surfaces:[{...s,...c}]},()=>src,W,H);const d=ctx.getImageData(0,0,W,H).data;let h=0,jump=0;for(let y=0;y<H;y++)for(let X=1;X<W;X++){const i=(y*W+X)*4;h=(h+d[i]*(i%97+1)+d[i+2])%1e9;if(d[i+3]&&d[i-1])jump+=Math.abs(d[i]-d[i-4])>90?1:0;}return {h,jump};};
-      return {hard:draw({fade:0}),soft:draw({fade:1}),tiled:draw({fade:.5,tile:3}),base:draw({fade:.5}),turned:draw({fade:.5,box:{...s.box,ry:45}}),moved:draw({fade:.5,box:{...s.box,x:.3,scale:.5}}),def:M.cleanMapping({surfaces:[{...s}]}).surfaces[0],wild:M.cleanMapping({surfaces:[{...s,box:{rx:900,scale:-1}}]}).surfaces[0].box};
+      return {hard:draw({fade:0}),soft:draw({fade:1}),tiled:draw({fade:.5,tile:3}),base:draw({fade:.5}),turned:draw({fade:.5,box:{...s.box,ry:45}}),moved:draw({fade:.5,box:{...s.box,x:.3,scale:.5}}),xf:draw({fade:.5,xf:{...s.xf,x:.3,rz:30,scale:.6}}),lat:draw({fade:.5,lattice:{res:2,d:Array.from({length:24},(_,i)=>i===22?.5:0)}}),badLat:M.cleanMapping({surfaces:[{...s,lattice:{res:5,d:[1]}}]}).surfaces[0].lattice,def:M.cleanMapping({surfaces:[{...s}]}).surfaces[0],wild:M.cleanMapping({surfaces:[{...s,box:{rx:900,scale:-1}}]}).surfaces[0].box};
     });
     assert.equal(boxMix.def.fade,.5,'Box fade defaults to 50%');assert.equal(boxMix.def.tile,1,'Tiling defaults to 1x');
     assert.notEqual(boxMix.hard.h,boxMix.soft.h,'Box fade blends the projections');assert.notEqual(boxMix.soft.h,boxMix.tiled.h,'Tiling changes the mapped picture');
     assert.deepEqual(boxMix.def.box,{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1},'Box transform defaults to identity');assert.equal(boxMix.wild.rx,180);assert.equal(boxMix.wild.scale,.05,'Box transform is clamped');
+    assert.notEqual(boxMix.base.h,boxMix.xf.h,'Object move/rotate/scale moves the model');assert.notEqual(boxMix.base.h,boxMix.lat.h,'Moving a lattice point bends the model');
+    assert.deepEqual(boxMix.badLat,{res:0,d:[]},'Invalid lattices are dropped');assert.deepEqual(boxMix.def.lattice,{res:0,d:[]});
     assert.notEqual(boxMix.base.h,boxMix.turned.h,'Rotating the box turns the projection');assert.notEqual(boxMix.base.h,boxMix.moved.h,'Moving and scaling the box shifts the projection');
     assert.ok(boxMix.tiled.jump>boxMix.soft.jump,'Tiling repeats the stripes: '+boxMix.tiled.jump+' vs '+boxMix.soft.jump);
     const three=await page.evaluate(async fixtures=>{
@@ -930,6 +932,11 @@ def Camera "Camera" {
     await page.locator('[data-property=surf3dfocal]').evaluate(e=>{e.value='55';e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));});assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.focal,55,'Projector knob updates the surface');await page.evaluate(()=>pro.undo());assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.focal,35,'Projector knob is undoable');
     const projectorRect=await page.locator('#preview').boundingBox(),projectorYaw=(await page.evaluate(()=>pro.mapping())).surfaces[0].camera.yaw;
     await page.mouse.move(projectorRect.x+projectorRect.width*.5,projectorRect.y+projectorRect.height*.5);await page.mouse.down();await page.mouse.move(projectorRect.x+projectorRect.width*.6,projectorRect.y+projectorRect.height*.55,{steps:3});await page.mouse.up();assert.notEqual((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.yaw,projectorYaw,'Preview drag orbits the projector');await page.evaluate(()=>pro.undo());assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.yaw,projectorYaw,'Projector drag is undoable');
+    // Lattice: pick 3³, drag a point in the view, undo.
+    await page.locator('[data-property=surf3dLattice] button',{hasText:'3³'}).click();assert.equal(await page.locator('.map-overlay .lpt').count(),27,'A 3³ lattice shows 27 points');
+    {const b=await page.locator('.map-overlay .lpt[data-lattice="16"]').boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(b.x+b.width/2,b.y-60,{steps:3});await page.mouse.up();}
+    {const m=(await page.evaluate(()=>pro.mapping())).surfaces[0];assert.ok(m.lattice.d.slice(48,51).some(v=>Math.abs(v)>.01)&&m.lattice.d.filter(v=>v).length<=3,'Dragging a lattice point moves only that point');assert.equal(m.camera.yaw,projectorYaw,'A lattice drag does not orbit');}
+    await page.evaluate(()=>pro.undo());assert.ok((await page.evaluate(()=>pro.mapping())).surfaces[0].lattice.d.every(v=>!v),'Lattice drag is undoable');
     await page.evaluate(()=>{const p=pro.getProject();p.mapping={on:false,surfaces:[]};pro.importProject(p);});await page.locator('#modeStudio').click();
     // Resolution changes the render itself, not just CSS, without replacing the graph or its engines.
     await page.evaluate(()=>pro.loadTemplate('Ink'));

@@ -119,6 +119,13 @@ each with its own opacity and blend mode (up to four).
   `audio` wire (or the project sound if unwired). **Audio EQ** (10 bands) sits
   in an audio wire and reshapes what follows it.
 - **Composite**: Background (flat, vertical, radial), Blend, Output.
+- **AI** (needs the local AI bridge, see [`ai/README.md`](../ai/README.md)): **AI Model**
+  (SD-Turbo, SDXL-Turbo, SD 1.5 + LCM; bridge address), **AI Prompt** (prompt, negative,
+  a second prompt and an audio-drivable Mix between them), **ControlNet** (canny or depth)
+  and **AI Render**, which restyles any picture live (Strength, Steps, Guidance, Seed,
+  Size, Smooth, Mix). One frame is in flight at a time; with no bridge running the
+  picture passes through and the inspector shows the one-line setup command. On an
+  M2 Max SD-Turbo at 512 px runs at about 7–9 fps (canny 5–6 fps).
 
 Audio → Input, Waveform or Emitter → shape nodes → Post FX → Output. Audio wires are lime.
 Shape nodes (amber wires) change *how it draws*. Post FX nodes (blue wires)
@@ -190,11 +197,15 @@ process the finished image.
   **Detach**, in the middle of the transport, opens the live picture in its own
   window for a projector or second display (double-click it for fullscreen).
 - **Mapping** (the Studio | Mapping switch at the top) is projection mapping. The library
-  becomes the mapping panel and the surfaces appear over the preview:
+  becomes the mapping panel and the surfaces appear over the preview. Its colour-coded
+  categories fold like the library: **Scene** (Mapping, Test card, Layout, Snap, the
+  scene's layers with show/hide and the surfaces), **Surface**, **Projection** and **Camera**.
   - Start from a layout (Single screen, Cube, Span 2, Triptych, Corridor, Curved
     wall, Circle) or add up to 8 surfaces.
   - Drag a point to move it, drag inside a surface to move the whole surface, and
     use the arrow keys to nudge (Shift ×10). Delete removes the selected surface.
+    **Snap** (on by default) pulls a dragged point or surface onto the frame corners
+    and the points of other surfaces; hold Alt to drag freely.
   - **Warp**: Flat (4 corners, true perspective) or a curved grid of up to 5×5
     points for curved or uneven surfaces.
   - **Crop** chooses which part of the picture a surface shows. **Shows** can
@@ -203,9 +214,15 @@ process the finished image.
     mask, Match crop, Full frame, Flatten and Flip.
   - **+ 3D object**: Cube, Sphere, Cylinder or Two walls; load OBJ, GLB or
     self-contained glTF with UVs (planar fallback), Front projection or Box content.
+    Normals are smoothed, so faceted models blend cleanly. **Box** content has a Box
+    fade (soft blend between the three planar projections), Tiling (mirrored repeat)
+    and a Box transform (move, rotate, scale the projection box).
+    **Transform** moves, rotates and scales the object about its centre; **Lattice**
+    (2³, 3³ or 4³ points) bends it to match the real object — drag the yellow points
+    in the view (each drag is undoable; Reset lattice straightens it).
     Flat/unlit WebGL2 rendering includes depth testing and double-sided faces.
     Orbit, Tilt, Distance, Roll, Pan X/Y (lens shift), Focal length (10–200 mm,
-    36 mm sensor width), Object scale and opacity align the projector. Drag orbits,
+    36 mm sensor width), Model units and opacity align the projector. Drag orbits,
     Shift/right-drag pans; wheel zooms focal length, Shift-wheel changes distance.
     Wireframe is opt-in; the test card also draws mesh edges. Neither selection
     nor editing automatically adds lines to the clean projector output.
@@ -216,7 +233,7 @@ process the finished image.
     (up to 30 fps, capped at 2000 samples, stored in the project). Binary USDC/USDZ
     must be exported as USDA. Bake constraints, FBX pivots and inverse USD ops.
     FBX cm and USD stage units/up-axis convert to metres/Y-up; model and camera
-    must use the same scene coordinates (OBJ assumes metres; use Object scale
+    must use the same scene coordinates (OBJ assumes metres; use Model units
     for unit conversion and Object up for native Z-up OBJ files).
     Model geometry stays in memory, not JSON: reopen the named file when loading
     a project; until then the selected primitive is a placeholder. Primitives and

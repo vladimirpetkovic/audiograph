@@ -367,6 +367,8 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .map-overlay .mesh{fill:none;stroke:rgba(210,255,58,.45);stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
 .map-overlay .pt{fill:#0b0b0d;stroke:#e6e6ea;stroke-width:2;vector-effect:non-scaling-stroke;cursor:grab}
 .map-overlay .pt.corner{fill:#e6e6ea}.map-overlay .pt.on{fill:#fff;stroke:#fff}
+.map-overlay .lat{fill:none;stroke:rgba(94,234,212,.75);stroke-width:1.2;vector-effect:non-scaling-stroke;pointer-events:none}
+.map-overlay .lpt{fill:#fde047;stroke:#0b0b0d;stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:grab}.map-overlay .lpt.on{fill:#fff}
 .map-overlay .snap{fill:none;stroke:#5eead4;stroke-width:2;pointer-events:none}
 .map-overlay text{fill:#fff;font-family:var(--mono);font-weight:600;paint-order:stroke;stroke:#000;stroke-width:3px;pointer-events:none}
 .surf-list{display:flex;flex-direction:column;gap:3px}

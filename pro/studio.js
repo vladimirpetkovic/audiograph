@@ -631,6 +631,7 @@ function draw(time,dt=1/30){
     catch(error){renderErrors.push(error.message);}
   }
   out.globalAlpha=1;out.globalCompositeOperation='source-over';
+  if(mapped)mapTime=time;
   if(mapped)mapping.render(previewCtx,state.mapping,src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time);
   dissolveDraw(paused?0:dt);
   frame++;
@@ -1748,7 +1749,7 @@ new ResizeObserver(()=>renderWires()).observe($('graphViewport'));
 // ---------- projection mapping ----------
 // Map mode swaps the library for the mapping panel and shows draggable surfaces over the preview. The handles are
 // DOM (not drawn into the picture), so the Detach window only ever gets the clean mapped output.
-let mapMode=false,mapSel=null,mapPt=-1,mapDrag=null,mapSnap=localStorage.getItem('agpro.mapSnap')!=='0',mapSnapAt=null;
+let mapTime=0,mapMode=false,mapSel=null,mapPt=-1,mapDrag=null,mapSnap=localStorage.getItem('agpro.mapSnap')!=='0',mapSnapAt=null;
 // Snap: a dragged point (or a moved surface's nearest point) sticks to points of other surfaces and to the frame corners within 12 px. Hold Alt to drag freely.
 function snapTargets(m,skip){const t=[[0,0],[1,0],[1,1],[0,1]];for(const s of m.surfaces)if(s.kind!=='3d'&&s.id!==skip)t.push(...s.pts);return t;}
 function snapPoint(p,targets,r){let best=12,hit=null;for(const q of targets){const d=Math.hypot((q[0]-p[0])*r.width,(q[1]-p[1])*r.height);if(d<best){best=d;hit=q;}}return hit;}
@@ -1850,7 +1851,18 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   obj.append(ui.field('Wireframe',ui.toggle({value:s.wire,labels:['On','Off'],property:'surf3dWire',onChange:v=>upd(t=>{t.wire=v;},'Mapping wireframe')})));
   const ok=el('div','knob-grid');obj.append(ok);
   ok.append(ui.knob({label:'Opacity',min:0,max:100,step:1,def:100,value:s.opacity*100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
-  knob(ok,'Object scale','scale',.001,Math.max(10,s.scale*2),.001,1,'',()=>s.scale,(t,v)=>{t.scale=v;},'Projector Object scale');
+  knob(ok,'Model units','scale',.001,Math.max(10,s.scale*2),.001,1,'',()=>s.scale,(t,v)=>{t.scale=v;},'Model units');
+  // Transform: line the virtual object up with the real one.
+  const tr=sub(ss,'Transform'),tm=el('div','knob-grid'),trk=el('div','knob-grid'),tsk=el('div','knob-grid');tr.append(el('div','insp-sublabel minor','Move'),tm,el('div','insp-sublabel minor','Rotate'),trk,tsk);
+  for(const a of ['x','y','z'])knob(tm,a.toUpperCase(),'Move'+a.toUpperCase(),-2,2,.001,0,'',()=>s.xf[a],(t,v)=>{t.xf[a]=v;},'Object move');
+  for(const a of ['x','y','z'])knob(trk,a.toUpperCase(),'Rot'+a.toUpperCase(),-180,180,.1,0,'°',()=>s.xf['r'+a],(t,v)=>{t.xf['r'+a]=v;},'Object rotate');
+  knob(tsk,'Scale','Scale3',.01,10,.001,1,'×',()=>s.xf.scale,(t,v)=>{t.xf.scale=v;},'Object scale');
+  const ta=el('div','map-actions');tr.append(ta);const tb=el('button','mbtn','Reset transform');tb.type='button';tb.dataset.property='surf3dXfReset';tb.onclick=()=>upd(t=>{t.xf={x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1};},'Reset object transform');ta.append(tb);
+  // Lattice: bend the model to match the real object; drag its points in the view.
+  const lt=sub(ss,'Lattice');
+  lt.append(ui.field('Points',ui.chips({options:map3d.LATTICE_RES.map(n=>[String(n),n?`${n}³`:'Off']),value:String(s.lattice.res),property:'surf3dLattice',onChange:v=>upd(t=>{t.lattice=map3d.cleanLattice({res:+v});},+v?`Lattice ${v}×${v}×${v}`:'Lattice off')})));
+  if(s.lattice.res){lt.append(el('p','insp-note','Drag the yellow points in the view. Drag empty space to orbit the projector as usual.'));const la=el('div','map-actions');lt.append(la);
+    const lb=el('button','mbtn','Reset lattice');lb.type='button';lb.dataset.property='surf3dLatticeReset';lb.disabled=s.lattice.d.every(v=>!v);lb.onclick=()=>upd(t=>{t.lattice=map3d.cleanLattice({res:t.lattice.res});},'Reset lattice');la.append(lb);}
   // Projection: how the picture wraps the object, and where the projection box sits.
   const pj=mapCat(root,'projection'),how=sub(pj);
   select(how,'Content','projection',[['uv','UV (fallback planar)'],['front','Front projection'],['box','Box']]);
@@ -1888,7 +1900,12 @@ function renderOverlay(){
     const c=mapping.pointAt(s,.5,.5),t=svg('text',{x:c[0]*WIDTH,y:c[1]*HEIGHT,'text-anchor':'middle','font-size':13*k});t.textContent=s.name;overlay.append(t);
   }
   const s=selSurface();if(!s)return;
-  if(s.kind==='3d'){const hit=svg('rect',{x:0,y:0,width:WIDTH,height:HEIGHT,fill:'transparent','pointer-events':'all'});overlay.append(hit);return;}
+  if(s.kind==='3d'){const hit=svg('rect',{x:0,y:0,width:WIDTH,height:HEIGHT,fill:'transparent','pointer-events':'all'});overlay.append(hit);
+    const hs=map3d.latticeHandles(s,WIDTH,HEIGHT,mapTime),n=s.lattice.res;if(!hs.length)return;let d='';
+    for(const h of hs)for(let a=0;a<3;a++){if(h.ijk[a]+1>=n)continue;const ijk=[...h.ijk];ijk[a]++;const o=hs[(ijk[0]*n+ijk[1])*n+ijk[2]];if(h.front&&o.front)d+=`M${h.x.toFixed(1)},${h.y.toFixed(1)}L${o.x.toFixed(1)},${o.y.toFixed(1)}`;}
+    overlay.append(svg('path',{class:'lat',d}));
+    for(const h of hs)if(h.front){const c=svg('circle',{class:'lpt'+(mapDrag?.kind==='lat'&&mapDrag.h===h.id?' on':''),cx:h.x,cy:h.y,r:6*k});c.dataset.lattice=h.id;overlay.append(c);}
+    return;}
   if(s.cols>1||s.rows>1){let d='';for(let j=0;j<=s.rows;j++){d+='M';for(let i=0;i<=16;i++)d+=P(mapping.pointAt(s,i/16,j/s.rows))+' ';}for(let i=0;i<=s.cols;i++){d+='M';for(let j=0;j<=16;j++)d+=P(mapping.pointAt(s,i/s.cols,j/16))+' ';}overlay.append(svg('path',{class:'mesh',d}));}
   const w=s.cols+1,cornerIdx=new Set([0,s.cols,s.rows*w,s.rows*w+s.cols]);
   s.pts.forEach((p,i)=>{const c=svg('circle',{class:'pt'+(cornerIdx.has(i)?' corner':'')+(i===mapPt?' on':''),cx:p[0]*WIDTH,cy:p[1]*HEIGHT,r:(cornerIdx.has(i)?7:5.5)*k});c.dataset.point=i;overlay.append(c);});
@@ -1899,7 +1916,10 @@ const normPoint=ev=>{const r=preview.getBoundingClientRect();return [(ev.clientX
 const round4=v=>Math.round(v*10000)/10000;
 overlay.addEventListener('pointerdown',ev=>{
   if(![0,2].includes(ev.button))return;ev.preventDefault();const [x,y]=normPoint(ev),r=preview.getBoundingClientRect(),m=curMap();
-  const s=selSurface();if(s?.kind==='3d'){mapDrag={kind:'camera',id:s.id,x,y,camera:clone(s.camera),pan:ev.shiftKey||ev.button===2};overlay.setPointerCapture(ev.pointerId);return;}let hit=-1;
+  const s=selSurface();if(s?.kind==='3d'){
+    let lh=null,best=14;for(const h of map3d.latticeHandles(s,WIDTH,HEIGHT,mapTime)){const d=Math.hypot((h.x/WIDTH-x)*r.width,(h.y/HEIGHT-y)*r.height);if(h.front&&d<best){best=d;lh=h;}}
+    if(lh){mapDrag={kind:'lat',id:s.id,h:lh.id,depth:lh.depth,x,y,d0:[...s.lattice.d]};overlay.setPointerCapture(ev.pointerId);renderOverlay();return;}
+    mapDrag={kind:'camera',id:s.id,x,y,camera:clone(s.camera),pan:ev.shiftKey||ev.button===2};overlay.setPointerCapture(ev.pointerId);return;}let hit=-1;
   if(s){let best=16;s.pts.forEach((p,i)=>{const d=Math.hypot((p[0]-x)*r.width,(p[1]-y)*r.height);if(d<best){best=d;hit=i;}});}
   if(hit>=0){mapPt=hit;mapDrag={kind:'pt',id:s.id,i:hit};}
   else{
@@ -1913,6 +1933,7 @@ overlay.addEventListener('pointermove',ev=>{
   if(!mapDrag)return;const [x,y]=normPoint(ev);
   const snapOn=mapSnap&&!ev.altKey,box=preview.getBoundingClientRect();mapSnapAt=null;
   live(st=>{const t=st.mapping?.surfaces.find(s=>s.id===mapDrag.id);if(!t)return;
+    if(mapDrag.kind==='lat'){t.lattice.d=map3d.latticeDrag(t,mapDrag.d0,mapDrag.h,mapDrag.depth,(x-mapDrag.x)*WIDTH,(y-mapDrag.y)*HEIGHT,WIDTH,HEIGHT,mapTime);return;}
     if(mapDrag.kind==='camera'){const c=mapDrag.camera,dx=x-mapDrag.x,dy=y-mapDrag.y;t.trackOn=false;if(mapDrag.pan){t.camera.panX=Math.max(-2,Math.min(2,c.panX+dx));t.camera.panY=Math.max(-2,Math.min(2,c.panY-dy));}else{t.camera.yaw=c.yaw-dx*180;t.camera.pitch=Math.max(-89,Math.min(89,c.pitch+dy*180));}return;}
     const targets=snapOn?snapTargets(st.mapping,t.id):[];
     if(mapDrag.kind==='pt'){let p=[x,y];const q=snapOn&&snapPoint(p,targets,box);if(q){p=q;mapSnapAt=q;}t.pts[mapDrag.i]=[round4(Math.max(-1,Math.min(2,p[0]))),round4(Math.max(-1,Math.min(2,p[1])))];}
@@ -1924,7 +1945,7 @@ overlay.addEventListener('pointermove',ev=>{
 });
 overlay.addEventListener('contextmenu',e=>e.preventDefault());
 let mapWheel;overlay.addEventListener('wheel',e=>{const s=selSurface();if(s?.kind!=='3d')return;e.preventDefault();live(st=>{const t=st.mapping.surfaces.find(v=>v.id===s.id);t.trackOn=false;if(e.shiftKey)t.camera.distance=Math.max(.001,Math.min(100000,t.camera.distance*Math.exp(e.deltaY*.001)));else t.camera.focal=Math.max(10,Math.min(200,t.camera.focal*Math.exp(-e.deltaY*.001)));});clearTimeout(mapWheel);mapWheel=setTimeout(()=>liveCommit('Projector zoom'),200);},{passive:false});
-const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;mapSnapAt=null;renderOverlay();if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':'Moved surface');}};
+const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;mapSnapAt=null;renderOverlay();if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':k==='lat'?'Moved lattice point':k==='camera'?'Moved projector':'Moved surface');}};
 overlay.addEventListener('pointerup',endMapDrag);overlay.addEventListener('pointercancel',endMapDrag);
 function mapKey(e){
   if(!mapMode||!mapSel)return false;const s=selSurface();if(!s)return false;
