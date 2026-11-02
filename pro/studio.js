@@ -1,7 +1,7 @@
 import * as sensors from './sensors.js';
 import {liveData,liveStatus} from './livedata.js';
 import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
-import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,aiStyled,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
@@ -322,7 +322,8 @@ function readAudio(t){
   else{A.rate=48000;demoSpectrum(t);}
   A.bands=bandsOf(A.freq);
   const b=A.bands.bass;A.avg=A.avg*.95+b*.05;
-  if(b>A.avg*1.25+.04&&t-A.lastBeat>.22){A.lastBeat=t;A.beat++;A.beatPulse=1;}
+  // Capped halfway to full scale so loud (near-saturated) bass still registers beats.
+  if(b>Math.min(A.avg*1.25+.04,A.avg+(1-A.avg)*.5)&&t-A.lastBeat>.22){A.lastBeat=t;A.beat++;A.beatPulse=1;}
   A.beatPulse*=.86;
 }
 function bandsOf(freq){
@@ -540,19 +541,37 @@ function execute(g,time,dt){
         ctx.fillRect(0,0,WIDTH,HEIGHT);r.image=canvas;break;}
       case 'effect':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);if(src){ctx.filter=filterFor(p.kind,p.amount);ctx.drawImage(src,0,0);ctx.filter='none';}r.image=canvas;break;}
       case 'aiModel':r.model={model:p.model,url:p.server};break;
-      case 'aiPrompt':r.prompt={prompt:p.prompt,negative:p.negative,prompt2:p.prompt2,mix:p.mix};break;
+      case 'aiPrompt':r.prompt={prompt:aiStyled(p.prompt,p.style),negative:p.negative,prompt2:aiStyled(p.prompt2,p.style),mix:p.mix};break;
+      case 'aiPromptList':{
+        // Steps through the lines on beats or seconds; while morphing it sends the old prompt with the new one as Morph.
+        const list=String(p.prompts||'').split('\n').map(x=>x.trim()).filter(Boolean),k=list.length||1,s=nstate(n.id,()=>({i:0,prev:0,dir:1,beat:A.beat,at:time}));
+        if(s.i>=k)s.i=s.prev=0;
+        if(time<s.at)s.at=time;
+        const due=p.advance==='seconds'?time-s.at>=p.every:A.beat-s.beat>=p.every;
+        if(due&&k>1){s.prev=s.i;s.beat=A.beat;s.at=time;
+          if(p.order==='random'){let j=Math.floor(Math.random()*(k-1));s.i=j>=s.i?j+1:j;}
+          else if(p.order==='pingpong'){if(s.i+s.dir<0||s.i+s.dir>=k)s.dir*=-1;s.i+=s.dir;}
+          else s.i=(s.i+1)%k;}
+        const f=p.morph>0?Math.min(1,(time-s.at)/p.morph):1,e=f*f*(3-2*f),at=i=>aiStyled(list[i]||TYPES.aiPrompt.props.prompt.value,p.style);
+        r.prompt=f<1&&s.prev!==s.i?{prompt:at(s.prev),prompt2:at(s.i),mix:e,negative:p.negative}:{prompt:at(s.i),prompt2:'',mix:0,negative:p.negative};
+        r.index=s.i;break;}
       case 'aiControl':r.control={kind:p.kind,strength:p.strength,low:p.low,high:p.high};break;
       case 'aiRender':{
-        const src=asImage(need(n,'image','a picture'),n.id+'i'),m=input(n,'model')||{model:'sd-turbo',url:AI_DEFAULT_URL},
+        let src=asImage(need(n,'image','a picture'),n.id+'i');const orig=src,m=input(n,'model')||{model:'sd-turbo',url:AI_DEFAULT_URL},
           pr=input(n,'prompt')||{prompt:TYPES.aiPrompt.props.prompt.value,negative:TYPES.aiPrompt.props.negative.value,prompt2:'',mix:0},
-          st=nstate(n.id,()=>({})),img=aiRender(st,src,{url:m.url,model:m.model,...pr,strength:p.strength,steps:p.steps,seed:p.seed,guidance:p.guidance,size:+p.size,control:input(n,'control')||{kind:'none',strength:0}}),{canvas,ctx}=surface(n.id);
+          st=nstate(n.id,()=>({}));
+        // Dream: feed the last AI picture back in, slightly zoomed and turned, so it keeps evolving (Deforum-style).
+        if(p.dream>0&&src&&st.acc){const d=surface(n.id+'d');d.ctx.drawImage(src,0,0);d.ctx.globalAlpha=p.dream;
+          d.ctx.translate(WIDTH/2,HEIGHT/2);d.ctx.rotate(p.spin*Math.PI/180);d.ctx.scale(p.zoom,p.zoom);d.ctx.drawImage(st.acc,-WIDTH/2,-HEIGHT/2,WIDTH,HEIGHT);d.ctx.resetTransform();d.ctx.globalAlpha=1;src=d.canvas;}
+        const seed=p.seed>=0&&p.reseed&&p.reseed!=='off'?p.seed+Math.floor(A.beat/(p.reseed==='bar'?4:1)):p.seed,
+          img=aiRender(st,src,{url:m.url,model:m.model,...pr,strength:p.strength,steps:p.steps,seed,guidance:p.guidance,size:+p.size,control:input(n,'control')||{kind:'none',strength:0}}),{canvas,ctx}=surface(n.id);
         st.url=m.url;st.model=m.model;
         if(img){
           // Smooth: each frame eases the held picture towards the newest AI frame.
           if(!st.acc||st.acc.width!==WIDTH||st.acc.height!==HEIGHT){st.acc=document.createElement('canvas');st.acc.width=WIDTH;st.acc.height=HEIGHT;st.acc.getContext('2d').drawImage(img,0,0,WIDTH,HEIGHT);}
           const a=st.acc.getContext('2d');a.globalAlpha=Math.min(1,(1-p.smooth)*Math.min(4,dt*60));a.drawImage(img,0,0,WIDTH,HEIGHT);a.globalAlpha=1;ctx.drawImage(st.acc,0,0);
-          if(src&&p.mix>0){ctx.globalAlpha=p.mix;ctx.drawImage(src,0,0);ctx.globalAlpha=1;}
-        }else if(src)ctx.drawImage(src,0,0);
+          if(orig&&p.mix>0){ctx.globalAlpha=p.mix;ctx.drawImage(orig,0,0);ctx.globalAlpha=1;}
+        }else if(orig)ctx.drawImage(orig,0,0);
         r.image=canvas;break;}
       case 'cornerPin':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
         const q=[[p.tlx,p.tly],[100+p.trx,p.try],[100+p.brx,100+p.bry],[p.blx,100+p.bly]].map(([x,y])=>[x*WIDTH/100,y*HEIGHT/100]);
@@ -738,7 +757,7 @@ function loop(now){
 function renderLibrary(){
   const root=$('library');root.replaceChildren();
   for(const cat of CATEGORIES){
-    const types=Object.keys(TYPES).filter(t=>TYPES[t].category===cat.id);
+    const types=Object.keys(TYPES).filter(t=>TYPES[t].category===cat.id&&!TYPES[t].retired);
     if(GROUPS[cat.id]){
       const items=groupedItems(cat.id),{root:pr,body}=ui.panel({id:cat.id,title:cat.label,color:cat.color,count:items.length});
       for(const group of GROUPS[cat.id]){
@@ -768,7 +787,7 @@ const CUSTOM_COLOR='#e5e7eb';
 const GROUPS={inputs:['Media','Data'],waveforms:['2D'],emitters:['Particles','WebGPU particles'],'3d':['Objects','Cloner','Effectors','Look'],deformers:['Bend','Symmetry','Noise']};
 function groupedItems(cat){
   const items=[];
-  for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat)){
+  for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat&&!TYPES[t].retired)){
     const T=TYPES[t],group=T.group||GROUPS[cat][0];
     if(MODES[t])for(const [mode,label] of MODES[t])items.push({type:t,props:{mode},label,group,description:`${label} · ${T.label}. ${T.description}`});
     else items.push({type:t,props:{},label:T.label,group,description:T.description});
@@ -910,7 +929,7 @@ function searchItems(){
   const items=[];
   for(const cat of CATEGORIES){
     if(GROUPS[cat.id]){for(const it of groupedItems(cat.id))items.push({type:it.type,props:it.props,label:it.label,cat:`${cat.label} · ${it.group}`,color:cat.color,text:`${it.label} ${cat.label} ${it.group} ${it.description}`});continue;}
-    for(const t of Object.keys(TYPES))if(TYPES[t].category===cat.id)items.push({type:t,props:{},label:TYPES[t].label,cat:cat.label,color:cat.color,text:`${TYPES[t].label} ${cat.label} ${TYPES[t].description}`});
+    for(const t of Object.keys(TYPES))if(TYPES[t].category===cat.id&&!TYPES[t].retired)items.push({type:t,props:{},label:TYPES[t].label,cat:cat.label,color:cat.color,text:`${TYPES[t].label} ${cat.label} ${TYPES[t].description}`});
   }
   for(const c of customNodes())items.push({type:'custom',custom:c,props:{},label:c.name,cat:'Custom',color:CUSTOM_COLOR,text:`${c.name} Custom`});
   return items;
@@ -1689,8 +1708,8 @@ $('helpBody').innerHTML=`
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
 <li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto; the box under each stop is that colour's opacity: type a % or drag it up/down; Opacity makes the whole result see-through), Hue shift, Color correct.</li>
-<li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Liquid glass, Corner pin, Quick filter.</li>
-<li><b>AI</b>: AI Model, Prompt, ControlNet and AI Render restyle any picture with a local diffusion model (see AI rendering).</li>
+<li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Liquid glass, Corner pin.</li>
+<li><b>AI</b>: AI Model, Prompt, Prompt list, ControlNet and AI Render restyle any picture with a local diffusion model (see AI rendering).</li>
 <li><b>Controls</b> make numbers: Value, LFO, Map range, Smooth, Math, Amplify, Random. <b>Audio analysis</b>: Audio band, Beat, Audio EQ.</li>
 <li><b>Composite</b>: Background, Blend, Merge, Mask, Feedback, Image transform, Layer and <b>Output</b>.</li>
 <li><b>Custom</b> (at the bottom): groups you saved with <b>Save as custom node</b>.</li></ul>
@@ -1712,13 +1731,16 @@ $('helpBody').innerHTML=`
 <ul><li><b>Bloom</b> glow, <b>Blur</b> (directional, radial, focal), <b>Lens</b> (chromatic aberration, vignette, grain, scanlines), <b>Kaleido</b>, <b>Trails</b> (echoes with zoom feedback).</li>
 <li><b>Fracture</b> shatters the picture along cracks that burst open on bass and beats (Flow or Shatter).</li>
 <li><b>Liquid glass</b> floats blobs of glass over the picture that merge like liquid. Each blob refracts and flips what is behind it, with rainbow fringes (<b>Chromatic</b>), a bright <b>Rim</b> and a <b>Highlight</b>. <b>Blobs</b>, <b>Size</b>, <b>Merge</b> and <b>Spread</b> shape the liquid; <b>Refraction</b> and <b>Edge bend</b> set how strongly it bends; <b>Frost</b> blurs inside; <b>Tint</b> colours the glass; <b>Dim outside</b> darkens everything that is not under glass. Bass swells the blobs, beats make them wobble; <b>Seed</b> picks another arrangement.</li>
-<li><b>Corner pin</b> fits the picture to a wall (drag its corners on the preview); <b>Quick filter</b> is a simple canvas filter.</li></ul>
+<li><b>Corner pin</b> fits the picture to a wall (drag its corners on the preview).</li></ul>
 <p>Order matters: FX later in the chain work on everything before them, so put Liquid glass after Bloom to refract the glow, or before it to make the glass itself glow.</p>
 <h3 id="h-ai">AI rendering</h3>
 <p>The AI nodes restyle your visuals in real time with a diffusion model that runs on your own computer through a small bridge program (nothing is uploaded).</p>
 <ol><li>Install and start the bridge once: the AI Render node's inspector shows the exact Terminal command to paste (it installs into <code>~/audiograph-ai</code> and listens on <code>ws://127.0.0.1:7861</code>).</li>
 <li>Wire <b>AI Model</b> → AI Render's model, <b>Prompt</b> → its prompt, and your picture (e.g. after Palette or Bloom) → its image; AI Render → Output. Optional: <b>ControlNet</b> (Depth or Edges) keeps the composition.</li>
-<li>Good settings: Steps 4 with Strength 0.5–0.7; SDXL-Turbo for detail; a fixed Seed plus <b>Smooth</b> for steady video; concrete prompts (“stained glass cathedral window, glowing, intricate”). Bright, solid input works better than thin lines.</li></ol>
+<li>Good settings: Steps 4 with Strength 0.5–0.7; SDXL-Turbo for detail; a fixed Seed plus <b>Smooth</b> for steady video; concrete prompts (“stained glass cathedral window, glowing, intricate”). Bright, solid input works better than thin lines.</li>
+<li><b>Style</b> (on Prompt and Prompt list) adds a look to any prompt: Oil painting, Watercolour, Ink, Anime, Photo, Cyberpunk, Vaporwave, Stained glass, Psychedelic, Low poly, Pixel art, Charcoal, Claymation.</li>
+<li><b>Prompt list</b> holds one prompt per line and moves to the next every few beats or seconds (Loop, Ping-pong or Random), morphing over <b>Morph</b> seconds, so a set tells a story. Its Index output can drive other knobs.</li>
+<li>On AI Render, <b>New seed</b> (Every beat / Every 4 beats) re-rolls details in time with the music; <b>Dream</b> feeds the last AI picture back in, zoomed by <b>Dream zoom</b> and turned by <b>Dream spin</b>, for endless evolving “dream zoom” imagery.</li></ol>
 <p>The first frame takes a while as the model loads; after that it streams a few frames a second on a modern GPU or Apple Silicon.</p>
 <h3 id="h-mapping">Mapping</h3>
 <p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / GLB / self-contained glTF. Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object; <b>Lattice</b> bends it to match the real object; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>

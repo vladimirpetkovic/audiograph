@@ -60,8 +60,9 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      await p2.keyboard.press('Shift');await p2.waitForFunction(()=>/Default track · add audio/.test(document.querySelector('#audioName').textContent)&&document.querySelector('#play').classList.contains('on'),null,{timeout:15000});
      await p2.click('#stop');assert.ok(!(await p2.locator('#play.on').count()),'Stop silences the default track');await p2.close();}
     // AI: Model + Prompt + ControlNet feed AI Render, which streams frames to the bridge (mocked here) one at a time.
-    const aiLib=await page.evaluate(()=>[...document.querySelectorAll('#library .library-node')].filter(b=>['aiModel','aiPrompt','aiControl','aiRender'].includes(b.dataset.type)).length);
-    assert.equal(aiLib,4,'AI category lists Model, Prompt, ControlNet and AI Render');
+    const aiLib=await page.evaluate(()=>[...document.querySelectorAll('#library .library-node')].filter(b=>['aiModel','aiPrompt','aiPromptList','aiControl','aiRender'].includes(b.dataset.type)).length);
+    assert.equal(aiLib,5,'AI category lists Model, Prompt, Prompt list, ControlNet and AI Render');
+    assert.ok(await page.evaluate(()=>!document.querySelector('#library .library-node[data-type="effect"]')),'Retired Quick filter is not in the Library');
     const aiGraph=(server)=>L([{id:'w',type:'waveform2d',x:200,y:0,props:{}},{id:'m',type:'aiModel',x:200,y:200,props:{model:'sdxl-turbo',server}},{id:'q',type:'aiPrompt',x:200,y:300,props:{prompt:'neon jellyfish',prompt2:'molten gold'}},
       {id:'c',type:'aiControl',x:200,y:400,props:{kind:'canny'}},{id:'r',type:'aiRender',x:500,y:0,props:{smooth:0,size:'384'}}],
       [{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'r',input:'image'},{from:'m',out:'model',to:'r',input:'model'},{from:'q',out:'prompt',to:'r',input:'prompt'},{from:'c',out:'control',to:'r',input:'control'},
@@ -77,6 +78,20 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.ok(f.image.startsWith('data:image/jpeg')&&f.mix>=0&&f.mix<=1,'Frame is a JPEG with an audio-driven morph');
     await page.evaluate(()=>pro.select('r'));
     await page.waitForFunction(()=>/Connected · mock mode \(no model\) · SDXL-Turbo/.test(document.querySelector('#properties .ai-status')?.textContent||''),null,{timeout:5000});
+    // Prompt list steps through its lines (with a Style suffix); New seed changes the seed on beats; Dream feeds the AI picture back in.
+    {const n0=aiSeen.length;
+     await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{}},{id:'q',type:'aiPromptList',x:200,y:300,props:{prompts:'first scene\nsecond scene',style:'oil',advance:'seconds',every:1,morph:0}},
+       {id:'r',type:'aiRender',x:500,y:0,props:{smooth:0,size:'256',reseed:'beat',seed:5,dream:1,zoom:1.05,spin:2}}],
+       [{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'r',input:'image'},{from:'q',out:'prompt',to:'r',input:'prompt'},{from:'r',out:'image',to:'out',input:'image'}]));
+     const b0=await page.evaluate(()=>pro.stats().beat);await page.waitForTimeout(2600);
+     await page.waitForFunction(b0=>pro.stats().beat>=b0+3,b0,{timeout:20000});await page.waitForTimeout(700);
+     const sent=aiSeen.slice(n0),prompts=[...new Set(sent.map(m=>m.prompt))];
+     assert.ok(prompts.some(x=>x.startsWith('first scene, thick oil painting'))&&prompts.some(x=>x.startsWith('second scene, thick oil painting')),'Prompt list steps through styled prompts: '+prompts.join(' | '));
+     assert.ok(new Set(sent.map(m=>m.seed)).size>1&&sent.every(m=>m.seed>=5),'New seed every beat: '+[...new Set(sent.map(m=>m.seed))]);
+     const red=await page.evaluate(async url=>{const i=new Image();i.src=url;await i.decode();const c=document.createElement('canvas');c.width=i.width;c.height=i.height;const x=c.getContext('2d');x.drawImage(i,0,0);
+       const d=x.getImageData(0,0,c.width,c.height).data;let r=0,g=0;for(let k=0;k<d.length;k+=4){r+=d[k];g+=d[k+1];}return r/Math.max(1,g);},sent.at(-1).image);
+     assert.ok(red>4,'Dream feeds the (red) AI picture back into the next frame: '+red.toFixed(1));
+     assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[]);}
     // No bridge: the picture passes through and the inspector says how to start it.
     await page.evaluate(p=>pro.importProject(p),aiGraph('ws://127.0.0.1:7999'));
     await page.evaluate(()=>pro.select('r'));
@@ -219,8 +234,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.ok(await page.evaluate(()=>pro.pixels())>0,'Blended palette image is visible');
     // Opacity makes the recolored result see-through (alpha scales, colors stay).
     {const sum=o=>page.evaluate(async([id,o])=>{pro.setProperty(id,'blend','normal');pro.setProperty(id,'opacity',o);await new Promise(r=>setTimeout(r,600));pro.draw();return pro.pixels();},[pal3,o]);
-     const full=await sum(1),faint=await sum(.25);
-     assert.ok(faint<full*.6,'Palette Opacity fades the result: '+full.toFixed(2)+' → '+faint.toFixed(2));await sum(1);}
+     await page.evaluate(()=>pro.pause(true));const full=await sum(1),faint=await sum(.25);
+     assert.ok(faint<full*.6,'Palette Opacity fades the result: '+full.toFixed(2)+' → '+faint.toFixed(2));await sum(1);await page.evaluate(()=>pro.pause(false));}
     // Each colour has its own opacity (the boxes under the stops); the legacy Low opacity knob is gone.
     {await page.evaluate(id=>pro.select(id),pal3);assert.equal(await page.locator('[data-property=fade]').count(),0,'No legacy Low opacity knob');
      const lum=()=>page.evaluate(async()=>{let s=0;for(let i=0;i<4;i++){pro.draw();s+=pro.pixels();await new Promise(r=>setTimeout(r,60));}return s/4;});

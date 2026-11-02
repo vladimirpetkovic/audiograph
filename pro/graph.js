@@ -128,6 +128,13 @@ export function paletteStops(props){
   return {tone:withA(true),simple:withA(false)};
 }
 export const MAX_STOPS=8;
+// Prompt styles: a phrase appended to the prompt (and to the Morph / list prompts).
+export const AI_STYLES=[['none','None',''],['cinematic','Cinematic',', cinematic lighting, film still, dramatic, high detail'],['oil','Oil painting',', thick oil painting, impasto brush strokes, rich colour'],
+  ['watercolor','Watercolour',', delicate watercolour painting, soft bleeding pigment, paper texture'],['neon','Neon',', neon cyberpunk, glowing signs, synthwave colours'],['glass','Liquid glass',', iridescent liquid glass, caustics, refraction, glossy'],
+  ['ink','Ink',', black ink illustration, sumi-e, expressive brush strokes'],['anime','Anime',', anime key visual, cel shading, vibrant'],['stained','Stained glass',', stained glass window, lead lines, jewel colours'],
+  ['cosmic','Cosmic',', nebula, galaxies, cosmic dust, deep space'],['bio','Bioluminescent',', bioluminescent, glowing, deep sea, dark water'],['marble','Marble',', carved white marble sculpture, museum lighting'],
+  ['pixel','Pixel art',', pixel art, 16-bit, crisp pixels'],['clay','Claymation',', claymation, plasticine, stop motion']];
+export const aiStyled=(text,style)=>{const s=AI_STYLES.find(x=>x[0]===style);return text&&s?.[2]?text+s[2]:text;};
 // Older Palette nodes (and templates) give fixed Low/Mid/High/Peak/Max colours; they become ramp stops.
 const LEGACY_PAL=['c1','c2','c3','c4','c5','colors'];
 export function legacyPalette(props){
@@ -292,18 +299,25 @@ export const TYPES = {
   cornerPin:{category:'postfx',label:'Corner pin',description:'Projection mapping: drag the corners on the preview (or turn the knobs) to fit a wall, screen or object. Pair with Output for a second display.',...FX_IO,props:{
     tlx:n('Top-left X',0,-50,50,.5),tly:n('Top-left Y',0,-50,50,.5),trx:n('Top-right X',0,-50,50,.5),try:n('Top-right Y',0,-50,50,.5),
     brx:n('Bottom-right X',0,-50,50,.5),bry:n('Bottom-right Y',0,-50,50,.5),blx:n('Bottom-left X',0,-50,50,.5),bly:n('Bottom-left Y',0,-50,50,.5),grid:pick('Test grid','off',['off','on'])}},
-  effect:{category:'postfx',label:'Quick filter',description:'Simple canvas filter.',...FX_IO,props:{kind:pick('Filter','hue',['hue','brightness','saturate','blur','invert']),amount:n('Amount',.35,0,2,.01)}},
+  // Retired (Color correct and Blur cover it); kept so older scenes still load.
+  effect:{category:'postfx',label:'Quick filter',retired:true,description:'Simple canvas filter.',...FX_IO,props:{kind:pick('Filter','hue',['hue','brightness','saturate','blur','invert']),amount:n('Amount',.35,0,2,.01)}},
   // AI (Comfy-style): Model + Prompt (+ ControlNet) feed AI Render, which restyles a picture via ai/bridge.py.
   aiModel:{category:'ai',label:'AI Model',description:'Which diffusion model the AI bridge runs, and where the bridge listens. SD-Turbo is fastest, SDXL-Turbo is sharper, SD 1.5 + LCM has the widest range of styles.',inputs:{},outputs:{model:'model'},
     props:{model:pick('Model','sd-turbo',['sd-turbo','sdxl-turbo','lcm'],{labels:[['sd-turbo','SD-Turbo'],['sdxl-turbo','SDXL-Turbo'],['lcm','SD 1.5 + LCM']]}),server:text('Bridge address','ws://127.0.0.1:7861',200)}},
   aiPrompt:{category:'ai',label:'Prompt',description:'What the AI should paint. Morph blends towards a second prompt; wire Audio or an LFO into Morph to let the music steer the style.',inputs:{},outputs:{prompt:'prompt'},
-    props:{prompt:text('Prompt','luminous liquid light sculpture, iridescent glass, cinematic, high detail',400),negative:text('Negative','blurry, text, watermark, low quality',400),prompt2:text('Morph to','',400),mix:n('Morph',0,0,1,.01)}},
+    props:{prompt:text('Prompt','luminous liquid light sculpture, iridescent glass, cinematic, high detail',400),style:pick('Style','none',AI_STYLES.map(s=>s[0]),{labels:AI_STYLES}),negative:text('Negative','blurry, text, watermark, low quality',400),prompt2:text('Morph to','',400),mix:n('Morph',0,0,1,.01)}},
+  aiPromptList:{category:'ai',label:'Prompt list',description:'A sequence of prompts, one per line. It steps to the next every few beats (or seconds) and morphs smoothly into it, so the AI travels through scenes with the music. Wire it into AI Render’s prompt.',inputs:{},outputs:{prompt:'prompt',index:'number'},
+    props:{prompts:text('Prompts (one per line)','a misty forest at dawn, volumetric light\nan ocean of liquid chrome under a violet sky\na cathedral made of glowing crystal\na nebula blooming like a flower',2000),style:pick('Style','none',AI_STYLES.map(s=>s[0]),{labels:AI_STYLES}),
+      negative:text('Negative','blurry, text, watermark, low quality',400),advance:pick('Advance','beats',['beats','seconds'],{labels:[['beats','Every N beats'],['seconds','Every N seconds']]}),every:n('Every',8,1,64,1),
+      morph:n('Morph (s)',2,0,10,.1),order:pick('Order','loop',['loop','pingpong','random'],{labels:[['loop','Loop'],['pingpong','Ping-pong'],['random','Random']]})}},
   aiControl:{category:'ai',label:'ControlNet',description:'Keeps the AI on your shapes: Edges follows the outlines of the picture, Depth follows its 3D form. Strength sets how tightly.',inputs:{},outputs:{control:'control'},
     props:{kind:pick('Guide','canny',['canny','depth'],{labels:[['canny','Edges'],['depth','Depth']]}),strength:n('Strength',.8,0,2,.01),low:n('Edge low',100,0,255,1,{noPort:true}),high:n('Edge high',200,0,255,1,{noPort:true})}},
   aiRender:{category:'ai',label:'AI Render',description:'Restyles the picture wired into it with a diffusion model on the AI bridge. Wire a Model, a Prompt and optionally a ControlNet. Strength sets how far it departs from your visuals; Smooth blends successive AI frames.',
     inputs:{image:'image',model:'model',prompt:'prompt',control:'control'},outputs:{image:'image'},primary:['image'],
     props:{strength:n('Strength',.5,.05,1,.01),steps:n('Steps',2,1,8,1,{noPort:true}),guidance:n('Guidance',0,0,10,.1),seed:n('Seed (-1 random)',42,-1,99999,1,{noPort:true}),
-      size:pick('Resolution','512',['256','384','512','768','1024']),smooth:n('Smooth',.3,0,.95,.01),mix:n('Mix original',0,0,1,.01)}},
+      reseed:pick('New seed','off',['off','beat','bar'],{labels:[['off','Fixed'],['beat','Every beat'],['bar','Every 4 beats']]}),
+      size:pick('Resolution','512',['256','384','512','768','1024']),smooth:n('Smooth',.3,0,.95,.01),mix:n('Mix original',0,0,1,.01),
+      dream:n('Dream',0,0,1,.01),zoom:n('Dream zoom',1.03,.9,1.2,.005),spin:n('Dream spin',0,-10,10,.1)}},
   // Controls
   value:{category:'controls',label:'Value',description:'A constant number.',inputs:{},outputs:{value:'number'},props:{value:n('Value',.7,0,2,.01)}},
   oscillator:{category:'controls',label:'LFO',description:'A slow animated wave.',inputs:{},outputs:{value:'number'},props:{wave:pick('Wave','sine',['sine','triangle','saw','square','random']),rate:n('Rate (Hz)',.28,.01,8,.01),depth:n('Depth',.7,0,1,.01),offset:n('Offset',.25,0,1,.01)}},

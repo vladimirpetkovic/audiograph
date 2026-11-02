@@ -106,7 +106,7 @@ each with its own opacity and blend mode (up to four).
   palette's gradient map with them (**Mix** sets how much).
 - **Line style & Outline** are groups on every waveform node (13 line styles; outline off by default).
 - **Post FX**: Bloom, Blur, Lens, Kaleido, Trails, Fracture. These
-  run the original GPU per-layer shaders. Quick filter is a Canvas 2D filter.
+  run the original GPU per-layer shaders.
   **Liquid glass** (WebGL2, `glass.js`) floats merging metaballs of glass over the
   picture: each refracts and flips what is behind it, with chromatic fringes, a
   bright rim and highlight; Frost, Tint and Dim outside restyle it. Bass swells the
@@ -127,9 +127,12 @@ each with its own opacity and blend mode (up to four).
 - **Composite**: Background (flat, vertical, radial), Blend, Output.
 - **AI** (needs the local AI bridge, see [`ai/README.md`](../ai/README.md)): **AI Model**
   (SD-Turbo, SDXL-Turbo, SD 1.5 + LCM; bridge address), **AI Prompt** (prompt, negative,
-  a second prompt and an audio-drivable Mix between them), **ControlNet** (canny or depth)
-  and **AI Render**, which restyles any picture live (Strength, Steps, Guidance, Seed,
-  Size, Smooth, Mix). One frame is in flight at a time; with no bridge running the
+  a second prompt and an audio-drivable Mix between them, plus a Style preset such as Oil
+  painting or Cyberpunk), **Prompt list** (one prompt per line, advancing every N beats or
+  seconds in Loop / Ping-pong / Random order with a Morph crossfade; Index output),
+  **ControlNet** (canny or depth) and **AI Render**, which restyles any picture live
+  (Strength, Steps, Guidance, Seed, New seed per beat/bar, Size, Smooth, Mix, and Dream
+  feedback with Zoom and Spin). One frame is in flight at a time; with no bridge running the
   picture passes through and the inspector shows the one-line setup command. On an
   M2 Max SD-Turbo at 512 px runs at about 7–9 fps (canny 5–6 fps).
 
