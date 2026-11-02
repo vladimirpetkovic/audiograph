@@ -15,7 +15,7 @@ function audioFile(seconds=6) {
 }
 
 const root = path.resolve(__dirname, '..');
-const mime = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.json':'application/json', '.svg':'image/svg+xml' };
+const mime = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.json':'application/json', '.svg':'image/svg+xml', '.m4a':'audio/mp4' };
 const server = http.createServer((req,res) => {
   try {
     const pathname = decodeURIComponent(new URL(req.url,'http://localhost').pathname).replace(/^\/audiograph(?=\/)/,'');
@@ -45,13 +45,20 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       if(m.type==='hello')ws.send(JSON.stringify({type:'info',version:1,device:'mock-cpu',mock:true,models:[{id:'sd-turbo',label:'SD-Turbo',loaded:true},{id:'sdxl-turbo',label:'SDXL-Turbo',loaded:false}],controls:['none','canny','depth']}));
       if(m.type==='frame'){aiSeen.push(m);inFlight++;maxInFlight=Math.max(maxInFlight,inFlight);setTimeout(()=>{inFlight--;ws.send(JSON.stringify({type:'result',id:m.id,image:red,ms:42}));},60);}
     }));
-    await page.goto(process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/audiograph/pro/`);
+    const proUrl=process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/audiograph/pro/`;
+    // ?demo keeps the synthetic demo beat, so the default track never starts mid-test.
+    await page.goto(proUrl+'?demo');
     await page.waitForFunction(()=>window.pro&&Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});
     await page.evaluate(()=>pro.dissolve(false));
     const project=()=>page.evaluate(()=>pro.getProject());
     const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
     const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
+    // Without ?demo the default track starts on the first key or click and loops; Stop silences it.
+    {const p2=await browser.newPage({viewport:{width:1200,height:800}});await p2.goto(proUrl);await p2.waitForFunction(()=>window.pro);
+     assert.match(await p2.locator('#audioName').textContent(),/Demo beat/,'Nothing plays before a gesture');
+     await p2.keyboard.press('Shift');await p2.waitForFunction(()=>/Default track · add audio/.test(document.querySelector('#audioName').textContent)&&document.querySelector('#play').classList.contains('on'),null,{timeout:15000});
+     await p2.click('#stop');assert.ok(!(await p2.locator('#play.on').count()),'Stop silences the default track');await p2.close();}
     // AI: Model + Prompt + ControlNet feed AI Render, which streams frames to the bridge (mocked here) one at a time.
     const aiLib=await page.evaluate(()=>[...document.querySelectorAll('#library .library-node')].filter(b=>['aiModel','aiPrompt','aiControl','aiRender'].includes(b.dataset.type)).length);
     assert.equal(aiLib,4,'AI category lists Model, Prompt, ControlNet and AI Render');

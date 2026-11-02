@@ -170,7 +170,9 @@ process the finished image.
 - **Audio**: select an Audio node (or click the source name in the transport) to
   load a file, use the Mic, or **System** (desktop Chrome/Edge: share a screen or
   tab and enable "Share audio"). Files play through the speakers; mic and system
-  input are analysed only. Without audio, a demo beat plays. Wiring a
+  input are analysed only. Until you pick a sound, the **default track** (a short
+  ambient song) starts on your first click and loops; open the page with `?demo`
+  for the silent synthetic demo beat instead. Wiring a
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.

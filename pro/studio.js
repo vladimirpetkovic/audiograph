@@ -235,15 +235,35 @@ async function ensureRunning(){
   const c=audioContext();if(c.state!=='running')await Promise.race([c.resume(),new Promise(r=>setTimeout(r,400))]);
   if(c.state!=='running')message('The browser blocked sound · click anywhere on the page to enable it',true);
 }
+// Default track: a short ambient song that starts on the first click or key (browsers block autoplay) and loops
+// until the user picks their own sound. ?demo keeps the synthetic demo beat instead.
+const DEFAULT_TRACK={url:'../audio/default-track.m4a',name:'Default track',state:'idle',bytes:null};
+if(!new URLSearchParams(location.search).has('demo'))DEFAULT_TRACK.bytes=fetch(DEFAULT_TRACK.url).then(r=>r.ok?r.arrayBuffer():null).catch(()=>null);
+else DEFAULT_TRACK.state='off';
+async function startDefaultTrack(){
+  if(DEFAULT_TRACK.state!=='idle')return;DEFAULT_TRACK.state='loading';unlockAudio();
+  try{
+    const bytes=await DEFAULT_TRACK.bytes,buffer=bytes&&await audioContext().decodeAudioData(bytes);
+    if(!buffer||DEFAULT_TRACK.state!=='loading'||audio.buffer||audio.live)return;
+    audio.buffer=buffer;audio.name=DEFAULT_TRACK.name;audio.loop=true;audio.offset=0;updateAudioUI();setPaused(false);await play();
+  }catch(e){console.warn('Default track:',e);}
+  finally{if(DEFAULT_TRACK.state==='loading')DEFAULT_TRACK.state='done';}
+}
+const ownSound=()=>{DEFAULT_TRACK.state='off';audio.loop=false;};
+for(const type of ['pointerdown','keydown'])addEventListener(type,e=>{
+  if(DEFAULT_TRACK.state!=='idle'||e.target.closest?.('.audio-src'))return;
+  if(e.target.closest?.('#stop'))DEFAULT_TRACK.state='off';else startDefaultTrack();
+},true);
 function stopAudio(keepOffset=false){
   if(audio.source){audio.source.onended=null;try{audio.source.stop();}catch{}audio.source.disconnect();if(keepOffset)audio.offset+=audio.context.currentTime-audio.startedAt;audio.source=null;}
   if(!keepOffset)audio.offset=0;syncPlay();
 }
 // Source buttons live in the Audio node's inspector, so they may not exist right now.
 function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:'Demo beat';}
+const placeholderSound=name=>name==='Demo beat'||name===DEFAULT_TRACK.name;
 function updateAudioUI(){
   for(const k of ['mic','system'])$(k)?.classList.toggle('on',audio.live?.kind===k);
-  const name=sourceName();$('audioName').textContent=name==='Demo beat'?'Demo beat · add audio':name;
+  const name=sourceName();$('audioName').textContent=placeholderSound(name)?name+' · add audio':name;
   const cur=document.querySelector('.audio-source');if(cur)cur.textContent='Now: '+name+(audio.live||audio.source||name==='Demo beat'?'':' (stopped)');
   updateSummaries();
 }
@@ -258,7 +278,7 @@ async function play(){
   if(!audio.buffer)throw Error('Load an audio file first (or use Mic / System)');
   if(audio.source){stopAudio(true);message('Paused audio');return;}
   stopLive();unlockAudio();audio.monitor.gain.value=1;
-  const source=audio.context.createBufferSource();source.buffer=audio.buffer;source.connect(audio.analyser);audio.source=source;
+  const source=audio.context.createBufferSource();source.buffer=audio.buffer;source.loop=!!audio.loop;source.connect(audio.analyser);audio.source=source;
   const offset=audio.offset%audio.buffer.duration;audio.startedAt=audio.context.currentTime;audio.offset=offset;
   source.onended=()=>{if(audio.source===source){audio.source=null;audio.offset=0;syncPlay();}};
   source.start(0,offset);syncPlay();message('Playing '+audio.name);updateAudioUI();
@@ -266,7 +286,7 @@ async function play(){
 }
 async function startLive(kind,getStream){
   if(audio.live?.kind===kind){stopLive();message(kind==='mic'?'Microphone off':'System audio off');return;}
-  stopAudio();stopLive();unlockAudio();
+  stopAudio();stopLive();unlockAudio();ownSound();
   if(!navigator.mediaDevices)throw Error('needs HTTPS or localhost');
   const stream=await getStream(),tracks=stream.getAudioTracks();
   stream.getVideoTracks().forEach(t=>{t.stop();stream.removeTrack(t);});
@@ -1225,7 +1245,7 @@ function renderAudioSource(root){
 async function loadAudioFile(file){
   try{
     if(file.size>200*1024*1024)throw Error('Audio limit is 200 MB');
-    stopAudio();stopLive();audio.buffer=await audioContext().decodeAudioData(await file.arrayBuffer());audio.name=file.name;
+    ownSound();stopAudio();stopLive();audio.buffer=await audioContext().decodeAudioData(await file.arrayBuffer());audio.name=file.name;
     updateAudioUI();setPaused(false);await play();
   }catch(error){message('Audio: '+error.message,true);}
 }
@@ -1508,6 +1528,7 @@ $('audioName').onclick=()=>{
   if(id){selected=id;renderUI();}
 };
 $('play').onclick=()=>{
+  if(DEFAULT_TRACK.state==='loading')return;
   if(!audio.buffer){setPaused(!paused);message(paused?'Paused':'Playing');return;}
   if(audio.source){stopAudio(true);setPaused(true);message('Paused');return;}
   setPaused(false);play().catch(e=>message(e.message,true));
@@ -1632,7 +1653,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-start">Quick start</h3>
 <p>New here? Press <b>Tutorial</b> (top right) for the First Mile: it builds a scene with you node by node, then shows Mapping, Autopilot, recording and saving.</p>
 <ol><li>Pick a look from <b>Templates</b> (top right): your own <b>User templates</b> or the <b>Audiograph presets</b>.</li>
-<li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. A demo beat plays until you do.</li>
+<li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. The default track starts on your first click (it loops until you choose your own sound; open the page with <code>?demo</code> for the silent demo beat).</li>
 <li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
 <li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li>
 <li>Press <b>V</b> on any node to see only its picture, <b>B</b> to switch it off for a moment, ⌘Z to undo anything.</li></ol>

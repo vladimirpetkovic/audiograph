@@ -13250,9 +13250,14 @@ var agTour=(function(){
     for(i=0;i<len;i++)dv.setInt16(44+i*2,Math.round(d[i]/(pk||1)*0.85*32767),true);
     return new File([buf],'audiograph-demo-beat.wav',{type:'audio/wav'});
   }
+  // The default track (a short ambient song); the synthetic beat is the offline fallback.
+  async function defaultTrack(){
+    var r=await fetch('audio/default-track.m4a');if(!r.ok)throw Error(r.status);
+    return new File([await r.blob()],'Default track.m4a',{type:'audio/mp4'});
+  }
   async function ensureAudio(){
     if(liveMode)return;
-    if(!audio)await loadAudioFile(demoFile());
+    if(!audio)await loadAudioFile(await defaultTrack().catch(function(){return demoFile()}));
     if(!playing)togglePlay();
   }
   function openOnly(id){
