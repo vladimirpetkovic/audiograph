@@ -111,6 +111,18 @@ function importProject(raw,label='Imported project. Reload media files in the In
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
 const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);if(!o.length)return false;
   if(i.includes('audio')&&o.every(x=>x==='audio'))return true;if(i.includes('any'))return true;return (i.includes('shape')||i.includes('image')||i.includes('visual'))&&o.every(x=>x==='shape'||x==='image');};
+// A 3D Model always comes with a 3D camera right after it: the camera holds the view (rotate, orbit, tilt, zoom, lens).
+function attachCamera(g,n){
+  if(n.type!=='waveform3d'||n.props.mode!=='model'||modelCamera(g,n))return;
+  if(g.edges.some(e=>e.from===n.id&&e.out==='object'))return;
+  const c=node('camera3d',n.x+210,n.y,{});
+  for(const m of g.nodes)if(m.x>n.x+20&&Math.abs(m.y-n.y)<120)m.x+=210;
+  g.nodes.push(c);
+  for(const e of g.edges)if(e.from===n.id&&e.out==='shape')e.from=c.id;
+  g.edges.push({from:n.id,out:'shape',to:c.id,input:'shape'});
+}
+// The 3D camera downstream of a node along its shape wires (none when the chain has no camera).
+function modelCamera(g,n){const seen=new Set();let cur=n;while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(cur.type==='camera3d')return cur;const e=g.edges.find(e=>e.from===cur.id&&e.out==='shape');cur=e&&g.nodes.find(m=>m.id===e.to);}return null;}
 // Adding a modifier while a node is selected splices it into that node's chain.
 function addNode(type,x,y,props={}){
   let made=null;
@@ -139,6 +151,7 @@ function addNode(type,x,y,props={}){
     if(type==='cloner'){const o=node('waveform3d',n.x-210,n.y+40,{mode:'sphere',render:'normal'});g.nodes.push(o);g.edges.push({from:o.id,out:'object',to:n.id,input:'object'});}
     const cl=TYPES[type].outputs.object&&sel?.type==='cloner'&&sel,slot=cl&&['object','object2','object3'].find(k=>!g.edges.some(e=>e.to===cl.id&&e.input===k));
     if(slot){n.x=cl.x-210;n.y=cl.y+40+130*['object','object2','object3'].indexOf(slot);g.edges.push({from:n.id,out:'object',to:cl.id,input:slot});}
+    attachCamera(g,n);
   },`Added ${TYPES[type].label}`);
   if(ok&&made){selected=made.id;multi.clear();renderUI();return made.id;}
 }
@@ -997,6 +1010,7 @@ function placeNode(it,gx,gy,wire){
   const ok=edit((p,g)=>{
     const n=node(it.type,Math.round(gx-84),Math.round(gy-20),clone(it.props));made=n;g.nodes.push(n);
     if(wire)spliceInto(g,n,wire);
+    attachCamera(g,n);
   },`Added ${it.label}`);
   if(ok&&made){selected=made.id;renderUI();}
 }
@@ -1127,6 +1141,7 @@ const OPT_GROUPS=[['Setup',/preset|^emitter$|bound|source|model|^type|mode|shape
   ['Look',/trail|bloom|exposure|glow|colou?r|opacity|contrast|saturat|hue|fade|bright|light|shad|edge|thick|point/i],['Quality',/quality|precision|budget|simulation|time ?scale|step|resolution|iteration|detail/i]];
 const optGroup=label=>(OPT_GROUPS.find(([,re])=>re.test(label||''))||['Form'])[0];
 function setProp(n,key,value,label){return edit((p,g)=>{g.nodes.find(x=>x.id===n.id).props[key]=value;},`${TYPES[n.type].label}: ${label}`);}
+const CAM_VIEW_KNOBS=new Set(['pObjPersp','pObjTilt','pObjRotate','pGsOrbit','pGsTilt','pGsZoom']);
 function autoOpts(n,key,s){
   if(s&&(s.kind!=='number'||s.noPort))return {};
   return {auto:!!n.auto?.includes(key),onAuto:on=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id),a=new Set(x.auto||[]);on?a.add(key):a.delete(key);if(a.size)x.auto=[...a];else delete x.auto;},`${s?.label||'Knob'}: auto ${on?'on':'off'}`)};
@@ -1383,10 +1398,12 @@ function renderEmitter(root,n){
   // waveforms use line Sensitivity as their gain. 3D tilt / rotate only exist where a classic 3D mode can use them.
   const sim=SIM_NODES.includes(n.type)||n.type==='waveform3d'&&n.props.render==='normal',classic3d=n.type==='waveform3d'||n.type==='waveform2d'&&n.props.mode==='fractal';
   const used=k=>wiredOf(k)||n.auto?.includes(k)||n.props[k]!==undefined&&n.props[k]!==T.props[k].value;
+  // A model with its 3D camera: the camera owns the view, so the object's own view knobs step aside.
+  const camModel=n.type==='waveform3d'&&n.props.mode==='model'&&!!modelCamera(graph(),n);
   const geo={};let lineSens=false;
   for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){
     const gr=T.props[k].group;if(gr==='Lines'&&sim||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;
-    if((k==='tilt'||k==='turn')&&!classic3d&&!used(k))continue;
+    if((k==='tilt'||k==='turn')&&(!classic3d||camModel)&&!used(k))continue;
     if(k==='sensitivity'){lineSens=true;continue;}
     if(k==='contrast'||k==='fade')continue;
     (geo[gr]||=[]).push(k);
@@ -1410,6 +1427,7 @@ function renderEmitter(root,n){
     const clonerLike=n.type==='cloner'||n.type==='waveform3d'&&n.props.render==='normal';
     const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||clonerLike&&FORCE_KNOBS.simcloner||{};
     controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
+    if(camModel)controls=controls.filter(c=>c.type!=='range'||!CAM_VIEW_KNOBS.has(c.id));
     // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
     if(clonerLike)controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3')&&(optGroup(c.label)!=='Look'||n.props.opts?.[c.id]!==undefined&&n.props.opts[c.id]!==c.def):!/\('g3|simApplyPreset/.test(c.onclick));
     // Leftover knobs share one "Form" section; sound, look and quality always keep their own.
@@ -1626,30 +1644,37 @@ preview.addEventListener('pointerup',endPin);preview.addEventListener('pointerca
 const VIEW0={yaw:0,pit:0,px:0,py:0,zm:1};
 const viewOff=()=>!!pinNode()||!!pinDrag||mapActive();
 let viewDrag=null,wheelTimer=0;
+// The layer's 3D camera (the selected one first): with one, the viewport drives its Rotate, Tilt and Zoom.
+function viewCam(g){const sel=g.nodes.find(n=>n.id===selected);return sel?.type==='camera3d'?sel:g.nodes.find(n=>n.type==='camera3d');}
+function setCam(id,fn){live(()=>{const c=findNode(id);if(c)fn(c.props);});}
 function setView(fn){live(st=>{const g=st.layers.find(l=>l.id===graph().id);if(!g)return;const v={...VIEW0,...g.view};fn(v);const c=cleanView(v);if(c)g.view=c;else delete g.view;});}
 preview.addEventListener('pointerdown',ev=>{
   if(viewOff()||ev.defaultPrevented)return;
-  const g=graph(),three=layerView.has(g.id);
-  viewDrag={x:ev.clientX,y:ev.clientY,v:{...VIEW0,...g.view},pan:!three||ev.button!==0||ev.shiftKey,moved:false};
+  const g=graph(),cam=viewCam(g),three=!!cam||layerView.has(g.id);
+  viewDrag={x:ev.clientX,y:ev.clientY,v:{...VIEW0,...g.view},cam:cam&&{id:cam.id,turn:cam.props.turn??0,tilt:cam.props.tilt??18},pan:!three||ev.button!==0||ev.shiftKey,moved:false};
   preview.setPointerCapture(ev.pointerId);$('previewWrap').classList.add(viewDrag.pan?'view-pan':'view-orbit');ev.preventDefault();
 });
 preview.addEventListener('pointermove',ev=>{
   const d=viewDrag;if(!d)return;const r=preview.getBoundingClientRect(),dx=ev.clientX-d.x,dy=ev.clientY-d.y;
   if(!d.moved&&Math.hypot(dx,dy)<2)return;d.moved=true;
+  if(d.cam&&!d.pan){setCam(d.cam.id,c=>{c.turn=Math.round(((d.cam.turn-dx*.4)%360+540)%360-180);c.tilt=Math.round(Math.max(-80,Math.min(80,d.cam.tilt+dy*.4)));});return;}
   setView(v=>{if(d.pan){v.px=d.v.px+dx/r.width*2;v.py=d.v.py-dy/r.height*2;}else{v.yaw=d.v.yaw-dx*.4;v.pit=Math.max(-85,Math.min(85,d.v.pit+dy*.4));}});
 });
-const endView=()=>{const d=viewDrag;if(!d)return;viewDrag=null;$('previewWrap').classList.remove('view-pan','view-orbit');if(d.moved)liveCommit(d.pan?'Moved view':'Orbited view');};
+const endView=()=>{const d=viewDrag;if(!d)return;viewDrag=null;$('previewWrap').classList.remove('view-pan','view-orbit');if(d.moved)liveCommit(d.pan?'Moved view':d.cam?'3D camera: rotate / tilt':'Orbited view');};
 preview.addEventListener('pointerup',endView);preview.addEventListener('pointercancel',endView);
 preview.addEventListener('contextmenu',ev=>{if(!viewOff())ev.preventDefault();});
 preview.addEventListener('wheel',ev=>{
   if(viewOff())return;ev.preventDefault();
+  const cam=viewCam(graph()),k=Math.exp(-ev.deltaY*(ev.deltaMode?.05:.0015));
+  if(cam){setCam(cam.id,c=>{c.zoom=Math.round(Math.max(30,Math.min(300,(c.zoom??100)*k)));});clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit('3D camera: zoom'),350);return;}
   const r=preview.getBoundingClientRect(),u=(ev.clientX-r.left)/r.width*2-1,w=(ev.clientY-r.top)/r.height*2-1,flat=layerView.get(graph().id)!=='sim';
   setView(v=>{const z=Math.max(.2,Math.min(6,v.zm*Math.exp(-ev.deltaY*(ev.deltaMode?.05:.0015))));
     // 2D zooms toward the pointer; 3D dollies the camera.
     if(flat){v.px=u-z*(u-v.px)/v.zm;v.py=z*(w+v.py)/v.zm-w;}v.zm=z;});
   clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit('Zoomed view'),350);
 },{passive:false});
-preview.addEventListener('dblclick',()=>{if(viewOff()||!graph().view)return;setView(v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
+preview.addEventListener('dblclick',()=>{if(viewOff())return;const cam=viewCam(graph()),T=TYPES.camera3d.props;if(!cam&&!graph().view)return;
+  if(cam)setCam(cam.id,c=>{c.turn=T.turn.value;c.tilt=T.tilt.value;c.zoom=T.zoom.value;});setView(v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
 
 // Output window for a projector / second display: mirrors the preview as a live stream.
 let outWin=null;
@@ -1695,7 +1720,7 @@ function removeTemplate(){
   if(!all[name])return message('No template called '+name,true);
   delete all[name];localStorage.setItem(USER_KEY,JSON.stringify(all));fillTemplates();message(`Removed template ${name}`);
 }
-$('restore').onclick=()=>attempt(()=>{const raw=localStorage.getItem('audiograph-pro-v2')||localStorage.getItem('audiograph-pro-v1');if(!raw)throw Error('Nothing saved in this browser yet');importProject(JSON.parse(raw),'Restored saved project');});
+$('reset').onclick=()=>attempt(()=>{importProject({format:'audiograph-pro',version:VERSION,layers:tutorialScene()},'Reset to the starting scene');message('Reset to the starting scene. Undo (⌘Z) brings your scene back.');});
 // Scenes save as .ag files (the project JSON); every save asks where.
 async function saveScene(){
   try{const text=JSON.stringify(validate(state),null,2),name=(state.layers[0]?.name||'scene').replace(/[^\w -]+/g,'').trim()||'scene';
@@ -1761,7 +1786,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-layers">Layers</h3>
 <p>Each graph is one layer. <b>+ Layer</b> adds another; layers stack in the preview using each layer's opacity and blend mode (select empty graph space to see the layer settings). Use the tabs above the graph to switch layers and the checkbox to show or hide one. A <b>Layer</b> node brings another layer into this graph, so one layer can be refracted, masked or blended by another.</p>
 <h3 id="h-3d">3D &amp; models</h3>
-<ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (audio-reactive lines), Polygons (faces that flash and push out with their band; Gap separates them, Edges outlines them) or Points (3D model). Drag the preview to orbit.</li>
+<ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (audio-reactive lines), Polygons (faces that flash and push out with their band; Gap separates them, Edges outlines them) or Point cloud (3D model). A <b>3D model</b> comes with a <b>3D camera</b> after it that holds the view (Rotate, Orbit, Tilt, Zoom, Focal length): drag the preview to rotate and tilt it, scroll to zoom, double-click to reset. Colours come from the layer's <b>Palette</b>: loud lines and faces take the top of the ramp (Sound › Sensitivity / Contrast set how much); a Point cloud picks Look › Colour (Palette · sound) and Sound glow.</li>
 <li><b>3D model</b> loads <b>OBJ, FBX, GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers). Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound pushes clones with the music, Field, Random, Links draws lines between them) and <b>Look</b> nodes (Material, Light, 3D camera with lens Focal length, 14 mm wide to 200 mm telephoto, and Depth of field) after it.</li>
 <li>A 3D Object can also feed an emitter's <b>emit</b> input: particles, fluid, smoke or sand stream from the live (even animated) surface.</li></ul>
@@ -1788,7 +1813,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-auto">Autopilot</h3>
 <p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
-<ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Restore</b> brings back the browser copy. Media files (songs, videos, models) are not stored: reload them in their nodes.</li>
+<ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Reset</b> starts over from the starting scene (Undo brings your scene back). Media files (songs, videos, models) are not stored: reload them in their nodes.</li>
 <li>Record (●) captures the preview with its audio to video; the camera button saves a PNG. The layer <b>Resolution</b> sets the render size.</li>
 <li><b>Output</b> → second display: Detach opens the picture in its own window for a projector or screen.</li>
 <li>Older projects open automatically and are updated to the current nodes.</li></ul>

@@ -710,8 +710,9 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      page.once('dialog',d=>d.accept('My look'));await page.locator('#save').selectOption('remove');
      assert.ok(!(await page.evaluate(()=>!!document.querySelector('#templates option[value="user:My look"]'))),'A user template can be removed');}
     await sceneDownload.path();const saved=await project();
-    await page.evaluate(()=>pro.loadTemplate('Ink'));await page.locator('#restore').click();
-    assert.deepEqual((await project()).layers.map(l=>l.name),saved.layers.map(l=>l.name));
+    await page.evaluate(()=>pro.loadTemplate('Ink'));const ink=(await project()).layers.map(l=>l.name);await page.locator('#reset').click();
+    assert.notDeepEqual((await project()).layers.map(l=>l.name),ink,'Reset loads the starting scene');
+    await page.evaluate(()=>pro.undo());assert.deepEqual((await project()).layers.map(l=>l.name),ink,'Undo brings the scene back after Reset');
     // .ag scenes: ⌘O opens one (also by dropping it), the file holds the project.
     await page.evaluate(()=>pro.loadTemplate('Ink'));
     await page.locator('#graphViewport').focus();
@@ -830,6 +831,30 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
        await page.waitForTimeout(900);return page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(0,0,c.width,c.height).data,W=c.width;let g=0,n=0;for(let y=0;y<c.height;y+=2)for(let X=1;X<W;X+=2){const i=(y*W+X)*4;g+=Math.abs(x[i]+x[i+1]+x[i+2]-x[i-4]-x[i-3]-x[i-2]);n++;}return g/n;});};
      const s0=await sharp(0),s1=await sharp(100);
      assert.ok(s1<s0*.5,'Depth of field blurs a Waveform-render sphere: sharpness '+s0.toFixed(2)+' → '+s1.toFixed(2));}
+    // A 3D Model comes wired into a 3D camera that holds the view; the point cloud is framed like the other renders.
+    {await page.evaluate(p=>pro.importProject(p),L([],[]));
+     await page.locator('.library-node[data-type="waveform3d"][data-mode="model"]').first().click();
+     const g=(await project()).layers[0],m=g.nodes.find(n=>n.type==='waveform3d'),c=g.nodes.find(n=>n.type==='camera3d');
+     assert.ok(m&&c&&g.edges.some(e=>e.from===m.id&&e.out==='shape'&&e.to===c.id),'A new 3D Model comes wired into a 3D camera');
+     await page.waitForTimeout(1200);
+     const knobs=await page.evaluate(()=>[...document.querySelectorAll('#properties [class*=label]')].map(l=>l.textContent));
+     assert.ok(knobs.includes('Max Faces')&&!['Perspective','Tilt','Rotate','3D tilt','3D rotate'].some(k=>knobs.includes(k)),'The camera owns the view: '+knobs.join('|'));
+     const tall=async r=>{await page.evaluate(p=>pro.importProject(p),L([{id:'m',type:'waveform3d',x:300,y:0,props:{mode:'model',render:r}},{id:'c',type:'camera3d',x:500,y:0,props:{tilt:0}}],
+         [{from:'a',out:'audio',to:'m',input:'audio'},{from:'m',out:'shape',to:'c',input:'shape'},{from:'c',out:'shape',to:'out',input:'image'}]));
+       await lit();await page.waitForTimeout(1500);
+       return page.evaluate(()=>{pro.draw();const cv=document.getElementById('preview'),W=cv.width,H=cv.height,d=cv.getContext('2d').getImageData(0,0,W,H).data;let y0=H,y1=0;
+         for(let y=0;y<H;y+=2)for(let x=0;x<W;x+=2){const i=(y*W+x)*4;if(d[i]+d[i+1]+d[i+2]>120){y0=Math.min(y0,y);y1=Math.max(y1,y);}}return (y1-y0)/H;});};
+     const hp=await tall('polygons'),hc=await tall('points');
+     assert.ok(hc>hp*.7&&hc<hp*1.4,'A point cloud is framed like the polygons: '+hp.toFixed(2)+' vs '+hc.toFixed(2));
+     await page.evaluate(()=>pro.select('m'));
+     const box=await page.locator('#preview').boundingBox(),cx=box.x+box.width/2,cy=box.y+box.height/2;
+     await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx+100,cy+40,{steps:5});await page.mouse.up();
+     await page.mouse.wheel(0,-300);await page.waitForTimeout(600);
+     const cam=(await project()).layers[0].nodes.find(n=>n.id==='c').props;
+     assert.ok(cam.turn<-20&&cam.tilt>5&&cam.zoom>110&&!(await project()).layers[0].view,'The viewport drives the 3D camera: '+JSON.stringify(cam));
+     await page.mouse.dblclick(cx,cy);const r0=(await project()).layers[0].nodes.find(n=>n.id==='c').props;
+     assert.ok(r0.turn===0&&r0.tilt===18&&r0.zoom===100,'Double-click resets the camera');
+     assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],'Camera-framed model renders without errors');}
     // Animated GLB / glTF models play in the 3D Object (and so in Cloners and emit); skinned rigs follow their joints.
     {await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'model',render:'normal'}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'out',input:'image'}]));
      await page.evaluate(()=>pro.select('o'));await page.waitForTimeout(1200);await page.setInputFiles('#emitterMedia',gltfFile());await page.waitForTimeout(800);

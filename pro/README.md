@@ -59,7 +59,11 @@ each with its own opacity and blend mode (up to four).
   solid, lit object with size, detail and stretch), **Waveform** (audio-reactive
   lines), **Polygons** (filled faces in palette colours: each face hears its own
   band, brightens and moves out along its normal; Elevation, Noise, Gap and Edges
-  shape it; animated models play) or, for a Model, **Points**. Every 3D Object has an `object` output:
+  shape it; animated models play) or, for a Model, **Point cloud** (framed like the other renders). A **3D Model** always comes with a
+  **3D camera** wired after it: the camera holds the view (**Rotate**, Orbit, Orbit with sound, Tilt, Zoom, Focal length),
+  so the model's own Perspective / Tilt / Rotate (and point-cloud Orbit / Tilt / Zoom) step aside; dragging the preview
+  rotates and tilts the camera, the wheel zooms it, double-click resets it. A model's colours come from the Palette:
+  loud lines / faces take the top of the ramp (Sound › Sensitivity, Contrast); a point cloud uses Look › Colour. Every 3D Object has an `object` output:
   **Cloner** (layout, counts, spacing, steps, rotation, variety) takes up to three and
   clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links with width, glow and sound pulse) and **Look** (Material,
   Light, Camera). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
@@ -222,7 +226,7 @@ process the finished image.
   section is remembered per node type. Choice chips such as Growth's Type sit at the
   top; Growth starts as Coral.
 - **Open/Save .ag scene files** (⌘O, ⌘S, ⇧⌘S Save As; drop an .ag on the window
-  to open it). Save also keeps a copy in this browser for **Restore**. On screens
+  to open it). **Reset** starts over from the starting scene (Undo brings your scene back). On screens
   1440px and wider the whole UI is drawn 20% larger. **Templates**, and
   The transport has icon buttons: **Play/Pause**, **Stop**, **Rec** (records the
   preview with audio to WebM and shows elapsed time), and **Snap** (saves a PNG).

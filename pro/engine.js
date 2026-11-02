@@ -20,6 +20,12 @@ function patch3dLighting(patch){
   for(const id of ['pTerrainPersp','pSpherePersp','pObjPersp','pDnaPersp'])patch(`var persp=+document.getElementById('${id}').value||`,`var persp=(window.__agFocal||1)*(+document.getElementById('${id}').value)||(window.__agFocal||1)*`);
   patch("var persp=+document.getElementById(prefix+'Persp').value||","var persp=(window.__agFocal||1)*(+document.getElementById(prefix+'Persp').value)||(window.__agFocal||1)*");
   patch("persp=g('pTerrainPersp',200),","persp=g('pTerrainPersp',200)*(window.__agFocal||1),");
+  // A 3D camera wired after a 3D Model frames it like a lens: the camera's Rotate / Orbit / Tilt / Zoom / Focal length replace the
+  // object's own Perspective, Tilt and Rotate, and the model keeps the same size at any resolution and in every render.
+  patch("var rotAngle=_objSpinRot*_rotMul+dragRotY;","var rotAngle=window.__agCam?dragRotY-window.__agCam.yaw:_objSpinRot*_rotMul+dragRotY;if(window.__agCam){var _k=window.__agCam,_P=0.5*Math.min(W,H)*_k.f/Math.tan(0.4),_s=0.24*_k.zoom*Math.min(W,H);persp=_P;baseR=_s*_P/Math.max(_P-_s,_P*0.25);maxBump=baseR*0.15*elevScale*p.height;tiltRad=_k.tilt;}");
+  // Point clouds take the same lens; a model turned into points is framed like the model drawn as lines or polygons.
+  patch("asp=st.ow/st.oh,fovY=0.8,half=","asp=st.ow/st.oh,fovY=2*Math.atan(Math.tan(0.4)/(window.__agFov||1)),half=");
+  patch("var bnd=1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom'","var bnd=window.__agSplBnd||1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom'");
   // Random effector on each axis: rotation X / Y / Z and scale X / Z next to the original's Y stretch.
   patch("['pG3RndRot','Random tilt',0,180,0,5,'deg','Random orientation of each clone.'],",
     "['pG3RndRX','Random rotate X',0,180,0,5,'deg','Random turn of each clone around X.'],['pG3RndRY','Random rotate Y',0,180,0,5,'deg','Random turn of each clone around Y.'],"+
@@ -355,9 +361,19 @@ export class EmitterEngine {
     if(this.viewMode==='classic'){p._dragRotX=(p._dragRotX||0)+(v.pit||0)*dg;p._dragRotY=(p._dragRotY||0)-(v.yaw||0)*dg;}
     if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
     w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;
+    // 3D camera after a model / primitive drawn as lines, polygons or a point cloud (the cloner reads its own camera knobs).
+    const cm=job.mods||{},camOn=cm.pG3Zoom!=null&&(mode==='object'||mode==='simsplat'),now=this.drawnAt;
+    if(camOn){const dt=Math.min(.1,Math.max(0,(now-(this.camAt||now))/1000)),f=job.audio?.freq,lv=f&&f.length?f.slice(0,64).reduce((a,b)=>a+b,0)/64/255:0;
+      this.camYaw=((this.camYaw||0)+dt*((cm.pG3Orbit||0)/100*69+(cm.pG3OrbitSnd||0)/100*lv*90))%360;}
+    this.camAt=now;
+    const camYaw=(cm.pG3Yaw||0)+(camOn?this.camYaw:0);
+    w.__agCam=camOn&&mode==='object'?{f:(+cm.pG3Focal||28)/28,zoom:(cm.pG3Zoom||100)/100,tilt:(cm.pG3Tilt??18)*dg,yaw:camYaw*dg}:null;
+    w.__agFov=camOn&&mode==='simsplat'?(+cm.pG3Focal||28)/28:1;
+    w.__agSplBnd=job.mesh?3.3:null;
+    if(camOn&&mode==='simsplat'){p.pGsTilt=cm.pG3Tilt??18;p.pGsZoom=cm.pG3Zoom??100;p.pGsOrbit=0;}
     if(!sameParams(p,this.applied)){this.realSet(p);this.applied=p;}
     // A node's own 3D tilt / rotate turn the sim camera (3D Object drawn Normal, Cloner, splats) on top of the viewport orbit.
-    if(this.viewMode==='sim'){const so=w.simOpt;so.vYaw=(v.yaw||0)-(p._dragRotY||0)/dg;so.vPit=(v.pit||0)+(p._dragRotX||0)/dg;so.vPx=v.px||0;so.vPy=v.py||0;so.vZm=v.zm||1;}
+    if(this.viewMode==='sim'){const so=w.simOpt;so.vYaw=(v.yaw||0)-(p._dragRotY||0)/dg+(cm.pG3Zoom!=null?camYaw:0);so.vPit=(v.pit||0)+(p._dragRotX||0)/dg;so.vPx=v.px||0;so.vPy=v.py||0;so.vZm=v.zm||1;}
     if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)||job.poly&&job.solidMesh?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
     if(mode==='video'||(mode==='pixelwarp'&&(this.mediaKind==='video'||w.vidCamStream)))w.sampleVideoFrame?.();
