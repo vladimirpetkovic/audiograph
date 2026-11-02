@@ -499,7 +499,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     <!-- BACKGROUND -->
     <div class="panel closed" id="panelEQ"><div class="panel-head" onclick="togglePanel('panelEQ')"><span class="panel-title">Audio EQ</span><span class="panel-arrow">▼</span></div><div class="panel-body"><div class="prow" id="rowPlayback"><span class="prow-label">Playback</span><div class="mode-btns"><button class="mbtn" onclick="setPlayMode('off',this)">Off</button><button class="mbtn on" onclick="setPlayMode('continuous',this)">Continuous</button><button class="mbtn" onclick="setPlayMode('equalizer',this)">Equalizer</button></div></div><div class="prow" title="Spreads bar heights apart so loud, mastered tracks keep their shape instead of every line sitting near full height. 0 = previous response."><span class="prow-label">Dynamics</span><input type="range" min="0" max="100" value="50" step="1" id="pDynamics" oninput="setDynamics(this.value)"><span class="prow-val" id="vDynamics">50%</span></div><div class="prow"><span class="prow-label">Preset</span><div class="mode-btns"><button class="mbtn on" onclick="setEQPreset('flat',this)">Flat</button><button class="mbtn" onclick="setEQPreset('bass',this)">Bass+</button><button class="mbtn" onclick="setEQPreset('vshape',this)">V-Shape</button><button class="mbtn" onclick="setEQPreset('warm',this)">Warm</button><button class="mbtn" onclick="setEQPreset('bright',this)">Bright</button><button class="mbtn" onclick="setEQPreset('vocal',this)">Vocal</button></div></div><div class="prow"><span class="prow-label">Smoothing</span><input type="range" min="0" max="90" value="50" step="5" id="eqSmoothing" oninput="updateEQ()"><span class="prow-val" id="vEqSmoothing">50%</span></div><div class="prow"><span class="prow-label">32 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq32" oninput="updateEQ()"><span class="prow-val" id="vEq32">0 dB</span></div><div class="prow"><span class="prow-label">64 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq64" oninput="updateEQ()"><span class="prow-val" id="vEq64">0 dB</span></div><div class="prow"><span class="prow-label">125 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq125" oninput="updateEQ()"><span class="prow-val" id="vEq125">0 dB</span></div><div class="prow"><span class="prow-label">250 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq250" oninput="updateEQ()"><span class="prow-val" id="vEq250">0 dB</span></div><div class="prow"><span class="prow-label">500 Hz</span><input type="range" min="0" max="200" value="100" step="5" id="eq500" oninput="updateEQ()"><span class="prow-val" id="vEq500">0 dB</span></div><div class="prow"><span class="prow-label">1 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq1k" oninput="updateEQ()"><span class="prow-val" id="vEq1k">0 dB</span></div><div class="prow"><span class="prow-label">2 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq2k" oninput="updateEQ()"><span class="prow-val" id="vEq2k">0 dB</span></div><div class="prow"><span class="prow-label">4 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq4k" oninput="updateEQ()"><span class="prow-val" id="vEq4k">0 dB</span></div><div class="prow"><span class="prow-label">8 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq8k" oninput="updateEQ()"><span class="prow-val" id="vEq8k">0 dB</span></div><div class="prow"><span class="prow-label">16 kHz</span><input type="range" min="0" max="200" value="100" step="5" id="eq16k" oninput="updateEQ()"><span class="prow-val" id="vEq16k">0 dB</span></div></div></div>
     <!-- LAYERS (was Distribution) -->
-    <div class="panel" id="panelAI" style="display:none">
+    <div class="panel closed" id="panelAI" style="display:none">
       <div class="panel-head" onclick="togglePanel('panelAI')"><span class="panel-title">AI Look</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <textarea id="aiPrompt" class="ai-prompt" rows="2" placeholder="Describe a look, e.g. slow purple galaxy with glowing trails" onkeydown="if(event.key==='Enter'&amp;&amp;!event.shiftKey){event.preventDefault();agAI.generate(false)}"></textarea>
@@ -510,7 +510,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         <div id="aiStatus" class="ai-status" role="status">Quick: instant keyword matching, no download.</div>
       </div>
     </div>
-    <div class="panel" id="panelDist">
+    <div class="panel closed" id="panelDist">
       <div class="panel-head" onclick="togglePanel('panelDist')"><span class="panel-title">Layers</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div id="layersUI" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;padding:6px;background:var(--elevated);border-radius:4px;border:1px solid var(--border)">
@@ -522,7 +522,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
     </div>
     <!-- OUTLINE (per layer) -->
     <!-- APPEARANCE -->
-    <div class="panel" id="panelAppear">
+    <div class="panel closed" id="panelAppear">
       <div class="panel-head" onclick="togglePanel('panelAppear')"><span class="panel-title">Emitters</span><button class="panel-rand" onclick="event.stopPropagation();randAppearance()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow prow-stack" id="emitterPicker"><div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:420px;min-width:0">
@@ -808,7 +808,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       </div>
     </div>
     <!-- GEOMETRY & MOTION -->
-    <div class="panel" id="panelGeo">
+    <div class="panel closed" id="panelGeo">
       <div class="panel-head" onclick="togglePanel('panelGeo')"><span class="panel-title">Geometry &amp; Motion</span><button class="panel-rand" onclick="event.stopPropagation();randGeometry()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow" id="rowLines"><span class="prow-label">Density</span><input type="range" min="80" max="800" value="350" step="10" id="pLines" oninput="upP()"><span class="prow-val" id="vLines">350</span></div>
@@ -840,7 +840,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       </div>
     </div>
     <!-- COLOR -->
-    <div class="panel" id="panelColor">
+    <div class="panel closed" id="panelColor">
       <div class="panel-head" onclick="togglePanel('panelColor')"><span class="panel-title">Color</span><button class="panel-rand" onclick="event.stopPropagation();randColor()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow"><div class="mode-btns"><button class="mbtn" onclick="setC('solid',this)">Solid</button><button class="mbtn on" onclick="setC('toneramp',this)">Tone ramp</button><button class="mbtn" onclick="setC('simpleramp',this)">Simple ramp</button></div></div>
@@ -853,14 +853,14 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       </div>
     </div>
     <!-- OUTLINE -->
-    <div class="panel" id="panelBg">
+    <div class="panel closed" id="panelBg">
       <div class="panel-head" onclick="togglePanel('panelBg')"><span class="panel-title">Background</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="bg-row" id="bgRow"><input type="color" id="bgColor" value="#0f0f12"></div>
       </div>
     </div>
     <!-- PRESETS -->
-    <div class="panel" id="panelParticles">
+    <div class="panel closed" id="panelParticles">
       <div class="panel-head" onclick="togglePanel('panelParticles')"><span class="panel-title">Particles</span><button class="panel-rand" onclick="event.stopPropagation();randParticles()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow"><span class="prow-label">Enabled</span><div class="mode-btns"><button class="mbtn" onclick="toggleParticles(true,this)">On</button><button class="mbtn on" onclick="toggleParticles(false,this)">Off</button></div></div>
@@ -886,7 +886,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         </div>
       </div>
     </div>
-    <div class="panel" id="panelFx">
+    <div class="panel closed" id="panelFx">
       <div class="panel-head" onclick="togglePanel('panelFx')"><span class="panel-title">Deformers</span><button class="panel-rand" onclick="event.stopPropagation();randEffects()">🎲</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body" id="fxBody">
         <div class="prow" id="rowAmp"><span class="prow-label">Amplify</span><input type="range" min="0.5" max="5" value="1" step="0.1" id="pAmplify" oninput="upP()"><span class="prow-val" id="vAmplify">1×</span></div>
@@ -911,7 +911,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       </div>
     </div>
     <!-- POST FX -->
-    <div class="panel" id="panelPostFx">
+    <div class="panel closed" id="panelPostFx">
       <div class="panel-head" onclick="togglePanel('panelPostFx')"><span class="panel-title">Post FX</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow" id="pfxScopeRow" style="display:none"><span class="prow-label">Applies to</span><div class="mode-btns"><button class="mbtn on" id="pfxTgtLayer" onclick="setPfxTarget('layer')">Active layer</button><button class="mbtn" id="pfxTgtComp" onclick="setPfxTarget('comp')">Whole composition</button></div></div>
@@ -967,7 +967,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       <input type="range" value="0" id="rColor"><input type="range" value="0" id="rDisorder">
     </div>
     <!-- DISTRIBUTION -->
-    <div class="panel" id="panelAuto">
+    <div class="panel closed" id="panelAuto">
       <div class="panel-head" onclick="togglePanel('panelAuto')"><span class="panel-title">Automation</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="mode-btns auto-tabs" id="autoTabs"><button class="mbtn on" data-tab="pilot" onclick="setAutoTab('pilot')">Autopilot<i class="auto-dot"></i></button><button class="mbtn" data-tab="mixer" onclick="setAutoTab('mixer')">Mixer<i class="auto-dot"></i></button><button class="mbtn" data-tab="reactive" onclick="setAutoTab('reactive')">Reactive<i class="auto-dot"></i></button></div>
@@ -1006,7 +1006,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
         </div>
       </div>
     </div>
-    <div class="panel" id="panelPresets">
+    <div class="panel closed" id="panelPresets">
       <div class="panel-head" onclick="togglePanel('panelPresets')"><span class="panel-title">Presets</span><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow preset-actions"><button class="mbtn" onclick="savePreset()">Save</button><button class="mbtn" onclick="clearPresets()">Clear</button><button class="mbtn" onclick="exportPreset()">Export</button><button class="mbtn" onclick="document.getElementById('presetImportFile').click()">Import</button><input type="file" id="presetImportFile" accept=".json" style="display:none" onchange="importPresets(event)"><button class="mbtn" onclick="surpriseMe()">✨ Surprise</button><button class="mbtn" onclick="shareLink()">🔗 Link</button></div>
@@ -1014,7 +1014,7 @@ body.knob-dragging,body.knob-dragging *{cursor:ns-resize!important}
       </div>
     </div>
     <!-- PRESET MORPH -->
-    <div class="panel" id="panelMorph">
+    <div class="panel closed" id="panelMorph">
       <div class="panel-head" onclick="togglePanel('panelMorph')"><span class="panel-title">Preset Morph</span><button class="tips-btn" title="Tips" aria-pressed="false" onclick="event.stopPropagation();toggleTips('panelMorph',this)">?</button><span class="panel-arrow">▼</span></div>
       <div class="panel-body">
         <div class="prow"><select id="morphAdd" onchange="morphAddPreset(this.value);this.selectedIndex=0" style="flex:1;background:var(--elevated);border:1px solid var(--border);border-radius:4px;color:var(--tx);font:.55rem 'JetBrains Mono',monospace;padding:3px 5px;min-width:0"><option value="">+ Add preset…</option></select><button class="mbtn" onclick="morphAddAll()">All</button><button class="mbtn" onclick="morphClearList()">Clear</button></div>
