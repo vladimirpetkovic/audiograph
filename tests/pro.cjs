@@ -106,6 +106,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(()=>pro.dissolve(false));
     }
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
+    {const d=await project(),w=d.layers[0].nodes.find(n=>n.type==='waveform2d');
+      assert.deepEqual(d.layers.map(l=>l.name),['Tutorial','Fluid'],'The studio opens with the tutorial scene');
+      assert.ok(w.props.mode==='spiral'&&w.props.lineShape==='pins'&&d.layers[1].nodes.some(n=>n.props.mode==='simfluid'),'Tutorial look: spiral pins over a Fluid layer');
+      assert.ok(d.layers[0].nodes.some(n=>n.type==='oscillator')&&d.layers[0].nodes.some(n=>n.type==='trails'),'with its LFO and Post FX');
+      // The tests below start from the classic one-layer Fluid graph.
+      await page.evaluate(async()=>{const g=await import('./graph.js');pro.importProject(g.project());});
+      await page.waitForFunction(()=>Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});}
     const layer0=async()=>(await project()).layers[0];
     const idOf=async type=>(await layer0()).nodes.find(n=>n.type===type)?.id;
     const ids={emitter:await idOf('gpuParticles'),audio:await idOf('audioIn'),bloom:await idOf('bloom'),output:await idOf('output')};
@@ -127,7 +134,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await lit(1);
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
-    assert.equal(await page.locator('.library-node[data-mode]').count(),30,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
+    assert.equal(await page.locator('.library-node[data-mode]').count(),29,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
     assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','3D','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite','AI'],'Library categories, Inputs first');
     assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','Gaussian Splat','Computer','Clock','Mouse & keys','Live data','MIDI'],'Inputs');
     assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','Particles','WebGPU particles','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
@@ -1105,6 +1112,7 @@ def Camera "Camera" {
     const ids=await page.evaluate(()=>pro.tour.status().ids);
     await page.waitForFunction(id=>pro.engine(id)?.status==='ready',ids.W,{timeout:30000});
     await page.evaluate(id=>{pro.engine(id).__tourMark=1;},ids.W);
+    assert.deepEqual(await page.evaluate(id=>{const p=pro.getProject().layers[0].nodes.find(n=>n.id===id).props;return [p.mode,p.lineShape];},ids.W),['linear','straight'],'Step 1 shows a straight linear waveform');
     const ringFits=()=>page.evaluate(()=>{const r=document.querySelector('#tourRing');if(!r.classList.contains('show'))return null;const a=r.getBoundingClientRect();
       const t=document.querySelector('#audioName').getBoundingClientRect();return {a:[a.left,a.top,a.right,a.bottom],t:[t.left,t.top,t.right,t.bottom]};});
     await page.waitForTimeout(500);

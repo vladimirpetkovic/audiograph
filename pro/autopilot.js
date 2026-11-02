@@ -69,7 +69,7 @@ const VISUALS=[
   [/growth|vines?|coral|organic|roots?|tendrils?|mycel/,'growth'],
   [/sacred|metatron|flower of life|seed of life|geometry/,'sacred'],
   [/graph|network|neural|synapse|connections|web\b|constellations?|nodes/,'graph'],
-  [/lissajous|harmonograph|loops?|figure.?eight|orbits?|spirograph/,'lissajous'],
+  [/lissajous|harmonograph|loops?|figure.?eight|orbits?|spirograph/,'spiral'],
   [/scatter|starfield|\bstars\b|\bdots\b|points|bokeh|snowflakes|\brain\b/,'scatter'],
   [/sine|waveforms?|\bwaves?\b|oscillat|\bsea\b|ocean|river|tides?/,'sine'],
   [/\bcircle|\bring\b|\bround\b|halo|circular|\bsun\b|eclipse/,'circle'],
@@ -113,7 +113,7 @@ export {EXAMPLES};
 // Writes a new description in words parse() understands, matched to the energy of the music (0–100).
 // `keep` (0–1) reuses the subject of the previous prompt so a song's looks feel related.
 const W_MOOD=[['slow dreamy','calm','gentle floating','serene','soft ambient'],['groovy','playful','bouncy','upbeat','funky'],['intense','explosive','wild','energetic','chaotic']];
-const W_SUBJECT=[['smoke','ink fluid','fireflies','liquid metal','sand','mandala','sacred geometry','waves','starfield','lissajous loops','rings','sphere','dna helix'],
+const W_SUBJECT=[['smoke','ink fluid','fireflies','liquid metal','sand','mandala','sacred geometry','waves','starfield','rings','sphere','dna helix'],
   ['particles','fluid','spiral','rings','flower','neural network','fractal tree','terrain','knot','torus','birds','vines','circle'],
   ['particles','fluid','spiral','smoke','liquid metal','spectrum bars','tunnel','sphere','cube','knot','fireworks','swarm','sacred geometry']];
 const W_COLOR=['sunset','ocean','aurora','cyberpunk','synthwave','ice','fire','toxic','cosmic','luxury','pastel','tropical','forest','desert','electric','monochrome',
@@ -268,13 +268,13 @@ export function build(it,{seed=Date.now(),energy:forced=null,match=85}={}){
   const r=rng(seed),E=forced??it.energy??(40+r()*30),explore=1-match/100;
   let visuals=it.visuals.slice();
   if(!visuals.length&&!it.text){
-    const calm=['phyllotaxis','spiral','simsmoke','sphere','lissajous','growth','concentric','simfluid','sacred','terrain'],hot=['simparticles','circle','concentric','simfluid','spiral','dna','tetrahedron','scatter','sacred'];
+    const calm=['phyllotaxis','spiral','simsmoke','sphere','growth','concentric','simfluid','sacred','terrain'],hot=['simparticles','circle','concentric','simfluid','spiral','dna','tetrahedron','scatter','sacred'];
     const m=pick(r,E>60?hot:calm);visuals=[{mode:m,type:typeOf(m),colors:null}];
     if(explore>.3&&r()<explore*.6){const m2=pick(r,E>60?hot:calm);if(m2!==m&&!(SIM_MODES.includes(m)&&SIM_MODES.includes(m2)))visuals.push({mode:m2,type:typeOf(m2),colors:null});}
   }
   if(it.text)visuals.unshift({mode:'text',type:'text',colors:null});
   const want=clamp(it.layers||visuals.length,1,3);visuals=visuals.slice(0,want);
-  while(visuals.length<want){const m=pick(r,['scatter','concentric','spiral','circle','lissajous']);if(!visuals.some(v=>v.mode===m))visuals.push({mode:m,type:typeOf(m),colors:null});}
+  while(visuals.length<want){const m=pick(r,['scatter','concentric','spiral','circle']);if(!visuals.some(v=>v.mode===m))visuals.push({mode:m,type:typeOf(m),colors:null});}
   const base=it.colors||moodPalette(r,E,it.dark);
   const layers=visuals.map((v,i)=>layerFor(it,v,i,{r,E,base,explore,count:visuals.length}));
   return layers;

@@ -1,7 +1,7 @@
 import * as sensors from './sensors.js';
 import {liveData,liveStatus} from './livedata.js';
 import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
-import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,aiStyled,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {HIDDEN_MODES,FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,aiStyled,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
@@ -16,7 +16,7 @@ import {SCENES} from './scenes.js';
 import {Pilot,Generator,SCENES as AP_SCENES,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
 import {ORIGINAL_PRESETS} from './templates.js';
 import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
-import {createTour} from './tour.js';
+import {createTour,tutorialScene} from './tour.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
 const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
@@ -51,7 +51,8 @@ function simKeys(g,n){
   const mode=upstreamSim(g,n);if(!mode)return keys;
   const own=keys.filter(k=>!t.props[k].sims||t.props[k].sims.includes(mode));return own.length?own:keys;
 }
-let state=project(),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
+// The studio opens with the scene the First Mile tutorial builds.
+let state=validate({format:'audiograph-pro',version:VERSION,layers:tutorialScene()}),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
 // Several nodes selected (marquee or Shift-click): `multi` holds them and `selected` is null.
 let multi=new Set();
 // The UI is drawn with CSS zoom: pointer and rect values are screen pixels, CSS lengths are divided by it.
@@ -789,7 +790,7 @@ function groupedItems(cat){
   const items=[];
   for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat&&!TYPES[t].retired)){
     const T=TYPES[t],group=T.group||GROUPS[cat][0];
-    if(MODES[t])for(const [mode,label] of MODES[t])items.push({type:t,props:{mode},label,group,description:`${label} · ${T.label}. ${T.description}`});
+    if(MODES[t]){for(const [mode,label] of MODES[t])if(!HIDDEN_MODES.has(mode))items.push({type:t,props:{mode},label,group,description:`${label} · ${T.label}. ${T.description}`});}
     else items.push({type:t,props:{},label:T.label,group,description:T.description});
   }
   return items;
@@ -1307,7 +1308,7 @@ function renderEmitter(root,n){
   const T=TYPES[n.type],s=section(root,MODES[n.type]?T.label:'Source');
   if(MODES[n.type]){
     const sel=el('select');sel.dataset.property='mode';sel.setAttribute('aria-label',T.props.mode.label);
-    for(const [id,label] of MODES[n.type]){const o=el('option','',label);o.value=id;sel.append(o);}
+    for(const [id,label] of MODES[n.type]){if(HIDDEN_MODES.has(id)&&id!==n.props.mode)continue;const o=el('option','',label);o.value=id;sel.append(o);}
     sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);setMode(g,x,sel.value);},`${T.label}: ${emitterNames[sel.value]}`);
     s.append(ui.field(T.props.mode.label,sel));
   }
@@ -1702,7 +1703,7 @@ $('helpBody').innerHTML=`
 <li>Each node shows a live thumbnail of what it outputs. A red node has a problem: hover or select it to read why (usually a missing input). Changes always fade in and out, never cut.</li></ul>
 <h3 id="h-library">The library</h3>
 <ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, Live data from the ISS, space weather, the ocean, weather, earthquakes or Wikipedia, MIDI). Live data also makes a palette: wire it into a Palette’s colors.</li>
-<li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Harmonic, Math…).</li>
+<li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Sacred, Math…).</li>
 <li><b>Emitters</b>: classic Particles and native WebGPU simulations (Particles, Fluid, Smoke, Granular sand).</li>
 <li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, GLB or glTF), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>

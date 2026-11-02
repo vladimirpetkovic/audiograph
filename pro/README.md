@@ -44,7 +44,7 @@ each with its own opacity and blend mode (up to four).
     - **Mouse & keys**: x, y, speed, click, held, keys (typing rate), scroll.
     - **Live data**: the ISS orbit, space weather (NOAA), ocean swell and weather (Open-Meteo, for a city or your location), earthquakes (USGS) or Wikipedia edits. Every source gives the same smooth level, change, pulse (events: a quake, a wave crest, the ISS entering sunlight) and phase, plus a palette made from the data; wire it into a Palette's **colors** to let the data pick the colours. Glide smooths slow feeds; Auto range stretches small swings. Offline it keeps moving on a simulated stream.
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
-- **Waveforms**: **2D** (Linear, Circle, Spiral, Harmonic, Math…).
+- **Waveforms**: **2D** (Linear, Circle, Spiral, Sacred, Math…).
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain and **3D model** (your
   imported OBJ, the built-in knot until you load one). **Render** is **Normal** (a
@@ -262,12 +262,15 @@ process the finished image.
     picture to the projector. The mapping is saved with the project and kept when
     you switch templates.
 - **Tutorial** (top right) is the First Mile, like the original's interactive
-  tutorial: it builds a real scene step by step (Audio → Waveform → Particles →
+  tutorial: it builds a real scene step by step, starting from a straight
+  Linear waveform (Audio → Waveform → Particles →
   Twist → Palette → Bloom → Trails → Output, an LFO driving a knob, a second
   layer), then highlights Templates, Mapping, Autopilot, recording and saving.
   It is offered once on the first visit (`?notour` skips that), Esc or Skip
   leaves it, the tutorial scene stays editable, and one Undo restores your
-  previous scene.
+  previous scene. The studio opens with this finished tutorial scene (spiral
+  pins with particles, Twist driven by an LFO, Bloom and Trails, over a Fluid
+  layer).
 - **Random** (beside Templates) creates a new wired node graph with random
   emitters, colours, motion and effects. It stops Autopilot; Undo restores your scene.
 - **Resolution** (beside fullscreen) sets the actual 16:9 output to 540p, 720p,
@@ -304,8 +307,8 @@ process the finished image.
     lighter accent, post FX (bloom, kaleido, reflect, chromatic, vignette,
     grain, trails, fracture), a colour harmony (analogous, complementary,
     triad, split, mono) and an energy range: Halo, Orbit, Mandala, Liquid,
-    Smoke temple, Helix lab, Shatter, Tunnel, Constellation, Harmonic, Embers,
-    Mirror garden and Prism (5 of 13 are 3D). A scene holds through a section;
+    Smoke temple, Helix lab, Shatter, Tunnel, Constellation, Embers,
+    Mirror garden and Prism (Orbit, Helix lab, Prism and Shatter use 3D). A scene holds through a section;
     its phrases swap the accent, then the base, so it evolves instead of
     jumping. Audio response, height and speed are capped (more on drops) to
     keep motion smooth. The scenes were tuned by rendering each one and

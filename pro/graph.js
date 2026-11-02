@@ -7,6 +7,8 @@ export const MODES = {
   waveform3d: [['sphere','Sphere'],['cube','Cube'],['torus','Torus'],['cylinder','Cylinder'],['cone','Cone'],['ico','Icosphere'],['pyramid','Pyramid'],['frame','Frame'],['knot','Knot'],['tetrahedron','Tetrahedron'],['dna','DNA'],['terrain','Terrain'],['model','3D model']],
   gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand']]
 };
+// Retired modes: still load and render in old scenes, but are no longer offered.
+export const HIDDEN_MODES=new Set(['lissajous']);
 export const emitterNames = {...Object.fromEntries(Object.values(MODES).flat()),simcloner:'Cloner'};
 
 export const CATEGORIES = [

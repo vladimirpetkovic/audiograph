@@ -65,7 +65,7 @@ export const durFor=(kind,every)=>kind==='drop'?2.5:kind==='build'?clamp(every*.
 // ---------- the description ----------
 const SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl)/],['simsmoke',/\b(smoke|smoky|fog|mist|steam|incense|campfire|cloud|plume)/],
   ['simparticles',/\b(particles?|particle field|firework|embers?|sparks?|stardust|confetti|fountain)/],['simsand',/\b(sand|granular|dunes?|hourglass)/]];
-const LAYOUT_NAMES=['spiral','phyllotaxis','concentric','sphere','growth','circle','tetrahedron','dna','scatter','sacred','graph','fractal','lissajous'];
+const LAYOUT_NAMES=['spiral','phyllotaxis','concentric','sphere','growth','circle','tetrahedron','dna','scatter','sacred','graph','fractal'];
 const SOLID_W=[['knot',/\b(knot|tangle)/],['torus',/\b(torus|donut|doughnut)/],['cube',/\b(cube|box)/]];
 // The original's reading of a description: tempo, energy, palette, layouts and styles (steers; the music decides when).
 export function readVibe(w,text){
@@ -107,7 +107,7 @@ export function vibeText(v){
 // phrases inside it vary one layer at a time, so the picture evolves instead of jumping.
 export const SCENES=[
   {id:'halo',label:'Halo',E:[0,65],base:['concentric','circle'],accent:['phyllotaxis','circle'],shapes:['rounded','tapered','dotted'],harmony:'analogous',fx:{pfxBloom:45,pfxEdgeGlow:12,pfxVignette:30}},
-  {id:'orbit',label:'Orbit',E:[30,100],base:['sphere','torus','knot'],accent:['lissajous','circle'],shapes:['straight','pins','tapered'],harmony:'complement',fx:{pfxBloom:38,pfxVignette:40,pfxChroma:12}},
+  {id:'orbit',label:'Orbit',E:[30,100],base:['sphere','torus','knot'],accent:['circle','phyllotaxis'],shapes:['straight','pins','tapered'],harmony:'complement',fx:{pfxBloom:38,pfxVignette:40,pfxChroma:12}},
   {id:'mandala',label:'Mandala',E:[25,90],base:['spiral','phyllotaxis','concentric'],accent:['circle'],shapes:['needles','diamonds','tapered'],harmony:'triad',fx:{pfxKaleido:45,pfxBloom:35,pfxVignette:20}},
   {id:'liquid',label:'Liquid',E:[0,70],sim:true,base:['simfluid'],accent:['circle','concentric'],shapes:['straight','tapered'],harmony:'analogous',fx:{pfxBloom:22,pfxVignette:35}},
   {id:'temple',label:'Smoke temple',E:[0,60],sim:true,base:['simsmoke'],accent:['tetrahedron','sphere'],shapes:['straight','pins'],harmony:'mono',fx:{pfxVignette:45,pfxBloom:20}},
@@ -115,10 +115,9 @@ export const SCENES=[
   {id:'shatter',label:'Shatter',E:[70,100],base:['concentric','sphere'],accent:['spiral'],shapes:['rounded','caps','straight'],harmony:'complement',fx:{pfxBloom:40,pfxFracture:true,pfxFracMode:'flow',pfxFracCells:36,pfxFracDisp:45,pfxFracBass:110}},
   {id:'tunnel',label:'Tunnel',E:[45,95],base:['spiral','concentric'],accent:null,shapes:['tapered','needles','straight'],harmony:'analogous',fx:{pfxTrails:55,pfxFeedback:35,pfxBloom:30}},
   {id:'stars',label:'Constellation',E:[0,55],base:['graph','scatter'],accent:['phyllotaxis'],shapes:['dotted','circles','pins'],harmony:'mono',fx:{pfxBloom:55,pfxEdgeGlow:20,pfxVignette:30}},
-  {id:'harmonic',label:'Harmonic',E:[0,50],base:['lissajous'],accent:['concentric','circle'],shapes:['straight','tapered'],harmony:'mono',fx:{pfxGrain:16,pfxVignette:45,pfxBloom:28}},
   {id:'embers',label:'Embers',E:[55,100],sim:true,base:['simparticles'],accent:['sphere','knot'],shapes:['straight','pins'],harmony:'complement',fx:{pfxBloom:40,pfxVignette:30}},
   {id:'mirror',label:'Mirror garden',E:[15,75],base:['phyllotaxis','spiral','sacred'],accent:['circle'],shapes:['tapered','rounded'],harmony:'analogous',fx:{pfxReflect:40,pfxBloom:30,pfxVignette:25}},
-  {id:'prism',label:'Prism',E:[60,100],base:['cube','knot','tetrahedron'],accent:['concentric','lissajous'],shapes:['straight','caps','pins'],harmony:'triad',fx:{pfxBloom:48,pfxEdgeGlow:22,pfxChroma:22,pfxVignette:30}}
+  {id:'prism',label:'Prism',E:[60,100],base:['cube','knot','tetrahedron'],accent:['concentric','circle'],shapes:['straight','caps','pins'],harmony:'triad',fx:{pfxBloom:48,pfxEdgeGlow:22,pfxChroma:22,pfxVignette:30}}
 ];
 const SCENE_BY=Object.fromEntries(SCENES.map(x=>[x.id,x]));
 // Colour harmonies: [dark, mid, bright, highlight] around one hue, kept in a calm saturation/lightness band.
@@ -169,7 +168,7 @@ export class Generator{
     const s={layout:'circle',shape:'straight',colors:sc?harmony(hx,sc.harmony,hue,E):[hx(hue-20,sat,14),hx(hue,sat,45),hx(hue+35,sat+5,62),hx(hue+70,sat+10,E>70?66:76)],background:'#000000',energy:E,
       density:35+r()*30+(E>70?10:0),thickness:12+r()*16+(E>70?6:0),spin:(E>60?30:15)*(r()<.5?-1:1),warp:E<30?15+r()*20:r()*15,glow:20+r()*20,trails:E<40?25+r()*25:r()*10,
       symmetry:'none',particles:false,growth:any(['vine','coral']),pulse:false};
-    const calmL=['spiral','phyllotaxis','concentric','sphere','growth','sacred','graph','lissajous','fractal'],hotL=['circle','concentric','spiral','tetrahedron','sphere','dna','scatter','sacred','lissajous','graph'];
+    const calmL=['spiral','phyllotaxis','concentric','sphere','growth','sacred','graph','fractal'],hotL=['circle','concentric','spiral','tetrahedron','sphere','dna','scatter','sacred','lissajous','graph'];
     const shapes=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted'];
     s.layout=this.pick(v?.layouts,E>60?hotL:calmL,'layout');
     if(!v?.layouts.length&&sc){

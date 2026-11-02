@@ -46,21 +46,27 @@ export const STEPS=[
 ];
 STEPS.forEach((s,i)=>{if(!s.keys){const prev=STEPS.slice(0,i).reverse().find(p=>p.keys);Object.assign(s,{keys:prev.keys,spiral:prev.spiral,lfo:prev.lfo,layer2:prev.layer2,scene:'keep'});}});
 
+// The scene each step shows; steps 1-2 start from a plain straight-line waveform.
+function sceneOf(s,ids){
+  const make=(k,props={})=>{const [type,p]=SPEC[k],n=node(type,0,80,{...p,...props});n.id=ids[k];return n;};
+  const keys=CHAIN.filter(k=>s.keys.includes(k)),nodes=keys.map((k,i)=>{const n=make(k,k==='W'?(s.spiral?{mode:'spiral'}:{lineShape:'straight',outline:false}):{});n.x=40+i*210;return n;}),edges=[];
+  for(let i=1;i<keys.length;i++)edges.push({from:ids[keys[i-1]],out:OUT[keys[i-1]],to:ids[keys[i]],input:IN[keys[i]]});
+  if(s.lfo){const l=make('L'),t=nodes.find(n=>n.id===ids.T);l.x=t.x;l.y=300;nodes.push(l);edges.push({from:ids.L,out:'value',to:ids.T,input:'amount'});}
+  const layers=[{id:ids.G1,name:'Tutorial',visible:true,opacity:1,blend:'source-over',nodes,edges}];
+  if(s.layer2){const k2=['A2','C','P2','O2'],n2=k2.map((k,i)=>{const n=make(k);n.x=40+i*210;return n;});
+    layers.push({id:ids.G2,name:'Fluid',visible:true,opacity:1,blend:'screen',nodes:n2,
+      edges:[{from:ids.A2,out:'audio',to:ids.C,input:'audio'},{from:ids.C,out:'shape',to:ids.P2,input:'shape'},{from:ids.P2,out:'shape',to:ids.O2,input:'image'}]});}
+  return layers;
+}
+const newIds=()=>Object.fromEntries([...Object.keys(SPEC),'G1','G2'].map(k=>[k,crypto.randomUUID()]));
+// The finished tutorial scene: the Pro studio opens with it.
+export const tutorialScene=()=>sceneOf(STEPS.at(-1),newIds());
+
 // api: setScene(layers,first), select(id), workspace(w), play(), stopAutomation(), zoom()
 export function createTour(api){
   let idx=-1,live=false,timer=0,ids=null,els=null,inviting=false;
   const $=id=>document.getElementById(id);
-  function scene(s){
-    const make=(k,props={})=>{const [type,p]=SPEC[k],n=node(type,0,80,{...p,...props});n.id=ids[k];return n;};
-    const keys=CHAIN.filter(k=>s.keys.includes(k)),nodes=keys.map((k,i)=>{const n=make(k,k==='W'&&s.spiral?{mode:'spiral'}:{});n.x=40+i*210;return n;}),edges=[];
-    for(let i=1;i<keys.length;i++)edges.push({from:ids[keys[i-1]],out:OUT[keys[i-1]],to:ids[keys[i]],input:IN[keys[i]]});
-    if(s.lfo){const l=make('L'),t=nodes.find(n=>n.id===ids.T);l.x=t.x;l.y=300;nodes.push(l);edges.push({from:ids.L,out:'value',to:ids.T,input:'amount'});}
-    const layers=[{id:ids.G1,name:'Tutorial',visible:true,opacity:1,blend:'source-over',nodes,edges}];
-    if(s.layer2){const k2=['A2','C','P2','O2'],n2=k2.map((k,i)=>{const n=make(k);n.x=40+i*210;return n;});
-      layers.push({id:ids.G2,name:'Fluid',visible:true,opacity:1,blend:'screen',nodes:n2,
-        edges:[{from:ids.A2,out:'audio',to:ids.C,input:'audio'},{from:ids.C,out:'shape',to:ids.P2,input:'shape'},{from:ids.P2,out:'shape',to:ids.O2,input:'image'}]});}
-    return layers;
-  }
+  const scene=s=>sceneOf(s,ids);
   function build(){
     if(els)return;
     const ring=document.createElement('div'),card=document.createElement('div'),ban=document.createElement('div');
@@ -106,7 +112,7 @@ export function createTour(api){
   function seen(){try{localStorage.setItem(SEEN,'1');}catch{}}
   function start(){
     build();seen();api.stopAutomation();
-    ids=Object.fromEntries([...Object.keys(SPEC),'G1','G2'].map(k=>[k,crypto.randomUUID()]));
+    ids=newIds();
     api.setScene(scene(STEPS[0]),true);idx=-1;go(0);
   }
   function stop(){
