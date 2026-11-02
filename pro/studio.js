@@ -1,5 +1,6 @@
 import * as sensors from './sensors.js';
 import {liveData,liveStatus} from './livedata.js';
+import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
 import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import * as ui from './ui.js';
@@ -485,6 +486,21 @@ function execute(g,time,dt){
         else{const gr=p.fill==='vertical'?ctx.createLinearGradient(0,0,0,HEIGHT):ctx.createRadialGradient(WIDTH/2,HEIGHT/2,0,WIDTH/2,HEIGHT/2,WIDTH*.6);gr.addColorStop(0,p.fill==='vertical'?p.c1:p.c2);gr.addColorStop(1,p.fill==='vertical'?p.c2:p.c1);ctx.fillStyle=gr;}
         ctx.fillRect(0,0,WIDTH,HEIGHT);r.image=canvas;break;}
       case 'effect':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);if(src){ctx.filter=filterFor(p.kind,p.amount);ctx.drawImage(src,0,0);ctx.filter='none';}r.image=canvas;break;}
+      case 'aiModel':r.model={model:p.model,url:p.server};break;
+      case 'aiPrompt':r.prompt={prompt:p.prompt,negative:p.negative,prompt2:p.prompt2,mix:p.mix};break;
+      case 'aiControl':r.control={kind:p.kind,strength:p.strength,low:p.low,high:p.high};break;
+      case 'aiRender':{
+        const src=asImage(need(n,'image','a picture'),n.id+'i'),m=input(n,'model')||{model:'sd-turbo',url:AI_DEFAULT_URL},
+          pr=input(n,'prompt')||{prompt:TYPES.aiPrompt.props.prompt.value,negative:TYPES.aiPrompt.props.negative.value,prompt2:'',mix:0},
+          st=nstate(n.id,()=>({})),img=aiRender(st,src,{url:m.url,model:m.model,...pr,strength:p.strength,steps:p.steps,seed:p.seed,guidance:p.guidance,size:+p.size,control:input(n,'control')||{kind:'none',strength:0}}),{canvas,ctx}=surface(n.id);
+        st.url=m.url;st.model=m.model;
+        if(img){
+          // Smooth: each frame eases the held picture towards the newest AI frame.
+          if(!st.acc||st.acc.width!==WIDTH||st.acc.height!==HEIGHT){st.acc=document.createElement('canvas');st.acc.width=WIDTH;st.acc.height=HEIGHT;st.acc.getContext('2d').drawImage(img,0,0,WIDTH,HEIGHT);}
+          const a=st.acc.getContext('2d');a.globalAlpha=Math.min(1,(1-p.smooth)*Math.min(4,dt*60));a.drawImage(img,0,0,WIDTH,HEIGHT);a.globalAlpha=1;ctx.drawImage(st.acc,0,0);
+          if(src&&p.mix>0){ctx.globalAlpha=p.mix;ctx.drawImage(src,0,0);ctx.globalAlpha=1;}
+        }else if(src)ctx.drawImage(src,0,0);
+        r.image=canvas;break;}
       case 'cornerPin':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
         const q=[[p.tlx,p.tly],[100+p.trx,p.try],[100+p.brx,100+p.bry],[p.blx,100+p.bly]].map(([x,y])=>[x*WIDTH/100,y*HEIGHT/100]);
         if(src)warpQuad(ctx,src,q);if(p.grid==='on')drawPinGrid(ctx,q);r.image=canvas;break;}
@@ -962,7 +978,7 @@ function setFolds(open){
 // Help text (descriptions, notes, tips) sits behind a ? in each inspector header; the choice is remembered.
 let tipsOn=localStorage.getItem('agpro.tips')==='1';
 function tipify(root=$('properties')){
-  root.querySelectorAll('.insp-desc,.insp-note:not(.live-value):not(.data-status):not(.audio-source):not(.insp-err)').forEach(t=>t.classList.add('tip'));
+  root.querySelectorAll('.insp-desc,.insp-note:not(.live-value):not(.data-status):not(.audio-source):not(.insp-err):not(.ai-status)').forEach(t=>t.classList.add('tip'));
   root.classList.toggle('tips-on',tipsOn);
   const head=root.querySelector('.insp-head');if(!head||head.querySelector('.tips-btn')||!root.querySelector('.tip'))return;
   const b=el('button','tips-btn','?');b.type='button';b.title='Show tips';b.setAttribute('aria-label','Show tips');b.setAttribute('aria-pressed',String(tipsOn));b.dataset.property='tips';
@@ -1000,7 +1016,7 @@ function propControl(n,key,s,connected){
   if(s.kind==='select')return ui.chips({options:s.labels||s.choices.map(c=>[c,c]),value:n.props[key],property:key,onChange:set});
   if(s.kind==='bool')return ui.field(s.label,ui.toggle({value:n.props[key],property:key,onChange:set}));
   if(s.kind==='color')return ui.colorField({label:s.label,value:n.props[key],property:key,onChange:v=>live(()=>{findNode(n.id).props[key]=v;})});
-  if(s.kind==='text'){const i=el('input');i.type='text';i.maxLength=s.max;i.value=n.props[key];i.dataset.property=key;i.onchange=()=>set(i.value);return ui.field(s.label,i);}
+  if(s.kind==='text'){const i=el(s.max>200?'textarea':'input');if(s.max>200)i.rows=3;else i.type='text';i.maxLength=s.max;i.value=n.props[key];i.dataset.property=key;i.onchange=()=>set(i.value);return ui.field(s.label,i);}
 }
 function renderProps(root,n,keys,folded){
   const t=TYPES[n.type],g=graph(),wired=k=>g.edges.some(e=>e.to===n.id&&e.input===k);
@@ -1038,6 +1054,7 @@ function renderProperties(){
     if(n.type==='audioIn')renderAudioSource(root);
     if(n.type==='palette')renderPalettePresets(root,n);
     if(DATA_INPUTS.has(n.type))renderDataInput(root,n);
+    if(n.type==='aiRender'||n.type==='aiModel')renderAiStatus(root,n);
     if(['image','video','camera'].includes(n.type))renderMediaPicker(root,n);
     if(SIM_PROPS(n.type)&&t.category!=='3d')renderSimNote(root,g,n);
     renderProps(root,n,n.type==='palette'?paletteKeys(n.props):simKeys(g,n));
@@ -1120,6 +1137,19 @@ function renderPalettePresets(root,n){
 }
 // A new emitter type starts from its defaults; wires into the old type's option knobs are dropped.
 function setMode(g,n,mode,key='mode'){if(n.props[key]===mode)return;n.props[key]=mode;n.props.opts={};n.props.chips={};g.edges=g.edges.filter(e=>!(e.to===n.id&&OPT_PORT.test(e.input)));}
+const AI_SETUP='mkdir -p ~/audiograph-ai && cd ~/audiograph-ai && for f in bridge.py requirements.txt start.command; do curl -fsSLO https://vladimirpetkovic.github.io/audiograph/ai/$f; done && chmod +x start.command && ./start.command';
+// AI bridge connection: live status line plus how to start the bridge.
+function aiTarget(n){
+  if(n.type==='aiModel')return {url:n.props.server,model:n.props.model};
+  const st=nodeState.get(n.id);return {url:st?.url||AI_DEFAULT_URL,model:st?.model||'sd-turbo'};
+}
+function renderAiStatus(root,n){
+  const s=section(root,'AI bridge'),line=el('p','insp-note ai-status');line.dataset.node=n.id;s.append(line);
+  const tick=()=>{if(!line.isConnected)return;const t=aiTarget(findNode(n.id)||n);aiClient(t.url).use();line.textContent=aiStatus(t.url,t.model);setTimeout(tick,500);};tick();
+  s.append(el('p','insp-note','The AI runs on your computer, not in the browser. Paste this into Terminal once (the first run installs Python packages and downloads the model), then leave the window open. Next time just run ~/audiograph-ai/start.command. Chrome or Edge recommended.'));
+  s.append(el('code','cmd',AI_SETUP));
+  const a=el('a','btn','AI bridge guide');a.href='https://github.com/vladimirpetkovic/audiograph/tree/main/ai';a.target='_blank';a.rel='noopener';s.append(a);
+}
 // Data inputs: live meters (filled by the readout timer), plus source status and helper / MIDI actions.
 function renderDataInput(root,n){
   const s=section(root,'Live');s.append(el('p','insp-note data-status'));
@@ -1718,7 +1748,10 @@ new ResizeObserver(()=>renderWires()).observe($('graphViewport'));
 // ---------- projection mapping ----------
 // Map mode swaps the library for the mapping panel and shows draggable surfaces over the preview. The handles are
 // DOM (not drawn into the picture), so the Detach window only ever gets the clean mapped output.
-let mapMode=false,mapSel=null,mapPt=-1,mapDrag=null;
+let mapMode=false,mapSel=null,mapPt=-1,mapDrag=null,mapSnap=localStorage.getItem('agpro.mapSnap')!=='0',mapSnapAt=null;
+// Snap: a dragged point (or a moved surface's nearest point) sticks to points of other surfaces and to the frame corners within 12 px. Hold Alt to drag freely.
+function snapTargets(m,skip){const t=[[0,0],[1,0],[1,1],[0,1]];for(const s of m.surfaces)if(s.kind!=='3d'&&s.id!==skip)t.push(...s.pts);return t;}
+function snapPoint(p,targets,r){let best=12,hit=null;for(const q of targets){const d=Math.hypot((q[0]-p[0])*r.width,(q[1]-p[1])*r.height);if(d<best){best=d;hit=q;}}return hit;}
 const overlay=$('mapOverlay'),SVGNS='http://www.w3.org/2000/svg';
 const curMap=()=>state.mapping||{on:false,test:false,surfaces:[]};
 const selSurface=()=>curMap().surfaces.find(s=>s.id===mapSel)||null;
@@ -1740,20 +1773,34 @@ document.body.classList.add('ws-studio');
 function setMapMode(on){setWorkspace(on?'map':'studio');}
 $('modeStudio').onclick=()=>setWorkspace('studio');$('modeMap').onclick=()=>setWorkspace('map');$('modeAuto').onclick=()=>setWorkspace('auto');
 function newSurfaceId(m){let i=m.surfaces.length+1;while(m.surfaces.some(s=>s.id==='s'+i))i++;return 's'+i;}
+// Mapping panel: collapsible categories like the Studio library — Scene, Surface, Projection, Camera.
+const MAP_CATS={scene:['Scene','#71f4d3'],surface:['Surface','#7199f4'],projection:['Projection','#c471f4'],camera:['Camera','#f4717f']};
+function mapCat(root,id,title){const [label,color]=MAP_CATS[id],{root:pr,body}=ui.panel({id:'map.'+id,title:title||label,color});pr.dataset.mapCat=id;root.append(pr);return body;}
+function sub(body,label){const x=el('div','map-sub');if(label)x.append(el('div','insp-sublabel',label));body.append(x);return x;}
 function renderMapPanel(){
   const root=$('mapPanel');if(!root||!mapMode)return;root.replaceChildren();
   const m=curMap(),s=selSurface();
-  const out=el('div','ws-top');root.append(out);
+  // Scene: mapping switches, the layers it draws from, and the surfaces.
+  const scene=mapCat(root,'scene'),out=sub(scene,'Output');
   out.append(ui.field('Mapping',ui.toggle({value:m.on,labels:['On','Off'],property:'mapOn',onChange:v=>mapEdit(x=>{x.on=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Mapping on':'Mapping off')})));
   out.append(ui.field('Test card',ui.toggle({value:m.test,labels:['Show','Hide'],property:'mapTest',onChange:v=>mapEdit(x=>{x.test=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Test card on':'Test card off')})));
   const pre=el('select');pre.dataset.property='mapPreset';pre.append(new Option('Start from a layout…',''));for(const k of Object.keys(mapping.PRESETS))pre.append(new Option(k,k));
   pre.onchange=()=>{const k=pre.value;if(!k)return;mapEdit(x=>{x.surfaces=mapping.PRESETS[k]();x.on=true;mapSel=x.surfaces[0].id;mapPt=-1;},'Mapping layout: '+k);};
   out.append(ui.field('Layout',pre));
-  const ls=section(root,`Surfaces (${m.surfaces.length}/${mapping.MAX_SURFACES})`),list=el('div','surf-list');
+  out.append(ui.field('Snap',ui.toggle({value:mapSnap,labels:['On','Off'],property:'mapSnap',onChange:v=>{mapSnap=v;localStorage.setItem('agpro.mapSnap',v?'1':'0');message(v?'Snap on: points stick to other surfaces (hold Alt to drag freely)':'Snap off');}})));
+  const lay=sub(scene,`Layers (${state.layers.filter(g=>g.visible).length}/${state.layers.length} on)`),ll=el('div','surf-list');lay.append(ll);
+  state.layers.forEach((g,i)=>{
+    const row=el('label','surf-row layer-row'+(g.visible?'':' off'));row.dataset.layer=g.id;
+    const vis=el('input');vis.type='checkbox';vis.checked=g.visible;vis.dataset.property='mapLayerVisible';vis.setAttribute('aria-label',`Show ${g.name}`);
+    vis.onchange=()=>edit(p=>{p.layers.find(l=>l.id===g.id).visible=vis.checked;},'Layer visibility');
+    const used=m.surfaces.filter(x=>x.source==='all'||x.source===i+1).length;
+    row.append(vis,el('span','n',`${i+1}. ${g.name}`),el('span','src',used?`${used} surface${used>1?'s':''}`:'unmapped'));ll.append(row);
+  });
+  const ls=sub(scene,`Surfaces (${m.surfaces.length}/${mapping.MAX_SURFACES})`),list=el('div','surf-list');
   m.surfaces.forEach((x,i)=>{
     const row=el('div','surf-row'+(x.id===mapSel?' sel':''));row.dataset.surface=x.id;
     const del=el('button','','×');del.type='button';del.title='Delete surface';del.onclick=e=>{e.stopPropagation();mapEdit(mm=>{mm.surfaces=mm.surfaces.filter(y=>y.id!==x.id);},'Deleted surface');};
-    row.append(el('span','n',`${i+1}. ${x.name}`),el('span','src',x.source==='all'?'All':'Layer '+x.source),del);
+    row.append(el('span','n',`${i+1}. ${x.name}`),el('span','src',(x.kind==='3d'?'3D · ':'')+(x.source==='all'?'All':'Layer '+x.source)),del);
     row.onclick=()=>{mapSel=x.id;mapPt=-1;renderMapPanel();renderOverlay();};list.append(row);
   });
   ls.append(list);
@@ -1763,45 +1810,67 @@ function renderMapPanel(){
   btn('+ 3D object','Add a 3D projection surface',()=>mapEdit(x=>{const id=newSurfaceId(x);x.surfaces.push(map3d.surface3d(id));x.on=true;mapSel=id;mapPt=-1;},'Added 3D surface'),m.surfaces.length>=mapping.MAX_SURFACES).dataset.property='mapAdd3d';
   if(s)btn('Duplicate','Copy the selected surface',()=>mapEdit(x=>{const id=newSurfaceId(x),c=clone(s);c.id=id;c.name=s.name+' copy';if(c.kind!=='3d')c.pts=c.pts.map(([a,b])=>[a+.03,b+.03]);x.surfaces.push(c);mapSel=id;},'Duplicated surface'),m.surfaces.length>=mapping.MAX_SURFACES);
   if(!s)return;
+  // Surface: what the selected surface is and what it shows.
   const upd=(fn,label)=>mapEdit(x=>{const t=x.surfaces.find(y=>y.id===s.id);if(t)fn(t);},label);
-  const ss=section(root,'Selected surface');
-  const name=el('input');name.type='text';name.maxLength=40;name.value=s.name;name.dataset.property='surfName';name.onchange=()=>upd(t=>{t.name=name.value.trim()||t.name;},'Renamed surface');ss.append(ui.field('Name',name));
+  const liveSurf=fn=>{live(st=>{const t=st.mapping?.surfaces.find(y=>y.id===s.id);if(t)fn(t);});renderOverlay();};
+  const ss=mapCat(root,'surface','Surface · '+s.name),info=sub(ss);
+  const name=el('input');name.type='text';name.maxLength=40;name.value=s.name;name.dataset.property='surfName';name.onchange=()=>upd(t=>{t.name=name.value.trim()||t.name;},'Renamed surface');info.append(ui.field('Name',name));
   const src=el('select');src.dataset.property='surfSource';src.append(new Option('All layers','all'));state.layers.forEach((g,i)=>src.append(new Option(`Layer ${i+1} · ${g.name}`,String(i+1))));src.value=String(s.source);
-  src.onchange=()=>upd(t=>{t.source=src.value==='all'?'all':+src.value;},'Surface source');ss.append(ui.field('Shows',src));
-  if(s.kind==='3d'){renderMap3d(root,ss,s,upd);return;}
+  src.onchange=()=>upd(t=>{t.source=src.value==='all'?'all':+src.value;},'Surface source');info.append(ui.field('Shows',src));
+  if(s.kind==='3d'){renderMap3d(root,ss,info,s,upd,liveSurf);return;}
   const grid=el('select');grid.dataset.property='surfGrid';for(const [c,r,l] of [[1,1,'Flat · 4 corners'],[2,1,'Bend sideways · 2×1'],[2,2,'Curved · 3×3 points'],[3,2,'Curved · 4×3 points'],[3,3,'Curved · 4×4 points'],[4,4,'Fine · 5×5 points']])grid.append(new Option(l,c+'x'+r));
   grid.append(new Option('Cube cap · wrap sides','cap'));
   grid.value=s.wrap==='cap'?'cap':s.cols+'x'+s.rows;if(!grid.value){grid.append(new Option(`${s.cols}×${s.rows}`,s.cols+'x'+s.rows));grid.value=s.cols+'x'+s.rows;}
-  grid.onchange=()=>{const cap=grid.value==='cap',[c,r]=cap?[1,1]:grid.value.split('x').map(Number);mapPt=-1;upd(t=>{Object.assign(t,mapping.regrid(t,c,r));if(cap)t.wrap='cap';},'Surface grid');};ss.append(ui.field('Warp',grid));
-  ss.append(ui.field('Mask',ui.chips({options:[['rect','Rectangle'],['ellipse','Ellipse']],value:s.mask,property:'surfMask',onChange:v=>upd(t=>{t.mask=v;},'Surface mask')})));
-  const kn=el('div','knob-grid'),liveSurf=fn=>{live(st=>{const t=st.mapping?.surfaces.find(y=>y.id===s.id);if(t)fn(t);});renderOverlay();};
+  grid.onchange=()=>{const cap=grid.value==='cap',[c,r]=cap?[1,1]:grid.value.split('x').map(Number);mapPt=-1;upd(t=>{Object.assign(t,mapping.regrid(t,c,r));if(cap)t.wrap='cap';},'Surface grid');};
+  const shape=sub(ss,'Shape');shape.append(ui.field('Warp',grid));
+  shape.append(ui.field('Mask',ui.chips({options:[['rect','Rectangle'],['ellipse','Ellipse']],value:s.mask,property:'surfMask',onChange:v=>upd(t=>{t.mask=v;},'Surface mask')})));
+  const kn=el('div','knob-grid');
   kn.append(ui.knob({label:'Opacity',min:0,max:100,step:1,value:Math.round(s.opacity*100),def:100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
   kn.append(ui.knob({label:'Feather',min:0,max:50,step:1,value:Math.round(s.feather*100),def:0,unit:'%',property:'surfFeather',onInput:v=>liveSurf(t=>{t.feather=v/100;}),onChange:()=>liveCommit('Surface feather')}));
-  ss.append(kn);
-  const cs=section(root,'Crop'),ck=el('div','knob-grid');
-  ['Left','Top','Right','Bottom'].forEach((l,i)=>ck.append(ui.knob({label:l,min:0,max:100,step:1,value:Math.round(s.crop[i]*100),def:i<2?0:100,unit:'%',property:'surfCrop'+l,
-    onInput:v=>liveSurf(t=>{const c=[...t.crop];c[i]=v/100;if(i<2)c[i]=Math.min(c[i],c[i+2]-.02);else c[i]=Math.max(c[i],c[i-2]+.02);t.crop=c;}),onChange:()=>liveCommit('Surface crop')})));
-  cs.append(ck);
-  const sa=el('div','map-actions');cs.append(sa);
-  const sb=(label,title,fn)=>{const b=el('button','mbtn',label);b.type='button';b.title=title;b.onclick=fn;sa.append(b);};
-  sb('Match crop','Place the surface exactly where its crop sits in the picture (no warp)',()=>upd(t=>{const [l,tp,r,b]=t.crop;t.wrap='flat';t.pts=mapping.gridPoints(t.cols,t.rows,[[l,tp],[r,tp],[r,b],[l,b]]);},'Surface matches crop'));
+  shape.append(kn);
+  const sa=el('div','map-actions');shape.append(sa);
+  const sb=(label,title,fn,parent=sa)=>{const b=el('button','mbtn',label);b.type='button';b.title=title;b.onclick=fn;parent.append(b);};
   sb('Full frame','Stretch the surface over the whole output',()=>upd(t=>{t.wrap='flat';t.pts=mapping.gridPoints(t.cols,t.rows);},'Surface full frame'));
   sb('Flatten','Remove the curve, keep the four corners',()=>upd(t=>{t.pts=mapping.gridPoints(t.cols,t.rows,mapping.corners(t));},'Surface flattened'));
   sb('Flip ↔','Mirror the surface left to right',()=>upd(t=>{const w=t.cols+1;t.pts=t.pts.map((_,k)=>t.pts[Math.floor(k/w)*w+(t.cols-k%w)]);},'Surface flipped'));
+  // Projection: which part of the picture lands on the quad.
+  const pj=mapCat(root,'projection'),cs=sub(pj,'Crop'),ck=el('div','knob-grid');
+  ['Left','Top','Right','Bottom'].forEach((l,i)=>ck.append(ui.knob({label:l,min:0,max:100,step:1,value:Math.round(s.crop[i]*100),def:i<2?0:100,unit:'%',property:'surfCrop'+l,
+    onInput:v=>liveSurf(t=>{const c=[...t.crop];c[i]=v/100;if(i<2)c[i]=Math.min(c[i],c[i+2]-.02);else c[i]=Math.max(c[i],c[i-2]+.02);t.crop=c;}),onChange:()=>liveCommit('Surface crop')})));
+  cs.append(ck);const ca=el('div','map-actions');cs.append(ca);
+  sb('Match crop','Place the surface exactly where its crop sits in the picture (no warp)',()=>upd(t=>{const [l,tp,r,b]=t.crop;t.wrap='flat';t.pts=mapping.gridPoints(t.cols,t.rows,[[l,tp],[r,tp],[r,b],[l,b]]);},'Surface matches crop'),ca);
 }
-function renderMap3d(root,ss,s,upd){
-  const select=(label,key,options)=>{const e=el('select');e.dataset.property='surf3d'+key;for(const [v,l] of options)e.append(new Option(l,v));e.value=s[key];e.onchange=()=>upd(t=>{if(key==='upAxis'&&t.upAxis!==e.value){const [x,y,z]=t.camera.target;t.camera.target=e.value==='Z'?[x,z,-y]:[x,-z,y];}t[key]=e.value;if(key==='primitive'){t.model='';t.modelKey='';t.camera.target=[0,0,0];t.camera.distance=6;t.scale=1;t.upAxis='Y';t.trackOn=false;}},label);ss.append(ui.field(label,e));};
-  select('Object','primitive',map3d.PRIMITIVES.map(v=>[v,v]));select('Object up','upAxis',[['Y','Y-up'],['Z','Z-up (OBJ)']]);select('Content','projection',[['uv','UV (fallback planar)'],['front','Front projection'],['box','Box']]);
-  const file=(label,accept,property,load,parent=ss)=>{const b=el('button','mbtn',label);b.dataset.property=property;b.onclick=()=>{const f=el('input');f.type='file';f.accept=accept;f.onchange=async()=>{if(!f.files[0])return;try{await load(f.files[0]);}catch(e){message(e.message,true);}};f.click();};parent.append(b);};
-  file(s.model?(map3d.hasModel(s)?s.model:'Load model… · '+s.model):'Load model…','.obj,.glb,.gltf','mapLoadModel',async f=>{const m=await map3d.loadModel(f);upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');});
-  ss.append(ui.field('Wireframe',ui.toggle({value:s.wire,labels:['On','Off'],property:'surf3dWire',onChange:v=>upd(t=>{t.wire=v;},'Mapping wireframe')})));
-  const camera=section(root,'Projector camera'),kn=el('div','knob-grid'),liveSurf=fn=>live(st=>{const t=st.mapping?.surfaces.find(v=>v.id===s.id);if(t)fn(t);});camera.append(kn);
-  for(const [key,label,min,max,step,def,unit] of [['yaw','Orbit',-180,180,.1,30,'°'],['pitch','Tilt',-89,89,.1,20,'°'],['distance','Distance',.01,Math.max(30,s.camera.distance*2),.01,6,''],['roll','Roll',-180,180,.1,0,'°'],['panX','Pan X',-2,2,.001,0,''],['panY','Pan Y',-2,2,.001,0,''],['focal','Focal length',10,200,.1,35,'mm'],['scale','Object scale',.001,Math.max(10,s.scale*2),.001,1,'']])kn.append(ui.knob({label,min,max,step,def,unit,value:key==='scale'?s.scale:s.camera[key],property:'surf3d'+key,onInput:v=>liveSurf(t=>{if(key==='scale')t.scale=v;else{t.camera[key]=v;if(!['panX','panY'].includes(key))t.trackOn=false;}}),onChange:()=>liveCommit('Projector '+label)}));
-  kn.append(ui.knob({label:'Opacity',min:0,max:100,step:1,def:100,value:s.opacity*100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
-  kn.append(ui.knob({label:'Tiling',min:.1,max:20,step:.01,def:1,value:s.tile,unit:'×',property:'surf3dTile',onInput:v=>liveSurf(t=>{t.tile=v;}),onChange:()=>liveCommit('Mapping tiling')}));
-  if(s.projection==='box')kn.append(ui.knob({label:'Box fade',min:0,max:100,step:1,def:50,value:s.fade*100,unit:'%',property:'surf3dFade',onInput:v=>liveSurf(t=>{t.fade=v/100;}),onChange:()=>liveCommit('Box projection fade')}));
-  file('Import camera…','.fbx,.usda,.usd,.usdc,.usdz,.glb,.gltf','mapImportCamera',async f=>{const track=await parseCamera(await f.arrayBuffer(),f.name);upd(t=>{t.track=track;t.trackOn=true;t.playing=true;t.hold=0;t.offset=0;},'Imported camera');},camera);
-  if(s.track){const clip=section(root,s.track.name);clip.append(ui.field('Camera',ui.toggle({value:s.trackOn,labels:['Imported','Manual'],property:'mapTrackOn',onChange:v=>upd(t=>{t.trackOn=v;},'Camera mode')})),ui.field('Playback',ui.toggle({value:s.playing,labels:['Play','Hold'],property:'mapTrackPlay',onChange:v=>upd(t=>{const clock=s.sync?elapsed:performance.now()/1000;if(!v)t.hold=((clock*s.speed+s.offset)%(s.track.duration||1)+(s.track.duration||1))%(s.track.duration||1);else t.offset=t.hold-clock*s.speed;t.playing=v;},'Camera playback')})),ui.field('Sync transport',ui.toggle({value:s.sync,labels:['On','Off'],property:'mapTrackSync',onChange:v=>upd(t=>{const now=performance.now()/1000,oldClock=s.sync?elapsed:now,newClock=v?elapsed:now;t.offset+=(oldClock-newClock)*s.speed;t.sync=v;},'Camera clock')})));
+function renderMap3d(root,ss,info,s,upd,liveSurf){
+  const select=(parent,label,key,options)=>{const e=el('select');e.dataset.property='surf3d'+key;for(const [v,l] of options)e.append(new Option(l,v));e.value=s[key];e.onchange=()=>upd(t=>{if(key==='upAxis'&&t.upAxis!==e.value){const [x,y,z]=t.camera.target;t.camera.target=e.value==='Z'?[x,z,-y]:[x,-z,y];}t[key]=e.value;if(key==='primitive'){t.model='';t.modelKey='';t.camera.target=[0,0,0];t.camera.distance=6;t.scale=1;t.upAxis='Y';t.trackOn=false;}},label);parent.append(ui.field(label,e));};
+  const file=(label,accept,property,load,parent)=>{const b=el('button','mbtn',label);b.dataset.property=property;b.onclick=()=>{const f=el('input');f.type='file';f.accept=accept;f.onchange=async()=>{if(!f.files[0])return;try{await load(f.files[0]);}catch(e){message(e.message,true);}};f.click();};parent.append(b);};
+  const knob=(parent,label,key,min,max,step,def,unit,get,set,commit)=>parent.append(ui.knob({label,min,max,step,def,unit,value:get(),property:'surf3d'+key,onInput:v=>liveSurf(t=>set(t,v)),onChange:()=>liveCommit(commit||label)}));
+  const obj=sub(ss,'Object');
+  select(obj,'Object','primitive',map3d.PRIMITIVES.map(v=>[v,v]));select(obj,'Object up','upAxis',[['Y','Y-up'],['Z','Z-up (OBJ)']]);
+  file(s.model?(map3d.hasModel(s)?s.model:'Load model… · '+s.model):'Load model…','.obj,.glb,.gltf','mapLoadModel',async f=>{const m=await map3d.loadModel(f);upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');},obj);
+  obj.append(ui.field('Wireframe',ui.toggle({value:s.wire,labels:['On','Off'],property:'surf3dWire',onChange:v=>upd(t=>{t.wire=v;},'Mapping wireframe')})));
+  const ok=el('div','knob-grid');obj.append(ok);
+  ok.append(ui.knob({label:'Opacity',min:0,max:100,step:1,def:100,value:s.opacity*100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
+  knob(ok,'Object scale','scale',.001,Math.max(10,s.scale*2),.001,1,'',()=>s.scale,(t,v)=>{t.scale=v;},'Projector Object scale');
+  // Projection: how the picture wraps the object, and where the projection box sits.
+  const pj=mapCat(root,'projection'),how=sub(pj);
+  select(how,'Content','projection',[['uv','UV (fallback planar)'],['front','Front projection'],['box','Box']]);
+  const hk=el('div','knob-grid');how.append(hk);
+  knob(hk,'Tiling','Tile',.1,20,.01,1,'×',()=>s.tile,(t,v)=>{t.tile=v;},'Mapping tiling');
+  if(s.projection==='box'){
+    knob(hk,'Box fade','Fade',0,100,1,50,'%',()=>s.fade*100,(t,v)=>{t.fade=v/100;},'Box projection fade');
+    const bx=sub(pj,'Box transform'),mk=el('div','knob-grid'),rk=el('div','knob-grid'),sk=el('div','knob-grid');bx.append(el('div','insp-sublabel minor','Move'),mk,el('div','insp-sublabel minor','Rotate'),rk,sk);
+    for(const a of ['x','y','z'])knob(mk,a.toUpperCase(),'BoxMove'+a.toUpperCase(),-2,2,.001,0,'',()=>s.box[a],(t,v)=>{t.box[a]=v;},'Box move');
+    for(const a of ['x','y','z'])knob(rk,a.toUpperCase(),'BoxRot'+a.toUpperCase(),-180,180,.1,0,'°',()=>s.box['r'+a],(t,v)=>{t.box['r'+a]=v;},'Box rotate');
+    knob(sk,'Scale','BoxScale',.05,20,.01,1,'×',()=>s.box.scale,(t,v)=>{t.box.scale=v;},'Box scale');
+    const ra=el('div','map-actions');bx.append(ra);const rb=el('button','mbtn','Reset box');rb.type='button';rb.dataset.property='surf3dBoxReset';rb.onclick=()=>upd(t=>{t.box={x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1};},'Reset box projection');ra.append(rb);
+  }
+  // Camera: the projector's viewpoint, manual or imported.
+  const cam=mapCat(root,'camera'),pose=sub(cam),kn=el('div','knob-grid');pose.append(kn);
+  for(const [key,label,min,max,step,def,unit] of [['yaw','Orbit',-180,180,.1,30,'°'],['pitch','Tilt',-89,89,.1,20,'°'],['distance','Distance',.01,Math.max(30,s.camera.distance*2),.01,6,''],['roll','Roll',-180,180,.1,0,'°'],['panX','Pan X',-2,2,.001,0,''],['panY','Pan Y',-2,2,.001,0,''],['focal','Focal length',10,200,.1,35,'mm']])
+    knob(kn,label,key,min,max,step,def,unit,()=>s.camera[key],(t,v)=>{t.camera[key]=v;if(!['panX','panY'].includes(key))t.trackOn=false;},'Projector '+label);
+  const ia=el('div','map-actions');pose.append(ia);
+  file('Import camera…','.fbx,.usda,.usd,.usdc,.usdz,.glb,.gltf','mapImportCamera',async f=>{const track=await parseCamera(await f.arrayBuffer(),f.name);upd(t=>{t.track=track;t.trackOn=true;t.playing=true;t.hold=0;t.offset=0;},'Imported camera');},ia);
+  if(s.track){const clip=sub(cam,s.track.name);clip.append(ui.field('Camera',ui.toggle({value:s.trackOn,labels:['Imported','Manual'],property:'mapTrackOn',onChange:v=>upd(t=>{t.trackOn=v;},'Camera mode')})),ui.field('Playback',ui.toggle({value:s.playing,labels:['Play','Hold'],property:'mapTrackPlay',onChange:v=>upd(t=>{const clock=s.sync?elapsed:performance.now()/1000;if(!v)t.hold=((clock*s.speed+s.offset)%(s.track.duration||1)+(s.track.duration||1))%(s.track.duration||1);else t.offset=t.hold-clock*s.speed;t.playing=v;},'Camera playback')})),ui.field('Sync transport',ui.toggle({value:s.sync,labels:['On','Off'],property:'mapTrackSync',onChange:v=>upd(t=>{const now=performance.now()/1000,oldClock=s.sync?elapsed:now,newClock=v?elapsed:now;t.offset+=(oldClock-newClock)*s.speed;t.sync=v;},'Camera clock')})));
     clip.append(ui.knob({label:'Speed',min:.05,max:4,step:.05,def:1,value:s.speed,property:'mapTrackSpeed',onInput:v=>liveSurf(t=>{const clock=t.sync?elapsed:performance.now()/1000;t.offset+=clock*(t.speed-v);t.speed=v;}),onChange:()=>liveCommit('Camera speed')}),ui.knob({label:'Time',min:0,max:Math.max(.01,s.track.duration),step:.01,def:0,value:s.hold,unit:'s',property:'mapTrackTime',onInput:v=>liveSurf(t=>{t.hold=v;t.playing=false;}),onChange:()=>liveCommit('Camera time')}));}
 }
 function overlayBox(){
@@ -1823,6 +1892,7 @@ function renderOverlay(){
   if(s.cols>1||s.rows>1){let d='';for(let j=0;j<=s.rows;j++){d+='M';for(let i=0;i<=16;i++)d+=P(mapping.pointAt(s,i/16,j/s.rows))+' ';}for(let i=0;i<=s.cols;i++){d+='M';for(let j=0;j<=16;j++)d+=P(mapping.pointAt(s,i/s.cols,j/16))+' ';}overlay.append(svg('path',{class:'mesh',d}));}
   const w=s.cols+1,cornerIdx=new Set([0,s.cols,s.rows*w,s.rows*w+s.cols]);
   s.pts.forEach((p,i)=>{const c=svg('circle',{class:'pt'+(cornerIdx.has(i)?' corner':'')+(i===mapPt?' on':''),cx:p[0]*WIDTH,cy:p[1]*HEIGHT,r:(cornerIdx.has(i)?7:5.5)*k});c.dataset.point=i;overlay.append(c);});
+  if(mapSnapAt)overlay.append(svg('circle',{class:'snap',cx:mapSnapAt[0]*WIDTH,cy:mapSnapAt[1]*HEIGHT,r:12*k}));
 }
 new ResizeObserver(()=>renderOverlay()).observe(preview);
 const normPoint=ev=>{const r=preview.getBoundingClientRect();return [(ev.clientX-r.left)/r.width,(ev.clientY-r.top)/r.height];};
@@ -1841,15 +1911,20 @@ overlay.addEventListener('pointerdown',ev=>{
 });
 overlay.addEventListener('pointermove',ev=>{
   if(!mapDrag)return;const [x,y]=normPoint(ev);
+  const snapOn=mapSnap&&!ev.altKey,box=preview.getBoundingClientRect();mapSnapAt=null;
   live(st=>{const t=st.mapping?.surfaces.find(s=>s.id===mapDrag.id);if(!t)return;
     if(mapDrag.kind==='camera'){const c=mapDrag.camera,dx=x-mapDrag.x,dy=y-mapDrag.y;t.trackOn=false;if(mapDrag.pan){t.camera.panX=Math.max(-2,Math.min(2,c.panX+dx));t.camera.panY=Math.max(-2,Math.min(2,c.panY-dy));}else{t.camera.yaw=c.yaw-dx*180;t.camera.pitch=Math.max(-89,Math.min(89,c.pitch+dy*180));}return;}
-    if(mapDrag.kind==='pt')t.pts[mapDrag.i]=[round4(Math.max(-1,Math.min(2,x))),round4(Math.max(-1,Math.min(2,y)))];
-    else{const dx=x-mapDrag.x,dy=y-mapDrag.y;t.pts=mapDrag.pts.map(([a,b])=>[round4(a+dx),round4(b+dy)]);}});
+    const targets=snapOn?snapTargets(st.mapping,t.id):[];
+    if(mapDrag.kind==='pt'){let p=[x,y];const q=snapOn&&snapPoint(p,targets,box);if(q){p=q;mapSnapAt=q;}t.pts[mapDrag.i]=[round4(Math.max(-1,Math.min(2,p[0]))),round4(Math.max(-1,Math.min(2,p[1])))];}
+    else{let dx=x-mapDrag.x,dy=y-mapDrag.y;
+      if(snapOn){let best=null;for(const [a,b] of mapDrag.pts){const p=[a+dx,b+dy],q=snapPoint(p,targets,box);if(q){const d=Math.hypot((q[0]-p[0])*box.width,(q[1]-p[1])*box.height);if(!best||d<best.d)best={d,q,ox:q[0]-p[0],oy:q[1]-p[1]};}}
+        if(best){dx+=best.ox;dy+=best.oy;mapSnapAt=best.q;}}
+      t.pts=mapDrag.pts.map(([a,b])=>[round4(a+dx),round4(b+dy)]);}});
   renderOverlay();
 });
 overlay.addEventListener('contextmenu',e=>e.preventDefault());
 let mapWheel;overlay.addEventListener('wheel',e=>{const s=selSurface();if(s?.kind!=='3d')return;e.preventDefault();live(st=>{const t=st.mapping.surfaces.find(v=>v.id===s.id);t.trackOn=false;if(e.shiftKey)t.camera.distance=Math.max(.001,Math.min(100000,t.camera.distance*Math.exp(e.deltaY*.001)));else t.camera.focal=Math.max(10,Math.min(200,t.camera.focal*Math.exp(-e.deltaY*.001)));});clearTimeout(mapWheel);mapWheel=setTimeout(()=>liveCommit('Projector zoom'),200);},{passive:false});
-const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':'Moved surface');}};
+const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;mapSnapAt=null;renderOverlay();if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':'Moved surface');}};
 overlay.addEventListener('pointerup',endMapDrag);overlay.addEventListener('pointercancel',endMapDrag);
 function mapKey(e){
   if(!mapMode||!mapSel)return false;const s=selSurface();if(!s)return false;

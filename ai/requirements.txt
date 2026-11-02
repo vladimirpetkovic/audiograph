@@ -1,0 +1,12 @@
+# Audiograph AI bridge. --mock mode needs only websockets + pillow.
+websockets>=13
+pillow>=10
+numpy
+torch>=2.3
+diffusers>=0.30
+transformers>=4.45
+accelerate
+peft
+safetensors
+huggingface_hub
+opencv-python-headless

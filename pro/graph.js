@@ -20,9 +20,10 @@ export const CATEGORIES = [
   {id:'postfx',label:'Post FX',color:'#ed71f4',hint:'Image effects (GPU shaders)'},
   {id:'controls',label:'Controls',color:'#f471d1',hint:'Numbers that move knobs'},
   {id:'audio',label:'Audio analysis',color:'#f471a8',hint:'Turn sound into numbers or reshape it'},
-  {id:'composite',label:'Composite',color:'#f4717f',hint:'Mix and output'}
+  {id:'composite',label:'Composite',color:'#f4717f',hint:'Mix and output'},
+  {id:'ai',label:'AI',color:'#f4a271',hint:'Restyle your visuals live with diffusion models (needs the local AI bridge)'}
 ];
-export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',source:'#fb7185',object3d:'#fde047',colors:'#c084fc',any:'#e5e7eb'};
+export const PORT_COLORS={number:'#6ee7b7',shape:'#f59e0b',image:'#8aa2ff',audio:'#a3e635',visual:'#f472b6',source:'#fb7185',object3d:'#fde047',colors:'#c084fc',model:'#fca5a5',prompt:'#fdba74',control:'#5eead4',any:'#e5e7eb'};
 
 const n=(label,value,min,max,step=1,extra={})=>({kind:'number',label,value,min,max,step,...extra});
 const pick=(label,value,choices,extra={})=>({kind:'select',label,value,choices,...extra});
@@ -285,6 +286,17 @@ export const TYPES = {
     tlx:n('Top-left X',0,-50,50,.5),tly:n('Top-left Y',0,-50,50,.5),trx:n('Top-right X',0,-50,50,.5),try:n('Top-right Y',0,-50,50,.5),
     brx:n('Bottom-right X',0,-50,50,.5),bry:n('Bottom-right Y',0,-50,50,.5),blx:n('Bottom-left X',0,-50,50,.5),bly:n('Bottom-left Y',0,-50,50,.5),grid:pick('Test grid','off',['off','on'])}},
   effect:{category:'postfx',label:'Quick filter',description:'Simple canvas filter.',...FX_IO,props:{kind:pick('Filter','hue',['hue','brightness','saturate','blur','invert']),amount:n('Amount',.35,0,2,.01)}},
+  // AI (Comfy-style): Model + Prompt (+ ControlNet) feed AI Render, which restyles a picture via ai/bridge.py.
+  aiModel:{category:'ai',label:'AI Model',description:'Which diffusion model the AI bridge runs, and where the bridge listens. SD-Turbo is fastest, SDXL-Turbo is sharper, SD 1.5 + LCM has the widest range of styles.',inputs:{},outputs:{model:'model'},
+    props:{model:pick('Model','sd-turbo',['sd-turbo','sdxl-turbo','lcm'],{labels:[['sd-turbo','SD-Turbo'],['sdxl-turbo','SDXL-Turbo'],['lcm','SD 1.5 + LCM']]}),server:text('Bridge address','ws://127.0.0.1:7861',200)}},
+  aiPrompt:{category:'ai',label:'Prompt',description:'What the AI should paint. Morph blends towards a second prompt; wire Audio or an LFO into Morph to let the music steer the style.',inputs:{},outputs:{prompt:'prompt'},
+    props:{prompt:text('Prompt','luminous liquid light sculpture, iridescent glass, cinematic, high detail',400),negative:text('Negative','blurry, text, watermark, low quality',400),prompt2:text('Morph to','',400),mix:n('Morph',0,0,1,.01)}},
+  aiControl:{category:'ai',label:'ControlNet',description:'Keeps the AI on your shapes: Edges follows the outlines of the picture, Depth follows its 3D form. Strength sets how tightly.',inputs:{},outputs:{control:'control'},
+    props:{kind:pick('Guide','canny',['canny','depth'],{labels:[['canny','Edges'],['depth','Depth']]}),strength:n('Strength',.8,0,2,.01),low:n('Edge low',100,0,255,1,{noPort:true}),high:n('Edge high',200,0,255,1,{noPort:true})}},
+  aiRender:{category:'ai',label:'AI Render',description:'Restyles the picture wired into it with a diffusion model on the AI bridge. Wire a Model, a Prompt and optionally a ControlNet. Strength sets how far it departs from your visuals; Smooth blends successive AI frames.',
+    inputs:{image:'image',model:'model',prompt:'prompt',control:'control'},outputs:{image:'image'},primary:['image'],
+    props:{strength:n('Strength',.5,.05,1,.01),steps:n('Steps',2,1,8,1,{noPort:true}),guidance:n('Guidance',0,0,10,.1),seed:n('Seed (-1 random)',42,-1,99999,1,{noPort:true}),
+      size:pick('Resolution','512',['256','384','512','768','1024']),smooth:n('Smooth',.3,0,.95,.01),mix:n('Mix original',0,0,1,.01)}},
   // Controls
   value:{category:'controls',label:'Value',description:'A constant number.',inputs:{},outputs:{value:'number'},props:{value:n('Value',.7,0,2,.01)}},
   oscillator:{category:'controls',label:'LFO',description:'A slow animated wave.',inputs:{},outputs:{value:'number'},props:{wave:pick('Wave','sine',['sine','triangle','saw','square','random']),rate:n('Rate (Hz)',.28,.01,8,.01),depth:n('Depth',.7,0,1,.01),offset:n('Offset',.25,0,1,.01)}},

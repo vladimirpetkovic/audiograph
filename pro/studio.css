@@ -330,7 +330,7 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 .live-value .meter b{height:4px;border-radius:2px;background:#24242a;overflow:hidden}
 .live-value .meter i{display:block;height:100%;background:var(--cat,var(--accent2));transition:width .15s}
 .live-value .meter em{font-style:normal;text-align:right;color:var(--tx)}
-code.cmd{display:block;margin:6px 0;padding:6px 8px;background:#0b0b0e;border:1px solid var(--border);border-radius:4px;font:.6rem/1.4 var(--mono);color:var(--accent2);user-select:all}
+code.cmd{display:block;margin:6px 0;padding:6px 8px;background:#0b0b0e;border:1px solid var(--border);border-radius:4px;font:.6rem/1.4 var(--mono);color:var(--accent2);user-select:all;overflow-wrap:anywhere}
 /* workspace modes + projection mapping */
 /* Workspace tabs: real tabs at the top-left; the active one opens into its panel below. */
 .modes{display:flex;align-self:end;gap:2px;padding:0 0 0 8px;margin-bottom:-1px;justify-self:start}
@@ -351,6 +351,11 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 /* A chip group that doesn't fit beside its label moves below it whole, rather than splitting across lines. */
 .map-panel .prop-row:has(>.chips){flex-wrap:wrap;row-gap:6px}.map-panel .prop-row>.chips{flex-wrap:nowrap;margin-left:auto}
 .ws-top{display:flex;flex-direction:column;gap:8px}
+.map-panel>.panel{margin:0}.map-panel .panel-title{font-weight:700;color:var(--cat,var(--tx2))}
+.map-panel .panel-body{display:flex;flex-direction:column;gap:16px;padding:6px 10px 12px}
+.map-sub{display:flex;flex-direction:column;gap:9px}.map-sub>.insp-sublabel{margin:0;color:var(--cat,var(--tx3));opacity:.8}
+.map-sub .insp-sublabel.minor{margin:2px 0 -4px;color:var(--tx3);opacity:1}
+.layer-row input{margin:0;accent-color:var(--cat)}.layer-row.off .n{color:var(--tx3);text-decoration:line-through}
 .map-panel[hidden]{display:none}
 .ws-top{padding-bottom:14px;border-bottom:1px solid var(--border)}
 .ws-block{display:flex;flex-direction:column;gap:18px}.ws-block>.insp-section{display:flex;flex-direction:column;gap:14px}.ws-block>.insp-section>.insp-label{margin-bottom:-4px}
@@ -362,6 +367,7 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .map-overlay .mesh{fill:none;stroke:rgba(210,255,58,.45);stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
 .map-overlay .pt{fill:#0b0b0d;stroke:#e6e6ea;stroke-width:2;vector-effect:non-scaling-stroke;cursor:grab}
 .map-overlay .pt.corner{fill:#e6e6ea}.map-overlay .pt.on{fill:#fff;stroke:#fff}
+.map-overlay .snap{fill:none;stroke:#5eead4;stroke-width:2;pointer-events:none}
 .map-overlay text{fill:#fff;font-family:var(--mono);font-weight:600;paint-order:stroke;stroke:#000;stroke-width:3px;pointer-events:none}
 .surf-list{display:flex;flex-direction:column;gap:3px}
 .surf-row{display:flex;align-items:center;gap:6px;padding:5px 7px;border:1px solid var(--border);border-radius:5px;background:var(--bg);cursor:pointer;font:.6rem/1.2 var(--mono);color:var(--tx2)}
@@ -417,3 +423,4 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 #tourBanner.show{transform:translateX(-50%)}
 #tourBanner b{color:var(--t-number)}
 .tbtn.tour-btn{color:var(--t-number);border-color:#6ee7b766}
+#mapPanel{gap:6px}

@@ -37,12 +37,51 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     });
     const page=await browser.newPage({viewport:{width:1540,height:1020}});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    // A mock AI bridge (routes must exist before the page loads).
+    const red='data:image/svg+xml;base64,'+Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#ff0000"/></svg>').toString('base64');
+    const aiSeen=[];let inFlight=0,maxInFlight=0;
+    await page.routeWebSocket(/:7861/,ws=>ws.onMessage(raw=>{const m=JSON.parse(raw);
+      if(m.type==='hello')ws.send(JSON.stringify({type:'info',version:1,device:'mock-cpu',mock:true,models:[{id:'sd-turbo',label:'SD-Turbo',loaded:true},{id:'sdxl-turbo',label:'SDXL-Turbo',loaded:false}],controls:['none','canny','depth']}));
+      if(m.type==='frame'){aiSeen.push(m);inFlight++;maxInFlight=Math.max(maxInFlight,inFlight);setTimeout(()=>{inFlight--;ws.send(JSON.stringify({type:'result',id:m.id,image:red,ms:42}));},60);}
+    }));
     await page.goto(process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/audiograph/pro/`);
     await page.waitForFunction(()=>window.pro&&Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});
     await page.evaluate(()=>pro.dissolve(false));
     const project=()=>page.evaluate(()=>pro.getProject());
     const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
     const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
+    if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
+    // AI: Model + Prompt + ControlNet feed AI Render, which streams frames to the bridge (mocked here) one at a time.
+    const aiLib=await page.evaluate(()=>[...document.querySelectorAll('#library .library-node')].filter(b=>['aiModel','aiPrompt','aiControl','aiRender'].includes(b.dataset.type)).length);
+    assert.equal(aiLib,4,'AI category lists Model, Prompt, ControlNet and AI Render');
+    const aiGraph=(server)=>L([{id:'w',type:'waveform2d',x:200,y:0,props:{}},{id:'m',type:'aiModel',x:200,y:200,props:{model:'sdxl-turbo',server}},{id:'q',type:'aiPrompt',x:200,y:300,props:{prompt:'neon jellyfish',prompt2:'molten gold'}},
+      {id:'c',type:'aiControl',x:200,y:400,props:{kind:'canny'}},{id:'r',type:'aiRender',x:500,y:0,props:{smooth:0,size:'384'}}],
+      [{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'r',input:'image'},{from:'m',out:'model',to:'r',input:'model'},{from:'q',out:'prompt',to:'r',input:'prompt'},{from:'c',out:'control',to:'r',input:'control'},
+       {from:'a',out:'level',to:'q',input:'mix'},{from:'r',out:'image',to:'out',input:'image'}]);
+    const redness=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let r=0,g=0;for(let i=0;i<d.length;i+=64){r+=d[i];g+=d[i+1];}return r/Math.max(1,g);});
+    await page.evaluate(p=>pro.importProject(p),aiGraph('ws://127.0.0.1:7861'));
+    await page.waitForFunction(()=>pro.stats().errors.length===0);
+    await page.waitForFunction(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let r=0,g=0;for(let i=0;i<d.length;i+=64){r+=d[i];g+=d[i+1];}return r>g*8&&r>1000;},null,{timeout:15000});
+    await page.waitForTimeout(800);
+    assert.ok(aiSeen.length>=3,'Frames keep streaming: '+aiSeen.length);assert.equal(maxInFlight,1,'Only one frame is in flight');
+    const f=aiSeen.at(-1);
+    assert.deepEqual([f.model,f.prompt,f.prompt2,f.control.kind,f.size],['sdxl-turbo','neon jellyfish','molten gold','canny',384],'Model, prompt and ControlNet reach the bridge');
+    assert.ok(f.image.startsWith('data:image/jpeg')&&f.mix>=0&&f.mix<=1,'Frame is a JPEG with an audio-driven morph');
+    await page.evaluate(()=>pro.select('r'));
+    await page.waitForFunction(()=>/Connected · mock mode \(no model\) · SDXL-Turbo/.test(document.querySelector('#properties .ai-status')?.textContent||''),null,{timeout:5000});
+    // No bridge: the picture passes through and the inspector says how to start it.
+    await page.evaluate(p=>pro.importProject(p),aiGraph('ws://127.0.0.1:7999'));
+    await page.evaluate(()=>pro.select('r'));
+    await page.waitForFunction(()=>/start the AI bridge/.test(document.querySelector('#properties .ai-status')?.textContent||''),null,{timeout:8000});
+    await lit(.02);assert.ok(await redness()<3,'Without a bridge the picture passes through');
+    assert.ok(await page.evaluate(()=>document.querySelector('#properties code.cmd')?.textContent.includes('start.command')),'Inspector shows the setup command');
+    assert.deepEqual(errors,[],'No page errors in AI nodes');
+    console.log('AI tests passed');
+    if(process.env.AUDIOGRAPH_AI_ONLY)return;
+    await page.evaluate(()=>localStorage.clear());await page.reload();
+    await page.waitForFunction(()=>window.pro&&Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});
+    await page.evaluate(()=>pro.dissolve(false));
+    }
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     const layer0=async()=>(await project()).layers[0];
     const idOf=async type=>(await layer0()).nodes.find(n=>n.type===type)?.id;
@@ -66,7 +105,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
     assert.equal(await page.locator('.library-node[data-mode]').count(),30,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
-    assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','3D','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite'],'Library categories, Inputs first');
+    assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','3D','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite','AI'],'Library categories, Inputs first');
     assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','Gaussian Splat','Computer','Clock','Mouse & keys','Live data','MIDI'],'Inputs');
     assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','Particles','WebGPU particles','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
     assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
@@ -500,6 +539,15 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.mouse.move(pt.x+pt.width/2,pt.y+pt.height/2);await page.mouse.down();await page.mouse.move(pt.x+60,pt.y+30,{steps:4});await page.mouse.up();
     const moved=(await page.evaluate(()=>pro.mapping())).surfaces[0].pts[0];assert.ok(moved[0]>m.surfaces[0].pts[0][0],'Dragging a handle moves the point');
     await page.evaluate(()=>pro.undo());assert.deepEqual((await page.evaluate(()=>pro.mapping())).surfaces[0].pts[0],m.surfaces[0].pts[0],'Point moves undo');
+    // Snap: a point dropped near another surface's point lands exactly on it; Alt drags freely; the toggle turns it off.
+    {const box=await page.locator('#preview').boundingBox(),M=await page.evaluate(()=>pro.mapping()),tgt=M.surfaces[1].pts.find(q=>M.surfaces[0].pts.every(p=>Math.hypot(p[0]-q[0],p[1]-q[1])>.05)),src=M.surfaces[0].pts[0];
+      const drag=async(alt)=>{await page.mouse.move(box.x+src[0]*box.width,box.y+src[1]*box.height);await page.mouse.down();if(alt)await page.keyboard.down('Alt');
+        await page.mouse.move(box.x+tgt[0]*box.width+6,box.y+tgt[1]*box.height-5,{steps:6});await page.mouse.up();if(alt)await page.keyboard.up('Alt');return (await page.evaluate(()=>pro.mapping())).surfaces[0].pts[0];};
+      assert.ok(await page.locator('[data-property=mapSnap] [data-value=true]').evaluate(b=>b.classList.contains('on')||b.getAttribute('aria-pressed')==='true'),'Snap is on by default');
+      assert.deepEqual(await drag(false),tgt,'A dragged point snaps onto a nearby point of another surface');await page.evaluate(()=>pro.undo());
+      assert.notDeepEqual(await drag(true),tgt,'Alt drags freely');await page.evaluate(()=>pro.undo());
+      await page.locator('[data-property=mapSnap] [data-value=false]').click();assert.notDeepEqual(await drag(false),tgt,'Snap off drags freely');await page.evaluate(()=>pro.undo());
+      await page.locator('[data-property=mapSnap] [data-value=true]').click();}
     await page.selectOption('[data-property=surfGrid]','2x2');assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].pts.length,9,'Curved warp adds points');
     await page.locator('[data-property=mapTest] [data-value=false]').click();
     const kept=await page.evaluate(()=>{pro.loadTemplate('Ink');return pro.getProject().mapping.surfaces.length;});assert.equal(kept,3,'Templates keep the venue mapping');
@@ -844,10 +892,12 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const boxMix=await page.evaluate(async()=>{
       const M=await import('./mapping.js'),D=pro.mapping3d,W=320,H=200,src=document.createElement('canvas'),out=document.createElement('canvas');src.width=out.width=W;src.height=out.height=H;const x=src.getContext('2d');for(let i=0;i<8;i++){x.fillStyle=i%2?'#ff3060':'#30c0ff';x.fillRect(i*W/8,0,W/8,H);}
       const ctx=out.getContext('2d'),s={...D.surface3d('b'),primitive:'Sphere',projection:'box'};const draw=c=>{M.render(ctx,{on:true,surfaces:[{...s,...c}]},()=>src,W,H);const d=ctx.getImageData(0,0,W,H).data;let h=0,jump=0;for(let y=0;y<H;y++)for(let X=1;X<W;X++){const i=(y*W+X)*4;h=(h+d[i]*(i%97+1)+d[i+2])%1e9;if(d[i+3]&&d[i-1])jump+=Math.abs(d[i]-d[i-4])>90?1:0;}return {h,jump};};
-      return {hard:draw({fade:0}),soft:draw({fade:1}),tiled:draw({fade:.5,tile:3}),def:M.cleanMapping({surfaces:[{...s}]}).surfaces[0]};
+      return {hard:draw({fade:0}),soft:draw({fade:1}),tiled:draw({fade:.5,tile:3}),base:draw({fade:.5}),turned:draw({fade:.5,box:{...s.box,ry:45}}),moved:draw({fade:.5,box:{...s.box,x:.3,scale:.5}}),def:M.cleanMapping({surfaces:[{...s}]}).surfaces[0],wild:M.cleanMapping({surfaces:[{...s,box:{rx:900,scale:-1}}]}).surfaces[0].box};
     });
     assert.equal(boxMix.def.fade,.5,'Box fade defaults to 50%');assert.equal(boxMix.def.tile,1,'Tiling defaults to 1x');
     assert.notEqual(boxMix.hard.h,boxMix.soft.h,'Box fade blends the projections');assert.notEqual(boxMix.soft.h,boxMix.tiled.h,'Tiling changes the mapped picture');
+    assert.deepEqual(boxMix.def.box,{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1},'Box transform defaults to identity');assert.equal(boxMix.wild.rx,180);assert.equal(boxMix.wild.scale,.05,'Box transform is clamped');
+    assert.notEqual(boxMix.base.h,boxMix.turned.h,'Rotating the box turns the projection');assert.notEqual(boxMix.base.h,boxMix.moved.h,'Moving and scaling the box shifts the projection');
     assert.ok(boxMix.tiled.jump>boxMix.soft.jump,'Tiling repeats the stripes: '+boxMix.tiled.jump+' vs '+boxMix.soft.jump);
     const three=await page.evaluate(async fixtures=>{
       const M=await import('./mapping.js'),C=await import('./camera-import.js'),D=pro.mapping3d,W=480,H=270,src=document.createElement('canvas'),out=document.createElement('canvas');src.width=out.width=W;src.height=out.height=H;const x=src.getContext('2d');x.fillStyle='#ffae55';x.fillRect(0,0,W,H);const s=D.surface3d('cube'),ctx=out.getContext('2d');
