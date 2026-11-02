@@ -841,6 +841,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(capCheck.explicit,'flat','An explicitly flat cap remains flat');
     assert.equal(capCheck.curved,'flat','Changing to a curved grid leaves cap mapping');
     assert.equal(capCheck.cap,'cap','Cap mode survives project validation');
+    const boxMix=await page.evaluate(async()=>{
+      const M=await import('./mapping.js'),D=pro.mapping3d,W=320,H=200,src=document.createElement('canvas'),out=document.createElement('canvas');src.width=out.width=W;src.height=out.height=H;const x=src.getContext('2d');for(let i=0;i<8;i++){x.fillStyle=i%2?'#ff3060':'#30c0ff';x.fillRect(i*W/8,0,W/8,H);}
+      const ctx=out.getContext('2d'),s={...D.surface3d('b'),primitive:'Sphere',projection:'box'};const draw=c=>{M.render(ctx,{on:true,surfaces:[{...s,...c}]},()=>src,W,H);const d=ctx.getImageData(0,0,W,H).data;let h=0,jump=0;for(let y=0;y<H;y++)for(let X=1;X<W;X++){const i=(y*W+X)*4;h=(h+d[i]*(i%97+1)+d[i+2])%1e9;if(d[i+3]&&d[i-1])jump+=Math.abs(d[i]-d[i-4])>90?1:0;}return {h,jump};};
+      return {hard:draw({fade:0}),soft:draw({fade:1}),tiled:draw({fade:.5,tile:3}),def:M.cleanMapping({surfaces:[{...s}]}).surfaces[0]};
+    });
+    assert.equal(boxMix.def.fade,.5,'Box fade defaults to 50%');assert.equal(boxMix.def.tile,1,'Tiling defaults to 1x');
+    assert.notEqual(boxMix.hard.h,boxMix.soft.h,'Box fade blends the projections');assert.notEqual(boxMix.soft.h,boxMix.tiled.h,'Tiling changes the mapped picture');
+    assert.ok(boxMix.tiled.jump>boxMix.soft.jump,'Tiling repeats the stripes: '+boxMix.tiled.jump+' vs '+boxMix.soft.jump);
     const three=await page.evaluate(async fixtures=>{
       const M=await import('./mapping.js'),C=await import('./camera-import.js'),D=pro.mapping3d,W=480,H=270,src=document.createElement('canvas'),out=document.createElement('canvas');src.width=out.width=W;src.height=out.height=H;const x=src.getContext('2d');x.fillStyle='#ffae55';x.fillRect(0,0,W,H);const s=D.surface3d('cube'),ctx=out.getContext('2d');
       const draw=(change={},test=false)=>{const a={...s,...change,camera:{...s.camera,...change.camera}};M.render(ctx,{on:true,test,surfaces:[a]},()=>src,W,H);const d=ctx.getImageData(0,0,W,H).data;let lit=0,hash=0;for(let i=0;i<d.length;i+=4){if(d[i]+d[i+1]+d[i+2]>15)lit++;hash=(hash+d[i]*(i%103+1)+d[i+1])%1e9;}return {lit,hash};};
