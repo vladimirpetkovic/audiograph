@@ -221,6 +221,15 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     {const sum=o=>page.evaluate(async([id,o])=>{pro.setProperty(id,'blend','normal');pro.setProperty(id,'opacity',o);await new Promise(r=>setTimeout(r,600));pro.draw();return pro.pixels();},[pal3,o]);
      const full=await sum(1),faint=await sum(.25);
      assert.ok(faint<full*.6,'Palette Opacity fades the result: '+full.toFixed(2)+' → '+faint.toFixed(2));await sum(1);}
+    // Each colour has its own opacity (the boxes under the stops); the legacy Low opacity knob is gone.
+    {await page.evaluate(id=>pro.select(id),pal3);assert.equal(await page.locator('[data-property=fade]').count(),0,'No legacy Low opacity knob');
+     const lum=()=>page.evaluate(async()=>{let s=0;for(let i=0;i<4;i++){pro.draw();s+=pro.pixels();await new Promise(r=>setTimeout(r,60));}return s/4;});
+     const before=await lum(),n=await page.locator('.pal-op').count();assert.ok(n>=2,'Every stop has an opacity box');
+     for(let i=1;i<n;i++){const o=page.locator(`.pal-op[data-index="${i}"]`);await o.click();await o.fill('10');await o.press('Enter');}
+     const st=await page.evaluate(id=>pro.getProject().layers[0].nodes.find(n=>n.id===id).props.stops,pal3);
+     assert.ok(st.slice(1).every(x=>x.a===.1),'Stop opacity is stored: '+JSON.stringify(st));
+     assert.ok(await lum()<before*.7,'Lower stop opacity fades the colours');
+     }
     await page.evaluate(id=>pro.select(id),pal3);await page.keyboard.press('Delete');
 
     // 6c. Audio: a file plays through the speakers; mic input is analysed but muted; a file afterwards is audible again.
@@ -1090,6 +1099,10 @@ def Camera "Camera" {
     await page.waitForFunction(()=>!document.querySelector('#tourCard').classList.contains('show'));
     const tourScene=await page.evaluate(()=>pro.getProject());
     assert.deepEqual(tourScene.layers[0].nodes.map(n=>n.type),['audioIn','waveform2d','particles','twist','palette','bloom','trails','output','oscillator'],'Finished tutorial scene stays');
+    {const by=t=>tourScene.layers[0].nodes.find(n=>n.type===t).props;
+     assert.deepEqual([by('trails').trails,by('trails').feedback,by('trails').smooth,by('waveform2d').lineShape,by('waveform2d').thick,by('waveform2d').outline],[79,19,100,'pins',2,true],'Tutorial look: trails, pins, outline');
+     assert.deepEqual(tourScene.layers[1].nodes.map(n=>n.type+(n.props.mode?':'+n.props.mode:'')),['audioIn','gpuParticles:simfluid','palette:toneramp','output'],'Second tutorial layer is Fluid');
+     await page.screenshot({path:'/tmp/ag-tour-end.png'});}
     assert.equal(await page.evaluate(id=>pro.engine(id).__tourMark,ids.W),1,'Tutorial steps reuse the same renderer');
     assert.equal(await page.evaluate(()=>pro.stats().paused),false,'Tutorial plays');
     assert.equal(await page.evaluate(()=>localStorage.getItem('agpro.tourSeen')),'1','Tutorial is remembered');

@@ -333,6 +333,11 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 .pal-stop input{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;border:0;padding:0}
 .pal-autos{position:relative;height:14px;margin:4px 7px 10px}
 .pal-autos .pal-auto{top:2px;margin:0 0 0 -5.5px}
+.pal-autos{margin-bottom:4px}
+.pal-ops{position:relative;height:18px;margin:0 7px 10px}
+.pal-op{position:absolute;top:0;width:36px;height:18px;transform:translateX(-50%);padding:0 2px;border:1px solid var(--border);border-radius:3px;background:var(--elevated,#17171c);color:var(--tx2,#aaa);font:inherit;font-size:10px;text-align:center;cursor:ns-resize;-moz-appearance:textfield}
+.pal-op:focus{cursor:text;color:#fff;outline:1px solid var(--accent,#6ee7b7)}
+.pal-op::-webkit-inner-spin-button,.pal-op::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .pal-presets{display:flex;flex-wrap:wrap;gap:4px}
 .pal-swatch{width:44px;height:20px;padding:0;border-radius:3px;border:1px solid var(--border);cursor:pointer;background-color:#000}
 .pal-swatch.solid{width:20px;border-radius:50%}

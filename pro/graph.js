@@ -121,9 +121,11 @@ export const SOLID_PRESETS=['#dddde0','#ffffff','#f87171','#fb923c','#fbbf24','#
 // Palette blend modes (Canvas composite operations); Normal replaces the colors that came before.
 export const PALETTE_BLENDS=[['normal','Normal'],['multiply','Multiply'],['screen','Screen'],['overlay','Overlay'],['soft-light','Soft light'],['hard-light','Hard light'],
   ['color','Color'],['hue','Hue'],['saturation','Saturation'],['luminosity','Luminosity'],['color-dodge','Dodge'],['color-burn','Burn'],['lighter','Add'],['difference','Difference'],['exclusion','Exclusion']];
+// Each stop has its own opacity (a, 0–1). Older scenes have none: the tone ramp's first stop then uses the legacy Low opacity (fade).
+export const stopAlpha=(props,i,tone)=>{const a=props.stops[i]?.a;return typeof a==='number'?a:tone&&i===0?(props.fade??0):1;};
 export function paletteStops(props){
-  const cols=props.stops.map(s=>s.c);
-  return {tone:[cols[0]+Math.round(props.fade*255).toString(16).padStart(2,'0'),...cols.slice(1)],simple:cols};
+  const cols=props.stops.map(s=>s.c),withA=tone=>cols.map((c,i)=>{const a=Math.max(0,Math.min(1,stopAlpha(props,i,tone)));return a>=1?c:c+Math.round(a*255).toString(16).padStart(2,'0');});
+  return {tone:withA(true),simple:withA(false)};
 }
 export const MAX_STOPS=8;
 // Older Palette nodes (and templates) give fixed Low/Mid/High/Peak/Max colours; they become ramp stops.
@@ -462,7 +464,7 @@ function cleanProp(s,v,label){
   if(s.kind==='color'){if(typeof v!=='string'||!/^#[0-9a-fA-F]{6}$/.test(v))throw Error(`${label} must be a #rrggbb color`);return v.toLowerCase();}
   if(s.kind==='stops'){
     if(!Array.isArray(v)||v.length<2||v.length>MAX_STOPS)throw Error(`${label}: 2–${MAX_STOPS} colours`);
-    return v.map(x=>{const c=typeof x==='string'?x:x?.c;if(typeof c!=='string'||!/^#[0-9a-fA-F]{6}$/.test(c))throw Error(`${label} must be #rrggbb colours`);return {c:c.toLowerCase(),auto:typeof x==='object'&&x.auto===true};});
+    return v.map(x=>{const c=typeof x==='string'?x:x?.c;if(typeof c!=='string'||!/^#[0-9a-fA-F]{6}$/.test(c))throw Error(`${label} must be #rrggbb colours`);const o={c:c.toLowerCase(),auto:typeof x==='object'&&x.auto===true};if(typeof x?.a==='number'&&Number.isFinite(x.a))o.a=Math.max(0,Math.min(1,x.a));return o;});
   }
   if(s.kind==='dict'){
     if(!v||typeof v!=='object'||Array.isArray(v))throw Error(`Invalid ${label}`);

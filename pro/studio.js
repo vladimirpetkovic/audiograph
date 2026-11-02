@@ -1,7 +1,7 @@
 import * as sensors from './sensors.js';
 import {liveData,liveStatus} from './livedata.js';
 import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
-import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
@@ -1143,28 +1143,29 @@ function renderSimNote(root,g,n){
 // Palette: an editable ramp (click to add a colour, click a stop to pick, drag it off to remove, dot = Auto hue drift) plus presets.
 const gradientCss=stops=>stops.length>1?`linear-gradient(to right,${stops.join(',')})`:stops[0];
 const livePalette=n=>paletteAuto(n.props,n.id,autoClock);
-function paletteCss(p){return p.mode==='solid'?p.solid:gradientCss(p.mode==='simpleramp'?paletteStops(p).simple:paletteStops(p).tone);}
+const CHECKER='repeating-conic-gradient(#3a3a42 0 25%,#1c1c22 0 50%) 0 0/10px 10px';
+function paletteCss(p){return p.mode==='solid'?p.solid:gradientCss(p.mode==='simpleramp'?paletteStops(p).simple:paletteStops(p).tone)+','+CHECKER;}
 function updatePalettePreview(){
   const pv=document.querySelector('.pal-preview');if(!pv)return;const n=findNode(pv.dataset.node);if(!n)return;const p=livePalette(n);pv.style.background=paletteCss(p);
   if(p.stops)pv.querySelectorAll('.pal-stop').forEach((m,i)=>{if(p.stops[i])m.style.background=p.stops[i].c;});
 }
 function paletteKeys(p){
   if(p.mode==='solid')return ['mode','solid','blend','mix','opacity'];
-  return ['mode',...(p.mode==='toneramp'?['fade']:[]),'blend','mix','opacity'];
+  return ['mode','blend','mix','opacity'];
 }
 const hexRgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),rgbHex=c=>'#'+c.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
 function paletteRamp(s,n){
   const pv=el('div','pal-preview pal-ramp');pv.dataset.node=n.id;pv.dataset.property='stops';pv.style.background=paletteCss(livePalette(n));s.append(pv);
   if(n.props.mode==='solid')return;
   const stops=n.props.stops,last=stops.length-1,at=i=>`${i/last*100}%`;
-  const setStops=(fn,label)=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id).props;x.stops=fn(x.stops.map(st=>({...st})));},label);
+  const setStops=(fn,label)=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id).props;x.stops=fn(x.stops.map((st,i)=>({...st,a:stopAlpha(x,i,x.mode==='toneramp')})));},label);
   pv.title='Click to add a colour';
   pv.onclick=e=>{
     if(e.target!==pv||stops.length>=MAX_STOPS)return;const r=pv.getBoundingClientRect(),f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),k=Math.min(last,Math.max(1,Math.ceil(f*last)));
     const t=f*last-(k-1),a=hexRgb(stops[k-1].c),b=hexRgb(stops[k].c);
     setStops(st=>{st.splice(k,0,{c:rgbHex(a.map((v,j)=>v+(b[j]-v)*Math.max(0,Math.min(1,t)))),auto:false});return st;},'Palette: add colour');
   };
-  const autos=el('div','pal-autos');
+  const autos=el('div','pal-autos'),ops=el('div','pal-ops'),tone=n.props.mode==='toneramp';
   stops.forEach((st,i)=>{
     const m=el('div','pal-stop');m.style.left=at(i);m.style.background=st.c;m.dataset.index=i;m.title='Click to pick · drag off to remove';
     const pick=el('input');pick.type='color';pick.value=st.c;pick.tabIndex=-1;pick.setAttribute('aria-label',`Colour ${i+1}`);m.append(pick);
@@ -1180,8 +1181,17 @@ function paletteRamp(s,n){
     pv.append(m);
     const a=el('button','knob-auto pal-auto'+(st.auto?' on':''));a.type='button';a.style.left=at(i);a.dataset.index=i;a.title='Auto: slowly wander the hue';a.setAttribute('aria-pressed',String(!!st.auto));
     a.onclick=()=>setStops(x=>{x[i].auto=!x[i].auto;return x;},`Palette: auto colour ${i+1} ${st.auto?'off':'on'}`);autos.append(a);
+    // Per-colour opacity, like the original's stops: type a % or drag up / down on it.
+    const o=el('input','pal-op');o.type='number';o.min=0;o.max=100;o.step=5;o.style.left=at(i);o.dataset.index=i;o.title=`Opacity of colour ${i+1} · drag up/down or type`;
+    o.setAttribute('aria-label',`Colour ${i+1} opacity`);o.value=Math.round(stopAlpha(n.props,i,tone)*100);
+    const setA=v=>live(()=>{findNode(n.id).props.stops[i].a=Math.max(0,Math.min(100,Math.round(v)))/100;updatePalettePreview();});
+    o.oninput=()=>{if(o.value!=='')setA(+o.value);};o.onchange=()=>{liveCommit('Palette: colour opacity');renderProperties();};
+    o.onpointerdown=e=>{if(e.button!==0||document.activeElement===o)return;e.preventDefault();const y0=e.clientY,v0=+o.value;let moved=false;o.setPointerCapture(e.pointerId);
+      o.onpointermove=ev=>{const d=(y0-ev.clientY)/uiZ();if(Math.abs(d)>2)moved=true;if(moved){o.value=Math.max(0,Math.min(100,Math.round(v0+d)));setA(+o.value);}};
+      o.onpointerup=()=>{o.onpointermove=o.onpointerup=null;if(moved){liveCommit('Palette: colour opacity');renderProperties();}else{o.focus();o.select();}};};
+    ops.append(o);
   });
-  s.append(autos);
+  s.append(autos,ops);
 }
 function renderPalettePresets(root,n){
   const s=section(root,'Palette');paletteRamp(s,n);
@@ -1678,7 +1688,7 @@ $('helpBody').innerHTML=`
 <li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, GLB or glTF), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
-<li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto; Opacity makes the result see-through), Hue shift, Color correct.</li>
+<li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto; the box under each stop is that colour's opacity: type a % or drag it up/down; Opacity makes the whole result see-through), Hue shift, Color correct.</li>
 <li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Liquid glass, Corner pin, Quick filter.</li>
 <li><b>AI</b>: AI Model, Prompt, ControlNet and AI Render restyle any picture with a local diffusion model (see AI rendering).</li>
 <li><b>Controls</b> make numbers: Value, LFO, Map range, Smooth, Math, Amplify, Random. <b>Audio analysis</b>: Audio band, Beat, Audio EQ.</li>

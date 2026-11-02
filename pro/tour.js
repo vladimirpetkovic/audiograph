@@ -6,10 +6,10 @@ const SEEN='agpro.tourSeen';
 // Chain order of the tutorial graph; each step shows the nodes it has reached so far.
 const CHAIN=['A','W','PT','T','P','B','TR','O'];
 const SPEC={
-  A:['audioIn',{}],W:['waveform2d',{mode:'linear'}],PT:['particles',{density:24,trail:35,size:5}],T:['twist',{amount:30}],
-  P:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],B:['bloom',{bloom:35}],TR:['trails',{trails:65}],O:['output',{}],
+  A:['audioIn',{}],W:['waveform2d',{mode:'linear',lineShape:'pins',thick:2,outline:true}],PT:['particles',{density:30,energy:1.6,trail:35,size:5}],T:['twist',{amount:30}],
+  P:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],B:['bloom',{bloom:35}],TR:['trails',{trails:79,feedback:19,smooth:100}],O:['output',{}],
   L:['oscillator',{rate:.12,depth:.8,offset:.1}],
-  A2:['audioIn',{}],C:['waveform2d',{mode:'circle'}],P2:['palette',{c1:'#03045e',c2:'#0077b6',c3:'#90e0ef',c4:'#ffffff'}],O2:['output',{}]
+  A2:['audioIn',{}],C:['gpuParticles',{mode:'simfluid'}],P2:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],O2:['output',{}]
 };
 const IN={W:'audio',PT:'shape',T:'shape',P:'shape',B:'image',TR:'image',O:'image'};
 const OUT={A:'audio',W:'shape',PT:'shape',T:'shape',P:'shape',B:'image',TR:'image'};
@@ -32,7 +32,7 @@ export const STEPS=[
   {t:'Let something drive a knob',node:'L',keys:CHAIN,spiral:true,lfo:true,select:'L',ban:'Drive a knob with an <b>LFO</b>',
     txt:'Drag any number output (bass, beat, an LFO, your mouse, MIDI) onto a node and pick the knob it moves. Here an LFO slowly turns the Twist.'},
   {t:'Stack Layers',sel:'.graph-head',keys:CHAIN,spiral:true,lfo:true,layer2:true,ban:'Stack <b>Layers</b>',
-    txt:'Each graph is one layer. + Layer adds another and they stack in the preview. We added a Circle layer: switch layers with these tabs.'},
+    txt:'Each graph is one layer. + Layer adds another and they stack in the preview. We added a Fluid layer (a WebGPU simulation, screened over the first): switch layers with these tabs.'},
   {t:'Start from a Template',sel:['#templates','#randomGraph'],ban:'Start from a <b>Template</b>',
     txt:'Templates load ready-made looks, including every original Audiograph preset. Random builds a surprise graph. Undo always brings your scene back.'},
   {t:'Projection Mapping',sel:'#modeMap',ban:'Projection <b>Mapping</b>',
@@ -57,7 +57,7 @@ export function createTour(api){
     if(s.lfo){const l=make('L'),t=nodes.find(n=>n.id===ids.T);l.x=t.x;l.y=300;nodes.push(l);edges.push({from:ids.L,out:'value',to:ids.T,input:'amount'});}
     const layers=[{id:ids.G1,name:'Tutorial',visible:true,opacity:1,blend:'source-over',nodes,edges}];
     if(s.layer2){const k2=['A2','C','P2','O2'],n2=k2.map((k,i)=>{const n=make(k);n.x=40+i*210;return n;});
-      layers.push({id:ids.G2,name:'Circle',visible:true,opacity:.8,blend:'screen',nodes:n2,
+      layers.push({id:ids.G2,name:'Fluid',visible:true,opacity:1,blend:'screen',nodes:n2,
         edges:[{from:ids.A2,out:'audio',to:ids.C,input:'audio'},{from:ids.C,out:'shape',to:ids.P2,input:'shape'},{from:ids.P2,out:'shape',to:ids.O2,input:'image'}]});}
     return layers;
   }

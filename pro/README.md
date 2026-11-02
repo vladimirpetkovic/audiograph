@@ -95,7 +95,8 @@ each with its own opacity and blend mode (up to four).
   presets). Its colours live on the ramp itself: click the ramp to add a colour
   (2–8), click a stop to pick its colour, drag a stop off the ramp (or right-click)
   to remove it. The dot under each stop is **Auto**: that colour's hue slowly
-  wanders on its own path. **Opacity** makes the recoloured result see-through
+  wanders on its own path. The box under it is that colour's **opacity** (type a %
+  or drag it up/down), like the original's stops. **Opacity** makes the recoloured result see-through
   (Mix still blends it with the original colours). Hue shift (static or cycling) and
   Color correct (brightness, contrast, saturation, hue, invert). Palette and Hue
   shift take a shape *or* any image (a Merge, Post FX…), so
