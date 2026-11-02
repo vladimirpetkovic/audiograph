@@ -4,6 +4,7 @@
 // renders exactly as in Audiograph.
 import {TEMPLATE_BY_NAME} from './morph.js';
 import {parseGLTF,pose} from './gltf.js';
+import {parseFBXModel} from './fbx-model.js';
 // The 3D lighting after the WebGPU Cornell box sample (soft cast shadows, light size, bounce light, floor), smooth
 // cube normals and the link width / glow / pulse knobs are built into the classic engine; Pro keeps only its own defaults.
 function patch3dLighting(patch){
@@ -451,12 +452,12 @@ export class EmitterEngine {
       this.mediaKind=kind;this.mediaName=file.name;return {flip:!!r.flip};
     }else{
       const lower=file.name.toLowerCase();
-      if(/\.(glb|gltf)$/.test(lower)){
-        // glTF / GLB: kept as a rig so animated models can be posed every frame (animate()).
-        const m=parseGLTF(await file.arrayBuffer(),file.name);this.anim=m;this.animT=null;
+      if(/\.(glb|gltf|fbx)$/.test(lower)){
+        // glTF / GLB / FBX: kept as a rig so animated models can be posed every frame (animate()).
+        const buf=await file.arrayBuffer(),m=lower.endsWith('.fbx')?await parseFBXModel(buf,file.name):parseGLTF(buf,file.name);this.anim=m;this.animT=null;
         w.objModelData=pose(m,m.clips.length?0:-1,0);
       }else if(lower.endsWith('.obj')){this.anim=null;w.objModelData=w.agParseObj(await file.text());}
-      else throw Error('Choose an OBJ, GLB or glTF model');
+      else throw Error('Choose an OBJ, FBX, GLB or glTF model');
       w.objBuiltin='file';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;
     }
     this.mediaKind=kind;this.mediaName=file.name;

@@ -24,8 +24,8 @@ each with its own opacity and blend mode (up to four).
 - **WebGPU particles → emit** takes anything visual: a picture, a waveform or
     emitter shape, or a **3D Object** (it emits from the object's live render, so a
     turning object's particles follow it). The sound still sets how many spawn.
-- **3D Object → Choose model** loads OBJ, GLB or glTF. Animated GLB/glTF models
-    (node, skinned and morph animation) play in place, with **Animation speed** and
+- **3D Object → Choose model** loads OBJ, FBX, GLB or glTF. Animated FBX (e.g. Mixamo
+    "With Skin") and GLB/glTF models (node, skinned and morph animation) play automatically, with **Animation speed** and
     a **Clip** picker; Cloners and particle emission follow the moving mesh. Export
     glTF as a single .glb (or with embedded buffers).
 - **3D camera → Depth of field / Focus** works on every 3D Object render, the
@@ -105,6 +105,10 @@ each with its own opacity and blend mode (up to four).
 - **Line style & Outline** are groups on every waveform node (13 line styles; outline off by default).
 - **Post FX**: Bloom, Blur, Lens, Kaleido, Trails, Fracture. These
   run the original GPU per-layer shaders. Quick filter is a Canvas 2D filter.
+  **Liquid glass** (WebGL2, `glass.js`) floats merging metaballs of glass over the
+  picture: each refracts and flips what is behind it, with chromatic fringes, a
+  bright rim and highlight; Frost, Tint and Dim outside restyle it. Bass swells the
+  blobs, beats wobble them.
   **Smooth** on Trails (with Feedback) and on the Feedback node fills the gaps
   between zoomed echoes so they read as one continuous smear instead of rings
   (default 100; lower it for a stepped, echo look).
@@ -218,7 +222,7 @@ process the finished image.
     give a surface one layer of its own; a hidden layer still renders there.
   - Opacity, edge **Feather** (for overlapping projectors), Rectangle / Ellipse
     mask, Match crop, Full frame, Flatten and Flip.
-  - **+ 3D object**: Cube, Sphere, Cylinder or Two walls; load OBJ, GLB or
+  - **+ 3D object**: Cube, Sphere, Cylinder or Two walls; load OBJ, FBX, GLB or
     self-contained glTF with UVs (planar fallback), Front projection or Box content.
     Normals are smoothed, so faceted models blend cleanly. **Box** content has a Box
     fade (soft blend between the three planar projections), Tiling (mirrored repeat)

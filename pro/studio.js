@@ -5,6 +5,7 @@ import {FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engine
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
+import {glassInto} from './glass.js';
 import {cleanView,spinProps} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
@@ -533,6 +534,8 @@ function execute(g,time,dt){
       case 'cornerPin':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
         const q=[[p.tlx,p.tly],[100+p.trx,p.try],[100+p.brx,100+p.bry],[p.blx,100+p.bly]].map(([x,y])=>[x*WIDTH/100,y*HEIGHT/100]);
         if(src)warpQuad(ctx,src,q);if(p.grid==='on')drawPinGrid(ctx,q);r.image=canvas;break;}
+      case 'liquidGlass':{const src=asImage(need(n,'image','an image'),n.id),{canvas,ctx}=surface(n.id);
+        if(src&&!glassInto(ctx,src,p,time,{bass:A.bands.bass,beat:A.beatPulse}))ctx.drawImage(src,0,0);r.image=canvas;break;}
       case 'blend':{const a=asImage(need(n,'a','image A'),n.id+'a'),b=asImage(need(n,'b','image B'),n.id+'b'),{canvas,ctx}=surface(n.id);
         if(a)ctx.drawImage(a,0,0);if(b){ctx.globalAlpha=p.mix;ctx.globalCompositeOperation=p.mode;ctx.drawImage(b,0,0);}ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';r.image=canvas;break;}
       case 'merge':{const {canvas,ctx}=surface(n.id);let any=false;
@@ -1264,8 +1267,8 @@ function renderEmitter(root,n){
   if(n.type==='waveform3d'&&n.props.render==='normal'&&n.props.mode!=='model')renderProps(root,n,Object.keys(PRIM_DEFAULT).filter(k=>k!=='shape'&&k!=='prim'));
   const kind=mediaKind(n);
   if(kind){
-    const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj,.glb,.gltf';
-    f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);const nc=kind==='object'?e.anim?.clips?.length||0:-1;message('Loaded '+f.files[0].name+(nc>0?` · playing ${nc>1?nc+' animation clips (pick one with Clip)':'its animation'}`:nc===0?' · no animation in this file (export a GLB with its animation baked in)':''));renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
+    const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj,.fbx,.glb,.gltf';
+    f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);const nc=kind==='object'?e.anim?.clips?.length||0:-1;message('Loaded '+f.files[0].name+(nc>0?` · playing ${nc>1?nc+' animation clips (pick one with Clip)':'its animation'}`:nc===0?' · no animation in this file (export FBX or GLB with the animation included, e.g. Mixamo “With Skin”)':''));renderProperties();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
     // One button; once loaded, a thumbnail (or the file name) with × to remove it.
     const eng=engines.get(n.id),name=eng?.mediaName,box=el('div','media-pick');f.hidden=true;
     if(name){
@@ -1622,55 +1625,90 @@ addEventListener('drop',e=>{const f=[...e.dataTransfer.files].find(f=>/\.(ag|jso
 $('helpBody').innerHTML=`
 <p class="help-credit">Made by Vladimir Petković<br><a href="https://www.vladimirpetkovic.com" target="_blank" rel="noopener">www.vladimirpetkovic.com</a></p>
 <p>Audiograph Pro turns sound into moving images you build from nodes. Each node does one thing: bring something in, draw it, bend it, colour it, polish it. Wire them into a chain, end the chain in <b>Output</b>, and everything reacts to the music as it plays.</p>
-<nav class="help-toc" aria-label="Guide contents"><a href="#h-start">Quick start</a><a href="#h-screen">The screen</a><a href="#h-graph">Nodes &amp; wires</a><a href="#h-library">The library</a><a href="#h-audio">Audio</a><a href="#h-drive">Driving knobs</a><a href="#h-layers">Layers</a><a href="#h-mapping">Mapping</a><a href="#h-auto">Autopilot</a><a href="#h-files">Saving &amp; output</a><a href="#h-keys">Keys</a></nav>
+<nav class="help-toc" aria-label="Guide contents"><a href="#h-start">Quick start</a><a href="#h-screen">The screen</a><a href="#h-graph">Nodes &amp; wires</a><a href="#h-library">The library</a><a href="#h-audio">Audio</a><a href="#h-drive">Driving knobs</a><a href="#h-layers">Layers</a><a href="#h-3d">3D &amp; models</a><a href="#h-sims">Simulations</a><a href="#h-fx">Post FX</a><a href="#h-ai">AI rendering</a><a href="#h-mapping">Mapping</a><a href="#h-auto">Autopilot</a><a href="#h-files">Saving &amp; output</a><a href="#h-keys">Keys</a><a href="#h-trouble">Troubleshooting</a></nav>
 <h3 id="h-start">Quick start</h3>
 <p>New here? Press <b>Tutorial</b> (top right) for the First Mile: it builds a scene with you node by node, then shows Mapping, Autopilot, recording and saving.</p>
 <ol><li>Pick a look from <b>Templates</b> (top right): your own <b>User templates</b> or the <b>Audiograph presets</b>.</li>
 <li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. A demo beat plays until you do.</li>
 <li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
-<li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li></ol>
+<li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li>
+<li>Press <b>V</b> on any node to see only its picture, <b>B</b> to switch it off for a moment, ⌘Z to undo anything.</li></ol>
+<p>A good first scene: <b>Audio → Waveform (Circle) → Twist → Palette → Bloom → Output</b>. Then try swapping the Waveform for an Emitter or a 3D Object, and add <b>Liquid glass</b> or <b>Fracture</b> at the end.</p>
 <h3 id="h-screen">The screen</h3>
 <p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play / pause (Space; it pauses the visuals too), stop, record to video, snapshot, the audio source, the live spectrum, fullscreen (F) and <b>Detach</b>. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
 <p><b>Move the view</b> with the mouse over the preview; it moves the active layer. On a 3D layer (Cloner, 3D Object, splats) drag orbits the camera, right-drag or Shift-drag pans. On a 2D layer drag moves the picture. The wheel zooms (2D zooms toward the pointer), double-click resets. Every move is undoable and saved with the project.</p>
+<p>The <b>inspector</b> shows the selected node's knobs, grouped into sections, with a short description of what the node does at the top. With nothing selected it shows the layer (opacity, blend mode, resolution).</p>
 <h3 id="h-graph">Nodes &amp; wires</h3>
 <p>Wires carry typed values, colour-coded on their ports: <span style="color:${PORT_COLORS.audio}">audio</span> (the sound), <span style="color:${PORT_COLORS.shape}">shape</span> (something that can still be bent and recoloured), <span style="color:${PORT_COLORS.image}">image</span> (finished pixels), <span style="color:${PORT_COLORS.number}">number</span> (a value that drives knobs), <span style="color:${PORT_COLORS.colors}">colors</span> (a palette) and <span style="color:${PORT_COLORS.object3d}">3D object</span>. A shape wired into an image input is rendered at that point; after that it is pixels. A typical chain is Audio → Waveform or Emitter → Deformers → Palette → Post FX → Output.</p>
-<ul><li>Drag from an output port to an input port to connect. Click a wire to remove it.</li>
+<ul><li>Drag from an output port to an input port to connect. Click a wire to remove it. Ports only accept matching types.</li>
 <li><b>Tab</b> over the graph searches every node and drops it at the cursor; over a wire it is inserted into the wire.</li>
 <li>Drag empty space to pan, wheel or pinch to zoom, <b>Fit</b> frames everything.</li>
 <li><b>Delete</b> removes the selected node and heals the chain. Press and hold a node's title (or Alt-drag) to pull it out of its chain.</li>
-<li><b>Bypass</b> (⏻ on a node, or <b>B</b>) switches it off: its input passes straight through. <b>Preview</b> (◉, or <b>V</b>) shows just that node's picture in the viewport; V, Esc or Show output returns.</li>
-<li>Each node shows a live thumbnail of what it outputs. Changes always fade in and out, never cut.</li></ul>
+<li><b>Bypass</b> (⏻ on a node, or <b>B</b>) switches it off: its input passes straight through, so you can compare with and without. Bypassed nodes look dashed and dim.</li>
+<li><b>Preview</b> (◉, or <b>V</b>) shows just that node's picture in the viewport, even on a hidden layer; the yellow badge, V, Esc or <b>Show output</b> returns to the full result.</li>
+<li>Each node shows a live thumbnail of what it outputs. A red node has a problem: hover or select it to read why (usually a missing input). Changes always fade in and out, never cut.</li></ul>
 <h3 id="h-library">The library</h3>
 <ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, Live data from the ISS, space weather, the ocean, weather, earthquakes or Wikipedia, MIDI). Live data also makes a palette: wire it into a Palette’s colors.</li>
 <li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Harmonic, Math…).</li>
 <li><b>Emitters</b>: classic Particles and native WebGPU simulations (Particles, Fluid, Smoke, Granular sand).</li>
-<li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, GLB or glTF), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
+<li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, GLB or glTF), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
 <li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto), Hue shift, Color correct.</li>
-<li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Corner pin, Quick filter.</li>
+<li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Liquid glass, Corner pin, Quick filter.</li>
+<li><b>AI</b>: AI Model, Prompt, ControlNet and AI Render restyle any picture with a local diffusion model (see AI rendering).</li>
 <li><b>Controls</b> make numbers: Value, LFO, Map range, Smooth, Math, Amplify, Random. <b>Audio analysis</b>: Audio band, Beat, Audio EQ.</li>
-<li><b>Composite</b>: Background, Blend, Merge, Mask, Feedback, Image transform, Layer and <b>Output</b>.</li></ul>
+<li><b>Composite</b>: Background, Blend, Merge, Mask, Feedback, Image transform, Layer and <b>Output</b>.</li>
+<li><b>Custom</b> (at the bottom): groups you saved with <b>Save as custom node</b>.</li></ul>
 <h3 id="h-audio">Audio</h3>
-<p>One sound source feeds the whole project: a file, the microphone or system audio (pick it in the Audio node or from the transport). Every Audio node hears it and gives an <span style="color:${PORT_COLORS.audio}">audio</span> wire plus numbers: level, bass, mids, high and beat. Put an <b>Audio EQ</b> in a wire to change what one emitter hears. Visual nodes have their own audio response (intensity, bass punch, release, dynamics); <b>Amplify</b> makes anything react harder.</p>
+<p>One sound source feeds the whole project: a file, the microphone or system audio (pick it in the Audio node or from the transport). Every Audio node hears it and gives an <span style="color:${PORT_COLORS.audio}">audio</span> wire plus numbers: level, bass, mids, high and beat. Put an <b>Audio EQ</b> in a wire to change what one emitter hears. Visual nodes have their own audio response (intensity, bass punch, release, dynamics); <b>Amplify</b> makes anything react harder. System audio needs Chrome: share a tab or screen and tick “Share audio”.</p>
 <h3 id="h-drive">Driving knobs</h3>
-<p>Drag a <span style="color:${PORT_COLORS.number}">number</span> output (bass, beat, an LFO, the clock, your mouse, MIDI, computer load…) onto a node and pick the knob it should move: 0 keeps the knob's setting, 1 pushes it to the maximum. Wiring a number into an emitter's <b>drive</b> replaces the music for that emitter.</p>
+<p>Drag a <span style="color:${PORT_COLORS.number}">number</span> output (bass, beat, an LFO, the clock, your mouse, MIDI, computer load…) onto a node and pick the knob it should move: 0 keeps the knob's setting, 1 pushes it to the maximum. Wiring a number into an emitter's <b>drive</b> replaces the music for that emitter. Put <b>Smooth</b> in between for softer motion, <b>Map range</b> to limit how far it goes.</p>
 <p>Knobs: drag around the knob (Shift for fine), double-click to type a value. The small dot in the centre switches a knob to <b>Auto</b>: it drifts by itself around its value.</p>
 <h3 id="h-layers">Layers</h3>
-<p>Each graph is one layer. <b>+ Layer</b> adds another; layers stack in the preview using each layer's opacity and blend mode (select empty graph space to see the layer settings). Use the tabs above the graph to switch layers and the checkbox to show or hide one. A <b>Layer</b> node brings another layer into this graph.</p>
+<p>Each graph is one layer. <b>+ Layer</b> adds another; layers stack in the preview using each layer's opacity and blend mode (select empty graph space to see the layer settings). Use the tabs above the graph to switch layers and the checkbox to show or hide one. A <b>Layer</b> node brings another layer into this graph, so one layer can be refracted, masked or blended by another.</p>
+<h3 id="h-3d">3D &amp; models</h3>
+<ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (audio-reactive lines) or Points. Drag the preview to orbit.</li>
+<li><b>3D model</b> loads <b>OBJ, FBX, GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers). Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
+<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound pushes clones with the music, Field, Random, Links draws lines between them) and <b>Look</b> nodes (Material, Light, 3D camera with Depth of field) after it.</li>
+<li>A 3D Object can also feed an emitter's <b>emit</b> input: particles, fluid, smoke or sand stream from the live (even animated) surface.</li></ul>
+<h3 id="h-sims">Simulations</h3>
+<p>The WebGPU emitters (Particles, Fluid, Smoke, Granular sand) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
+<h3 id="h-fx">Post FX</h3>
+<ul><li><b>Bloom</b> glow, <b>Blur</b> (directional, radial, focal), <b>Lens</b> (chromatic aberration, vignette, grain, scanlines), <b>Kaleido</b>, <b>Trails</b> (echoes with zoom feedback).</li>
+<li><b>Fracture</b> shatters the picture along cracks that burst open on bass and beats (Flow or Shatter).</li>
+<li><b>Liquid glass</b> floats blobs of glass over the picture that merge like liquid. Each blob refracts and flips what is behind it, with rainbow fringes (<b>Chromatic</b>), a bright <b>Rim</b> and a <b>Highlight</b>. <b>Blobs</b>, <b>Size</b>, <b>Merge</b> and <b>Spread</b> shape the liquid; <b>Refraction</b> and <b>Edge bend</b> set how strongly it bends; <b>Frost</b> blurs inside; <b>Tint</b> colours the glass; <b>Dim outside</b> darkens everything that is not under glass. Bass swells the blobs, beats make them wobble; <b>Seed</b> picks another arrangement.</li>
+<li><b>Corner pin</b> fits the picture to a wall (drag its corners on the preview); <b>Quick filter</b> is a simple canvas filter.</li></ul>
+<p>Order matters: FX later in the chain work on everything before them, so put Liquid glass after Bloom to refract the glow, or before it to make the glass itself glow.</p>
+<h3 id="h-ai">AI rendering</h3>
+<p>The AI nodes restyle your visuals in real time with a diffusion model that runs on your own computer through a small bridge program (nothing is uploaded).</p>
+<ol><li>Install and start the bridge once: the AI Render node's inspector shows the exact Terminal command to paste (it installs into <code>~/audiograph-ai</code> and listens on <code>ws://127.0.0.1:7861</code>).</li>
+<li>Wire <b>AI Model</b> → AI Render's model, <b>Prompt</b> → its prompt, and your picture (e.g. after Palette or Bloom) → its image; AI Render → Output. Optional: <b>ControlNet</b> (Depth or Edges) keeps the composition.</li>
+<li>Good settings: Steps 4 with Strength 0.5–0.7; SDXL-Turbo for detail; a fixed Seed plus <b>Smooth</b> for steady video; concrete prompts (“stained glass cathedral window, glowing, intricate”). Bright, solid input works better than thin lines.</li></ol>
+<p>The first frame takes a while as the model loads; after that it streams a few frames a second on a modern GPU or Apple Silicon.</p>
 <h3 id="h-mapping">Mapping</h3>
-<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / GLB / self-contained glTF. Choose UV, Front projection or Box content. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
+<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / GLB / self-contained glTF. Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object; <b>Lattice</b> bends it to match the real object; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
 <h3 id="h-auto">Autopilot</h3>
-<p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”) is optional and steers it; <b>Prompt match</b> sets how closely. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look.</p>
+<p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
-<ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Restore</b> brings back the browser copy. Media files are not stored: reload them in their input nodes.</li>
-<li>Record (●) captures the preview with its audio to video; the camera button saves a PNG.</li>
+<ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Restore</b> brings back the browser copy. Media files (songs, videos, models) are not stored: reload them in their nodes.</li>
+<li>Record (●) captures the preview with its audio to video; the camera button saves a PNG. The layer <b>Resolution</b> sets the render size.</li>
+<li><b>Output</b> → second display: Detach opens the picture in its own window for a projector or screen.</li>
 <li>Older projects open automatically and are updated to the current nodes.</li></ul>
 <h3 id="h-keys">Keys</h3>
 <ul><li><kbd>Space</kbd> pause visuals · <kbd>F</kbd> fullscreen · <kbd>Tab</kbd> add node · <kbd>Delete</kbd> remove node</li>
-<li><kbd>⌘Z</kbd> undo · <kbd>⇧⌘Z</kbd> redo</li>
+<li><kbd>B</kbd> bypass selected · <kbd>V</kbd> preview selected · <kbd>Esc</kbd> leave preview or close dialogs</li>
+<li><kbd>⌘Z</kbd> undo · <kbd>⇧⌘Z</kbd> redo · <kbd>⌘S</kbd> save · <kbd>⇧⌘S</kbd> save as template · <kbd>⌘O</kbd> open</li>
 <li>Drag on empty graph space to select several nodes (<kbd>Shift</kbd> adds, <kbd>⌘A</kbd> selects all) · <kbd>⌘C</kbd> / <kbd>⌘X</kbd> / <kbd>⌘V</kbd> copy, cut, paste · Alt-drag, middle-drag or two fingers pan</li>
-<li>With several nodes selected, <b>Save as custom node</b> keeps the group in the <b>Custom</b> library (at the bottom); click it to add the whole group again.</li></ul>`;
+<li>Knobs: drag (<kbd>Shift</kbd> for fine), double-click to type.</li>
+<li>With several nodes selected, <b>Save as custom node</b> keeps the group in the <b>Custom</b> library (at the bottom); click it to add the whole group again.</li></ul>
+<h3 id="h-trouble">Troubleshooting</h3>
+<ul><li><b>Nothing moves with the music</b>: check the source in the transport; browsers need one click on the page before they play sound.</li>
+<li><b>A node is red</b>: it is missing an input; select it to read the message.</li>
+<li><b>A model doesn't animate</b>: the file may hold only the mesh. Re-export with the animation (Mixamo: FBX, “With Skin”; Blender: GLB with Animation ticked). Check that Animation speed is not 0.</li>
+<li><b>Simulations stay black</b>: WebGPU is not available in this browser; use a current Chrome or Edge.</li>
+<li><b>AI says “Not running yet”</b>: start the bridge (command shown in the AI Render inspector) and keep its Terminal open.</li>
+<li><b>It runs slowly</b>: lower the layer Resolution, use fewer clones or particles, or bypass heavy FX (B) to find the culprit.</li></ul>`;
 $('helpButton').onclick=()=>$('help').showModal();
 $('graphTips').onclick=()=>{const on=$('graphHint').classList.toggle('show');$('graphTips').setAttribute('aria-pressed',String(on));};$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
@@ -1888,7 +1926,7 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   const knob=(parent,label,key,min,max,step,def,unit,get,set,commit)=>parent.append(ui.knob({label,min,max,step,def,unit,value:get(),property:'surf3d'+key,onInput:v=>liveSurf(t=>set(t,v)),onChange:()=>liveCommit(commit||label)}));
   const obj=sub(ss,'Object');
   select(obj,'Object','primitive',map3d.PRIMITIVES.map(v=>[v,v]));select(obj,'Object up','upAxis',[['Y','Y-up'],['Z','Z-up (OBJ)']]);
-  file(s.model?(map3d.hasModel(s)?s.model:'Load model… · '+s.model):'Load model…','.obj,.glb,.gltf','mapLoadModel',async f=>{const m=await map3d.loadModel(f);upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');},obj);
+  file(s.model?(map3d.hasModel(s)?s.model:'Load model… · '+s.model):'Load model…','.obj,.fbx,.glb,.gltf','mapLoadModel',async f=>{const m=await map3d.loadModel(f);upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');},obj);
   obj.append(ui.field('Wireframe',ui.toggle({value:s.wire,labels:['On','Off'],property:'surf3dWire',onChange:v=>upd(t=>{t.wire=v;},'Mapping wireframe')})));
   const ok=el('div','knob-grid');obj.append(ok);
   ok.append(ui.knob({label:'Opacity',min:0,max:100,step:1,def:100,value:s.opacity*100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));

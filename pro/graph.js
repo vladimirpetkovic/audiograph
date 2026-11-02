@@ -180,7 +180,7 @@ export const TYPES = {
     mix:n('Morph',0,0,100,1,{unit:'%'})}},
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
-  waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal) or as audio-reactive lines (Waveform). Model loads an OBJ, GLB or glTF; animated GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
+  waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal) or as audio-reactive lines (Waveform). Model loads an OBJ, FBX, GLB or glTF; animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
     render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS,
     animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
   gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Wire anything visual into “emit” (Camera, Video, Image, a waveform or emitter, a 3D Object, even a turning one) and particles spawn from its bright parts; the sound still sets how many.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
@@ -282,6 +282,11 @@ export const TYPES = {
     mode:pick('Mode','flow',['flow','shatter'],{key:'pfxFracMode'}),cells:n('Cells',44,8,64,1,{key:'pfxFracCells'}),size:n('Size var',65,0,100,1,{key:'pfxFracSize'}),gap:n('Crack gap',30,0,100,1,{key:'pfxFracGap'}),
     disp:n('Displace',58,0,100,1,{key:'pfxFracDisp'}),rot:n('Rotate',34,0,100,1,{key:'pfxFracRot'}),drift:n('Drift',45,0,100,1,{key:'pfxFracDrift'}),bass:n('Bass resp',125,0,200,1,{key:'pfxFracBass'}),
     beat:n('Beat resp',150,0,200,1,{key:'pfxFracBeat'}),recover:n('Recovery',48,0,100,1,{key:'pfxFracRecover'}),glow:n('Crack glow',62,0,100,1,{key:'pfxFracGlow'}),noise:n('Noise',35,0,100,1,{key:'pfxFracNoise'}),seed:n('Seed',17,0,999,1,{key:'pfxFracSeed'})}),
+  liquidGlass:FX('Liquid glass','Blobs of liquid glass drift over the picture, refracting and flipping what is behind them, with rainbow fringes and a bright rim. Bass swells them, beats make them wobble.',{
+    blobs:n('Blobs',7,1,16,1),size:n('Size',55,5,150,1),merge:n('Merge',45,0,100,1),spread:n('Spread',80,0,120,1),speed:n('Speed',35,0,200,1),
+    refraction:n('Refraction',60,0,150,1),edge:n('Edge bend',50,0,100,1),chroma:n('Chromatic',40,0,100,1),rim:n('Rim',55,0,100,1),highlight:n('Highlight',60,0,100,1),
+    frost:n('Frost',0,0,100,1),tint:color('Tint','#bfe8ff'),tintAmt:n('Tint amount',0,0,100,1),dim:n('Dim outside',0,0,100,1),wobble:n('Wobble',25,0,100,1),
+    bass:n('Bass resp',80,0,200,1),beat:n('Beat resp',60,0,200,1),seed:n('Seed',7,0,999,1)}),
   cornerPin:{category:'postfx',label:'Corner pin',description:'Projection mapping: drag the corners on the preview (or turn the knobs) to fit a wall, screen or object. Pair with Output for a second display.',...FX_IO,props:{
     tlx:n('Top-left X',0,-50,50,.5),tly:n('Top-left Y',0,-50,50,.5),trx:n('Top-right X',0,-50,50,.5),try:n('Top-right Y',0,-50,50,.5),
     brx:n('Bottom-right X',0,-50,50,.5),bry:n('Bottom-right Y',0,-50,50,.5),blx:n('Bottom-left X',0,-50,50,.5),bly:n('Bottom-left Y',0,-50,50,.5),grid:pick('Test grid','off',['off','on'])}},

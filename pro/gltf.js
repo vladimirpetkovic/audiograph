@@ -96,11 +96,15 @@ export function parseGLTF(buf,name='',cameraOnly=false){
     const duration=ch.reduce((m,c)=>Math.max(m,c.times[c.times.length-1]||0),0);
     return {name:a.name||'Clip '+(i+1),channels:ch,duration};
   }).filter(c=>c.channels.length&&c.duration>0);
+  const model={name,cameras:g.cameras||[],nodes,parent,order,meshes,skins,clips,faceStep:1};
+  return cameraOnly?model:fitModel(model);
+}
+// Face budget and one fixed fit for the whole animation: bounds over the rest pose and samples of the first clips.
+export function fitModel(model){
+  const {nodes,order,meshes,clips,name}=model;
   let faces=0;for(const i of order){const n=nodes[i];if(n.mesh!==undefined&&meshes[n.mesh])for(const p of meshes[n.mesh].prims)faces+=p.idx.length/3;}
-  if(!faces&&!cameraOnly)throw Error('No triangle geometry found in '+(name||'the model'));
-  const model={name,cameras:g.cameras||[],nodes,parent,order,meshes,skins,clips,faceStep:Math.max(1,Math.ceil(faces/MAX_FACES))};
-  if(cameraOnly)return model;
-  // One fixed fit for the whole animation: bounds over the rest pose and samples of the first clip.
+  if(!faces)throw Error('No triangle geometry found in '+(name||'the model'));
+  model.faceStep=Math.max(1,Math.ceil(faces/MAX_FACES));
   const box=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity],grow=v=>{for(let i=0;i<v.length;i+=3)for(let k=0;k<3;k++){box[k]=Math.min(box[k],v[i+k]);box[k+3]=Math.max(box[k+3],v[i+k]);}};
   grow(rawPose(model,-1,0).pos);
   for(const c of clips.slice(0,4))for(let s=0;s<=12;s++)grow(rawPose(model,clips.indexOf(c),c.duration*s/12).pos);

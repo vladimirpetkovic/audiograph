@@ -4,6 +4,7 @@ const path = require('node:path');
 const http = require('node:http');
 const { chromium } = require('playwright');
 const gltfFile = require('./gltf-fixture.cjs');
+const fbxFile = require('./fbx-fixture.cjs');
 const cameraFixtures = require('./camera-fixture.cjs');
 function audioFile(seconds=6) {
   const rate=8000,samples=rate*seconds,wav=Buffer.alloc(44+samples*2);
@@ -733,6 +734,24 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      const sk=await page.evaluate(async t=>{const {parseGLTF,pose}=await import('./gltf.js');const m=parseGLTF(new TextEncoder().encode(t).buffer);
        const at=s=>pose(m,0,s).verts.slice(0,8).reduce((a,v)=>a+v[0],0)/8;return [m.skins.length,at(0),at(.5),at(.99)];},gltfFile.skinned().buffer.toString());
      assert.ok(sk[0]===1&&sk[1]<sk[2]&&sk[2]<sk[3],'A skinned mesh follows its animated joint: '+sk);}
+    // Animated FBX (e.g. Mixamo) plays like a GLB: the skinned quad slides with its bone; the empty one-frame take is skipped.
+    {await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'model',render:'normal'}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'out',input:'image'}]));
+     await page.evaluate(()=>pro.select('o'));await page.waitForTimeout(1200);await page.setInputFiles('#emitterMedia',fbxFile());await page.waitForTimeout(800);
+     const st=await page.evaluate(()=>({clips:pro.engine('o').anim?.clips.map(c=>c.name),msg:document.body.innerText.includes('playing its animation')}));
+     assert.deepEqual(st.clips,['Slide'],'FBX takes become clips (empty take skipped)');assert.ok(st.msg,'Loading says the FBX animation plays');
+     const cx=()=>page.evaluate(()=>{const m=pro.engine('o').w.objModelData;return m.verts.reduce((s,v)=>s+v[0],0)/m.verts.length;});
+     const xs=[];for(let i=0;i<4;i++){xs.push(await cx());await page.waitForTimeout(230);}
+     assert.ok(Math.max(...xs)-Math.min(...xs)>.3,'An animated FBX moves: '+xs.map(x=>x.toFixed(2)));}
+    // Liquid glass refracts the picture inside drifting blobs and leaves the rest untouched.
+    {await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{}},{id:'g',type:'liquidGlass',x:400,y:0,props:{blobs:5,size:90}}],
+       [{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'g',input:'image'},{from:'g',out:'image',to:'out',input:'image'}]));
+     await page.waitForTimeout(1500);
+     const grab=()=>page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<x.length;i+=4*97)o.push(x[i],x[i+1],x[i+2]);return o;});
+     const on=await grab();
+     const q=await project();q.layers[0].nodes.find(n=>n.id==='g').bypass=true;await page.evaluate(p=>pro.importProject(p,'off'),q);await page.waitForTimeout(400);
+     const off=await grab();
+     assert.ok(difference(on,off)>2,'Liquid glass changes the picture: '+difference(on,off).toFixed(2));
+     assert.deepEqual(errors,[],'No page errors with Liquid glass');}
     assert.deepEqual(errors,[],'No page errors in 3D');
     // Live data: every source gives the same normalized numbers and a palette that can drive a Palette's colors.
     await page.evaluate(p=>pro.importProject(p),L([{id:'d',type:'liveData',x:0,y:200,props:{source:'quakes'}},{id:'o',type:'waveform3d',x:200,y:0,props:{mode:'sphere',render:'waveform'}},{id:'p',type:'palette',x:400,y:0,props:{}}],

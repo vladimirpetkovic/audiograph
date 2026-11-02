@@ -1,4 +1,5 @@
 import {parseGLTF,rawPose,I4,mul} from './gltf.js';
+import {parseFBXModel} from './fbx-model.js';
 import {sampleTrack,cleanTrack} from './camera-import.js';
 const clamp=(v,a,b,d)=>Number.isFinite(+v)?Math.max(a,Math.min(b,+v)):d;
 const models=new Map(),primitives=new Map();
@@ -30,7 +31,7 @@ export async function loadModel(file){
   if(file.size>100*1024*1024)throw Error('Mapping models are limited to 100 MB');
   const buf=await file.arrayBuffer(),key=file.name+':'+file.size;let g;
   if(/\.obj$/i.test(file.name)){const v=[],uv=[],vv=[],uu=[],faces=[];for(const line of new TextDecoder().decode(buf).split(/\r?\n/)){const [k,...a]=line.split('#')[0].trim().split(/\s+/);if(k==='v')v.push(a.slice(0,3).map(Number));if(k==='vt')uv.push([+a[0],+(a[1]||0)]);if(k==='f'){const ids=a.map(token=>{const [p,t]=token.split('/').map(Number),i=vv.length;vv.push(v[p<0?v.length+p:p-1]);uu.push(uv[t<0?uv.length+t:t-1]);return i;});for(let i=1;i<ids.length-1;i++)faces.push([ids[0],ids[i],ids[i+1]]);if(faces.length>100000)throw Error('Model exceeds 100,000 triangles');}}g=geometry(vv,faces,uu);}
-  else{const m=parseGLTF(buf,file.name),p=rawPose(m,-1,0),uv=[];for(const i of m.order)for(const prim of m.meshes[m.nodes[i].mesh]?.prims||[])for(let j=0;j<prim.pos.length/3;j++)uv.push(prim.uv?[prim.uv[j*2],1-prim.uv[j*2+1]]:undefined);g=geometry(Array.from({length:p.pos.length/3},(_,i)=>p.pos.slice(i*3,i*3+3)),p.faces,uv);if(m.clips.length)g.rig=rig(m,g,p.faces);}
+  else{const m=/\.fbx$/i.test(file.name)?await parseFBXModel(buf,file.name):parseGLTF(buf,file.name),p=rawPose(m,-1,0),uv=[];for(const i of m.order)for(const prim of m.meshes[m.nodes[i].mesh]?.prims||[])for(let j=0;j<prim.pos.length/3;j++)uv.push(prim.uv?[prim.uv[j*2],1-prim.uv[j*2+1]]:undefined);g=geometry(Array.from({length:p.pos.length/3},(_,i)=>p.pos.slice(i*3,i*3+3)),p.faces,uv);if(m.clips.length)g.rig=rig(m,g,p.faces);}
   if(!g.data.every(Number.isFinite))throw Error('Model contains invalid coordinates');models.set(key,g);if(models.size>16)models.delete(models.keys().next().value);const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const v of g.verts)for(let k=0;k<3;k++){lo[k]=Math.min(lo[k],v[k]);hi[k]=Math.max(hi[k],v[k]);}return {model:file.name,modelKey:key,clips:clipsOf(g),target:lo.map((x,k)=>(x+hi[k])/2),distance:Math.max(...hi.map((x,k)=>x-lo[k]))*3||6};
 }
 let renderer;

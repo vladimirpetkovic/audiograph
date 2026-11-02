@@ -198,6 +198,7 @@ export function parse(text){
   fx('blur',/soft focus|blurr?y|out of focus|hazy|defocus|dreamy blur/,{x:18,y:0},'soft blur');
   fx('kaleido',/kaleidoscop/,{kaleido:70},'kaleidoscope');
   fx('fracture',/shatter|fracture|broken glass|broken mirror|mosaic|shards|glitch/,{mode:/glitch/.test(t)?'flow':'shatter'},/glitch/.test(t)?'glitch':'shatter');
+  fx('liquidGlass',/liquid glass|glass blobs?|metaballs?|blobs? of glass|refract|water drops?|droplets?|lava lamp/,{},'liquid glass');
   const lens={};if(has(/chromatic|rgb split|aberration|prismatic|glitch/))lens.chroma=60;if(has(/vignette|cinematic|\bfilm\b|movie/))lens.vignette=65;
   if(has(/grain|grainy|\bfilm\b|analog|vintage|retro|vhs|lo.?fi|old tv/))lens.grain=55;if(has(/scanlines?|\bcrt\b|vhs|arcade|old tv|retro tv/))lens.scanlines=55;
   if(Object.keys(lens).length&&!neg(/lens|grain|film|vignette/)){it.fx.lens=lens;add('FX',Object.keys(lens).join(' + '));}
@@ -335,6 +336,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   const img=[];
   if(!i&&it.fx.kaleido)img.push(['kaleido',it.fx.kaleido]);
   if(!i&&it.fx.fracture)img.push(['fracture',it.fx.fracture]);
+  if(!i&&it.fx.liquidGlass)img.push(['liquidGlass',it.fx.liquidGlass]);
   if(it.fx.feedback&&!i)img.push(['feedback',it.fx.feedback]);
   if(it.fx.trails)img.push(['trails',it.fx.trails]);
   if(it.fx.blur&&!i)img.push(['blur',it.fx.blur]);
