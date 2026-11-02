@@ -259,7 +259,7 @@ export const TYPES = {
     mode:pick('Mode','toneramp',['toneramp','simpleramp','solid'],{labels:[['toneramp','Tone ramp'],['simpleramp','Simple ramp'],['solid','Solid']]}),
     stops:{kind:'stops',label:'Colors',value:[{c:'#1a1a2e',auto:false},{c:'#e94560',auto:false},{c:'#f5a623',auto:false},{c:'#6ee7b7',auto:false}]},
     fade:n('Low opacity',0,0,1,.05),solid:color('Solid','#dddde0'),
-    blend:pick('Blend','normal',PALETTE_BLENDS.map(b=>b[0]),{labels:PALETTE_BLENDS}),mix:n('Mix',1,0,1,.01)}},
+    blend:pick('Blend','normal',PALETTE_BLENDS.map(b=>b[0]),{labels:PALETTE_BLENDS}),mix:n('Mix',1,0,1,.01),opacity:n('Opacity',1,0,1,.01)}},
   hue:{category:'color',label:'Hue shift',description:'Rotate hues of a shape or any image, optionally cycling over time.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{hue:n('Hue',60,-180,180,1),cycle:n('Cycle (°/s)',0,-120,120,1)}},
   // Style
   // Particles

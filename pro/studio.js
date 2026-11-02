@@ -362,7 +362,10 @@ function recolor(id,src,p){
   const {canvas,ctx}=surface(id);ctx.drawImage(src,0,0,WIDTH,HEIGHT);
   ctx.globalCompositeOperation=p.blend==='normal'?'source-over':p.blend;ctx.globalAlpha=p.mix;
   if(p.blend==='normal'&&p.mix>=1)ctx.clearRect(0,0,WIDTH,HEIGHT);
-  ctx.drawImage(m,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';return canvas;
+  ctx.drawImage(m,0,0);
+  // Opacity scales the alpha of the whole result, so layers and backgrounds show through.
+  if(p.opacity<1){ctx.globalCompositeOperation='destination-in';ctx.globalAlpha=Math.max(0,p.opacity);ctx.fillRect(0,0,WIDTH,HEIGHT);}
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';return canvas;
 }
 function hueImage(id,src,deg){const {canvas,ctx}=surface(id);if(src){ctx.filter=`hue-rotate(${deg%360}deg)`;ctx.drawImage(src,0,0,WIDTH,HEIGHT);ctx.filter='none';}return canvas;}
 // Echo: the history drawn zoomed/rotated (one step), then — with Smooth — the new frame stamped at in-between
@@ -569,7 +572,7 @@ function execute(g,time,dt){
           if(src&&e){const out=e.fx(fxSlots.get(n.id),src,fxSettings(n.type,p),{bass:A.bands.bass,beat:A.beatPulse});if(out)ctx.drawImage(out,0,0,WIDTH,HEIGHT);}
           else if(src)ctx.drawImage(src,0,0);
           r.image=canvas;
-        }else if(inputsOf(n.type).shape==='visual'&&(()=>{const v=need(n,'shape','a shape or an image');return v instanceof HTMLCanvasElement||(n.type==='palette'&&(p.blend!=='normal'||p.mix<1));})()){
+        }else if(inputsOf(n.type).shape==='visual'&&(()=>{const v=need(n,'shape','a shape or an image');return v instanceof HTMLCanvasElement||(n.type==='palette'&&(p.blend!=='normal'||p.mix<1||p.opacity<1));})()){
           // Image (or a blended shape): recolor pixels and output an image.
           const src=asImage(need(n,'shape'),n.id);r.shape=n.type==='palette'?recolor(n.id,src,p):hueImage(n.id,src,p.hue+p.cycle*time);
         }else if(t.outputs.shape){
@@ -1126,8 +1129,8 @@ function updatePalettePreview(){
   if(p.stops)pv.querySelectorAll('.pal-stop').forEach((m,i)=>{if(p.stops[i])m.style.background=p.stops[i].c;});
 }
 function paletteKeys(p){
-  if(p.mode==='solid')return ['mode','solid','blend','mix'];
-  return ['mode',...(p.mode==='toneramp'?['fade']:[]),'blend','mix'];
+  if(p.mode==='solid')return ['mode','solid','blend','mix','opacity'];
+  return ['mode',...(p.mode==='toneramp'?['fade']:[]),'blend','mix','opacity'];
 }
 const hexRgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),rgbHex=c=>'#'+c.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
 function paletteRamp(s,n){
@@ -1654,7 +1657,7 @@ $('helpBody').innerHTML=`
 <li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, GLB or glTF), drawn <b>Normal</b> (solid) or as a <b>Waveform</b> (lines); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
-<li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto), Hue shift, Color correct.</li>
+<li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto; Opacity makes the result see-through), Hue shift, Color correct.</li>
 <li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Liquid glass, Corner pin, Quick filter.</li>
 <li><b>AI</b>: AI Model, Prompt, ControlNet and AI Render restyle any picture with a local diffusion model (see AI rendering).</li>
 <li><b>Controls</b> make numbers: Value, LFO, Map range, Smooth, Math, Amplify, Random. <b>Audio analysis</b>: Audio band, Beat, Audio EQ.</li>

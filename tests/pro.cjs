@@ -210,6 +210,10 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     for(const blend of ['normal','multiply','screen','hue']){await page.evaluate(([id,b])=>{pro.setProperty(id,'blend',b);pro.draw();},[pal3,blend]);
       assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],`Palette (${blend}) recolors an image`);}
     assert.ok(await page.evaluate(()=>pro.pixels())>0,'Blended palette image is visible');
+    // Opacity makes the recolored result see-through (alpha scales, colors stay).
+    {const sum=o=>page.evaluate(async([id,o])=>{pro.setProperty(id,'blend','normal');pro.setProperty(id,'opacity',o);await new Promise(r=>setTimeout(r,600));pro.draw();return pro.pixels();},[pal3,o]);
+     const full=await sum(1),faint=await sum(.25);
+     assert.ok(faint<full*.6,'Palette Opacity fades the result: '+full.toFixed(2)+' → '+faint.toFixed(2));await sum(1);}
     await page.evaluate(id=>pro.select(id),pal3);await page.keyboard.press('Delete');
 
     // 6c. Audio: a file plays through the speakers; mic input is analysed but muted; a file afterwards is audible again.
