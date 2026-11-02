@@ -134,7 +134,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await lit(1);
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
-    assert.equal(await page.locator('.library-node[data-mode]').count(),29,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
+    assert.equal(await page.locator('.library-node[data-mode]').count(),30,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
     assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','3D','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite','AI'],'Library categories, Inputs first');
     assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','Gaussian Splat','Computer','Clock','Mouse & keys','Live data','MIDI'],'Inputs');
     assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','Particles','WebGPU particles','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
@@ -795,6 +795,23 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      const hole=await page.evaluate(()=>{const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(c.width/2-45,c.height/2-45,90,90).data;let n=0;for(let i=0;i<x.length;i+=4)if(x[i]+x[i+1]+x[i+2]>60)n++;return n;});
      assert.ok(hole<300,'Particles spawn at the waveform\'s drawn size: '+hole+' lit pixels inside a scale-150 ring');}
     // A 3D camera's depth of field also reaches the Waveform render of a 3D Object (classic Canvas 2D line drawers).
+    // Water: a 2D waveform (Rings / Field / Surface) and a Water ripples deformer, both fed by beat-dropped ripples.
+    {const sig=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<d.length;i+=388)o.push(d[i]+d[i+1]+d[i+2]);return o;});
+     const dif=(a,b)=>a.reduce((s,v,i)=>s+Math.abs(v-b[i]),0)/a.length;
+     await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'water'}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'}]));await lit();
+     for(const view of ['rings','field','surface']){await page.evaluate(async v=>{const e=pro.engine('w');await e.ready;e.w.setWaterView(v);},view);await page.waitForTimeout(1200);
+       const a=await sig();await page.waitForTimeout(600);const b=await sig(),st=await page.evaluate(()=>{const w=pro.engine('w').w;return{view:w.waterView,drops:w.agPond.S.wave.drops.length,lines:w.lastFrameLines.lines.length};});
+       assert.ok(st.view===view&&st.drops>0&&st.lines>50&&await page.evaluate(()=>pro.pixels())>.3,'Water '+view+' draws ripples: '+JSON.stringify(st));
+       assert.ok(dif(a,b)>1,'Water '+view+' ripples move');}
+     assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[]);
+     for(const mode of ['circle','growth']){
+       await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode}},{id:'d',type:'water',x:400,y:0,props:{amount:100}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'d',input:'shape'},{from:'d',out:'shape',to:'out',input:'image'}]));
+       await lit();await page.waitForTimeout(2000);await page.evaluate(()=>pro.pause(true));await page.evaluate(()=>pro.draw());await page.waitForTimeout(150);
+       const on=await sig(),drops=await page.evaluate(()=>pro.engine('w').w.agPond.S.def.drops.length);
+       await page.evaluate(()=>{pro.setProperty('d','amount',0);pro.draw();});await page.waitForTimeout(150);const off=await sig();
+       await page.evaluate(()=>{pro.setProperty('d','amount',0);pro.draw();});await page.waitForTimeout(150);const off2=await sig();
+       assert.ok(drops>0&&dif(on,off)>3*dif(off,off2)+.3,'Water ripples deform '+mode+(mode==='growth'?' (GPU warp)':'')+': '+dif(on,off).toFixed(2)+' vs '+dif(off,off2).toFixed(2));
+       await page.evaluate(()=>pro.pause(false));}}
     // 3D camera focal length: the Cloner's lens (28 mm = the original view) and the classic 3D modes' perspective.
     {await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'F',name:'F',visible:true,opacity:1,blend:'source-over',
        nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'o',type:'waveform3d',x:200,y:0,props:{mode:'cube'}},{id:'cl',type:'cloner',x:400,y:0,props:{countX:4,countY:1,countZ:4}},{id:'c',type:'camera3d',x:600,y:0,props:{dof:0}},{id:'out',type:'output',x:800,y:0,props:{}}],

@@ -3,7 +3,7 @@
 import {cleanMapping} from './mapping.js';
 import {TEMPLATE_NAMES} from './morph.js';
 export const MODES = {
-  waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
+  waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['water','Water'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
   waveform3d: [['sphere','Sphere'],['cube','Cube'],['torus','Torus'],['cylinder','Cylinder'],['cone','Cone'],['ico','Icosphere'],['pyramid','Pyramid'],['frame','Frame'],['knot','Knot'],['tetrahedron','Tetrahedron'],['dna','DNA'],['terrain','Terrain'],['model','3D model']],
   gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand']]
 };
@@ -246,6 +246,9 @@ export const TYPES = {
   shear:DEFORM('Shear','_shear',-100,100,30,'Slant the shape.'),
   depth:DEFORM('Depth','_depth',0,200,60,'Perspective depth.'),
   ripple:DEFORM('Ripple','_ripple',-100,100,40,'Concentric ripples.'),
+  water:{category:'deformers',label:'Water ripples',description:'Beats drop stones into the shape; the rings travel out and push it around.',...SHAPE_IO,props:{
+    amount:n('Amount',50,0,100,1,{key:'_water'}),drops:pick('Drops','beats',['beats','centre'],{labels:[['beats','Beats'],['centre','Centre']],key:'_waterSrc'}),
+    len:n('Wavelength',40,10,100,1,{key:'_waterLen'}),speed:n('Speed',60,10,200,1,{key:'_waterSpeed'}),rain:n('Rain',30,0,100,1,{key:'_waterRain'})}},
   jitter:{...DEFORM('Jitter','_jitter',0,100,30,'Random shake.'),group:'Noise'},
   disorder:{...DEFORM('Disorder','_rDisorder',0,100,40,'Scatter elements out of place.'),group:'Noise'},
   randomize:{category:'deformers',group:'Noise',label:'Randomize',description:'Per-element randomness.',...SHAPE_IO,props:{
@@ -786,7 +789,7 @@ export function modulate(s,base,v){
   return Math.max(s.min,Math.min(s.max,out));
 }
 // Accumulating keys add up when the same deformer is chained; the rest are overridden downstream.
-const ADDITIVE=new Set(['_twist','_bulge','_wave','_shear','_depth','_ripple','_jitter','_rDisorder']);
+const ADDITIVE=new Set(['_twist','_bulge','_wave','_shear','_depth','_ripple','_water','_jitter','_rDisorder']);
 export function applyShapeNode(type,props,mods){
   const out={...mods};
   if(type==='palette'){

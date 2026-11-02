@@ -481,7 +481,7 @@ function execute(g,time,dt){
     if(!out)return null;
     const {canvas,ctx}=surface(consumer+':r');
     // Renderers that ignore the classic deformers (simulations, Cloner, Growth...) get them as an image warp.
-    if(!(needsWarp(v.mods)&&e.w?.AG_LAYOUT_NA?.rowRipple?.includes(e.mode)&&warpInto(ctx,out,v.mods,time)))ctx.drawImage(out,0,0);
+    if(!(needsWarp(v.mods)&&e.w?.AG_LAYOUT_NA?.rowRipple?.includes(e.mode)&&warpInto(ctx,out,v.mods,time,e.w?.agPond?.drops('def'))))ctx.drawImage(out,0,0);
     const sym=v.mods?._symmetryMode;
     if(sym&&sym!=='none'&&e.mode?.startsWith('sim')&&e.w?.applySymmetry){const sc=e.w.applySymmetry(canvas,sym,v.mods._symGap||0,'proSym');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(sc,0,0);}
     rendered.set(key,canvas);return canvas;
@@ -1742,11 +1742,11 @@ $('helpBody').innerHTML=`
 <li>Each node shows a live thumbnail of what it outputs. A red node has a problem: hover or select it to read why (usually a missing input). Changes always fade in and out, never cut.</li></ul>
 <h3 id="h-library">The library</h3>
 <ul><li><b>Inputs</b>: Audio; media (Image, Video, Camera, Text, Gaussian Splat); data (Computer load, Clock, Mouse &amp; keys, Live data from the ISS, space weather, the ocean, weather, earthquakes or Wikipedia, MIDI). Live data also makes a palette: wire it into a Palette’s colors.</li>
-<li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Sacred, Math…).</li>
+<li><b>Waveforms</b>: audio-reactive 2D line patterns (Linear, Circle, Spiral, Phyllotaxis, Fractal, Sacred, Water ripples, Math…).</li>
 <li><b>Emitters</b>: classic Particles and native WebGPU simulations (Particles, Fluid, Smoke, Granular sand).</li>
 <li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, GLB or glTF), drawn <b>Normal</b> (solid), as a <b>Waveform</b> (lines) or as <b>Polygons</b> (filled faces that light up and move with the sound); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
-<li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
+<li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Water ripples (beats drop stones onto the shape), Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
 <li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto; the box under each stop is that colour's opacity: type a % or drag it up/down; Opacity makes the whole result see-through), Hue shift, Color correct.</li>
 <li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Liquid glass, Corner pin.</li>
 <li><b>AI</b>: AI Model, Prompt, Prompt list, ControlNet and AI Render restyle any picture with a local diffusion model (see AI rendering).</li>

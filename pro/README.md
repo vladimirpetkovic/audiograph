@@ -48,7 +48,11 @@ each with its own opacity and blend mode (up to four).
     - **Mouse & keys**: x, y, speed, click, held, keys (typing rate), scroll.
     - **Live data**: the ISS orbit, space weather (NOAA), ocean swell and weather (Open-Meteo, for a city or your location), earthquakes (USGS) or Wikipedia edits. Every source gives the same smooth level, change, pulse (events: a quake, a wave crest, the ISS entering sunlight) and phase, plus a palette made from the data; wire it into a Palette's **colors** to let the data pick the colours. Glide smooths slow feeds; Auto range stretches small swings. Offline it keeps moving on a simulated stream.
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
-- **Waveforms**: **2D** (Linear, Circle, Spiral, Sacred, Math…).
+- **Waveforms**: **2D** (Linear, Circle, Spiral, Sacred, Water, Math…). **Water** drops a stone
+  on every beat (anywhere, or always in the centre) and the high frequencies add rain; see the
+  rings as audio lines riding the crests (**Rings**), a grid of lines pushed by the water
+  (**Field**) or a rippling side-on mesh (**Surface**). Wavelength, Speed, Fade, Rings and Rain
+  shape the water.
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain and **3D model** (your
   imported OBJ, the built-in knot until you load one). **Render** is **Normal** (a
@@ -93,7 +97,8 @@ each with its own opacity and blend mode (up to four).
 - **Knobs** turn like the original's: drag around the knob (270° = full range,
   Shift for fine). The dot in the middle switches the knob to **Auto**: it drifts
   by itself around its value (saved with the project).
-- **Deformers**: **Symmetry** and **Mirror** (above), **Bend** (Twist, Bulge, Wave, Shear, Depth, Ripple, Webcam:
+- **Deformers**: **Symmetry** and **Mirror** (above), **Bend** (Twist, Bulge, Wave, Shear, Depth, Ripple, **Water ripples**:
+  beats drop stones onto the shape and the travelling rings push it around, Webcam:
   camera brightness displaces the shape and can color it) and **Noise** (Jitter,
   Disorder, Randomize, Flow field for classic Particles, Turbulence for WebGPU
   Particles and Smoke).
@@ -211,7 +216,7 @@ process the finished image.
   image, number, colors, 3D object).
 - **Deformers on every shape**: renderers that ignore the classic deformers (WebGPU
   simulations, the Cloner, Growth, Fractal…) get Twist, Bulge, Wave, Shear, Depth,
-  Ripple and Jitter as a GPU image warp, and Symmetry on the rendered picture.
+  Ripple, Water ripples and Jitter as a GPU image warp, and Symmetry on the rendered picture.
 - **Inspector sections** work like an accordion: the basics sit at the top, and
   opening a section (Lines, Outline, Sound…) closes the others. The open
   section is remembered per node type. Choice chips such as Growth's Type sit at the

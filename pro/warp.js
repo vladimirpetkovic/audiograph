@@ -1,9 +1,9 @@
 // Image-space deformers: the original's distortLinear() run per pixel on the GPU.
 // Used when a shape's renderer ignores the deformer params (WebGPU simulations, Cloner, Growth...).
-export const WARP_KEYS=['_twist','_bulge','_wave','_shear','_depth','_ripple','_jitter'];
+export const WARP_KEYS=['_twist','_bulge','_wave','_shear','_depth','_ripple','_water','_jitter'];
 const FS=`#version 300 es
 precision highp float;
-uniform sampler2D src;uniform float tw,bu,wa,wf,sh,de,ri,ji,ph;in vec2 uv;out vec4 o;
+uniform sampler2D src;uniform float tw,bu,wa,wf,sh,de,ri,ji,ph,wt,wl,ws,wlife,wr;uniform vec2 wasp;uniform int wn;uniform vec4 wd[28];in vec2 uv;out vec4 o;
 void main(){
   vec2 n=vec2(uv.x*2.-1.,1.-uv.y*2.);float r=length(n),a=atan(n.y,n.x);vec2 m=n;
   if(tw!=0.)a+=r*tw*3.14159265;
@@ -15,6 +15,10 @@ void main(){
   if(ri!=0.){float rr=max(length(m),1e-4);m+=m/rr*sin(rr*wf*2.2-ph*1.5)*ri*.18;}
   if(ji!=0.){float jx=fract(sin(dot(m,vec2(91.7,47.3)))*43758.5),jy=fract(sin(dot(m,vec2(12.9,78.2)))*23421.6),j=ji*.13;
     m+=vec2((jx-.5)*j*sin(ph*2.+jx*6.283),(jy-.5)*j*cos(ph*2.+jy*6.283));}
+  if(wt!=0.){vec2 pc=vec2(m.x*wasp.x,-m.y*wasp.y),D=vec2(0);float L=wl*wr,k=6.2831853/wl;
+    for(int i=0;i<28;i++){if(i>=wn)break;vec4 q=wd[i];vec2 d=pc-q.xy;float r=length(d)+1e-4,u=q.z*ws-r;if(u<=0.||u>=L)continue;
+      D+=d/r*sin(3.14159265*u/L)*q.w*exp(-q.z/wlife)/(1.+1.5*r)*sin(k*u);}
+    m+=vec2(D.x/wasp.x,-D.y/wasp.y)*wt*.3;}
   // Sample where the forward warp would have moved this pixel from.
   vec2 q=2.*n-m,s=vec2(q.x*.5+.5,.5-q.y*.5);
   o=(s.x<0.||s.y<0.||s.x>1.||s.y>1.)?vec4(0):texture(src,s);
@@ -35,12 +39,13 @@ function init(w,h){
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
-  for(const k of ['tw','bu','wa','wf','sh','de','ri','ji','ph'])loc[k]=gl.getUniformLocation(prog,k);
+  for(const k of ['tw','bu','wa','wf','sh','de','ri','ji','ph','wt','wl','ws','wlife','wr','wasp','wn','wd'])loc[k]=gl.getUniformLocation(prog,k);
   return true;
 }
 export const needsWarp=mods=>!!mods&&WARP_KEYS.some(k=>+mods[k]);
 // Draws the warped image into ctx (same size as the source); returns false if WebGL2 is unavailable.
-export function warpInto(ctx,src,mods,time){
+// pond: the engine's water drops (agPond.drops('def')) for the Water ripples deformer.
+export function warpInto(ctx,src,mods,time,pond){
   const w=src.width,h=src.height;
   if(!gl&&!init(w,h))return false;
   if(gl.canvas.width!==w||gl.canvas.height!==h){gl.canvas.width=w;gl.canvas.height=h;}
@@ -48,6 +53,8 @@ export function warpInto(ctx,src,mods,time){
   const v=k=>(+mods[k]||0)/100;
   gl.uniform1f(loc.tw,v('_twist'));gl.uniform1f(loc.bu,v('_bulge'));gl.uniform1f(loc.wa,v('_wave'));gl.uniform1f(loc.wf,+mods._waveFreq||5);
   gl.uniform1f(loc.sh,v('_shear'));gl.uniform1f(loc.de,v('_depth'));gl.uniform1f(loc.ri,v('_ripple'));gl.uniform1f(loc.ji,v('_jitter'));gl.uniform1f(loc.ph,time*1.5);
+  const wt=pond?v('_water'):0;gl.uniform1f(loc.wt,wt);
+  if(wt){const o=pond.o,l=pond.list.slice(0,112),a=new Float32Array(112);a.set(l);gl.uniform1f(loc.wl,o.len);gl.uniform1f(loc.ws,o.speed);gl.uniform1f(loc.wlife,o.life);gl.uniform1f(loc.wr,o.rings);gl.uniform2f(loc.wasp,pond.ax,pond.ay);gl.uniform1i(loc.wn,l.length/4);gl.uniform4fv(loc.wd,a);}
   gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
   ctx.clearRect(0,0,w,h);ctx.drawImage(gl.canvas,0,0);return true;
 }
