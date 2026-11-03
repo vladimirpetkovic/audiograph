@@ -129,7 +129,10 @@ each with its own opacity and blend mode (up to four).
   came before; Multiply, Screen, Overlay, Soft/Hard light, Color, Hue,
   Saturation, Luminosity, Dodge, Burn, Add, Difference and Exclusion mix the
   palette's gradient map with them (**Mix** sets how much).
-- **Line style & Outline** are groups on every waveform node (13 line styles; outline off by default).
+- **Line style & Outline** are groups on every waveform node (13 line styles; outline off by default). Line style is the first
+  section, right under the mode menu, and also holds the line knobs (Line count, Height, Thickness, Vary height / thickness).
+- **Reset node** (next to Duplicate and Delete in the inspector) returns a node's settings to their defaults; it keeps
+  its mode, wires and loaded media (Undo brings the settings back).
 - **Post FX**: Bloom, Blur, Lens, Kaleido, Trails, Fracture. These
   run the original GPU per-layer shaders.
   **Liquid glass** (WebGL2, `glass.js`) floats merging metaballs of glass over the
@@ -244,7 +247,8 @@ process the finished image.
   section is remembered per node type. Choice chips such as Growth's Type sit at the
   top; Growth starts as Coral.
 - **Open/Save .ag scene files** (⌘O, ⌘S, ⇧⌘S Save As; drop an .ag on the window
-  to open it). **Reset** starts over from the starting scene (Undo brings your scene back). On screens
+  to open it). **Reset** starts over from the starting scene (Undo brings your scene back); the sound
+  (file, mic or system audio) keeps playing and the Audio nodes keep their settings. On screens
   1440px and wider the whole UI is drawn 20% larger. **Templates**, and
   The transport has icon buttons: **Play/Pause**, **Stop**, **Rec** (records the
   preview with audio to WebM and shows elapsed time), and **Snap** (saves a PNG).

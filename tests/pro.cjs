@@ -469,8 +469,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.waitForFunction(()=>[...document.querySelectorAll('#properties [data-property^="chip:"] .on')].some(b=>b.textContent==='Coral'),null,{timeout:8000});
     await page.evaluate(()=>{const l=pro.getProject().layers.find(l=>l.nodes.some(n=>n.type==='waveform2d'));pro.select(l.nodes.find(n=>n.type==='waveform2d').id);});
     // Inspector sections are an accordion: opening one closes the others.
-    await page.locator('#properties .insp-fold[data-group="Lines"] > .insp-fold-head').click();
-    assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('#properties .insp-fold:not(.closed)')].map(f=>f.dataset.group)),['Lines'],'One inspector section open at a time');
+    await page.locator('#properties .insp-fold[data-group="Outline"] > .insp-fold-head').click();await page.locator('#properties .insp-fold[data-group="Line style"] > .insp-fold-head').click();
+    assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('#properties .insp-fold:not(.closed)')].map(f=>f.dataset.group)),['Line style'],'One inspector section open at a time');
     const dial=page.locator('#properties .knob').filter({has:page.locator('[data-property="thick"]')}).first();
     if(await dial.count()){
       const before=await dial.evaluate(k=>k.getValue());const b=await dial.locator('.knob-dial').boundingBox(),cx=b.x+b.width/2,cy=b.y+b.height/2;
@@ -824,6 +824,19 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      await page.evaluate(p=>pro.importProject(p),L([],[]));await page.locator('.library-node[data-type="cloner"]').click();
      const g=(await project()).layers[0],cl=g.nodes.find(n=>n.type==='cloner'),o=g.nodes.find(n=>n.type==='waveform3d'),fx=g.nodes.find(n=>n.type==='soundEffector');
      assert.ok(o?.props.mode==='cube'&&g.edges.some(e=>e.from===o.id&&e.to===cl.id&&e.input==='object')&&fx&&g.edges.some(e=>e.from===cl.id&&e.to===fx.id),'A new Cloner comes with a Cube and a Sound effector');}
+    // Waveform inspector: Line style (with the Lines knobs) is first under the mode menu; per-node Reset; project Reset keeps the Audio settings.
+    {
+      await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'circle',thick:5,lineShape:'dotted'}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'}]));
+      await page.evaluate(()=>pro.select('w'));await page.waitForTimeout(600);
+      const folds=await page.evaluate(()=>[...document.querySelectorAll('#properties .insp-fold')].map(f=>f.dataset.group));
+      if(folds[0]!=='Line style'||folds.includes('Lines'))throw new Error('Line style should be the first fold and hold the Lines knobs: '+folds);
+      await page.click('#resetNode');await page.waitForTimeout(300);
+      const w=(await project()).layers[0].nodes.find(n=>n.id==='w').props;
+      if(w.mode!=='circle'||w.thick!==1||w.lineShape!=='straight')throw new Error('Node Reset: '+JSON.stringify(w));
+      await page.evaluate(()=>{const p=pro.getProject();p.layers[0].nodes.find(n=>n.type==='audioIn').props.gain=3.5;pro.importProject(p);});
+      await page.click('#reset');await page.waitForTimeout(500);
+      if(!(await project()).layers.flatMap(l=>l.nodes).filter(n=>n.type==='audioIn').every(n=>n.props.gain===3.5))throw new Error('Reset should keep the Audio node settings');
+    }
     // Glitch (Post FX): slices / RGB split / blocks on a picture, quiet at amount 0.
     {
       const gsig=()=>page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<d.length;i+=388)o.push(d[i]+d[i+1]+d[i+2]);return o;});

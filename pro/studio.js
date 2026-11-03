@@ -1357,9 +1357,16 @@ function renderProperties(){
   }
   const actions=section(root).appendChild(el('div','insp-actions'));
   const dup=el('button','btn','Duplicate');dup.id='duplicateNode';dup.onclick=duplicateSelected;
-  const del=el('button','btn danger','Delete');del.id='deleteNode';del.onclick=removeSelected;actions.append(dup,del);
+  const rst=el('button','btn','Reset');rst.id='resetNode';rst.title='Return every setting of this node to its default (keeps its type, wires and loaded media)';rst.onclick=()=>resetNode(n.id);
+  const del=el('button','btn danger','Delete');del.id='deleteNode';del.onclick=removeSelected;actions.append(dup,rst,del);
   updateHint();
   syncFolds();tipify();
+}
+// A node's settings back to defaults (Auto off too). Its kind (mode, 3D render, layer), wires and loaded media stay.
+const RESET_KEEP=['mode','render','layer'];
+function resetNode(id){
+  edit((p,g)=>{const m=g.nodes.find(x=>x.id===id);if(!m)return;const keep=Object.fromEntries(RESET_KEEP.filter(k=>k in m.props).map(k=>[k,m.props[k]]));
+    m.props={...defaults(m.type),...keep};delete m.auto;},`Reset ${nodeTitle(findNode(id))}`);
 }
 // True when node `to` sits downstream of `from` along shape wires.
 function chainFrom(g,from,to){const seen=new Set();let cur=g.nodes.find(m=>m.id===to);while(cur&&!seen.has(cur.id)){if(cur.id===from)return true;seen.add(cur.id);const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}return false;}
@@ -1550,6 +1557,8 @@ function renderEmitter(root,n){
   if(clips?.length){renderProps(root,n,clips.length>1?['animSpeed','clip']:['animSpeed']);if(clips.length>1)section(root).append(el('p','insp-note','Clips: '+clips.map((c,i)=>`${i+1} ${c.name}`).join(' · ')));}
   const wiredOf=k=>graph().edges.some(e=>e.to===n.id&&e.input===k);
   const top=el('div','insp-options');s.append(top);
+  // Line style comes first, right under the mode menu; on waveforms it also holds the Lines knobs.
+  const styleWrap=el('div');root.append(styleWrap);
   const opts=el('div','insp-options');opts.dataset.emitterOptions='';root.append(opts);
   // One Sound section per node. Simulations hear through their own sound knobs, so the generic ones only show when already changed;
   // waveforms use line Sensitivity as their gain. 3D tilt / rotate only exist where a classic 3D mode can use them.
@@ -1563,10 +1572,13 @@ function renderEmitter(root,n){
     if((k==='tilt'||k==='turn')&&(!classic3d||camModel)&&!used(k))continue;
     if(k==='sensitivity'){lineSens=true;continue;}
     if(k==='contrast'||k==='fade')continue;
-    (geo[gr]||=[]).push(k);
+    (geo[gr==='Lines'&&T.props.lineShape?'Line style':gr]||=[]).push(k);
   }
+  // Style menu, then every knob in one grid (style marks, then line count / height / thickness), toggles last.
+  const LS_RANK=k=>k==='lineShape'?0:T.props[k].kind==='bool'?3:k in STYLE_PROPS?1:2;
+  if(geo['Line style'])geo['Line style'].sort((a,b)=>LS_RANK(a)-LS_RANK(b));
   const sndWrap=el('div');root.append(sndWrap);
-  for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr),n,ks,true);
+  for(const [gr,ks] of Object.entries(geo))renderProps(fold(gr==='Line style'?styleWrap:root,gr),n,ks,true);
   if(wiredOf('mask'))renderProps(fold(root,'Mask'),n,MASK_KEYS,true);
   const d=fold(sndWrap,'Sound');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
@@ -1878,7 +1890,11 @@ function removeTemplate(){
   if(!all[name])return message('No template called '+name,true);
   delete all[name];localStorage.setItem(USER_KEY,JSON.stringify(all));fillTemplates();message(`Removed template ${name}`);
 }
-$('reset').onclick=()=>attempt(()=>{importProject({format:'audiograph-pro',version:VERSION,layers:tutorialScene()},'Reset to the starting scene');message('Reset to the starting scene. Undo (⌘Z) brings your scene back.');});
+$('reset').onclick=()=>attempt(()=>{
+  // The sound stays: the playing file, mic or system audio is untouched, and the Audio nodes keep their settings.
+  const audioProps=state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='audioIn').map(n=>n.props)),layers=tutorialScene();
+  let i=0;for(const g of layers)for(const n of g.nodes)if(n.type==='audioIn'&&audioProps.length)n.props=clone(audioProps[Math.min(i++,audioProps.length-1)]);
+  importProject({format:'audiograph-pro',version:VERSION,layers},'Reset to the starting scene');message('Reset to the starting scene. Undo (⌘Z) brings your scene back.');});
 // Scenes save as .ag files (the project JSON); every save asks where.
 async function saveScene(){
   try{const text=JSON.stringify(validate(state),null,2),name=(state.layers[0]?.name||'scene').replace(/[^\w -]+/g,'').trim()||'scene';
