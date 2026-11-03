@@ -520,6 +520,39 @@ function maskInto(canvas,m){
   const ctx=canvas.getContext('2d');ctx.save();ctx.resetTransform();ctx.globalCompositeOperation=m.inv?'destination-out':'destination-in';
   if(m.f)ctx.filter=`blur(${m.f}px)`;ctx.drawImage(k,0,0,canvas.width,canvas.height);ctx.restore();
 }
+// Glitch: slices, RGB split, blocks and stutter on a rendered frame, scaled by how hard the sound hits (g.k, 0–1).
+let glitchTmp=null;const glitchHist=new Map();
+function glitchInto(canvas,g){
+  const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d',{willReadFrequently:true});
+  let hist=glitchHist.get(g.id);if(!hist||hist.width!==W||hist.height!==H){hist=document.createElement('canvas');hist.width=W;hist.height=H;glitchHist.set(g.id,hist);}
+  const hc=hist.getContext('2d');
+  if(g.k>.003){
+    let seed=(g.seed*2654435761>>>0)||1;const rnd=()=>{seed^=seed<<13;seed>>>=0;seed^=seed>>>17;seed^=seed<<5;seed>>>=0;return seed/4294967296;};
+    glitchTmp||=document.createElement('canvas');if(glitchTmp.width!==W||glitchTmp.height!==H){glitchTmp.width=W;glitchTmp.height=H;}
+    const tc=glitchTmp.getContext('2d');tc.clearRect(0,0,W,H);tc.drawImage(canvas,0,0);
+    ctx.save();ctx.resetTransform();
+    // Stutter: bands of the previous frame stay frozen.
+    const st=Math.round(g.stutter/100*g.k*6);for(let i=0;i<st;i++){const y=rnd()*H,h=(.02+rnd()*.12)*H;ctx.clearRect(0,y,W,h);ctx.drawImage(hist,0,y,W,h,0,y,W,h);}
+    // Blocks: rectangles copied from elsewhere in the frame.
+    const nb=Math.round(g.blocks/100*g.k*18);
+    for(let i=0;i<nb;i++){const w=(.04+rnd()*.25)*W,h=(.01+rnd()*.08)*H,sx=rnd()*(W-w),sy=rnd()*(H-h),dx=Math.min(W-w,Math.max(0,sx+(rnd()-.5)*W*.3)),dy=Math.min(H-h,Math.max(0,sy+(rnd()-.5)*H*.1));
+      ctx.clearRect(dx,dy,w,h);ctx.drawImage(glitchTmp,sx,sy,w,h,dx,dy,w,h);}
+    ctx.restore();
+    // Slices and RGB split in one pixel pass.
+    const ns=Math.round(g.slices/100*g.k*14),rs=Math.round(g.rgb/100*g.k*W*.025);
+    if(ns||rs){
+      const off=new Int32Array(H);
+      for(let i=0;i<ns;i++){const y=Math.floor(rnd()*H),h=Math.max(1,Math.floor((.005+rnd()*.07)*H)),dx=Math.round((rnd()-.5)*2*W*.12*g.k);for(let j=y;j<Math.min(H,y+h);j++)off[j]=dx;}
+      const img=ctx.getImageData(0,0,W,H),src=new Uint8ClampedArray(img.data),d=img.data;
+      for(let y=0;y<H;y++){const o=off[y],row=y*W;if(!o&&!rs)continue;
+        for(let x=0;x<W;x++){const i=(row+x)*4,xg=Math.min(W-1,Math.max(0,x-o)),xr=Math.min(W-1,Math.max(0,xg+rs)),xb=Math.min(W-1,Math.max(0,xg-rs)),g0=(row+xg)*4;
+          d[i]=src[(row+xr)*4];d[i+1]=src[g0+1];d[i+2]=src[(row+xb)*4+2];d[i+3]=Math.max(src[(row+xr)*4+3],src[g0+3],src[(row+xb)*4+3]);}}
+      ctx.putImageData(img,0,0);
+    }
+  }
+  // Stutter history: the last clean frame, refreshed now and then while glitching so it never goes stale.
+  if(g.k<=.003||g.seed%4===0){hc.clearRect(0,0,W,H);hc.drawImage(canvas,0,0);}
+}
 function engineFor(id){if(!engines.has(id))engines.set(id,new EmitterEngine(id,m=>message(m,true,'render')));return engines.get(id);}
 function fxEngine(){
   for(const e of engines.values())if(e.status==='ready')return e;
@@ -576,7 +609,7 @@ function execute(g,time,dt){
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
   const asImage=(v,consumer)=>{
     if(!v||v instanceof HTMLCanvasElement)return v;
-    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'');
+    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+(v.glitch?'|'+v.glitch.map(x=>x.key).join():'');
     if(rendered.has(key))return rendered.get(key);
     const e=engineFor(v.emitter.id),out=e.draw({...v.job,mods:v.mods,hue:v.hue,view:g.view});
     if(e.viewMode)layerView.set(g.id,e.viewMode);
@@ -584,6 +617,7 @@ function execute(g,time,dt){
     const {canvas,ctx}=surface(consumer+':r');
     // Renderers that ignore the classic deformers (simulations, Cloner, Growth...) get them as an image warp.
     if(!(needsWarp(v.mods)&&e.w?.AG_LAYOUT_NA?.rowRipple?.includes(e.mode)&&warpInto(ctx,out,v.mods,time,e.w?.agPond?.drops('def'))))ctx.drawImage(out,0,0);
+    if(v.glitch)for(const gl of v.glitch)glitchInto(canvas,gl);
     if(v.mask)maskInto(canvas,v.mask);
     const sym=v.mods?._symmetryMode;
     if(sym&&sym!=='none'&&e.mode?.startsWith('sim')&&e.w?.applySymmetry){const sc=e.w.applySymmetry(canvas,sym,v.mods._symGap||0,'proSym');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(sc,0,0);}
@@ -722,6 +756,16 @@ function execute(g,time,dt){
       case 'layerIn':{const target=state.layers[p.layer-1];if(!target){nodeErrors.add(n.id);throw Error(`${g.name}: there is no layer ${p.layer}`);}
         if(target.id===g.id){nodeErrors.add(n.id);throw Error(`${g.name}: a Layer node cannot show its own layer`);}
         r.image=layerImages.get(target.id)||surface(n.id).canvas;break;}
+      case 'glitch':{const v=need(n,'shape','a shape or an image'),sig=input(n,'audio')??projectSignal(),st=nstate(n.id+':gl',()=>({beat:sig.beat,v:0,seed:1,last:-1}));
+        if(sig.beat!==st.beat){st.beat=sig.beat;if(p.react==='beat')st.v=1;}
+        const b=sig.bands||{},raw=p.react==='always'?1:p.react==='beat'?st.v:p.react==='bass'?b.bass:p.react==='high'?Math.min(1,(b.high||0)*1.6):b.full;
+        if(p.react==='beat')st.v*=Math.exp(-dt*1000/p.decay);
+        const th=p.threshold/100,k=p.amount/100*Math.max(0,((raw||0)-th)/(1-th));
+        const step=Math.floor(time*p.speed);if(step!==st.last){st.last=step;st.seed=(st.seed*1103515245+12345+step)>>>0;}
+        const gl={id:n.id,k,seed:st.seed,slices:p.slices,rgb:p.rgb,blocks:p.blocks,stutter:p.stutter,key:n.id+':'+st.seed+':'+k.toFixed(3)+':'+[p.slices,p.rgb,p.blocks,p.stutter]};
+        if(v instanceof HTMLCanvasElement||v===blank()){const {canvas,ctx}=surface(n.id);if(v)ctx.drawImage(v,0,0,WIDTH,HEIGHT);glitchInto(canvas,gl);r.shape=canvas;}
+        else r.shape={...v,glitch:[...(v.glitch||[]),gl]};
+        lastValues.set(n.id,k);break;}
       case 'output':image=asImage(need(n,'image','an image'),n.id);r.image=image;break;
       case 'trails':{let src=asImage(need(n,'image','an image'),n.id);const {canvas,ctx}=surface(n.id);
         // Smooth: stamp the new frame at in-between zoom steps so it bridges the gap to the previous (zoomed) echo.

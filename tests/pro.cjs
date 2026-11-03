@@ -824,6 +824,18 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      await page.evaluate(p=>pro.importProject(p),L([],[]));await page.locator('.library-node[data-type="cloner"]').click();
      const g=(await project()).layers[0],cl=g.nodes.find(n=>n.type==='cloner'),o=g.nodes.find(n=>n.type==='waveform3d'),fx=g.nodes.find(n=>n.type==='soundEffector');
      assert.ok(o?.props.mode==='cube'&&g.edges.some(e=>e.from===o.id&&e.to===cl.id&&e.input==='object')&&fx&&g.edges.some(e=>e.from===cl.id&&e.to===fx.id),'A new Cloner comes with a Cube and a Sound effector');}
+    // Glitch deformer: slices / RGB split / blocks on a picture, quiet at amount 0.
+    {
+      const gsig=()=>page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<d.length;i+=388)o.push(d[i]+d[i+1]+d[i+2]);return o;});
+      const shot=async amount=>{
+        await page.evaluate(p=>pro.importProject(p),L([{id:'t',type:'plainText',x:200,y:0,props:{}},{id:'g',type:'glitch',x:420,y:0,props:{amount,react:'always',threshold:0}}],
+          [{from:'t',out:'image',to:'g',input:'shape'},{from:'g',out:'shape',to:'out',input:'image'}]));
+        await page.waitForTimeout(500);await page.evaluate(()=>pro.pause(true));await page.waitForTimeout(300);const s=await gsig();await page.evaluate(()=>pro.pause(false));return s;};
+      const a0=await shot(0),a1=await shot(100);
+      const d=a0.reduce((s,v,i)=>s+Math.abs(v-a1[i]),0)/a0.length;
+      if(!(d>10))throw new Error('Glitch at full amount should visibly break up the picture (diff '+d.toFixed(1)+')');
+      if((await page.evaluate(()=>pro.stats().errors)).length)throw new Error('Glitch raised errors');
+    }
     // Water: a 2D waveform (Rings / Field / Surface) and a Water ripples deformer, both fed by beat-dropped ripples.
     {const sig=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<d.length;i+=388)o.push(d[i]+d[i+1]+d[i+2]);return o;});
      const dif=(a,b)=>a.reduce((s,v,i)=>s+Math.abs(v-b[i]),0)/a.length;

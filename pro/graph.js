@@ -264,6 +264,12 @@ export const TYPES = {
     len:n('Wavelength',40,10,100,1,{key:'_waterLen'}),speed:n('Speed',60,10,200,1,{key:'_waterSpeed'}),rain:n('Rain',30,0,100,1,{key:'_waterRain'})}},
   jitter:{...DEFORM('Jitter','_jitter',0,100,30,'Random shake.'),group:'Noise'},
   disorder:{...DEFORM('Disorder','_rDisorder',0,100,40,'Scatter elements out of place.'),group:'Noise'},
+  // Glitch: digital breakup that hits with the sound. It works on any shape or picture (applied to the rendered image).
+  glitch:{category:'deformers',group:'Noise',label:'Glitch',description:'Digital breakup that hits with the sound: sliced and shifted rows, RGB split, displaced blocks and stuttering frames. Quiet parts stay clean; works on shapes and pictures.',
+    inputs:{shape:'visual',audio:'audio'},outputs:{shape:'shape'},primary:['shape'],props:{
+    amount:n('Amount',70,0,100,1),react:pick('Hits on','beat',['beat','bass','high','level','always'],{labels:[['beat','Beats'],['bass','Bass'],['high','Highs'],['level','Loudness'],['always','Always']]}),
+    threshold:n('Threshold',25,0,95,1),decay:n('Decay (ms)',220,40,1200,10),speed:n('Speed',14,1,40,1),
+    slices:G('Look',n('Slices',70,0,100,1)),rgb:G('Look',n('RGB split',50,0,100,1)),blocks:G('Look',n('Blocks',40,0,100,1)),stutter:G('Look',n('Stutter',30,0,100,1))}},
   randomize:{category:'deformers',group:'Noise',label:'Randomize',description:'Per-element randomness.',...SHAPE_IO,props:{
     global:n('Global',30,0,100,1,{key:'_rGlobal'}),dist:n('Distribution',0,0,100,1,{key:'_rDist'}),appear:n('Appearance',0,0,100,1,{key:'_rAppear'}),outline:n('Outline',0,0,100,1,{key:'_rOutline'}),color:n('Color',0,0,100,1,{key:'_rColor'})}},
   webcam:{category:'deformers',label:'Webcam',description:'Your camera displaces the shape by brightness and can colour it.',...SHAPE_IO,props:{
