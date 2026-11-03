@@ -426,10 +426,13 @@ export function nodeTitle(n){return TYPES[n.type].props.mode?.kind==='select'&&i
 export const compatible=(out,input)=>out===input||out==='any'||input==='any'||(out==='shape'&&input==='image')||(input==='visual'&&(out==='shape'||out==='image'))||(input==='source'&&['shape','image','object3d'].includes(out));
 export const clone = value => JSON.parse(JSON.stringify(value));
 const uid=()=>crypto.randomUUID();
+// Water ripples read best with short ticks.
+export const WATER_HEIGHT=10;
 export function defaults(type){return Object.fromEntries(Object.entries(TYPES[type].props).map(([k,v])=>[k,clone(v.value)]));}
 export function node(type,x=40,y=50,props={}) {
   if (!Object.hasOwn(TYPES,type)) throw Error('Unknown node type');
   const p={...defaults(type),...props};
+  if(type==='waveform2d'&&p.mode==='water'&&props.height===undefined)p.height=WATER_HEIGHT;
   return {id:uid(),type,x,y,props:type==='palette'?legacyPalette(p):p};
 }
 export function layer(index=1) {

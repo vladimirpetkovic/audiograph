@@ -6,7 +6,7 @@ import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} f
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
-import {cleanView,spinProps} from './graph.js';
+import {cleanView,spinProps,WATER_HEIGHT} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as map3d from './map3d.js';
@@ -1303,7 +1303,7 @@ function renderPalettePresets(root,n){
   s.append(box);
 }
 // A new emitter type starts from its defaults; wires into the old type's option knobs are dropped.
-function setMode(g,n,mode,key='mode'){if(n.props[key]===mode)return;n.props[key]=mode;n.props.opts={};n.props.chips={};g.edges=g.edges.filter(e=>!(e.to===n.id&&OPT_PORT.test(e.input)));}
+function setMode(g,n,mode,key='mode'){if(n.props[key]===mode)return;n.props[key]=mode;if(n.type==='waveform2d'&&key==='mode'&&mode==='water'&&n.props.height===TYPES.waveform2d.props.height.value)n.props.height=WATER_HEIGHT;n.props.opts={};n.props.chips={};g.edges=g.edges.filter(e=>!(e.to===n.id&&OPT_PORT.test(e.input)));}
 const AI_SETUP='mkdir -p ~/audiograph-ai && cd ~/audiograph-ai && for f in bridge.py requirements.txt start.command; do curl -fsSLO https://vladimirpetkovic.github.io/audiograph/ai/$f; done && chmod +x start.command && ./start.command';
 // AI bridge connection: live status line plus how to start the bridge.
 function aiTarget(n){

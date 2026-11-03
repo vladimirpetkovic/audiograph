@@ -804,6 +804,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
        const a=await sig();await page.waitForTimeout(600);const b=await sig(),st=await page.evaluate(()=>{const w=pro.engine('w').w;return{view:w.waterView,drops:w.agPond.S.wave.drops.length,lines:w.lastFrameLines.lines.length};});
        assert.ok(st.view===view&&st.drops>0&&st.lines>50&&await page.evaluate(()=>pro.pixels())>.3,'Water '+view+' draws ripples: '+JSON.stringify(st));
        assert.ok(dif(a,b)>1,'Water '+view+' ripples move');}
+     // Outline draws in every view; Angle turns plain ticks; a waveform switched to Water starts with short ticks.
+     for(const view of ['rings','field','surface']){const px=await page.evaluate(view=>{const w=pro.engine('w').w,c=w.document.createElement('canvas');c.width=c.height=400;const x=c.getContext('2d'),vals=Array.from({length:150},(_,i)=>.5+.4*Math.sin(i)),out=[];
+       w.waterView=view;for(const [o,a] of [[false,0],[true,0],[false,60]]){w.showOutline=o;w.outlineStyle='solid';w.styleAngle=a*Math.PI/180;x.clearRect(0,0,400,400);w.agWater.draw(x,400,400,vals,{height:.5,thick:2},false);out.push(c.toDataURL());}
+       w.showOutline=false;w.styleAngle=0;return out;},view);
+       assert.ok(px[1]!==px[0],'Water '+view+' draws an outline');if(view==='rings')assert.ok(px[2]!==px[0],'Line style Angle turns Water ticks');}
+     {const g=(await project()).layers[0];await page.evaluate(()=>{pro.addNode('waveform2d',300,300);});const nw=(await project()).layers[0].nodes.at(-1);
+      await page.evaluate(id=>pro.setProperty(id,'mode','water'),nw.id);assert.equal((await project()).layers[0].nodes.find(n=>n.id===nw.id).props.height,10,'Water defaults to line height 10');}
      assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[]);
      for(const mode of ['circle','growth']){
        await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode}},{id:'d',type:'water',x:400,y:0,props:{amount:100}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'d',input:'shape'},{from:'d',out:'shape',to:'out',input:'image'}]));

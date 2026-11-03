@@ -52,7 +52,8 @@ each with its own opacity and blend mode (up to four).
   on every beat (anywhere, or always in the centre) and the high frequencies add rain; see the
   rings as audio lines riding the crests (**Rings**), a grid of lines pushed by the water
   (**Field**) or a rippling side-on mesh (**Surface**). Wavelength, Speed, Fade, Rings and Rain
-  shape the water.
+  shape the water. Water starts with short ticks (Height 10); Line style › Angle turns them and
+  Outline echoes each ring (or each Surface row).
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain and **3D model** (your
   imported OBJ, the built-in knot until you load one). **Render** is **Normal** (a

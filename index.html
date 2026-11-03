@@ -7789,9 +7789,12 @@ function _agText(ctx,font){if(ctx._agFont!==font||ctx.font!==ctx._agFontN){ctx.f
   if(ctx.textAlign!=='center')ctx.textAlign='center';if(ctx.textBaseline!=='middle')ctx.textBaseline='middle'}
 // Draw a glyph, skipping the save/rotate/restore transform when there's no rotation (the common case).
 function _agGlyph(ctx,g,x,y,sa){if(sa){ctx.save();ctx.translate(x,y);ctx.rotate(sa);ctx.fillText(g,0,0);ctx.restore()}else{ctx.fillText(g,x,y)}}
+var _AG_SA_OWN={inkwater:1,numbers:1,symbols:1,words:1,barcode:1,arrows:1,slash:1};
 function drawShapedLine(ctx,x,ly,lh,t,val){
   if(lineShape==='off')return; // "Off" — draw no base shape (used to show only the outline)
   var ss=styleSize,sd=styleDensity,sa=styleAngle;
+  // Styles without their own use of Angle turn each whole line around its centre.
+  if(sa&&!_AG_SA_OWN[lineShape]){var cxl=x,cyl=ly+lh/2;styleAngle=0;ctx.save();ctx.translate(cxl,cyl);ctx.rotate(sa);ctx.translate(-cxl,-cyl);try{drawShapedLine(ctx,x,ly,lh,t,val)}finally{ctx.restore();styleAngle=sa}return}
   if(lineShape==='inkwater'){
     var vv=Math.max(0,Math.min(1,+val||0)),rx=Math.max(t*3*ss,lh*.12)*(0.8+vv*.65),ry=Math.max(t*2*ss,lh*.58),mx=x+Math.sin(sa+vv*Math.PI*2)*rx*.22,my=ly+lh*.5;
     ctx.save();ctx.translate(mx,my);ctx.scale(1,Math.max(.35,ry/Math.max(1,rx)));
@@ -11231,8 +11234,31 @@ var agWater=(function(){
     var n=values.length,s=agPond.S.wave,m=s.m,cx=W/2,cy=H/2,lines=[],i,j;
     var col=function(v,pos,idx,tot){return forExport?lineColHex(v,pos,idx,tot):lineCol(v,pos,idx,tot)};
     function tick(x,y,ang,lh,tw,v,pos,idx,a){var c=col(v,pos,idx,n);ctx.save();ctx.translate(x,y);ctx.rotate(ang);ctx.globalAlpha=Math.max(0,Math.min(1,a));ctx.strokeStyle=c;ctx.fillStyle=c;ctx.lineWidth=tw;drawShapedLine(ctx,0,-lh/2,lh,tw,v);ctx.restore();lines.push({v:v,x:x,y:y,lh:lh,tw:tw,pos:pos})}
+    function crests(){var o=s.o,L=o.len*o.rings,cr=[],tot=0;
+      s.drops.forEach(function(q,qi){var age=s.t-q.t0,Rf=age*o.speed,amp=q.a*Math.exp(-age/o.life);
+        for(var c=0;c<o.rings;c++){var uu=(c+.25)*o.len,r=Rf-uu;if(r<=.005||uu>=L)continue;var w=amp*Math.sin(Math.PI*uu/L)/(1+1.5*r);if(w<.012)continue;var wt=2*Math.PI*r*Math.min(1,w*2);cr.push({q:q,r:r,w:w,wt:wt,a0:(qi*2.39996)%6.283});tot+=wt}});
+      cr.tot=tot;return cr}
+    // Outline: echoes of each ripple ring (or each surface row), in the chosen outline style.
+    function oP(){var g=function(id,d){var e=document.getElementById(id);return e?+e.value:d};return{w:g('pOutline',2),d:g('pOutlineDist',0),c:Math.max(1,Math.round(g('pOutlineCount',1))),s:g('pOutlineSpace',4),a:(g('pOutlineOpacity',60)||60)/100}}
+    function oDash(o){ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=o.w;ctx.setLineDash(outlineStyle==='dotted'?[.1,o.w*3]:outlineStyle==='dashed'?[o.w*4,o.w*3]:[])}
+    function ringOutline(cr,band){if(!showOutline||outlineStyle==='connected')return;var o=oP();ctx.save();oDash(o);
+      cr.forEach(function(c,ci){var x=cx+c.q.x*m,y=cy+c.q.y*m,R=c.r*m,k=Math.min(1,c.w*4),cc=col(Math.min(1,.3+c.w*2),ci/(cr.length-1||1),Math.min(n-1,ci),n);ctx.strokeStyle=cc;ctx.fillStyle=cc;
+        if(outlineStyle==='fill'){var hb=band*Math.min(1.3,.15+c.w*2.6)/2+o.d;ctx.globalAlpha=o.a*.35*k;ctx.beginPath();ctx.arc(x,y,R+hb,0,Math.PI*2);ctx.arc(x,y,Math.max(0,R-hb),0,Math.PI*2,true);ctx.fill();return}
+        for(var e=0;e<o.c;e++){var rr=R+band*.5+o.d+e*o.s;ctx.globalAlpha=o.a*Math.max(.1,k)*(1-e/(o.c+1));ctx.beginPath();ctx.arc(x,y,rr,0,Math.PI*2);ctx.stroke()}});
+      ctx.restore()}
+    function rowOutline(pts,by,cc,al){var o=oP(),i2;ctx.save();oDash(o);ctx.strokeStyle=cc;ctx.fillStyle=cc;
+      if(outlineStyle==='fill'){ctx.globalAlpha=o.a*.3*al;ctx.beginPath();ctx.moveTo(pts[0],by+o.d);for(i2=0;i2<pts.length;i2+=2)ctx.lineTo(pts[i2],pts[i2+1]-o.d);ctx.lineTo(pts[pts.length-2],by+o.d);ctx.closePath();ctx.fill()}
+      else for(var e=0;e<o.c;e++){var dy=o.d+e*o.s+o.w;ctx.globalAlpha=o.a*al*(1-e/(o.c+1));ctx.beginPath();for(i2=0;i2<pts.length;i2+=2){if(i2)ctx.lineTo(pts[i2],pts[i2+1]-dy);else ctx.moveTo(pts[i2],pts[i2+1]-dy)}ctx.stroke()}
+      ctx.restore()}
+    function linkOutline(){if(!showOutline||outlineStyle!=='connected'||lines.length<3)return;var o=oP(),lim=o.s*12+30,t=lines;
+      if(t.length>600){var st=Math.ceil(t.length/600);t=t.filter(function(l,i){return i%st===0})}
+      ctx.save();ctx.setLineDash([]);ctx.lineWidth=o.w;var per=Math.min(3,o.c);
+      for(var a=0;a<t.length;a++)for(var b=a+1,lk=0;b<t.length&&lk<per;b++){var A=t[a],B=t[b],d=Math.hypot(A.x-B.x,A.y-B.y);if(d<2||d>lim||randSeeds[(a*7+b)%randSeeds.length]>.5)continue;lk++;
+        ctx.strokeStyle=col(A.v,A.pos,a,t.length);ctx.globalAlpha=o.a*Math.max(.1,1-d/lim);ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke()}
+      ctx.restore()}
     ctx.save();
     if(waterView==='field'){
+      ringOutline(crests(),m*.06);
       var N=Math.max(80,Math.min(3000,n*2)),cols=Math.max(4,Math.round(Math.sqrt(N*W/H))),rows=Math.max(3,Math.round(N/cols)),sp=W/cols;
       for(j=0;j<rows;j++)for(i=0;i<cols;i++){var X=(i+.5)*W/cols,Y=(j+.5)*H/rows,f=agPond.field(s,(X-cx)/m,(Y-cy)/m),hh=Math.tanh(Math.abs(f[0])*1.6);
         var idx=Math.min(n-1,Math.floor(i/cols*n)),v=Math.min(1,hh*.85+values[idx]*.25),lh=sp*Math.min(1.2,p.height*1.8)*(.3+1.6*hh+values[idx]*.35);if(varyHeight)lh*=1+getRand(j*cols+i,'rAppear')*.3;
@@ -11240,20 +11266,20 @@ var agWater=(function(){
     }else if(waterView==='surface'){
       var R=Math.max(12,Math.min(44,Math.round(Math.sqrt(n)*1.4))),C=Math.max(80,Math.min(220,Math.round(n/R*3)));
       ctx.lineJoin='round';
-      for(j=0;j<R;j++){var t=j/(R-1),sc=.45+.55*t,by=H*(.3+.62*Math.pow(t,1.15)),py=(t*2-1)*s.ay,e=0;ctx.beginPath();
+      for(j=0;j<R;j++){var t=j/(R-1),sc=.45+.55*t,by=H*(.3+.62*Math.pow(t,1.15)),py=(t*2-1)*s.ay,e=0,pts=[];ctx.beginPath();
         for(i=0;i<C;i++){var u=i/(C-1),px=(u*2-1)*s.ax*1.1,f2=agPond.field(s,px,py),ci=Math.min(n-1,Math.floor(u*n)),lift=(Math.tanh(f2[0]*1.3)*.45+values[ci]*.04)*m*Math.min(1,p.height*1.4)*.7*sc,x=cx+px*m*sc*1.05,y=by-lift;
-          e+=Math.abs(Math.tanh(f2[0]*1.6))+values[ci]*.2;if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y);if(i%4===0)lines.push({v:values[ci],x:x,y:y,lh:2,tw:p.thick*.4,pos:u})}
-        var v2=Math.min(1,e/C*2.5),ri=Math.min(n-1,Math.floor(t*(n-1)));ctx.globalAlpha=.35+.65*sc;ctx.strokeStyle=col(.35+v2*.65,t,ri,n);ctx.lineWidth=Math.max(.4,p.thick*.35*sc*(.6+v2));ctx.stroke()}
+          e+=Math.abs(Math.tanh(f2[0]*1.6))+values[ci]*.2;pts.push(x,y);if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y);if(i%4===0)lines.push({v:values[ci],x:x,y:y,lh:2,tw:p.thick*.4,pos:u})}
+        var v2=Math.min(1,e/C*2.5),ri=Math.min(n-1,Math.floor(t*(n-1)));if(showOutline&&outlineStyle!=='connected'){rowOutline(pts,by,col(.35+v2*.65,t,ri,n),.35+.65*sc);ctx.beginPath();for(var q2=0;q2<pts.length;q2+=2){if(q2)ctx.lineTo(pts[q2],pts[q2+1]);else ctx.moveTo(pts[q2],pts[q2+1])}}ctx.globalAlpha=.35+.65*sc;ctx.strokeStyle=col(.35+v2*.65,t,ri,n);ctx.lineWidth=Math.max(.4,p.thick*.35*sc*(.6+v2));ctx.stroke()}
     }else{
-      var o=s.o,L=o.len*o.rings,cr=[],tot=0,mLH=m*.2*Math.min(1.2,p.height*1.6);
-      s.drops.forEach(function(q,qi){var age=s.t-q.t0,Rf=age*o.speed,amp=q.a*Math.exp(-age/o.life);
-        for(var c=0;c<o.rings;c++){var uu=(c+.25)*o.len,r=Rf-uu;if(r<=.005||uu>=L)continue;var w=amp*Math.sin(Math.PI*uu/L)/(1+1.5*r);if(w<.012)continue;var wt=2*Math.PI*r*Math.min(1,w*2);cr.push({q:q,r:r,w:w,wt:wt,a0:(qi*2.39996)%6.283});tot+=wt}});
+      var mLH=m*.2*Math.min(1.2,p.height*1.6),cr=crests(),tot=cr.tot;
+      ringOutline(cr,mLH);
       var budget=Math.max(60,n*1.5),k2=0;
       cr.forEach(function(c){var k=Math.max(8,Math.min(600,Math.round(budget*c.wt/(tot||1))));
         for(var a=0;a<k;a++){var th=c.a0+a/k*Math.PI*2,x=cx+(c.q.x+Math.cos(th)*c.r)*m,y=cy+(c.q.y+Math.sin(th)*c.r)*m;if(x<-20||y<-20||x>W+20||y>H+20)continue;
           var idx=Math.min(n-1,Math.floor(((th%6.283)+6.283)%6.283/6.283*n)),v=values[idx],lh=mLH*Math.min(1.3,.15+c.w*2.6)*(.35+.65*v);if(varyHeight)lh*=1+getRand(k2,'rAppear')*.5;lh=Math.max(1.5,lh);
           var tw=varyThick?p.thick*(.35+.65*Math.min(1,c.w*2)):p.thick;tick(x,y,th-Math.PI/2,lh,Math.max(.25,tw*.7),Math.min(1,.25+.75*v),idx/(n-1||1),idx,Math.min(1,.15+c.w*5));k2++}});
     }
+    linkOutline();
     ctx.restore();ctx.globalAlpha=1;
     lastFrameLines={lines:lines,W:W,H:H,p:p,circle:false};return lines}
   return{draw:draw}
