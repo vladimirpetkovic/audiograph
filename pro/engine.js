@@ -148,7 +148,7 @@ export function setRenderResolution(height){
 }
 // A small preview of a loaded picture or video frame for the inspector.
 function thumb(src,w,h){try{const k=Math.min(1,160/Math.max(w,h,1)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*k));c.height=Math.max(1,Math.round(h*k));c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.8);}catch{return '';}}
-const SOLIDS=['knot','cube','torus','cylinder','cone','ico','pyramid','frame'];
+const SOLIDS=['knot','cube','torus','cylinder','cone','ico','pyramid','frame','text3d'];
 // The page owns the one camera stream; engines receive clones, so the frames never ask for permission themselves.
 let cameraProvider=null;
 export function setCameraProvider(fn){cameraProvider=fn;}
@@ -157,7 +157,7 @@ const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const HIDDEN=/setVidSource|setPixelWarpSource|objToPointCloud|setObjModel|setObjLayout/;
 const strCache=new WeakMap();
 const str=o=>{if(!o||typeof o!=='object')return JSON.stringify(o??{});let v=strCache.get(o);if(v===undefined){v=JSON.stringify(o);strCache.set(o,v);}return v;};
-const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',job.poly?'poly':'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|');
+const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',job.poly?'poly':'',job.solidMesh?.id||'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|');
 // Same parameters as last frame? (objects compare by content; they are small)
 function sameParams(a,b){
   if(!a||!b)return false;
@@ -263,7 +263,7 @@ export class EmitterEngine {
     }
     w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(this.withLook(job.look));
     // Shapes the original has no built-in model for arrive as a mesh from the 3D Object node.
-    if(solid&&job.solidMesh&&!w._objBuiltinCache[job.mode]){const m=w._objNormalizeModel(job.solidMesh.verts.map(v=>v.slice()),job.solidMesh.faces.map(f=>f.slice()));m.isDefault=true;w._objBuiltinCache[job.mode]=m;}
+    if(solid&&job.solidMesh&&w._objBuiltinCache[job.mode]?.src!==job.solidMesh){const m=w._objNormalizeModel(job.solidMesh.verts.map(v=>v.slice()),job.solidMesh.faces.map(f=>f.slice()));m.isDefault=true;m.src=job.solidMesh;w._objBuiltinCache[job.mode]=m;}
     if(mode==='object'){w.objBuiltin=solid?job.mode:(this.mediaKind==='object'?'file':'knot');}
     try{if(mode==='object')w.setObjLayout(w.objBuiltin,null);else w.setLayout(mode,null);}catch(e){console.warn(e);}
     if(job.source){const b=[...(this.container()?.querySelectorAll('.mode-btns button')||[])].find(b=>(b.getAttribute('onclick')||'').includes(job.source));if(b&&!b.classList.contains('on'))try{b.click();}catch(e){console.warn(e);}}

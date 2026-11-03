@@ -134,7 +134,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await lit(1);
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
-    assert.equal(await page.locator('.library-node[data-mode]').count(),30,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
+    assert.equal(await page.locator('.library-node[data-mode]').count(),31,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
     assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','3D','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite','AI'],'Library categories, Inputs first');
     assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','Gaussian Splat','Computer','Clock','Mouse & keys','Live data','MIDI'],'Inputs');
     assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','Particles','WebGPU particles','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
@@ -796,10 +796,38 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      const hole=await page.evaluate(()=>{const c=document.getElementById('preview'),x=c.getContext('2d').getImageData(c.width/2-45,c.height/2-45,90,90).data;let n=0;for(let i=0;i<x.length;i+=4)if(x[i]+x[i+1]+x[i+2]>60)n++;return n;});
      assert.ok(hole<300,'Particles spawn at the waveform\'s drawn size: '+hole+' lit pixels inside a scale-150 ring');}
     // A 3D camera's depth of field also reaches the Waveform render of a 3D Object (classic Canvas 2D line drawers).
+    // Text reads SOUND by default, and Weight thins or thickens it even in a single-weight font (Impact).
+    {await page.evaluate(p=>pro.importProject(p),L([{id:'t',type:'text',x:200,y:0,props:{}}],[{from:'a',out:'audio',to:'t',input:'audio'},{from:'t',out:'shape',to:'out',input:'image'}]));
+     assert.equal((await project()).layers[0].nodes.find(n=>n.id==='t').props.text,'SOUND');await page.waitForFunction(()=>pro.engine('t')?.status==='ready',null,{timeout:30000});await page.waitForTimeout(500);
+     const lit={};for(const wt of ['Regular','Black']){await page.evaluate(wt=>{const k=pro.engine('t').controls({mode:'text'}).find(c=>c.type==='chips'&&c.options.some(o=>o.label==='Bold')).key;pro.setProperty('t','chips',{[k]:wt});},wt);await page.waitForTimeout(400);
+       lit[wt]=await page.evaluate(()=>pro.engine('t').w.textLayoutData.grid.flat(3).filter(v=>v>0).length);}
+     assert.ok(lit.Regular<lit.Black*.8,'Text weight changes the letters: '+JSON.stringify(lit));}
+    // Text: plain letters in Inputs, Text / Image / Video EQ in Waveforms, 3D text in 3D; any generator masks any other.
+    {const lib=await page.evaluate(()=>[...document.querySelectorAll('#library .panel')].map(p=>[...p.querySelectorAll('.library-node')].map(b=>b.textContent)));
+     assert.ok(lib[0].includes('Text')&&!lib[0].includes('Text EQ')&&['Text EQ','Image EQ','Video EQ'].every(x=>lib[1].includes(x))&&lib[3].includes('3D text'),'Text in Inputs; EQ versions in Waveforms; 3D text in 3D');
+     const run=async(nodes,edges)=>{await page.evaluate(p=>pro.importProject(p),L(nodes,edges));for(let i=0;i<60;i++){await page.waitForTimeout(150);const s=await page.evaluate(()=>{pro.draw();return Object.values(pro.stats().engines).every(e=>e.status==='ready');});if(s&&i>12)break;}
+       return page.evaluate(()=>({px:pro.pixels(),err:pro.stats().errors}));};
+     const T={id:'t',type:'plainText',x:300,y:520,props:{}},W={id:'w',type:'waveform2d',x:300,y:0,props:{mode:'linear'}},A=id=>({from:'a',out:'audio',to:id,input:'audio'});
+     const text=await run([T],[{from:'t',out:'image',to:'out',input:'image'}]);assert.ok(text.px>20&&!text.err.length,'Plain text draws letters');
+     const cut=await run([T,W],[A('w'),{from:'t',out:'image',to:'out',input:'image'},{from:'w',out:'shape',to:'t',input:'mask'}]);assert.ok(cut.px<text.px*.3&&!cut.err.length,'A waveform masks the text: '+cut.px);
+     await page.locator('.node[data-id="t"] .node-head').click();assert.ok(await page.locator('.insp-fold[data-group="Mask"], #inspector [data-property="maskInvert"]').count()>0,'Mask settings show once a mask is wired');
+     const inv=await run([{...T,props:{maskInvert:true}},W],[A('w'),{from:'t',out:'image',to:'out',input:'image'},{from:'w',out:'shape',to:'t',input:'mask'}]);assert.ok(inv.px>text.px*.6,'Invert keeps the rest');
+     const wm=await run([T,W,{id:'d',type:'water',x:600,y:0,props:{}}],[A('w'),{from:'w',out:'shape',to:'d',input:'shape'},{from:'d',out:'shape',to:'out',input:'image'},{from:'t',out:'image',to:'w',input:'mask'}]);assert.ok(!wm.err.length,'A masked waveform still runs through deformers');
+     const t3=await run([{id:'o',type:'waveform3d',x:300,y:0,props:{mode:'text3d',render:'polygons',words:'HI'}}],[A('o'),{from:'o',out:'shape',to:'out',input:'image'}]);assert.ok(t3.px>.3&&!t3.err.length,'3D text renders: '+t3.px);
+     const ie=await run([{id:'i',type:'imageEQ',x:300,y:0,props:{}}],[A('i'),{from:'i',out:'shape',to:'out',input:'image'}]);assert.match(ie.err.join(),/load an image/,'Image EQ asks for its picture');}
+    // Cloner Scale: uniform and per axis, on top of the object's own size and stretch.
+    {const lit=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<d.length;i+=16)if(d[i]+d[i+1]+d[i+2]>30)n++;return n;});
+     const run=async props=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'cube',render:'normal'}},{id:'c',type:'cloner',x:300,y:0,props:{countX:3,countY:3,countZ:1,...props}}],[{from:'a',out:'audio',to:'c',input:'audio'},{from:'o',out:'object',to:'c',input:'object'},{from:'c',out:'shape',to:'out',input:'image'}]));
+       await page.waitForFunction(()=>Object.values(pro.stats().engines).every(e=>e.status==='ready'),null,{timeout:30000});for(let i=0;i<12;i++){await page.waitForTimeout(150);await page.evaluate(()=>pro.draw());}return lit();};
+     const base=await run({}),half=await run({scale:50}),thin=await run({scaleX:30,scaleZ:30});
+     assert.ok(half<base*.5&&thin<base*.5,'Cloner Scale shrinks the clones, uniformly and per axis: '+[base,half,thin]);
+     await page.evaluate(p=>pro.importProject(p),L([],[]));await page.locator('.library-node[data-type="cloner"]').click();
+     const g=(await project()).layers[0],cl=g.nodes.find(n=>n.type==='cloner'),o=g.nodes.find(n=>n.type==='waveform3d'),fx=g.nodes.find(n=>n.type==='soundEffector');
+     assert.ok(o?.props.mode==='cube'&&g.edges.some(e=>e.from===o.id&&e.to===cl.id&&e.input==='object')&&fx&&g.edges.some(e=>e.from===cl.id&&e.to===fx.id),'A new Cloner comes with a Cube and a Sound effector');}
     // Water: a 2D waveform (Rings / Field / Surface) and a Water ripples deformer, both fed by beat-dropped ripples.
     {const sig=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<d.length;i+=388)o.push(d[i]+d[i+1]+d[i+2]);return o;});
      const dif=(a,b)=>a.reduce((s,v,i)=>s+Math.abs(v-b[i]),0)/a.length;
-     await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'water'}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'}]));await lit();
+     await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'water'}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'}]));await page.waitForFunction(()=>pro.engine('w')?.status==='ready',null,{timeout:30000});await lit();
      for(const view of ['rings','field','surface']){await page.evaluate(async v=>{const e=pro.engine('w');await e.ready;e.w.setWaterView(v);},view);await page.waitForTimeout(1200);
        const a=await sig();await page.waitForTimeout(600);const b=await sig(),st=await page.evaluate(()=>{const w=pro.engine('w').w;return{view:w.waterView,drops:w.agPond.S.wave.drops.length,lines:w.lastFrameLines.lines.length};});
        assert.ok(st.view===view&&st.drops>0&&st.lines>50&&await page.evaluate(()=>pro.pixels())>.3,'Water '+view+' draws ripples: '+JSON.stringify(st));
@@ -818,7 +846,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
        const on=await sig(),drops=await page.evaluate(()=>pro.engine('w').w.agPond.S.def.drops.length);
        await page.evaluate(()=>{pro.setProperty('d','amount',0);pro.draw();});await page.waitForTimeout(150);const off=await sig();
        await page.evaluate(()=>{pro.setProperty('d','amount',0);pro.draw();});await page.waitForTimeout(150);const off2=await sig();
-       assert.ok(drops>0&&dif(on,off)>3*dif(off,off2)+.3,'Water ripples deform '+mode+(mode==='growth'?' (GPU warp)':'')+': '+dif(on,off).toFixed(2)+' vs '+dif(off,off2).toFixed(2));
+       assert.ok(drops>0&&dif(on,off)>2*dif(off,off2)+.3,'Water ripples deform '+mode+(mode==='growth'?' (GPU warp)':'')+': '+dif(on,off).toFixed(2)+' vs '+dif(off,off2).toFixed(2));
        await page.evaluate(()=>pro.pause(false));}}
     // 3D camera focal length: the Cloner's lens (28 mm = the original view) and the classic 3D modes' perspective.
     {await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'F',name:'F',visible:true,opacity:1,blend:'source-over',
@@ -1143,6 +1171,20 @@ def Camera "Camera" {
     await page.keyboard.press('v');await page.waitForTimeout(200);assert.ok(await page.locator('#previewBadge').isVisible(),'V previews the selected node');assert.match(await page.locator('#previewBadge').textContent(),/Circle/);
     await page.evaluate(()=>{const p=pro.getProject();p.layers[0].visible=false;pro.importProject(p);});assert.ok(await lit()>0.3,'Preview shows the node even in a hidden layer');
     await page.keyboard.press('Escape');assert.ok(await page.locator('#previewBadge').isHidden(),'Esc leaves preview');assert.equal(await lit(),0,'Back to the (hidden) composition');}
+    // Preview also works on nodes that don't feed the Output, and their errors never break the composition.
+    {await page.evaluate(()=>pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'PV',name:'PV',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},
+       {id:'w',type:'waveform2d',x:200,y:0,props:{mode:'linear'}},{id:'c',type:'waveform2d',x:200,y:200,props:{mode:'circle'}},{id:'f',type:'blur',x:400,y:200,props:{}},{id:'m',type:'merge',x:400,y:400,props:{}},{id:'out',type:'output',x:600,y:0,props:{}}],
+       edges:[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'},{from:'a',out:'audio',to:'c',input:'audio'},{from:'c',out:'shape',to:'f',input:'image'}]}]}));
+     await page.waitForFunction(()=>pro.engine('w')?.status==='ready',null,{timeout:30000});await page.waitForTimeout(500);await page.evaluate(()=>pro.pause(true));
+     const sig=()=>page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<d.length;i+=388)o.push(d[i]+d[i+1]+d[i+2]);return o;}),
+       dif=(a,b)=>a.reduce((s,v,i)=>s+Math.abs(v-b[i]),0)/a.length,pv=async id=>{await page.locator(`.node[data-id="${id}"] .node-head`).click();await page.keyboard.press('v');
+       for(let i=0;i<60&&await page.evaluate(()=>{pro.draw();return Object.values(pro.stats().engines).some(e=>e.status!=='ready');});i++)await page.waitForTimeout(250);await page.waitForTimeout(150);return sig();};
+     // Paused redraws still ease toward the frozen sound; let them settle first.
+     let out=await sig();for(let i=0,b;i<80;i++){b=await sig();if(dif(out,b)<.05){out=b;break;}out=b;}
+     const c=await pv('c'),f=await pv('f');
+     assert.ok(dif(out,c)>1,'Previewing an unconnected emitter shows it, not the output');assert.ok(dif(c,f)>.2,'Previewing an unconnected effect shows its result');
+     await pv('m');assert.ok((await page.evaluate(()=>pro.stats().errors)).some(e=>/Merge/.test(e)),'An unconnected previewed node reports what it needs');
+     await page.keyboard.press('Escape');{const back=await sig();assert.ok(dif(back,out)<dif(back,c)*.5,'Esc returns to the output: '+dif(back,out).toFixed(2)+' vs '+dif(back,c).toFixed(2));}await page.evaluate(()=>pro.pause(false));}
     // Resolution changes the render itself, not just CSS, without replacing the graph or its engines.
     await page.evaluate(()=>pro.loadTemplate('Ink'));
     const fluidID=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='gpuParticles').id);

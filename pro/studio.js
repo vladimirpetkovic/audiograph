@@ -1,7 +1,7 @@
 import * as sensors from './sensors.js';
 import {liveData,liveStatus} from './livedata.js';
 import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
-import {HIDDEN_MODES,FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,aiStyled,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
+import {MASK_KEYS,setTextMesher,HIDDEN_MODES,FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,aiStyled,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
@@ -29,7 +29,7 @@ function upstreamSim(g,n){
 }
 // Cloner: the wired objects become the original cloner's shape list; primitives by name, OBJ / knot as meshes.
 const PRIM_DEFAULT={shape:'sphere',size:60,detail:4,stretchX:100,stretchY:100,stretchZ:100,prim:true};
-const CLONER_KEYS=Object.keys(TYPES.cloner.props).filter(k=>k==='layout'||TYPES.cloner.props[k].key?.startsWith('pG3'));
+const CLONER_KEYS=Object.keys(TYPES.cloner.props).filter(k=>k==='layout'||TYPES.cloner.props[k].group==='Scale'||TYPES.cloner.props[k].key?.startsWith('pG3'));
 // A 3D Object drawn Normal is a Cloner of one: itself at the centre, framed with some room around it.
 const SINGLE={...defaults('cloner'),countX:1,countY:1,countZ:1};
 function cloneObjects(objs,p,shape){
@@ -37,7 +37,9 @@ function cloneObjects(objs,p,shape){
   const names=[],meshes=[];
   for(const o of objs){if(o.prim&&o.shape!=='knot')names.push(o.shape);else{names.push('mesh'+meshes.length);meshes.push(o.prim?'knot':o.mesh);}}
   const first=objs.find(o=>o.prim)||PRIM_DEFAULT,mods=shape.mods;
-  Object.assign(mods,{pG3Size:first.size,pG3Detail:first.detail,pG3ObjX:first.stretchX,pG3ObjY:first.stretchY,pG3ObjZ:first.stretchZ});
+  // Cloner Scale multiplies the object's own size and stretch: uniform, then per axis.
+  const k=(p.scale??100)/100;
+  Object.assign(mods,{pG3Size:first.size*k,pG3Detail:first.detail,pG3ObjX:first.stretchX*(p.scaleX??100)/100,pG3ObjY:first.stretchY*(p.scaleY??100)/100,pG3ObjZ:first.stretchZ*(p.scaleZ??100)/100});
   for(const [k,s] of Object.entries(TYPES.cloner.props))if(s.key?.startsWith('pG3'))mods[s.key]=p[k];
   mods._sim={...mods._sim,g3Mode:p.layout,g3Shape:names.join(',')};
   shape.job.meshes=meshes;
@@ -148,7 +150,11 @@ function addNode(type,x,y,props={}){
     // A new renderer listens to the layer's Audio node straight away.
     const src=isEngine(type)&&g.nodes.find(m=>m.type==='audioIn');if(src)g.edges.push({from:src.id,out:'audio',to:n.id,input:'audio'});
     // A Cloner always starts with an object; a new object goes into the selected Cloner's first free slot.
-    if(type==='cloner'){const o=node('waveform3d',n.x-210,n.y+40,{mode:'sphere',render:'normal'});g.nodes.push(o);g.edges.push({from:o.id,out:'object',to:n.id,input:'object'});}
+    // A Cloner always starts with a Cube object and a Sound effector after it (so the clones move with the music).
+    if(type==='cloner'){const o=node('waveform3d',n.x-210,n.y+40,{mode:'cube',render:'normal'});g.nodes.push(o);g.edges.push({from:o.id,out:'object',to:n.id,input:'object'});
+      const fx=node('soundEffector',n.x+210,n.y);for(const m of g.nodes)if(m!==n&&m.x>n.x+20&&m.y<n.y+120&&m.y>n.y-120)m.x+=210;g.nodes.push(fx);
+      const down=g.edges.filter(e=>e.from===n.id&&e.out==='shape');g.edges=g.edges.filter(e=>!down.includes(e));
+      g.edges.push({from:n.id,out:'shape',to:fx.id,input:'shape'},...down.map(e=>({...e,from:fx.id})));}
     const cl=TYPES[type].outputs.object&&sel?.type==='cloner'&&sel,slot=cl&&['object','object2','object3'].find(k=>!g.edges.some(e=>e.to===cl.id&&e.input===k));
     if(slot){n.x=cl.x-210;n.y=cl.y+40+130*['object','object2','object3'].indexOf(slot);g.edges.push({from:n.id,out:'object',to:cl.id,input:slot});}
     attachCamera(g,n);
@@ -458,6 +464,62 @@ function surface(id){
   const canvas=surfaces.get(id),ctx=canvas.getContext('2d');ctx.resetTransform();ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.filter='none';ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
   return {canvas,ctx};
 }
+// Text (Inputs): plain letters (font, weight, colour), scaled by the sound with Bounce. A picture, not an emitter.
+function plainText(id,p,sig){
+  const {canvas,ctx}=surface(id),txt=String(p.text||'').trim();if(!txt)return canvas;
+  const lines=txt.split(/\n/),font=s=>`${p.weight} ${s}px "${p.font}", sans-serif`;
+  ctx.font=font(100);const w=Math.max(...lines.map(l=>ctx.measureText(l).width),1);
+  const size=Math.min(WIDTH*.84/w*100,HEIGHT*.7/lines.length/1.1)*(1+(p.bounce||0)/100*.35*(sig.bands?.full||0));
+  ctx.font=font(size);ctx.fillStyle=p.color;ctx.textAlign='center';ctx.textBaseline='middle';
+  lines.forEach((l,i)=>ctx.fillText(l,WIDTH/2,HEIGHT/2+(i-(lines.length-1)/2)*size*1.1));
+  if(p.font==='Impact'&&p.weight!=='700'){// Impact has one weight: thin or thicken it like the EQ text does.
+    ctx.lineJoin='round';ctx.globalCompositeOperation=p.weight==='400'?'destination-out':'source-over';ctx.strokeStyle=p.color;ctx.lineWidth=size*(p.weight==='400'?.07:.05);
+    lines.forEach((l,i)=>ctx.strokeText(l,WIDTH/2,HEIGHT/2+(i-(lines.length-1)/2)*size*1.1));ctx.globalCompositeOperation='source-over';}
+  return canvas;
+}
+// 3D text: letters rasterised to a grid, merged into rectangles and extruded into boxes (y up, like an OBJ).
+// raw goes to the original's 3D Object (it normalises it); norm is already normalised for the Cloner / Normal render.
+const textMeshes=new Map();
+setTextMesher((words,font,depth)=>{
+  const txt=String(words||'').trim()||' ',key=txt+'|'+font+'|'+depth;
+  if(textMeshes.has(key))return textMeshes.get(key);
+  const lines=txt.split(/\n/).slice(0,6),cv=document.createElement('canvas'),ctx=cv.getContext('2d'),fs=40,f=`900 ${fs}px "${font}", sans-serif`;
+  ctx.font=f;const tw=Math.ceil(Math.max(...lines.map(l=>ctx.measureText(l).width),1))+8,th=Math.ceil(lines.length*fs*1.1)+8;
+  cv.width=Math.min(tw,1200);cv.height=th;ctx.font=f;ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
+  lines.forEach((l,i)=>ctx.fillText(l,cv.width/2,th/2+(i-(lines.length-1)/2)*fs*1.1,cv.width-8));
+  const C=2,W=Math.ceil(cv.width/C),H=Math.ceil(th/C),px=ctx.getImageData(0,0,cv.width,th).data,on=new Uint8Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){let a=0;for(let j=0;j<C;j++)for(let i=0;i<C;i++){const X=x*C+i,Y=y*C+j;if(X<cv.width&&Y<th)a+=px[(Y*cv.width+X)*4+3];}on[y*W+x]=a>C*C*127?1:0;}
+  const verts=[],faces=[],dz=depth/100*fs/C/2,BOX=[[0,1,3],[0,3,2],[4,6,7],[4,7,5],[0,4,5],[0,5,1],[2,3,7],[2,7,6],[0,2,6],[0,6,4],[1,5,7],[1,7,3]];
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(!on[y*W+x])continue;
+    let w=1;while(x+w<W&&on[y*W+x+w])w++;
+    let h=1;grow:for(;y+h<H;h++){for(let i=0;i<w;i++)if(!on[(y+h)*W+x+i])break grow;}
+    for(let j=0;j<h;j++)on.fill(0,(y+j)*W+x,(y+j)*W+x+w);
+    const o=verts.length;for(const X of [x,x+w])for(const Y of [y,y+h])for(const Z of [-dz,dz])verts.push([X-W/2,H/2-Y,Z]);
+    for(const t of BOX)faces.push(t.map(i=>i+o));
+    if(faces.length>24000)break;}
+  if(!verts.length){textMeshes.set(key,null);return null;}
+  let mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9];for(const v of verts)for(let k=0;k<3;k++){mn[k]=Math.min(mn[k],v[k]);mx[k]=Math.max(mx[k],v[k]);}
+  const sc=Math.max(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2])||1,nv=verts.map(v=>[(v[0]-(mn[0]+mx[0])/2)/sc*2,-(v[1]-(mn[1]+mx[1])/2)/sc*2,(v[2]-(mn[2]+mx[2])/2)/sc*2]);
+  const nm=nv.map(()=>[0,0,0]);for(const t of faces){const [a,b,c]=t.map(i=>nv[i]),e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+    const n=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];for(const i of t)for(let k=0;k<3;k++)nm[i][k]+=n[k];}
+  const m={raw:{verts,faces,id:'text3d:'+key},norm:{verts:nv,faces,normals:nm.map(v=>{const l=Math.hypot(...v)||1;return v.map(x=>x/l);})}};
+  if(textMeshes.size>24)textMeshes.delete(textMeshes.keys().next().value);
+  textMeshes.set(key,m);return m;
+});
+// Built-in mask: keep the picture only where the mask is bright (Brightness) or drawn (Alpha); Invert keeps the rest.
+let maskTmp=null;
+function maskInto(canvas,m){
+  let k=m.img;
+  if(m.by!=='alpha'){
+    maskTmp||=document.createElement('canvas');const w=WIDTH>>1,h=HEIGHT>>1;if(maskTmp.width!==w||maskTmp.height!==h){maskTmp.width=w;maskTmp.height=h;}
+    const c=maskTmp.getContext('2d',{willReadFrequently:true});c.clearRect(0,0,w,h);c.drawImage(m.img,0,0,w,h);
+    const d=c.getImageData(0,0,w,h),a=d.data;
+    for(let i=0;i<a.length;i+=4){const l=(a[i]*.299+a[i+1]*.587+a[i+2]*.114)*a[i+3]/255;a[i]=a[i+1]=a[i+2]=255;a[i+3]=Math.min(255,l*1.15);}
+    c.putImageData(d,0,0);k=maskTmp;
+  }
+  const ctx=canvas.getContext('2d');ctx.save();ctx.resetTransform();ctx.globalCompositeOperation=m.inv?'destination-out':'destination-in';
+  if(m.f)ctx.filter=`blur(${m.f}px)`;ctx.drawImage(k,0,0,canvas.width,canvas.height);ctx.restore();
+}
 function engineFor(id){if(!engines.has(id))engines.set(id,new EmitterEngine(id,m=>message(m,true,'render')));return engines.get(id);}
 function fxEngine(){
   for(const e of engines.values())if(e.status==='ready')return e;
@@ -493,6 +555,13 @@ function passThrough(n,input,asImage){
   }
   return r;
 }
+// A previewed node that doesn't feed the Output still runs, with whatever feeds it (failures there never stop the layer).
+function previewExtra(g,plan){
+  if(!previewId||!g.nodes.some(n=>n.id===previewId)||plan.some(n=>n.id===previewId))return null;
+  const have=new Set(plan.map(n=>n.id)),extra=new Set([previewId]),queue=[previewId];
+  for(let i=0;i<queue.length;i++)for(const e of g.edges)if(e.to===queue[i]&&!have.has(e.from)&&!extra.has(e.from)){extra.add(e.from);queue.push(e.from);}
+  return extra;
+}
 function execute(g,time,dt){
   layerView.delete(g.id);
   const outputs=new Map(),byInput=new Map(g.edges.map(e=>[e.to+':'+e.input,e])),rendered=new Map();let image=null;
@@ -507,7 +576,7 @@ function execute(g,time,dt){
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
   const asImage=(v,consumer)=>{
     if(!v||v instanceof HTMLCanvasElement)return v;
-    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1);
+    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'');
     if(rendered.has(key))return rendered.get(key);
     const e=engineFor(v.emitter.id),out=e.draw({...v.job,mods:v.mods,hue:v.hue,view:g.view});
     if(e.viewMode)layerView.set(g.id,e.viewMode);
@@ -515,12 +584,14 @@ function execute(g,time,dt){
     const {canvas,ctx}=surface(consumer+':r');
     // Renderers that ignore the classic deformers (simulations, Cloner, Growth...) get them as an image warp.
     if(!(needsWarp(v.mods)&&e.w?.AG_LAYOUT_NA?.rowRipple?.includes(e.mode)&&warpInto(ctx,out,v.mods,time,e.w?.agPond?.drops('def'))))ctx.drawImage(out,0,0);
+    if(v.mask)maskInto(canvas,v.mask);
     const sym=v.mods?._symmetryMode;
     if(sym&&sym!=='none'&&e.mode?.startsWith('sim')&&e.w?.applySymmetry){const sc=e.w.applySymmetry(canvas,sym,v.mods._symGap||0,'proSym');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(sc,0,0);}
     rendered.set(key,canvas);return canvas;
   };
   const need=(n,key,label)=>{const v=input(n,key);if(v===undefined){nodeErrors.add(n.id);throw Error(`${g.name}: connect ${label} to ${TYPES[n.type].label}`);}return v;};
-  for(const n of plans.get(g.id)||[]){
+  const plan=plans.get(g.id)||[],extra=previewExtra(g,plan);
+  for(const n of extra?order(g).filter(n=>plan.includes(n)||extra.has(n.id)):plan){try{
     const t=TYPES[n.type],p=props(n);let r={};
     if(n.bypass)r=passThrough(n,input,asImage);
     else if(t.engine){
@@ -551,6 +622,7 @@ function execute(g,time,dt){
         if(drawMedia(m,ctx,WIDTH,HEIGHT,p,input(n,'audio'),time)){analyse(m,canvas,time);r.palette=m.palette;r.brightness=m.brightness;if(n.type!=='image')r.motion=m.motion;}
         else{r.brightness=0;r.motion=0;}
         r.image=canvas;break;}
+      case 'plainText':r.image=plainText(n.id,p,input(n,'audio')??SILENT);break;
       case 'value':r.value=p.value;break;
       case 'oscillator':{const s=nstate(n.id,()=>({phase:0,v:0,next:0}));s.phase+=dt*p.rate;
         let w;if(p.wave==='random'){if(s.phase>=s.next){s.next=Math.floor(s.phase)+1;s.target=Math.random();}s.v+=((s.target??.5)-s.v)*Math.min(1,dt*8);w=s.v;}else w=waves[p.wave](s.phase);
@@ -676,10 +748,16 @@ function execute(g,time,dt){
         }
     }
     if(n.type==='templateMorph'){r.image=asImage(r.shape,n.id);delete r.shape;}
+    if(!n.bypass&&t.inputs?.mask&&byInput.has(n.id+':mask')){
+      const img=asImage(input(n,'mask'),n.id+':mk');
+      if(img){const m={img,by:p.maskBy,inv:!!p.maskInvert,f:p.maskFeather||0,key:n.id+(p.maskBy||'')+(p.maskInvert?'i':'')+(p.maskFeather||0)};
+        if(r.image instanceof HTMLCanvasElement){const {canvas,ctx}=surface(n.id+':masked');ctx.drawImage(r.image,0,0,WIDTH,HEIGHT);maskInto(canvas,m);r.image=canvas;}
+        if(r.shape&&!(r.shape instanceof HTMLCanvasElement))r.shape={...r.shape,mask:m};}
+    }
     if(n.id===previewId){const v=r.image??r.shape;if(v)previewImg=asImage(v,n.id+':pv');}
     outputs.set(n.id,r);if(DATA_INPUTS.has(n.type))lastOuts.set(n.id,{...r});{const v=r.value??(typeof r.out==='number'?r.out:n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
     if(r.image&&thumbs.has(n.id)&&frame%4===0)drawThumb(n.id,r.image);
-  }
+  }catch(error){if(!extra?.has(n.id))throw error;renderErrors.push(error.message);}}
   // Emitter thumbnails show the raw emitter render.
   for(const [key,canvas] of rendered){const id=key.split('|')[0];if(thumbs.has(id)&&frame%4===0)drawThumb(id,canvas);}
   if(!g.nodes.some(n=>n.type==='output'))throw Error(`${g.name}: add an Output node`);
@@ -1214,7 +1292,8 @@ function renderProperties(){
     if(n.type==='aiRender'||n.type==='aiModel')renderAiStatus(root,n);
     if(['image','video','camera'].includes(n.type))renderMediaPicker(root,n);
     if(SIM_PROPS(n.type)&&t.category!=='3d')renderSimNote(root,g,n);
-    renderProps(root,n,n.type==='palette'?paletteKeys(n.props):simKeys(g,n));
+    const masked=g.edges.some(e=>e.to===n.id&&e.input==='mask');
+    renderProps(root,n,n.type==='palette'?paletteKeys(n.props):simKeys(g,n).filter(k=>masked||!MASK_KEYS.includes(k)));
     const wired=Object.keys(t.props).filter(k=>t.props[k].kind==='number'&&!t.props[k].noPort);
     if(wired.length&&t.category!=='controls'&&n.type!=='audioIn')section(root).append(el('p','insp-note','Any knob can be driven: drag a wire from a Control or Audio node onto this node and pick the knob. 0 keeps the knob value, 1 pushes it to the maximum.'));
     if(t.category==='controls'||t.category==='audio'&&n.type!=='spectrum'||n.type==='audioIn'||DATA_INPUTS.has(n.type)){const v=el('p','insp-note live-value');v.dataset.node=n.id;section(root).append(v);}
@@ -1390,6 +1469,7 @@ function renderEmitter(root,n){
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k)));
   if(n.type==='gpuParticles'&&graph().edges.some(e=>e.to===n.id&&e.input==='emit'))renderProps(root,n,['emitColors']);
+  if(n.type==='waveform3d'&&n.props.mode==='text3d')renderProps(root,n,['words','font3d','depth']);
   if(n.type==='waveform3d'&&n.props.render==='normal'&&n.props.mode!=='model')renderProps(root,n,Object.keys(PRIM_DEFAULT).filter(k=>k!=='shape'&&k!=='prim'));
   const kind=mediaKind(n);
   if(kind){
@@ -1430,6 +1510,7 @@ function renderEmitter(root,n){
   }
   const sndWrap=el('div');root.append(sndWrap);
   for(const [gr,ks] of Object.entries(geo))renderProps(fold(root,gr),n,ks,true);
+  if(wiredOf('mask'))renderProps(fold(root,'Mask'),n,MASK_KEYS,true);
   const d=fold(sndWrap,'Sound');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
   const sndKeys=sim?['intensity','punch','release','dynamics'].filter(used):[...(lineSens?['sensitivity','contrast','fade']:['intensity']),...(lineSens&&used('intensity')?['intensity']:[]),'punch','release','dynamics'].filter(k=>T.props[k]);

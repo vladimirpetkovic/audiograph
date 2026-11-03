@@ -4,7 +4,7 @@ import {cleanMapping} from './mapping.js';
 import {TEMPLATE_NAMES} from './morph.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['water','Water'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
-  waveform3d: [['sphere','Sphere'],['cube','Cube'],['torus','Torus'],['cylinder','Cylinder'],['cone','Cone'],['ico','Icosphere'],['pyramid','Pyramid'],['frame','Frame'],['knot','Knot'],['tetrahedron','Tetrahedron'],['dna','DNA'],['terrain','Terrain'],['model','3D model']],
+  waveform3d: [['sphere','Sphere'],['cube','Cube'],['torus','Torus'],['cylinder','Cylinder'],['cone','Cone'],['ico','Icosphere'],['pyramid','Pyramid'],['frame','Frame'],['knot','Knot'],['tetrahedron','Tetrahedron'],['dna','DNA'],['terrain','Terrain'],['text3d','3D text'],['model','3D model']],
   gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand']]
 };
 // Retired modes: still load and render in old scenes, but are no longer offered.
@@ -101,14 +101,19 @@ export function geoFromLook(look){
   return out;
 }
 // Renderer nodes: each owns one isolated Audiograph engine. "audio" overrides the project sound; "drive" replaces it with a number.
-const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number'},outputs:{shape:'shape',...outputs},
+// Masking: every generator (waveforms, emitters, 3D, text, pictures, video) takes an optional mask — anything visual —
+// and shows only where the mask is bright (or opaque), or only where it is not.
+const MASK_PROPS={maskBy:G('Mask',pick('Mask by','luma',['luma','alpha'],{labels:[['luma','Brightness'],['alpha','Alpha']]})),maskInvert:G('Mask',bool('Invert mask')),maskFeather:G('Mask',n('Mask feather',0,0,40,1,{noPort:true}))};
+export const MASK_KEYS=Object.keys(MASK_PROPS);
+const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number',mask:'visual'},outputs:{shape:'shape',...outputs},
   props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound',n('Intensity',100,0,200,5)),punch:G('Sound',n('Bass punch',60,0,100,1)),release:G('Sound',n('Bass release',220,60,800,10)),dynamics:G('Sound',n('Dynamics',50,0,100,1)),
-    opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}}}});
-const MEDIA=(label,description,cam)=>({category:'inputs',group:'Media',label,description,inputs:{audio:'audio'},
+    opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}},...MASK_PROPS}});
+const MEDIA=(label,description,cam)=>({category:'inputs',group:'Media',label,description,inputs:{audio:'audio',mask:'visual'},
   outputs:{image:'image',palette:'colors',brightness:'number',...(label==='Image'?{}:{motion:'number'})},
   props:{fit:pick('Fit','cover',['cover','contain'],{labels:[['cover','Fill'],['contain','Fit']]}),
     warp:pick('Audio warp','wave',['none','wave','slices','pulse'],{labels:[['none','Off'],['wave','Wave'],['slices','Slices'],['pulse','Pulse']]}),
-    amount:n('Warp amount',50,0,100,1),...(cam?{mirror:bool('Mirror',true)}:{})}});
+    amount:n('Warp amount',50,0,100,1),...(cam?{mirror:bool('Mirror',true)}:{}),...MASK_PROPS}});
+export const TEXT_FONTS=['Impact','Arial Black','Helvetica','Georgia','Courier New','Futura','Verdana','Palatino'];
 const PART_SHAPES=[['circle','Circle'],['square','Square'],['star','Star'],['diamond','Diamond'],['ring','Ring'],['triangle','Triangle'],['spark','Spark'],['line','Line'],['numbers','Numbers'],['symbols','Symbols'],['words','Words']];
 // The original Audiograph's gradient presets: [background (fades by "Low opacity"), colors…].
 export const PALETTES={
@@ -182,7 +187,13 @@ export const TYPES = {
   image:MEDIA('Image','A picture. Wire audio in to warp it; its image, palette and brightness drive other nodes (e.g. GPU Particles emit).'),
   video:MEDIA('Video','A video file. Wire audio in to warp it; its image, palette, brightness and motion drive other nodes.'),
   camera:MEDIA('Camera','Your camera. Wire audio in to warp it; its image, palette, brightness and motion drive other nodes.',true),
-  text:ENGINE('inputs','Text','Your words drawn as audio-reactive lines.',{text:text('Text','AUDIOGRAPH')}),
+  // Plain letters as a picture (Inputs); the EQ versions (Waveforms) draw words, pictures and video as audio-reactive lines.
+  plainText:{category:'inputs',group:'Media',label:'Text',description:'Your words as plain letters: a picture for effects, masks or GPU Particles emit. Wire audio in and Bounce scales them with the sound.',inputs:{audio:'audio',mask:'visual'},
+    outputs:{image:'image'},props:{text:text('Text','SOUND'),font:pick('Font','Impact',TEXT_FONTS),
+      weight:pick('Weight','900',['400','700','900'],{labels:[['400','Regular'],['700','Bold'],['900','Black']]}),color:color('Color','#ffffff'),bounce:n('Bounce',0,0,100,1),...MASK_PROPS}},
+  text:ENGINE('waveforms','Text EQ','Your words drawn as audio-reactive lines.',{text:text('Text','SOUND')}),
+  imageEQ:ENGINE('waveforms','Image EQ','A picture drawn as audio-reactive lines (the original Image layout). Load the image in its properties.',{}),
+  videoEQ:ENGINE('waveforms','Video EQ','A video drawn as audio-reactive lines (the original Video layout). Load the video in its properties.',{}),
   splat:ENGINE('inputs','Gaussian Splat','A .ply / .splat point cloud that reacts to the sound (a demo cloud until you load one).',{}),
   // Waveforms and Emitters (particles)
   templateMorph:{category:'composite',group:'Templates',label:'Preset Morph',engine:true,description:'Blend original Audiograph templates: matching layouts interpolate; different layouts crossfade. Audio drives the full stack; its finished image feeds palettes, post effects and Output.',
@@ -193,6 +204,7 @@ export const TYPES = {
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads an OBJ, FBX, GLB or glTF; animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
     render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS,
+    words:text('Text','SOUND'),font3d:pick('Font','Impact',TEXT_FONTS),depth:n('Depth',30,5,150,5,{noPort:true}),
     animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
   gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Wire anything visual into “emit” (Camera, Video, Image, a waveform or emitter, a 3D Object, even a turning one) and particles spawn from its bright parts; the sound still sets how many.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU particles')),
@@ -202,8 +214,9 @@ export const TYPES = {
     countX:G('Count',n('Count X',5,1,60,1,{key:'pG3Nx'})),countY:G('Count',n('Count Y',5,1,60,1,{key:'pG3Ny'})),countZ:G('Count',n('Count Z',5,1,60,1,{key:'pG3Nz'})),
     spacingX:G('Spacing',n('Spacing X',150,20,1000,5,{key:'pG3SpX'})),spacingY:G('Spacing',n('Spacing Y',150,0,1000,5,{key:'pG3SpY'})),spacingZ:G('Spacing',n('Spacing Z',150,0,1000,5,{key:'pG3SpZ'})),
     twist:G('Steps',n('Twist',0,-45,45,1,{key:'pG3StRotY'})),endScale:G('Steps',n('End scale',100,10,300,5,{key:'pG3StScale'})),cloneSpin:G('Steps',n('Spin',0,-100,100,5,{key:'pG3Spin'})),
+    scale:G('Scale',n('Scale',100,5,400,5)),scaleX:G('Scale',n('Scale X',100,5,500,5)),scaleY:G('Scale',n('Scale Y',100,5,500,5)),scaleZ:G('Scale',n('Scale Z',100,5,500,5)),
     rotX:G('Rotate',n('Rotate X',0,-180,180,1,{key:'pG3GrX'})),rotY:G('Rotate',n('Rotate Y',0,-180,180,1,{key:'pG3GrY'})),rotZ:G('Rotate',n('Rotate Z',0,-180,180,1,{key:'pG3GrZ'})),
-    variety:G('Objects',n('Variety',100,0,100,5,{key:'pG3Mix'}))},{},'Cloner'),inputs:{audio:'audio',drive:'number',object:'object3d',object2:'object3d',object3:'object3d'}},
+    variety:G('Objects',n('Variety',100,0,100,5,{key:'pG3Mix'}))},{},'Cloner'),inputs:{audio:'audio',drive:'number',object:'object3d',object2:'object3d',object3:'object3d',mask:'visual'}},
   soundEffector:C3D('Effectors','Sound effector','Loud clones move, grow and tumble.',{
     listen:C3P('Listen by','index',[['index','Order'],['distance','Distance'],['x','X'],['y','Y'],['z','Z'],['random','Random']],'g3Map'),
     rotate:C3('Rotate',0,-360,360,'pG3EfRot',5),grow:C3('Grow from base',0,0,100,'pG3Anchor',5),spread:C3('Spread',35,0,100,'pG3Indep',5),delay:C3('Delay',0,0,100,'pG3Delay',5),
@@ -397,8 +410,12 @@ const POLY_SPHERE=()=>gridMesh(28,15,(u,v)=>{const a=u*TAU,b=v*Math.PI;return [M
 export const polyMesh=name=>name==='sphere'?(meshCache._polySphere||=withNormals(POLY_SPHERE())):shapeMesh(name);
 // What a 3D Object hands a Cloner: a clone shape the original knows, else a mesh.
 const CLONE_SHAPES=new Set(PRIMITIVES.map(p=>p[0]));
+// 3D text: the page builds the extruded letters (it needs a canvas); meshes are cached per text, font and depth.
+let textMesher=null;export const setTextMesher=fn=>{textMesher=fn;};
+export const textMesh=p=>textMesher?.(p.words??'SOUND',p.font3d??'Impact',p.depth??30)||null;
 export function objectOf(p,modelMesh){
   if(p.mode==='model')return {mesh:modelMesh||'knot'};
+  if(p.mode==='text3d'){const m=textMesh(p);return m?{shape:'text3d',size:p.size,prim:false,mesh:m.norm}:{mesh:'knot'};}
   const prim={shape:p.mode,size:p.size,detail:p.detail,stretchX:p.stretchX,stretchY:p.stretchY,stretchZ:p.stretchZ,prim:true};
   if(CLONE_SHAPES.has(p.mode))return prim;
   return {...prim,prim:false,mesh:shapeMesh(p.mode)};
@@ -408,8 +425,11 @@ export function engineSpec(n){
   switch(n.type){
     case 'templateMorph':return {mode:'templateMorph'};
     case 'text':return {mode:'text'};
+    case 'imageEQ':return {mode:'image',need:'image'};
+    case 'videoEQ':return {mode:'video',need:'video'};
     case 'waveform3d':
       if(p.render==='normal')return {mode:'simcloner',single:true};
+      if(p.mode==='text3d')return {mode:'text3d',poly:p.render==='polygons',solidMesh:textMesh(p)?.raw||null};
       if(p.render==='polygons')return p.mode==='model'?{mode:'object',poly:true}:{mode:p.mode,poly:true,solidMesh:polyMesh(p.mode)};
       if(p.mode==='model')return p.render==='points'?{mode:'simsplat',mesh:true}:{mode:'object'};
       return SHAPE_MESHES[p.mode]&&!['tetrahedron','dna','terrain'].includes(p.mode)?{mode:p.mode,solidMesh:shapeMesh(p.mode)}:{mode:p.mode};
@@ -418,7 +438,7 @@ export function engineSpec(n){
     default:return {mode:p.mode};
   }
 }
-export const MEDIA_KIND={splat:'splat'};
+export const MEDIA_KIND={splat:'splat',imageEQ:'image',videoEQ:'video'};
 export const mediaKind=n=>n.type==='waveform3d'?(n.props.mode==='model'?'object':undefined):MEDIA_KIND[n.type];
 export function nodeTitle(n){return TYPES[n.type].props.mode?.kind==='select'&&isEngine(n.type)?emitterNames[n.props.mode]:TYPES[n.type].label;}
 // A 'visual' input (Palette, Hue shift) takes a shape or an image.

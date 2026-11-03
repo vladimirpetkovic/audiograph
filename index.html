@@ -5590,6 +5590,9 @@ function generateTextLayout(){
   var _sl=document.getElementById('pTextSlant'),slant=_sl?(+_sl.value||0)/100:0;
   if(slant){ctx.translate(renderW/2,renderH/2);ctx.transform(1,0,-slant,1,0,0);ctx.translate(-renderW/2,-renderH/2);if(tm.width*(1)+Math.abs(slant)*fontSize>renderW*0.92){var k=renderW*0.92/(ctx.measureText(text).width+Math.abs(slant)*fontSize);ctx.translate(renderW/2,renderH/2);ctx.scale(k,k);ctx.translate(-renderW/2,-renderH/2)}}
   ctx.fillText(text,renderW/2,renderH/2);
+  // Fonts with a single weight (Impact…) ignore Regular/Black: thin the letters with a dark edge or thicken them with a light one.
+  var _wf=function(w){ctx.font=w+' '+fontSize+'px '+font;return ctx.measureText(text).width},_one=Math.abs(_wf('400')-_wf('900'))<.5;ctx.font=textLayoutWeight+' '+fontSize+'px '+font;
+  if(_one&&textLayoutWeight!=='700'){ctx.lineJoin='round';ctx.lineWidth=fontSize*(textLayoutWeight==='400'?.07:.05);ctx.strokeStyle=textLayoutWeight==='400'?'#000':'#fff';ctx.strokeText(text,renderW/2,renderH/2)}
   ctx.setTransform(1,0,0,1,0,0);
   // Sample into grid
   var sampleCv=document.createElement('canvas');sampleCv.width=cols;sampleCv.height=rows;

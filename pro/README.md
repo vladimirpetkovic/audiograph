@@ -34,7 +34,14 @@ each with its own opacity and blend mode (up to four).
   view). The subject stays framed, so short lenses exaggerate depth and long lenses
   flatten it. In the Cloner it sets the real field of view; classic 3D modes scale
   their Perspective by the same ratio.
-  - **Text**, **Gaussian Splat** (.ply / .splat, demo cloud by default).
+  - **Text**: plain letters (font, weight, colour; **Bounce** scales them with wired audio). It
+    outputs an `image`, so it can feed effects, masks or **WebGPU particles → emit**.
+  - **Gaussian Splat** (.ply / .splat, demo cloud by default).
+- **Masking**: every generator (waveforms, emitters, 3D Object, Cloner, Splat, Text, Image,
+  Video, Camera, the EQ nodes) has a **mask** input that takes anything visual, and any
+  generator can be the mask. **Mask by** Brightness (default; works on black backgrounds) or
+  Alpha; **Invert mask** keeps the rest; **Mask feather** softens the edge. A masked waveform
+  keeps its mask through deformers. The settings appear once a mask is wired.
   - **Data** inputs give 0–1 numbers for any knob, with live meters in the inspector:
     - **Computer**: cpu, core (busiest core), gpu, memory, fps, network, battery and
       activity (spikes whenever a reading changes). **Range: Auto** (default) stretches each
@@ -48,14 +55,16 @@ each with its own opacity and blend mode (up to four).
     - **Mouse & keys**: x, y, speed, click, held, keys (typing rate), scroll.
     - **Live data**: the ISS orbit, space weather (NOAA), ocean swell and weather (Open-Meteo, for a city or your location), earthquakes (USGS) or Wikipedia edits. Every source gives the same smooth level, change, pulse (events: a quake, a wave crest, the ISS entering sunlight) and phase, plus a palette made from the data; wire it into a Palette's **colors** to let the data pick the colours. Glide smooths slow feeds; Auto range stretches small swings. Offline it keeps moving on a simulated stream.
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
-- **Waveforms**: **2D** (Linear, Circle, Spiral, Sacred, Water, Math…). **Water** drops a stone
+- **Waveforms**: **Text EQ**, **Image EQ** and **Video EQ** draw your words, a picture or a video as
+  audio-reactive lines (the original layouts; load the picture or video in the node). **2D** (Linear, Circle, Spiral, Sacred, Water, Math…). **Water** drops a stone
   on every beat (anywhere, or always in the centre) and the high frequencies add rain; see the
   rings as audio lines riding the crests (**Rings**), a grid of lines pushed by the water
   (**Field**) or a rippling side-on mesh (**Surface**). Wavelength, Speed, Fade, Rings and Rain
   shape the water. Water starts with short ticks (Height 10); Line style › Angle turns them and
   Outline echoes each ring (or each Surface row).
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
-  Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain and **3D model** (your
+  Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain, **3D text** (your words
+  extruded, with Font and Depth) and **3D model** (your
   imported OBJ, the built-in knot until you load one). **Render** is **Normal** (a
   solid, lit object with size, detail and stretch), **Waveform** (audio-reactive
   lines), **Polygons** (filled faces in palette colours: each face hears its own
@@ -65,7 +74,7 @@ each with its own opacity and blend mode (up to four).
   so the model's own Perspective / Tilt / Rotate (and point-cloud Orbit / Tilt / Zoom) step aside; dragging the preview
   rotates and tilts the camera, the wheel zooms it, double-click resets it. A model's colours come from the Palette:
   loud lines / faces take the top of the ramp (Sound › Sensitivity, Contrast); a point cloud uses Look › Colour. Every 3D Object has an `object` output:
-  **Cloner** (layout, counts, spacing, steps, rotation, variety) takes up to three and
+  **Cloner** (layout, counts, spacing, steps, **Scale** (uniform and X / Y / Z, on top of the object's own size and stretch), rotation, variety) takes up to three and
   clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links with width, glow and sound pulse) and **Look** (Material,
   Light, Camera). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
   coloured bounce light and an optional floor that catches the shadows. Chain effectors and look nodes after the Cloner. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
