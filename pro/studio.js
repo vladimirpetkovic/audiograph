@@ -270,6 +270,25 @@ async function ensureRunning(){
 const DEFAULT_TRACK={url:'../audio/default-track.m4a',name:'Default track',state:'idle',bytes:null};
 if(!new URLSearchParams(location.search).has('demo'))DEFAULT_TRACK.bytes=fetch(DEFAULT_TRACK.url).then(r=>r.ok?r.arrayBuffer():null).catch(()=>null);
 else DEFAULT_TRACK.state='off';
+// Before the first click (browsers block sound until then) the visuals already follow the default track: its spectrum is
+// analysed silently once, then played back frame by frame.
+const TRACK_FPS=30,trackScan={freq:null,wave:null,rate:48000,frames:0};
+DEFAULT_TRACK.bytes?.then(async bytes=>{
+  if(!bytes)return;
+  const oc=new OfflineAudioContext(1,48000,48000),buf=await oc.decodeAudioData(bytes.slice(0)),rate=buf.sampleRate,frames=Math.floor(buf.duration*TRACK_FPS);
+  const ctx=new OfflineAudioContext(1,buf.length,rate),src=ctx.createBufferSource(),an=ctx.createAnalyser();
+  an.fftSize=BINS*2;an.smoothingTimeConstant=.5;an.minDecibels=-100;an.maxDecibels=-30;src.buffer=buf;src.connect(an);an.connect(ctx.destination);
+  const freq=new Uint8Array(frames*BINS);
+  for(let i=1;i<frames;i++)ctx.suspend(i/TRACK_FPS).then(()=>{an.getByteFrequencyData(freq.subarray(i*BINS,(i+1)*BINS));ctx.resume();});
+  src.start();await ctx.startRendering();
+  Object.assign(trackScan,{freq,wave:buf.getChannelData(0),rate,frames});
+  updateAudioUI();
+}).catch(e=>console.warn('Default track scan:',e));
+function trackSpectrum(t){
+  const {freq,wave,rate,frames}=trackScan,i=1+Math.floor(t*TRACK_FPS)%(frames-1);
+  A.rate=rate;A.freq.set(freq.subarray(i*BINS,(i+1)*BINS));
+  const o=Math.floor((i/TRACK_FPS)*rate)%Math.max(1,wave.length-A.wave.length);A.wave.set(wave.subarray(o,o+A.wave.length));
+}
 async function startDefaultTrack(){
   if(DEFAULT_TRACK.state!=='idle')return;DEFAULT_TRACK.state='loading';unlockAudio();
   try{
@@ -289,7 +308,7 @@ function stopAudio(keepOffset=false){
   if(!keepOffset)audio.offset=0;syncPlay();
 }
 // Source buttons live in the Audio node's inspector, so they may not exist right now.
-function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:'Demo beat';}
+function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:trackScan.frames>1||DEFAULT_TRACK.state!=='off'?DEFAULT_TRACK.name:'Demo beat';}
 const placeholderSound=name=>name==='Demo beat'||name===DEFAULT_TRACK.name;
 function updateAudioUI(){
   for(const k of ['mic','system'])$(k)?.classList.toggle('on',audio.live?.kind===k);
@@ -349,6 +368,7 @@ function demoSpectrum(t){
 function readAudio(t){
   A.live=!!(audio.analyser&&(audio.source||audio.live));
   if(A.live){A.rate=audio.context.sampleRate;audio.analyser.getByteFrequencyData(A.freq);audio.analyser.getFloatTimeDomainData(A.wave);}
+  else if(trackScan.frames>1)trackSpectrum(t);
   else{A.rate=48000;demoSpectrum(t);}
   A.bands=bandsOf(A.freq);
   const b=A.bands.bass;A.avg=A.avg*.95+b*.05;

@@ -56,7 +56,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     // Without ?demo the default track starts on the first key or click and loops; Stop silences it.
     {const p2=await browser.newPage({viewport:{width:1200,height:800}});await p2.goto(proUrl);await p2.waitForFunction(()=>window.pro);
-     assert.match(await p2.locator('#audioName').textContent(),/Demo beat/,'Nothing plays before a gesture');
+     assert.match(await p2.locator('#audioName').textContent(),/Default track/,'The default track is the only placeholder sound');assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'Nothing plays before a gesture');
      await p2.keyboard.press('Shift');await p2.waitForFunction(()=>/Default track · add audio/.test(document.querySelector('#audioName').textContent)&&document.querySelector('#play').classList.contains('on'),null,{timeout:15000});
      await p2.click('#stop');assert.ok(!(await p2.locator('#play.on').count()),'Stop silences the default track');await p2.close();}
     // AI: Model + Prompt + ControlNet feed AI Render, which streams frames to the bridge (mocked here) one at a time.

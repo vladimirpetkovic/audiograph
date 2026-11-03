@@ -1,4 +1,4 @@
-// v72: guided tour builds the look step by step and plays a demo beat when no audio is loaded.
+// v72: guided tour builds the look step by step and plays the default track when no audio is loaded.
 process.env.AUDIOGRAPH_PARTICLE_BUILD = process.env.AUDIOGRAPH_TOUR_BUILD || 'versions/audiograph_83.html';
 process.env.AUDIOGRAPH_BUILD_31 = process.env.AUDIOGRAPH_PARTICLE_BUILD;
 const fs = require('node:fs');
@@ -41,7 +41,7 @@ const SHOTS = process.env.TOUR_SHOTS;
     assert.ok(!T('Pick a Style').particles && T('Add Particles').particles, 'particles appear only at the particles step');
     assert.ok(T('Add Particles').twist === 0 && T('Bend it with Deformers').twist === 0, 'deformers step present');
     assert.ok(T('Bend it with Deformers').bloom === 0 && T('Finish with Post FX').bloom === 30, 'Post FX appear last');
-    assert.ok(seen[1].hasAudio && seen[1].playing, 'demo beat loaded and playing after step 1');
+    assert.ok(seen[1].hasAudio && seen[1].playing, 'default track loaded and playing after step 1');
     assert.equal(await page.evaluate(() => document.getElementById('pIntensity').value), '50', 'intensity set to 50%');
     assert.equal(seen[seen.length - 3].title, 'Save it as a Preset'); assert.equal(seen[seen.length - 2].title, 'Save a Video'); assert.equal(seen[seen.length - 1].title, 'Stack Layers');
     assert.deepEqual(await page.evaluate(() => stackLayouts.map(l => l.layout)), ['spiral', 'circle'], 'last step adds a Circle layer');
