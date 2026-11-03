@@ -356,7 +356,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const v1={format:'audiograph-pro',version:1,layers:[{id:'a',name:'Old',visible:true,opacity:1,nodes:[
       {id:'e',type:'emitter',x:0,y:0,props:{mode:'circle',drive:.5,energy:1,size:1,hue:0}},{id:'o',type:'output',x:200,y:0,props:{}}],edges:[{from:'e',out:'image',to:'o',input:'image'}]}]};
     const migrated=await page.evaluate(p=>pro.importProject(p),v1);
-    assert.equal(migrated.version,13);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
+    assert.equal(migrated.version,14);assert.equal(migrated.layers[0].edges[0].out,'shape');assert.equal(migrated.layers[0].nodes[0].type,'waveform2d');
     // Version 2 emitters become Input / Emitter nodes; a camera-sourced Video becomes a Camera node, EQ wires become audio wires.
     const v2=await page.evaluate(()=>pro.validate({format:'audiograph-pro',version:2,layers:[{id:'a',name:'x',visible:true,opacity:1,blend:'screen',nodes:[{id:'e',type:'emitter',x:0,y:0,props:{mode:'video',chips:{'0':'Camera'}}},{id:'f',type:'emitter',x:0,y:0,props:{mode:'pixelwarp'}},{id:'q',type:'spectrum',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],edges:[{from:'q',out:'spectrum',to:'e',input:'spectrum'},{from:'e',out:'shape',to:'o',input:'image'}]}]}));
     assert.deepEqual(v2.layers[0].nodes.slice(0,2).map(n=>[n.type,n.props.warp]),[['camera','wave'],['image','wave']]);
@@ -824,17 +824,24 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      await page.evaluate(p=>pro.importProject(p),L([],[]));await page.locator('.library-node[data-type="cloner"]').click();
      const g=(await project()).layers[0],cl=g.nodes.find(n=>n.type==='cloner'),o=g.nodes.find(n=>n.type==='waveform3d'),fx=g.nodes.find(n=>n.type==='soundEffector');
      assert.ok(o?.props.mode==='cube'&&g.edges.some(e=>e.from===o.id&&e.to===cl.id&&e.input==='object')&&fx&&g.edges.some(e=>e.from===cl.id&&e.to===fx.id),'A new Cloner comes with a Cube and a Sound effector');}
-    // Glitch deformer: slices / RGB split / blocks on a picture, quiet at amount 0.
+    // Glitch (Post FX): slices / RGB split / blocks on a picture, quiet at amount 0.
     {
       const gsig=()=>page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<d.length;i+=388)o.push(d[i]+d[i+1]+d[i+2]);return o;});
       const shot=async amount=>{
         await page.evaluate(p=>pro.importProject(p),L([{id:'t',type:'plainText',x:200,y:0,props:{}},{id:'g',type:'glitch',x:420,y:0,props:{amount,react:'always',threshold:0}}],
-          [{from:'t',out:'image',to:'g',input:'shape'},{from:'g',out:'shape',to:'out',input:'image'}]));
+          [{from:'t',out:'image',to:'g',input:'image'},{from:'g',out:'image',to:'out',input:'image'}]));
         await page.waitForTimeout(500);await page.evaluate(()=>pro.pause(true));await page.waitForTimeout(300);const s=await gsig();await page.evaluate(()=>pro.pause(false));return s;};
       const a0=await shot(0),a1=await shot(100);
       const d=a0.reduce((s,v,i)=>s+Math.abs(v-a1[i]),0)/a0.length;
       if(!(d>10))throw new Error('Glitch at full amount should visibly break up the picture (diff '+d.toFixed(1)+')');
       if((await page.evaluate(()=>pro.stats().errors)).length)throw new Error('Glitch raised errors');
+      // Strobe at a steady 10 / s: Safe holds it to 3 flashes a second; off, it flashes every frame step.
+      const flashes=async safe=>{await page.evaluate(p=>pro.importProject(p),L([{id:'t',type:'plainText',x:200,y:0,props:{}},{id:'s',type:'strobe',x:420,y:0,props:{react:'tempo',rate:10,safe}}],
+          [{from:'t',out:'image',to:'s',input:'image'},{from:'s',out:'image',to:'out',input:'image'}]));await page.waitForTimeout(500);
+        const v=[];const t0=Date.now();while(Date.now()-t0<2000){const s=await gsig();v.push(s.reduce((a,b)=>a+b,0)/s.length);await page.waitForTimeout(16);}
+        return v.filter((x,i)=>i&&x>v[i-1]+40).length;};
+      const safeN=await flashes(true),fastN=await flashes(false);
+      if(!(safeN>=3&&safeN<=7&&fastN>safeN*1.8))throw new Error(`Strobe flashes: safe ${safeN}, unsafe ${fastN}`);
     }
     // Water: a 2D waveform (Rings / Field / Surface) and a Water ripples deformer, both fed by beat-dropped ripples.
     {const sig=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<d.length;i+=388)o.push(d[i]+d[i+1]+d[i+2]);return o;});

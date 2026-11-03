@@ -609,7 +609,7 @@ function execute(g,time,dt){
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
   const asImage=(v,consumer)=>{
     if(!v||v instanceof HTMLCanvasElement)return v;
-    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+(v.glitch?'|'+v.glitch.map(x=>x.key).join():'');
+    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'');
     if(rendered.has(key))return rendered.get(key);
     const e=engineFor(v.emitter.id),out=e.draw({...v.job,mods:v.mods,hue:v.hue,view:g.view});
     if(e.viewMode)layerView.set(g.id,e.viewMode);
@@ -617,7 +617,6 @@ function execute(g,time,dt){
     const {canvas,ctx}=surface(consumer+':r');
     // Renderers that ignore the classic deformers (simulations, Cloner, Growth...) get them as an image warp.
     if(!(needsWarp(v.mods)&&e.w?.AG_LAYOUT_NA?.rowRipple?.includes(e.mode)&&warpInto(ctx,out,v.mods,time,e.w?.agPond?.drops('def'))))ctx.drawImage(out,0,0);
-    if(v.glitch)for(const gl of v.glitch)glitchInto(canvas,gl);
     if(v.mask)maskInto(canvas,v.mask);
     const sym=v.mods?._symmetryMode;
     if(sym&&sym!=='none'&&e.mode?.startsWith('sim')&&e.w?.applySymmetry){const sc=e.w.applySymmetry(canvas,sym,v.mods._symGap||0,'proSym');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(sc,0,0);}
@@ -756,16 +755,30 @@ function execute(g,time,dt){
       case 'layerIn':{const target=state.layers[p.layer-1];if(!target){nodeErrors.add(n.id);throw Error(`${g.name}: there is no layer ${p.layer}`);}
         if(target.id===g.id){nodeErrors.add(n.id);throw Error(`${g.name}: a Layer node cannot show its own layer`);}
         r.image=layerImages.get(target.id)||surface(n.id).canvas;break;}
-      case 'glitch':{const v=need(n,'shape','a shape or an image'),sig=input(n,'audio')??projectSignal(),st=nstate(n.id+':gl',()=>({beat:sig.beat,v:0,seed:1,last:-1}));
-        if(sig.beat!==st.beat){st.beat=sig.beat;if(p.react==='beat')st.v=1;}
-        const b=sig.bands||{},raw=p.react==='always'?1:p.react==='beat'?st.v:p.react==='bass'?b.bass:p.react==='high'?Math.min(1,(b.high||0)*1.6):b.full;
-        if(p.react==='beat')st.v*=Math.exp(-dt*1000/p.decay);
-        const th=p.threshold/100,k=p.amount/100*Math.max(0,((raw||0)-th)/(1-th));
-        const step=Math.floor(time*p.speed);if(step!==st.last){st.last=step;st.seed=(st.seed*1103515245+12345+step)>>>0;}
-        const gl={id:n.id,k,seed:st.seed,slices:p.slices,rgb:p.rgb,blocks:p.blocks,stutter:p.stutter,key:n.id+':'+st.seed+':'+k.toFixed(3)+':'+[p.slices,p.rgb,p.blocks,p.stutter]};
-        if(v instanceof HTMLCanvasElement||v===blank()){const {canvas,ctx}=surface(n.id);if(v)ctx.drawImage(v,0,0,WIDTH,HEIGHT);glitchInto(canvas,gl);r.shape=canvas;}
-        else r.shape={...v,glitch:[...(v.glitch||[]),gl]};
-        lastValues.set(n.id,k);break;}
+      case 'glitch':case 'strobe':{const src=asImage(need(n,'image','an image'),n.id),sig=input(n,'audio')??projectSignal(),st=nstate(n.id+':hit',()=>({beat:sig.beat,v:0,seed:1,last:-1,count:0,flash:-9,armed:true,step:-1}));
+        const b=sig.bands||{},level=p.react==='bass'?b.bass:p.react==='high'?Math.min(1,(b.high||0)*1.6):b.full,th=p.threshold/100,newBeat=sig.beat!==st.beat;st.beat=sig.beat;
+        const {canvas,ctx}=surface(n.id);ctx.clearRect(0,0,WIDTH,HEIGHT);if(src)ctx.drawImage(src,0,0,WIDTH,HEIGHT);
+        let k;
+        if(n.type==='glitch'){
+          if(newBeat&&p.react==='beat')st.v=1;
+          const raw=p.react==='always'?1:p.react==='beat'?st.v:level;
+          if(p.react==='beat')st.v*=Math.exp(-dt*1000/p.decay);
+          k=p.amount/100*Math.max(0,((raw||0)-th)/(1-th));
+          const step=Math.floor(time*p.speed);if(step!==st.last){st.last=step;st.seed=(st.seed*1103515245+12345+step)>>>0;}
+          glitchInto(canvas,{id:n.id,k,seed:st.seed,slices:p.slices,rgb:p.rgb,blocks:p.blocks,stutter:p.stutter});
+        }else{
+          // Strobe: discrete flashes (beats counted by Every, a band crossing the threshold, or a steady rate) that fade over Decay.
+          let hit=false;
+          if(p.react==='beat'){if(newBeat&&++st.count%(+p.every||1)===0)hit=true;}
+          else if(p.react==='tempo'){const step=Math.floor(time*p.rate);if(step!==st.step){st.step=step;hit=true;}}
+          else{const on=(level||0)>th;if(on&&st.armed)hit=true;if(on)st.armed=false;else if((level||0)<th*.8)st.armed=true;}
+          if(hit&&(!p.safe||time-st.flash>=1/3-1e-3)){st.v=1;st.flash=time;}
+          k=p.amount/100*st.v;st.v*=Math.exp(-dt*1000/p.decay);if(st.v<.004)st.v=0;
+          if(k>.003){ctx.save();ctx.globalAlpha=Math.min(1,k);
+            if(p.style==='invert'){ctx.globalCompositeOperation='difference';ctx.fillStyle='#fff';}else ctx.fillStyle=p.style==='blackout'?'#000':p.color;
+            ctx.fillRect(0,0,WIDTH,HEIGHT);ctx.restore();}
+        }
+        r.image=canvas;lastValues.set(n.id,k);break;}
       case 'output':image=asImage(need(n,'image','an image'),n.id);r.image=image;break;
       case 'trails':{let src=asImage(need(n,'image','an image'),n.id);const {canvas,ctx}=surface(n.id);
         // Smooth: stamp the new frame at in-between zoom steps so it bridges the gap to the previous (zoomed) echo.

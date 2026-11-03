@@ -79,7 +79,6 @@ each with its own opacity and blend mode (up to four).
   Light, Camera). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
   coloured bounce light and an optional floor that catches the shadows. Chain effectors and look nodes after the Cloner. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
   into these nodes automatically.
-- **Glitch** (Deformers › Noise) breaks up any shape or picture with slice shifts, RGB split, displaced blocks and stutter (repeating the last frame), driven by the sound: **React to** Beats / Bass / Highs / Loudness / Always, with **Threshold**, **Decay** and **Speed**; the **Look** fold mixes the four effects. Quiet passages stay clean.
 - **Viewport camera**: drag in the preview to orbit a 3D layer (right- or Shift-drag pans), or to move a 2D
   layer; the wheel zooms and a double-click resets. It applies to the active layer and is saved with it.
   Nothing rotates by default: Cloner Spin and 3D camera Orbit / Orbit with sound start at 0 (presets set their own).
@@ -137,6 +136,14 @@ each with its own opacity and blend mode (up to four).
   picture: each refracts and flips what is behind it, with chromatic fringes, a
   bright rim and highlight. Its knobs are split into Blobs, Glass, Tint (tint, amount,
   dim outside) and Sound (bass swell, beat pulse, wobble).
+  **Glitch** breaks the picture up with slice shifts, RGB split, displaced blocks and stutter
+  (repeating the last frame), driven by the sound: **Hits on** Beats / Bass / Highs / Loudness / Always,
+  with Threshold, Decay and Speed; the **Look** fold mixes the four effects. Quiet passages stay clean.
+  **Strobe** flashes on Beats (every 1, 2, 4 or 8), when Bass / Highs / Loudness cross the Threshold, or
+  at a Steady rate; Style is Flash (any colour), Blackout or Invert, and Decay sets the fade.
+  **Safe** (on by default) keeps it to 3 flashes a second, the photosensitivity guideline.
+  Both take an optional audio input (otherwise the project's audio). Older projects' Glitch
+  deformers open as the Post FX.
   **Smooth** on Trails (with Feedback) and on the Feedback node fills the gaps
   between zoomed echoes so they read as one continuous smear instead of rings
   (default 100; lower it for a stepped, echo look).

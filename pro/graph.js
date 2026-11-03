@@ -264,12 +264,6 @@ export const TYPES = {
     len:n('Wavelength',40,10,100,1,{key:'_waterLen'}),speed:n('Speed',60,10,200,1,{key:'_waterSpeed'}),rain:n('Rain',30,0,100,1,{key:'_waterRain'})}},
   jitter:{...DEFORM('Jitter','_jitter',0,100,30,'Random shake.'),group:'Noise'},
   disorder:{...DEFORM('Disorder','_rDisorder',0,100,40,'Scatter elements out of place.'),group:'Noise'},
-  // Glitch: digital breakup that hits with the sound. It works on any shape or picture (applied to the rendered image).
-  glitch:{category:'deformers',group:'Noise',label:'Glitch',description:'Digital breakup that hits with the sound: sliced and shifted rows, RGB split, displaced blocks and stuttering frames. Quiet parts stay clean; works on shapes and pictures.',
-    inputs:{shape:'visual',audio:'audio'},outputs:{shape:'shape'},primary:['shape'],props:{
-    amount:n('Amount',70,0,100,1),react:pick('Hits on','beat',['beat','bass','high','level','always'],{labels:[['beat','Beats'],['bass','Bass'],['high','Highs'],['level','Loudness'],['always','Always']]}),
-    threshold:n('Threshold',25,0,95,1),decay:n('Decay (ms)',220,40,1200,10),speed:n('Speed',14,1,40,1),
-    slices:G('Look',n('Slices',70,0,100,1)),rgb:G('Look',n('RGB split',50,0,100,1)),blocks:G('Look',n('Blocks',40,0,100,1)),stutter:G('Look',n('Stutter',30,0,100,1))}},
   randomize:{category:'deformers',group:'Noise',label:'Randomize',description:'Per-element randomness.',...SHAPE_IO,props:{
     global:n('Global',30,0,100,1,{key:'_rGlobal'}),dist:n('Distribution',0,0,100,1,{key:'_rDist'}),appear:n('Appearance',0,0,100,1,{key:'_rAppear'}),outline:n('Outline',0,0,100,1,{key:'_rOutline'}),color:n('Color',0,0,100,1,{key:'_rColor'})}},
   webcam:{category:'deformers',label:'Webcam',description:'Your camera displaces the shape by brightness and can colour it.',...SHAPE_IO,props:{
@@ -304,6 +298,19 @@ export const TYPES = {
     perlin:n('Perlin',40,0,100,1,{key:'pNoisePerlin'}),curl:n('Curl',0,0,100,1,{key:'pNoiseCurl'}),brownian:n('Brownian',0,0,100,1,{key:'pNoiseBrownian'}),vortex:n('Vortex',0,0,100,1,{key:'pNoiseVortex'}),
     scale:n('Scale',30,1,100,1,{key:'pNoiseScale'}),speed:n('Speed',20,1,100,1,{key:'pNoiseSpeed'})}},
   // Post FX (original per-layer GPU shaders)
+  // Glitch and Strobe: canvas Post FX that hit with the sound (beats, a band or loudness), each with an optional audio input.
+  glitch:{category:'postfx',label:'Glitch',description:'Digital breakup that hits with the sound: sliced and shifted rows, RGB split, displaced blocks and stuttering frames. Quiet parts stay clean.',
+    inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
+    amount:n('Amount',70,0,100,1),react:pick('Hits on','beat',['beat','bass','high','level','always'],{labels:[['beat','Beats'],['bass','Bass'],['high','Highs'],['level','Loudness'],['always','Always']]}),
+    threshold:n('Threshold',25,0,95,1),decay:n('Decay (ms)',220,40,1200,10),speed:n('Speed',14,1,40,1),
+    slices:G('Look',n('Slices',70,0,100,1)),rgb:G('Look',n('RGB split',50,0,100,1)),blocks:G('Look',n('Blocks',40,0,100,1)),stutter:G('Look',n('Stutter',30,0,100,1))}},
+  strobe:{category:'postfx',label:'Strobe',description:'Flashes on the beat: white or coloured flash, blackout or invert. Safe mode keeps it to 3 flashes a second (photosensitivity guideline).',
+    inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
+    amount:n('Amount',80,0,100,1),react:pick('Flashes on','beat',['beat','bass','high','level','tempo'],{labels:[['beat','Beats'],['bass','Bass'],['high','Highs'],['level','Loudness'],['tempo','Steady rate']]}),
+    every:pick('Every','1',['1','2','4','8'],{labels:[['1','Beat'],['2','2 beats'],['4','4 beats'],['8','8 beats']]}),
+    threshold:n('Threshold',45,0,95,1),rate:n('Rate (per s)',2,.25,12,.25),decay:n('Decay (ms)',120,20,1000,10),
+    style:G('Look',pick('Style','flash',['flash','blackout','invert'],{labels:[['flash','Flash'],['blackout','Blackout'],['invert','Invert']]})),
+    color:G('Look',color('Colour','#ffffff')),safe:bool('Safe (max 3 / s)',true)}},
   bloom:FX('Bloom','Glow around bright areas.',{bloom:n('Bloom',60,0,100,1,{key:'pfxBloom'}),edge:n('Edge glow',0,0,100,1,{key:'pfxEdgeGlow'})}),
   grade:{...FX('Color correct','Brightness, contrast, saturation, hue.',{brightness:n('Brightness',0,-100,100,1,{key:'pfxBrightness'}),contrast:n('Contrast',10,-100,100,1,{key:'pfxContrast'}),
     saturation:n('Saturation',20,-100,200,1,{key:'pfxSaturation'}),hue:n('Hue',0,-180,180,1,{key:'pfxHue'}),invert:n('Invert',0,0,100,1,{key:'pfxInvert'})}),category:'color'},
@@ -470,7 +477,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=13;
+export const VERSION=14;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -597,6 +604,9 @@ function migrate(raw){
   if(raw.version<11)for(const g of out.layers||[])mediaInputs(g);
   if(raw.version<12)for(const g of out.layers||[])randomAxes(g);
   if(raw.version<13)for(const g of out.layers||[])for(const nd of g?.nodes||[])if(nd?.type==='spin'&&typeof nd.props?.spin==='number'&&nd.props.spin<0)Object.assign(nd.props,spinProps(nd.props.spin));
+  // Version 14: Glitch left the deformers for Post FX; its shape wires become image wires.
+  if(raw.version<14)for(const g of out.layers||[]){const ids=new Set((g?.nodes||[]).filter(nd=>nd?.type==='glitch').map(nd=>nd.id));
+    for(const e of g?.edges||[]){if(!e)continue;if(ids.has(e.to)&&e.input==='shape')e.input='image';if(ids.has(e.from)&&e.out==='shape')e.out='image';}}
   out.version=VERSION;return out;
 }
 // Version 12: the Random effector's single Tilt became rotation on each axis (wires and Auto go to Y).
