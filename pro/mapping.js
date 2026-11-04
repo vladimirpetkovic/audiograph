@@ -1,4 +1,4 @@
-import {clean3d,render3d} from './map3d.js';
+import {clean3d,render3d,cleanAuto} from './map3d.js';
 // Projection mapping: the finished picture (or one layer) is cropped, masked and warped onto surfaces.
 // A surface is a grid of control points in output space (0–1). A 1×1 grid is a true perspective corner pin
 // (homography); bigger grids bend smoothly through every point (Catmull-Rom) for curved or uneven walls.
@@ -38,7 +38,7 @@ export function cleanMapping(m){
     if(s.wrap!==undefined&&!['flat','cap'].includes(s.wrap))throw Error('Invalid mapping wrap');
     if(s.wrap==='cap'&&(cols!==1||rows!==1))throw Error('Cube cap needs four corners');
     return {id,name:typeof s.name==='string'&&s.name.trim()?s.name.slice(0,40):`Surface ${k+1}`,source,cols,rows,pts,crop:c,
-      opacity:num(s.opacity,0,1,1),feather:num(s.feather,0,.5,0),mask:s.mask==='ellipse'?'ellipse':'rect',...(s.wrap!==undefined?{wrap:s.wrap}:{})};
+      opacity:num(s.opacity,0,1,1),feather:num(s.feather,0,.5,0),mask:s.mask==='ellipse'?'ellipse':'rect',...(s.wrap!==undefined?{wrap:s.wrap}:{}),...(a=>a.length?{auto:a}:{})(cleanAuto(s.auto).filter(k=>k.startsWith('crop')))};
   });
   // Older cube presets used a rectangle on the cap, which cannot meet both side crops at their shared vertex.
   const top=surfaces.find(s=>s.id==='top'),left=surfaces.find(s=>s.id==='left'),right=surfaces.find(s=>s.id==='right');

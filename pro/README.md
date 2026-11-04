@@ -310,6 +310,14 @@ process the finished image.
     drag is undoable and the knobs follow it. **Lattice**
     (2³, 3³ or 4³ points) bends it to match the real object — drag the yellow points
     in the view (each drag is undoable; Reset lattice straightens it).
+    **Shading → Ambient occlusion** (Off by default) darkens creases, corners and
+    the wall behind columns: a GPU position prepass, a 16-sample screen-space
+    occlusion pass and a depth-aware 4×4 blur. Strength and Radius (% of the
+    model size) shape it; it needs float render targets (EXT_color_buffer_float)
+    and is skipped otherwise.
+    Projection knobs (2D Crop; 3D Tiling, Box fade, Box move / rotate / scale)
+    have **Auto**: the centre dot makes the knob drift around its value at draw
+    time (the saved value stays put; the surface keeps an `auto` key list).
     Animated GLB/glTF models (skinned characters, node animation) play on the surface:
     **Animation** toggles Play / Rest pose, picks the clip and sets the speed.
     Flat/unlit WebGL2 rendering includes depth testing and double-sided faces.

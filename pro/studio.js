@@ -964,10 +964,14 @@ const mapActive=()=>!!state.mapping?.surfaces.length&&(state.mapping.on||state.m
 function keepLayer(id,image){if(!layerImages.has(id)){const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;layerImages.set(id,c);}const c=layerImages.get(id),x=c.getContext('2d');x.clearRect(0,0,WIDTH,HEIGHT);x.drawImage(image,0,0);}
 function drawThumb(id,src){const cv=thumbs.get(id);if(!cv?.isConnected)return;const c=cv.getContext('2d');c.fillStyle='#000';c.fillRect(0,0,cv.width,cv.height);c.drawImage(src,0,0,cv.width,cv.height);}
 // Auto knobs: a shared clock (scaled by the Auto speed) and the drifted values shown on the knobs.
-let autoClock=0,knobAutoSpeed=1;const autoValues=new Map();
+let autoClock=0,knobAutoSpeed=1;const autoValues=new Map(),mapAutoValues=new Map();
 function showAutoKnobs(){
   if(!selected)return;
   for(const b of document.querySelectorAll('#properties .knob.auto')){const k=b.querySelector('.knob-auto')?.dataset.auto;const v=autoValues.get(selected+':'+k);if(v!==undefined)b.show?.(v);}
+}
+function showMapAutoKnobs(){
+  if(!mapMode||!mapSel)return;
+  for(const b of document.querySelectorAll('#mapPanel .knob.auto[data-map-auto]')){const k=b.dataset.mapAuto,v=mapAutoValues.get(mapSel+':'+k);if(v!==undefined)b.show?.(MAP_AUTO_PCT.test(k)?v*100:v);}
 }
 // Dissolve: any change to what is drawn (nodes, wires, layers, a template, Autopilot) fades from the last frame
 // instead of cutting. New engines start behind the held frame, then it fades out like the original's layout fade.
@@ -1014,12 +1018,12 @@ function draw(time,dt=1/30){
   out.globalAlpha=1;out.globalCompositeOperation='source-over';
   if(mapped)mapTime=time;
   if(previewImg){previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.drawImage(previewImg,0,0,WIDTH,HEIGHT);}
-  else if(mapped)mapping.render(previewCtx,state.mapping,src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time);
+  else if(mapped)mapping.render(previewCtx,map3d.driftMapping(state.mapping,autoClock,mapAutoValues),src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time);
   dissolveDraw(paused?0:dt);
   blackout.level+=((blackout.on?1:0)-blackout.level)*Math.min(1,dt*8);if(blackout.level<.002&&!blackout.on)blackout.level=0;
   if(blackout.level>0){previewCtx.globalAlpha=Math.min(1,blackout.level*1.02);previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.globalAlpha=1;}
   frame++;
-  if(frame%2===0){drawSpectrum();showAutoKnobs();}
+  if(frame%2===0){drawSpectrum();showAutoKnobs();showMapAutoKnobs();}
   if(frame%4===0)updatePalettePreview();
   const list=[...engines.values()],starting=list.some(e=>e.status==='starting');
   if(renderErrors.length&&!starting)message(renderErrors[0]+(renderErrors.length>1?` (+${renderErrors.length-1})`:''),true,'render');
@@ -2469,7 +2473,7 @@ $('helpBody').innerHTML=`
 <li>On AI Render, <b>New seed</b> (Every beat / Every 4 beats) re-rolls details in time with the music; <b>Dream</b> feeds the last AI picture back in, zoomed by <b>Dream zoom</b> and turned by <b>Dream spin</b>, for endless evolving “dream zoom” imagery.</li></ol>
 <p>The first frame takes a while as the model loads; after that it streams a few frames a second on a modern GPU or Apple Silicon.</p>
 <h3 id="h-mapping">Mapping</h3>
-<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / USD (usda, usdc, usdz) / GLB / self-contained glTF at full detail (up to 1,000,000 triangles). Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object (Scale X / Y / Z or Uniform); a <b>Gizmo</b> (W move · E rotate · R scale · Q off) does the same, or moves, turns and stretches the projection box, by dragging coloured handles in the view; <b>Lattice</b> bends it to match the real object; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres and USD stage units / up axis are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
+<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project. Projection knobs (Crop, Tiling, Box fade, Box transform) have <b>Auto</b> too: click the dot in the middle and the knob drifts around its value.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / USD (usda, usdc, usdz) / GLB / self-contained glTF at full detail (up to 1,000,000 triangles). Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object (Scale X / Y / Z or Uniform); a <b>Gizmo</b> (W move · E rotate · R scale · Q off) does the same, or moves, turns and stretches the projection box, by dragging coloured handles in the view; <b>Lattice</b> bends it to match the real object; <b>Shading</b> adds ambient occlusion (Strength, Radius) that darkens creases and corners; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres and USD stage units / up axis are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
 <h3 id="h-auto">Autopilot</h3>
 <p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
@@ -2644,6 +2648,10 @@ function newSurfaceId(m){let i=m.surfaces.length+1;while(m.surfaces.some(s=>s.id
 // Mapping panel: collapsible categories like the Studio library — Scene, Surface, Projection, Camera.
 const MAP_CATS={scene:['Scene','#71f4d3'],surface:['Surface','#7199f4'],projection:['Projection','#c471f4'],camera:['Camera','#f4717f']};
 function mapCat(root,id,title){const [label,color]=MAP_CATS[id],{root:pr,body}=ui.panel({id:'map.'+id,title:title||label,color});pr.dataset.mapCat=id;root.append(pr);return body;}
+// Auto on a mapping knob: the dot in its centre makes it drift (keys from map3d.MAP_AUTO).
+const MAP_AUTO_PCT=/^(crop\d|fade)$/;
+const tagAuto=(k,key)=>{k.dataset.mapAuto=key;return k;};
+function mapAutoOpts(s,key,upd){return {auto:!!s.auto?.includes(key),onAuto:on=>upd(t=>{const a=new Set(t.auto||[]);on?a.add(key):a.delete(key);if(a.size)t.auto=[...a];else delete t.auto;},`Auto ${on?'on':'off'}`)};}
 function sub(body,label){const x=el('div','map-sub');if(label)x.append(el('div','insp-sublabel',label));body.append(x);return x;}
 function renderMapPanel(){
   const root=$('mapPanel');if(!root||!mapMode)return;root.replaceChildren();
@@ -2703,8 +2711,8 @@ function renderMapPanel(){
   sb('Flip ↔','Mirror the surface left to right',()=>upd(t=>{const w=t.cols+1;t.pts=t.pts.map((_,k)=>t.pts[Math.floor(k/w)*w+(t.cols-k%w)]);},'Surface flipped'));
   // Projection: which part of the picture lands on the quad.
   const pj=mapCat(root,'projection'),cs=sub(pj,'Crop'),ck=el('div','knob-grid');
-  ['Left','Top','Right','Bottom'].forEach((l,i)=>ck.append(ui.knob({label:l,min:0,max:100,step:1,value:Math.round(s.crop[i]*100),def:i<2?0:100,unit:'%',property:'surfCrop'+l,
-    onInput:v=>liveSurf(t=>{const c=[...t.crop];c[i]=v/100;if(i<2)c[i]=Math.min(c[i],c[i+2]-.02);else c[i]=Math.max(c[i],c[i-2]+.02);t.crop=c;}),onChange:()=>liveCommit('Surface crop')})));
+  ['Left','Top','Right','Bottom'].forEach((l,i)=>ck.append(tagAuto(ui.knob({label:l,min:0,max:100,step:1,value:Math.round(s.crop[i]*100),def:i<2?0:100,unit:'%',property:'surfCrop'+l,...mapAutoOpts(s,'crop'+i,upd),
+    onInput:v=>liveSurf(t=>{const c=[...t.crop];c[i]=v/100;if(i<2)c[i]=Math.min(c[i],c[i+2]-.02);else c[i]=Math.max(c[i],c[i-2]+.02);t.crop=c;}),onChange:()=>liveCommit('Surface crop')}),'crop'+i)));
   cs.append(ck);const ca=el('div','map-actions');cs.append(ca);
   sb('Match crop','Place the surface exactly where its crop sits in the picture (no warp)',()=>upd(t=>{const [l,tp,r,b]=t.crop;t.wrap='flat';t.pts=mapping.gridPoints(t.cols,t.rows,[[l,tp],[r,tp],[r,b],[l,b]]);},'Surface matches crop'),ca);
 }
@@ -2719,7 +2727,7 @@ function setGizmo(tool,target=mapGiz.target){mapGiz.tool=tool;mapGiz.target=targ
 function renderMap3d(root,ss,info,s,upd,liveSurf){
   const select=(parent,label,key,options)=>{const e=el('select');e.dataset.property='surf3d'+key;for(const [v,l] of options)e.append(new Option(l,v));e.value=s[key];e.onchange=()=>upd(t=>{if(key==='upAxis'&&t.upAxis!==e.value){const [x,y,z]=t.camera.target;t.camera.target=e.value==='Z'?[x,z,-y]:[x,-z,y];}t[key]=e.value;if(key==='primitive'){t.model='';t.modelKey='';t.camera.target=[0,0,0];t.camera.distance=6;t.scale=1;t.upAxis='Y';t.trackOn=false;}},label);parent.append(ui.field(label,e));};
   const file=(label,accept,property,load,parent)=>{const b=el('button','mbtn',label);b.dataset.property=property;b.onclick=()=>{const f=el('input');f.type='file';f.accept=accept;f.onchange=async()=>{if(!f.files[0])return;try{await load(f.files[0]);}catch(e){message(e.message,true);}};f.click();};parent.append(b);};
-  const knob=(parent,label,key,min,max,step,def,unit,get,set,commit)=>parent.append(ui.knob({label,min,max,step,def,unit,value:get(),property:'surf3d'+key,onInput:v=>liveSurf(t=>set(t,v)),onChange:()=>liveCommit(commit||label)}));
+  const knob=(parent,label,key,min,max,step,def,unit,get,set,commit,auto)=>{const k=ui.knob({label,min,max,step,def,unit,value:get(),property:'surf3d'+key,...(auto?mapAutoOpts(s,auto,upd):{}),onInput:v=>liveSurf(t=>set(t,v)),onChange:()=>liveCommit(commit||label)});if(auto)tagAuto(k,auto);parent.append(k);};
   const obj=sub(ss,'Object');
   select(obj,'Object','primitive',map3d.PRIMITIVES.map(v=>[v,v]));select(obj,'Object up','upAxis',[['Y','Y-up'],['Z','Z-up (OBJ)']]);
   file(s.model?(map3d.hasModel(s)?s.model:'Load model… · '+s.model):'Load model…','.obj,.fbx,.usd,.usda,.usdc,.usdz,.glb,.gltf','mapLoadModel',async f=>{const m=await map3d.loadModel(f);upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');},obj);
@@ -2746,18 +2754,24 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   lt.append(ui.field('Points',ui.chips({options:map3d.LATTICE_RES.map(n=>[String(n),n?`${n}³`:'Off']),value:String(s.lattice.res),property:'surf3dLattice',onChange:v=>upd(t=>{t.lattice=map3d.cleanLattice({res:+v});},+v?`Lattice ${v}×${v}×${v}`:'Lattice off')})));
   if(s.lattice.res){lt.append(el('p','insp-note','Drag the yellow points in the view. Drag empty space to orbit the projector as usual.'));const la=el('div','map-actions');lt.append(la);
     const lb=el('button','mbtn','Reset lattice');lb.type='button';lb.dataset.property='surf3dLatticeReset';lb.disabled=s.lattice.d.every(v=>!v);lb.onclick=()=>upd(t=>{t.lattice=map3d.cleanLattice({res:t.lattice.res});},'Reset lattice');la.append(lb);}
+  // Shading: ambient occlusion darkens creases and corners where the object shades itself.
+  const sh=sub(ss,'Shading');
+  sh.append(ui.field('Ambient occlusion',ui.toggle({value:s.ao.on,labels:['On','Off'],property:'surf3dAO',onChange:v=>upd(t=>{t.ao={...t.ao,on:v};},v?'Ambient occlusion on':'Ambient occlusion off')})));
+  if(s.ao.on){const ak=el('div','knob-grid');sh.append(ak);
+    knob(ak,'Strength','AOStrength',0,100,1,60,'%',()=>s.ao.strength*100,(t,v)=>{t.ao={...t.ao,strength:v/100};},'Occlusion strength');
+    knob(ak,'Radius','AORadius',1,100,1,10,'%',()=>s.ao.radius*100,(t,v)=>{t.ao={...t.ao,radius:v/100};},'Occlusion radius');}
   // Projection: how the picture wraps the object, and where the projection box sits.
   const pj=mapCat(root,'projection'),how=sub(pj);
   select(how,'Content','projection',[['uv','UV (fallback planar)'],['front','Front projection'],['box','Box']]);
   const hk=el('div','knob-grid');how.append(hk);
-  knob(hk,'Tiling','Tile',.1,20,.01,1,'×',()=>s.tile,(t,v)=>{t.tile=v;},'Mapping tiling');
+  knob(hk,'Tiling','Tile',.1,20,.01,1,'×',()=>s.tile,(t,v)=>{t.tile=v;},'Mapping tiling','tile');
   if(s.projection==='box'){
-    knob(hk,'Box fade','Fade',0,100,1,50,'%',()=>s.fade*100,(t,v)=>{t.fade=v/100;},'Box projection fade');
+    knob(hk,'Box fade','Fade',0,100,1,50,'%',()=>s.fade*100,(t,v)=>{t.fade=v/100;},'Box projection fade','fade');
     const bx=sub(pj,'Box transform'),mk=el('div','knob-grid'),rk=el('div','knob-grid'),sk=el('div','knob-grid');bx.append(gizmoChips('box',s),el('div','insp-sublabel minor','Move'),mk,el('div','insp-sublabel minor','Rotate'),rk,el('div','insp-sublabel minor','Scale'),sk);
-    for(const a of ['x','y','z'])knob(mk,a.toUpperCase(),'BoxMove'+a.toUpperCase(),-2,2,.001,0,'',()=>s.box[a],(t,v)=>{t.box[a]=v;},'Box move');
-    for(const a of ['x','y','z'])knob(rk,a.toUpperCase(),'BoxRot'+a.toUpperCase(),-180,180,.1,0,'°',()=>s.box['r'+a],(t,v)=>{t.box['r'+a]=v;},'Box rotate');
-    for(const a of ['x','y','z'])knob(sk,a.toUpperCase(),'BoxScale'+a.toUpperCase(),.05,20,.01,1,'×',()=>s.box['s'+a],(t,v)=>{t.box['s'+a]=v;},'Box scale '+a.toUpperCase());
-    knob(sk,'Uniform','BoxScale',.05,20,.01,1,'×',()=>s.box.scale,(t,v)=>{t.box.scale=v;},'Box scale');
+    for(const a of ['x','y','z'])knob(mk,a.toUpperCase(),'BoxMove'+a.toUpperCase(),-2,2,.001,0,'',()=>s.box[a],(t,v)=>{t.box[a]=v;},'Box move','box.'+a);
+    for(const a of ['x','y','z'])knob(rk,a.toUpperCase(),'BoxRot'+a.toUpperCase(),-180,180,.1,0,'°',()=>s.box['r'+a],(t,v)=>{t.box['r'+a]=v;},'Box rotate','box.r'+a);
+    for(const a of ['x','y','z'])knob(sk,a.toUpperCase(),'BoxScale'+a.toUpperCase(),.05,20,.01,1,'×',()=>s.box['s'+a],(t,v)=>{t.box['s'+a]=v;},'Box scale '+a.toUpperCase(),'box.s'+a);
+    knob(sk,'Uniform','BoxScale',.05,20,.01,1,'×',()=>s.box.scale,(t,v)=>{t.box.scale=v;},'Box scale','box.scale');
     const ra=el('div','map-actions');bx.append(ra);const rb=el('button','mbtn','Reset box');rb.type='button';rb.dataset.property='surf3dBoxReset';rb.onclick=()=>upd(t=>{t.box={x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1};},'Reset box projection');ra.append(rb);
   }
   // Camera: the projector's viewpoint, manual or imported.
@@ -3346,6 +3360,14 @@ function splashSwap(){
   nxt.onplaying=()=>{nxt.onplaying=null;nxt.classList.add('ready');cur.classList.remove('ready');P.front=1-P.front;setTimeout(()=>{cur.pause();P.fading=false;},1000);};
   nxt.src=splashNextClip();splashPlay(nxt);
 }
+// The clips are centred on the logo: the video box grows (still covering the card) so its middle sits at the logo's centre.
+function splashAlign(){
+  const card=document.querySelector('#splash .splash-card'),logo=document.querySelector('#splash .splash-logo');if(!card||!logo||$('splash').hidden)return;
+  const c=card.getBoundingClientRect(),l=logo.getBoundingClientRect();if(!c.height||!l.height)return;
+  const y=Math.min(1,Math.max(0,(l.top+l.height/2-c.top)/c.height)),h=2*Math.max(y,1-y);
+  card.style.setProperty('--splash-vy',(y-h/2)*100+'%');card.style.setProperty('--splash-vh',h*100+'%');
+}
+addEventListener('resize',splashAlign);
 function splashVideo(){
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   const P=splashPlayer,vs=splashVids();
@@ -3355,7 +3377,7 @@ function splashVideo(){
   }
   splashPlay(vs[P.front]);
 }
-function openSplash(){buildSplash();splashVideo();const s=$('splash');s.hidden=false;document.body.classList.add('splash-on');try{$('splashHide').checked=!!localStorage.getItem(SPLASH_KEY);}catch{}}
+function openSplash(){buildSplash();splashVideo();const s=$('splash');s.hidden=false;document.body.classList.add('splash-on');splashAlign();$('splash').querySelector('.splash-logo')?.addEventListener('load',splashAlign,{once:true});try{$('splashHide').checked=!!localStorage.getItem(SPLASH_KEY);}catch{}}
 function closeSplash(){const s=$('splash');if(s.hidden)return;s.hidden=true;document.body.classList.remove('splash-on');for(const v of splashVids())v.pause();splashPlayer.fading=false;const f=splashAfter;splashAfter=null;f?.();}
 $('splashClose').onclick=closeSplash;
 $('splashTour').onclick=()=>{splashAfter=null;closeSplash();tour.start();};

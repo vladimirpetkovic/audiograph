@@ -1278,6 +1278,18 @@ def Camera "Camera" {
       await page.keyboard.press('q');assert.equal(await page.locator('.map-overlay .gizmo').count(),0,'Q hides the gizmo');
       await page.locator('[data-property=surf3dBoxReset]').click();m=await m3();assert.deepEqual(m.box,{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1},'Reset box clears per-axis scale');
       await page.locator('[data-property=surf3dprojection]').selectOption('uv');}
+    // Projection knobs have Auto: the knob drifts on screen while the saved value stays; undo turns it off.
+    {await page.locator('.knob[data-map-auto=tile] .knob-auto').click();const m=(await page.evaluate(()=>pro.mapping())).surfaces[0];assert.deepEqual(m.auto,['tile'],'Tiling Auto is saved on the surface');
+      const shown=async()=>page.locator('.knob[data-map-auto=tile] .knob-value').textContent(),a=await shown();await page.waitForTimeout(1500);const b=await shown();
+      assert.notEqual(a,b,'Auto Tiling drifts');assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].tile,1,'Auto drift does not change the saved value');
+      await page.evaluate(()=>pro.undo());assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].auto,undefined,'Auto is undoable');}
+    // Ambient occlusion: the Shading toggle darkens the corner where the two walls meet.
+    {await page.locator('[data-property=surf3dAO] button',{hasText:'On'}).click();assert.equal(await page.locator('[data-property=surf3dAOStrength]').count(),1,'AO shows its Strength knob');
+      const d=await page.evaluate(()=>{const M=pro.mapping3d,s0=pro.mapping().surfaces[0],W=640,H=360,img=document.createElement('canvas');img.width=W;img.height=H;const x=img.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);
+        const sum=on=>{const c=document.createElement('canvas');c.width=W;c.height=H;const cx=c.getContext('2d');M.render3d(cx,{...s0,model:'',primitive:'Two walls',wire:false,opacity:1,scale:1,projection:'uv',trackOn:false,lattice:{res:0,d:[]},xf:{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1},camera:{yaw:210,pitch:20,distance:6,roll:0,panX:0,panY:0,focal:35,target:[0,0,0]},ao:{on,strength:1,radius:.3}},img,W,H,0,false);const p=cx.getImageData(0,0,W,H).data;let a=0;for(let i=0;i<p.length;i+=4)a+=p[i];return a;};
+        return [sum(false),sum(true)];});
+      assert.ok(d[1]<d[0]*.99,'Ambient occlusion darkens the inside corner: '+d);
+      await page.evaluate(()=>pro.undo());}
     // Animated glTF on a mapping surface: Play shows its clip over time, Rest pose holds the bind pose.
     {const [fc]=await Promise.all([page.waitForEvent('filechooser'),page.locator('[data-property=mapLoadModel]').click()]);await fc.setFiles(gltfFile());
     await page.waitForSelector('[data-property=surf3dAnim]');
