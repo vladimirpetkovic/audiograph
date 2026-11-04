@@ -1028,6 +1028,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      const sk=await page.evaluate(async t=>{const {parseGLTF,pose}=await import('./gltf.js');const m=parseGLTF(new TextEncoder().encode(t).buffer);
        const at=s=>pose(m,0,s).verts.slice(0,8).reduce((a,v)=>a+v[0],0)/8;return [m.skins.length,at(0),at(.5),at(.99)];},gltfFile.skinned().buffer.toString());
      assert.ok(sk[0]===1&&sk[1]<sk[2]&&sk[2]<sk[3],'A skinned mesh follows its animated joint: '+sk);}
+    // A still model denser than the animated budget keeps every face for the GPU renders (no holes in Normal / Point cloud).
+    {const N=150,pts=[],idx=[];for(let y=0;y<=N;y++)for(let x=0;x<=N;x++)pts.push(`(${x},${y},0)`);
+     for(let y=0;y<N;y++)for(let x=0;x<N;x++){const a=y*(N+1)+x;idx.push(a,a+1,a+N+2,a+N+1);}
+     const usda=`#usda 1.0\ndef Mesh "Grid"\n{\n    int[] faceVertexCounts = [${idx.map(()=>4).slice(0,N*N)}]\n    int[] faceVertexIndices = [${idx}]\n    point3f[] points = [${pts}]\n}\n`;
+     await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'model',render:'normal'}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'out',input:'image'}]));
+     await page.evaluate(()=>pro.select('o'));await page.waitForTimeout(1200);await page.setInputFiles('#emitterMedia',{name:'grid.usda',mimeType:'text/plain',buffer:Buffer.from(usda)});await page.waitForTimeout(800);
+     assert.equal(await page.evaluate(()=>pro.engine('o').w.objModelData.faces.length),45000,'A dense still model keeps all its faces in 3D Object');}
     // Animated FBX (e.g. Mixamo) plays like a GLB: the skinned quad slides with its bone; the empty one-frame take is skipped.
     {await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'model',render:'normal'}}],[{from:'a',out:'audio',to:'o',input:'audio'},{from:'o',out:'shape',to:'out',input:'image'}]));
      await page.evaluate(()=>pro.select('o'));await page.waitForTimeout(1200);await page.setInputFiles('#emitterMedia',fbxFile());await page.waitForTimeout(800);

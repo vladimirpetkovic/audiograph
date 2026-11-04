@@ -27,7 +27,9 @@ each with its own opacity and blend mode (up to four).
 - **3D Object → Choose model** loads OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF.
     Polygons of any size are triangulated (concave ones too). USD reads the root layer's
     meshes, xform stacks, UVs, stage units and up axis; flatten files that reference
-    others. The CPU renderer thins models above 40,000 faces. Animated FBX (e.g. Mixamo
+    others. Still models keep up to 500,000
+    triangles (Normal and Point cloud draw them on the GPU); animated models are thinned
+    to 40,000 faces because they are re-posed every frame. Animated FBX (e.g. Mixamo
     "With Skin") and GLB/glTF models (node, skinned and morph animation) play automatically, with **Animation speed** and
     a **Clip** picker; Cloners and particle emission follow the moving mesh. Export
     glTF as a single .glb (or with embedded buffers).

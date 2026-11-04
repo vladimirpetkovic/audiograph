@@ -100,7 +100,7 @@ async function engineSource() {
     html=html.replace(/@import\s+url\((['"]?)[^'")]*\1\)\s*;?/g,'');
     // Cloner: shapes "mesh0".."mesh2" are the 3D objects wired into the Cloner node (an OBJ or the knot).
     const patch=(from,to)=>{if(!html.includes(from))throw Error('Audiograph engine patch target missing');html=html.replace(from,to);};
-    patch("if(shape==='sphere'){","if(/^mesh\\d$/.test(shape)){var om=(window.__agG3Meshes||[])[+shape[4]];if(om&&om.verts){var ov=om.verts,on=om.normals;for(var fi=0;fi<om.faces.length&&fi<40000;fi++)poly(om.faces[fi].map(function(ix){var q=on[ix];return V([ov[ix][0]*.7,-ov[ix][1]*.7,ov[ix][2]*.7],q&&[q[0],-q[1],q[2]])}))}}else if(shape==='sphere'){");
+    patch("if(shape==='sphere'){","if(/^mesh\\d$/.test(shape)){var om=(window.__agG3Meshes||[])[+shape[4]];if(om&&om.verts){var ov=om.verts,on=om.normals;for(var fi=0;fi<om.faces.length&&fi<500000;fi++)poly(om.faces[fi].map(function(ix){var q=on[ix];return V([ov[ix][0]*.7,-ov[ix][1]*.7,ov[ix][2]*.7],q&&[q[0],-q[1],q[2]])}))}}else if(shape==='sphere'){");
     // Animated models: a new pose keeps the faces, so the wireframe edges are reused and only the positions change.
     patch("var c=_objWireCache;if(c&&c.model===model&&c.maxFaces===maxFaces)return c.wire;","var c=_objWireCache;if(c&&c.model===model&&c.maxFaces===maxFaces)return c.wire;if(c&&c.model.faces===model.faces&&c.maxFaces===maxFaces&&model.faces.length<=maxFaces){c.model=model;c.wire={verts:model.verts,normals:model.normals,edges:c.wire.edges};return c.wire;}");
     // Meshes with their own wireframe (3D text outlines) draw those edges instead of every triangle.
@@ -151,6 +151,9 @@ export function setRenderResolution(height){
 }
 // A small preview of a loaded picture or video frame for the inspector.
 function thumb(src,w,h){try{const k=Math.min(1,160/Math.max(w,h,1)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*k));c.height=Math.max(1,Math.round(h*k));c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.8);}catch{return '';}}
+// Still models draw every triangle on the GPU (Normal, Point cloud) up to STATIC_TRIS; animated ones keep gltf.js's lighter budget, since they are re-posed every frame.
+const STATIC_TRIS=500000;
+function staticDetail(m){let n=0;for(const me of m.meshes)for(const p of me.prims)n+=p.idx.length/3;m.faceStep=Math.max(1,Math.ceil(n/STATIC_TRIS));m.faces=null;}
 const SOLIDS=['knot','cube','torus','cylinder','cone','ico','pyramid','frame','text3d'];
 // The page owns the one camera stream; engines receive clones, so the frames never ask for permission themselves.
 let cameraProvider=null;
@@ -490,6 +493,7 @@ export class EmitterEngine {
       if(/\.(glb|gltf|fbx|usd|usda|usdc|usdz)$/.test(lower)){
         // glTF / GLB / FBX / USD: kept as a rig so animated models can be posed every frame (animate()).
         const buf=await file.arrayBuffer(),m=lower.endsWith('.fbx')?await parseFBXModel(buf,file.name):/\.usd[acz]?$/.test(lower)?await parseUSDModel(buf,file.name):parseGLTF(buf,file.name);this.anim=m;this.animT=null;
+        if(!m.clips.length)staticDetail(m);
         w.objModelData=pose(m,m.clips.length?0:-1,0);
       }else if(lower.endsWith('.obj')){this.anim=null;w.objModelData=w.agParseObj(await file.text());}
       else throw Error('Choose an OBJ, FBX, USD, GLB or glTF model');
