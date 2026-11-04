@@ -69,7 +69,7 @@ export function startScene(){
 
 // api: setScene(layers,first), select(id), workspace(w), play(), stopAutomation(), zoom()
 export function createTour(api){
-  let idx=-1,live=false,timer=0,ids=null,els=null,inviting=false;
+  let idx=-1,live=false,timer=0,ids=null,els=null,inviting=false,cur=STEPS,guideCfg=null;
   const $=id=>document.getElementById(id);
   const scene=s=>sceneOf(s,ids);
   function build(){
@@ -89,7 +89,7 @@ export function createTour(api){
   function place(){
     if(!live&&!inviting)return;
     const z=api.zoom(),vw=innerWidth/z,vh=innerHeight/z,narrow=innerWidth<=900,cs=els.card.style;
-    const s=STEPS[idx],ts=live&&s?targets(s):[];
+    const s=cur[idx],ts=live&&s?targets(s):[];
     if(ts.length){
       const rs=ts.map(t=>t.getBoundingClientRect()),l=Math.min(...rs.map(r=>r.left))/z,t=Math.min(...rs.map(r=>r.top))/z,r=Math.max(...rs.map(r=>r.right))/z,b=Math.max(...rs.map(r=>r.bottom))/z;
       const top=Math.max(2,t-5),bot=Math.min(vh-2,b+5),rg=els.ring.style;
@@ -102,31 +102,40 @@ export function createTour(api){
   }
   function loop(){place();timer=requestAnimationFrame(loop);}
   function go(i){
-    build();idx=Math.max(0,Math.min(STEPS.length-1,i));const s=STEPS[idx];
-    if(s.scene!=='keep'){api.setScene(scene(s));api.select(s.select?ids[s.select]:null);}
-    api.workspace('studio');
+    build();idx=Math.max(0,Math.min(cur.length-1,i));const s=cur[idx];
+    if(guideCfg){if(s.ws)api.workspace(s.ws);}
+    else{if(s.scene!=='keep'){api.setScene(scene(s));api.select(s.select?ids[s.select]:null);}api.workspace('studio');}
     const ts=targets(s);ts[0]?.scrollIntoView?.({block:'nearest',inline:'nearest'});
-    $('tourStep').textContent=`Step ${idx+1} of ${STEPS.length}`;$('tourTitle').textContent=s.t;$('tourTxt').textContent=s.txt;
-    els.ban.innerHTML=s.ban;show(els.ban,true);
-    $('tourDots').innerHTML=STEPS.map((_,n)=>`<i${n===idx?' class="on"':''}></i>`).join('');
-    $('tourBack').style.visibility=idx?'visible':'hidden';$('tourNext').textContent=s.last?'Finish':'Next';
+    $('tourStep').textContent=guideCfg?`${guideCfg.title} · ${idx+1} of ${cur.length}`:`Step ${idx+1} of ${cur.length}`;$('tourTitle').textContent=s.t;$('tourTxt').textContent=s.txt;
+    if(s.ban){els.ban.innerHTML=s.ban;show(els.ban,true);}else show(els.ban,false);
+    $('tourDots').innerHTML=cur.map((_,n)=>`<i${n===idx?' class="on"':''}></i>`).join('');
+    const last=idx===cur.length-1;$('tourSkip').textContent=guideCfg?'Close':'Skip';
+    $('tourBack').style.visibility=idx?'visible':'hidden';$('tourNext').textContent=guideCfg?(last?(guideCfg.done?.label||'Done'):'Next'):(s.last?'Finish':'Next');
     show(els.card,true);document.body.classList.add('touring');
     if(!live){live=true;inviting=false;loop();}
   }
-  function next(){if(idx>=STEPS.length-1){stop();return;}if(idx===0)api.play();go(idx+1);}
+  function next(){if(idx>=cur.length-1){const d=guideCfg?.done;stop();d?.run?.();return;}if(idx===0&&!guideCfg)api.play();go(idx+1);}
   function seen(){try{localStorage.setItem(SEEN,'1');}catch{}}
   function start(){
-    build();seen();api.stopAutomation();
+    build();seen();api.stopAutomation();setGuide(null);
     ids=newIds();
     api.setScene(scene(STEPS[0]),true);idx=-1;go(0);
   }
   function stop(){
-    live=false;inviting=false;cancelAnimationFrame(timer);seen();
+    live=false;inviting=false;cancelAnimationFrame(timer);if(!guideCfg)seen();setGuide(null);
     if(els){show(els.card,false);show(els.ring,false);show(els.ban,false);}document.body.classList.remove('touring');
     if(els){$('tourSkip').onclick=stop;$('tourNext').onclick=next;}
   }
+  // Short themed guides (from the welcome screen): highlight real controls without changing the scene.
+  function setGuide(g){
+    guideCfg=g;cur=g?g.steps:STEPS;
+    for(const e of els?[els.card,els.ring]:[]){if(g?.color)e.style.setProperty('--t-number',g.color);else e.style.removeProperty('--t-number');}
+  }
+  function guide(g){
+    build();if(live||inviting)stop();setGuide(g);idx=-1;go(0);
+  }
   function invite(){
-    build();inviting=true;
+    build();setGuide(null);inviting=true;$('tourSkip').textContent='Skip';
     $('tourStep').textContent='Welcome';$('tourTitle').textContent='New to Audiograph Pro?';
     $('tourTxt').textContent='Take the First Mile: we build a scene together, node by node, from the audio source to Post FX, then tour Mapping, Autopilot and output.';
     $('tourDots').innerHTML='';$('tourBack').style.visibility='hidden';$('tourNext').textContent='Start tutorial';
@@ -137,5 +146,5 @@ export function createTour(api){
     let was=false;try{was=!!localStorage.getItem(SEEN);}catch{}
     if(!was&&!navigator.webdriver&&!/[?&]notour/.test(location.search))setTimeout(()=>{if(!live)invite();},1500);
   }
-  return {start,stop,go,next,invite,maybeInvite,steps:STEPS,get index(){return idx;},get live(){return live;},get ids(){return ids&&{...ids};}};
+  return {start,stop,go,next,invite,guide,get guiding(){return live&&guideCfg?guideCfg.id||guideCfg.title:null;},maybeInvite,steps:STEPS,get index(){return idx;},get live(){return live;},get ids(){return ids&&{...ids};}};
 }

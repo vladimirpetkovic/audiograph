@@ -15,7 +15,7 @@ function audioFile(seconds=6) {
 }
 
 const root = path.resolve(__dirname, '..');
-const mime = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.json':'application/json', '.svg':'image/svg+xml', '.m4a':'audio/mp4' };
+const mime = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.json':'application/json', '.svg':'image/svg+xml', '.m4a':'audio/mp4', '.mp4':'video/mp4', '.webm':'video/webm', '.png':'image/png' };
 const server = http.createServer((req,res) => {
   try {
     const pathname = decodeURIComponent(new URL(req.url,'http://localhost').pathname).replace(/^\/audiograph(?=\/)/,'');
@@ -899,8 +899,17 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     {const sp=await browser.newPage({viewport:{width:1200,height:800}});
       await sp.goto(new URL('?splash',proUrl).href);await sp.waitForSelector('.splash-item');
       assert.deepEqual(await sp.$$eval('.splash-item',b=>b.map(x=>x.textContent)),['Visualize','Presets','Auto-play','Project','Export','Share'],'Splash shows six sections');
+      await sp.waitForSelector('.splash-video.ready',{timeout:15000});
       await sp.click('[data-splash=project]');
+      assert.equal(await sp.evaluate(()=>document.getElementById('splashVideo').paused),true,'Closing the splash pauses its video');
       assert.deepEqual(await sp.evaluate(()=>[document.getElementById('splash').hidden,document.body.classList.contains('ws-map')]),[true,true],'Splash Project opens Mapping');
+      assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Project · 1 of 4','A splash section opens its guide');
+      await sp.click('#tourSkip');
+      await sp.evaluate(()=>__agSplash.open());await sp.click('[data-splash=export]');for(let k=0;k<2;k++)await sp.click('#tourNext');
+      assert.equal(await sp.locator('#tourNext').textContent(),'Export video');await sp.click('#tourNext');
+      assert.equal(await sp.evaluate(()=>document.getElementById('exportDialog').open),true,'The Export guide ends by opening Export');await sp.keyboard.press('Escape');
+      await sp.evaluate(()=>__agSplash.open());await sp.click('#splashTour');
+      assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Step 1 of '+(await sp.evaluate(()=>pro.tour.steps.length)),'Splash starts the First Mile');await sp.click('#tourSkip');
       await sp.evaluate(()=>__agSplash.open());await sp.keyboard.press('Escape');
       assert.equal(await sp.evaluate(()=>document.getElementById('splash').hidden),true,'Esc closes the splash');
       await sp.close();}

@@ -331,10 +331,15 @@ process the finished image.
     you switch templates.
 - A **welcome screen** opens on startup. Its six sections jump straight in:
   Visualize (Studio), Presets (Templates), Auto-play (Autopilot), Project
-  (Mapping), Export (video) and Share (link). Close it with × or Esc. Tick
+  (Mapping), Export (video) and Share (link). Each section opens a short guide that
+  highlights the real controls, coloured like that section; some end with an action
+  (Choose a template, Export video, Create link). **Start the tutorial** runs the
+  full First Mile tutorial. Close it with × or Esc. Tick
   "Don't show at startup" to skip it; reopen it from the Guide (?) with
   **Welcome screen**, or add `?splash` to the URL. It is skipped for shared scene
-  links.
+  links. Behind the logo a short muted loop plays (`splash.webm`/`splash.mp4`,
+  recorded from the Glass, Firepit, Universe and Sacred geometry templates);
+  replace those files to change it. It is skipped with reduced motion.
 - **Tutorial** (top right) is the First Mile, like the original's interactive
   tutorial: it builds a real scene step by step, starting from a straight
   Linear waveform (Audio → Waveform → Particles →

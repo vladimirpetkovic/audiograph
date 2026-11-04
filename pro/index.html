@@ -109,12 +109,14 @@
   </dialog>
   <div id="splash" class="splash" role="dialog" aria-modal="true" aria-label="Welcome to Audiograph" hidden>
     <div class="splash-card">
+      <video class="splash-video" id="splashVideo" muted loop playsinline preload="none" aria-hidden="true"></video>
       <div class="splash-by">By Vladimir Petković<a href="https://www.vladimirpetkovic.com" target="_blank" rel="noopener">www.vladimirpetkovic.com</a></div>
       <div class="splash-version">Version 2.0</div>
       <button class="splash-close" id="splashClose" aria-label="Close" title="Close (Esc)">×</button>
       <div class="splash-brand">
         <img class="splash-logo" src="./splash-logo.png" alt="Audiograph">
         <div class="splash-tag">Audio-visualization studio</div>
+        <button class="splash-tour" id="splashTour" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Start the tutorial</button>
       </div>
       <nav class="splash-menu" id="splashMenu" aria-label="Start"></nav>
       <label class="splash-hide"><input type="checkbox" id="splashHide"> Don’t show at startup</label>

@@ -3278,29 +3278,68 @@ const SPLASH_ICONS={
   share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98"/>'
 };
 const openTemplates=()=>{const s=$('templates');s.focus();try{s.showPicker();}catch{}};
+const SPLASH_GUIDES={
+  visualize:{title:'Visualize',steps:[
+    {sel:'#previewWrap',ws:'studio',t:'The preview',txt:'This is what your audience sees, live with the music. Drag to orbit 3D, right-drag to pan, scroll or pinch to zoom, double-click to reset the view.'},
+    {sel:'#graphViewport',t:'Nodes and wires',txt:'Every look is a small graph: sound flows from Audio through nodes that draw, colour and distort it, into Output. Drag from an output to an input to connect; click a wire to remove it.'},
+    {sel:'.library',t:'Add from the Library',txt:'Waveforms, particles, 3D, deformers, colour and Post FX. Click an item to insert it after the selected node, or drag it onto the graph. Tab searches.'},
+    {sel:'.inspector',t:'Tune in the Inspector',txt:'Select a node to see its knobs. Drag to change, double-click to type. The small dot beside a knob makes it move on its own.'},
+    {sel:['#audioName','#spectrum'],t:'Bring your sound',txt:'Click the source to load a song, or use the Mic or System audio. Everything reacts to it.'}]},
+  presets:{title:'Presets',steps:[
+    {sel:'#templates',ws:'studio',t:'Start from a template',txt:'Ready-made looks, including every original Audiograph preset. Loading one replaces the graph; Undo brings yours back.'},
+    {sel:['#randomGraph','#reset'],t:'Random and Reset',txt:'Random builds a surprise graph. Reset returns to the simple starting scene.'},
+    {sel:'#save',t:'Save your own',txt:'Save → Save as template adds your look to Templates → User templates, ready for next time.'}],
+    done:{label:'Choose a template',run:()=>openTemplates()}},
+  auto:{title:'Auto-play',steps:[
+    {sel:'#modeAuto',ws:'auto',t:'Autopilot',txt:'Autopilot listens to the song (build-ups, drops, breakdowns) and changes the visuals at each moment, hands-free.'},
+    {sel:'.ap-prompt',t:'Describe the show',txt:'Type a vibe: tempo, mood, colours or styles (“dreamy, slow, deep blue”). The line below shows what it understood.'},
+    {sel:'#apStatus',t:'Turn it on',txt:'Switch Autopilot On and play music. The bar shows the energy; each change crossfades smoothly. Off keeps the current look, and Undo returns to where you started.'},
+    {sel:'#autoPanel select',t:'Preset Morph',txt:'Or build a playlist of presets and press Play to glide between them over time, on the beat, or shuffled.'}]},
+  project:{title:'Project',steps:[
+    {sel:'#modeMap',ws:'map',t:'Projection mapping',txt:'Fit the output onto walls, objects and screens. The mapping is saved with your scene and kept when you change looks.'},
+    {sel:'#mapPanel [data-map-cat=scene]',t:'Pick a layout',txt:'Turn Mapping on, then start from a layout such as a single screen, a cube or a triptych. Test card shows a grid for alignment.'},
+    {sel:'#previewWrap',t:'Drag the corners',txt:'Drag each surface’s corners onto what the projector hits. Handles are only drawn here, never on the projector.'},
+    {sel:'#output',t:'Send it to the projector',txt:'Detach opens a clean output window: drag it to the projector or second screen and double-click it for fullscreen.'}]},
+  export:{title:'Export',steps:[
+    {sel:'#exportVideo',ws:'studio',t:'Export a video',txt:'Renders a sound file offline, frame by frame, to MP4: up to 4K at 60 fps with no dropped frames, however heavy the scene.'},
+    {sel:'#record',t:'Record live',txt:'REC captures exactly what you see and hear in real time, including mic or system audio and your knob and MIDI moves.'},
+    {sel:['#snap','#resolution'],t:'Stills and resolution',txt:'The camera saves the current frame as a PNG. The resolution menu sets the size for preview, snapshots, recording and the detached output.'}],
+    done:{label:'Export video',run:()=>openExport()}},
+  share:{title:'Share',steps:[
+    {sel:'#shareButton',ws:'studio',t:'Share a link',txt:'Share turns your whole scene into a link. Whoever opens it gets the same look, ready to play with their own music.'},
+    {sel:['label:has(#import)','#save'],t:'Scene files',txt:'Save writes an .ag scene file (⌘S) and Open loads one back: handy for backups or sending the full project.'}],
+    done:{label:'Create link',run:()=>openShare()}}
+};
 const SPLASH_ITEMS=[
-  ['visualize','Visualize','waveform','Build visuals with nodes',()=>setWorkspace('studio')],
-  ['presets','Presets','presets','Start from a template',()=>{setWorkspace('studio');openTemplates();}],
-  ['auto','Auto-play','auto','Autopilot: describe a show and let it follow the music',()=>setWorkspace('auto')],
-  ['project','Project','project','Projection mapping onto walls, objects and screens',()=>setWorkspace('map')],
-  ['export','Export','export','Render a video file',()=>openExport()],
-  ['share','Share','share','Share this scene as a link',()=>openShare()]
+  ['visualize','Visualize','waveform','Build visuals with nodes'],
+  ['presets','Presets','presets','Start from a template'],
+  ['auto','Auto-play','auto','Autopilot: describe a show and let it follow the music'],
+  ['project','Project','project','Projection mapping onto walls, objects and screens'],
+  ['export','Export','export','Render a video file'],
+  ['share','Share','share','Share this scene as a link']
 ];
 let splashAfter=null;
+function splashColor(i){const c=CATEGORIES.map(c=>c.color);return c[Math.round((i+.5)*(c.length-1)/SPLASH_ITEMS.length)];}
 function splashGradient(i){const c=CATEGORIES.map(c=>c.color),n=SPLASH_ITEMS.length,a=c[Math.round(i*(c.length-1)/n)],b=c[Math.round((i+1)*(c.length-1)/n)];return `linear-gradient(90deg,${a},${b})`;}
 function buildSplash(){
   const menu=$('splashMenu');if(menu.childElementCount)return;
-  SPLASH_ITEMS.forEach(([id,label,icon,hint,go],i)=>{
+  SPLASH_ITEMS.forEach(([id,label,icon,hint],i)=>{
     const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${SPLASH_ICONS[icon]}</svg>`;
     const b=el('button','splash-item');b.type='button';b.dataset.splash=id;b.title=hint;
     b.style.setProperty('--g',splashGradient(i));b.style.setProperty('--icon',`url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
     b.append(el('span','splash-icon'),el('span','splash-label',label));
-    b.onclick=()=>{closeSplash();go();};menu.append(b);
+    b.onclick=()=>{splashAfter=null;closeSplash();tour.guide({id,color:splashColor(i),...SPLASH_GUIDES[id]});};menu.append(b);
   });
 }
-function openSplash(){buildSplash();const s=$('splash');s.hidden=false;try{$('splashHide').checked=!!localStorage.getItem(SPLASH_KEY);}catch{}}
-function closeSplash(){const s=$('splash');if(s.hidden)return;s.hidden=true;const f=splashAfter;splashAfter=null;f?.();}
+const SPLASH_VIDEO=['./splash.webm','./splash.mp4'];
+function splashVideo(){const v=$('splashVideo');if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;if(!v.dataset.tried){v.dataset.tried='1';
+  for(const src of SPLASH_VIDEO){const s=document.createElement('source');s.src=src;s.type=src.endsWith('webm')?'video/webm':'video/mp4';v.append(s);}
+  v.addEventListener('playing',()=>v.classList.add('ready'));v.load();}
+  v.play?.().catch(()=>{});}
+function openSplash(){buildSplash();splashVideo();const s=$('splash');s.hidden=false;try{$('splashHide').checked=!!localStorage.getItem(SPLASH_KEY);}catch{}}
+function closeSplash(){const s=$('splash');if(s.hidden)return;s.hidden=true;$('splashVideo').pause();const f=splashAfter;splashAfter=null;f?.();}
 $('splashClose').onclick=closeSplash;
+$('splashTour').onclick=()=>{splashAfter=null;closeSplash();tour.start();};
 $('splash').addEventListener('pointerdown',e=>{if(e.target.id==='splash')closeSplash();});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('splash').hidden){e.preventDefault();e.stopImmediatePropagation();closeSplash();}},true);
 $('splashHide').onchange=e=>{try{e.target.checked?localStorage.setItem(SPLASH_KEY,'1'):localStorage.removeItem(SPLASH_KEY);}catch{}};

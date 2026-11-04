@@ -431,7 +431,7 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .cam-thumb video{display:block;width:160px;aspect-ratio:4/3;object-fit:cover;transform:scaleX(-1);background:#000}
 
 /* ── First Mile tutorial ─────────────────────────────── */
-#tourRing{position:fixed;z-index:900;pointer-events:none;border:2px solid var(--t-number);border-radius:8px;box-shadow:0 0 18px 2px #6ee7b780;opacity:0;transition:opacity .25s,left .35s ease,top .35s ease,width .35s ease,height .35s ease}
+#tourRing{position:fixed;z-index:900;pointer-events:none;border:2px solid var(--t-number);border-radius:8px;box-shadow:0 0 18px 2px color-mix(in srgb,var(--t-number) 50%,transparent);opacity:0;transition:opacity .25s,left .35s ease,top .35s ease,width .35s ease,height .35s ease}
 #tourCard{position:fixed;z-index:901;max-width:400px;padding:14px 16px;background:var(--surface);border:1px solid var(--t-number);border-radius:10px;box-shadow:0 8px 32px #000a;color:var(--tx);font-family:var(--sans);opacity:0;visibility:hidden;transform:translateY(6px);transition:opacity .25s,transform .25s,visibility 0s .25s}
 #tourCard.show,#tourRing.show,#tourBanner.show{opacity:1;visibility:visible;transform:none;transition-delay:0s}
 @media(max-width:900px){#tourCard{max-width:none}}
@@ -496,18 +496,18 @@ select.tbtn.file-btn{padding-right:18px;background-position:right 7px center}
   .graph-head .sep,.graph-hint{display:none}
 }
 /* Splash */
-.splash{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:3vmin;background:#000c;backdrop-filter:blur(6px);animation:splashIn .35s ease}
+.splash{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:3vmin;background:#0006;backdrop-filter:blur(2px);animation:splashIn .35s ease}
 .splash[hidden]{display:none}
 @keyframes splashIn{from{opacity:0}to{opacity:1}}
-.splash-card{position:relative;width:min(1200px,94vw);aspect-ratio:16/9;max-height:92vh;border-radius:clamp(18px,3vw,40px);background:#000 var(--splash-art,none) center/cover no-repeat;border:1px solid #ffffff1c;box-shadow:0 30px 120px #000;display:grid;grid-template-rows:1fr auto auto;overflow:hidden;font-family:var(--sans)}
-.splash-by{position:absolute;left:5%;top:6%;display:flex;flex-direction:column;gap:4px;color:#e6e6ea;font-size:clamp(.7rem,1.3vw,1rem)}
+.splash-card{position:relative;width:min(1200px,94vw);aspect-ratio:16/9;max-height:92vh;border-radius:clamp(18px,3vw,40px);background:#000 var(--splash-art,none) center/cover no-repeat;border:1px solid #ffffff1c;box-shadow:0 30px 120px #000;isolation:isolate;display:grid;grid-template-rows:1fr auto auto;overflow:hidden;font-family:var(--sans)}
+.splash-by{text-shadow:0 1px 6px #000;position:absolute;left:5%;top:6%;display:flex;flex-direction:column;gap:4px;color:#e6e6ea;font-size:clamp(.7rem,1.3vw,1rem)}
 .splash-by a{color:#c4c4ca;font-size:.78em;text-decoration:none}.splash-by a:hover{color:#fff}
 .splash-version{position:absolute;right:7%;top:6%;color:#e6e6ea;font-size:clamp(.7rem,1.3vw,1rem)}
 .splash-close{position:absolute;right:2.2%;top:4.6%;width:30px;height:30px;border-radius:50%;border:1px solid #ffffff30;background:#0008;color:#ddd;font-size:18px;line-height:1;cursor:pointer}
 .splash-close:hover{color:#fff;border-color:#fff8}
 .splash-brand{align-self:center;display:flex;flex-direction:column;align-items:center;gap:1.4vmin;padding-top:8%}
 .splash-logo{width:50%;height:auto;user-select:none;-webkit-user-drag:none}
-.splash-tag{color:#8a8a92;font-size:clamp(.65rem,1.5vw,1.15rem);letter-spacing:.02em;text-transform:uppercase}
+.splash-tag{color:#a8a8b0;text-shadow:0 1px 8px #000;font-size:clamp(.65rem,1.5vw,1.15rem);letter-spacing:.02em;text-transform:uppercase}
 .splash-menu{display:grid;grid-template-columns:repeat(6,1fr);gap:1vw;padding:0 7% 2%}
 .splash-item{--g:linear-gradient(90deg,#fff,#fff);display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 4px;border:1px solid transparent;border-radius:14px;background:none;color:inherit;cursor:pointer;font:inherit;transition:background .2s,border-color .2s,transform .2s}
 .splash-item:hover,.splash-item:focus-visible{background:#ffffff0a;border-color:#ffffff1f;transform:translateY(-2px);outline:none}
@@ -517,3 +517,9 @@ select.tbtn.file-btn{padding-right:18px;background-position:right 7px center}
 .splash-hide{justify-self:center;margin-bottom:3%;display:flex;align-items:center;gap:6px;color:#55555c;font-size:.7rem;cursor:pointer}
 .splash-hide:hover{color:#8a8a92}
 @media (max-width:700px){.splash-card{aspect-ratio:auto;height:auto;grid-template-rows:auto auto auto;padding-top:70px}.splash-menu{grid-template-columns:repeat(3,1fr)}.splash-version{right:64px}.splash-logo{width:72%}.splash-brand{padding:4% 0 6%}}
+.splash-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;opacity:0;transition:opacity .8s}
+.splash-video.ready{opacity:1}
+.splash-card::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,#0000 30%,#0008 100%),linear-gradient(#0000 55%,#000c)}
+.splash-tour{margin-top:1.6vmin;display:inline-flex;align-items:center;gap:8px;padding:9px 18px 9px 14px;border-radius:999px;border:1px solid #ffffff38;background:#0007;color:#fff;font:500 clamp(.72rem,1.1vw,.9rem)/1 var(--sans);cursor:pointer;backdrop-filter:blur(4px);transition:border-color .2s,background .2s,box-shadow .2s}
+.splash-tour svg{width:14px;height:14px;fill:#71f4d3}
+.splash-tour:hover,.splash-tour:focus-visible{border-color:#71f4d3;background:#71f4d314;box-shadow:0 0 22px #71f4d340;outline:none}
