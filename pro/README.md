@@ -64,7 +64,7 @@ each with its own opacity and blend mode (up to four).
   Outline echoes each ring (or each Surface row).
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain, **3D text** (your words
-  extruded, with Font and Depth) and **3D model** (your
+  extruded from the letters' outlines, smooth curves and crisp corners, with Font and Depth) and **3D model** (your
   imported OBJ, the built-in knot until you load one). **Render** is **Normal** (a
   solid, lit object with size, detail and stretch), **Waveform** (audio-reactive
   lines), **Polygons** (filled faces in palette colours: each face hears its own
@@ -80,7 +80,8 @@ each with its own opacity and blend mode (up to four).
   coloured bounce light and an optional floor that catches the shadows. Chain effectors and look nodes after the Cloner. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
   into these nodes automatically.
 - **Viewport camera**: drag in the preview to orbit a 3D layer (right- or Shift-drag pans), or to move a 2D
-  layer; the wheel zooms and a double-click resets. It applies to the active layer and is saved with it.
+  layer; the wheel, a trackpad pinch (Chrome, Edge, Safari) or a two-finger touch pinch zooms, and a double-click resets.
+  Classic 3D renders (Waveform, Polygons) zoom natively, so lines stay sharp. It applies to the active layer and is saved with it.
   Nothing rotates by default: Cloner Spin and 3D camera Orbit / Orbit with sound start at 0 (presets set their own).
 - **Emitters** (particles): **Particles** (classic) and **WebGPU
   particles** (Particles, Fluid, Smoke, Granular sand). WebGPU simulations react harder to sound than in the original
@@ -228,7 +229,10 @@ process the finished image.
 - **Audio**: select an Audio node (or click the source name in the transport) to
   load a file, use the Mic, or **System** (desktop Chrome/Edge: share a screen or
   tab and enable "Share audio"). Files play through the speakers; mic and system
-  input are analysed only. Until you pick a sound, the **default track** (a short
+  input are analysed only. The **input menu** under the buttons picks (and remembers) the
+  Mic's device. For one-click system audio install a loopback device (BlackHole or
+  Loopback on Mac, VB-Cable or Stereo Mix on Windows): System then records it directly,
+  with no screen-share picker. Until you pick a sound, the **default track** (a short
   ambient song) starts on your first click and loops (before that click the visuals already follow
   the track silently); `?demo` (used by the tests) keeps a silent synthetic spectrum instead. Wiring a
   number into an emitter's Drive replaces the music for that emitter.
@@ -265,6 +269,8 @@ process the finished image.
   (file, mic or system audio) keeps playing and the Audio nodes keep their settings. On screens
   1440px and wider the whole UI is drawn 20% larger. **Templates**, **Random** and
   **Reset** sit on the graph bar; zoom (−, +, Fit) sits in the graph's bottom-right corner.
+  **Fit** frames the graph; if nodes overlap or wires run backwards it first arranges it into
+  left-to-right columns (one undo step).
   The transport has icon buttons: **Play/Pause** (Space; Home rewinds), **Rec** (records the
   preview live with audio and shows elapsed time), **Export** (renders a sound file
   frame by frame to MP4), and **Snap** (saves a PNG).

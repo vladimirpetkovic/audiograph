@@ -22,7 +22,7 @@ function patch3dLighting(patch){
   patch("persp=g('pTerrainPersp',200),","persp=g('pTerrainPersp',200)*(window.__agFocal||1),");
   // A 3D camera wired after a 3D Model frames it like a lens: the camera's Rotate / Orbit / Tilt / Zoom / Focal length replace the
   // object's own Perspective, Tilt and Rotate, and the model keeps the same size at any resolution and in every render.
-  patch("var rotAngle=_objSpinRot*_rotMul+dragRotY;","var rotAngle=window.__agCam?dragRotY-window.__agCam.yaw:_objSpinRot*_rotMul+dragRotY;if(window.__agCam){var _k=window.__agCam,_P=0.5*Math.min(W,H)*_k.f/Math.tan(0.4),_s=0.24*_k.zoom*Math.min(W,H);persp=_P;baseR=_s*_P/Math.max(_P-_s,_P*0.25);maxBump=baseR*0.15*elevScale*p.height;tiltRad=_k.tilt;}");
+  patch("var rotAngle=_objSpinRot*_rotMul+dragRotY;","var rotAngle=window.__agCam?dragRotY-window.__agCam.yaw:_objSpinRot*_rotMul+dragRotY;if(window.__agCam){var _k=window.__agCam,_P=0.5*Math.min(W,H)*_k.f/Math.tan(0.4),_s=0.24*_k.zoom*Math.min(W,H);persp=_P;baseR=_s*_P/Math.max(_P-_s,_P*0.25);maxBump=baseR*0.15*elevScale*p.height;tiltRad=_k.tilt;}if(window.__agVZ){persp*=window.__agVZ;baseR*=window.__agVZ;maxBump*=window.__agVZ;}");
   // Point clouds take the same lens; a model turned into points is framed like the model drawn as lines or polygons.
   patch("asp=st.ow/st.oh,fovY=0.8,half=","asp=st.ow/st.oh,fovY=2*Math.atan(Math.tan(0.4)/(window.__agFov||1)),half=");
   patch("var bnd=1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom'","var bnd=window.__agSplBnd||1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom'");
@@ -102,6 +102,8 @@ async function engineSource() {
     patch("if(shape==='sphere'){","if(/^mesh\\d$/.test(shape)){var om=(window.__agG3Meshes||[])[+shape[4]];if(om&&om.verts){var ov=om.verts,on=om.normals;for(var fi=0;fi<om.faces.length&&fi<40000;fi++)poly(om.faces[fi].map(function(ix){var q=on[ix];return V([ov[ix][0]*.7,-ov[ix][1]*.7,ov[ix][2]*.7],q&&[q[0],-q[1],q[2]])}))}}else if(shape==='sphere'){");
     // Animated models: a new pose keeps the faces, so the wireframe edges are reused and only the positions change.
     patch("var c=_objWireCache;if(c&&c.model===model&&c.maxFaces===maxFaces)return c.wire;","var c=_objWireCache;if(c&&c.model===model&&c.maxFaces===maxFaces)return c.wire;if(c&&c.model.faces===model.faces&&c.maxFaces===maxFaces&&model.faces.length<=maxFaces){c.model=model;c.wire={verts:model.verts,normals:model.normals,edges:c.wire.edges};return c.wire;}");
+    // Meshes with their own wireframe (3D text outlines) draw those edges instead of every triangle.
+    patch("var V=model.verts,Nm=model.normals,F=model.faces;","var V=model.verts,Nm=model.normals,F=model.faces;if(model.edges){_objWireCache={model:model,maxFaces:maxFaces,wire:{verts:V,normals:Nm,edges:model.edges}};return _objWireCache.wire;}");
     patch("function g3MeshMix(list,D){","function g3MeshMix(list,D){if(G.g3mv!==window.__agG3MeshVer){G.g3mv=window.__agG3MeshVer;for(var _k in G.g3m)if(_k.indexOf('mesh')>=0){try{G.g3m[_k].buf.destroy()}catch(e){}delete G.g3m[_k]}}");
     // Cloner spacing: Y and Z reach as far as X.
     patch("['pG3SpY','Spacing Y',0,600,","['pG3SpY','Spacing Y',0,1000,");patch("['pG3SpZ','Spacing Z',0,600,","['pG3SpZ','Spacing Z',0,1000,");
@@ -263,7 +265,7 @@ export class EmitterEngine {
     }
     w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(this.withLook(job.look));
     // Shapes the original has no built-in model for arrive as a mesh from the 3D Object node.
-    if(solid&&job.solidMesh&&w._objBuiltinCache[job.mode]?.src!==job.solidMesh){const m=w._objNormalizeModel(job.solidMesh.verts.map(v=>v.slice()),job.solidMesh.faces.map(f=>f.slice()));m.isDefault=true;m.src=job.solidMesh;w._objBuiltinCache[job.mode]=m;}
+    if(solid&&job.solidMesh&&w._objBuiltinCache[job.mode]?.src!==job.solidMesh){const m=w._objNormalizeModel(job.solidMesh.verts.map(v=>v.slice()),job.solidMesh.faces.map(f=>f.slice()));m.isDefault=true;m.src=job.solidMesh;if(job.solidMesh.edges)m.edges=job.solidMesh.edges;w._objBuiltinCache[job.mode]=m;}
     if(mode==='object'){w.objBuiltin=solid?job.mode:(this.mediaKind==='object'?'file':'knot');}
     try{if(mode==='object')w.setObjLayout(w.objBuiltin,null);else w.setLayout(mode,null);}catch(e){console.warn(e);}
     if(job.source){const b=[...(this.container()?.querySelectorAll('.mode-btns button')||[])].find(b=>(b.getAttribute('onclick')||'').includes(job.source));if(b&&!b.classList.contains('on'))try{b.click();}catch(e){console.warn(e);}}
@@ -359,6 +361,12 @@ export class EmitterEngine {
     const v=job.view||{},dg=Math.PI/180;
     this.viewMode=mode==='simcloner'||mode==='simsplat'?'sim':VIEW3D.includes(mode)?'classic':null;
     if(this.viewMode==='classic'){p._dragRotX=(p._dragRotX||0)+(v.pit||0)*dg;p._dragRotY=(p._dragRotY||0)-(v.yaw||0)*dg;}
+    // Classic 3D renders the viewport zoom itself (sharp lines, up to 3x); the studio scales only what is left as a picture.
+    // 3D Object scales its own projection (any zoom, no cost); the other classic 3D layouts render a larger frame (up to 3x).
+    const vz=this.viewMode==='classic'&&v.zm&&v.zm!==1?v.zm:1;
+    w.__agVZ=mode==='object'&&vz!==1?vz:0;
+    this.viewZoom=w.__agVZ||(vz>1?Math.min(vz,3):1);
+    if(!w.__agVZ&&this.viewZoom>1)p._zoom=(p._zoom||100)*this.viewZoom;
     if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
     w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;
     // 3D camera after a model / primitive drawn as lines, polygons or a point cloud (the cloner reads its own camera knobs).

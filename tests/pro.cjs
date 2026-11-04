@@ -57,8 +57,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     // Without ?demo the default track starts on the first key or click and loops; Pause silences it.
     {const p2=await browser.newPage({viewport:{width:1200,height:800}});await p2.goto(proUrl);await p2.waitForFunction(()=>window.pro);
      assert.match(await p2.locator('#audioName').textContent(),/Default track/,'The default track is the only placeholder sound');assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'Nothing plays before a gesture');
-     await p2.keyboard.press('Shift');await p2.waitForFunction(()=>/Default track · add audio/.test(document.querySelector('#audioName').textContent)&&document.querySelector('#play').classList.contains('on'),null,{timeout:15000});
-     await p2.click('#play');assert.ok(!(await p2.locator('#play.on').count()),'Pause silences the default track');await p2.close();}
+     await p2.keyboard.press('Shift');await p2.waitForFunction(()=>/Default track · add audio/.test(document.querySelector('#audioName').textContent)&&document.querySelector('#play').classList.contains('on')&&pro.stats().audio.input==='file',null,{timeout:15000});
+     await p2.click('#play');assert.ok(await p2.waitForFunction(()=>!document.querySelector('#play.on'),null,{timeout:5000}).then(()=>true,()=>false),'Pause silences the default track');
+     await p2.evaluate(()=>{const md=navigator.mediaDevices,fake=()=>{const c=new AudioContext(),o=c.createOscillator(),d=c.createMediaStreamDestination();o.connect(d);o.start();return d.stream;};
+       md.enumerateDevices=async()=>[{kind:'audioinput',deviceId:'bh',label:'BlackHole 2ch'}];md.getUserMedia=async()=>fake();});
+     await p2.evaluate(()=>pro.select(pro.getProject().layers[0].nodes.find(n=>n.type==='audioIn').id));await p2.click('#system');
+     await p2.waitForFunction(()=>pro.stats().audio.input==='system');await p2.click('#play');await p2.keyboard.press('Space');await p2.keyboard.press('Home');await p2.waitForTimeout(300);
+     assert.deepEqual(await p2.evaluate(()=>[pro.stats().audio.input,pro.stats().paused]),['system',false],'Shared system audio stays on through Play / Pause until a file or the mic replaces it');await p2.close();}
     // AI: Model + Prompt + ControlNet feed AI Render, which streams frames to the bridge (mocked here) one at a time.
     const aiLib=await page.evaluate(()=>[...document.querySelectorAll('#library .library-node')].filter(b=>['aiModel','aiPrompt','aiPromptList','aiControl','aiRender'].includes(b.dataset.type)).length);
     assert.equal(aiLib,5,'AI category lists Model, Prompt, Prompt list, ControlNet and AI Render');
@@ -856,6 +861,41 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      const r=await page.evaluate(()=>pro.exportVideo({tone:1,height:720,fps:30}));
      assert.equal(r.frames,30,'Export renders every frame');assert.ok(r.bytes>10000&&String.fromCharCode(...r.head.slice(4,8))==='ftyp','Export makes an MP4: '+JSON.stringify(r));
      await lit(.2);}
+    // 3D text is extruded from the letters' outlines (not voxels); wheel zoom on classic 3D renders natively; pinch; Fit tidies; loopback input.
+    {const vs=page.viewportSize();await page.setViewportSize({width:1540,height:1020});
+      await page.evaluate(p=>pro.importProject(p),L([{id:'t',type:'waveform3d',x:200,y:0,props:{mode:'text3d',render:'waveform',words:'O'}}],[{from:'a',out:'audio',to:'t',input:'audio'},{from:'t',out:'shape',to:'out',input:'image'}]));
+      await page.waitForFunction(()=>pro.engine('t')?.w?._objBuiltinCache?.text3d,null,{timeout:25000});
+      const m=await page.evaluate(()=>{const c=pro.engine('t').w._objBuiltinCache.text3d;return {edges:c?.edges?.length||0,faces:c?.faces.length||0,offGrid:c?c.verts.filter(v=>Math.abs(v[0]*1e3%1)>.01).length/c.verts.length:0};});
+      assert.ok(m.edges>20&&m.faces>40&&m.faces<6000&&m.offGrid>.3,'3D text is a smooth outline mesh with its own wireframe: '+JSON.stringify(m));
+      const b=await page.locator('#preview').boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);
+      for(let i=0;i<4;i++)await page.mouse.wheel(0,-120);await page.waitForTimeout(500);
+      const z=await page.evaluate(()=>[pro.getProject().layers[0].view?.zm,pro.engine('t').w.__agVZ]);
+      assert.ok(z[0]>1.5&&Math.abs(z[1]-z[0])<.01,'The wheel zooms the 3D text natively (sharp): '+z);
+      await page.keyboard.down('Control');await page.mouse.wheel(0,40);await page.keyboard.up('Control');await page.waitForTimeout(200);
+      assert.ok((await page.evaluate(()=>pro.getProject().layers[0].view.zm))<z[0]/1.3,'Trackpad pinch (Ctrl + wheel) zooms out at pinch speed');
+      await page.evaluate(()=>{const c=document.getElementById('preview'),r=c.getBoundingClientRect();for(const s of [1,2]){const e=new Event(s===1?'gesturestart':'gesturechange',{cancelable:true});e.scale=s;e.clientX=r.x+r.width/2;e.clientY=r.y+r.height/2;c.dispatchEvent(e);}});
+      await page.waitForTimeout(200);assert.ok(await page.evaluate(()=>pro.getProject().layers[0].view.zm>1),'Safari pinch zooms');
+      // Fit: scrambled nodes get arranged into overlap-free columns in one undo step; a tidy graph is only framed.
+      await page.evaluate(()=>{pro.loadTemplate('Glass');const p=pro.getProject();let s=7;const r=()=>(s=(s*9301+49297)%233280)/233280;for(const n of p.layers[0].nodes){n.x=Math.round(r()*500);n.y=Math.round(r()*400);}pro.importProject(p);});
+      await page.waitForTimeout(500);const pos=()=>page.evaluate(()=>JSON.stringify(pro.getProject().layers[0].nodes.map(n=>[n.x,n.y])));const messy=await pos();
+      await page.click('#fit');await page.waitForTimeout(500);
+      const t=await page.evaluate(()=>{const g=pro.getProject().layers[0],box=new Map([...document.querySelectorAll('#nodes .node')].map(b=>[b.dataset.id,{x:b.offsetLeft,y:b.offsetTop,w:b.offsetWidth,h:b.offsetHeight}])),bs=[...box.values()];let ov=0;
+        for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++){const a=bs[i],b=bs[j];if(a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h)ov++;}
+        return [ov,g.edges.filter(e=>box.get(e.from).x+box.get(e.from).w>box.get(e.to).x).length];});
+      assert.deepEqual(t,[0,0],'Fit arranges a messy graph: no overlaps, wires run left to right');
+      const tidy=await pos();await page.click('#fit');await page.waitForTimeout(300);assert.equal(await pos(),tidy,'Fit leaves a tidy graph alone');
+      await page.click('#undo');await page.waitForTimeout(300);assert.equal(await pos(),messy,'One undo restores the old layout');
+      // Input menu: a loopback device makes System one click (no screen-share picker); the choice is remembered.
+      await page.evaluate(()=>{window.__calls=[];const md=navigator.mediaDevices,fake=()=>{const c=new AudioContext(),o=c.createOscillator(),d=c.createMediaStreamDestination();o.connect(d);o.start();return d.stream;};
+        md.enumerateDevices=async()=>[{kind:'audioinput',deviceId:'mic1',label:'Built-in Microphone'},{kind:'audioinput',deviceId:'bh',label:'BlackHole 2ch'}];
+        md.getUserMedia=async c=>{__calls.push('gum:'+(c.audio.deviceId?.exact||''));return fake();};md.getDisplayMedia=async()=>{__calls.push('gdm');return fake();};});
+      const aid=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='audioIn').id);await page.evaluate(id=>pro.select(id),aid);await page.waitForTimeout(400);
+      await page.click('#system');await page.waitForTimeout(400);
+      assert.deepEqual(await page.evaluate(()=>[__calls,document.getElementById('system').classList.contains('on')]),[['gum:bh'],true],'System uses the loopback device directly');
+      await page.click('#system');await page.selectOption('#inputDevice','mic1');await page.click('#mic');await page.waitForTimeout(300);
+      assert.deepEqual(await page.evaluate(()=>[__calls.at(-1),localStorage.getItem('ag.inputDevice')]),['gum:mic1','mic1'],'Mic uses the chosen input and remembers it');
+      await page.click('#mic');await page.evaluate(()=>localStorage.removeItem('ag.inputDevice'));await page.setViewportSize(vs);
+    }
     // Waveform inspector: Line style (with the Lines knobs) is first under the mode menu; per-node Reset; project Reset keeps the Audio settings.
     {
       await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'circle',thick:5,lineShape:'dotted'}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'}]));

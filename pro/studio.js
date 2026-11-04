@@ -17,6 +17,7 @@ import * as autopilot from './autopilot.js';
 import {SCENES} from './scenes.js';
 import {Pilot,Generator,SCENES as AP_SCENES,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
 import {ORIGINAL_PRESETS} from './templates.js';
+import earcut from './vendor/earcut.js';
 import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
 import {createTour,startScene} from './tour.js';
 
@@ -324,7 +325,7 @@ function stopAudio(keepOffset=false){
 function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:trackScan.frames>1||DEFAULT_TRACK.state!=='off'?DEFAULT_TRACK.name:'Demo beat';}
 const placeholderSound=name=>name==='Demo beat'||name===DEFAULT_TRACK.name;
 function updateAudioUI(){
-  for(const k of ['mic','system'])$(k)?.classList.toggle('on',audio.live?.kind===k);
+  for(const k of ['mic','system'])$(k)?.classList.toggle('on',audio.live?.kind===k);syncPlay();
   const name=sourceName();$('audioName').textContent=placeholderSound(name)?name+' · add audio':name;
   const cur=document.querySelector('.audio-source');if(cur)cur.textContent='Now: '+name+(audio.live||audio.source||name==='Demo beat'?'':' (stopped)');
   updateSummaries();
@@ -334,7 +335,7 @@ function stopLive(){
   stream.getTracks().forEach(t=>t.stop());node.disconnect();if(audio.monitor)audio.monitor.gain.value=1;updateAudioUI();
 }
 // Play shows Pause while something runs: the audio file if one is loaded, else the visuals.
-function syncPlay(){const on=audio.buffer?!!audio.source:!paused;$('play').classList.toggle('on',on);$('play').setAttribute('aria-label',on?'Pause':'Play');}
+function syncPlay(){const on=audio.buffer&&!audio.live?!!audio.source:!paused;$('play').classList.toggle('on',on);$('play').setAttribute('aria-label',on?'Pause':'Play');}
 function setPaused(v){paused=v;lastTime=0;syncPlay();}
 async function play(){
   if(!audio.buffer)throw Error('Load an audio file first (or use Mic / System)');
@@ -354,17 +355,42 @@ async function startLive(kind,getStream){
   stream.getVideoTracks().forEach(t=>{t.stop();stream.removeTrack(t);});
   if(!tracks.length){stream.getTracks().forEach(t=>t.stop());throw Error(kind==='system'?'no audio was shared · tick “Share system audio” (or share a tab with its audio)':'no microphone found');}
   const node=audio.context.createMediaStreamSource(stream);node.connect(audio.analyser);audio.monitor.gain.value=0;
-  audio.live={kind,stream,node};updateAudioUI();
+  audio.live={kind,stream,node};setPaused(false);updateAudioUI();
   tracks[0].addEventListener('ended',()=>{if(audio.live?.stream===stream){stopLive();message(kind==='mic'?'Microphone disconnected':'System audio sharing ended');}});
   await ensureRunning();
-  message(kind==='mic'?`Listening to ${tracks[0].label||'the microphone'}`:'System audio connected · the visuals follow whatever your computer plays');
+  audio.live.label=tracks[0].label||'';
+  message(kind==='mic'?`Listening to ${tracks[0].label||'the microphone'}`:`System audio connected${LOOPBACK.test(tracks[0].label)?' via '+tracks[0].label:''} · the visuals follow whatever your computer plays`);
 }
-const toggleMic=()=>startLive('mic',()=>navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}));
-const toggleSystem=()=>startLive('system',()=>{
-  if(!navigator.mediaDevices.getDisplayMedia)throw Error('not supported in this browser · use desktop Chrome or Edge');
+// Input devices: the chosen one is remembered. A loopback device (BlackHole, Loopback, VB-Cable, Stereo Mix…)
+// carries the computer's sound, so System uses it directly: one click, no screen-share picker.
+const RAW={echoCancellation:false,noiseSuppression:false,autoGainControl:false};
+const LOOPBACK=/blackhole|loopback|soundflower|vb-?audio|vb-?cable|cable output|voicemeeter|stereo mix|what u hear|wave out|monitor of|aggregate|multi-output|background music|soundsource|audio hijack|ishowu/i;
+let inputDevices=[];
+const savedInput=()=>localStorage.getItem('ag.inputDevice')||'';
+async function listInputs(){
+  try{inputDevices=(await navigator.mediaDevices?.enumerateDevices()||[]).filter(d=>d.kind==='audioinput'&&d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications');}catch{inputDevices=[];}
+  const sel=$('inputDevice');if(!sel)return inputDevices;
+  const cur=savedInput(),opts=[['','Default input'],...inputDevices.map((d,i)=>[d.deviceId,(d.label||'Input '+(i+1))+(LOOPBACK.test(d.label)?' · system audio':'')])];
+  sel.replaceChildren(...opts.map(([v,t])=>{const o=el('option',null,t);o.value=v;return o;}));
+  sel.value=opts.some(o=>o[0]===cur)?cur:'';
+  return inputDevices;
+}
+navigator.mediaDevices?.addEventListener?.('devicechange',()=>listInputs());
+const loopbackInput=()=>{const cur=inputDevices.find(d=>d.deviceId===savedInput());return cur&&LOOPBACK.test(cur.label)?cur:inputDevices.find(d=>LOOPBACK.test(d.label));};
+async function inputStream(id){
+  if(id)try{return await navigator.mediaDevices.getUserMedia({audio:{...RAW,deviceId:{exact:id}}});}catch(e){if(e.name==='NotAllowedError')throw e;}
+  return navigator.mediaDevices.getUserMedia({audio:RAW});
+}
+const toggleMic=()=>startLive('mic',()=>inputStream(savedInput())).then(()=>listInputs());
+const toggleSystem=async()=>{
+  if(audio.live?.kind!=='system'&&navigator.mediaDevices?.enumerateDevices){await listInputs();const lb=loopbackInput();
+    if(lb)return startLive('system',()=>inputStream(lb.deviceId));}
+  return startLive('system',()=>{
+  if(!navigator.mediaDevices.getDisplayMedia)throw Error('not supported in this browser · use desktop Chrome or Edge, or install a loopback device (BlackHole on Mac, VB-Cable on Windows)');
   message('Pick Entire screen and turn on “Share system audio” (or pick a tab and “Share tab audio”)');
   return navigator.mediaDevices.getDisplayMedia({audio:{suppressLocalAudioPlayback:false,echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:true,systemAudio:'include',selfBrowserSurface:'exclude',monitorTypeSurfaces:'include'});
-});
+  });
+};
 const audioError=(label,e)=>message(`${label}: ${e.name==='NotAllowedError'?'permission denied · allow it in the address bar and try again':e.message}`,true);
 // Demo signal: a 120 BPM groove so everything moves before audio is loaded.
 // Demo signal: a 120 BPM groove with a music-like (dB-scaled, pink) spectrum so everything moves before audio is loaded.
@@ -485,32 +511,90 @@ function plainText(id,p,sig){
     lines.forEach((l,i)=>ctx.strokeText(l,WIDTH/2,HEIGHT/2+(i-(lines.length-1)/2)*size*1.1));ctx.globalCompositeOperation='source-over';}
   return canvas;
 }
-// 3D text: letters rasterised to a grid, merged into rectangles and extruded into boxes (y up, like an OBJ).
-// raw goes to the original's 3D Object (it normalises it); norm is already normalised for the Cloner / Normal render.
+// 3D text: the letters' outlines (traced from a large antialiased raster with marching squares, simplified),
+// capped front and back with earcut and joined by smooth side walls (sharp corners stay crisp). y up, like an OBJ.
+// raw goes to the original's 3D Object (it normalises it; edges are the outline wireframe); norm is for the Cloner / Normal render.
 const textMeshes=new Map();
+function traceOutlines(alpha,W,H){
+  // alpha: (W+2)x(H+2) grid with a zero border. Points sit on grid edges, linearly interpolated at 0.5.
+  const GW=W+2,GH=H+2,A=(x,y)=>alpha[y*GW+x],pt=new Map(),adj=new Map();
+  const hId=(x,y)=>(y*GW+x)*2,vId=(x,y)=>(y*GW+x)*2+1;
+  const hPt=(x,y)=>{const a=A(x,y),b=A(x+1,y);return [x+(.5-a)/(b-a),y];},vPt=(x,y)=>{const a=A(x,y),b=A(x,y+1);return [x,y+(.5-a)/(b-a)];};
+  const link=(p,q)=>{for(const [i,j] of [[p,q],[q,p]]){const l=adj.get(i);if(l)l.push(j);else adj.set(i,[j]);}};
+  for(let y=0;y<GH-1;y++)for(let x=0;x<GW-1;x++){
+    const tl=A(x,y)>=.5,tr=A(x+1,y)>=.5,br=A(x+1,y+1)>=.5,bl=A(x,y+1)>=.5;
+    if(tl===tr&&tr===br&&br===bl)continue;
+    const T=hId(x,y),R=vId(x+1,y),B=hId(x,y+1),L=vId(x,y);
+    if(tl!==tr&&!pt.has(T))pt.set(T,hPt(x,y));if(tr!==br&&!pt.has(R))pt.set(R,vPt(x+1,y));
+    if(bl!==br&&!pt.has(B))pt.set(B,hPt(x,y+1));if(tl!==bl&&!pt.has(L))pt.set(L,vPt(x,y));
+    const cut=[];if(tl!==tr)cut.push(T);if(tr!==br)cut.push(R);if(br!==bl)cut.push(B);if(bl!==tl)cut.push(L);
+    if(cut.length===2){link(cut[0],cut[1]);continue;}
+    // Saddle: isolate the two corners that differ from the cell centre.
+    const mid=(A(x,y)+A(x+1,y)+A(x+1,y+1)+A(x,y+1))/4>=.5;
+    if(tl!==mid){link(L,T);link(R,B);}else{link(T,R);link(B,L);}
+  }
+  const loops=[],seen=new Set();
+  for(const start of adj.keys()){if(seen.has(start))continue;
+    const loop=[];let prev=-1,cur=start;
+    while(cur!==undefined&&!seen.has(cur)){seen.add(cur);loop.push(pt.get(cur));const n=adj.get(cur);const next=n[0]!==prev?n[0]:n[1];prev=cur;cur=next;}
+    if(loop.length>=3)loops.push(loop);}
+  return loops;
+}
+function simplifyLoop(pts,tol){
+  // Douglas–Peucker on a closed loop, split at the point farthest from the first.
+  let far=0,fd=-1;for(let i=1;i<pts.length;i++){const d=(pts[i][0]-pts[0][0])**2+(pts[i][1]-pts[0][1])**2;if(d>fd){fd=d;far=i;}}
+  const keep=new Uint8Array(pts.length);keep[0]=keep[far]=1;
+  const dp=(i,j)=>{const stack=[[i,j]];while(stack.length){const [a,b]=stack.pop(),A=pts[a],B=pts[b%pts.length],dx=B[0]-A[0],dy=B[1]-A[1],L=Math.hypot(dx,dy)||1;
+    let m=-1,md=tol;for(let k=a+1;k<b;k++){const P=pts[k],d=Math.abs((P[0]-A[0])*dy-(P[1]-A[1])*dx)/L;if(d>md){md=d;m=k;}}
+    if(m>=0){keep[m]=1;stack.push([a,m],[m,b]);}}};
+  dp(0,far);dp(far,pts.length);
+  return pts.filter((_,i)=>keep[i]);
+}
+const loopArea=l=>{let a=0;for(let i=0,j=l.length-1;i<l.length;j=i++)a+=(l[j][0]-l[i][0])*(l[j][1]+l[i][1]);return a/2;};
+const insideLoop=(p,l)=>{let c=false;for(let i=0,j=l.length-1;i<l.length;j=i++){const a=l[i],b=l[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;};
 setTextMesher((words,font,depth)=>{
   const txt=String(words||'').trim()||' ',key=txt+'|'+font+'|'+depth;
   if(textMeshes.has(key))return textMeshes.get(key);
-  const lines=txt.split(/\n/).slice(0,6),cv=document.createElement('canvas'),ctx=cv.getContext('2d'),fs=40,f=`900 ${fs}px "${font}", sans-serif`;
+  const lines=txt.split(/\n/).slice(0,6),cv=document.createElement('canvas'),ctx=cv.getContext('2d',{willReadFrequently:true}),fs=150,f=`900 ${fs}px "${font}", sans-serif`;
   ctx.font=f;const tw=Math.ceil(Math.max(...lines.map(l=>ctx.measureText(l).width),1))+8,th=Math.ceil(lines.length*fs*1.1)+8;
-  cv.width=Math.min(tw,1200);cv.height=th;ctx.font=f;ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
+  cv.width=Math.min(tw,2400);cv.height=th;ctx.font=f;ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
   lines.forEach((l,i)=>ctx.fillText(l,cv.width/2,th/2+(i-(lines.length-1)/2)*fs*1.1,cv.width-8));
-  const C=2,W=Math.ceil(cv.width/C),H=Math.ceil(th/C),px=ctx.getImageData(0,0,cv.width,th).data,on=new Uint8Array(W*H);
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){let a=0;for(let j=0;j<C;j++)for(let i=0;i<C;i++){const X=x*C+i,Y=y*C+j;if(X<cv.width&&Y<th)a+=px[(Y*cv.width+X)*4+3];}on[y*W+x]=a>C*C*127?1:0;}
-  const verts=[],faces=[],dz=depth/100*fs/C/2,BOX=[[0,1,3],[0,3,2],[4,6,7],[4,7,5],[0,4,5],[0,5,1],[2,3,7],[2,7,6],[0,2,6],[0,6,4],[1,5,7],[1,7,3]];
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(!on[y*W+x])continue;
-    let w=1;while(x+w<W&&on[y*W+x+w])w++;
-    let h=1;grow:for(;y+h<H;h++){for(let i=0;i<w;i++)if(!on[(y+h)*W+x+i])break grow;}
-    for(let j=0;j<h;j++)on.fill(0,(y+j)*W+x,(y+j)*W+x+w);
-    const o=verts.length;for(const X of [x,x+w])for(const Y of [y,y+h])for(const Z of [-dz,dz])verts.push([X-W/2,H/2-Y,Z]);
-    for(const t of BOX)faces.push(t.map(i=>i+o));
-    if(faces.length>24000)break;}
-  if(!verts.length){textMeshes.set(key,null);return null;}
+  const W=cv.width,H=th,px=ctx.getImageData(0,0,W,H).data,alpha=new Float32Array((W+2)*(H+2));
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++)alpha[(y+1)*(W+2)+x+1]=px[(y*W+x)*4+3]/255;
+  // Outlines in y-up units: outer loops counter-clockwise, holes clockwise (nesting depth decides which is which).
+  let loops=traceOutlines(alpha,W,H).map(l=>simplifyLoop(l,.45)).filter(l=>l.length>=3&&Math.abs(loopArea(l))>4).map(l=>l.map(([x,y])=>[x-1-W/2,H/2-(y-1)]));
+  if(!loops.length){textMeshes.set(key,null);return null;}
+  const areas=loops.map(l=>Math.abs(loopArea(l))),parent=loops.map((l,i)=>{let best=-1;loops.forEach((m,j)=>{if(j!==i&&areas[j]>areas[i]&&insideLoop(l[0],m)&&(best<0||areas[j]<areas[best]))best=j;});return best;});
+  const depthOf=i=>{let d=0;for(let p=parent[i];p>=0;p=parent[p])d++;return d;};
+  loops=loops.map((l,i)=>{const outer=depthOf(i)%2===0,ccw=loopArea(l)<0;return outer===ccw?l:l.slice().reverse();});
+  const verts=[],faces=[],edges=[],dz=depth/100*fs/2;
+  const tri=(a,b,c,n)=>{const A=verts[a],B=verts[b],C=verts[c],e1=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],e2=[C[0]-A[0],C[1]-A[1],C[2]-A[2]];
+    const d=(e1[1]*e2[2]-e1[2]*e2[1])*n[0]+(e1[2]*e2[0]-e1[0]*e2[2])*n[1]+(e1[0]*e2[1]-e1[1]*e2[0])*n[2];faces.push(d>=0?[a,b,c]:[a,c,b]);};
+  // Caps: each outer loop with the holes directly inside it.
+  loops.forEach((l,i)=>{if(depthOf(i)%2)return;
+    const rings=[l,...loops.filter((m,j)=>parent[j]===i)],flat=[],holes=[];
+    for(const r of rings){if(flat.length)holes.push(flat.length/2);for(const p of r)flat.push(p[0],p[1]);}
+    const t=earcut(flat,holes);
+    for(const z of [dz,-dz]){const o=verts.length;for(let k=0;k<flat.length;k+=2)verts.push([flat[k],flat[k+1],z]);
+      for(let k=0;k<t.length;k+=3)tri(o+t[k],o+t[k+1],o+t[k+2],[0,0,Math.sign(z)]);}
+  });
+  // Side walls: one vertex pair per outline point, two where the outline turns sharply (crisp corners).
+  for(const l of loops){const n=l.length,dir=i=>{const a=l[(i+n)%n],b=l[(i+1)%n],L=Math.hypot(b[0]-a[0],b[1]-a[1])||1;return [(b[0]-a[0])/L,(b[1]-a[1])/L];};
+    const pairs=[];
+    for(let i=0;i<n;i++){const d0=dir(i-1),d1=dir(i),sharp=d0[0]*d1[0]+d0[1]*d1[1]<.8,o=verts.length;
+      verts.push([l[i][0],l[i][1],dz],[l[i][0],l[i][1],-dz]);
+      if(sharp){verts.push([l[i][0],l[i][1],dz],[l[i][0],l[i][1],-dz]);pairs.push({in:o,out:o+2,sharp});}else pairs.push({in:o,out:o,sharp});
+      // The wireframe keeps depth lines at corners and every few points on curves.
+      if(sharp||i%6===0)edges.push([o,o+1]);}
+    for(let i=0;i<n;i++){const a=pairs[i].out,b=pairs[(i+1)%n].in,d=dir(i),nm=[d[1],-d[0],0];
+      tri(a,b,b+1,nm);tri(a,b+1,a+1,nm);edges.push([a,b],[a+1,b+1]);}
+  }
   let mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9];for(const v of verts)for(let k=0;k<3;k++){mn[k]=Math.min(mn[k],v[k]);mx[k]=Math.max(mx[k],v[k]);}
-  const sc=Math.max(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2])||1,nv=verts.map(v=>[(v[0]-(mn[0]+mx[0])/2)/sc*2,-(v[1]-(mn[1]+mx[1])/2)/sc*2,(v[2]-(mn[2]+mx[2])/2)/sc*2]);
+  const sc=Math.max(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2])||1,nv=verts.map(v=>[(v[0]-(mn[0]+mx[0])/2)/sc*2,-(v[1]-(mn[1]+mx[1])/2)/sc*2,-(v[2]-(mn[2]+mx[2])/2)/sc*2]);
   const nm=nv.map(()=>[0,0,0]);for(const t of faces){const [a,b,c]=t.map(i=>nv[i]),e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
     const n=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];for(const i of t)for(let k=0;k<3;k++)nm[i][k]+=n[k];}
-  const m={raw:{verts,faces,id:'text3d:'+key},norm:{verts:nv,faces,normals:nm.map(v=>{const l=Math.hypot(...v)||1;return v.map(x=>x/l);})}};
+  // The renderers are y down: both meshes are turned 180° about x (a rotation, so faces keep facing out); the original flips raw's y itself.
+  const m={raw:{verts:verts.map(v=>[v[0],v[1],-v[2]]),faces,edges,id:'text3d:'+key},norm:{verts:nv,faces,normals:nm.map(v=>{const l=Math.hypot(...v)||1;return v.map(x=>x/l);})}};
   if(textMeshes.size>24)textMeshes.delete(textMeshes.keys().next().value);
   textMeshes.set(key,m);return m;
 });
@@ -604,7 +688,7 @@ function previewExtra(g,plan){
   return extra;
 }
 function execute(g,time,dt){
-  layerView.delete(g.id);
+  layerView.delete(g.id);layerZoom.delete(g.id);
   const outputs=new Map(),byInput=new Map(g.edges.map(e=>[e.to+':'+e.input,e])),rendered=new Map();let image=null;
   const input=(n,key)=>{const e=byInput.get(n.id+':'+key);return e?outputs.get(e.from)?.[e.out]:undefined;};
   const props=n=>{
@@ -621,6 +705,7 @@ function execute(g,time,dt){
     if(rendered.has(key))return rendered.get(key);
     const e=engineFor(v.emitter.id),out=e.draw({...v.job,mods:v.mods,hue:v.hue,view:g.view});
     if(e.viewMode)layerView.set(g.id,e.viewMode);
+    if(e.viewZoom&&e.viewZoom!==1)layerZoom.set(g.id,e.viewZoom);
     if(!out)return null;
     const {canvas,ctx}=surface(consumer+':r');
     // Renderers that ignore the classic deformers (simulations, Cloner, Growth...) get them as an image warp.
@@ -904,10 +989,10 @@ function dissolveDraw(dt){
   if(fade.t>=1)fade=null;
 }
 // Layers the engine cannot frame itself (2D, and pan/zoom of classic 3D) are moved and scaled as a picture.
-const layerView=new Map();
+const layerView=new Map(),layerZoom=new Map();
 function drawLayer(out,g,image){
-  const v=g.view;if(!v||layerView.get(g.id)==='sim'||(v.zm===1&&!v.px&&!v.py)){out.drawImage(image,0,0);return;}
-  out.setTransform(v.zm,0,0,v.zm,WIDTH/2*(1-v.zm)+v.px*WIDTH/2,HEIGHT/2*(1-v.zm)-v.py*HEIGHT/2);out.drawImage(image,0,0);out.setTransform(1,0,0,1,0,0);
+  const v=g.view,zm=v?v.zm/(layerZoom.get(g.id)||1):1;if(!v||layerView.get(g.id)==='sim'||(zm===1&&!v.px&&!v.py)){out.drawImage(image,0,0);return;}
+  out.setTransform(zm,0,0,zm,WIDTH/2*(1-zm)+v.px*WIDTH/2,HEIGHT/2*(1-zm)-v.py*HEIGHT/2);out.drawImage(image,0,0);out.setTransform(1,0,0,1,0,0);
 }
 // Blackout (a MIDI action): the whole output fades to black and back.
 const blackout={on:false,level:0};
@@ -1292,6 +1377,38 @@ function fit(){
   view.x=(vp.clientWidth-(maxX-minX)*view.zoom)/2-minX*view.zoom;view.y=Math.max(4,(vp.clientHeight-(maxY-minY)*view.zoom)/2)-minY*view.zoom;applyView();requestAnimationFrame(renderWires);
 }
 
+// Fit also tidies a messy graph (overlapping nodes, or wires running backwards) into left-to-right columns:
+// each node one column after its furthest input, Output last, inputs-free helpers (LFOs…) just before what they drive.
+function nodeSize(id){const b=$('nodes').querySelector(`.node[data-id="${CSS.escape(id)}"]`);return [b?.offsetWidth||190,b?.offsetHeight||230];}
+function graphMessy(g){
+  const box=new Map(g.nodes.map(n=>{const [w,h]=nodeSize(n.id);return [n.id,{x:n.x,y:n.y,w,h}];}));
+  const bs=[...box.values()];
+  for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++){const a=bs[i],b=bs[j];if(a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h)return true;}
+  return g.edges.some(e=>{const a=box.get(e.from),b=box.get(e.to);return a&&b&&a.x+a.w>b.x+10;});
+}
+function arrangeGraph(g){
+  const ids=g.nodes.map(n=>n.id),ins=new Map(ids.map(i=>[i,[]])),outs=new Map(ids.map(i=>[i,[]]));
+  for(const e of g.edges)if(ins.has(e.to)&&outs.has(e.from)&&e.from!==e.to){ins.get(e.to).push(e.from);outs.get(e.from).push(e.to);}
+  const depth=new Map(ids.map(i=>[i,0]));
+  for(let k=0;k<ids.length;k++){let moved=false;for(const i of ids)for(const f of ins.get(i))if(depth.get(f)+1>depth.get(i)){depth.set(i,depth.get(f)+1);moved=true;}if(!moved)break;}
+  for(const i of ids)if(!ins.get(i).length&&outs.get(i).length)depth.set(i,Math.max(0,Math.min(...outs.get(i).map(o=>depth.get(o)))-1));
+  const last=Math.max(0,...depth.values());for(const n of g.nodes)if(n.type==='output')depth.set(n.id,last);
+  const cols=[];for(const n of g.nodes)(cols[depth.get(n.id)]||(cols[depth.get(n.id)]=[])).push(n);
+  const pos=new Map(),GAP_X=60,GAP_Y=28;let x=40;const heights=[];
+  cols.forEach((col,d)=>{if(!col)return;
+    const key=n=>{const p=ins.get(n.id).filter(f=>pos.has(f));return p.length?p.reduce((a,f)=>a+pos.get(f).cy,0)/p.length:n.y;};
+    col.sort((a,b)=>key(a)-key(b)||a.y-b.y);
+    let y=0,w=0;for(const n of col){const [nw,nh]=nodeSize(n.id);pos.set(n.id,{x,y,h:nh,cy:y+nh/2});y+=nh+GAP_Y;w=Math.max(w,nw);}
+    heights[d]=y-GAP_Y;x+=w+GAP_X;});
+  const tall=Math.max(...heights.filter(h=>h!=null));
+  cols.forEach((col,d)=>{if(col)for(const n of col){const p=pos.get(n.id);n.x=Math.round(p.x);n.y=Math.round(40+(tall-heights[d])/2+p.y);}});
+}
+function fitButton(){
+  const g=graph();
+  if(g.nodes.length>1&&graphMessy(g)){edit((p,l)=>arrangeGraph(l),'Arranged graph');requestAnimationFrame(fit);message('Arranged the graph · Undo puts it back');return;}
+  fit();
+}
+
 // ---------- inspector ----------
 function section(root,label){const s=el('div','insp-section');if(label)s.append(el('div','insp-label',label));root.append(s);return s;}
 // Inspector sections are an accordion: one open at a time, remembered per node type (the first one opens by default).
@@ -1544,8 +1661,11 @@ function renderAudioSource(root){
   load.addEventListener('click',unlockAudio);f.onchange=()=>{const file=f.files[0];if(file)loadAudioFile(file);};
   const mic=el('button','btn','Mic');mic.id='mic';mic.type='button';mic.title='Use the microphone';mic.onclick=()=>toggleMic().catch(e=>audioError('Mic',e));
   const sys=el('button','btn','System');sys.id='system';sys.type='button';sys.title='React to whatever your computer plays (desktop Chrome / Edge: share the screen or a tab with audio)';sys.onclick=()=>toggleSystem().catch(e=>audioError('System audio',e));
-  row.append(load,mic,sys);s.append(row,el('p','insp-note audio-source'),el('p','insp-note','Every Audio node hears this one source. Wire “audio” into visual inputs, waveforms, emitters or an Audio EQ; bass, mids, high, level and beat are numbers for any knob.'));
-  updateAudioUI();
+  const dev=el('select','audio-device');dev.id='inputDevice';dev.title='Input for Mic, remembered. Pick a loopback device (BlackHole, Loopback, VB-Cable, Stereo Mix) and System uses it in one click, without the screen-share picker';
+  dev.setAttribute('aria-label','Input device');
+  dev.onchange=()=>{localStorage.setItem('ag.inputDevice',dev.value);const lv=audio.live;if(lv?.kind==='mic'||lv?.kind==='system'&&lv.label&&LOOPBACK.test(lv.label)){const k=lv.kind;stopLive();(k==='mic'?toggleMic():toggleSystem()).catch(e=>audioError('Input',e));}};
+  row.append(load,mic,sys);s.append(row,dev,el('p','insp-note audio-source'),el('p','insp-note','One-click system audio: install a loopback device (BlackHole on Mac, VB-Cable on Windows) and System uses it without the share picker. Every Audio node hears this one source. Wire “audio” into visual inputs, waveforms, emitters or an Audio EQ; bass, mids, high, level and beat are numbers for any knob.'));
+  updateAudioUI();listInputs();
 }
 async function loadAudioFile(file){
   try{
@@ -2038,7 +2158,7 @@ async function exportVideo(cfg,{file=null,onProgress=()=>{}}={}){
     patchClock(false);exporting=null;elapsed=vt0+frames/cfg.fps;paused=wasPaused;lastTime=0;$('resolution').disabled=false;
     for(const m of mediaEls.values())if(m.kind==='video')m.el?.play?.().catch(()=>{});
     if(HEIGHT!==prevH)attempt(()=>changeResolution(prevH));
-    if(wasPlaying)play().catch(()=>{});
+    if(wasPlaying&&!audio.live)play().catch(()=>{});
   }
 }
 async function openExport(){
@@ -2130,8 +2250,9 @@ $('audioName').onclick=()=>{
   if(id){selected=id;renderUI();}
 };
 $('play').onclick=()=>{
-  if(DEFAULT_TRACK.state==='loading')return;
-  if(!audio.buffer){setPaused(!paused);message(paused?'Paused':'Playing');return;}
+  if(DEFAULT_TRACK.state==='loading'&&!audio.live)return;
+  // Live input (mic / system) stays connected until a file is loaded or the other input is chosen: Play / Pause only freezes the visuals.
+  if(!audio.buffer||audio.live){setPaused(!paused);message(paused?'Paused':'Playing');return;}
   if(audio.source){stopAudio(true);setPaused(true);message('Paused');return;}
   setPaused(false);play().catch(e=>message(e.message,true));
 };
@@ -2178,16 +2299,34 @@ preview.addEventListener('pointermove',ev=>{
 const endView=()=>{const d=viewDrag;if(!d)return;viewDrag=null;$('previewWrap').classList.remove('view-pan','view-orbit');if(d.moved)liveCommit(d.pan?'Moved view':d.cam?'3D camera: rotate / tilt':'Orbited view');};
 preview.addEventListener('pointerup',endView);preview.addEventListener('pointercancel',endView);
 preview.addEventListener('contextmenu',ev=>{if(!viewOff())ev.preventDefault();});
-preview.addEventListener('wheel',ev=>{
-  if(viewOff())return;ev.preventDefault();
-  const cam=viewCam(graph()),k=Math.exp(-ev.deltaY*(ev.deltaMode?.05:.0015));
+// Zoom the active layer by k around a screen point: its 3D camera if it has one, else the viewport.
+function zoomView(k,cx,cy,label='Zoomed view'){
+  const cam=viewCam(graph());
   if(cam){setCam(cam.id,c=>{c.zoom=Math.round(Math.max(30,Math.min(300,(c.zoom??100)*k)));});clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit('3D camera: zoom'),350);return;}
-  const r=preview.getBoundingClientRect(),u=(ev.clientX-r.left)/r.width*2-1,w=(ev.clientY-r.top)/r.height*2-1,flat=layerView.get(graph().id)!=='sim';
-  setView(v=>{const z=Math.max(.2,Math.min(6,v.zm*Math.exp(-ev.deltaY*(ev.deltaMode?.05:.0015))));
+  const r=preview.getBoundingClientRect(),u=(cx-r.left)/r.width*2-1,w=(cy-r.top)/r.height*2-1,flat=layerView.get(graph().id)!=='sim';
+  setView(v=>{const z=Math.max(.2,Math.min(6,v.zm*k));
     // 2D zooms toward the pointer; 3D dollies the camera.
     if(flat){v.px=u-z*(u-v.px)/v.zm;v.py=z*(w+v.py)/v.zm-w;}v.zm=z;});
-  clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit('Zoomed view'),350);
+  clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit(label),350);
+}
+// Mouse wheel, and trackpad pinch (Chrome / Edge / Firefox send it as a wheel with Ctrl and small steps).
+preview.addEventListener('wheel',ev=>{
+  if(viewOff())return;ev.preventDefault();
+  zoomView(Math.exp(-ev.deltaY*(ev.deltaMode?.05:ev.ctrlKey?.01:.0015)),ev.clientX,ev.clientY);
 },{passive:false});
+// Safari trackpad pinch.
+let gestureScale=1;
+preview.addEventListener('gesturestart',ev=>{if(viewOff())return;ev.preventDefault();gestureScale=1;});
+preview.addEventListener('gesturechange',ev=>{if(viewOff())return;ev.preventDefault();const k=ev.scale/gestureScale;gestureScale=ev.scale;if(k>0&&isFinite(k))zoomView(k,ev.clientX,ev.clientY,'Pinch zoom');});
+preview.addEventListener('gestureend',ev=>ev.preventDefault());
+// Touch screens: two fingers pinch-zoom (one finger still orbits / pans).
+const touches=new Map();let pinch=null;
+preview.addEventListener('pointerdown',ev=>{if(ev.pointerType!=='touch')return;touches.set(ev.pointerId,[ev.clientX,ev.clientY]);
+  if(touches.size===2){const [a,b]=[...touches.values()];pinch={d:Math.hypot(a[0]-b[0],a[1]-b[1])||1};endView();ev.stopImmediatePropagation();}},true);
+preview.addEventListener('pointermove',ev=>{if(!touches.has(ev.pointerId))return;touches.set(ev.pointerId,[ev.clientX,ev.clientY]);
+  if(pinch&&touches.size===2){const [a,b]=[...touches.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1])||1;zoomView(d/pinch.d,(a[0]+b[0])/2,(a[1]+b[1])/2,'Pinch zoom');pinch.d=d;ev.stopImmediatePropagation();}},true);
+const dropTouch=ev=>{touches.delete(ev.pointerId);if(touches.size<2)pinch=null;};
+preview.addEventListener('pointerup',dropTouch,true);preview.addEventListener('pointercancel',dropTouch,true);
 preview.addEventListener('dblclick',()=>{if(viewOff())return;const cam=viewCam(graph()),T=TYPES.camera3d.props;if(!cam&&!graph().view)return;
   if(cam)setCam(cam.id,c=>{c.turn=T.turn.value;c.tilt=T.tilt.value;c.zoom=T.zoom.value;});setView(v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
 
@@ -2272,14 +2411,14 @@ $('helpBody').innerHTML=`
 <p>A good first scene: <b>Audio → Waveform (Circle) → Twist → Palette → Bloom → Output</b>. Then try swapping the Waveform for an Emitter or a 3D Object, and add <b>Liquid glass</b> or <b>Fracture</b> at the end.</p>
 <h3 id="h-screen">The screen</h3>
 <p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play / pause (Space; it pauses the visuals too), stop, record to video, snapshot, the audio source, the live spectrum, fullscreen (F) and <b>Detach</b>. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
-<p><b>Move the view</b> with the mouse over the preview; it moves the active layer. On a 3D layer (Cloner, 3D Object, splats) drag orbits the camera, right-drag or Shift-drag pans. On a 2D layer drag moves the picture. The wheel zooms (2D zooms toward the pointer), double-click resets. Every move is undoable and saved with the project.</p>
+<p><b>Move the view</b> with the mouse over the preview; it moves the active layer. On a 3D layer (Cloner, 3D Object, splats) drag orbits the camera, right-drag or Shift-drag pans. On a 2D layer drag moves the picture. The wheel or a trackpad / touch pinch zooms (2D zooms toward the pointer), double-click resets. Every move is undoable and saved with the project.</p>
 <p>The <b>inspector</b> shows the selected node's knobs, grouped into sections, with a short description of what the node does at the top. With nothing selected it shows the layer (opacity, blend mode, resolution).</p>
 <h3 id="h-graph">Nodes &amp; wires</h3>
 <p>Wires carry typed values, colour-coded on their ports: <span style="color:${PORT_COLORS.audio}">audio</span> (the sound), <span style="color:${PORT_COLORS.shape}">shape</span> (something that can still be bent and recoloured), <span style="color:${PORT_COLORS.image}">image</span> (finished pixels), <span style="color:${PORT_COLORS.number}">number</span> (a value that drives knobs), <span style="color:${PORT_COLORS.colors}">colors</span> (a palette) and <span style="color:${PORT_COLORS.object3d}">3D object</span>. A shape wired into an image input is rendered at that point; after that it is pixels. A typical chain is Audio → Waveform or Emitter → Deformers → Palette → Post FX → Output.</p>
 <ul><li>Drag from an output port to an input port to connect. Click a wire to remove it. Ports only accept matching types.</li>
 <li><b>Tab</b> over the graph searches every node and drops it at the cursor; over (or near) a wire it is inserted into the wire.</li>
 <li>Drag an unconnected node so its body covers a wire and the wire lights up; let go to wedge it in. Library items work the same way.</li>
-<li>Drag empty space to pan, wheel or pinch to zoom, <b>Fit</b> frames everything.</li>
+<li>Drag empty space to pan, wheel or pinch to zoom, <b>Fit</b> frames everything (and tidies a messy graph).</li>
 <li><b>Delete</b> removes the selected node and heals the chain. Press and hold a node's title (or Alt-drag) to pull it out of its chain.</li>
 <li><b>Bypass</b> (⏻ on a node, or <b>B</b>) switches it off: its input passes straight through, so you can compare with and without. Bypassed nodes look dashed and dim.</li>
 <li><b>Preview</b> (◉, or <b>V</b>) shows just that node's picture in the viewport, even on a hidden layer; the yellow badge, V, Esc or <b>Show output</b> returns to the full result.</li>
@@ -2390,7 +2529,7 @@ function zoom(factor,cx=viewport.clientWidth/2,cy=viewport.clientHeight/2){const
 // A notched mouse wheel zooms, Shift + wheel pans sideways.
 const isTrackpad=e=>e.deltaMode===0&&(e.deltaX!==0||!(e.wheelDeltaY&&e.wheelDeltaY%120===0));
 viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();if(e.ctrlKey||e.metaKey||!isTrackpad(e)&&!e.shiftKey)zoom(e.ctrlKey?Math.exp(-e.deltaY*.01):e.deltaY<0?1.08:1/1.08,(e.clientX-r.left)/uiZ(),(e.clientY-r.top)/uiZ());else{view.x-=e.deltaX/uiZ();view.y-=e.deltaY/uiZ();applyView();}},{passive:false});
-$('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit').onclick=fit;
+$('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit').onclick=fitButton;
 $('previewExit').onclick=()=>{if(previewId)setPreview(previewId);};
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&!e.altKey&&/^[so]$/i.test(e.key)){e.preventDefault();if(e.key.toLowerCase()==='s')(e.shiftKey?saveTemplate:saveScene)();else $('import').click();return;}
@@ -2409,7 +2548,7 @@ document.addEventListener('keydown',e=>{
   else if(k==='b'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&selIds().length){e.preventDefault();toggleBypass(selIds());}
   else if(k==='v'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){const n=graph().nodes.find(m=>m.id===selected);if(previewId&&(!n||n.id===previewId))setPreview(previewId);else if(canPreview(n))setPreview(n.id);}
   else if(e.key===' '&&!e.target.closest('button')){e.preventDefault();$('play').click();}
-  else if(e.key==='Home'&&audio.buffer){e.preventDefault();const on=!!audio.source;stopAudio();if(on)play().catch(()=>{});message('Back to the start');}
+  else if(e.key==='Home'&&audio.buffer&&!audio.live){e.preventDefault();const on=!!audio.source;stopAudio();if(on)play().catch(()=>{});message('Back to the start');}
   else if(k==='f'&&!e.metaKey&&!e.ctrlKey){toggleFullscreen();}
 });
 window.addEventListener('resize',()=>requestAnimationFrame(renderWires));
