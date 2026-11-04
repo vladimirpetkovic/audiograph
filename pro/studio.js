@@ -1,4 +1,5 @@
 import * as sensors from './sensors.js';
+import {renderVideo,exportSupported} from './export.js';
 import {liveData,liveStatus} from './livedata.js';
 import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
 import {MASK_KEYS,setTextMesher,HIDDEN_MODES,FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,aiStyled,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
@@ -6,8 +7,8 @@ import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} f
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
-import {shaderInto,checkShader,dropShaderState,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
-import {cleanView,spinProps,WATER_HEIGHT} from './graph.js';
+import {shaderInto,checkShader,dropShaderState,releaseShaders,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
+import {cleanView,spinProps,WATER_HEIGHT,midiKnob} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as map3d from './map3d.js';
@@ -62,7 +63,7 @@ let multi=new Set();
 const uiZ=()=>parseFloat(getComputedStyle(document.body).zoom)||1;
 const DATA_INPUTS=new Set(['computer','clock','pointer','midi','liveData']),lastOuts=new Map();
 const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new Map(),view={x:20,y:20,zoom:.9},nodeState=new Map(),fxSlots=new Map(),thumbs=new Map();
-const shaderErrors=new Map();
+const shaderErrors=new Map(),SHADER_NODES=new Set(['melt','tunnel','shader']);
 let plans=new Map(),frame=0,lastTime=0,elapsed=0,renderErrors=[],nodeErrors=new Set(),statusSource='action',liveBefore=null;
 const preview=$('preview'),previewCtx=preview.getContext('2d');
 const graph=()=>state.layers.find(g=>g.id===active)||state.layers[0];
@@ -79,7 +80,7 @@ function reconcile(){
   for(const map of [surfaces,thumbs])for(const [id,cv] of map)if(!nodeIDs.has(id.split(':')[0])){cv.width=cv.height=1;map.delete(id);}
   for(const id of nodeState.keys())if(!nodeIDs.has(id.split(':')[0]))nodeState.delete(id);
   for(const [id,m] of mediaEls)if(!nodeIDs.has(id)){m.clear();mediaEls.delete(id);}
-  dropShaderState(nodeIDs);for(const id of shaderErrors.keys())if(!nodeIDs.has(id))shaderErrors.delete(id);
+  dropShaderState(nodeIDs);if(!state.layers.some(g=>g.nodes.some(n=>SHADER_NODES.has(n.type))))releaseShaders();for(const id of shaderErrors.keys())if(!nodeIDs.has(id))shaderErrors.delete(id);
   plans=new Map(state.layers.map(g=>{
     // Outputs and everything feeding them run; data inputs always run (cheap) so their meters stay live.
     const needed=new Set(g.nodes.filter(n=>n.type==='output'||DATA_INPUTS.has(n.type)).map(n=>n.id)),queue=[...needed];
@@ -256,6 +257,9 @@ function connection(from,out,to,input){
 
 // ---------- audio ----------
 const audio={context:null,buffer:null,source:null,live:null,analyser:null,monitor:null,dest:null,startedAt:0,offset:0,name:''};
+// While a video export runs it supplies the sound frame by frame (see renderVideo) and owns the clock.
+let exporting=null;
+let midiLearnOn=false,midiArmed=null,midiBefore=null,midiTimer=0;
 const A={freq:new Uint8Array(BINS),wave:new Float32Array(2048),rate:48000,bands:{bass:0,mids:0,high:0,full:0},beat:0,beatPulse:0,avg:0,lastBeat:0,live:false};
 // Routing: source → analyser → dest (recording) and analyser → monitor → speakers.
 // The monitor is muted for mic / system input so it never feeds back.
@@ -376,7 +380,8 @@ function demoSpectrum(t){
 }
 function readAudio(t){
   A.live=!!(audio.analyser&&(audio.source||audio.live));
-  if(A.live){A.rate=audio.context.sampleRate;audio.analyser.getByteFrequencyData(A.freq);audio.analyser.getFloatTimeDomainData(A.wave);}
+  if(exporting?.sound){const x=exporting.sound;A.live=true;A.rate=x.rate;A.freq.set(x.freq);A.wave.set(x.wave);}
+  else if(A.live){A.rate=audio.context.sampleRate;audio.analyser.getByteFrequencyData(A.freq);audio.analyser.getFloatTimeDomainData(A.wave);}
   else if(trackScan.frames>1)trackSpectrum(t);
   else{A.rate=48000;demoSpectrum(t);}
   A.bands=bandsOf(A.freq);
@@ -904,8 +909,10 @@ function drawLayer(out,g,image){
   const v=g.view;if(!v||layerView.get(g.id)==='sim'||(v.zm===1&&!v.px&&!v.py)){out.drawImage(image,0,0);return;}
   out.setTransform(v.zm,0,0,v.zm,WIDTH/2*(1-v.zm)+v.px*WIDTH/2,HEIGHT/2*(1-v.zm)-v.py*HEIGHT/2);out.drawImage(image,0,0);out.setTransform(1,0,0,1,0,0);
 }
+// Blackout (a MIDI action): the whole output fades to black and back.
+const blackout={on:false,level:0};
 function draw(time,dt=1/30){
-  if(pageHidden)return;
+  if(pageHidden&&!exporting)return;
   dissolveCheck();
   if(!paused)autoClock+=dt*knobAutoSpeed;
   readAudio(time);if(!paused)autopilotStep(dt);renderErrors=[];const prevErrors=nodeErrors;nodeErrors=new Set();
@@ -923,6 +930,8 @@ function draw(time,dt=1/30){
   if(previewImg){previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.drawImage(previewImg,0,0,WIDTH,HEIGHT);}
   else if(mapped)mapping.render(previewCtx,state.mapping,src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time);
   dissolveDraw(paused?0:dt);
+  blackout.level+=((blackout.on?1:0)-blackout.level)*Math.min(1,dt*8);if(blackout.level<.002&&!blackout.on)blackout.level=0;
+  if(blackout.level>0){previewCtx.globalAlpha=Math.min(1,blackout.level*1.02);previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.globalAlpha=1;}
   frame++;
   if(frame%2===0){drawSpectrum();showAutoKnobs();}
   if(frame%4===0)updatePalettePreview();
@@ -961,7 +970,7 @@ function releaseCameraIfUnused(){
 }
 function loop(now){
   if(frame%60===59)releaseCameraIfUnused();
-  if(!pageHidden&&!paused&&now-lastTime>1000/31){const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;elapsed+=dt;lastTime=now;const t0=performance.now();try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}sensors.frameTiming(performance.now()-t0,dt);}
+  if(!pageHidden&&!paused&&!exporting&&now-lastTime>1000/31){const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;elapsed+=dt;lastTime=now;const t0=performance.now();try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}sensors.frameTiming(performance.now()-t0,dt);}
   requestAnimationFrame(loop);
 }
 
@@ -1724,7 +1733,7 @@ function renderLayers(){
   }
   $('addLayer').disabled=state.layers.length>=LIMITS.layers||state.layers.flatMap(g=>g.nodes).filter(n=>isEngine(n.type)).length>=LIMITS.emitters;
 }
-function renderUI(){renderGraph();renderProperties();renderLayers();if(mapMode)renderMapPanel();renderOverlay();$('undo').disabled=!history.length;$('redo').disabled=!future.length;}
+function renderUI(){renderGraph();renderProperties();renderLayers();if(mapMode)renderMapPanel();renderOverlay();decorateMidi();if(midiLearnOn)renderMidiPanel();$('undo').disabled=!history.length;$('redo').disabled=!future.length;}
 
 // ---------- templates ----------
 function chain(name,specs,extra){
@@ -1788,6 +1797,293 @@ function loadTemplate(name){
   const layers=TEMPLATES[name]();layers.forEach((g,i)=>{if(i===0)g.blend='source-over';});
   importProject({format:'audiograph-pro',version:VERSION,layers,...(state.mapping?{mapping:state.mapping}:{})},`Template: ${name}`);
 }
+
+// ---------- MIDI learn & mappings ----------
+// Learn mode (the MIDI button): click a knob, switch or choice in the inspector, or an action in the MIDI panel, then move
+// a control on the controller. Knob mappings are saved with the project (on the node or layer); action mappings stay in
+// this browser. Faders and knobs (CC) set a value across its range; pads (notes) set it by velocity, flip switches and step choices.
+const MIDI_ACTIONS={
+  play:['Play / pause',()=>$('play').click()],
+  blackout:['Blackout',()=>{blackout.on=!blackout.on;message(blackout.on?'Blackout':'Blackout off');}],
+  autopilot:['Autopilot on / off',()=>{if(ap.live)apStop();else apStart();if(workspace==='auto')renderAutoPanel();message(ap.live?'Autopilot is following the music':'Autopilot off');}],
+  next:['Next variation',()=>{if(!ap.live)apStart();apChange(apKind(),pilot.section==='drop'?2.5:7,ap.changes,true);}],
+  random:['Random graph',()=>randomGraph()],
+  record:['Record',()=>$('record').click()],
+};
+const MIDI_ACT_KEY='agpro.midiActions';
+let midiActions={};try{const m=JSON.parse(localStorage.getItem(MIDI_ACT_KEY)||'{}');for(const [k,v] of Object.entries(m||{}))if(MIDI_ACTIONS[k]&&typeof v==='string'&&/^(cc|note):\d+:\d+$/.test(v))midiActions[k]=v;}catch{}
+const midiHeld=new Set();
+const noteName=n=>['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n%12]+(Math.floor(n/12)-1);
+const bindingOf=m=>(m.kind==='cc'?'cc':'note')+':'+m.ch+':'+m.num;
+function bindingLabel(b){const [k,ch,n]=b.split(':');return (k==='cc'?'CC '+n:noteName(+n))+(ch!=='1'?' ch'+ch:'');}
+function midiTargetLabel(t){
+  if(t.action)return MIDI_ACTIONS[t.action]?.[0]||t.action;
+  const g=state.layers.find(l=>l.id===t.layer);if(!g)return '?';
+  if(!t.node)return g.name+' · '+(t.key==='opacity'?'Opacity':'Visible');
+  const n=g.nodes.find(x=>x.id===t.node);if(!n)return '?';
+  const s=TYPES[n.type].props[t.key],r=!s&&t.key.startsWith('opt:')&&engines.get(n.id)?.optRange(jobOf(n),t.key.slice(4));
+  return nodeTitle(n)+' · '+(s?.label||(r?.label&&(OPT_SHORT[r.label]||r.label))||t.key.replace(/^opt:p?/,''));
+}
+function midiSpec(t){
+  const g=state.layers.find(l=>l.id===t.layer);if(!g)return null;
+  if(!t.node)return t.key==='opacity'?{kind:'number',min:0,max:1,step:.01}:{kind:'bool'};
+  const n=g.nodes.find(x=>x.id===t.node);if(!n)return null;
+  if(t.key.startsWith('opt:')){const r=engines.get(n.id)?.optRange(jobOf(n),t.key.slice(4));return r&&{kind:'number',min:r.min,max:r.max,step:r.step};}
+  return TYPES[n.type].props[t.key]||null;
+}
+function midiCommit(){
+  clearTimeout(midiTimer);if(!midiBefore)return;const before=midiBefore;midiBefore=null;
+  try{commit(clone(state),'MIDI',before);}catch(error){state=before;reconcile();renderUI();message(error.message,true);}
+}
+// The inspector shows the moving value while a fader drives a knob of the selected node (or layer).
+function showMidiValue(t,v){
+  const shown=t.node?selected===t.node:!selected&&active===t.layer;if(!shown)return;
+  const i=$('properties').querySelector(`[data-property="${CSS.escape(t.node?t.key:'layerOpacity')}"]`);i?.closest('.knob')?.show?.(t.node?v:v*100);
+}
+function midiApply(t,m){
+  const s=midiSpec(t);if(!s)return;
+  const g=state.layers.find(l=>l.id===t.layer),n=t.node?g.nodes.find(x=>x.id===t.node):null;
+  if(s.kind==='number'){
+    if(m.kind==='off')return;
+    let v=s.min+m.val*(s.max-s.min);if(s.step)v=Math.round((v-s.min)/s.step)*s.step+s.min;v=+Math.min(s.max,Math.max(s.min,v)).toFixed(6);
+    if(!midiBefore)midiBefore=clone(state);
+    if(!n)g.opacity=v;else if(t.key.startsWith('opt:'))n.props.opts={...n.props.opts,[t.key.slice(4)]:v};else n.props[t.key]=v;
+    showMidiValue(t,v);clearTimeout(midiTimer);midiTimer=setTimeout(midiCommit,400);if(paused)draw(elapsed);return;
+  }
+  if(m.kind==='off')return;
+  const cur=n?n.props[t.key]:g.visible;let v;
+  if(s.kind==='bool')v=m.kind==='cc'?m.val>=.5:!cur;
+  else if(s.kind==='select'){const ch=s.choices;v=m.kind==='cc'?ch[Math.round(m.val*(ch.length-1))]:ch[(ch.indexOf(cur)+1)%ch.length];}
+  else return;
+  if(v===cur)return;
+  midiCommit();
+  edit(p=>{const l=p.layers.find(l=>l.id===t.layer),x=t.node&&l?.nodes.find(x=>x.id===t.node);if(x)x.props[t.key]=v;else if(l)l.visible=v;},'MIDI: '+midiTargetLabel(t));
+}
+function bindMidi(t,b){
+  midiArmed=null;
+  if(t.action){for(const k of Object.keys(midiActions))if(midiActions[k]===b)delete midiActions[k];midiActions[t.action]=b;saveMidiActions();message(`MIDI: ${bindingLabel(b)} → ${midiTargetLabel(t)}`);}
+  else edit(p=>{const l=p.layers.find(l=>l.id===t.layer),o=t.node?l?.nodes.find(x=>x.id===t.node):l;if(o)o.midi={...o.midi,[t.key]:b};},`MIDI: ${bindingLabel(b)} → ${midiTargetLabel(t)}`);
+  decorateMidi();renderMidiPanel();
+}
+function unbindMidi(t){
+  if(t.action){delete midiActions[t.action];saveMidiActions();message('MIDI: removed '+midiTargetLabel(t));}
+  else edit(p=>{const l=p.layers.find(l=>l.id===t.layer),o=t.node?l?.nodes.find(x=>x.id===t.node):l;if(o?.midi){delete o.midi[t.key];if(!Object.keys(o.midi).length)delete o.midi;}},'MIDI: removed '+midiTargetLabel(t));
+  if(midiArmed&&JSON.stringify(midiArmed)===JSON.stringify(t))midiArmed=null;
+  decorateMidi();renderMidiPanel();
+}
+function saveMidiActions(){try{localStorage.setItem(MIDI_ACT_KEY,JSON.stringify(midiActions));}catch{}}
+function onMidi(m){
+  if(exporting)return;
+  if(midiLearnOn&&midiArmed){if(m.kind!=='off')bindMidi(midiArmed,bindingOf(m));return;}
+  const b=bindingOf(m),rising=m.kind==='on'||m.kind==='cc'&&m.val>=.5&&!midiHeld.has(b);
+  if(m.kind==='cc'){if(m.val>=.5)midiHeld.add(b);else midiHeld.delete(b);}
+  if(rising)for(const [a,v] of Object.entries(midiActions))if(v===b)try{MIDI_ACTIONS[a][1]();}catch(error){message(error.message,true);}
+  for(const g of state.layers){
+    if(g.midi)for(const [k,v] of Object.entries(g.midi))if(v===b)midiApply({layer:g.id,node:null,key:k},m);
+    for(const n of g.nodes)if(n.midi)for(const [k,v] of Object.entries(n.midi))if(v===b)midiApply({layer:g.id,node:n.id,key:k},m);
+  }
+}
+sensors.onMidiMessage(onMidi);
+// What a click in learn mode points at: an action button, or a knob / switch / choice of the selected node or layer.
+function midiTargetOf(x){
+  const act=x.closest?.('[data-midi-action]');if(act&&MIDI_ACTIONS[act.dataset.midiAction])return {action:act.dataset.midiAction};
+  if(!x.closest?.('#properties'))return null;
+  const c=x.closest('.knob,.chips[data-property]');if(!c)return null;
+  const prop=c.classList.contains('knob')?c.querySelector('.knob-input')?.dataset.property:c.dataset.property;if(!prop)return null;
+  if(!selected){const key={layerOpacity:'opacity',layerVisible:'visible'}[prop];return key?{layer:active,node:null,key}:null;}
+  const g=state.layers.find(l=>l.nodes.some(n=>n.id===selected)),n=g?.nodes.find(x=>x.id===selected);
+  return n&&midiKnob(n.type,prop)?{layer:g.id,node:n.id,key:prop}:null;
+}
+for(const type of ['pointerdown','click','contextmenu'])document.addEventListener(type,e=>{
+  if(!midiLearnOn||e.target.closest?.('#midiPanel .midi-keep'))return;
+  const t=midiTargetOf(e.target);if(!t)return;
+  e.preventDefault();e.stopPropagation();
+  if(type!=='pointerdown')return;
+  if(e.altKey||e.button===2){unbindMidi(t);return;}
+  midiArmed=t;decorateMidi();renderMidiPanel();message(`Move a control on your controller for ${midiTargetLabel(t)} (Esc cancels)`);
+},true);
+addEventListener('keydown',e=>{if(midiLearnOn&&e.key==='Escape'){e.stopPropagation();if(midiArmed){midiArmed=null;decorateMidi();renderMidiPanel();}else setMidiLearn(false);}},true);
+function decorateMidi(){
+  document.body.classList.toggle('midi-learn',midiLearnOn);$('midiButton')?.classList.toggle('on',midiLearnOn);
+  for(const e of document.querySelectorAll('[data-midi]'))delete e.dataset.midi;
+  for(const e of document.querySelectorAll('.midi-armed'))e.classList.remove('midi-armed');
+  const root=$('properties'),find=prop=>{const i=root.querySelector(`[data-property="${CSS.escape(prop)}"]`);return i?.closest('.knob')||i;};
+  const mark=(prop,b)=>{const c=find(prop);if(c)c.dataset.midi=bindingLabel(b);};
+  if(selected){const n=findNode(selected);if(n?.midi)for(const [k,b] of Object.entries(n.midi))mark(k,b);}
+  else{const g=graph();if(g.midi?.opacity)mark('layerOpacity',g.midi.opacity);if(g.midi?.visible)mark('layerVisible',g.midi.visible);}
+  for(const e of document.querySelectorAll('[data-midi-action]')){const b=midiActions[e.dataset.midiAction];if(b)e.dataset.midi=bindingLabel(b);}
+  const t=midiArmed;if(!t)return;
+  const e=t.action?document.querySelector(`#midiPanel [data-midi-action="${t.action}"]`):(t.node?selected===t.node:!selected&&active===t.layer)?find(t.node?t.key:t.key==='opacity'?'layerOpacity':'layerVisible'):null;
+  e?.classList.add('midi-armed');
+}
+function midiMappings(){
+  const rows=[];
+  for(const g of state.layers){
+    if(g.midi)for(const [k,b] of Object.entries(g.midi))rows.push({t:{layer:g.id,node:null,key:k},b});
+    for(const n of g.nodes)if(n.midi)for(const [k,b] of Object.entries(n.midi))rows.push({t:{layer:g.id,node:n.id,key:k},b});
+  }
+  for(const [a,b] of Object.entries(midiActions))rows.push({t:{action:a},b});
+  return rows;
+}
+function renderMidiPanel(){
+  const p=$('midiPanel');if(!p)return;p.hidden=!midiLearnOn;if(!midiLearnOn)return;p.replaceChildren();
+  const info=sensors.midiInfo(),head=el('div','midi-head');head.append(el('span','ws-title','MIDI learn'));
+  const done=el('button','mbtn midi-keep','Done');done.type='button';done.onclick=()=>setMidiLearn(false);head.append(done);p.append(head);
+  p.append(el('p','insp-note',info.error||(info.devices.length?'Controller: '+info.devices.join(', '):'No controller found yet: plug one in.')));
+  p.append(el('p','insp-note',midiArmed?`Now move a knob, fader or pad for ${midiTargetLabel(midiArmed)}…`:'Click a knob, switch or choice in the inspector (or an action below), then move a control. Alt-click a mapped one to unmap it.'));
+  const acts=el('div','midi-acts');
+  for(const [k,[label]] of Object.entries(MIDI_ACTIONS)){const b=el('button','mbtn',label);b.type='button';b.dataset.midiAction=k;acts.append(b);}
+  p.append(acts);
+  const rows=midiMappings();
+  if(rows.length){
+    const list=el('div','midi-list');
+    for(const {t,b} of rows){const r=el('div','midi-row');const x=el('button','mbtn midi-keep','×');x.type='button';x.title='Remove this mapping';x.onclick=()=>unbindMidi(t);
+      r.append(el('span','midi-name',midiTargetLabel(t)),el('span','midi-bind',bindingLabel(b)),x);list.append(r);}
+    p.append(list);
+  }
+  decorateMidi();
+}
+async function setMidiLearn(on){
+  if(on){try{await sensors.connectMidi();}catch(error){message(error.message,true);}}
+  else midiCommit();
+  midiLearnOn=on;midiArmed=null;renderMidiPanel();decorateMidi();
+  if(on)message('MIDI learn: click a control, then move a knob, fader or pad');else message('MIDI learn off');
+}
+$('midiButton').onclick=()=>setMidiLearn(!midiLearnOn);
+
+// ---------- share links ----------
+// The whole project (layers, nodes, settings, mapping, MIDI) packed into the link: deflate + base64url after #scene=.
+// Media (audio, images, video, 3D models) never travels; whoever opens it loads their own.
+const b64url={enc:u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode(...u8.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');},
+  dec:t=>Uint8Array.from(atob(t.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0))};
+async function packScene(project){
+  const stream=new Blob([JSON.stringify(project)]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return b64url.enc(new Uint8Array(await new Response(stream).arrayBuffer()));
+}
+async function unpackScene(code){
+  if(code.length>2e6)throw Error('That link is too long');
+  const stream=new Blob([b64url.dec(code)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const text=await new Response(stream).text();if(text.length>4e6)throw Error('That scene is too large');
+  return JSON.parse(text);
+}
+async function shareLink(){return location.origin+location.pathname+'#scene='+await packScene(validate(state));}
+async function openShared(code){
+  if(!code){const m=/^#scene=([A-Za-z0-9_-]+)$/.exec(location.hash);if(!m)return false;code=m[1];history.replaceState(null,'',location.pathname+location.search);}
+  try{importProject(await unpackScene(code),'Opened a shared scene');message('Opened a shared scene · load your own sound and pictures. Undo (⌘Z) brings your scene back.');return true;}
+  catch(error){message('Shared link: '+(error instanceof SyntaxError?'the link is damaged':error.message),true);return false;}
+}
+addEventListener('hashchange',()=>{openShared();});
+$('shareButton').onclick=()=>openShare();
+async function openShare(){
+  const d=$('shareDialog'),body=$('shareBody');body.replaceChildren();d.showModal();
+  let link;try{link=await shareLink();}catch(error){body.append(el('p','insp-note insp-err',error.message));return;}
+  const media=state.layers.some(g=>g.nodes.some(n=>['image','video','imageEQ','videoEQ','camera'].includes(n.type)||n.type==='waveform3d'&&n.props.mode==='model'));
+  const input=el('input','share-link');input.type='text';input.readOnly=true;input.value=link;input.onfocus=()=>input.select();
+  const row=el('div','insp-actions'),copy=el('button','btn teal','Copy link');copy.type='button';copy.id='shareCopy';
+  copy.onclick=async()=>{try{await navigator.clipboard.writeText(link);copy.textContent='Copied';message('Link copied');}catch{input.select();document.execCommand?.('copy');copy.textContent='Copied';}};
+  row.append(copy);
+  if(navigator.share){const sh=el('button','btn','Share…');sh.type='button';sh.onclick=()=>navigator.share({title:'Audiograph scene',url:link}).catch(()=>{});row.append(sh);}
+  body.append(el('p','insp-note','Anyone with this link opens a copy of this scene in Audiograph Pro: every layer, node, setting, projection mapping and MIDI mapping. Nothing is uploaded; the scene lives in the link itself.'),
+    input,row,el('p','insp-note',`${(link.length/1024).toFixed(1)} KB link.`+(media?' Your sound, pictures, videos and 3D models are not included: whoever opens it loads their own.':' Your sound is not included: whoever opens it plays their own.')));
+  if(link.length>8000)body.append(el('p','insp-note','Long links can be cut off by some chat apps; Save scene… makes a file you can send instead.'));
+  input.focus();
+}
+$('closeShare').onclick=()=>$('shareDialog').close();
+
+// ---------- video export (offline) ----------
+// Renders the chosen stretch of the song frame by frame on a virtual clock: every frame is drawn, however heavy the scene
+// or high the resolution, and the sound analysis follows the song exactly. Live input (mic / system) can only be recorded.
+const EXPORT_KEY='agpro.export',EXPORT_BPP={standard:.07,high:.12,max:.2};
+let exportPrefs={height:1080,fps:60,quality:'high'};try{Object.assign(exportPrefs,JSON.parse(localStorage.getItem(EXPORT_KEY)||'{}'));}catch{}
+let vclock=0;
+const realNow=performance.now.bind(performance);
+// Engines and FX read performance.now(); during an export it is the video's own clock.
+function patchClock(on){
+  for(const w of [window,...[...engines.values()].map(e=>e.w).filter(Boolean)]){try{if(on)w.performance.now=()=>vclock;else delete w.performance.now;}catch{}}
+}
+async function exportSound(){
+  if(audio.live)throw Error('Export renders a sound file. Live input (mic / system audio) can only be recorded with ●');
+  if(audio.buffer)return {buffer:audio.buffer,name:audio.name||'audiograph'};
+  const bytes=await DEFAULT_TRACK.bytes;if(!bytes)throw Error('Load an audio file first: export follows a song');
+  return {buffer:await audioContext().decodeAudioData(bytes.slice(0)),name:DEFAULT_TRACK.name};
+}
+const playhead=()=>!audio.buffer?0:((audio.source?audio.offset+audio.context.currentTime-audio.startedAt:audio.offset)%audio.buffer.duration);
+const fmtTime=t=>`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
+// Video nodes step with the export instead of playing on their own.
+async function seekVideos(t){
+  const vids=[...mediaEls.values()].map(m=>m.kind==='video'&&m.el instanceof HTMLVideoElement&&m.el.duration>0?m.el:null).filter(Boolean);
+  await Promise.all(vids.map(v=>new Promise(r=>{v.pause();const to=t%v.duration;if(Math.abs(v.currentTime-to)<.0005)return r();
+    const done=()=>{clearTimeout(k);v.removeEventListener('seeked',done);r();},k=setTimeout(done,1500);v.addEventListener('seeked',done);v.currentTime=to;})));
+}
+async function exportVideo(cfg,{file=null,onProgress=()=>{}}={}){
+  if(!exportSupported())throw Error('Video export needs WebCodecs: use Chrome, Edge or Safari 17+');
+  if(recorder)throw Error('Stop recording first');
+  if(exporting)throw Error('An export is already running');
+  const snd=cfg.sound||await exportSound(),dur=snd.buffer.duration,start=Math.max(0,Math.min(dur-.1,+cfg.start||0)),length=Math.max(.1,Math.min(dur-start,+cfg.length||dur-start));
+  const prevH=HEIGHT,wasPaused=paused,wasPlaying=!!audio.source,vt0=elapsed,ac=new AbortController();
+  if(wasPlaying)stopAudio(true);
+  exporting={sound:null,abort:()=>ac.abort()};$('resolution').disabled=true;
+  let frames=0;
+  try{
+    if(cfg.height!==HEIGHT)changeResolution(cfg.height);
+    paused=false;vclock=realNow();const c0=vclock;patchClock(true);
+    // Let engines that resized (or are still starting) come up before frame 0.
+    for(let i=0;i<120&&[...engines.values()].some(e=>e.status==='starting');i++)await new Promise(r=>setTimeout(r,250));
+    const bitrate=Math.round(WIDTH*HEIGHT*cfg.fps*(EXPORT_BPP[cfg.quality]||EXPORT_BPP.high));
+    const blob=await renderVideo({buffer:snd.buffer,start,length,fps:cfg.fps,bitrate,canvas:preview,file,signal:ac.signal,
+      analyser:{fftSize:BINS*2,smoothing:.5,minDb:-100,maxDb:-30},onProgress,
+      drawFrame:async(i,t,dt,sound)=>{vclock=c0+t*1000;await seekVideos(t);exporting.sound=sound;draw(vt0+t,dt);frames=i+1;}});
+    return {blob,frames,width:WIDTH,height:HEIGHT,name:snd.name.replace(/\.[^.]+$/,'').replace(/[^\w -]+/g,'').trim()||'audiograph'};
+  }finally{
+    patchClock(false);exporting=null;elapsed=vt0+frames/cfg.fps;paused=wasPaused;lastTime=0;$('resolution').disabled=false;
+    for(const m of mediaEls.values())if(m.kind==='video')m.el?.play?.().catch(()=>{});
+    if(HEIGHT!==prevH)attempt(()=>changeResolution(prevH));
+    if(wasPlaying)play().catch(()=>{});
+  }
+}
+async function openExport(){
+  const d=$('exportDialog'),body=$('exportBody');body.replaceChildren();d.showModal();
+  if(!exportSupported()){body.append(el('p','insp-note insp-err','Video export needs WebCodecs: use Chrome, Edge or Safari 17+. Record (●) works everywhere.'));return;}
+  let snd;try{snd=await exportSound();}catch(error){body.append(el('p','insp-note insp-err',error.message));return;}
+  const dur=snd.buffer.duration,cfg={...exportPrefs,start:0,length:dur};
+  body.append(el('p','insp-note',`Renders frame by frame, so every frame makes it in, at any resolution, in sync with the song (${snd.name}, ${fmtTime(dur)}). Heavy scenes just take longer.`));
+  const range=section(body,'Range'),st=el('input'),ln=el('input');
+  for(const [i,v] of [[st,0],[ln,dur]]){i.type='number';i.min=0;i.max=dur.toFixed(1);i.step=.1;i.value=v.toFixed(1);i.className='export-num';}
+  st.id='exportStart';ln.id='exportLength';
+  const sync=()=>{cfg.start=Math.max(0,Math.min(dur-.1,+st.value||0));cfg.length=Math.max(.1,Math.min(dur-cfg.start,+ln.value||0));est();};
+  st.onchange=ln.onchange=sync;
+  const whole=el('button','mbtn','Whole song');whole.type='button';whole.onclick=()=>{st.value='0.0';ln.value=dur.toFixed(1);sync();};
+  const here=el('button','mbtn','From the playhead');here.type='button';here.onclick=()=>{const p=playhead();st.value=p.toFixed(1);ln.value=(dur-p).toFixed(1);sync();};
+  range.append(ui.field('Start (s)',st),ui.field('Length (s)',ln));const rb=el('div','insp-actions');rb.append(whole,here);range.append(rb);
+  const look=section(body,'Video');
+  const pick=(label,key,options)=>look.append(ui.field(label,ui.chips({options,value:cfg[key],property:'export'+key,onChange:v=>{cfg[key]=v;est();}})));
+  pick('Size','height',[[720,'720p'],[1080,'1080p'],[1440,'1440p'],[2160,'4K']]);
+  pick('Frame rate','fps',[[30,'30'],[60,'60']]);
+  pick('Quality','quality',[['standard','Standard'],['high','High'],['max','Max']]);
+  const info=el('p','insp-note');look.append(info);
+  function est(){const w=cfg.height*16/9,mb=w*cfg.height*cfg.fps*(EXPORT_BPP[cfg.quality]||.12)*cfg.length/8/1e6;info.textContent=`${w} × ${cfg.height}, ${cfg.fps} fps, ${fmtTime(cfg.length)} · about ${mb<1000?Math.max(1,Math.round(mb))+' MB':(mb/1000).toFixed(1)+' GB'} (MP4).`;}
+  est();
+  const prog=el('div','export-progress');prog.hidden=true;const bar=el('progress');bar.max=1;bar.value=0;const ptxt=el('p','insp-note');prog.append(bar,ptxt);body.append(prog);
+  const row=el('div','insp-actions'),go=el('button','btn teal','Render video');go.type='button';go.id='exportGo';row.append(go);body.append(row);
+  go.onclick=async()=>{
+    if(exporting){exporting.abort();return;}
+    exportPrefs={height:cfg.height,fps:cfg.fps,quality:cfg.quality};try{localStorage.setItem(EXPORT_KEY,JSON.stringify(exportPrefs));}catch{}
+    let file=null;const base=snd.name.replace(/\.[^.]+$/,'').replace(/[^\w -]+/g,'').trim()||'audiograph';
+    if(window.showSaveFilePicker&&!cfg.noPicker){try{file=await showSaveFilePicker({suggestedName:base+'.mp4',types:[{description:'MP4 video',accept:{'video/mp4':['.mp4']}}]});}catch(error){if(error.name==='AbortError')return;}}
+    go.textContent='Cancel';prog.hidden=false;for(const x of [range,look])x.inert=true;$('closeExport').disabled=true;
+    const t0=realNow();
+    try{
+      const r=await exportVideo({...cfg,sound:snd},{file,onProgress:(n,total,phase)=>{bar.value=n/total;const el2=(realNow()-t0)/1000,left=n?el2/n*(total-n):0;
+        ptxt.textContent=n?`${phase}: frame ${n} / ${total} · ${(n/el2).toFixed(1)} fps · ${fmtTime(left)} left`:phase+'…';}});
+      if(r.blob){const url=URL.createObjectURL(r.blob),a=el('a');a.href=url;a.download=base+'.mp4';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+      ptxt.textContent=`Done: ${r.frames} frames at ${r.width} × ${r.height} in ${fmtTime((realNow()-t0)/1000)}.`;message('Exported '+base+'.mp4');
+    }catch(error){ptxt.textContent=error.name==='AbortError'?'Cancelled.':'Export failed: '+error.message;message(error.name==='AbortError'?'Export cancelled':'Export: '+error.message,error.name!=='AbortError');}
+    finally{go.textContent='Render video';for(const x of [range,look])x.inert=false;$('closeExport').disabled=false;}
+  };
+}
+$('exportVideo').onclick=()=>openExport();
+$('closeExport').onclick=()=>{if(!exporting)$('exportDialog').close();};
+$('exportDialog').addEventListener('cancel',e=>{if(exporting)e.preventDefault();});
 
 // ---------- record / fullscreen ----------
 let recorder=null,chunks=[],recordStarting=false;
@@ -2039,7 +2335,8 @@ $('helpBody').innerHTML=`
 <p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
 <ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Reset</b> starts over from the starting scene (Undo brings your scene back). Media files (songs, videos, models) are not stored: reload them in their nodes.</li>
-<li>Record (●) captures the preview with its audio to video; the camera button saves a PNG. The layer <b>Resolution</b> sets the render size.</li>
+<li>Record (●) captures the preview live with its audio; <b>Export</b> (↓) renders the song frame by frame to an MP4 at up to 4K / 60 fps, with no dropped frames. The camera button saves a PNG. The layer <b>Resolution</b> sets the render size.</li>
+<li><b>MIDI</b>: click it, click a knob, switch or action, then move a control on your controller to map it. Alt-click unmaps; Esc leaves. <b>Share</b> copies a link that holds the whole scene.</li>
 <li><b>Output</b> → second display: Detach opens the picture in its own window for a projector or screen.</li>
 <li>Older projects open automatically and are updated to the current nodes.</li></ul>
 <h3 id="h-keys">Keys</h3>
@@ -2820,9 +3117,14 @@ window.pro={
     change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),scene:(id,k='groove')=>{gen.force=id;return apChange(k,1,'everything',true,true);},scenes:()=>AP_SCENES.map(x=>x.id),start:()=>apStart(),stop:()=>apStop(),
     settings:o=>{const {live,...rest}=o||{};Object.assign(ap,rest);if(live===true&&!ap.live)apStart();else if(live===false)apStop();apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,live:ap.live,hold:ap.hold,write:ap.write};},
     status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},cameraImport:parseCamera,mapping3d:map3d,mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
+  exportVideo:async cfg=>{
+    if(cfg.tone){const b=new AudioBuffer({length:Math.round(cfg.tone*48000),numberOfChannels:2,sampleRate:48000});for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<d.length;i++)d[i]=.5*Math.sin(i/48000*2*Math.PI*110)*(i%12000<3000?1:.2);}cfg={...cfg,sound:{buffer:b,name:'tone'}};}
+    const r=await exportVideo({height:HEIGHT,fps:30,quality:'standard',...cfg});return {bytes:r.blob?.size||0,frames:r.frames,width:r.width,height:r.height,head:r.blob?[...new Uint8Array(await r.blob.slice(0,12).arrayBuffer())]:null};},
+  midi:{inject:b=>sensors.injectMidi(b),learn:on=>setMidiLearn(on),actions:()=>({...midiActions}),blackout:()=>blackout.on},
+  share:{link:()=>shareLink(),open:link=>openShared(new URL(link).hash.replace(/^#scene=/,''))},
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),emitPoints:id=>nodeState.get(id+':emit')?.asset?.points,view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 attempt(()=>{const h=localStorage.getItem('agpro.resolution');if(h!==null)changeResolution(+h);});
-sensors.autoMidi();reconcile();renderLibrary();renderUI();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
+sensors.autoMidi();reconcile();renderLibrary();renderUI();openShared();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
 requestAnimationFrame(loop);
 tour.maybeInvite();

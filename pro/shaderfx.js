@@ -92,6 +92,8 @@ function targets(id,w,h){
   }
   return f;
 }
+// With no shader nodes left, give the WebGL context back (browsers cap how many can live at once).
+export function releaseShaders(){if(!gl)return;try{gl.getExtension('WEBGL_lose_context')?.loseContext();}catch{}gl=null;progs.clear();fb.clear();}
 export function dropShaderState(keep){for(const [id,f] of fb)if(!keep.has(id)&&gl){for(const t of f.tex)gl.deleteTexture(t);for(const b of f.fbo)gl.deleteFramebuffer(b);fb.delete(id);}}
 // The sound as a 512 × 2 texture: row 0 the spectrum (lower 3/4 of the bins, where the music is), row 1 the waveform.
 function soundTexture(sig){

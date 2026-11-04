@@ -836,6 +836,27 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      assert.match(await page.locator('.shader-err').textContent(),/line 1/,'A broken shader shows its error line');assert.equal((await project()).layers[0].nodes.find(n=>n.id==='f').props.example,'Custom');
      await page.fill('#properties textarea.shader-code','uniform float red; // @knob 0..1 =1\nvoid mainImage(out vec4 o,in vec2 f){ o=vec4(red,0,0,1); }');await page.keyboard.press('Control+Enter');await page.waitForTimeout(500);
      assert.equal(await page.locator('.shader-err').count(),0,'Fixed code compiles');assert.ok(await page.locator('#properties [data-property="k1"]').count(),'@knob lines become knobs');}
+    // MIDI learn: click a knob, move a controller knob; a pad toggles Blackout; mappings live in the scene. Share links round-trip. Export renders an MP4.
+    {await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:420,y:0,props:{}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'}]));
+     await page.evaluate(()=>pro.select('w'));await page.click('#midiButton');await page.waitForSelector('#midiPanel:not([hidden])');
+     const knob=page.locator('#properties .knob').first(),key=await knob.locator('.knob-input').getAttribute('data-property');await knob.click();
+     await page.evaluate(()=>pro.midi.inject([0xB0,21,0]));await page.waitForTimeout(100);
+     let w=(await project()).layers[0].nodes.find(n=>n.id==='w');assert.equal(w.midi?.[key],'cc:1:21','Learn binds the moved controller');const lo=w.props[key];
+     await page.evaluate(()=>pro.midi.inject([0xB0,21,127]));await page.waitForTimeout(600);
+     assert.ok((await project()).layers[0].nodes.find(n=>n.id==='w').props[key]>lo,'The mapped CC drives the knob');
+     await page.click('#midiPanel [data-midi-action="blackout"]');await page.evaluate(()=>pro.midi.inject([0x90,36,100]));
+     assert.equal((await page.evaluate(()=>pro.midi.actions())).blackout,'note:1:36','A pad maps to Blackout');
+     await page.keyboard.press('Escape');await page.keyboard.press('Escape');assert.ok(await page.locator('#midiPanel').isHidden(),'Esc leaves MIDI learn');
+     await page.evaluate(()=>pro.midi.inject([0x90,36,100]));assert.equal(await page.evaluate(()=>pro.midi.blackout()),true,'The pad blacks out the output');
+     await page.evaluate(()=>pro.midi.inject([0x90,36,100]));assert.equal(await page.evaluate(()=>pro.midi.blackout()),false);
+     const link=await page.evaluate(()=>pro.share.link());assert.match(link,/#scene=[\w-]+$/);
+     await page.evaluate(p=>pro.importProject(p),L([],[]));
+     assert.equal(await page.evaluate(l=>pro.share.open(l),link),true);const back=(await project()).layers[0].nodes.find(n=>n.id==='w');
+     assert.equal(back?.midi?.[key],'cc:1:21','A shared link brings the scene back, MIDI mapping included');
+     await page.evaluate(()=>pro.midi.inject([0x90,36,100]));await page.evaluate(()=>pro.midi.inject([0x90,36,100]));// leave blackout off
+     const r=await page.evaluate(()=>pro.exportVideo({tone:1,height:720,fps:30}));
+     assert.equal(r.frames,30,'Export renders every frame');assert.ok(r.bytes>10000&&String.fromCharCode(...r.head.slice(4,8))==='ftyp','Export makes an MP4: '+JSON.stringify(r));
+     await lit(.2);}
     // Waveform inspector: Line style (with the Lines knobs) is first under the mode menu; per-node Reset; project Reset keeps the Audio settings.
     {
       await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'circle',thick:5,lineShape:'dotted'}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'}]));
@@ -1228,7 +1249,7 @@ def Camera "Camera" {
      const c=await pv('c'),f=await pv('f');
      assert.ok(dif(out,c)>1,'Previewing an unconnected emitter shows it, not the output');assert.ok(dif(c,f)>.2,'Previewing an unconnected effect shows its result');
      await pv('m');assert.ok((await page.evaluate(()=>pro.stats().errors)).some(e=>/Merge/.test(e)),'An unconnected previewed node reports what it needs');
-     await page.keyboard.press('Escape');{const back=await sig();assert.ok(dif(back,out)<dif(back,c)*.5,'Esc returns to the output: '+dif(back,out).toFixed(2)+' vs '+dif(back,c).toFixed(2));}await page.evaluate(()=>pro.pause(false));}
+     await page.keyboard.press('Escape');{let back=await sig();for(let i=0,b;i<80;i++){b=await sig();if(dif(back,b)<.05){back=b;break;}back=b;}assert.ok(dif(back,out)<dif(back,c)*.5,'Esc returns to the output: '+dif(back,out).toFixed(2)+' vs '+dif(back,c).toFixed(2));}await page.evaluate(()=>pro.pause(false));}
     // Resolution changes the render itself, not just CSS, without replacing the graph or its engines.
     await page.evaluate(()=>pro.loadTemplate('Ink'));
     const fluidID=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='gpuParticles').id);

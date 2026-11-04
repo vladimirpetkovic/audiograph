@@ -336,6 +336,21 @@ process the finished image.
 - **Resolution** (beside fullscreen) sets the actual 16:9 output to 540p, 720p,
   1080p, 1440p or 4K, including snapshots, recordings and Detach. It is remembered
   in this browser and locked during recording. Higher resolutions use more GPU.
+- **Export video** (the download arrow beside Rec) renders the song (or a stretch
+  of it) frame by frame on a virtual clock and saves an MP4 (H.264 + AAC). Every
+  frame makes it in at 720p, 1080p, 1440p or 4K and 30 or 60 fps, whatever the
+  scene's weight; the sound analysis follows the song exactly. It needs WebCodecs
+  (Chrome, Edge, Safari 17+) and a sound file; for mic or system audio use Rec.
+- **MIDI** turns on MIDI learn: click a knob, switch or chip in the inspector (or
+  a layer's Opacity / Visible, or Play, Rec or an action in the MIDI panel), then
+  move a knob, fader or pad on your controller. Knobs follow CCs across their
+  range; pads toggle switches, step through choices or fire actions (Play / pause,
+  Blackout, Autopilot, Next scene, Random scene, Record). Alt-click or right-click
+  unmaps; Esc or Done leaves learn mode. Knob mappings are saved in the scene;
+  action mappings stay in this browser.
+- **Share** makes a link that holds the whole scene (layers, nodes, settings,
+  mapping, MIDI mappings), compressed into the address. Nothing is uploaded;
+  media files and your sound are not included.
 - The **Cube** mapping layout uses a folded cap so the image meets both side
   faces at their shared edges. Choose **Cube cap · wrap sides** under Warp to
   restore this on a surface, or **Flat · 4 corners** for ordinary corner pinning.
@@ -408,6 +423,8 @@ not saved in projects.
 ## Limits
 
 - Output is fixed at 960×540, with Low simulation quality.
+- Share links grow with the scene; very long ones (lots of custom code) may not
+  survive chat apps or email, so send an .ag file instead.
 - Each project allows four drawing nodes (Inputs other than Audio, and
   Emitters), four layers and 60 nodes per layer.
 - Not included: morphing between presets (use the original Audiograph).

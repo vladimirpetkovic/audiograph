@@ -110,7 +110,7 @@ export function pointer(p,dt){
 }
 
 // ---------- MIDI ----------
-const midi={access:null,error:'',cc:new Float32Array(16*128),notes:new Float32Array(16*128),lastNote:0,lastVel:0,held:0,learn:null,devices:[],pitch:.5,listeners:new Set()};
+const midi={access:null,error:'',cc:new Float32Array(16*128),notes:new Float32Array(16*128),lastNote:0,lastVel:0,held:0,learn:null,devices:[],pitch:.5,listeners:new Set(),raw:new Set()};
 function onMidi(e){
   const [st,a=0,b=0]=e.data,type=st&0xf0,ch=st&0x0f;
   if(type===0xb0){midi.cc[ch*128+a]=b/127;if(midi.learn){midi.learn({cc:a,channel:ch+1});midi.learn=null;}}
@@ -118,7 +118,11 @@ function onMidi(e){
   else if(type===0x80||type===0x90){midi.notes[ch*128+a]=0;midi.held=Math.max(0,midi.held-1);}
   else if(type===0xe0)midi.pitch=((b<<7)|a)/16383;
   for(const f of midi.listeners)f();
+  if(type===0xb0||type===0x90||type===0x80){const m={kind:type===0xb0?'cc':type===0x90&&b>0?'on':'off',ch:ch+1,num:a,val:b/127};for(const f of midi.raw)f(m);}
 }
+// Every CC / note message, for MIDI learn and mappings: {kind:'cc'|'on'|'off', ch:1–16, num:0–127, val:0–1}.
+export function injectMidi(bytes){onMidi({data:bytes});}
+export function onMidiMessage(f){midi.raw.add(f);return ()=>midi.raw.delete(f);}
 function hook(access){
   midi.access=access;midi.devices=[];
   for(const input of access.inputs.values()){input.onmidimessage=onMidi;midi.devices.push(input.name||'MIDI input');}

@@ -449,3 +449,29 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .shader-code{width:100%;box-sizing:border-box;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2;white-space:pre;overflow:auto;resize:vertical;min-height:180px}
 .shader-err{white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace}
 .shader-err{color:#ff7a7a}
+
+/* Export / Share dialogs */
+.ag-dialog{margin:auto;width:calc(100% - 32px);max-width:520px;max-height:85vh;overflow:auto;padding:24px;background:var(--surface);border:1px solid var(--border-h);border-radius:10px;color:var(--tx)}
+.ag-dialog::backdrop{background:#000b;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.ag-dialog h2{font:600 .85rem/1 var(--sans);letter-spacing:.15em;text-transform:uppercase;color:#fff;margin-bottom:14px}
+.ag-dialog>.btn{margin-top:18px}
+.ag-dialog .insp-section{margin-top:12px}
+.ag-dialog .insp-note+.insp-note{margin-top:6px}
+.export-num{width:90px}
+.export-progress{margin-top:14px}.export-progress progress{width:100%;height:8px;accent-color:var(--accent2)}
+.share-link{width:100%;box-sizing:border-box;margin:10px 0 4px;font:11px ui-monospace,Menlo,monospace}
+/* MIDI learn */
+.midi-panel{position:fixed;left:12px;bottom:84px;z-index:50;width:280px;max-height:70vh;overflow:auto;padding:12px;background:var(--surface);border:1px solid var(--accent2);border-radius:8px;box-shadow:0 8px 30px #000a}
+.midi-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.midi-acts{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+.midi-list{display:flex;flex-direction:column;gap:2px;margin-top:6px;border-top:1px solid var(--border);padding-top:6px}
+.midi-row{display:flex;align-items:center;gap:6px;font-size:.6rem;color:var(--tx2)}
+.midi-row .midi-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.midi-row .midi-bind{color:var(--accent2);font-family:ui-monospace,Menlo,monospace}
+.knob,.chips{position:relative}
+[data-midi]::after{content:'';position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:var(--accent2);pointer-events:none}
+body.midi-learn [data-midi]::after{content:attr(data-midi);width:auto;height:auto;top:-6px;right:-4px;padding:0 3px;border-radius:3px;font:500 8px/12px ui-monospace,Menlo,monospace;color:#000;z-index:2}
+body.midi-learn #properties .knob,body.midi-learn #properties .chips[data-property],body.midi-learn [data-midi-action]{outline:1px dashed color-mix(in srgb,var(--accent2) 55%,transparent);outline-offset:2px;cursor:crosshair}
+body.midi-learn .midi-armed{outline:2px solid var(--accent2)!important;animation:midiPulse .8s ease-in-out infinite alternate}
+@keyframes midiPulse{to{outline-color:transparent}}
+#midiButton.on{color:#000;background:var(--accent2)}

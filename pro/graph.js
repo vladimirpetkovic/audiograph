@@ -793,6 +793,7 @@ export function validate(input) {
     const blend=g.blend??'screen';if(!LAYER_BLENDS.includes(blend))throw Error('Invalid layer blend');
     const clean={id:unique(g.id),name:g.name,visible:g.visible,opacity:finite(g.opacity,0,1,'Opacity'),blend,nodes:[],edges:[]};
     const view=cleanView(g.view);if(view)clean.view=view;
+    const lm=cleanMidi(g.midi,k=>k==='opacity'||k==='visible');if(lm)clean.midi=lm;
     clean.nodes=g.nodes.map(nd=>{
       if(!nd||!Object.hasOwn(TYPES,nd.type))throw Error('Unknown node type');
       if(isEngine(nd.type))emitters++;
@@ -805,6 +806,7 @@ export function validate(input) {
         const auto=[...new Set(nd.auto)].filter(k=>typeof k==='string'&&(autoKnob(nd.type,k)));if(auto.length)out.auto=auto;
       }
       if(nd.bypass===true&&nd.type!=='output')out.bypass=true;
+      const midi=cleanMidi(nd.midi,k=>midiKnob(nd.type,k));if(midi)out.midi=midi;
       return out;
     });
     if(clean.nodes.filter(nd=>nd.type==='output').length>1)throw Error('Only one Output is allowed per layer');
@@ -814,6 +816,19 @@ export function validate(input) {
   if(emitters>LIMITS.emitters)throw Error(`Limit: ${LIMITS.emitters} renderer nodes per project (each is an isolated GPU engine)`);
   const mapping=cleanMapping(raw.mapping);
   return mapping?{format:'audiograph-pro',version:VERSION,layers,mapping}:{format:'audiograph-pro',version:VERSION,layers};
+}
+// MIDI mappings: {knob key: 'cc:<channel>:<number>' | 'note:<channel>:<number>'} on nodes (and layers: opacity, visible).
+export const MIDI_BINDING=/^(cc|note):(1[0-6]|[1-9]):(\d{1,3})$/;
+function cleanMidi(m,ok){
+  if(m===undefined)return null;
+  if(!m||typeof m!=='object'||Array.isArray(m)||Object.keys(m).length>64)throw Error('Invalid MIDI mappings');
+  const out={};for(const [k,v] of Object.entries(m))if(ok(k)&&typeof v==='string'&&MIDI_BINDING.test(v)&&+v.split(':')[2]<128)out[k]=v;
+  return Object.keys(out).length?out:null;
+}
+// Controls a MIDI knob, fader or pad can drive: number, switch and choice properties, and renderer option knobs.
+export function midiKnob(type,key){
+  const s=TYPES[type]?.props[key];if(s)return ['number','bool','select'].includes(s.kind);
+  return !!TYPES[type]?.engine&&/^opt:[a-zA-Z][a-zA-Z0-9_]{0,40}$/.test(key);
 }
 // Knobs that can run in Auto mode: number properties with a port, and renderer option knobs ("opt:<id>").
 export function autoKnob(type,key){
