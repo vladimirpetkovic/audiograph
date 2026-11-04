@@ -14,18 +14,14 @@
       <button class="mode" id="modeMap" role="tab" aria-selected="false" title="Projection mapping: fit the output onto walls, objects and screens">Mapping</button>
       <button class="mode" id="modeAuto" role="tab" aria-selected="false" title="Autopilot: describe what you want, and let it follow the music">Autopilot<i class="mode-dot"></i></button>
     </div>
-    <a class="logo" href="../" title="Open the original Audiograph"><img class="logo-mark" src="./logo.svg" alt=""><span class="logo-word">Audiograph</span><span class="logo-pro">Pro</span></a>
+    <a class="logo" href="../" title="Open the original Audiograph"><img class="logo-mark" src="./logo.svg" alt=""><span class="logo-word">Audiograph</span></a>
     <div class="toolbar">
       <button class="tbtn" id="undo" title="Undo (⌘/Ctrl Z)" aria-label="Undo">↶</button>
       <button class="tbtn" id="redo" title="Redo (⌘/Ctrl Shift Z)" aria-label="Redo">↷</button>
-      <span class="sep studio-only"></span>
-      <select class="tbtn studio-only" id="templates" aria-label="Start from a template"><option value="">Templates…</option></select>
-      <button class="tbtn studio-only" id="randomGraph" title="Create a random node graph (Undo restores your scene)">Random</button>
       <span class="sep"></span>
-      <label class="tbtn" title="Open an .ag scene (⌘O)">Open<input id="import" type="file" accept=".ag,.json,application/json" hidden></label>
-      <select class="tbtn" id="save" aria-label="Save" title="Save a scene file (⌘S) or a template (⇧⌘S)"><option value="">Save…</option><option value="scene">Save scene…</option><option value="template">Save as template…</option><option value="remove">Remove a template…</option></select>
-      <button class="tbtn" id="shareButton" title="Share this scene as a link">Share</button>
-      <button class="tbtn" id="reset" title="Start over from the starting scene (Undo brings your scene back)">Reset</button>
+      <label class="tbtn file-btn" title="Open an .ag scene (⌘O)">Open<input id="import" type="file" accept=".ag,.json,application/json" hidden></label>
+      <select class="tbtn file-btn" id="save" aria-label="Save" title="Save a scene file (⌘S) or a template (⇧⌘S)"><option value="">Save</option><option value="scene">Save scene…</option><option value="template">Save as template…</option><option value="remove">Remove a template…</option></select>
+      <button class="tbtn file-btn" id="shareButton" title="Share this scene as a link">Share</button>
       <span class="sep"></span>
       <button class="tbtn" id="midiButton" title="MIDI learn: map controller knobs, faders and pads to any knob, switch or action">MIDI</button>
       <button class="tbtn tour-btn" id="tourButton" title="Interactive tutorial: build a scene step by step">Tutorial</button>
@@ -73,12 +69,18 @@
           <button class="tbtn" id="addLayer" title="Add a layer graph">+ Layer</button>
           <span class="graph-hint" id="graphHint">Tab: add node · drag output → input · click a wire to remove it · hold a node to detach</span>
           <button class="tbtn tips-btn" id="graphTips" aria-pressed="false" title="Show tips" aria-label="Show graph tips">?</button>
-          <button class="tbtn" id="zoomOut" aria-label="Zoom out">−</button>
-          <button class="tbtn" id="zoomIn" aria-label="Zoom in">+</button>
-          <button class="tbtn" id="fit" title="Fit graph">Fit</button>
+          <span class="sep"></span>
+          <select class="tbtn" id="templates" aria-label="Start from a template"><option value="">Templates</option></select>
+          <button class="tbtn" id="randomGraph" title="Create a random node graph (Undo restores your scene)">Random</button>
+          <button class="tbtn" id="reset" title="Start over from the starting scene (Undo brings your scene back)">Reset</button>
         </div>
         <div id="graphViewport" tabindex="0" aria-label="Editable node graph. Drag empty space to pan. Delete removes the selected node.">
           <div id="graphWorld"><svg id="wires" aria-label="Graph connections"></svg><div id="nodes"></div></div>
+        </div>
+        <div class="graph-zoom">
+          <button class="tbtn" id="zoomOut" aria-label="Zoom out" title="Zoom out">−</button>
+          <button class="tbtn" id="zoomIn" aria-label="Zoom in" title="Zoom in">+</button>
+          <button class="tbtn" id="fit" title="Fit graph">Fit</button>
         </div>
       </div>
     </section>

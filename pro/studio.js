@@ -2214,7 +2214,7 @@ $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
 const USER_KEY='audiograph-pro-user-templates';
 const userTemplates=()=>{try{return JSON.parse(localStorage.getItem(USER_KEY))||{};}catch{return {};}};
 function fillTemplates(){
-  const sel=$('templates');sel.replaceChildren(Object.assign(el('option','','Templates…'),{value:''}));
+  const sel=$('templates');sel.replaceChildren(Object.assign(el('option','','Templates'),{value:''}));
   for(const [label,names,pre] of [['User templates',Object.keys(userTemplates()),'user:'],['Audiograph presets',ORIGINAL_NAMES,'']]){
     if(!names.length)continue;
     const grp=el('optgroup');grp.label=label;for(const name of names){const o=el('option','',name);o.value=pre+name;grp.append(o);}sel.append(grp);}

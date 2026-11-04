@@ -263,7 +263,8 @@ process the finished image.
 - **Open/Save .ag scene files** (⌘O, ⌘S, ⇧⌘S Save As; drop an .ag on the window
   to open it). **Reset** starts over from the starting scene (Undo brings your scene back); the sound
   (file, mic or system audio) keeps playing and the Audio nodes keep their settings. On screens
-  1440px and wider the whole UI is drawn 20% larger. **Templates**, and
+  1440px and wider the whole UI is drawn 20% larger. **Templates**, **Random** and
+  **Reset** sit on the graph bar; zoom (−, +, Fit) sits in the graph's bottom-right corner.
   The transport has icon buttons: **Play/Pause** (Space; Home rewinds), **Rec** (records the
   preview live with audio and shows elapsed time), **Export** (renders a sound file
   frame by frame to MP4), and **Snap** (saves a PNG).
