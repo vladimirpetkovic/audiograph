@@ -495,3 +495,25 @@ select.tbtn.file-btn{padding-right:18px;background-position:right 7px center}
   .graph-head{flex-wrap:wrap;height:auto;padding:4px 8px;row-gap:4px}
   .graph-head .sep,.graph-hint{display:none}
 }
+/* Splash */
+.splash{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:3vmin;background:#000c;backdrop-filter:blur(6px);animation:splashIn .35s ease}
+.splash[hidden]{display:none}
+@keyframes splashIn{from{opacity:0}to{opacity:1}}
+.splash-card{position:relative;width:min(1200px,94vw);aspect-ratio:16/9;max-height:92vh;border-radius:clamp(18px,3vw,40px);background:#000 var(--splash-art,none) center/cover no-repeat;border:1px solid #ffffff1c;box-shadow:0 30px 120px #000;display:grid;grid-template-rows:1fr auto auto;overflow:hidden;font-family:var(--sans)}
+.splash-by{position:absolute;left:5%;top:6%;display:flex;flex-direction:column;gap:4px;color:#e6e6ea;font-size:clamp(.7rem,1.3vw,1rem)}
+.splash-by a{color:#c4c4ca;font-size:.78em;text-decoration:none}.splash-by a:hover{color:#fff}
+.splash-version{position:absolute;right:7%;top:6%;color:#e6e6ea;font-size:clamp(.7rem,1.3vw,1rem)}
+.splash-close{position:absolute;right:2.2%;top:4.6%;width:30px;height:30px;border-radius:50%;border:1px solid #ffffff30;background:#0008;color:#ddd;font-size:18px;line-height:1;cursor:pointer}
+.splash-close:hover{color:#fff;border-color:#fff8}
+.splash-brand{align-self:center;display:flex;flex-direction:column;align-items:center;gap:1.4vmin;padding-top:8%}
+.splash-logo{width:50%;height:auto;user-select:none;-webkit-user-drag:none}
+.splash-tag{color:#8a8a92;font-size:clamp(.65rem,1.5vw,1.15rem);letter-spacing:.02em;text-transform:uppercase}
+.splash-menu{display:grid;grid-template-columns:repeat(6,1fr);gap:1vw;padding:0 7% 2%}
+.splash-item{--g:linear-gradient(90deg,#fff,#fff);display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 4px;border:1px solid transparent;border-radius:14px;background:none;color:inherit;cursor:pointer;font:inherit;transition:background .2s,border-color .2s,transform .2s}
+.splash-item:hover,.splash-item:focus-visible{background:#ffffff0a;border-color:#ffffff1f;transform:translateY(-2px);outline:none}
+.splash-icon{width:clamp(26px,3.4vw,44px);aspect-ratio:1;background:var(--g);-webkit-mask:var(--icon) center/contain no-repeat;mask:var(--icon) center/contain no-repeat;opacity:.85;transition:opacity .2s,filter .2s}
+.splash-label{font-size:clamp(.75rem,1.6vw,1.25rem);background:var(--g);-webkit-background-clip:text;background-clip:text;color:transparent;opacity:.85;transition:opacity .2s}
+.splash-item:hover .splash-icon,.splash-item:hover .splash-label,.splash-item:focus-visible .splash-icon,.splash-item:focus-visible .splash-label{opacity:1;filter:drop-shadow(0 0 10px #ffffff30)}
+.splash-hide{justify-self:center;margin-bottom:3%;display:flex;align-items:center;gap:6px;color:#55555c;font-size:.7rem;cursor:pointer}
+.splash-hide:hover{color:#8a8a92}
+@media (max-width:700px){.splash-card{aspect-ratio:auto;height:auto;grid-template-rows:auto auto auto;padding-top:70px}.splash-menu{grid-template-columns:repeat(3,1fr)}.splash-version{right:64px}.splash-logo{width:72%}.splash-brand{padding:4% 0 6%}}

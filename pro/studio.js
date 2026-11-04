@@ -282,6 +282,7 @@ async function ensureRunning(){
 // Default track: a short ambient song that starts on the first click or key (browsers block autoplay) and loops
 // until the user picks their own sound. ?demo keeps the synthetic demo beat instead.
 const DEFAULT_TRACK={url:'../audio/default-track.m4a',name:'Default track',state:'idle',bytes:null};
+const SHARED_AT_LOAD=/#scene=/.test(location.hash);
 if(!new URLSearchParams(location.search).has('demo'))DEFAULT_TRACK.bytes=fetch(DEFAULT_TRACK.url).then(r=>r.ok?r.arrayBuffer():null).catch(()=>null);
 else DEFAULT_TRACK.state='off';
 // Before the first click (browsers block sound until then) the visuals already follow the default track: its spectrum is
@@ -3266,4 +3267,45 @@ window.pro={
 attempt(()=>{const h=localStorage.getItem('agpro.resolution');if(h!==null)changeResolution(+h);});
 sensors.autoMidi();reconcile();renderLibrary();renderUI();openShared();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
 requestAnimationFrame(loop);
-tour.maybeInvite();
+// ---------- splash ----------
+const SPLASH_KEY='agpro.splash.hide';
+const SPLASH_ICONS={
+  waveform:'<path d="M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2"/>',
+  presets:'<rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/>',
+  auto:'<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3M5 6v4M19 14v4M10 2v2M7 8H3M21 16h-4M11 3H9"/>',
+  project:'<path d="M5 7 3 5M9 6V3m4 4 2-2"/><circle cx="9" cy="13" r="3"/><path d="M11.83 12H20a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h2.17M16 16h2"/>',
+  export:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M3 7.5h4M3 12h18M3 16.5h4M17 3v18M17 7.5h4M17 16.5h4"/>',
+  share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98"/>'
+};
+const openTemplates=()=>{const s=$('templates');s.focus();try{s.showPicker();}catch{}};
+const SPLASH_ITEMS=[
+  ['visualize','Visualize','waveform','Build visuals with nodes',()=>setWorkspace('studio')],
+  ['presets','Presets','presets','Start from a template',()=>{setWorkspace('studio');openTemplates();}],
+  ['auto','Auto-play','auto','Autopilot: describe a show and let it follow the music',()=>setWorkspace('auto')],
+  ['project','Project','project','Projection mapping onto walls, objects and screens',()=>setWorkspace('map')],
+  ['export','Export','export','Render a video file',()=>openExport()],
+  ['share','Share','share','Share this scene as a link',()=>openShare()]
+];
+let splashAfter=null;
+function splashGradient(i){const c=CATEGORIES.map(c=>c.color),n=SPLASH_ITEMS.length,a=c[Math.round(i*(c.length-1)/n)],b=c[Math.round((i+1)*(c.length-1)/n)];return `linear-gradient(90deg,${a},${b})`;}
+function buildSplash(){
+  const menu=$('splashMenu');if(menu.childElementCount)return;
+  SPLASH_ITEMS.forEach(([id,label,icon,hint,go],i)=>{
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${SPLASH_ICONS[icon]}</svg>`;
+    const b=el('button','splash-item');b.type='button';b.dataset.splash=id;b.title=hint;
+    b.style.setProperty('--g',splashGradient(i));b.style.setProperty('--icon',`url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+    b.append(el('span','splash-icon'),el('span','splash-label',label));
+    b.onclick=()=>{closeSplash();go();};menu.append(b);
+  });
+}
+function openSplash(){buildSplash();const s=$('splash');s.hidden=false;try{$('splashHide').checked=!!localStorage.getItem(SPLASH_KEY);}catch{}}
+function closeSplash(){const s=$('splash');if(s.hidden)return;s.hidden=true;const f=splashAfter;splashAfter=null;f?.();}
+$('splashClose').onclick=closeSplash;
+$('splash').addEventListener('pointerdown',e=>{if(e.target.id==='splash')closeSplash();});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('splash').hidden){e.preventDefault();e.stopImmediatePropagation();closeSplash();}},true);
+$('splashHide').onchange=e=>{try{e.target.checked?localStorage.setItem(SPLASH_KEY,'1'):localStorage.removeItem(SPLASH_KEY);}catch{}};
+$('openSplash').onclick=()=>{$('help').close();openSplash();};
+{const q=new URLSearchParams(location.search);let hide=false;try{hide=!!localStorage.getItem(SPLASH_KEY);}catch{}
+  const show=q.has('splash')||(!hide&&!navigator.webdriver&&!q.has('demo')&&!q.has('notour')&&!SHARED_AT_LOAD);
+  if(show){splashAfter=()=>tour.maybeInvite();openSplash();}else tour.maybeInvite();}
+window.__agSplash={open:openSplash,close:closeSplash};

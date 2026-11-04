@@ -896,6 +896,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.deepEqual(await page.evaluate(()=>[__calls.at(-1),localStorage.getItem('ag.inputDevice')]),['gum:mic1','mic1'],'Mic uses the chosen input and remembers it');
       await page.click('#mic');await page.evaluate(()=>localStorage.removeItem('ag.inputDevice'));await page.setViewportSize(vs);
     }
+    {const sp=await browser.newPage({viewport:{width:1200,height:800}});
+      await sp.goto(new URL('?splash',proUrl).href);await sp.waitForSelector('.splash-item');
+      assert.deepEqual(await sp.$$eval('.splash-item',b=>b.map(x=>x.textContent)),['Visualize','Presets','Auto-play','Project','Export','Share'],'Splash shows six sections');
+      await sp.click('[data-splash=project]');
+      assert.deepEqual(await sp.evaluate(()=>[document.getElementById('splash').hidden,document.body.classList.contains('ws-map')]),[true,true],'Splash Project opens Mapping');
+      await sp.evaluate(()=>__agSplash.open());await sp.keyboard.press('Escape');
+      assert.equal(await sp.evaluate(()=>document.getElementById('splash').hidden),true,'Esc closes the splash');
+      await sp.close();}
     // Waveform inspector: Line style (with the Lines knobs) is first under the mode menu; per-node Reset; project Reset keeps the Audio settings.
     {
       await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'circle',thick:5,lineShape:'dotted'}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'}]));

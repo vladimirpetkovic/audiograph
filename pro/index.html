@@ -105,8 +105,21 @@
   <dialog id="help">
     <h2>Audiograph <span class="logo-pro">Pro</span></h2>
     <div id="helpBody"></div>
-    <button class="btn teal" id="closeHelp">Back to studio</button>
+    <button class="btn" id="openSplash">Welcome screen</button> <button class="btn teal" id="closeHelp">Back to studio</button>
   </dialog>
+  <div id="splash" class="splash" role="dialog" aria-modal="true" aria-label="Welcome to Audiograph" hidden>
+    <div class="splash-card">
+      <div class="splash-by">By Vladimir Petković<a href="https://www.vladimirpetkovic.com" target="_blank" rel="noopener">www.vladimirpetkovic.com</a></div>
+      <div class="splash-version">Version 2.0</div>
+      <button class="splash-close" id="splashClose" aria-label="Close" title="Close (Esc)">×</button>
+      <div class="splash-brand">
+        <img class="splash-logo" src="./splash-logo.png" alt="Audiograph">
+        <div class="splash-tag">Audio-visualization studio</div>
+      </div>
+      <nav class="splash-menu" id="splashMenu" aria-label="Start"></nav>
+      <label class="splash-hide"><input type="checkbox" id="splashHide"> Don’t show at startup</label>
+    </div>
+  </div>
   <div id="engines" aria-hidden="true"></div>
   <script type="module" src="./studio.js"></script>
 </body>

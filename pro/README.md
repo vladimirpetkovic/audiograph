@@ -329,6 +329,12 @@ process the finished image.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when
     you switch templates.
+- A **welcome screen** opens on startup. Its six sections jump straight in:
+  Visualize (Studio), Presets (Templates), Auto-play (Autopilot), Project
+  (Mapping), Export (video) and Share (link). Close it with × or Esc. Tick
+  "Don't show at startup" to skip it; reopen it from the Guide (?) with
+  **Welcome screen**, or add `?splash` to the URL. It is skipped for shared scene
+  links.
 - **Tutorial** (top right) is the First Mile, like the original's interactive
   tutorial: it builds a real scene step by step, starting from a straight
   Linear waveform (Audio → Waveform → Particles →
