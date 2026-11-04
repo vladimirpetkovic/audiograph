@@ -901,7 +901,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.deepEqual(await sp.$$eval('.splash-item',b=>b.map(x=>x.textContent)),['Visualize','Presets','Auto-play','Project','Export','Share'],'Splash shows six sections');
       await sp.waitForSelector('.splash-video.ready',{timeout:15000});
       await sp.click('[data-splash=project]');
-      assert.equal(await sp.evaluate(()=>document.getElementById('splashVideo').paused),true,'Closing the splash pauses its video');
+      assert.ok(await sp.evaluate(()=>[...document.querySelectorAll('.splash-video')].every(v=>v.paused)),'Closing the splash pauses its video');
       assert.deepEqual(await sp.evaluate(()=>[document.getElementById('splash').hidden,document.body.classList.contains('ws-map')]),[true,true],'Splash Project opens Mapping');
       assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Project · 1 of 4','A splash section opens its guide');
       await sp.click('#tourSkip');
@@ -912,6 +912,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Step 1 of '+(await sp.evaluate(()=>pro.tour.steps.length)),'Splash starts the First Mile');await sp.click('#tourSkip');
       await sp.evaluate(()=>__agSplash.open());await sp.keyboard.press('Escape');
       assert.equal(await sp.evaluate(()=>document.getElementById('splash').hidden),true,'Esc closes the splash');
+      await sp.evaluate(()=>pro.loadTemplate('Doppler'));assert.equal(await sp.evaluate(()=>pro.getProject().layers.length),2,'Doppler preset loads its two layers');
       await sp.close();}
     // Waveform inspector: Line style (with the Lines knobs) is first under the mode menu; per-node Reset; project Reset keeps the Audio settings.
     {

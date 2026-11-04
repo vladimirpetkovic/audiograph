@@ -337,9 +337,10 @@ process the finished image.
   full First Mile tutorial. Close it with × or Esc. Tick
   "Don't show at startup" to skip it; reopen it from the Guide (?) with
   **Welcome screen**, or add `?splash` to the URL. It is skipped for shared scene
-  links. Behind the logo a short muted loop plays (`splash.webm`/`splash.mp4`,
-  recorded from the Glass, Firepit, Universe and Sacred geometry templates);
-  replace those files to change it. It is skipped with reduced motion.
+  links. Behind the logo, dimmed, muted clips recorded from templates (Cell, Doppler,
+  Echo, Flares, Organica, Ripples, Sacred geometry, Tree, Universe; `splash/*.mp4`)
+  crossfade in a fresh random order each time. Add or replace clips there and in
+  `SPLASH_CLIPS`. It is skipped with reduced motion.
 - **Tutorial** (top right) is the First Mile, like the original's interactive
   tutorial: it builds a real scene step by step, starting from a straight
   Linear waveform (Audio → Waveform → Particles →
