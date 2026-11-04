@@ -1242,14 +1242,16 @@ def Camera "Camera" {
        edges:[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'},{from:'a',out:'audio',to:'c',input:'audio'},{from:'c',out:'shape',to:'f',input:'image'}]}]}));
      await page.waitForFunction(()=>pro.engine('w')?.status==='ready',null,{timeout:30000});await page.waitForTimeout(500);await page.evaluate(()=>pro.pause(true));
      const sig=()=>page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,o=[];for(let i=0;i<d.length;i+=388)o.push(d[i]+d[i+1]+d[i+2]);return o;}),
+       // Share of light in the outer fifths: the linear waveform spans the frame, the circle stays central (bar heights keep easing while paused).
+       edge=()=>page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),W=c.width,H=c.height,d=c.getContext('2d').getImageData(0,0,W,H).data;let all=0,out=0;for(let y=0;y<H;y+=2)for(let x=0;x<W;x+=2){const i=(y*W+x)*4,v=d[i]+d[i+1]+d[i+2];all+=v;if(x<W*.2||x>W*.8)out+=v;}return all?out/all:0;}),
        dif=(a,b)=>a.reduce((s,v,i)=>s+Math.abs(v-b[i]),0)/a.length,pv=async id=>{await page.locator(`.node[data-id="${id}"] .node-head`).click();await page.keyboard.press('v');
        for(let i=0;i<60&&await page.evaluate(()=>{pro.draw();return Object.values(pro.stats().engines).some(e=>e.status!=='ready');});i++)await page.waitForTimeout(250);await page.waitForTimeout(150);return sig();};
      // Paused redraws still ease toward the frozen sound; let them settle first.
      let out=await sig();for(let i=0,b;i<80;i++){b=await sig();if(dif(out,b)<.05){out=b;break;}out=b;}
-     const c=await pv('c'),f=await pv('f');
+     const outE=await edge(),c=await pv('c'),cE=await edge(),f=await pv('f');
      assert.ok(dif(out,c)>1,'Previewing an unconnected emitter shows it, not the output');assert.ok(dif(c,f)>.2,'Previewing an unconnected effect shows its result');
      await pv('m');assert.ok((await page.evaluate(()=>pro.stats().errors)).some(e=>/Merge/.test(e)),'An unconnected previewed node reports what it needs');
-     await page.keyboard.press('Escape');{let back=await sig();for(let i=0,b;i<80;i++){b=await sig();if(dif(back,b)<.05){back=b;break;}back=b;}assert.ok(dif(back,out)<dif(back,c)*.5,'Esc returns to the output: '+dif(back,out).toFixed(2)+' vs '+dif(back,c).toFixed(2));}await page.evaluate(()=>pro.pause(false));}
+     await page.keyboard.press('Escape');{assert.ok(await page.locator('#previewBadge').isHidden(),'Esc leaves node preview');const back=await edge();assert.ok(outE>.2&&cE<.05&&back>.2,'Esc returns to the output: '+[outE,cE,back].map(v=>v.toFixed(3)));}await page.evaluate(()=>pro.pause(false));}
     // Resolution changes the render itself, not just CSS, without replacing the graph or its engines.
     await page.evaluate(()=>pro.loadTemplate('Ink'));
     const fluidID=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='gpuParticles').id);
