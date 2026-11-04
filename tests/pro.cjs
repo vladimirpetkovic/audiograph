@@ -54,11 +54,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
     const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
-    // Without ?demo the default track starts on the first key or click and loops; Stop silences it.
+    // Without ?demo the default track starts on the first key or click and loops; Pause silences it.
     {const p2=await browser.newPage({viewport:{width:1200,height:800}});await p2.goto(proUrl);await p2.waitForFunction(()=>window.pro);
      assert.match(await p2.locator('#audioName').textContent(),/Default track/,'The default track is the only placeholder sound');assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'Nothing plays before a gesture');
      await p2.keyboard.press('Shift');await p2.waitForFunction(()=>/Default track · add audio/.test(document.querySelector('#audioName').textContent)&&document.querySelector('#play').classList.contains('on'),null,{timeout:15000});
-     await p2.click('#stop');assert.ok(!(await p2.locator('#play.on').count()),'Stop silences the default track');await p2.close();}
+     await p2.click('#play');assert.ok(!(await p2.locator('#play.on').count()),'Pause silences the default track');await p2.close();}
     // AI: Model + Prompt + ControlNet feed AI Render, which streams frames to the bridge (mocked here) one at a time.
     const aiLib=await page.evaluate(()=>[...document.querySelectorAll('#library .library-node')].filter(b=>['aiModel','aiPrompt','aiPromptList','aiControl','aiRender'].includes(b.dataset.type)).length);
     assert.equal(aiLib,5,'AI category lists Model, Prompt, Prompt list, ControlNet and AI Render');
@@ -107,9 +107,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     }
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     {const d=await project(),w=d.layers[0].nodes.find(n=>n.type==='waveform2d');
-      assert.deepEqual(d.layers.map(l=>l.name),['Tutorial','Fluid'],'The studio opens with the tutorial scene');
-      assert.ok(w.props.mode==='spiral'&&w.props.lineShape==='pins'&&d.layers[1].nodes.some(n=>n.props.mode==='simfluid'),'Tutorial look: spiral pins over a Fluid layer');
-      assert.ok(d.layers[0].nodes.some(n=>n.type==='oscillator')&&d.layers[0].nodes.some(n=>n.type==='trails'),'with its LFO and Post FX');
+      assert.deepEqual(d.layers.map(l=>l.nodes.map(n=>n.type)),[['audioIn','waveform2d','palette','output']],'The studio opens with Audio → Waveform → Palette → Output');
+      assert.ok(w.props.mode==='linear'&&w.props.lineShape==='straight'&&d.layers[0].edges.length===3,'Starting look: a straight-line Linear waveform, wired through');
       // The tests below start from the classic one-layer Fluid graph.
       await page.evaluate(async()=>{const g=await import('./graph.js');pro.importProject(g.project());});
       await page.waitForFunction(()=>Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});}
@@ -425,7 +424,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       await page.locator('.gutter[data-resize=inspector]').dblclick();
       assert.ok(await page.evaluate(()=>pro.layout().hidden.inspector)&&(await page.locator('.inspector').boundingBox()).width<2,'Double-click hides properties');
       await page.locator('.gutter[data-resize=inspector]').dblclick();assert.ok((await page.locator('.inspector').boundingBox()).width>200,'Double-click brings properties back');
-      for(const id of ['play','stop','record','snap'])assert.equal(await page.locator(`#${id} svg`).count(),1,id+' has an icon');
+      assert.equal(await page.locator('#stop').count(),0,'No Stop button: Play/Pause is enough');for(const id of ['play','record','exportVideo','snap'])assert.equal(await page.locator(`#${id} svg`).count(),1,id+' has an icon');
       assert.match(await page.locator('#output').textContent(),/Detach/);
       const t=await page.locator('.transport').boundingBox(),d=await page.locator('#output').boundingBox(),sp=await page.locator('#spectrum').boundingBox();
       assert.ok(Math.abs(sp.x+sp.width/2-(t.x+t.width/2))<t.width*.05&&d.x+d.width>t.x+t.width*.85,'Spectrum centred, Detach on the right');assert.equal(await page.locator('#audioMeter').count(),0,'No level bar');

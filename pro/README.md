@@ -195,7 +195,7 @@ process the finished image.
 - **Guide** (?): starts with the credit (Made by Vladimir Petković,
   www.vladimirpetkovic.com) and explains the screen, nodes and wires, every library
   category, audio, driving knobs, layers, Mapping, Autopilot, saving and keys.
-- **Transport** (under the preview): play, stop, record, snapshot and the audio
+- **Transport** (under the preview): play/pause, record, export, snapshot and the audio
   source on the left, the live spectrum in the centre, **Detach** on the right.
 - Buttons and selected states are grayscale; colour is kept for node categories
   (the inspector title takes its category colour) and wire types.
@@ -264,8 +264,9 @@ process the finished image.
   to open it). **Reset** starts over from the starting scene (Undo brings your scene back); the sound
   (file, mic or system audio) keeps playing and the Audio nodes keep their settings. On screens
   1440px and wider the whole UI is drawn 20% larger. **Templates**, and
-  The transport has icon buttons: **Play/Pause**, **Stop**, **Rec** (records the
-  preview with audio to WebM and shows elapsed time), and **Snap** (saves a PNG).
+  The transport has icon buttons: **Play/Pause** (Space; Home rewinds), **Rec** (records the
+  preview live with audio and shows elapsed time), **Export** (renders a sound file
+  frame by frame to MP4), and **Snap** (saves a PNG).
   **Detach**, in the middle of the transport, opens the live picture in its own
   window for a projector or second display (double-click it for fullscreen).
 - **Mapping** (the Studio | Mapping switch at the top) is projection mapping. The library
@@ -328,9 +329,9 @@ process the finished image.
   layer), then highlights Templates, Mapping, Autopilot, recording and saving.
   It is offered once on the first visit (`?notour` skips that), Esc or Skip
   leaves it, the tutorial scene stays editable, and one Undo restores your
-  previous scene. The studio opens with this finished tutorial scene (spiral
-  pins with particles, Twist driven by an LFO, Bloom and Trails, over a Fluid
-  layer).
+  previous scene. The studio opens with a simple starting scene (Audio →
+  straight-line Linear waveform → Palette in the Classic colours → Output),
+  which Reset also returns to.
 - **Random** (beside Templates) creates a new wired node graph with random
   emitters, colours, motion and effects. It stops Autopilot; Undo restores your scene.
 - **Resolution** (beside fullscreen) sets the actual 16:9 output to 540p, 720p,

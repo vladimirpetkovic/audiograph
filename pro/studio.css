@@ -7,14 +7,14 @@
 html,body{height:100%}
 /* The whole UI is drawn 20% bigger on screens wide enough for it (studio.js divides pointer math by this zoom). */
 :root{--uiz:1}@media (min-width:1440px){:root{--uiz:1.2}}
-body{zoom:var(--uiz);height:calc(100dvh / var(--uiz));overflow:hidden;display:grid;grid-template-rows:46px minmax(0,1fr) 26px;background:var(--bg);color:var(--tx);font:12px/1.4 var(--mono);-webkit-font-smoothing:antialiased}
+body{zoom:var(--uiz);height:calc(100dvh / var(--uiz));overflow:hidden;display:grid;grid-template-rows:minmax(46px,auto) minmax(0,1fr) 26px;background:var(--bg);color:var(--tx);font:12px/1.4 var(--mono);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:1px solid var(--accent2);outline-offset:1px}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#222227;border-radius:4px;border:2px solid transparent;background-clip:padding-box}::-webkit-scrollbar-thumb:hover{background-color:#303036}::-webkit-scrollbar-track{background:transparent}
 
 /* ── header ─────────────────────────────── */
-.topbar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;padding:0 14px 0 0;border-bottom:1px solid var(--border);min-width:0}
+.topbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:0 14px 0 0;border-bottom:1px solid var(--border);min-width:0}
 .topbar .logo{justify-self:center}.topbar .toolbar{justify-self:end}
 .logo{display:flex;align-items:center;gap:8px;font:600 1.05rem/1 var(--sans);letter-spacing:.15em;text-transform:uppercase;color:#fff;text-decoration:none;white-space:nowrap}
 .logo-mark{height:1.6em;width:auto;mix-blend-mode:screen}
@@ -262,6 +262,10 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 #engines iframe{width:960px;height:540px;border:0}
 
 /* ── responsive ─────────────────────────────── */
+/* The logo sits between the tabs and the toolbar: it drops its word when space is short, then wraps the toolbar below. */
+@media (max-width:1560px){.logo-word{display:none}.logo-pro{margin-left:0}}
+@media (max-width:1180px) and (min-width:761px){.topbar{grid-template-columns:auto 1fr;row-gap:0;padding-bottom:6px}.topbar .toolbar{grid-column:1/-1;justify-self:end;flex-wrap:wrap}.toolbar #templates,.toolbar #save{max-width:130px}}
+
 @media (max-width:1100px){
   .studio{--lib-w:200px;--insp-w:260px}
   .graph-hint{visibility:hidden}

@@ -18,7 +18,7 @@ import {SCENES} from './scenes.js';
 import {Pilot,Generator,SCENES as AP_SCENES,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
 import {ORIGINAL_PRESETS} from './templates.js';
 import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
-import {createTour,tutorialScene} from './tour.js';
+import {createTour,startScene} from './tour.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
 const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
@@ -56,7 +56,7 @@ function simKeys(g,n){
   const own=keys.filter(k=>!t.props[k].sims||t.props[k].sims.includes(mode));return own.length?own:keys;
 }
 // The studio opens with the scene the First Mile tutorial builds.
-let state=validate({format:'audiograph-pro',version:VERSION,layers:tutorialScene()}),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
+let state=validate({format:'audiograph-pro',version:VERSION,layers:startScene()}),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
 // Several nodes selected (marquee or Shift-click): `multi` holds them and `selected` is null.
 let multi=new Set();
 // The UI is drawn with CSS zoom: pointer and rect values are screen pixels, CSS lengths are divided by it.
@@ -314,7 +314,7 @@ async function startDefaultTrack(){
 const ownSound=()=>{DEFAULT_TRACK.state='off';audio.loop=false;};
 for(const type of ['pointerdown','keydown'])addEventListener(type,e=>{
   if(DEFAULT_TRACK.state!=='idle'||e.target.closest?.('.audio-src'))return;
-  if(e.target.closest?.('#stop'))DEFAULT_TRACK.state='off';else startDefaultTrack();
+  startDefaultTrack();
 },true);
 function stopAudio(keepOffset=false){
   if(audio.source){audio.source.onended=null;try{audio.source.stop();}catch{}audio.source.disconnect();if(keepOffset)audio.offset+=audio.context.currentTime-audio.startedAt;audio.source=null;}
@@ -2046,7 +2046,7 @@ async function openExport(){
   if(!exportSupported()){body.append(el('p','insp-note insp-err','Video export needs WebCodecs: use Chrome, Edge or Safari 17+. Record (●) works everywhere.'));return;}
   let snd;try{snd=await exportSound();}catch(error){body.append(el('p','insp-note insp-err',error.message));return;}
   const dur=snd.buffer.duration,cfg={...exportPrefs,start:0,length:dur};
-  body.append(el('p','insp-note',`Renders frame by frame, so every frame makes it in, at any resolution, in sync with the song (${snd.name}, ${fmtTime(dur)}). Heavy scenes just take longer.`));
+  
   const range=section(body,'Range'),st=el('input'),ln=el('input');
   for(const [i,v] of [[st,0],[ln,dur]]){i.type='number';i.min=0;i.max=dur.toFixed(1);i.step=.1;i.value=v.toFixed(1);i.className='export-num';}
   st.id='exportStart';ln.id='exportLength';
@@ -2136,7 +2136,6 @@ $('play').onclick=()=>{
   setPaused(false);play().catch(e=>message(e.message,true));
 };
 syncPlay();
-$('stop').onclick=()=>{stopAudio();stopLive();setPaused(true);updateAudioUI();message('Stopped');};
 let recClock=0;
 $('record').onclick=()=>toggleRecord().catch(e=>message('Recording: '+e.message,true));
 // With a Corner pin selected, its corners can be dragged directly on the preview.
@@ -2238,7 +2237,7 @@ function removeTemplate(){
 }
 $('reset').onclick=()=>attempt(()=>{
   // The sound stays: the playing file, mic or system audio is untouched, and the Audio nodes keep their settings.
-  const audioProps=state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='audioIn').map(n=>n.props)),layers=tutorialScene();
+  const audioProps=state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='audioIn').map(n=>n.props)),layers=startScene();
   let i=0;for(const g of layers)for(const n of g.nodes)if(n.type==='audioIn'&&audioProps.length)n.props=clone(audioProps[Math.min(i++,audioProps.length-1)]);
   importProject({format:'audiograph-pro',version:VERSION,layers},'Reset to the starting scene');message('Reset to the starting scene. Undo (⌘Z) brings your scene back.');});
 // Scenes save as .ag files (the project JSON); every save asks where.
@@ -2410,6 +2409,7 @@ document.addEventListener('keydown',e=>{
   else if(k==='b'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&selIds().length){e.preventDefault();toggleBypass(selIds());}
   else if(k==='v'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){const n=graph().nodes.find(m=>m.id===selected);if(previewId&&(!n||n.id===previewId))setPreview(previewId);else if(canPreview(n))setPreview(n.id);}
   else if(e.key===' '&&!e.target.closest('button')){e.preventDefault();$('play').click();}
+  else if(e.key==='Home'&&audio.buffer){e.preventDefault();const on=!!audio.source;stopAudio();if(on)play().catch(()=>{});message('Back to the start');}
   else if(k==='f'&&!e.metaKey&&!e.ctrlKey){toggleFullscreen();}
 });
 window.addEventListener('resize',()=>requestAnimationFrame(renderWires));

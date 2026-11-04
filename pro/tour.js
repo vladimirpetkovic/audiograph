@@ -59,8 +59,13 @@ function sceneOf(s,ids){
   return layers;
 }
 const newIds=()=>Object.fromEntries([...Object.keys(SPEC),'G1','G2'].map(k=>[k,crypto.randomUUID()]));
-// The finished tutorial scene: the Pro studio opens with it.
-export const tutorialScene=()=>sceneOf(STEPS.at(-1),newIds());
+// The scene the studio opens with (and Reset returns to): Audio → straight-line Linear waveform → Palette (Classic) → Output.
+export function startScene(){
+  const ids=newIds(),W=node('waveform2d',0,80,{mode:'linear',lineShape:'straight',outline:false}),A=node('audioIn',0,80,{}),P=node('palette',0,80,{}),O=node('output',0,80,{});
+  const nodes=[A,W,P,O];nodes.forEach((n,i)=>{n.x=40+i*210;});
+  return [{id:ids.G1,name:'Scene',visible:true,opacity:1,blend:'source-over',nodes,
+    edges:[{from:A.id,out:'audio',to:W.id,input:'audio'},{from:W.id,out:'shape',to:P.id,input:'shape'},{from:P.id,out:'shape',to:O.id,input:'image'}]}];
+}
 
 // api: setScene(layers,first), select(id), workspace(w), play(), stopAutomation(), zoom()
 export function createTour(api){
