@@ -6,6 +6,7 @@ import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} f
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
+import {shaderInto,checkShader,dropShaderState,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
 import {cleanView,spinProps,WATER_HEIGHT} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
@@ -61,6 +62,7 @@ let multi=new Set();
 const uiZ=()=>parseFloat(getComputedStyle(document.body).zoom)||1;
 const DATA_INPUTS=new Set(['computer','clock','pointer','midi','liveData']),lastOuts=new Map();
 const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new Map(),view={x:20,y:20,zoom:.9},nodeState=new Map(),fxSlots=new Map(),thumbs=new Map();
+const shaderErrors=new Map();
 let plans=new Map(),frame=0,lastTime=0,elapsed=0,renderErrors=[],nodeErrors=new Set(),statusSource='action',liveBefore=null;
 const preview=$('preview'),previewCtx=preview.getContext('2d');
 const graph=()=>state.layers.find(g=>g.id===active)||state.layers[0];
@@ -77,6 +79,7 @@ function reconcile(){
   for(const map of [surfaces,thumbs])for(const [id,cv] of map)if(!nodeIDs.has(id.split(':')[0])){cv.width=cv.height=1;map.delete(id);}
   for(const id of nodeState.keys())if(!nodeIDs.has(id.split(':')[0]))nodeState.delete(id);
   for(const [id,m] of mediaEls)if(!nodeIDs.has(id)){m.clear();mediaEls.delete(id);}
+  dropShaderState(nodeIDs);for(const id of shaderErrors.keys())if(!nodeIDs.has(id))shaderErrors.delete(id);
   plans=new Map(state.layers.map(g=>{
     // Outputs and everything feeding them run; data inputs always run (cheap) so their meters stay live.
     const needed=new Set(g.nodes.filter(n=>n.type==='output'||DATA_INPUTS.has(n.type)).map(n=>n.id)),queue=[...needed];
@@ -779,6 +782,27 @@ function execute(g,time,dt){
             ctx.fillRect(0,0,WIDTH,HEIGHT);ctx.restore();}
         }
         r.image=canvas;lastValues.set(n.id,k);break;}
+      case 'melt':case 'tunnel':case 'shader':{
+        const src=n.type==='shader'?asImage(input(n,'image'),n.id):asImage(need(n,'image','an image'),n.id),sig=input(n,'audio')??projectSignal(),b=sig.bands||{};
+        const {canvas,ctx}=surface(n.id),st=nstate(n.id+':sh',()=>({phase:0,kick:0,beat:sig.beat,frame:0}));
+        const newBeat=sig.beat!==st.beat;st.beat=sig.beat;st.frame++;
+        let code,knobs,feedback=false;
+        if(n.type==='melt'){
+          const lvl=p.react==='always'?1:p.react==='beat'?sig.pulse||0:p.react==='bass'?b.bass||0:b.full||0,k=1-p.sound/100+p.sound/100*Math.min(1,lvl*1.6);
+          code=MELT;feedback=true;knobs=knobValues(MELT,{drip:p.amount/100*k,speed:p.speed/100*(.35+.65*k),threshold:p.threshold/100,hold:p.length/100});
+          lastValues.set(n.id,k);
+        }else if(n.type==='tunnel'){
+          // Phase runs 0→1 per copy: steady speed, plus bass, plus a quick push on each beat.
+          if(newBeat)st.kick+=p.kick/100*.6;const push=Math.min(st.kick,dt*4*Math.max(.25,st.kick));st.kick-=push;
+          st.phase=(st.phase+dt*(p.speed/100*.6+(b.bass||0)*p.bass/100*1.2)+push)%1;
+          code=TUNNEL;knobs=knobValues(TUNNEL,{shrink:p.scale/100,twist:(p.twist+(sig.pulse||0)*p.twistBeat)/180,phase:st.phase,key:p.key/100});
+          lastValues.set(n.id,st.phase);
+        }else{
+          code=p.code;feedback=/\biChannel2\b/.test(code);knobs=[p.k1,p.k2,p.k3,p.k4].map(v=>v/100);
+        }
+        const err=shaderInto(ctx,src||null,code,{id:n.id,time,dt,frame:st.frame,sig,knobs,feedback});
+        if(err){nodeErrors.add(n.id);shaderErrors.set(n.id,err.message);ctx.clearRect(0,0,WIDTH,HEIGHT);if(src)ctx.drawImage(src,0,0,WIDTH,HEIGHT);}else shaderErrors.delete(n.id);
+        r.image=canvas;break;}
       case 'output':image=asImage(need(n,'image','an image'),n.id);r.image=image;break;
       case 'trails':{let src=asImage(need(n,'image','an image'),n.id);const {canvas,ctx}=surface(n.id);
         // Smooth: stamp the new frame at in-between zoom steps so it bridges the gap to the previous (zoomed) echo.
@@ -1310,6 +1334,31 @@ function propControl(n,key,s,connected){
   if(s.kind==='color')return ui.colorField({label:s.label,value:n.props[key],property:key,onChange:v=>live(()=>{findNode(n.id).props[key]=v;})});
   if(s.kind==='text'){const i=el(s.max>200?'textarea':'input');if(s.max>200)i.rows=3;else i.type='text';i.maxLength=s.max;i.value=n.props[key];i.dataset.property=key;i.onchange=()=>set(i.value);return ui.field(s.label,i);}
 }
+// Shader node: example picker, the code (⌘/Ctrl+Enter or Apply compiles it), its compile errors, and its @knob uniforms as knobs.
+function applyShaderCode(id,code,label){
+  edit((p,g)=>{const m=g.nodes.find(x=>x.id===id);if(!m)return;
+    const old=parseKnobs(m.props.code).map(k=>k.name).join(),ks=parseKnobs(code);
+    if(ks.map(k=>k.name).join()!==old)ks.forEach((k,i)=>m.props['k'+(i+1)]=knobDefault(k));
+    m.props.code=code;m.props.example=Object.entries(SHADER_EXAMPLES).find(([,c])=>c===code)?.[0]||'Custom';},label);
+}
+function renderShaderEditor(root,n){
+  const T=TYPES.shader,wired=k=>graph().edges.some(e=>e.to===n.id&&e.input===k);
+  section(root,'Example').append(ui.chips({options:T.props.example.choices.map(c=>[c,c]),value:n.props.example,property:'example',
+    onChange:v=>v==='Custom'?setProp(n,'example','Custom','Example'):applyShaderCode(n.id,SHADER_EXAMPLES[v],'Shader: '+v)}));
+  const cs=section(root,'Code'),ta=el('textarea','shader-code');ta.rows=16;ta.spellcheck=false;ta.maxLength=T.props.code.max;ta.value=n.props.code;ta.dataset.property='code';
+  const apply=()=>{if(ta.value!==n.props.code)applyShaderCode(n.id,ta.value,'Shader: code');};
+  ta.onkeydown=e=>{
+    if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();apply();}
+    else if(e.key==='Tab'&&!e.metaKey&&!e.ctrlKey){e.preventDefault();ta.setRangeText('  ',ta.selectionStart,ta.selectionEnd,'end');}
+  };
+  const row=el('div','insp-actions'),btn=el('button','btn teal','Apply');btn.type='button';btn.id='shaderApply';btn.title='Compile and run the code (⌘/Ctrl+Enter)';btn.onclick=apply;row.append(btn);
+  cs.append(ta,row);
+  const err=checkShader(n.props.code);if(err){const e=el('p','insp-note insp-err shader-err',err.message);cs.append(e);}
+  const ks=parseKnobs(n.props.code),ksec=section(root,'Knobs');
+  if(ks.length){const grid=el('div','knob-grid');ks.forEach((k,i)=>{const key='k'+(i+1);grid.append(propControl(n,key,{...T.props[key],label:k.label,value:knobDefault(k)},wired(key)));});ksec.append(grid);}
+  else ksec.append(el('p','insp-note','Add up to four lines like “uniform float warp; // @knob 0..2 =0.5” to get knobs (range and default are optional).'));
+  section(root).append(el('p','insp-note','Shadertoy style: write mainImage(out vec4 fragColor, in vec2 fragCoord). iChannel0 is the picture, iChannel1 the sound (row 0.25: spectrum, row 0.75: waveform), iChannel2 this node\'s previous frame (feedback). Also iTime, iResolution, iFrame and uBass, uMids, uHigh, uLevel, uBeat (0–1).'));
+}
 function renderProps(root,n,keys,folded){
   const t=TYPES[n.type],g=graph(),wired=k=>g.edges.some(e=>e.to===n.id&&e.input===k);
   // Grouped props (spec.group) go into collapsible sections after the ungrouped ones.
@@ -1348,9 +1397,10 @@ function renderProperties(){
     if(DATA_INPUTS.has(n.type))renderDataInput(root,n);
     if(n.type==='aiRender'||n.type==='aiModel')renderAiStatus(root,n);
     if(['image','video','camera'].includes(n.type))renderMediaPicker(root,n);
+    if(n.type==='shader')renderShaderEditor(root,n);
     if(SIM_PROPS(n.type)&&t.category!=='3d')renderSimNote(root,g,n);
     const masked=g.edges.some(e=>e.to===n.id&&e.input==='mask');
-    renderProps(root,n,n.type==='palette'?paletteKeys(n.props):simKeys(g,n).filter(k=>masked||!MASK_KEYS.includes(k)));
+    if(n.type!=='shader')renderProps(root,n,n.type==='palette'?paletteKeys(n.props):simKeys(g,n).filter(k=>masked||!MASK_KEYS.includes(k)));
     const wired=Object.keys(t.props).filter(k=>t.props[k].kind==='number'&&!t.props[k].noPort);
     if(wired.length&&t.category!=='controls'&&n.type!=='audioIn')section(root).append(el('p','insp-note','Any knob can be driven: drag a wire from a Control or Audio node onto this node and pick the knob. 0 keeps the knob value, 1 pushes it to the maximum.'));
     if(t.category==='controls'||t.category==='audio'&&n.type!=='spectrum'||n.type==='audioIn'||DATA_INPUTS.has(n.type)){const v=el('p','insp-note live-value');v.dataset.node=n.id;section(root).append(v);}
@@ -1947,7 +1997,7 @@ $('helpBody').innerHTML=`
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Water ripples (beats drop stones onto the shape), Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
 <li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto; the box under each stop is that colour's opacity: type a % or drag it up/down; Opacity makes the whole result see-through), Hue shift, Color correct.</li>
-<li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Liquid glass, Corner pin.</li>
+<li><b>Post FX</b> work on images: Bloom, Blur, Lens, Kaleido, Trails, Fracture, Liquid glass, Glitch, Strobe, Melt, Tunnel, Shader, Corner pin.</li>
 <li><b>AI</b>: AI Model, Prompt, Prompt list, ControlNet and AI Render restyle any picture with a local diffusion model (see AI rendering).</li>
 <li><b>Controls</b> make numbers: Value, LFO, Map range, Smooth, Math, Amplify, Random. <b>Audio analysis</b>: Audio band, Beat, Audio EQ.</li>
 <li><b>Composite</b>: Background, Blend, Merge, Mask, Feedback, Image transform, Layer and <b>Output</b>.</li>
@@ -1972,6 +2022,7 @@ $('helpBody').innerHTML=`
 <li><b>Liquid glass</b> floats blobs of glass over the picture that merge like liquid. Each blob refracts and flips what is behind it, with rainbow fringes (<b>Chromatic</b>), a bright <b>Rim</b> and a <b>Highlight</b>. <b>Blobs</b>, <b>Size</b>, <b>Merge</b> and <b>Spread</b> shape the liquid; <b>Refraction</b> and <b>Edge bend</b> set how strongly it bends; <b>Frost</b> blurs inside; <b>Tint</b> colours the glass; <b>Dim outside</b> darkens everything that is not under glass. The <b>Sound</b> section sets how much bass swells the blobs and beats make them wobble; <b>Seed</b> picks another arrangement.</li>
 <li><b>Corner pin</b> fits the picture to a wall (drag its corners on the preview).</li></ul>
 <p>Any FX can feed any other. Wiring a node into a fresh FX whose output is not connected yet slots that FX in before the Output for you.</p>
+<p><b>Melt</b> makes bright parts drip down like wax when the music hits, and heals when it calms. <b>Tunnel</b> zooms endlessly into copies of the picture, pushed by the bass and kicked by beats. <b>Shader</b> runs your own GLSL (Shadertoy-style <code>mainImage</code>): pick an example, edit the code and press ⌘/Ctrl+Enter; lines like <code>uniform float warp; // @knob 0..2 =0.5</code> become knobs.</p>
 <p>Order matters: FX later in the chain work on everything before them, so put Liquid glass after Bloom to refract the glow, or before it to make the glass itself glow.</p>
 <h3 id="h-ai">AI rendering</h3>
 <p>The AI nodes restyle your visuals in real time with a diffusion model that runs on your own computer through a small bridge program (nothing is uploaded).</p>

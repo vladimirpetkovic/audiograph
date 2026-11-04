@@ -824,6 +824,18 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      await page.evaluate(p=>pro.importProject(p),L([],[]));await page.locator('.library-node[data-type="cloner"]').click();
      const g=(await project()).layers[0],cl=g.nodes.find(n=>n.type==='cloner'),o=g.nodes.find(n=>n.type==='waveform3d'),fx=g.nodes.find(n=>n.type==='soundEffector');
      assert.ok(o?.props.mode==='cube'&&g.edges.some(e=>e.from===o.id&&e.to===cl.id&&e.input==='object')&&fx&&g.edges.some(e=>e.from===cl.id&&e.to===fx.id),'A new Cloner comes with a Cube and a Sound effector');}
+    // Melt drips text downward (and heals at 0); Tunnel adds copies; Shader compiles its examples, runs as a generator and survives bad code.
+    {const below=()=>page.evaluate(()=>{pro.draw();const c=document.getElementById('preview'),x=c.getContext('2d'),y0=Math.round(c.height*.78),d=x.getImageData(0,y0,c.width,c.height-y0).data;let n=0;for(let i=0;i<d.length;i+=16)if(d[i]>40)n++;return n;});
+     const run=async(fx,props)=>{await page.evaluate(p=>pro.importProject(p),L([{id:'t',type:'plainText',x:200,y:0,props:{}},{id:'f',type:fx,x:420,y:0,props}],[{from:'t',out:'image',to:'f',input:'image'},{from:'f',out:'image',to:'out',input:'image'}]));await page.waitForTimeout(2500);return below();};
+     const m=await run('melt',{react:'always'}),m0=await run('melt',{amount:0});assert.ok(m>m0+200,'Melt drips below the text: '+[m,m0]);
+     const tn=await page.evaluate(async p=>{pro.importProject(p);await new Promise(r=>setTimeout(r,1500));pro.draw();return pro.stats().errors;},L([{id:'t',type:'plainText',x:200,y:0,props:{}},{id:'f',type:'tunnel',x:420,y:0,props:{}}],[{from:'t',out:'image',to:'f',input:'image'},{from:'f',out:'image',to:'out',input:'image'}]));assert.deepEqual(tn,[],'Tunnel runs');
+     await page.evaluate(p=>pro.importProject(p),L([{id:'f',type:'shader',x:420,y:0,props:{}}],[{from:'f',out:'image',to:'out',input:'image'}]));await page.evaluate(()=>pro.select('f'));
+     for(const ex of ['Sound rings','Kaleidoscope','Plasma']){await page.locator(`#properties [data-property="example"] button:text-is("${ex}")`).click();await page.waitForTimeout(500);assert.equal(await page.locator('.shader-err').count(),0,ex+' compiles');}
+     await lit(.2);// Plasma generates a picture with no input
+     await page.fill('#properties textarea.shader-code','void mainImage(out vec4 o,in vec2 f){ o=vec4(1) }');await page.click('#shaderApply');await page.waitForTimeout(500);
+     assert.match(await page.locator('.shader-err').textContent(),/line 1/,'A broken shader shows its error line');assert.equal((await project()).layers[0].nodes.find(n=>n.id==='f').props.example,'Custom');
+     await page.fill('#properties textarea.shader-code','uniform float red; // @knob 0..1 =1\nvoid mainImage(out vec4 o,in vec2 f){ o=vec4(red,0,0,1); }');await page.keyboard.press('Control+Enter');await page.waitForTimeout(500);
+     assert.equal(await page.locator('.shader-err').count(),0,'Fixed code compiles');assert.ok(await page.locator('#properties [data-property="k1"]').count(),'@knob lines become knobs');}
     // Waveform inspector: Line style (with the Lines knobs) is first under the mode menu; per-node Reset; project Reset keeps the Audio settings.
     {
       await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'circle',thick:5,lineShape:'dotted'}}],[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'out',input:'image'}]));

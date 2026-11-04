@@ -145,7 +145,21 @@ each with its own opacity and blend mode (up to four).
   **Strobe** flashes on Beats (every 1, 2, 4 or 8), when Bass / Highs / Loudness cross the Threshold, or
   at a Steady rate; Style is Flash (any colour), Blackout or Invert, and Decay sets the fade.
   **Safe** (on by default) keeps it to 3 flashes a second, the photosensitivity guideline.
-  Both take an optional audio input (otherwise the project's audio). Older projects' Glitch
+  **Melt** drips the bright parts down like hot wax (each column at its own pace) while the
+  sound is up (React: Beats / Bass / Loudness / Always; Sound sets how much it depends on it) and
+  heals when it calms; Threshold picks what melts, Length how long drips last.
+  **Tunnel** zooms endlessly into recursive copies of the picture (Scale = size of each copy),
+  pushed by Speed and Bass and kicked by beats, with Twist per copy; Key lets dark areas show the
+  copies behind.
+  **Shader** runs custom GLSL in Shadertoy style: `void mainImage(out vec4 fragColor, in vec2 fragCoord)`.
+  `iChannel0` is the input picture (optional: without one it is a generator), `iChannel1` the
+  sound (512×2: row y=0.25 spectrum, y=0.75 waveform), `iChannel2` the node's previous output
+  (feedback; enabled when the code uses it). Also `iTime`, `iTimeDelta`, `iFrame`, `iResolution`,
+  and `uBass`, `uMids`, `uHigh`, `uLevel`, `uBeat` (0–1). Up to four `uniform float name; // @knob min..max =default`
+  lines become knobs (wireable). Examples: Sound rings, Wobble, Kaleidoscope, Plasma, Edge glow.
+  Apply with ⌘/Ctrl+Enter; compile errors show under the code (with line numbers) and the picture
+  passes through untouched.
+  All of these take an optional audio input (otherwise the project's audio). Older projects' Glitch
   deformers open as the Post FX.
   **Smooth** on Trails (with Feedback) and on the Feedback node fills the gaps
   between zoomed echoes so they read as one continuous smear instead of rings

@@ -1,6 +1,7 @@
 // Audiograph Pro graph model: categorized node catalog, typed ports, validation and migration.
 // Emitter modes by node type: each is one of the original Audiograph renderers.
 import {cleanMapping} from './mapping.js';
+import {SHADER_EXAMPLES,SHADER_DEFAULT,parseKnobs,knobDefault} from './shaderfx.js';
 import {TEMPLATE_NAMES} from './morph.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['water','Water'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
@@ -311,6 +312,19 @@ export const TYPES = {
     threshold:n('Threshold',45,0,95,1),rate:n('Rate (per s)',2,.25,12,.25),decay:n('Decay (ms)',120,20,1000,10),
     style:G('Look',pick('Style','flash',['flash','blackout','invert'],{labels:[['flash','Flash'],['blackout','Blackout'],['invert','Invert']]})),
     color:G('Look',color('Colour','#ffffff')),safe:bool('Safe (max 3 / s)',true)}},
+  // Melt, Tunnel and Shader run fragment shaders (shaderfx.js) over the picture, with the sound as uniforms.
+  melt:{category:'postfx',label:'Melt',description:'Bright parts of the picture drip downward like wax, longer and faster with the sound. Quiet passages let it heal.',
+    inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
+    amount:n('Amount',75,0,100,1),react:pick('Drips with','level',['beat','bass','level','always'],{labels:[['beat','Beats'],['bass','Bass'],['level','Loudness'],['always','Always']]}),sound:n('Sound',70,0,100,1),
+    speed:n('Speed',45,0,100,1),threshold:n('Threshold',35,0,95,1),length:n('Length',60,0,100,1)}},
+  tunnel:{category:'postfx',label:'Tunnel',description:'An endless zoom into copies of the picture inside itself, turning as they come. Bass speeds it up, beats kick it forward; dark areas show the copies behind.',
+    inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
+    scale:n('Copy size',62,35,90,1),speed:n('Speed',25,0,100,1),bass:n('Bass push',50,0,100,1),kick:n('Beat kick',40,0,100,1),
+    twist:n('Twist',12,-180,180,1),twistBeat:n('Beat twist',0,0,90,1),key:n('See-through dark',100,0,100,1)}},
+  shader:{category:'postfx',label:'Shader',description:'Your own GLSL fragment shader, Shadertoy style: write mainImage(), read the picture from iChannel0 and the sound from iChannel1 or uBass / uMids / uHigh / uLevel / uBeat. “uniform float x; // @knob 0..1” lines become knobs. Works without a picture too.',
+    inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
+    example:pick('Example',SHADER_DEFAULT,[...Object.keys(SHADER_EXAMPLES),'Custom']),code:text('Code',SHADER_EXAMPLES[SHADER_DEFAULT],20000),
+    ...Object.fromEntries([0,1,2,3].map(i=>{const k=parseKnobs(SHADER_EXAMPLES[SHADER_DEFAULT])[i];return ['k'+(i+1),n('Knob '+(i+1),k?knobDefault(k):50,0,100,1)];}))}},
   bloom:FX('Bloom','Glow around bright areas.',{bloom:n('Bloom',60,0,100,1,{key:'pfxBloom'}),edge:n('Edge glow',0,0,100,1,{key:'pfxEdgeGlow'})}),
   grade:{...FX('Color correct','Brightness, contrast, saturation, hue.',{brightness:n('Brightness',0,-100,100,1,{key:'pfxBrightness'}),contrast:n('Contrast',10,-100,100,1,{key:'pfxContrast'}),
     saturation:n('Saturation',20,-100,200,1,{key:'pfxSaturation'}),hue:n('Hue',0,-180,180,1,{key:'pfxHue'}),invert:n('Invert',0,0,100,1,{key:'pfxInvert'})}),category:'color'},
