@@ -5,6 +5,7 @@ const http = require('node:http');
 const { chromium } = require('playwright');
 const gltfFile = require('./gltf-fixture.cjs');
 const fbxFile = require('./fbx-fixture.cjs');
+const usdFixture = require('./usd-fixture.cjs');
 const cameraFixtures = require('./camera-fixture.cjs');
 function audioFile(seconds=6) {
   const rate=8000,samples=rate*seconds,wav=Buffer.alloc(44+samples*2);
@@ -900,7 +901,9 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       await sp.goto(new URL('?splash',proUrl).href);await sp.waitForSelector('.splash-item');
       assert.deepEqual(await sp.$$eval('.splash-item',b=>b.map(x=>x.textContent)),['Visualize','Presets','Auto-play','Project','Export','Share'],'Splash shows six sections');
       await sp.waitForSelector('.splash-video.ready',{timeout:15000});
+      assert.equal(await sp.evaluate(()=>getComputedStyle(document.getElementById('preview')).visibility),'hidden','The studio preview is hidden behind the splash');
       await sp.click('[data-splash=project]');
+      assert.equal(await sp.evaluate(()=>getComputedStyle(document.getElementById('preview')).visibility),'visible','The preview returns after the splash');
       assert.ok(await sp.evaluate(()=>[...document.querySelectorAll('.splash-video')].every(v=>v.paused)),'Closing the splash pauses its video');
       assert.deepEqual(await sp.evaluate(()=>[document.getElementById('splash').hidden,document.body.classList.contains('ws-map')]),[true,true],'Splash Project opens Mapping');
       assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Project · 1 of 4','A splash section opens its guide');
@@ -1276,6 +1279,18 @@ def Camera "Camera" {
     assert.deepEqual(an.clips,['Slide'],'Mapping lists the model clips');assert.equal(an.anim.on,true,'Animated models play by default');
     assert.notEqual(an.a,an.b,'An animated model moves over time on the mapping surface');assert.notEqual(an.b,an.rest,'Rest pose holds the bind pose');
     await page.locator('[data-property=surf3dAnim] .mbtn',{hasText:'Rest pose'}).click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].anim.on,false,'Rest pose toggle stops the animation');}
+    // USD models: a binary crate matches pxr's transforms; a dense USDA grid reaches Mapping without thinning.
+    {const r=await page.evaluate(async fx=>{const {parseUSDModel}=await import('./usd-model.js'),M=await import('./map3d.js');
+      const m=await parseUSDModel(Uint8Array.from(atob(fx.usdc),c=>c.charCodeAt(0)).buffer,'fx.usdc'),pr=m.meshes.map(x=>x.prims[0]);
+      const err=Math.max(...pr.map((p,k)=>Math.hypot(...fx.expected[k].map((v,j)=>p.pos[j]-v))));
+      const N=150,pts=[],cnt=[],idx=[];for(let y=0;y<=N;y++)for(let x=0;x<=N;x++)pts.push(`(${x},${y},0)`);
+      for(let y=0;y<N;y++)for(let x=0;x<N;x++){const a=y*(N+1)+x;cnt.push(4);idx.push(a,a+1,a+N+2,a+N+1);}
+      const usda=`#usda 1.0\n(\n    upAxis = "Z"\n)\ndef Xform "G"\n{\n    def Mesh "Grid"\n    {\n        int[] faceVertexCounts = [${cnt}]\n        int[] faceVertexIndices = [${idx}]\n        point3f[] points = [${pts}]\n    }\n}\n`;
+      const g=await M.loadModel(new File([usda],'grid.usda'));
+      return {tris:pr.map(p=>p.idx.length/3),err,uv:!!pr[0].uv,dense:M.meshOf({model:g.model,modelKey:g.modelKey},0).data.length/24};},usdFixture);
+    assert.deepEqual(r.tris,usdFixture.tris,'USD n-gons triangulate, hole faces and invisible meshes are skipped');
+    assert.ok(r.err<1e-4,'USD xform stacks match pxr ('+r.err+')');assert.ok(r.uv,'USD UV primvars load');
+    assert.equal(r.dense,45000,'Mapping keeps every triangle of a dense model');}
     await page.evaluate(()=>{const p=pro.getProject();p.mapping={on:false,surfaces:[]};pro.importProject(p);});await page.locator('#modeStudio').click();
     // Bypass passes a node's input straight through; Preview shows one node's picture in the viewport.
     {await page.evaluate(()=>{pro.dissolve(false);pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'BP',name:'BP',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'w',type:'waveform2d',x:200,y:0,props:{mode:'circle'}},{id:'b',type:'bloom',x:420,y:0,props:{}},{id:'o',type:'oscillator',x:420,y:220,props:{}},{id:'out',type:'output',x:640,y:0,props:{},bypass:true}],edges:[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'b',input:'image'},{from:'b',out:'image',to:'out',input:'image'}]}]});});

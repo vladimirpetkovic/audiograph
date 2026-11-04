@@ -24,7 +24,10 @@ each with its own opacity and blend mode (up to four).
 - **WebGPU particles → emit** takes anything visual: a picture, a waveform or
     emitter shape, or a **3D Object** (it emits from the object's live render, so a
     turning object's particles follow it). The sound still sets how many spawn.
-- **3D Object → Choose model** loads OBJ, FBX, GLB or glTF. Animated FBX (e.g. Mixamo
+- **3D Object → Choose model** loads OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF.
+    Polygons of any size are triangulated (concave ones too). USD reads the root layer's
+    meshes, xform stacks, UVs, stage units and up axis; flatten files that reference
+    others. The CPU renderer thins models above 40,000 faces. Animated FBX (e.g. Mixamo
     "With Skin") and GLB/glTF models (node, skinned and morph animation) play automatically, with **Animation speed** and
     a **Clip** picker; Cloners and particle emission follow the moving mesh. Export
     glTF as a single .glb (or with embedded buffers).
@@ -292,8 +295,8 @@ process the finished image.
     give a surface one layer of its own; a hidden layer still renders there.
   - Opacity, edge **Feather** (for overlapping projectors), Rectangle / Ellipse
     mask, Match crop, Full frame, Flatten and Flip.
-  - **+ 3D object**: Cube, Sphere, Cylinder or Two walls; load OBJ, FBX, GLB or
-    self-contained glTF with UVs (planar fallback), Front projection or Box content.
+  - **+ 3D object**: Cube, Sphere, Cylinder or Two walls; load OBJ, FBX, USD, GLB or
+    self-contained glTF with UVs at full detail (up to 1,000,000 triangles) (planar fallback), Front projection or Box content.
     Normals are smoothed, so faceted models blend cleanly. **Box** content has a Box
     fade (soft blend between the three planar projections), Tiling (mirrored repeat)
     and a Box transform (move, rotate, and scale X / Y / Z or uniform).
@@ -337,7 +340,7 @@ process the finished image.
   full First Mile tutorial. Close it with × or Esc. Tick
   "Don't show at startup" to skip it; reopen it from the Guide (?) with
   **Welcome screen**, or add `?splash` to the URL. It is skipped for shared scene
-  links. Behind the logo, dimmed, muted clips recorded from templates (Cell, Doppler,
+  links. Behind the logo, full-HD muted clips (darkened towards the bottom by a gradient) recorded from templates (Cell, Doppler,
   Echo, Flares, Organica, Ripples, Sacred geometry, Tree, Universe; `splash/*.mp4`)
   crossfade in a fresh random order each time. Add or replace clips there and in
   `SPLASH_CLIPS`. It is skipped with reduced motion.

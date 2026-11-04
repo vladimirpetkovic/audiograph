@@ -1,3 +1,4 @@
+import {triangulate} from './polygon.js';
 // FBX models (binary or ASCII; e.g. Mixamo characters): mesh, skin clusters and animation stacks are converted
 // into the same rig gltf.js poses, so an FBX animates exactly like a GLB everywhere a model can be loaded.
 import {fbxRecords} from './camera-import.js';
@@ -84,7 +85,7 @@ export async function parseFBXModel(buf,name='model.fbx'){
       return i;};
     let poly=[];
     pvi.forEach((raw,pv)=>{const c=raw<0?~raw:raw;poly.push(vert(c,uvAt(pv,c)));
-      if(raw<0){for(let k=1;k+1<poly.length;k++)idx.push(poly[0],poly[k],poly[k+1]);poly=[];}});
+      if(raw<0){for(const [a,b,c] of triangulate(poly.map(i=>pos.slice(i*3,i*3+3))))idx.push(poly[a],poly[b],poly[c]);poly=[];}});
     if(!idx.length)continue;
     const prim={pos:Float32Array.from(pos),idx:Uint32Array.from(idx),uv:uvData.length?Float32Array.from(uv.map((v,k)=>k%2?1-v:v)):null,
       joints:joints?Uint32Array.from(jo):null,weights:joints?Float32Array.from(we):null,targets:[]};
@@ -120,3 +121,4 @@ export async function parseFBXModel(buf,name='model.fbx'){
   const real=clips.filter(c=>c.duration>=.1);
   return fitModel({name,cameras:[],nodes,parent,order,meshes,skins,clips:real.length?real:clips,faceStep:1});
 }
+export {euler,invert,decompose};
