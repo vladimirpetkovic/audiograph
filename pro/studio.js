@@ -279,52 +279,16 @@ async function ensureRunning(){
   const c=audioContext();if(c.state!=='running')await Promise.race([c.resume(),new Promise(r=>setTimeout(r,400))]);
   if(c.state!=='running')message('The browser blocked sound · click anywhere on the page to enable it',true);
 }
-// Default track: a short ambient song that starts on the first click or key (browsers block autoplay) and loops
-// until the user picks their own sound. ?demo keeps the synthetic demo beat instead.
-const DEFAULT_TRACK={url:'../audio/default-track.m4a',name:'Default track',state:'idle',bytes:null};
+// Until a sound is chosen the visuals follow a silent synthetic demo beat.
 const SHARED_AT_LOAD=/#scene=/.test(location.hash);
-if(!new URLSearchParams(location.search).has('demo'))DEFAULT_TRACK.bytes=fetch(DEFAULT_TRACK.url).then(r=>r.ok?r.arrayBuffer():null).catch(()=>null);
-else DEFAULT_TRACK.state='off';
-// Before the first click (browsers block sound until then) the visuals already follow the default track: its spectrum is
-// analysed silently once, then played back frame by frame.
-const TRACK_FPS=30,trackScan={freq:null,wave:null,rate:48000,frames:0};
-DEFAULT_TRACK.bytes?.then(async bytes=>{
-  if(!bytes)return;
-  const oc=new OfflineAudioContext(1,48000,48000),buf=await oc.decodeAudioData(bytes.slice(0)),rate=buf.sampleRate,frames=Math.floor(buf.duration*TRACK_FPS);
-  const ctx=new OfflineAudioContext(1,buf.length,rate),src=ctx.createBufferSource(),an=ctx.createAnalyser();
-  an.fftSize=BINS*2;an.smoothingTimeConstant=.5;an.minDecibels=-100;an.maxDecibels=-30;src.buffer=buf;src.connect(an);an.connect(ctx.destination);
-  const freq=new Uint8Array(frames*BINS);
-  for(let i=1;i<frames;i++)ctx.suspend(i/TRACK_FPS).then(()=>{an.getByteFrequencyData(freq.subarray(i*BINS,(i+1)*BINS));ctx.resume();});
-  src.start();await ctx.startRendering();
-  Object.assign(trackScan,{freq,wave:buf.getChannelData(0),rate,frames});
-  updateAudioUI();
-}).catch(e=>console.warn('Default track scan:',e));
-function trackSpectrum(t){
-  const {freq,wave,rate,frames}=trackScan,i=1+Math.floor(t*TRACK_FPS)%(frames-1);
-  A.rate=rate;A.freq.set(freq.subarray(i*BINS,(i+1)*BINS));
-  const o=Math.floor((i/TRACK_FPS)*rate)%Math.max(1,wave.length-A.wave.length);A.wave.set(wave.subarray(o,o+A.wave.length));
-}
-async function startDefaultTrack(){
-  if(DEFAULT_TRACK.state!=='idle')return;DEFAULT_TRACK.state='loading';unlockAudio();
-  try{
-    const bytes=await DEFAULT_TRACK.bytes,buffer=bytes&&await audioContext().decodeAudioData(bytes);
-    if(!buffer||DEFAULT_TRACK.state!=='loading'||audio.buffer||audio.live)return;
-    audio.buffer=buffer;audio.name=DEFAULT_TRACK.name;audio.loop=true;audio.offset=0;updateAudioUI();setPaused(false);await play();
-  }catch(e){console.warn('Default track:',e);}
-  finally{if(DEFAULT_TRACK.state==='loading')DEFAULT_TRACK.state='done';}
-}
-const ownSound=()=>{DEFAULT_TRACK.state='off';audio.loop=false;};
-for(const type of ['pointerdown','keydown'])addEventListener(type,e=>{
-  if(DEFAULT_TRACK.state!=='idle'||e.target.closest?.('.audio-src'))return;
-  startDefaultTrack();
-},true);
+const ownSound=()=>{audio.loop=false;};
 function stopAudio(keepOffset=false){
   if(audio.source){audio.source.onended=null;try{audio.source.stop();}catch{}audio.source.disconnect();if(keepOffset)audio.offset+=audio.context.currentTime-audio.startedAt;audio.source=null;}
   if(!keepOffset)audio.offset=0;syncPlay();
 }
 // Source buttons live in the Audio node's inspector, so they may not exist right now.
-function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:trackScan.frames>1||DEFAULT_TRACK.state!=='off'?DEFAULT_TRACK.name:'Demo beat';}
-const placeholderSound=name=>name==='Demo beat'||name===DEFAULT_TRACK.name;
+function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:'Demo beat';}
+const placeholderSound=name=>name==='Demo beat';
 function updateAudioUI(){
   for(const k of ['mic','system'])$(k)?.classList.toggle('on',audio.live?.kind===k);syncPlay();
   const name=sourceName();$('audioName').textContent=placeholderSound(name)?name+' · add audio':name;
@@ -409,7 +373,6 @@ function readAudio(t){
   A.live=!!(audio.analyser&&(audio.source||audio.live));
   if(exporting?.sound){const x=exporting.sound;A.live=true;A.rate=x.rate;A.freq.set(x.freq);A.wave.set(x.wave);}
   else if(A.live){A.rate=audio.context.sampleRate;audio.analyser.getByteFrequencyData(A.freq);audio.analyser.getFloatTimeDomainData(A.wave);}
-  else if(trackScan.frames>1)trackSpectrum(t);
   else{A.rate=48000;demoSpectrum(t);}
   A.bands=bandsOf(A.freq);
   const b=A.bands.bass;A.avg=A.avg*.95+b*.05;
@@ -2129,8 +2092,7 @@ function patchClock(on){
 async function exportSound(){
   if(audio.live)throw Error('Export renders a sound file. Live input (mic / system audio) can only be recorded with ●');
   if(audio.buffer)return {buffer:audio.buffer,name:audio.name||'audiograph'};
-  const bytes=await DEFAULT_TRACK.bytes;if(!bytes)throw Error('Load an audio file first: export follows a song');
-  return {buffer:await audioContext().decodeAudioData(bytes.slice(0)),name:DEFAULT_TRACK.name};
+  throw Error('Load an audio file first: export follows a song');
 }
 const playhead=()=>!audio.buffer?0:((audio.source?audio.offset+audio.context.currentTime-audio.startedAt:audio.offset)%audio.buffer.duration);
 const fmtTime=t=>`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
@@ -2255,7 +2217,6 @@ $('audioName').onclick=()=>{
   if(id){selected=id;renderUI();}
 };
 $('play').onclick=()=>{
-  if(DEFAULT_TRACK.state==='loading'&&!audio.live)return;
   // Live input (mic / system) stays connected until a file is loaded or the other input is chosen: Play / Pause only freezes the visuals.
   if(!audio.buffer||audio.live){setPaused(!paused);message(paused?'Paused':'Playing');return;}
   if(audio.source){stopAudio(true);setPaused(true);message('Paused');return;}
@@ -2409,7 +2370,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-start">Quick start</h3>
 <p>New here? Press <b>Tutorial</b> (top right) for the First Mile: it builds a scene with you node by node, then shows Mapping, Autopilot, recording and saving.</p>
 <ol><li>Pick a look from <b>Templates</b> (top right): your own <b>User templates</b> or the <b>Audiograph presets</b>.</li>
-<li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. The default track starts on your first click (it loops until you choose your own sound; open the page with <code>?demo</code> for the silent demo beat).</li>
+<li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. Until then a silent demo beat drives the visuals.</li>
 <li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
 <li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li>
 <li>Press <b>V</b> on any node to see only its picture, <b>B</b> to switch it off for a moment, ⌘Z to undo anything.</li></ol>
@@ -3346,7 +3307,7 @@ function buildSplash(){
   });
 }
 // Background clips, recorded from templates; shuffled each time so the welcome never looks the same twice.
-const SPLASH_CLIPS=['cell','doppler','echo','flares','organica','ripples','sacred-geometry','tree','universe'];
+const SPLASH_CLIPS=['cell','doppler','echo','flares','ripples','sacred-geometry','tree','universe'];
 const splashPlayer={order:[],at:0,front:0,fading:false};
 function splashNextClip(){
   const P=splashPlayer;if(P.at>=P.order.length){const last=P.order.at(-1);P.order=[...SPLASH_CLIPS].sort(()=>Math.random()-.5);if(P.order[0]===last)P.order.push(P.order.shift());P.at=0;}
@@ -3380,6 +3341,7 @@ function splashVideo(){
 function openSplash(){buildSplash();splashVideo();const s=$('splash');s.hidden=false;document.body.classList.add('splash-on');splashAlign();$('splash').querySelector('.splash-logo')?.addEventListener('load',splashAlign,{once:true});try{$('splashHide').checked=!!localStorage.getItem(SPLASH_KEY);}catch{}}
 function closeSplash(){const s=$('splash');if(s.hidden)return;s.hidden=true;document.body.classList.remove('splash-on');for(const v of splashVids())v.pause();splashPlayer.fading=false;const f=splashAfter;splashAfter=null;f?.();}
 $('splashClose').onclick=closeSplash;
+$('splashStart').onclick=closeSplash;
 $('splashTour').onclick=()=>{splashAfter=null;closeSplash();tour.start();};
 $('splash').addEventListener('pointerdown',e=>{if(e.target.id==='splash')closeSplash();});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('splash').hidden){e.preventDefault();e.stopImmediatePropagation();closeSplash();}},true);

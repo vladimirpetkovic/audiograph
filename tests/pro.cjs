@@ -47,7 +47,6 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       if(m.type==='frame'){aiSeen.push(m);inFlight++;maxInFlight=Math.max(maxInFlight,inFlight);setTimeout(()=>{inFlight--;ws.send(JSON.stringify({type:'result',id:m.id,image:red,ms:42}));},60);}
     }));
     const proUrl=process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/audiograph/pro/`;
-    // ?demo keeps the synthetic demo beat, so the default track never starts mid-test.
     await page.goto(proUrl+'?demo');
     await page.waitForFunction(()=>window.pro&&Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});
     await page.evaluate(()=>pro.dissolve(false));
@@ -55,11 +54,10 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
     const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
-    // Without ?demo the default track starts on the first key or click and loops; Pause silences it.
+    // There is no default song: until a sound is chosen the silent demo beat drives the visuals, even after a click.
     {const p2=await browser.newPage({viewport:{width:1200,height:800}});await p2.goto(proUrl);await p2.waitForFunction(()=>window.pro);
-     assert.match(await p2.locator('#audioName').textContent(),/Default track/,'The default track is the only placeholder sound');assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'Nothing plays before a gesture');
-     await p2.keyboard.press('Shift');await p2.waitForFunction(()=>/Default track · add audio/.test(document.querySelector('#audioName').textContent)&&document.querySelector('#play').classList.contains('on')&&pro.stats().audio.input==='file',null,{timeout:15000});
-     await p2.click('#play');assert.ok(await p2.waitForFunction(()=>!document.querySelector('#play.on'),null,{timeout:5000}).then(()=>true,()=>false),'Pause silences the default track');
+     await p2.keyboard.press('Shift');await p2.mouse.click(5,5);await p2.waitForTimeout(800);
+     assert.equal(await p2.locator('#audioName').textContent(),'Demo beat · add audio','The demo beat is the placeholder sound');assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'No song starts by itself');
      await p2.evaluate(()=>{const md=navigator.mediaDevices,fake=()=>{const c=new AudioContext(),o=c.createOscillator(),d=c.createMediaStreamDestination();o.connect(d);o.start();return d.stream;};
        md.enumerateDevices=async()=>[{kind:'audioinput',deviceId:'bh',label:'BlackHole 2ch'}];md.getUserMedia=async()=>fake();});
      await p2.evaluate(()=>pro.select(pro.getProject().layers[0].nodes.find(n=>n.type==='audioIn').id));await p2.click('#system');
@@ -913,6 +911,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.equal(await sp.evaluate(()=>document.getElementById('exportDialog').open),true,'The Export guide ends by opening Export');await sp.keyboard.press('Escape');
       await sp.evaluate(()=>__agSplash.open());await sp.click('#splashTour');
       assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Step 1 of '+(await sp.evaluate(()=>pro.tour.steps.length)),'Splash starts the First Mile');await sp.click('#tourSkip');
+      assert.deepEqual(await sp.$$eval('.splash-actions button',b=>b.map(x=>x.textContent)),['Start','Tutorial'],'Splash has Start and Tutorial side by side');
+      await sp.evaluate(()=>__agSplash.open());await sp.click('#splashStart');assert.equal(await sp.evaluate(()=>document.getElementById('splash').hidden),true,'Start closes the splash');
       await sp.evaluate(()=>__agSplash.open());await sp.keyboard.press('Escape');
       assert.equal(await sp.evaluate(()=>document.getElementById('splash').hidden),true,'Esc closes the splash');
       await sp.evaluate(()=>pro.loadTemplate('Doppler'));assert.equal(await sp.evaluate(()=>pro.getProject().layers.length),2,'Doppler preset loads its two layers');

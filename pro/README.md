@@ -237,9 +237,8 @@ process the finished image.
   input are analysed only. The **input menu** under the buttons picks (and remembers) the
   Mic's device. For one-click system audio install a loopback device (BlackHole or
   Loopback on Mac, VB-Cable or Stereo Mix on Windows): System then records it directly,
-  with no screen-share picker. Until you pick a sound, the **default track** (a short
-  ambient song) starts on your first click and loops (before that click the visuals already follow
-  the track silently); `?demo` (used by the tests) keeps a silent synthetic spectrum instead. Wiring a
+  with no screen-share picker. Until you pick a sound, a silent synthetic
+  **demo beat** drives the visuals (nothing plays through the speakers). Wiring a
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
@@ -346,12 +345,12 @@ process the finished image.
   Visualize (Studio), Presets (Templates), Auto-play (Autopilot), Project
   (Mapping), Export (video) and Share (link). Each section opens a short guide that
   highlights the real controls, coloured like that section; some end with an action
-  (Choose a template, Export video, Create link). **Start the tutorial** runs the
-  full First Mile tutorial. Close it with × or Esc. Tick
+  (Choose a template, Export video, Create link). **Start** goes to the studio;
+  **Tutorial** runs the full First Mile tutorial. Close it with × or Esc. Tick
   "Don't show at startup" to skip it; reopen it from the Guide (?) with
   **Welcome screen**, or add `?splash` to the URL. It is skipped for shared scene
   links. Behind the logo, full-HD muted clips (darkened towards the bottom by a gradient) recorded from templates (Cell, Doppler,
-  Echo, Flares, Organica, Ripples, Sacred geometry, Tree, Universe; `splash/*.mp4`)
+  Echo, Flares, Ripples, Sacred geometry, Tree, Universe; `splash/*.mp4`)
   crossfade in a fresh random order each time. Add or replace clips there and in
   `SPLASH_CLIPS`. It is skipped with reduced motion.
 - **Tutorial** (top right) is the First Mile, like the original's interactive

@@ -16,7 +16,7 @@ const OUT={A:'audio',W:'shape',PT:'shape',T:'shape',P:'shape',B:'image',TR:'imag
 
 export const STEPS=[
   {t:'Choose your Audio source',sel:['#audioName','#spectrum'],keys:['A','W','O'],ban:'Pick your <b>Audio source</b>',
-    txt:'Everything starts with sound. Click the source name to load a song, or use the Mic or System audio. Until then the default track plays (it starts on your first click).'},
+    txt:'Everything starts with sound. Click the source name to load a song, or use the Mic or System audio. Until then a silent demo beat drives the visuals.'},
   {t:'Nodes and wires',sel:'#graphViewport',keys:['A','W','O'],ban:'Sound flows through <b>Nodes</b>',
     txt:'Each box is a node that does one thing. Sound flows along the wires from Audio into a Waveform that draws it, then into Output: what you see.'},
   {t:'Tune it in the Inspector',sel:'.inspector',keys:['A','W','O'],spiral:true,select:'W',ban:'Tune it in the <b>Inspector</b>',
