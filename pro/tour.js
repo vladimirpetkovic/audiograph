@@ -59,9 +59,9 @@ function sceneOf(s,ids){
   return layers;
 }
 const newIds=()=>Object.fromEntries([...Object.keys(SPEC),'G1','G2'].map(k=>[k,crypto.randomUUID()]));
-// The scene the studio opens with (and Reset returns to): Audio → straight-line Linear waveform → Palette (Classic) → Output.
+// The scene the studio opens with (and Reset returns to): Audio → Concentric waveform drawn as Pins → Palette (Classic) → Output.
 export function startScene(){
-  const ids=newIds(),W=node('waveform2d',0,80,{mode:'linear',lineShape:'straight',outline:false}),A=node('audioIn',0,80,{}),P=node('palette',0,80,{}),O=node('output',0,80,{});
+  const ids=newIds(),W=node('waveform2d',0,80,{mode:'concentric',lineShape:'pins',styleSize:190,styleDensity:135,styleAngle:0,density:270,height:150,thick:2,varyHeight:true,varyThick:false,outline:false}),A=node('audioIn',0,80,{}),P=node('palette',0,80,{}),O=node('output',0,80,{});
   const nodes=[A,W,P,O];nodes.forEach((n,i)=>{n.x=40+i*210;});
   return [{id:ids.G1,name:'Scene',visible:true,opacity:1,blend:'source-over',nodes,
     edges:[{from:A.id,out:'audio',to:W.id,input:'audio'},{from:W.id,out:'shape',to:P.id,input:'shape'},{from:P.id,out:'shape',to:O.id,input:'image'}]}];

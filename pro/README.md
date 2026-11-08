@@ -363,7 +363,7 @@ process the finished image.
   It is offered once on the first visit (`?notour` skips that), Esc or Skip
   leaves it, the tutorial scene stays editable, and one Undo restores your
   previous scene. The studio opens with a simple starting scene (Audio →
-  straight-line Linear waveform → Palette in the Classic colours → Output),
+  Concentric waveform drawn as Pins → Palette in the Classic colours → Output),
   which Reset also returns to.
 - **Random** (beside Templates) creates a new wired node graph with random
   emitters, colours, motion and effects. It stops Autopilot; Undo restores your scene.

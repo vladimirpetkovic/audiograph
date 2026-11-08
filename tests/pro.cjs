@@ -119,7 +119,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     {const d=await project(),w=d.layers[0].nodes.find(n=>n.type==='waveform2d');
       assert.deepEqual(d.layers.map(l=>l.nodes.map(n=>n.type)),[['audioIn','waveform2d','palette','output']],'The studio opens with Audio → Waveform → Palette → Output');
-      assert.ok(w.props.mode==='linear'&&w.props.lineShape==='straight'&&d.layers[0].edges.length===3,'Starting look: a straight-line Linear waveform, wired through');
+      assert.ok(w.props.mode==='concentric'&&w.props.lineShape==='pins'&&w.props.density===270&&w.props.height===150&&w.props.thick===2&&w.props.styleSize===190&&w.props.styleDensity===135&&d.layers[0].edges.length===3,'Starting look: a Concentric waveform drawn as Pins, wired through');
       // The tests below start from the classic one-layer Fluid graph.
       await page.evaluate(async()=>{const g=await import('./graph.js');pro.importProject(g.project());});
       await page.waitForFunction(()=>Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});}
