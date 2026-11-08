@@ -279,20 +279,22 @@ async function ensureRunning(){
   const c=audioContext();if(c.state!=='running')await Promise.race([c.resume(),new Promise(r=>setTimeout(r,400))]);
   if(c.state!=='running')message('The browser blocked sound · click anywhere on the page to enable it',true);
 }
-// Until a sound is chosen the visuals follow a silent synthetic demo beat.
-const SHARED_AT_LOAD=/#scene=/.test(location.hash);
+// Until a sound is chosen the visuals are silent and the Audio node asks for one; ?demo (tests) uses a synthetic beat instead.
+const SHARED_AT_LOAD=/#scene=/.test(location.hash),DEMO_BEAT=new URLSearchParams(location.search).has('demo');
+const NO_SOUND='Select your audio source';
 const ownSound=()=>{audio.loop=false;};
 function stopAudio(keepOffset=false){
   if(audio.source){audio.source.onended=null;try{audio.source.stop();}catch{}audio.source.disconnect();if(keepOffset)audio.offset+=audio.context.currentTime-audio.startedAt;audio.source=null;}
   if(!keepOffset)audio.offset=0;syncPlay();
 }
 // Source buttons live in the Audio node's inspector, so they may not exist right now.
-function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:'Demo beat';}
-const placeholderSound=name=>name==='Demo beat';
+function sourceName(){return audio.live?(audio.live.kind==='mic'?'Microphone':'System audio'):audio.name&&audio.buffer?audio.name:DEMO_BEAT?'Demo beat':NO_SOUND;}
+const placeholderSound=name=>name==='Demo beat'||name===NO_SOUND;
+const needsSound=()=>!DEMO_BEAT&&!audio.live&&!audio.buffer;
 function updateAudioUI(){
   for(const k of ['mic','system'])$(k)?.classList.toggle('on',audio.live?.kind===k);syncPlay();
-  const name=sourceName();$('audioName').textContent=placeholderSound(name)?name+' · add audio':name;
-  const cur=document.querySelector('.audio-source');if(cur)cur.textContent='Now: '+name+(audio.live||audio.source||name==='Demo beat'?'':' (stopped)');
+  const name=sourceName();$('audioName').textContent=name==='Demo beat'?name+' · add audio':name;$('audioName').classList.toggle('needs-sound',needsSound());
+  const cur=document.querySelector('.audio-source');if(cur)cur.textContent='Now: '+name+(audio.live||audio.source||placeholderSound(name)?'':' (stopped)');
   updateSummaries();
 }
 function stopLive(){
@@ -373,7 +375,8 @@ function readAudio(t){
   A.live=!!(audio.analyser&&(audio.source||audio.live));
   if(exporting?.sound){const x=exporting.sound;A.live=true;A.rate=x.rate;A.freq.set(x.freq);A.wave.set(x.wave);}
   else if(A.live){A.rate=audio.context.sampleRate;audio.analyser.getByteFrequencyData(A.freq);audio.analyser.getFloatTimeDomainData(A.wave);}
-  else{A.rate=48000;demoSpectrum(t);}
+  else if(DEMO_BEAT){A.rate=48000;demoSpectrum(t);}
+  else{A.rate=48000;A.freq.fill(0);A.wave.fill(0);}
   A.bands=bandsOf(A.freq);
   const b=A.bands.bass;A.avg=A.avg*.95+b*.05;
   // Capped halfway to full scale so loud (near-saturated) bass still registers beats.
@@ -1105,7 +1108,7 @@ function summary(n){
   for(const k of simKeys(graph(),n)){const s=t.props[k];if(s.kind==='select')return String(s.labels?.find(l=>l[0]===p[k])?.[1]??p[k]);if(s.kind==='number')return `${s.label} ${+p[k].toFixed(2)}`;}
   return t.description;
 }
-function updateSummaries(){updatePalettePreview();for(const box of document.querySelectorAll('#nodes .node')){const n=findNode(box.dataset.id);if(n)box.querySelector('.node-summary').textContent=summary(n);}}
+function updateSummaries(){updatePalettePreview();for(const box of document.querySelectorAll('#nodes .node')){const n=findNode(box.dataset.id);if(n){box.querySelector('.node-summary').textContent=summary(n);box.classList.toggle('needs-sound',n.type==='audioIn'&&needsSound());}}}
 function visiblePorts(g,n){
   const t=TYPES[n.type],all=inputsOf(n.type),ins=[];
   for(const [k,type] of Object.entries(all))if(Object.hasOwn(t.inputs,k)||g.edges.some(e=>e.to===n.id&&e.input===k))ins.push([k,type]);
@@ -1123,7 +1126,7 @@ function renderGraph(){
   for(const n of g.nodes){
     const t=TYPES[n.type],box=el('article','node'+(n.id===selected||multi.has(n.id)?' selected':'')+(nodeErrors.has(n.id)?' error':''));
     box.dataset.id=n.id;box.dataset.type=n.type;box.style.left=n.x+'px';box.style.top=n.y+'px';box.style.setProperty('--cat',catOf(n.type).color);
-    if(n.bypass)box.classList.add('bypassed');if(n.id===previewId)box.classList.add('previewing');
+    if(n.bypass)box.classList.add('bypassed');if(n.type==='audioIn'&&needsSound())box.classList.add('needs-sound');if(n.id===previewId)box.classList.add('previewing');
     const head=el('div','node-head');head.append(el('div','node-title',nodeTitle(n)),el('div','node-summary',summary(n)));box.append(head);
     const acts=el('div','node-acts'),act=(cls,label,title,fn)=>{const b=el('button','node-act '+cls,label);b.type='button';b.title=title;b.setAttribute('aria-label',title);b.addEventListener('pointerdown',e=>e.stopPropagation());b.onclick=e=>{e.stopPropagation();fn();};acts.append(b);return b;};
     if(canPreview(n))act('act-preview','\u25C9',n.id===previewId?'Stop previewing (V)':'Preview this node in the viewport (V)',()=>setPreview(n.id)).classList.toggle('on',n.id===previewId);
@@ -2370,7 +2373,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-start">Quick start</h3>
 <p>New here? Press <b>Tutorial</b> (top right) for the First Mile: it builds a scene with you node by node, then shows Mapping, Autopilot, recording and saving.</p>
 <ol><li>Pick a look from <b>Templates</b> (top right): your own <b>User templates</b> or the <b>Audiograph presets</b>.</li>
-<li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. Until then a silent demo beat drives the visuals.</li>
+<li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. Until then the visuals stay still and the Audio node asks you to select your audio source.</li>
 <li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
 <li>Select a node, then click something in the library on the left: it is inserted right after the selection.</li>
 <li>Press <b>V</b> on any node to see only its picture, <b>B</b> to switch it off for a moment, ⌘Z to undo anything.</li></ol>
@@ -3341,7 +3344,9 @@ function splashVideo(){
 function openSplash(){buildSplash();splashVideo();const s=$('splash');s.hidden=false;document.body.classList.add('splash-on');splashAlign();$('splash').querySelector('.splash-logo')?.addEventListener('load',splashAlign,{once:true});try{$('splashHide').checked=!!localStorage.getItem(SPLASH_KEY);}catch{}}
 function closeSplash(){const s=$('splash');if(s.hidden)return;s.hidden=true;document.body.classList.remove('splash-on');for(const v of splashVids())v.pause();splashPlayer.fading=false;const f=splashAfter;splashAfter=null;f?.();}
 $('splashClose').onclick=closeSplash;
-$('splashStart').onclick=closeSplash;
+// Start opens the studio with the Audio node selected, so the first thing to do is choose a sound.
+function focusAudioNode(){const n=graph().nodes.find(m=>m.type==='audioIn');if(!n)return;selected=n.id;multi.clear();renderUI();}
+$('splashStart').onclick=()=>{splashAfter=null;closeSplash();focusAudioNode();};
 $('splashTour').onclick=()=>{splashAfter=null;closeSplash();tour.start();};
 $('splash').addEventListener('pointerdown',e=>{if(e.target.id==='splash')closeSplash();});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('splash').hidden){e.preventDefault();e.stopImmediatePropagation();closeSplash();}},true);

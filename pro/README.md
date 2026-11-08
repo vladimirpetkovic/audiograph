@@ -237,8 +237,10 @@ process the finished image.
   input are analysed only. The **input menu** under the buttons picks (and remembers) the
   Mic's device. For one-click system audio install a loopback device (BlackHole or
   Loopback on Mac, VB-Cable or Stereo Mix on Windows): System then records it directly,
-  with no screen-share picker. Until you pick a sound, a silent synthetic
-  **demo beat** drives the visuals (nothing plays through the speakers). Wiring a
+  with no screen-share picker. There is no default sound: until you pick one the
+  visuals stay still and the Audio node glows with **Select your audio source**
+  (the splash's **Start** selects it). `?demo` (used by the tests) feeds a silent
+  synthetic beat instead. Wiring a
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
@@ -345,7 +347,7 @@ process the finished image.
   Visualize (Studio), Presets (Templates), Auto-play (Autopilot), Project
   (Mapping), Export (video) and Share (link). Each section opens a short guide that
   highlights the real controls, coloured like that section; some end with an action
-  (Choose a template, Export video, Create link). **Start** goes to the studio;
+  (Choose a template, Export video, Create link). **Start** goes to the studio with the Audio node selected;
   **Tutorial** runs the full First Mile tutorial. Close it with × or Esc. Tick
   "Don't show at startup" to skip it; reopen it from the Guide (?) with
   **Welcome screen**, or add `?splash` to the URL. It is skipped for shared scene
@@ -441,7 +443,7 @@ process the finished image.
 Each Input or Emitter node that draws loads the trusted same-origin regular app into an isolated frame.
 Pro drives the app's own live render loop (`liveAnimLoop`) one frame at a time.
 It replaces the app's analyser with a synthetic one that Pro fills from the real
-audio, the demo beat or a Drive value. Everything the original applies when
+audio (or silence), the test demo beat or a Drive value. Everything the original applies when
 compositing (symmetry, flip, mirror, spin, particles, per-layer Post FX) therefore
 renders exactly as in Audiograph. Post FX nodes call the original's
 `applyLayerFx` on any image. If there are no emitters, a helper engine runs them.

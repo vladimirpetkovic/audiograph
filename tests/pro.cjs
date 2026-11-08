@@ -54,10 +54,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const lit=(min=.5,timeout=20000)=>page.waitForFunction(min=>pro.pixels()>min&&!pro.stats().errors.length,min,{timeout});
     const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]});
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
-    // There is no default song: until a sound is chosen the silent demo beat drives the visuals, even after a click.
+    // There is no default sound: until one is chosen the visuals are silent and the Audio node asks for a source.
     {const p2=await browser.newPage({viewport:{width:1200,height:800}});await p2.goto(proUrl);await p2.waitForFunction(()=>window.pro);
      await p2.keyboard.press('Shift');await p2.mouse.click(5,5);await p2.waitForTimeout(800);
-     assert.equal(await p2.locator('#audioName').textContent(),'Demo beat · add audio','The demo beat is the placeholder sound');assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'No song starts by itself');
+     assert.equal(await p2.locator('#audioName').textContent(),'Select your audio source','No placeholder sound');
+     assert.deepEqual(await p2.evaluate(()=>{const b=document.querySelector('.node[data-type=audioIn]');return [b.classList.contains('needs-sound'),b.querySelector('.node-summary').textContent];}),[true,'Select your audio source'],'The Audio node asks for a source');assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'No song starts by itself');
      await p2.evaluate(()=>{const md=navigator.mediaDevices,fake=()=>{const c=new AudioContext(),o=c.createOscillator(),d=c.createMediaStreamDestination();o.connect(d);o.start();return d.stream;};
        md.enumerateDevices=async()=>[{kind:'audioinput',deviceId:'bh',label:'BlackHole 2ch'}];md.getUserMedia=async()=>fake();});
      await p2.evaluate(()=>pro.select(pro.getProject().layers[0].nodes.find(n=>n.type==='audioIn').id));await p2.click('#system');
@@ -913,6 +914,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Step 1 of '+(await sp.evaluate(()=>pro.tour.steps.length)),'Splash starts the First Mile');await sp.click('#tourSkip');
       assert.deepEqual(await sp.$$eval('.splash-actions button',b=>b.map(x=>x.textContent)),['Start','Tutorial'],'Splash has Start and Tutorial side by side');
       await sp.evaluate(()=>__agSplash.open());await sp.click('#splashStart');assert.equal(await sp.evaluate(()=>document.getElementById('splash').hidden),true,'Start closes the splash');
+      assert.equal(await sp.evaluate(()=>document.querySelector('.node.selected')?.dataset.type),'audioIn','Start selects the Audio node');
       await sp.evaluate(()=>__agSplash.open());await sp.keyboard.press('Escape');
       assert.equal(await sp.evaluate(()=>document.getElementById('splash').hidden),true,'Esc closes the splash');
       await sp.evaluate(()=>pro.loadTemplate('Doppler'));assert.equal(await sp.evaluate(()=>pro.getProject().layers.length),2,'Doppler preset loads its two layers');
