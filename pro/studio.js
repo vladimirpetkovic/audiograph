@@ -396,7 +396,10 @@ function ampSignal(a,g){
   for(let i=0;i<w.length;i++)w[i]=Math.max(-1,Math.min(1,a.wave[i]*g));
   return {...a,freq:f,wave:w,bands:bandsOf(f),pulse:Math.min(1,(a.pulse??0)*g)};
 }
-const projectSignal=()=>({freq:A.freq,wave:A.wave,bands:A.bands,beat:A.beat,pulse:A.beatPulse});
+// A loaded song travels with the signal so the original's engines can draw it the way the regular app does
+// (each line is a slice of the whole song, scaled by the current loudness) instead of a live spectrum.
+const songSignal=()=>exporting?exporting.song:audio.buffer&&!audio.live?{buffer:audio.buffer,time:playhead()}:null;
+const projectSignal=()=>({freq:A.freq,wave:A.wave,bands:A.bands,beat:A.beat,pulse:A.beatPulse,song:songSignal()});
 // Pictures (image, video, camera) stay still until audio is wired in.
 const SILENT={freq:new Uint8Array(BINS),wave:new Float32Array(2048),bands:{bass:0,mids:0,high:0,full:0},beat:0,pulse:0};
 // An emitter driven by a number: a synthetic spectrum whose loudness follows the number.
@@ -662,7 +665,7 @@ function execute(g,time,dt){
     const p={...n.props};
     if(n.auto)for(const k of n.auto){const s=TYPES[n.type].props[k];if(s){p[k]=autoDrift(s,p[k],n.id+k,autoClock);autoValues.set(n.id+':'+k,p[k]);}}
     for(const [k,s] of Object.entries(TYPES[n.type].props))if(s.kind==='number'&&!s.noPort&&byInput.has(n.id+':'+k))p[k]=modulate(s,p[k],input(n,k));
-    if(n.type==='palette'){const live=input(n,'colors');if(Array.isArray(live)&&live.length>1)p.stops=live.map(c=>({c,auto:false}));}
+    if(n.type==='palette'){const live=input(n,'colors');if(Array.isArray(live)&&live.length>1)p.stops=live.map(c=>({c,a:1,auto:false}));}
     return n.type==='palette'?paletteAuto(p,n.id,autoClock):p;
   };
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
@@ -698,7 +701,7 @@ function execute(g,time,dt){
         const id=e.input.slice(4),range=engines.get(n.id)?.optRange(jobOf(n),id);
         if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
       }
-      r.shape={emitter:n,mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
+      r.shape={emitter:n,mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,song:driven?null:sig.song||null,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
       if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
@@ -1587,7 +1590,7 @@ function renderPalettePresets(root,n){
     const want=n.props.mode==='simpleramp'?st.slice(1):st,cur=n.props.stops.map(x=>x.c).join();
     const b=el('button','pal-swatch');b.type='button';b.title=name;b.dataset.value=name;b.setAttribute('aria-label','Palette '+name);
     b.style.background=gradientCss(n.props.mode==='simpleramp'?want:[st[0]+'00',...st.slice(1)]);b.classList.toggle('on',cur===want.join().toLowerCase());
-    b.onclick=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id).props;x.stops=want.map((c,i)=>({c:c.toLowerCase(),auto:!!x.stops[i]?.auto}));x.fade=0;},'Palette: '+name);
+    b.onclick=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id).props;x.stops=want.map((c,i)=>({c:c.toLowerCase(),a:x.stops[i]?.a??1,auto:!!x.stops[i]?.auto}));x.fade=0;},'Palette: '+name);
     box.append(b);
   }
   s.append(box);
@@ -2112,7 +2115,7 @@ async function exportVideo(cfg,{file=null,onProgress=()=>{}}={}){
   const snd=cfg.sound||await exportSound(),dur=snd.buffer.duration,start=Math.max(0,Math.min(dur-.1,+cfg.start||0)),length=Math.max(.1,Math.min(dur-start,+cfg.length||dur-start));
   const prevH=HEIGHT,wasPaused=paused,wasPlaying=!!audio.source,vt0=elapsed,ac=new AbortController();
   if(wasPlaying)stopAudio(true);
-  exporting={sound:null,abort:()=>ac.abort()};$('resolution').disabled=true;
+  exporting={sound:null,song:null,abort:()=>ac.abort()};$('resolution').disabled=true;
   let frames=0;
   try{
     if(cfg.height!==HEIGHT)changeResolution(cfg.height);
@@ -2122,7 +2125,7 @@ async function exportVideo(cfg,{file=null,onProgress=()=>{}}={}){
     const bitrate=Math.round(WIDTH*HEIGHT*cfg.fps*(EXPORT_BPP[cfg.quality]||EXPORT_BPP.high));
     const blob=await renderVideo({buffer:snd.buffer,start,length,fps:cfg.fps,bitrate,canvas:preview,file,signal:ac.signal,
       analyser:{fftSize:BINS*2,smoothing:.5,minDb:-100,maxDb:-30},onProgress,
-      drawFrame:async(i,t,dt,sound)=>{vclock=c0+t*1000;await seekVideos(t);exporting.sound=sound;draw(vt0+t,dt);frames=i+1;}});
+      drawFrame:async(i,t,dt,sound)=>{vclock=c0+t*1000;await seekVideos(t);exporting.sound=sound;exporting.song={buffer:snd.buffer,time:start+t};draw(vt0+t,dt);frames=i+1;}});
     return {blob,frames,width:WIDTH,height:HEIGHT,name:snd.name.replace(/\.[^.]+$/,'').replace(/[^\w -]+/g,'').trim()||'audiograph'};
   }finally{
     patchClock(false);exporting=null;elapsed=vt0+frames/cfg.fps;paused=wasPaused;lastTime=0;$('resolution').disabled=false;

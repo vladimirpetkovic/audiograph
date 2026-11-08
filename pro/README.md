@@ -441,7 +441,10 @@ process the finished image.
 ## Engine
 
 Each Input or Emitter node that draws loads the trusted same-origin regular app into an isolated frame.
-Pro drives the app's own live render loop (`liveAnimLoop`) one frame at a time.
+Pro drives the app's own live render loop (`liveAnimLoop`) one frame at a time;
+with a loaded song it runs the app's file loop (`animLoop`) on the decoded song instead,
+so each line is a slice of the whole song scaled by the current loudness, exactly as
+in the regular app (also in video export).
 It replaces the app's analyser with a synthetic one that Pro fills from the real
 audio (or silence), the test demo beat or a Drive value. Everything the original applies when
 compositing (symmetry, flip, mirror, spin, particles, per-layer Post FX) therefore

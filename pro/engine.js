@@ -395,7 +395,7 @@ export class EmitterEngine {
     w.analyser.context.sampleRate=job.audio.rate||48000;
     w.__agFractureDrive=job.audio.drive;
     const fc=w.frameCv,fctx=w.frameCtx;fctx.setTransform(1,0,0,1,0,0);fctx.clearRect(0,0,fc.width,fc.height);
-    this.frameP=p;try{w.liveAnimLoop();}finally{this.frameP=null;}this.frames++;
+    this.frameP=p;try{this.runLoop(job.audio.song);}finally{this.frameP=null;}this.frames++;
     const ctx=this.ctx;ctx.resetTransform();ctx.globalCompositeOperation='source-over';ctx.clearRect(0,0,WIDTH,HEIGHT);
     ctx.filter=job.hue?`hue-rotate(${job.hue}deg)`:'none';
     const pf=w.document.getElementById('postFxCv');
@@ -424,6 +424,17 @@ export class EmitterEngine {
     for(const k of new Set([...Object.keys(A.postFx),...Object.keys(B.postFx)]))fx[k]=(A.postFx[k]||0)*(1-mix)+(B.postFx[k]||0)*mix;
     return {layers:w.pmBlendNorm(A,B,mix),postFx:fx};
   }
+  // A loaded song is drawn by the original's file loop (animLoop): each line is a slice of the whole song,
+  // scaled by the current loudness, exactly like the regular app. Mic, system audio and silence use its live loop.
+  runLoop(song){
+    const w=this.w;
+    if(!song?.buffer){w.audioBuffer=null;w.playing=false;w.liveMode=true;w.liveAnimLoop();return;}
+    if(w.audioBuffer!==song.buffer){w.audioBuffer=song.buffer;w.cropStart=0;w.cropEnd=song.buffer.duration;w.selStart=w.selEnd=null;}
+    const a=this.songClock||={currentTime:0,duration:0,paused:false,pause(){},play(){return Promise.resolve();}};
+    a.duration=song.buffer.duration;a.currentTime=Math.min(song.time,Math.max(0,a.duration-.001));
+    w.audio=a;w.playing=true;w.liveMode=false;
+    try{w.animLoop();}finally{w.playing=false;w.liveMode=true;}
+  }
   drawTemplateMorph(job){
     const w=this.w,{from,to,mix}=job.templateMorph,blend=this.templateBlend(from,to,mix/100);
     this.mode='templateMorph';w.pmActive=true;w.pmSpinLive=true;w.stackMode=true;
@@ -433,7 +444,7 @@ export class EmitterEngine {
     const pf=w.document.getElementById('postFxCv');pf.style.display='block';
     this.audio.freq.set(job.audio.freq);this.audio.wave.set(job.audio.wave);w.analyser.context.sampleRate=job.audio.rate||48000;
     this.realSet(blend.layers[0].params);
-    w.liveAnimLoop();this.frames++;
+    this.runLoop(job.audio.song);this.frames++;
     this.ctx.resetTransform();this.ctx.globalCompositeOperation='copy';this.ctx.drawImage(pf,0,0,WIDTH,HEIGHT);this.ctx.globalCompositeOperation='source-over';
     const sim=w.agSim.stats();if(sim.errors?.length)throw Error('Template WebGPU: '+sim.errors[0]);
     this.backend='Original template morph';return this.canvas;
@@ -518,7 +529,7 @@ export class EmitterEngine {
     if(this.mediaKind==='splat'){Object.assign(w.AG_SPLAT,{file:null,n:0,name:''});w.AG_SPLAT.ver++;}
     this.mediaKind='';this.mediaName='';this.mediaThumb='';this.baseKey='';this.applied=null;
   }
-  stats() {return this.w?{status:this.status,mode:this.mode,generation:this.generation,frames:this.frames,sim:this.w.agSim.stats(),renderer:this.w.agGpu.stats()}: {status:this.status};}
+  stats() {return this.w?{status:this.status,mode:this.mode,generation:this.generation,frames:this.frames,song:!!this.w.audioBuffer,sim:this.w.agSim.stats(),renderer:this.w.agGpu.stats()}: {status:this.status};}
   dispose() {
     this.disposed=true;this.cancelLoad?.();
     if(this.video){this.video.pause();this.video.removeAttribute('src');}

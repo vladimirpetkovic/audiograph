@@ -58,7 +58,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     {const p2=await browser.newPage({viewport:{width:1200,height:800}});await p2.goto(proUrl);await p2.waitForFunction(()=>window.pro);
      await p2.keyboard.press('Shift');await p2.mouse.click(5,5);await p2.waitForTimeout(800);
      assert.equal(await p2.locator('#audioName').textContent(),'Select your audio source','No placeholder sound');
-     assert.deepEqual(await p2.evaluate(()=>{const b=document.querySelector('.node[data-type=audioIn]');return [b.classList.contains('needs-sound'),b.querySelector('.node-summary').textContent];}),[true,'Select your audio source'],'The Audio node asks for a source');assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'No song starts by itself');
+     assert.deepEqual(await p2.evaluate(()=>{const b=document.querySelector('.node[data-type=audioIn]');return [b.classList.contains('needs-sound'),b.querySelector('.node-summary').textContent];}),[true,'Select your audio source'],'The Audio node asks for a source');
+     assert.deepEqual(await p2.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='palette').props.stops.map(s=>s.a)),[1,1,1,1],'The default palette has no transparent colour');
+     assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'No song starts by itself');
+     // A loaded song is drawn like the regular app: its engines run the original's file loop on the decoded song.
+     await p2.evaluate(()=>pro.select(pro.getProject().layers[0].nodes.find(n=>n.type==='audioIn').id));await p2.waitForTimeout(300);
+     await p2.setInputFiles('#audioFile',path.join(__dirname,'../audio/default-track.m4a'));
+     await p2.waitForFunction(()=>Object.values(pro.stats().engines).some(e=>e.song),null,{timeout:15000});
      await p2.evaluate(()=>{const md=navigator.mediaDevices,fake=()=>{const c=new AudioContext(),o=c.createOscillator(),d=c.createMediaStreamDestination();o.connect(d);o.start();return d.stream;};
        md.enumerateDevices=async()=>[{kind:'audioinput',deviceId:'bh',label:'BlackHole 2ch'}];md.getUserMedia=async()=>fake();});
      await p2.evaluate(()=>pro.select(pro.getProject().layers[0].nodes.find(n=>n.type==='audioIn').id));await p2.click('#system');
