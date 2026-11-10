@@ -366,7 +366,9 @@ process the finished image.
   It is offered once on the first visit (`?notour` skips that), Esc or Skip
   leaves it. When it ends the test track stops, the starting scene returns
   (Undo brings the tutorial scene back, Undo again your previous scene) and the
-  Audio node is selected with Load file glowing, so you pick a real source.
+  Audio node is selected with Load file, Mic and System glowing, so you pick a
+  real source. The test track drives the visuals from its live spectrum, like the
+  original default track; your own files are read like the classic app.
   Its card always sits beside the highlighted control, never over it.
   The studio opens with a simple starting scene (Audio →
   Concentric waveform drawn as Pins → Palette in the Classic colours → Output),

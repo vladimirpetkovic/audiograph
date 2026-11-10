@@ -921,6 +921,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.deepEqual(await sp.$$eval('.splash-actions button',b=>b.map(x=>x.textContent)),['Start','Tutorial'],'Splash has Start and Tutorial side by side');
       await sp.evaluate(()=>__agSplash.open());await sp.click('#splashStart');assert.equal(await sp.evaluate(()=>document.getElementById('splash').hidden),true,'Start closes the splash');
       assert.equal(await sp.evaluate(()=>document.querySelector('.node.selected')?.dataset.type),'audioIn','Start selects the Audio node');
+      assert.deepEqual(await sp.evaluate(()=>[...document.querySelectorAll('label:has(#audioFile),#mic,#system')].map(b=>b.classList.contains('needs-sound'))),[true,true,true],'Load file, Mic and System glow until a source is chosen');
       await sp.evaluate(()=>__agSplash.open());await sp.keyboard.press('Escape');
       assert.equal(await sp.evaluate(()=>document.getElementById('splash').hidden),true,'Esc closes the splash');
       await sp.evaluate(()=>pro.loadTemplate('Doppler'));assert.equal(await sp.evaluate(()=>pro.getProject().layers.length),2,'Doppler preset loads its two layers');
@@ -1446,6 +1447,7 @@ def Camera "Camera" {
       await page.waitForFunction(()=>{const c=document.querySelector('#tourCard').getBoundingClientRect(),r=document.querySelector('#tourRing').getBoundingClientRect();
         return Math.min(c.right,r.right)<=Math.max(c.left,r.left)||Math.min(c.bottom,r.bottom)<=Math.max(c.top,r.top);},null,{timeout:3000}).catch(()=>assert.fail('Card covers the highlight at '+titles[i]+': '+card.overlap));
       if(titles[i]==='Load a file')await page.waitForFunction(()=>document.querySelector('#audioName').textContent!=='Select your audio source',null,{timeout:8000}).catch(()=>assert.fail('Tutorial plays a test track when no source is chosen'));
+      if(titles[i]==='Load a file')assert.ok(await page.evaluate(()=>Object.values(pro.stats().engines).every(e=>!e.song)),'The test track drives the visuals from its live spectrum, like the original default track');
       const src={'Load a file':'#audioFile','Microphone':'#mic','System audio':'#system'}[titles[i]];
       if(src)await page.waitForFunction(([q,id])=>{const t=document.querySelector(q),h=t.closest('label')||t,a=h.getBoundingClientRect(),r=document.querySelector('#tourRing').getBoundingClientRect();
         return a.width>0&&a.left>=r.left-1&&a.right<=r.right+1&&a.top>=r.top-1&&a.bottom<=r.bottom+1;},[src,ids.A],{timeout:3000}).catch(async()=>assert.fail('Audio source step rings '+src+' '+JSON.stringify(await page.evaluate(q=>{const f=e=>{if(!e)return null;const r=e.getBoundingClientRect();return [r.left,r.top,r.right,r.bottom].map(Math.round)};const t=document.querySelector(q);return {t:f(t),h:f(t?.closest('label')),ring:f(document.querySelector('#tourRing')),sel:f(document.querySelector('label:has(#audioFile)')),insp:document.querySelector('.inspector')?.textContent.slice(0,60)};},src))));
@@ -1460,6 +1462,7 @@ def Camera "Camera" {
     // Finishing returns to the starting scene with the Audio node selected; the test track never outlives the tutorial.
     assert.deepEqual(await page.evaluate(()=>pro.getProject().layers.map(g=>g.nodes.map(n=>n.type))),[['audioIn','waveform2d','palette','output']],'Finishing resets to the starting scene');
     assert.equal(await page.evaluate(()=>document.querySelector('.node.selected')?.dataset.type),'audioIn','Finishing selects the Audio node');
+    assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('label:has(#audioFile),#mic,#system')].map(b=>b.classList.contains('needs-sound'))),await page.textContent('#audioName').then(t=>Array(3).fill(t==='Select your audio source')),'All three sources glow after the tutorial when no source is chosen');
     assert.notEqual(await page.textContent('#audioName'),'Test track (tutorial)','The test track stops when the tutorial ends');
     await page.evaluate(()=>pro.undo());
     const tourScene=await page.evaluate(()=>pro.getProject());

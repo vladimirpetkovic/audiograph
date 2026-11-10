@@ -281,7 +281,7 @@ async function ensureRunning(){
 }
 // Until a sound is chosen the visuals are silent and the Audio node asks for one; ?demo (tests) uses a synthetic beat instead.
 const SHARED_AT_LOAD=/#scene=/.test(location.hash),DEMO_BEAT=new URLSearchParams(location.search).has('demo');
-const NO_SOUND='Select your audio source';
+const NO_SOUND='Select your audio source';const TEST_TRACK='Test track (tutorial)';
 const ownSound=()=>{audio.loop=false;};
 function stopAudio(keepOffset=false){
   if(audio.source){audio.source.onended=null;try{audio.source.stop();}catch{}audio.source.disconnect();if(keepOffset)audio.offset+=audio.context.currentTime-audio.startedAt;audio.source=null;}
@@ -293,7 +293,7 @@ const placeholderSound=name=>name==='Demo beat'||name===NO_SOUND;
 const needsSound=()=>!DEMO_BEAT&&!audio.live&&!audio.buffer;
 function updateAudioUI(){
   for(const k of ['mic','system'])$(k)?.classList.toggle('on',audio.live?.kind===k);syncPlay();
-  const name=sourceName();$('audioName').textContent=name==='Demo beat'?name+' · add audio':name;$('audioName').classList.toggle('needs-sound',needsSound());document.querySelector('label:has(#audioFile)')?.classList.toggle('needs-sound',needsSound());
+  const name=sourceName();$('audioName').textContent=name==='Demo beat'?name+' · add audio':name;$('audioName').classList.toggle('needs-sound',needsSound());for(const b of document.querySelectorAll('label:has(#audioFile),#mic,#system'))b.classList.toggle('needs-sound',needsSound());
   const cur=document.querySelector('.audio-source');if(cur)cur.textContent='Now: '+name+(audio.live||audio.source||placeholderSound(name)?'':' (stopped)');
   updateSummaries();
 }
@@ -398,7 +398,8 @@ function ampSignal(a,g){
 }
 // A loaded song travels with the signal so the original's engines can draw it the way the regular app does
 // (each line is a slice of the whole song, scaled by the current loudness) instead of a live spectrum.
-const songSignal=()=>exporting?exporting.song:audio.buffer&&!audio.live?{buffer:audio.buffer,time:playhead()}:null;
+// Loaded songs are read like the classic app (whole-song lines); the tutorial's test track drives the visuals from its live spectrum.
+const songSignal=()=>exporting?exporting.song:audio.buffer&&!audio.live&&audio.name!==TEST_TRACK?{buffer:audio.buffer,time:playhead()}:null;
 const projectSignal=()=>({freq:A.freq,wave:A.wave,bands:A.bands,beat:A.beat,pulse:A.beatPulse,song:songSignal()});
 // Pictures (image, video, camera) stay still until audio is wired in.
 const SILENT={freq:new Uint8Array(BINS),wave:new Float32Array(2048),bands:{bass:0,mids:0,high:0,full:0},beat:0,pulse:0};
@@ -1642,7 +1643,6 @@ function renderAudioSource(root){
   updateAudioUI();listInputs();
 }
 // The tutorial's test track: a short looping song so the viewport moves while the sources are explained.
-const TEST_TRACK='Test track (tutorial)';
 let testTrackBuf=null;
 // Fetched and decoded before the tutorial starts (and while the welcome screen shows), so step 2 plays at once.
 function prepareTestTrack(){
