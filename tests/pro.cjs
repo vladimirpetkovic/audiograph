@@ -1442,7 +1442,12 @@ def Camera "Camera" {
       const card=await page.evaluate(()=>{const c=document.querySelector('#tourCard').getBoundingClientRect(),r=document.querySelector('#tourRing').getBoundingClientRect();
         return {inside:c.left>=0&&c.top>=0&&c.right<=innerWidth&&c.bottom<=innerHeight,overlap:Math.max(0,Math.min(c.right,r.right)-Math.max(c.left,r.left))*Math.max(0,Math.min(c.bottom,r.bottom)-Math.max(c.top,r.top))/(c.width*c.height)};});
       assert.ok(card.inside,'Card on screen at step '+i);
-      if(!['Nodes and wires','Tune it in the Inspector','Add from the Library'].includes(titles[i]))assert.ok(card.overlap<.35,'Card mostly clear of the highlight at '+titles[i]+': '+card.overlap);
+      // The card never covers what it explains (polled: the card glides while a step's layout settles).
+      await page.waitForFunction(()=>{const c=document.querySelector('#tourCard').getBoundingClientRect(),r=document.querySelector('#tourRing').getBoundingClientRect();
+        return Math.min(c.right,r.right)<=Math.max(c.left,r.left)||Math.min(c.bottom,r.bottom)<=Math.max(c.top,r.top);},null,{timeout:3000}).catch(()=>assert.fail('Card covers the highlight at '+titles[i]+': '+card.overlap));
+      const src={'Load a file':'#audioFile','Microphone':'#mic','System audio':'#system','Input device':'#inputDevice'}[titles[i]];
+      if(src)await page.waitForFunction(([q,id])=>{const t=document.querySelector(q),h=t.closest('label')||t,a=h.getBoundingClientRect(),r=document.querySelector('#tourRing').getBoundingClientRect();
+        return a.width>0&&a.left>=r.left-1&&a.right<=r.right+1&&a.top>=r.top-1&&a.bottom<=r.bottom+1;},[src,ids.A],{timeout:3000}).catch(async()=>assert.fail('Audio source step rings '+src+' '+JSON.stringify(await page.evaluate(q=>{const f=e=>{if(!e)return null;const r=e.getBoundingClientRect();return [r.left,r.top,r.right,r.bottom].map(Math.round)};const t=document.querySelector(q);return {t:f(t),h:f(t?.closest('label')),ring:f(document.querySelector('#tourRing')),sel:f(document.querySelector('label:has(#audioFile)')),insp:document.querySelector('.inspector')?.textContent.slice(0,60)};},src))));
       if(titles[i]==='Tune it in the Inspector')assert.equal(await page.evaluate(id=>pro.getProject().layers[0].nodes.find(n=>n.id===id).props.mode,ids.W),'spiral');
       if(titles[i]==='Let something drive a knob')assert.ok(await page.evaluate(i=>pro.getProject().layers[0].edges.some(e=>e.from===i.L&&e.to===i.T&&e.input==='amount'),ids),'LFO drives Twist');
       if(titles[i]==='Stack Layers')assert.equal(await page.evaluate(()=>pro.getProject().layers.length),2,'Tutorial adds a layer');

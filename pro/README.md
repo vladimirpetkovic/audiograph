@@ -356,13 +356,15 @@ process the finished image.
   crossfade in a fresh random order each time. Add or replace clips there and in
   `SPLASH_CLIPS`. It is skipped with reduced motion.
 - **Tutorial** (top right) is the First Mile, like the original's interactive
-  tutorial: it builds a real scene step by step, starting from a straight
-  Linear waveform (Audio → Waveform → Particles →
+  tutorial: it first highlights each audio source (Load file, Mic, System and
+  the input device) and explains it, then builds a real scene step by step,
+  starting from a straight Linear waveform (Audio → Waveform → Particles →
   Twist → Palette → Bloom → Trails → Output, an LFO driving a knob, a second
   layer), then highlights Templates, Mapping, Autopilot, recording and saving.
   It is offered once on the first visit (`?notour` skips that), Esc or Skip
   leaves it, the tutorial scene stays editable, and one Undo restores your
-  previous scene. The studio opens with a simple starting scene (Audio →
+  previous scene. Its card always sits beside the highlighted control, never
+  over it. The studio opens with a simple starting scene (Audio →
   Concentric waveform drawn as Pins → Palette in the Classic colours → Output),
   which Reset also returns to.
 - **Random** (beside Templates) creates a new wired node graph with random

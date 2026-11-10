@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@400;600&display=swap');
 
-:root{--bg:#08080a;--surface:#0f0f12;--elevated:#17171c;--border:#252529;--border-h:#3a3a40;--tx:#dddde0;--tx2:#8a8a92;--tx3:#55555c;--accent:#ececf0;--accent2:#c4c4ca;--accent-d:#24242a;--hot:#f87171;--on:#d6d6da;--on-tx:#0b0b0d;
+:root{--bg:#08080a;--surface:#0f0f12;--elevated:#17171c;--border:#252529;--border-h:#3a3a40;--tx:#e6e6ea;--tx2:#a4a4ad;--tx3:#74747c;--accent:#ececf0;--accent2:#c4c4ca;--accent-d:#24242a;--hot:#f87171;--on:#d6d6da;--on-tx:#0b0b0d;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:'Inter','Helvetica Neue',Arial,sans-serif;
   --t-number:#6ee7b7;--t-shape:#f59e0b;--t-image:#8aa2ff;--t-audio:#a3e635;--t-visual:#f472b6;--t-any:#e5e7eb;--t-colors:#c084fc;--t-object3d:#fde047;color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -23,9 +23,9 @@ button{cursor:pointer}
 .sep{width:1px;height:16px;background:var(--border);flex:none;margin:0 2px}
 
 /* ── buttons ─────────────────────────────── */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 12px;background:var(--elevated);border:1px solid var(--border);border-radius:5px;color:var(--tx2);font:.62rem/1 var(--mono);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;cursor:pointer;transition:border-color .12s,color .12s,background .12s;flex:none}
-.btn:hover{border-color:var(--border-h);color:var(--tx)}
-.btn.teal{color:var(--accent2);background:var(--accent-d);border-color:var(--accent2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 12px;background:#24242b;border:1px solid #3a3a42;border-radius:5px;color:#cfcfd5;font:.62rem/1 var(--mono);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;cursor:pointer;transition:border-color .12s,color .12s,background .12s;flex:none}
+.btn:hover{background:#2c2c34;border-color:#55555e;color:#fff}
+.btn.teal{color:#f0f0f3;background:#30303a;border-color:#c4c4ca}
 .btn.teal:hover{color:#fff}
 .btn.on{background:var(--on);color:var(--on-tx);border-color:transparent}
 #record.on{background:var(--hot);color:#1a0606;border-color:transparent;animation:rec-pulse 1.4s ease-in-out infinite}
@@ -42,8 +42,8 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 
 /* ── chips ─────────────────────────────── */
 .chips{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
-.mbtn{position:relative;display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:4px 8px;font:.52rem/1 var(--mono);text-transform:uppercase;letter-spacing:.04em;background:#1b1b20;border:1px solid rgba(255,255,255,.055);border-radius:6px;color:var(--tx2);cursor:pointer;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,.025);transition:transform .12s,background .12s,border-color .12s,color .12s,box-shadow .12s}
-.mbtn:hover{color:#d5d5dc;background:#23232a;border-color:rgba(255,255,255,.11);transform:translateY(-1px)}
+.mbtn{position:relative;display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:4px 8px;font:.52rem/1 var(--mono);text-transform:uppercase;letter-spacing:.04em;background:#23232a;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#bdbdc5;cursor:pointer;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,.025);transition:transform .12s,background .12s,border-color .12s,color .12s,box-shadow .12s}
+.mbtn:hover{color:#ededf1;background:#2c2c34;border-color:rgba(255,255,255,.11);transform:translateY(-1px)}
 .mbtn.on{color:var(--on-tx);background:var(--on);border-color:transparent;box-shadow:0 4px 12px rgba(255,255,255,.06),inset 0 1px 0 rgba(255,255,255,.3)}
 .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cat,var(--accent2));flex:none}
 .mbtn .dot{opacity:.9}
@@ -225,14 +225,14 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:3px}
 .knob-grid>*{flex:0 0 calc((100% - 8px)/3);min-width:0}
 .knob{--knob-accent:#e9e9ec;position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;padding:2px 0}
 .knob-dial{position:relative;width:40px;height:40px;flex:none;cursor:grab;touch-action:none;border-radius:50%}
-.knob-auto{position:absolute;left:50%;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;padding:0;border:0;border-radius:50%;background:#3a3a42;box-shadow:inset 0 1px 2px rgba(0,0,0,.5);cursor:pointer;opacity:.75;transition:background .12s,box-shadow .12s}
-.knob-auto:hover{opacity:1;background:#55555f}
+.knob-auto{position:absolute;left:50%;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;padding:0;border:0;border-radius:50%;background:#5a5a64;box-shadow:inset 0 1px 2px rgba(0,0,0,.5);cursor:pointer;opacity:.85;transition:background .12s,box-shadow .12s}
+.knob-auto:hover{opacity:1;background:#74747e}
 .knob-auto.on{background:var(--knob-accent);box-shadow:0 0 6px var(--knob-accent);opacity:1}
 .knob-dial svg{display:block;width:100%;height:100%;overflow:visible}
 .knob-track,.knob-fill{fill:none;stroke-width:2.5;stroke-linecap:butt}
-.knob-track{stroke:#2a2a30;transition:stroke .12s}
+.knob-track{stroke:#34343b;transition:stroke .12s}
 .knob-fill{stroke:var(--knob-accent)}
-.knob-body{stroke:#303036;stroke-width:.6;filter:drop-shadow(0 1px 1.5px #000a)}
+.knob-body{stroke:#4a4a52;stroke-width:.6;filter:drop-shadow(0 1px 1.5px #000a)}
 .knob-tick{stroke:var(--knob-accent);stroke-width:2;stroke-linecap:round}
 .knob:hover .knob-track,.knob.drag .knob-track{stroke:#3a3a42}
 .knob:focus-within .knob-track{stroke:var(--border-h)}
@@ -437,7 +437,7 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 /* ── First Mile tutorial ─────────────────────────────── */
 #tourRing{position:fixed;z-index:900;pointer-events:none;border:2px solid var(--t-number);border-radius:8px;box-shadow:0 0 18px 2px color-mix(in srgb,var(--t-number) 50%,transparent);opacity:0;transition:opacity .25s,left .35s ease,top .35s ease,width .35s ease,height .35s ease}
 #tourCard{position:fixed;z-index:901;max-width:400px;padding:14px 16px;background:var(--surface);border:1px solid var(--t-number);border-radius:10px;box-shadow:0 8px 32px #000a;color:var(--tx);font-family:var(--sans);opacity:0;visibility:hidden;transform:translateY(6px);transition:opacity .25s,transform .25s,visibility 0s .25s}
-#tourCard.show,#tourRing.show,#tourBanner.show{opacity:1;visibility:visible;transform:none;transition-delay:0s}
+#tourCard.show,#tourRing.show,#tourBanner.show{opacity:1;visibility:visible;transform:none;transition-delay:0s}#tourBanner.show.clear{opacity:0}
 @media(max-width:900px){#tourCard{max-width:none}}
 #tourCard .tour-step{font:.58rem/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--t-number)}
 #tourCard .tour-title{font-size:1rem;font-weight:600;margin:6px 0}

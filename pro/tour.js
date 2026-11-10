@@ -16,7 +16,15 @@ const OUT={A:'audio',W:'shape',PT:'shape',T:'shape',P:'shape',B:'image',TR:'imag
 
 export const STEPS=[
   {t:'Choose your Audio source',sel:['#audioName','#spectrum'],keys:['A','W','O'],ban:'Pick your <b>Audio source</b>',
-    txt:'Everything starts with sound. Click the source name to load a song, or use the Mic or System audio. Nothing plays until you choose: the Audio node glows until it has a source.'},
+    txt:'Everything starts with sound. Nothing plays until you choose one: the Audio node glows until it has a source. Click the source name any time to open it. Next: the sources, one by one.'},
+  {t:'Load a file',sel:'label:has(#audioFile)',select:'A',ban:'Source: <b>Load file</b>',
+    txt:'Play a song or any audio file from your computer (MP3, WAV, M4A…). The visuals follow the whole song the way the original Audiograph does, and video export uses it as the soundtrack.'},
+  {t:'Microphone',sel:'#mic',select:'A',ban:'Source: <b>Mic</b>',
+    txt:'Listen through the microphone: a live instrument, a DJ booth or the room. The visuals react to whatever it hears. Nothing is recorded or sent anywhere. Click again to turn it off.'},
+  {t:'System audio',sel:'#system',select:'A',ban:'Source: <b>System</b> audio',
+    txt:'React to whatever your computer plays: Spotify, a DJ app, a browser tab. In Chrome or Edge pick a screen or tab to share and tick “Share audio”; only its sound is used.'},
+  {t:'Input device',sel:'#inputDevice',select:'A',ban:'Pick the <b>Input device</b>',
+    txt:'Choose which input the Mic uses; it is remembered. Pick a loopback device (BlackHole on Mac, VB-Cable on Windows) and System uses it in one click, without the share picker.'},
   {t:'Nodes and wires',sel:'#graphViewport',keys:['A','W','O'],ban:'Sound flows through <b>Nodes</b>',
     txt:'Each box is a node that does one thing. Sound flows along the wires from Audio into a Waveform that draws it, then into Output: what you see.'},
   {t:'Tune it in the Inspector',sel:'.inspector',keys:['A','W','O'],spiral:true,select:'W',ban:'Tune it in the <b>Inspector</b>',
@@ -94,18 +102,44 @@ export function createTour(api){
       const rs=ts.map(t=>t.getBoundingClientRect()),l=Math.min(...rs.map(r=>r.left))/z,t=Math.min(...rs.map(r=>r.top))/z,r=Math.max(...rs.map(r=>r.right))/z,b=Math.max(...rs.map(r=>r.bottom))/z;
       const top=Math.max(2,t-5),bot=Math.min(vh-2,b+5),rg=els.ring.style;
       rg.left=Math.max(2,l-5)+'px';rg.top=top+'px';rg.width=Math.max(10,Math.min(vw-4,r+5)-Math.max(2,l-5))+'px';rg.height=Math.max(10,bot-top)+'px';show(els.ring,true);
-      // Keep the card on the side of the screen away from the highlight.
-      const low=(top+bot)/2>vh*.5,right=(l+r)/2<vw*.5;
-      if(narrow){cs.left='8px';cs.right='8px';cs.width='auto';cs.top=low?'54px':'auto';cs.bottom=low?'auto':'34px';}
-      else{cs.width='340px';cs.left=right?'auto':'24px';cs.right=right?'24px':'auto';cs.top=low?'58px':'auto';cs.bottom=low?'auto':'38px';}
+      placeCard({l:Math.max(2,l-5),t:top,r:Math.min(vw-2,r+5),b:bot},vw,vh,narrow);
+      // The banner over the preview steps aside when the highlight is under it.
+      if(cur[idx]?.ban){const bb=els.ban.getBoundingClientRect(),hit=rs.some(q=>q.left<bb.right&&q.right>bb.left&&q.top<bb.bottom&&q.bottom>bb.top);els.ban.classList.toggle('clear',hit);}
     }else{show(els.ring,false);if(narrow){cs.left='8px';cs.right='8px';cs.width='auto';}else{cs.width='340px';cs.left='24px';cs.right='auto';}cs.top='auto';cs.bottom='38px';}
+  }
+  // The card never covers what it explains: try beside, below and above the highlight and the screen corners,
+  // keep the nearest spot that stays clear of it (or, for a highlight too big to avoid, the one covering least).
+  function placeCard(R,vw,vh,narrow){
+    const cs=els.card.style,m=8,gap=12,cw=narrow?vw-2*m:Math.min(340,vw-2*m);
+    cs.width=cw+'px';cs.right='auto';cs.bottom='auto';
+    const ch=els.card.getBoundingClientRect().height/api.zoom();
+    const cx=(R.l+R.r)/2,cy=(R.t+R.b)/2,clampX=x=>Math.max(m,Math.min(vw-m-cw,x)),clampY=y=>Math.max(m,Math.min(vh-m-ch,y));
+    const spots=narrow?[[m,R.b+gap],[m,R.t-gap-ch],[m,54],[m,vh-34-ch]]:
+      [[R.r+gap,clampY(cy-ch/2)],[R.l-gap-cw,clampY(cy-ch/2)],[clampX(cx-cw/2),R.b+gap],[clampX(cx-cw/2),R.t-gap-ch],
+       [R.r+gap,clampY(R.t)],[R.l-gap-cw,clampY(R.t)],[vw-24-cw,58],[24,58],[vw-24-cw,vh-38-ch],[24,vh-38-ch]];
+    let best=null;
+    for(const [x,y] of spots){
+      if(x<m-.5||y<m-.5||x+cw>vw-m+.5||y+ch>vh-m+.5)continue;
+      const over=Math.max(0,Math.min(x+cw,R.r)-Math.max(x,R.l))*Math.max(0,Math.min(y+ch,R.b)-Math.max(y,R.t));
+      const dist=Math.hypot(x+cw/2-cx,y+ch/2-cy),score=over*1e6+dist;
+      if(!best||score<best.score)best={x,y,score};
+    }
+    if(!best)best={x:m,y:clampY(vh-38-ch)};
+    // Still covering it (a tall panel on a narrow screen): use a slimmer card in the free column beside it.
+    if(best.score>=1e6){
+      const side=[[R.l-gap-m,m],[vw-m-R.r-gap,R.r+gap]].sort((a,b)=>b[0]-a[0])[0],w=Math.min(340,side[0]);
+      if(w>=220){cs.width=w+'px';const h=els.card.getBoundingClientRect().height/api.zoom();
+        if(h<=vh-2*m){cs.left=(side[1]===m?R.l-gap-w:side[1])+'px';cs.top=Math.max(m,Math.min(vh-m-h,cy-h/2))+'px';return;}
+        cs.width=cw+'px';}
+    }
+    cs.left=best.x+'px';cs.top=best.y+'px';
   }
   function loop(){place();timer=requestAnimationFrame(loop);}
   function go(i){
     build();idx=Math.max(0,Math.min(cur.length-1,i));const s=cur[idx];
     if(guideCfg){if(s.ws)api.workspace(s.ws);}
-    else{if(s.scene!=='keep'){api.setScene(scene(s));api.select(s.select?ids[s.select]:null);}api.workspace('studio');}
-    const ts=targets(s);ts[0]?.scrollIntoView?.({block:'nearest',inline:'nearest'});
+    else{if(s.scene!=='keep'){api.setScene(scene(s));api.select(s.select?ids[s.select]:null);}else if(s.select)api.select(ids[s.select]);api.workspace('studio');}
+    const ts=targets(s),tr=ts[0]?.getBoundingClientRect();if(tr&&(tr.top<12||tr.bottom>innerHeight-12||tr.left<0||tr.right>innerWidth))ts[0].scrollIntoView?.({block:tr.height<innerHeight*.6?'center':'nearest',inline:'nearest'});
     $('tourStep').textContent=guideCfg?`${guideCfg.title} · ${idx+1} of ${cur.length}`:`Step ${idx+1} of ${cur.length}`;$('tourTitle').textContent=s.t;$('tourTxt').textContent=s.txt;
     if(s.ban){els.ban.innerHTML=s.ban;show(els.ban,true);}else show(els.ban,false);
     $('tourDots').innerHTML=cur.map((_,n)=>`<i${n===idx?' class="on"':''}></i>`).join('');

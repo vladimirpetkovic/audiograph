@@ -25,7 +25,7 @@ export function knob(opts) {
   const root = el('div', 'knob' + (opts.modulated ? ' mod' : ''));
   const dial = el('div', 'knob-dial');
   dial.innerHTML = `<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><defs>
-<radialGradient id="kg${id}" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#2c2c31"/><stop offset="1" stop-color="#141417"/></radialGradient></defs>
+<radialGradient id="kg${id}" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#404047"/><stop offset="1" stop-color="#202025"/></radialGradient></defs>
 <path class="knob-track" d="${ARC}" pathLength="100"/><path class="knob-fill" d="${ARC}" pathLength="100"/>
 <circle class="knob-body" cx="20" cy="20" r="13.5" fill="url(#kg${id})"/><line class="knob-tick" x1="20" y1="8.6" x2="20" y2="13.2"/></svg>`;
   const svg = dial.firstChild, fill = svg.querySelector('.knob-fill'), tick = svg.querySelector('.knob-tick');
