@@ -17,8 +17,8 @@ const OUT={A:'audio',W:'shape',PT:'shape',T:'shape',P:'shape',B:'image',TR:'imag
 export const STEPS=[
   {t:'Choose your Audio source',sel:['#audioName','#spectrum'],keys:['A','W','O'],ban:'Pick your <b>Audio source</b>',
     txt:'Everything starts with sound. Nothing plays until you choose one: the Audio node glows until it has a source. Click the source name any time to open it. Next: the sources, one by one.'},
-  {t:'Load a file',sel:'label:has(#audioFile)',select:'A',ban:'Source: <b>Load file</b>',
-    txt:'Play a song or any audio file from your computer (MP3, WAV, M4A…). The visuals follow the whole song the way the original Audiograph does, and video export uses it as the soundtrack.'},
+  {t:'Load a file',sel:'label:has(#audioFile)',select:'A',test:true,ban:'Source: <b>Load file</b>',
+    txt:'A short test track is now playing so you can see the visuals move (it shows as “Test track” under the preview). Load your own song or any audio file (MP3, WAV, M4A…) here to replace it; video export uses it as the soundtrack.'},
   {t:'Microphone',sel:'#mic',select:'A',ban:'Source: <b>Mic</b>',
     txt:'Listen through the microphone: a live instrument, a DJ booth or the room. The visuals react to whatever it hears. Nothing is recorded or sent anywhere. Click again to turn it off.'},
   {t:'System audio',sel:'#system',select:'A',ban:'Source: <b>System</b> audio',
@@ -73,7 +73,7 @@ export function startScene(){
     edges:[{from:A.id,out:'audio',to:W.id,input:'audio'},{from:W.id,out:'shape',to:P.id,input:'shape'},{from:P.id,out:'shape',to:O.id,input:'image'}]}];
 }
 
-// api: setScene(layers,first), select(id), workspace(w), play(), stopAutomation(), zoom()
+// api: setScene(layers,first), select(id), workspace(w), play(), testTrack(), stopAutomation(), zoom()
 export function createTour(api){
   let idx=-1,live=false,timer=0,ids=null,els=null,inviting=false,cur=STEPS,guideCfg=null;
   const $=id=>document.getElementById(id);
@@ -143,6 +143,7 @@ export function createTour(api){
     $('tourDots').innerHTML=cur.map((_,n)=>`<i${n===idx?' class="on"':''}></i>`).join('');
     const last=idx===cur.length-1;$('tourSkip').textContent=guideCfg?'Close':'Skip';
     $('tourBack').style.visibility=idx?'visible':'hidden';$('tourNext').textContent=guideCfg?(last?(guideCfg.done?.label||'Done'):'Next'):(s.last?'Finish':'Next');
+    if(s.test&&!guideCfg)api.testTrack?.();
     show(els.card,true);document.body.classList.add('touring');
     if(!live){live=true;inviting=false;loop();}
   }

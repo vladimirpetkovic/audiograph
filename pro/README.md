@@ -357,7 +357,8 @@ process the finished image.
   `SPLASH_CLIPS`. It is skipped with reduced motion.
 - **Tutorial** (top right) is the First Mile, like the original's interactive
   tutorial: it first highlights each audio source (Load file, Mic and System) and
-  explains it, then builds a real scene step by step,
+  explains it (if no source is chosen yet, a short looping test track, shown as
+  “Test track (tutorial)”, plays so the preview moves), then builds a real scene step by step,
   starting from a straight Linear waveform (Audio → Waveform → Particles →
   Twist → Palette → Bloom → Trails → Output, an LFO driving a knob, a second
   layer), then highlights Templates, Mapping, Autopilot, recording and saving.

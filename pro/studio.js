@@ -1641,6 +1641,15 @@ function renderAudioSource(root){
   row.append(load,mic,sys);s.append(row,dev,el('p','insp-note audio-source'),el('p','insp-note','One-click system audio: install a loopback device (BlackHole on Mac, VB-Cable on Windows) and System uses it without the share picker. Every Audio node hears this one source. Wire “audio” into visual inputs, waveforms, emitters or an Audio EQ; bass, mids, high, level and beat are numbers for any knob.'));
   updateAudioUI();listInputs();
 }
+// The tutorial's test track: a short looping song so the viewport moves while the sources are explained.
+const TEST_TRACK='Test track (tutorial)';
+async function loadTestTrack(){
+  if(audio.buffer||audio.live)return;
+  try{unlockAudio();const r=await fetch('../audio/default-track.m4a');if(!r.ok)throw Error(r.status);
+    const buffer=await audioContext().decodeAudioData(await r.arrayBuffer());if(audio.buffer||audio.live)return;
+    stopAudio();audio.buffer=buffer;audio.name=TEST_TRACK;audio.loop=true;audio.offset=0;updateAudioUI();setPaused(false);await play();
+  }catch(e){console.warn('Test track:',e);}
+}
 async function loadAudioFile(file){
   try{
     if(file.size>200*1024*1024)throw Error('Audio limit is 200 MB');
@@ -3218,6 +3227,7 @@ const tour=createTour({
   select:id=>{selected=id;multi.clear();renderUI();},
   workspace:w=>{if(workspace!==w)setWorkspace(w);},
   play:()=>{if(paused)setPaused(false);},
+  testTrack:loadTestTrack,
   stopAutomation:()=>{apStop();tm.playing=false;if(workspace==='auto')renderAutoPanel();},
   zoom:uiZ
 });
