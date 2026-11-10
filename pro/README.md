@@ -356,8 +356,8 @@ process the finished image.
   crossfade in a fresh random order each time. Add or replace clips there and in
   `SPLASH_CLIPS`. It is skipped with reduced motion.
 - **Tutorial** (top right) is the First Mile, like the original's interactive
-  tutorial: it first highlights each audio source (Load file, Mic, System and
-  the input device) and explains it, then builds a real scene step by step,
+  tutorial: it first highlights each audio source (Load file, Mic and System) and
+  explains it, then builds a real scene step by step,
   starting from a straight Linear waveform (Audio → Waveform → Particles →
   Twist → Palette → Bloom → Trails → Output, an LFO driving a knob, a second
   layer), then highlights Templates, Mapping, Autopilot, recording and saving.

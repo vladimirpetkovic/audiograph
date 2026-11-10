@@ -1445,10 +1445,10 @@ def Camera "Camera" {
       // The card never covers what it explains (polled: the card glides while a step's layout settles).
       await page.waitForFunction(()=>{const c=document.querySelector('#tourCard').getBoundingClientRect(),r=document.querySelector('#tourRing').getBoundingClientRect();
         return Math.min(c.right,r.right)<=Math.max(c.left,r.left)||Math.min(c.bottom,r.bottom)<=Math.max(c.top,r.top);},null,{timeout:3000}).catch(()=>assert.fail('Card covers the highlight at '+titles[i]+': '+card.overlap));
-      const src={'Load a file':'#audioFile','Microphone':'#mic','System audio':'#system','Input device':'#inputDevice'}[titles[i]];
+      const src={'Load a file':'#audioFile','Microphone':'#mic','System audio':'#system'}[titles[i]];
       if(src)await page.waitForFunction(([q,id])=>{const t=document.querySelector(q),h=t.closest('label')||t,a=h.getBoundingClientRect(),r=document.querySelector('#tourRing').getBoundingClientRect();
         return a.width>0&&a.left>=r.left-1&&a.right<=r.right+1&&a.top>=r.top-1&&a.bottom<=r.bottom+1;},[src,ids.A],{timeout:3000}).catch(async()=>assert.fail('Audio source step rings '+src+' '+JSON.stringify(await page.evaluate(q=>{const f=e=>{if(!e)return null;const r=e.getBoundingClientRect();return [r.left,r.top,r.right,r.bottom].map(Math.round)};const t=document.querySelector(q);return {t:f(t),h:f(t?.closest('label')),ring:f(document.querySelector('#tourRing')),sel:f(document.querySelector('label:has(#audioFile)')),insp:document.querySelector('.inspector')?.textContent.slice(0,60)};},src))));
-      if(titles[i]==='Tune it in the Inspector')assert.equal(await page.evaluate(id=>pro.getProject().layers[0].nodes.find(n=>n.id===id).props.mode,ids.W),'spiral');
+      if(titles[i]==='Tune it in the Inspector')assert.deepEqual(await page.evaluate(id=>pro.getProject().layers[0].nodes.find(n=>n.id===id).props,ids.W).then(p=>[p.mode,p.lineShape,p.density,p.height,p.thick,p.varyHeight,p.varyThick]),['spiral','pins',350,100,4,true,false]);
       if(titles[i]==='Let something drive a knob')assert.ok(await page.evaluate(i=>pro.getProject().layers[0].edges.some(e=>e.from===i.L&&e.to===i.T&&e.input==='amount'),ids),'LFO drives Twist');
       if(titles[i]==='Stack Layers')assert.equal(await page.evaluate(()=>pro.getProject().layers.length),2,'Tutorial adds a layer');
       if(i===2)await page.screenshot({path:process.env.AUDIOGRAPH_TOUR_SHOT||'/tmp/ag-tour.png'});
@@ -1458,7 +1458,7 @@ def Camera "Camera" {
     const tourScene=await page.evaluate(()=>pro.getProject());
     assert.deepEqual(tourScene.layers[0].nodes.map(n=>n.type),['audioIn','waveform2d','particles','twist','palette','bloom','trails','output','oscillator'],'Finished tutorial scene stays');
     {const by=t=>tourScene.layers[0].nodes.find(n=>n.type===t).props;
-     assert.deepEqual([by('trails').trails,by('trails').feedback,by('trails').smooth,by('waveform2d').lineShape,by('waveform2d').thick,by('waveform2d').outline],[79,19,100,'pins',2,true],'Tutorial look: trails, pins, outline');
+     assert.deepEqual([by('trails').trails,by('trails').feedback,by('trails').smooth,by('waveform2d').lineShape,by('waveform2d').thick,by('waveform2d').outline],[79,19,100,'pins',4,true],'Tutorial look: trails, pins, outline');
      assert.deepEqual(tourScene.layers[1].nodes.map(n=>n.type+(n.props.mode?':'+n.props.mode:'')),['audioIn','gpuParticles:simfluid','palette:toneramp','output'],'Second tutorial layer is Fluid');
      await page.screenshot({path:'/tmp/ag-tour-end.png'});}
     assert.equal(await page.evaluate(id=>pro.engine(id).__tourMark,ids.W),1,'Tutorial steps reuse the same renderer');

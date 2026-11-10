@@ -23,8 +23,6 @@ export const STEPS=[
     txt:'Listen through the microphone: a live instrument, a DJ booth or the room. The visuals react to whatever it hears. Nothing is recorded or sent anywhere. Click again to turn it off.'},
   {t:'System audio',sel:'#system',select:'A',ban:'Source: <b>System</b> audio',
     txt:'React to whatever your computer plays: Spotify, a DJ app, a browser tab. In Chrome or Edge pick a screen or tab to share and tick “Share audio”; only its sound is used.'},
-  {t:'Input device',sel:'#inputDevice',select:'A',ban:'Pick the <b>Input device</b>',
-    txt:'Choose which input the Mic uses; it is remembered. Pick a loopback device (BlackHole on Mac, VB-Cable on Windows) and System uses it in one click, without the share picker.'},
   {t:'Nodes and wires',sel:'#graphViewport',keys:['A','W','O'],ban:'Sound flows through <b>Nodes</b>',
     txt:'Each box is a node that does one thing. Sound flows along the wires from Audio into a Waveform that draws it, then into Output: what you see.'},
   {t:'Tune it in the Inspector',sel:'.inspector',keys:['A','W','O'],spiral:true,select:'W',ban:'Tune it in the <b>Inspector</b>',
@@ -57,7 +55,7 @@ STEPS.forEach((s,i)=>{if(!s.keys){const prev=STEPS.slice(0,i).reverse().find(p=>
 // The scene each step shows; steps 1-2 start from a plain straight-line waveform.
 function sceneOf(s,ids){
   const make=(k,props={})=>{const [type,p]=SPEC[k],n=node(type,0,80,{...p,...props});n.id=ids[k];return n;};
-  const keys=CHAIN.filter(k=>s.keys.includes(k)),nodes=keys.map((k,i)=>{const n=make(k,k==='W'?(s.spiral?{mode:'spiral'}:{lineShape:'straight',outline:false}):{});n.x=40+i*210;return n;}),edges=[];
+  const keys=CHAIN.filter(k=>s.keys.includes(k)),nodes=keys.map((k,i)=>{const n=make(k,k==='W'?(s.spiral?{mode:'spiral',lineShape:'pins',styleSize:100,styleDensity:100,styleAngle:0,density:350,height:100,thick:4,varyHeight:true,varyThick:false}:{lineShape:'straight',outline:false}):{});n.x=40+i*210;return n;}),edges=[];
   for(let i=1;i<keys.length;i++)edges.push({from:ids[keys[i-1]],out:OUT[keys[i-1]],to:ids[keys[i]],input:IN[keys[i]]});
   if(s.lfo){const l=make('L'),t=nodes.find(n=>n.id===ids.T);l.x=t.x;l.y=300;nodes.push(l);edges.push({from:ids.L,out:'value',to:ids.T,input:'amount'});}
   const layers=[{id:ids.G1,name:'Tutorial',visible:true,opacity:1,blend:'source-over',nodes,edges}];
