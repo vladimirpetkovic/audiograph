@@ -111,6 +111,9 @@ body.resizing{user-select:none}body.resizing iframe,body.resizing canvas{pointer
 #audioName{flex:1;min-width:0;font-size:.6rem;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:none;border:0;padding:2px 4px;text-align:left;cursor:pointer;font-family:inherit;border-radius:3px}
 #audioName:hover{color:var(--tx);background:var(--bg3,rgba(255,255,255,.06))}
 #audioName.needs-sound{color:#71f4d3}
+body.tour-loading,body.tour-loading *{cursor:progress!important}
+.btn.needs-sound{--cat:#71f4d3;color:#fff;border-color:var(--cat);animation:needSoundBtn 1.6s ease-in-out infinite}
+@keyframes needSoundBtn{0%,100%{box-shadow:0 0 0 1px var(--cat),0 0 8px color-mix(in srgb,var(--cat) 25%,transparent)}50%{box-shadow:0 0 0 2px var(--cat),0 0 22px color-mix(in srgb,var(--cat) 60%,transparent)}}
 .audio-src{display:flex;gap:6px;flex-wrap:wrap}.audio-src .btn{flex:1}
 .audio-device{width:100%;margin-top:6px}
 #spectrum{width:144px;height:28px;flex:none;justify-self:center;border-radius:3px;background:var(--bg);image-rendering:auto}

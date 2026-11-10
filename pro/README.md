@@ -358,14 +358,17 @@ process the finished image.
 - **Tutorial** (top right) is the First Mile, like the original's interactive
   tutorial: it first highlights each audio source (Load file, Mic and System) and
   explains it (if no source is chosen yet, a short looping test track, shown as
-  “Test track (tutorial)”, plays so the preview moves), then builds a real scene step by step,
+  “Test track (tutorial)”, plays so the preview moves; the tutorial waits for it
+  to load before it starts), then builds a real scene step by step,
   starting from a straight Linear waveform (Audio → Waveform → Particles →
   Twist → Palette → Bloom → Trails → Output, an LFO driving a knob, a second
   layer), then highlights Templates, Mapping, Autopilot, recording and saving.
   It is offered once on the first visit (`?notour` skips that), Esc or Skip
-  leaves it, the tutorial scene stays editable, and one Undo restores your
-  previous scene. Its card always sits beside the highlighted control, never
-  over it. The studio opens with a simple starting scene (Audio →
+  leaves it. When it ends the test track stops, the starting scene returns
+  (Undo brings the tutorial scene back, Undo again your previous scene) and the
+  Audio node is selected with Load file glowing, so you pick a real source.
+  Its card always sits beside the highlighted control, never over it.
+  The studio opens with a simple starting scene (Audio →
   Concentric waveform drawn as Pins → Palette in the Classic colours → Output),
   which Reset also returns to.
 - **Random** (beside Templates) creates a new wired node graph with random

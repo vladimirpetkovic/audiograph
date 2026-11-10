@@ -293,7 +293,7 @@ const placeholderSound=name=>name==='Demo beat'||name===NO_SOUND;
 const needsSound=()=>!DEMO_BEAT&&!audio.live&&!audio.buffer;
 function updateAudioUI(){
   for(const k of ['mic','system'])$(k)?.classList.toggle('on',audio.live?.kind===k);syncPlay();
-  const name=sourceName();$('audioName').textContent=name==='Demo beat'?name+' · add audio':name;$('audioName').classList.toggle('needs-sound',needsSound());
+  const name=sourceName();$('audioName').textContent=name==='Demo beat'?name+' · add audio':name;$('audioName').classList.toggle('needs-sound',needsSound());document.querySelector('label:has(#audioFile)')?.classList.toggle('needs-sound',needsSound());
   const cur=document.querySelector('.audio-source');if(cur)cur.textContent='Now: '+name+(audio.live||audio.source||placeholderSound(name)?'':' (stopped)');
   updateSummaries();
 }
@@ -1643,12 +1643,24 @@ function renderAudioSource(root){
 }
 // The tutorial's test track: a short looping song so the viewport moves while the sources are explained.
 const TEST_TRACK='Test track (tutorial)';
+let testTrackBuf=null;
+// Fetched and decoded before the tutorial starts (and while the welcome screen shows), so step 2 plays at once.
+function prepareTestTrack(){
+  testTrackBuf??=fetch('../audio/default-track.m4a').then(r=>{if(!r.ok)throw Error(r.status);return r.arrayBuffer();})
+    .then(b=>audioContext().decodeAudioData(b)).catch(e=>{console.warn('Test track:',e);testTrackBuf=null;return null;});
+  return testTrackBuf;
+}
 async function loadTestTrack(){
   if(audio.buffer||audio.live)return;
-  try{unlockAudio();const r=await fetch('../audio/default-track.m4a');if(!r.ok)throw Error(r.status);
-    const buffer=await audioContext().decodeAudioData(await r.arrayBuffer());if(audio.buffer||audio.live)return;
-    stopAudio();audio.buffer=buffer;audio.name=TEST_TRACK;audio.loop=true;audio.offset=0;updateAudioUI();setPaused(false);await play();
-  }catch(e){console.warn('Test track:',e);}
+  unlockAudio();const buffer=await prepareTestTrack();if(!buffer||audio.buffer||audio.live)return;
+  stopAudio();audio.buffer=buffer;audio.name=TEST_TRACK;audio.loop=true;audio.offset=0;updateAudioUI();setPaused(false);await play().catch(()=>{});
+}
+// After the tutorial: the test track stops, the starting scene returns (one Undo brings the tutorial scene back)
+// and the Audio node is selected with Load file glowing, so the next thing is choosing a real source.
+function endTutorial(){
+  if(audio.name===TEST_TRACK&&!audio.live){stopAudio();audio.buffer=null;audio.name='';audio.loop=false;}
+  importProject({format:'audiograph-pro',version:VERSION,layers:startScene()},'Tutorial finished');
+  updateAudioUI();focusAudioNode();
 }
 async function loadAudioFile(file){
   try{
@@ -3227,7 +3239,7 @@ const tour=createTour({
   select:id=>{selected=id;multi.clear();renderUI();},
   workspace:w=>{if(workspace!==w)setWorkspace(w);},
   play:()=>{if(paused)setPaused(false);},
-  testTrack:loadTestTrack,
+  testTrack:loadTestTrack,prepare:prepareTestTrack,done:endTutorial,
   stopAutomation:()=>{apStop();tm.playing=false;if(workspace==='auto')renderAutoPanel();},
   zoom:uiZ
 });
@@ -3354,7 +3366,7 @@ function splashVideo(){
   }
   splashPlay(vs[P.front]);
 }
-function openSplash(){buildSplash();splashVideo();const s=$('splash');s.hidden=false;document.body.classList.add('splash-on');splashAlign();$('splash').querySelector('.splash-logo')?.addEventListener('load',splashAlign,{once:true});try{$('splashHide').checked=!!localStorage.getItem(SPLASH_KEY);}catch{}}
+function openSplash(){prepareTestTrack();buildSplash();splashVideo();const s=$('splash');s.hidden=false;document.body.classList.add('splash-on');splashAlign();$('splash').querySelector('.splash-logo')?.addEventListener('load',splashAlign,{once:true});try{$('splashHide').checked=!!localStorage.getItem(SPLASH_KEY);}catch{}}
 function closeSplash(){const s=$('splash');if(s.hidden)return;s.hidden=true;document.body.classList.remove('splash-on');for(const v of splashVids())v.pause();splashPlayer.fading=false;const f=splashAfter;splashAfter=null;f?.();}
 $('splashClose').onclick=closeSplash;
 // Start opens the studio with the Audio node selected, so the first thing to do is choose a sound.

@@ -1453,21 +1453,25 @@ def Camera "Camera" {
       if(titles[i]==='Let something drive a knob')assert.ok(await page.evaluate(i=>pro.getProject().layers[0].edges.some(e=>e.from===i.L&&e.to===i.T&&e.input==='amount'),ids),'LFO drives Twist');
       if(titles[i]==='Stack Layers')assert.equal(await page.evaluate(()=>pro.getProject().layers.length),2,'Tutorial adds a layer');
       if(i===2)await page.screenshot({path:process.env.AUDIOGRAPH_TOUR_SHOT||'/tmp/ag-tour.png'});
+      if(i===titles.length-1)assert.equal(await page.evaluate(id=>pro.engine(id).__tourMark,ids.W),1,'Tutorial steps reuse the same renderer');
       await page.click('#tourNext');
     }
     await page.waitForFunction(()=>!document.querySelector('#tourCard').classList.contains('show'));
+    // Finishing returns to the starting scene with the Audio node selected; the test track never outlives the tutorial.
+    assert.deepEqual(await page.evaluate(()=>pro.getProject().layers.map(g=>g.nodes.map(n=>n.type))),[['audioIn','waveform2d','palette','output']],'Finishing resets to the starting scene');
+    assert.equal(await page.evaluate(()=>document.querySelector('.node.selected')?.dataset.type),'audioIn','Finishing selects the Audio node');
+    assert.notEqual(await page.textContent('#audioName'),'Test track (tutorial)','The test track stops when the tutorial ends');
+    await page.evaluate(()=>pro.undo());
     const tourScene=await page.evaluate(()=>pro.getProject());
     assert.deepEqual(tourScene.layers[0].nodes.map(n=>n.type),['audioIn','waveform2d','particles','twist','palette','bloom','trails','output','oscillator'],'Finished tutorial scene stays');
     {const by=t=>tourScene.layers[0].nodes.find(n=>n.type===t).props;
      assert.deepEqual([by('trails').trails,by('trails').feedback,by('trails').smooth,by('waveform2d').lineShape,by('waveform2d').thick,by('waveform2d').outline],[79,19,100,'pins',4,true],'Tutorial look: trails, pins, outline');
      assert.deepEqual(tourScene.layers[1].nodes.map(n=>n.type+(n.props.mode?':'+n.props.mode:'')),['audioIn','gpuParticles:simfluid','palette:toneramp','output'],'Second tutorial layer is Fluid');
      await page.screenshot({path:'/tmp/ag-tour-end.png'});}
-    assert.equal(await page.evaluate(id=>pro.engine(id).__tourMark,ids.W),1,'Tutorial steps reuse the same renderer');
-    assert.equal(await page.evaluate(()=>pro.stats().paused),false,'Tutorial plays');
     assert.equal(await page.evaluate(()=>localStorage.getItem('agpro.tourSeen')),'1','Tutorial is remembered');
     await lit(.02,25000);
     await page.evaluate(()=>pro.undo());
-    assert.equal(JSON.stringify(await page.evaluate(()=>pro.getProject())),beforeTour,'One Undo restores the scene before the tutorial');
+    assert.equal(JSON.stringify(await page.evaluate(()=>pro.getProject())),beforeTour,'Undo past the finish restores the scene before the tutorial');
     await page.evaluate(()=>pro.tour.start());await page.locator('#tourCard.show').waitFor();
     await page.keyboard.press('ArrowRight');assert.equal(await page.textContent('#tourTitle'),titles[1],'Arrow keys step');
     await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('#tourCard').classList.contains('show'));

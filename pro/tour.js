@@ -73,7 +73,7 @@ export function startScene(){
     edges:[{from:A.id,out:'audio',to:W.id,input:'audio'},{from:W.id,out:'shape',to:P.id,input:'shape'},{from:P.id,out:'shape',to:O.id,input:'image'}]}];
 }
 
-// api: setScene(layers,first), select(id), workspace(w), play(), testTrack(), stopAutomation(), zoom()
+// api: setScene(layers,first), select(id), workspace(w), play(), testTrack(), prepare(), done(), stopAutomation(), zoom()
 export function createTour(api){
   let idx=-1,live=false,timer=0,ids=null,els=null,inviting=false,cur=STEPS,guideCfg=null;
   const $=id=>document.getElementById(id);
@@ -149,15 +149,22 @@ export function createTour(api){
   }
   function next(){if(idx>=cur.length-1){const d=guideCfg?.done;stop();d?.run?.();return;}if(idx===0&&!guideCfg)api.play();go(idx+1);}
   function seen(){try{localStorage.setItem(SEEN,'1');}catch{}}
+  // Waits (up to 10 s) for the test track, so step 2 never shows a still preview.
+  let starting=null;
   function start(){
-    build();seen();api.stopAutomation();setGuide(null);
-    ids=newIds();
-    api.setScene(scene(STEPS[0]),true);idx=-1;go(0);
+    if(starting)return starting;
+    build();seen();api.stopAutomation();setGuide(null);document.body.classList.add('tour-loading');
+    return starting=Promise.race([Promise.resolve(api.prepare?.()),new Promise(r=>setTimeout(r,10000))]).catch(()=>{}).then(()=>{
+      starting=null;document.body.classList.remove('tour-loading');
+      ids=newIds();api.setScene(scene(STEPS[0]),true);idx=-1;go(0);
+    });
   }
   function stop(){
+    const firstMile=live&&!guideCfg;
     live=false;inviting=false;cancelAnimationFrame(timer);if(!guideCfg)seen();setGuide(null);
     if(els){show(els.card,false);show(els.ring,false);show(els.ban,false);}document.body.classList.remove('touring');
     if(els){$('tourSkip').onclick=stop;$('tourNext').onclick=next;}
+    if(firstMile)api.done?.();
   }
   // Short themed guides (from the welcome screen): highlight real controls without changing the scene.
   function setGuide(g){
