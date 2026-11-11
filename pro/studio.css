@@ -378,7 +378,7 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .map-panel>.insp-section{display:flex;flex-direction:column;gap:14px}.map-panel>.insp-section>.insp-label{margin-bottom:-4px}
 .map-panel .prop-row{gap:12px}.map-panel .prop-row .chips{flex-wrap:wrap;justify-content:flex-end}
 /* A chip group that doesn't fit beside its label moves below it whole, rather than splitting across lines. */
-.map-panel .prop-row:has(>.chips){flex-wrap:wrap;row-gap:6px}.map-panel .prop-row>.chips{flex-wrap:nowrap;margin-left:auto}
+.map-panel .prop-row:has(>.chips){flex-wrap:wrap;row-gap:6px}.map-panel .prop-row>.chips{flex-wrap:wrap;justify-content:flex-end;max-width:100%;margin-left:auto}
 .ws-top{display:flex;flex-direction:column;gap:8px}
 .map-panel>.panel{margin:0}.map-panel .panel-title{font-weight:700;color:var(--cat,var(--tx2))}
 .map-panel .panel-body{display:flex;flex-direction:column;gap:16px;padding:6px 10px 12px}

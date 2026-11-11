@@ -357,18 +357,22 @@ process the finished image.
     faces. **Snake** crawls lit faces from neighbour to neighbour. **Outline** lights the silhouette as
     the projector sees it. **Curves** makes rounded, detailed parts glow. **Light** moves a light around
     the object's real shape. **Morph** warps the picture with a flowing noise field in object space
-    (Liquid, Swirl or Melt), continuous across faces. Highlights always use the picture's own colours.
+    (Liquid, Swirl or Melt), continuous across faces. **Echo** is a time delay across the object
+    (like TouchDesigner's Time Machine): higher, nearer, outer or random parts show the picture
+    from up to a second ago, so changes roll over the surface. Highlights always use the picture's own colours.
     Effects stack (turn on any number), and **Combos** switches on a ready-made mix (Neon, Scanner,
-    Assemble, Shatter, Living, Impact, Crawl, Fluid, All off). Every effect has an **Intensity** knob. Each effect's **Map** picks where it shows:
+    Assemble, Shatter, Living, Impact, Crawl, Fluid, Ripple, All off). Every effect has an **Intensity** knob. Each effect's **Map** picks where it shows:
     *All*, *Depth* (the parts nearest the projector), *Sound* (bass at the bottom, highs at the top),
-    *UV* (moving bands in the model's UV map), *Parts* (random separate meshes or regions of the model,
-    re-picked on each beat) or *Random* (random faces). Each effect's **Fade** eases it in and out
+    *UV* (moving bands in the model's UV map), *Parts* (random separate meshes or regions of the model),
+    *Random* (random faces) or *Noise* (drifting noise blobs). **Re-pick** sets when Parts and
+    Random choose new pieces: Auto (each beat and every 3 s) or every 1, 2, 4 or 8 beats. Each effect's **Fade** eases it in and out
     when switched (about 0.8 s), smooths its music response and crossfades Parts, Random and
     Flicker instead of cutting. Effects are saved with the surface.
   - **Post FX** (3D objects) finish the picture on the mesh: **Brightness** and **Contrast**,
     **Kaleidoscope** (Segments, Spin; folds each surface's picture into mirrored segments) and
     **Trails** / **Feedback** (the last frame fades, or zooms and turns around the object, for
-    tunnels and spirals). Everything is cut to the mesh outline, so it stays on the object. The
+    tunnels and spirals). Their **Space** is Screen (the view) or Surface (run on the picture
+    before it wraps the mesh, so trails flow along the surface). Everything is cut to the mesh outline, so it stays on the object. The
     panel's explanations are hidden; **?** shows them.
   - The **Test card** draws a numbered grid on every surface for alignment.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
