@@ -361,7 +361,9 @@ process the finished image.
     Assemble, Shatter, Living, Impact, Crawl, All off). Each effect's **Map** picks where it shows:
     *All*, *Depth* (the parts nearest the projector), *Sound* (bass at the bottom, highs at the top),
     *UV* (moving bands in the model's UV map), *Parts* (random separate meshes or regions of the model,
-    re-picked on each beat) or *Random* (random faces). Effects are saved with the surface. The
+    re-picked on each beat) or *Random* (random faces). Each effect's **Fade** eases it in and out
+    when switched (about 0.8 s), smooths its music response and crossfades Parts, Random and
+    Flicker instead of cutting. Effects are saved with the surface. The
     panel's explanations are hidden; **?** shows them.
   - The **Test card** draws a numbered grid on every surface for alignment.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
