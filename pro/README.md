@@ -285,7 +285,7 @@ process the finished image.
 - **Mapping** (the Studio | Mapping switch at the top) is projection mapping. The library
   becomes the mapping panel and the surfaces appear over the preview. Its colour-coded
   categories use the library colours: **Scene** (Mapping, Test card, Snap, the scene's
-  layers with show/hide and the surfaces), **Surface**, **Projection** and **Camera**.
+  layers with show/hide and the surfaces), **Surface**, **Animate** (3D objects), **Projection** and **Camera**.
   Only one section is open at a time, here and in the library: opening one folds the rest.
   - **+ Surface** opens a menu of flat layouts (Single screen, Cube, Span 2, Triptych,
     Corridor, Curved wall, Circle); the chosen layout is added next to the existing
@@ -343,6 +343,14 @@ process the finished image.
     Model geometry stays in memory, not JSON: reopen the named file when loading
     a project (**Relink model** appears on that surface); until then a primitive is a placeholder. Primitives and
     camera tracks require no external files. glTF mapping uses the rest pose.
+  - **Animate** (3D objects) moves the mesh itself with the music, using its faces, edges and normals:
+    **Displace** pushes the surface out along its normals (Ripple, Swell or Noise; follows Bass, Full
+    or Highs). **Edges** lights the creases of the mesh (Crease angle sets which edges count, so flat
+    diagonals stay hidden) with Trace (dashes run along each edge), Pulse (flashes with the level) or
+    Sweep (a band rises up the object), in the picture's colour or white, over a dimmable Fill.
+    **Build** grows the faces in (bottom up, centre out or random) on a loop or with the loudness, with
+    a glowing front. **Explode** sends the faces out along their normals on the beat, with the bass,
+    or held. Effects stack and are saved with the surface.
   - The **Test card** draws a numbered grid on every surface for alignment.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when

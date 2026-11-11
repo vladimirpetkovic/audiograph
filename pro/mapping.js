@@ -118,11 +118,11 @@ function testCard(x,w,h,s,index){
   [[.06,.08],[.94,.08],[.94,.92],[.06,.92]].forEach(([u,v],i)=>x.fillText(m[i],u*w,v*h));
 }
 // Draw every surface onto ctx (W×H, cleared to black). sources(source) returns the picture for 'all' or a layer number.
-export function render(ctx,mapping,sources,W,H,time=0){
+export function render(ctx,mapping,sources,W,H,time=0,sig=null){
   ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.restore();
   mapping.surfaces.forEach((s,index)=>{
     const img=sources(s.source);if(!img&&!mapping.test)return;
-    if(s.kind==='3d'){let tex=img;if(mapping.test){tex=scratch('3d-card',W,H);testCard(tex.getContext('2d'),W,H,s,index);}render3d(ctx,s,tex,W,H,time,mapping.test);return;}
+    if(s.kind==='3d'){let tex=img;if(mapping.test){tex=scratch('3d-card',W,H);testCard(tex.getContext('2d'),W,H,s,index);}render3d(ctx,s,tex,W,H,time,mapping.test,sig);return;}
     const [l,t,r,b]=s.crop,cw=Math.max(2,Math.round((r-l)*W)),ch=Math.max(2,Math.round((b-t)*H)),c=scratch(s.id,cw,ch),x=c.getContext('2d');
     x.globalCompositeOperation='source-over';x.clearRect(0,0,cw,ch);
     if(mapping.test)testCard(x,cw,ch,s,index);else x.drawImage(img,l*img.width,t*img.height,(r-l)*img.width,(b-t)*img.height,0,0,cw,ch);

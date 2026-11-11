@@ -1314,6 +1314,18 @@ def Camera "Camera" {
         return [sum(false),sum(true)];});
       assert.ok(d[1]<d[0]*.99,'Ambient occlusion darkens the inside corner: '+d);
       await page.evaluate(()=>pro.undo());}
+    // Animate: mesh-aware effects (crease edges, build, explode, displace) follow the music; the panel saves them on the surface.
+    {const r=await page.evaluate(()=>{const M=pro.mapping3d,W=480,H=270,img=document.createElement('canvas');img.width=W;img.height=H;const x=img.getContext('2d');x.fillStyle='#3060ff';x.fillRect(0,0,W,H);
+        const base={...M.surface3d('fx'),primitive:'Cube'},go=(fx,t=0,sig=null)=>{const c=document.createElement('canvas');c.width=W;c.height=H;const cx=c.getContext('2d');M.render3d(cx,{...base,fx:M.cleanFx(fx)},img,W,H,t,false,sig);const d=cx.getImageData(0,0,W,H).data;let lit=0,white=0;for(let i=0;i<d.length;i+=4){if(d[i+3]>10)lit++;if(d[i]>200&&d[i+1]>200&&d[i+2]>200)white++;}return {lit,white};};
+        return {off:go({}),edges:go({edges:{on:true,mode:'pulse',color:'white'}},0,{bands:{full:1},pulse:0}),build:go({build:{on:true}},.25),exp0:go({explode:{on:true}},0,{bands:{},pulse:0}),exp1:go({explode:{on:true}},0,{bands:{},pulse:1}),d0:go({disp:{on:true,pattern:'swell'}},0,{bands:{bass:0}}),d1:go({disp:{on:true,pattern:'swell'}},0,{bands:{bass:1}}),
+          flags:[...M.facetData(base,0)].filter((_,i)=>i%24===7)};});
+      assert.ok(r.edges.white>500&&r.off.white===0,'Edges draw lines on the creases');assert.deepEqual([...new Set(r.flags)].sort(),[3,5],'A cube shows its outer edges, not the triangle diagonals');
+      assert.ok(r.build.lit<r.off.lit*.6,'Build starts with only some faces');assert.equal(r.exp0.lit,r.off.lit,'Explode rests between beats');assert.notEqual(r.exp1.lit,r.off.lit,'A beat explodes the faces');
+      assert.ok(r.d1.lit>r.d0.lit*1.1,'Displace grows with the bass');
+      await (await reveal(page.locator('[data-property=surf3dFxEdges] [data-value=true]'))).click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.on,true,'Edges switch is saved on the surface');
+      assert.equal(await page.locator('[data-property=surf3dFxEdgeMode]').count(),1,'Edges show their settings when on');
+      await page.locator('[data-property=surf3dFxEdgeMode] [data-value=sweep]').click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.mode,'sweep');
+      await page.evaluate(()=>{pro.undo();pro.undo();});assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.on,false,'Animate changes undo');}
     // Animated glTF on a mapping surface: Play shows its clip over time, Rest pose holds the bind pose.
     {await page.evaluate(()=>{const p=pro.getProject();p.mapping.surfaces=[];pro.importProject(p);});await (await reveal(page.locator('[data-property=mapAdd3d]'))).click();
     const [fc]=await Promise.all([page.waitForEvent('filechooser'),page.locator('.map-menu [data-property=mapLoadModel]').click()]);await fc.setFiles(gltfFile());
