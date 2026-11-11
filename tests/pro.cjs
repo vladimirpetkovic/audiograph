@@ -48,6 +48,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     }));
     const proUrl=process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/audiograph/pro/`;
     await page.goto(proUrl+'?demo');
+    // Library and Mapping sections fold like an accordion: open the section that holds a control before clicking it.
+    const reveal=async loc=>{await loc.evaluate(b=>{const p=b.closest('.panel');if(p?.classList.contains('collapsed'))p.querySelector('.panel-head').click();});return loc;};
     await page.waitForFunction(()=>window.pro&&Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});
     await page.evaluate(()=>pro.dissolve(false));
     const project=()=>page.evaluate(()=>pro.getProject());
@@ -170,11 +172,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.evaluate(id=>{const p=pro.getProject(),n=p.layers[0].nodes.find(n=>n.id===id);n.type='waveform2d';n.props={mode:'circle'};pro.importProject(p);},ids.emitter);
     assert.equal(await page.locator(`.node[data-id="${ids.emitter}"] .node-title`).textContent(),'Circle');
     await page.locator(`.node[data-id="${ids.emitter}"] .node-head`).click();
-    await page.locator('.library-node[data-type="twist"]').click();
+    await (await reveal(page.locator('.library-node[data-type="twist"]'))).click();
     let g=await layer0();const twist=g.nodes.find(n=>n.type==='twist');
     assert.ok(g.edges.some(e=>e.from===ids.emitter&&e.to===twist.id),'Emitter → Twist');
     assert.ok(g.edges.some(e=>e.from===twist.id&&e.to===ids.bloom),'Twist → Bloom (spliced)');
-    await page.locator('.library-node[data-type="palette"]').click();
+    await (await reveal(page.locator('.library-node[data-type="palette"]'))).click();
     g=await layer0();const palette=g.nodes.find(n=>n.type==='palette');
     assert.ok(g.edges.some(e=>e.from===twist.id&&e.to===palette.id)&&g.edges.some(e=>e.from===palette.id&&e.to===ids.bloom),'Twist → Palette → Bloom');
     await page.locator('[data-property="palettePreset"] [data-value="Fire"]').click();
@@ -582,10 +584,21 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     // Projection mapping: layouts, warped output, point drag + undo, validation, saved with the project.
     {await page.locator('#modeMap').click();assert.ok(await page.locator('#mapPanel').isVisible(),'Map mode shows the mapping panel');assert.ok(!(await page.locator('#autoPanel').isVisible()),'Only one workspace panel');
       for(const sel of ['.graph-region','.inspector','#templates','#library'])assert.ok(!(await page.locator(sel).isVisible()),sel+' is Studio only');
-    await page.selectOption('[data-property=mapPreset]','Cube (3 faces)');await page.waitForTimeout(300);
-    let m=await page.evaluate(()=>pro.mapping());assert.deepEqual(m.surfaces.map(s=>s.name),['Top','Left','Right']);assert.ok(m.on);
+    assert.equal(await page.locator('#mapPanel [data-property=mapPreset]').count(),0,'No Layout dropdown: layouts live under + Surface');
+    const n0=(await page.evaluate(()=>pro.mapping())).surfaces.length;
+    await (await reveal(page.locator('[data-property=mapAdd]'))).click();assert.ok(await page.locator('.map-menu [data-property=mapLayout][data-value="Corridor (L · C · R)"]').isVisible(),'+ Surface lists surface layouts');
+    await page.locator('.map-menu [data-property=mapLayout][data-value="Cube (3 faces)"]').click();await page.waitForTimeout(300);
+    let m=await page.evaluate(()=>pro.mapping());assert.deepEqual(m.surfaces.slice(n0).map(s=>s.name),['Top','Left','Right'],'A layout adds its surfaces');assert.ok(m.on);
+    assert.equal(new Set(m.surfaces.map(s=>s.id)).size,m.surfaces.length,'Added layout surfaces get unique ids');
+    if(n0){await page.evaluate(()=>{const p=pro.getProject();p.mapping.surfaces=p.mapping.surfaces.slice(-3);pro.importProject(p);});m=await page.evaluate(()=>pro.mapping());}
+    assert.equal(await page.locator('#mapPanel > .panel:not(.collapsed)').count(),1,'One Mapping section is open at a time');
+    await page.locator('#mapPanel [data-map-cat=projection] .panel-head').click();
+    assert.deepEqual(await page.locator('#mapPanel > .panel:not(.collapsed)').evaluateAll(p=>p.map(x=>x.dataset.mapCat)),['projection'],'Opening a section folds the others');
+    await (await reveal(page.locator('[data-property=mapAdd3d]'))).click();
+    assert.deepEqual(await page.locator('.map-menu button').allTextContents().then(t=>t.map(x=>x.replace(/OBJ.*/,'').trim())),['Load model…','Cube','Sphere','Cylinder','Two walls'],'+ 3D object lists Load model first, then primitives');
+    await page.keyboard.press('Escape');await page.mouse.click(5,5);
     assert.equal(await page.locator('[data-property=surfGrid]').inputValue(),'cap','Cube preset selects folded cap mapping');
-    await page.locator('[data-property=mapTest] [data-value=true]').click();await page.evaluate(()=>pro.draw());
+    await (await reveal(page.locator('[data-property=mapTest] [data-value=true]'))).click();await page.evaluate(()=>pro.draw());
     const corner=await page.evaluate(()=>{const d=document.getElementById('preview').getContext('2d').getImageData(0,0,40,40).data;let s=0;for(let i=0;i<d.length;i+=4)s+=d[i]+d[i+1]+d[i+2];return s;});
     assert.equal(corner,0,'Outside the surfaces the mapped output is black');assert.ok(await page.evaluate(()=>pro.pixels())>3,'The test card is drawn on the surfaces');
     const pt=await page.locator('#mapOverlay circle').first().boundingBox();
@@ -599,14 +612,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.ok(await page.locator('[data-property=mapSnap] [data-value=true]').evaluate(b=>b.classList.contains('on')||b.getAttribute('aria-pressed')==='true'),'Snap is on by default');
       assert.deepEqual(await drag(false),tgt,'A dragged point snaps onto a nearby point of another surface');await page.evaluate(()=>pro.undo());
       assert.notDeepEqual(await drag(true),tgt,'Alt drags freely');await page.evaluate(()=>pro.undo());
-      await page.locator('[data-property=mapSnap] [data-value=false]').click();assert.notDeepEqual(await drag(false),tgt,'Snap off drags freely');await page.evaluate(()=>pro.undo());
-      await page.locator('[data-property=mapSnap] [data-value=true]').click();}
-    await page.selectOption('[data-property=surfGrid]','2x2');assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].pts.length,9,'Curved warp adds points');
-    await page.locator('[data-property=mapTest] [data-value=false]').click();
+      await (await reveal(page.locator('[data-property=mapSnap] [data-value=false]'))).click();assert.notDeepEqual(await drag(false),tgt,'Snap off drags freely');await page.evaluate(()=>pro.undo());
+      await (await reveal(page.locator('[data-property=mapSnap] [data-value=true]'))).click();}
+    await (await reveal(page.locator('[data-property=surfGrid]'))).selectOption('2x2');assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].pts.length,9,'Curved warp adds points');
+    await (await reveal(page.locator('[data-property=mapTest] [data-value=false]'))).click();
     const kept=await page.evaluate(()=>{pro.loadTemplate('Ink');return pro.getProject().mapping.surfaces.length;});assert.equal(kept,3,'Templates keep the venue mapping');
     for(const bad of [{on:true,surfaces:[{id:'a',cols:2,rows:1,pts:[[0,0]]}]},{on:true,surfaces:Array.from({length:9},(_,i)=>({id:'s'+i,cols:1,rows:1,pts:[[0,0],[1,0],[0,1],[1,1]]}))}])
       assert.ok(await page.evaluate(b=>{try{const P=pro.getProject();P.mapping=b;pro.validate(P);return false;}catch{return true;}},bad),'Invalid mapping is rejected');
-    await page.locator('[data-property=mapOn] [data-value=false]').click();
+    await (await reveal(page.locator('[data-property=mapOn] [data-value=false]'))).click();
     await page.locator('#modeStudio').click();assert.ok(!(await page.locator('#mapOverlay').isVisible()),'Studio mode hides the handles');}
 
     // Autopilot (the original's): it reads the prompt, runs its own four layers and crossfades looks at the music's sections.
@@ -831,7 +844,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
        await page.waitForFunction(()=>Object.values(pro.stats().engines).every(e=>e.status==='ready'),null,{timeout:30000});for(let i=0;i<12;i++){await page.waitForTimeout(150);await page.evaluate(()=>pro.draw());}return lit();};
      const base=await run({}),half=await run({scale:50}),thin=await run({scaleX:30,scaleZ:30});
      assert.ok(half<base*.5&&thin<base*.5,'Cloner Scale shrinks the clones, uniformly and per axis: '+[base,half,thin]);
-     await page.evaluate(p=>pro.importProject(p),L([],[]));await page.locator('.library-node[data-type="cloner"]').click();
+     await page.evaluate(p=>pro.importProject(p),L([],[]));await (await reveal(page.locator('.library-node[data-type="cloner"]'))).click();
      const g=(await project()).layers[0],cl=g.nodes.find(n=>n.type==='cloner'),o=g.nodes.find(n=>n.type==='waveform3d'),fx=g.nodes.find(n=>n.type==='soundEffector');
      assert.ok(o?.props.mode==='cube'&&g.edges.some(e=>e.from===o.id&&e.to===cl.id&&e.input==='object')&&fx&&g.edges.some(e=>e.from===cl.id&&e.to===fx.id),'A new Cloner comes with a Cube and a Sound effector');}
     // Melt drips text downward (and heals at 0); Tunnel adds copies; Shader compiles its examples, runs as a generator and survives bad code.
@@ -912,6 +925,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.ok(await sp.evaluate(()=>[...document.querySelectorAll('.splash-video')].every(v=>v.paused)),'Closing the splash pauses its video');
       assert.deepEqual(await sp.evaluate(()=>[document.getElementById('splash').hidden,document.body.classList.contains('ws-map')]),[true,true],'Splash Project opens Mapping');
       assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Project · 1 of 4','A splash section opens its guide');
+      await sp.evaluate(()=>document.querySelector('#mapPanel [data-map-cat=scene]').classList.add('collapsed'));await sp.click('#tourNext');
+      assert.ok(await sp.locator('[data-property=mapAdd]').isVisible(),'A guide opens the folded section that holds its target');
       await sp.click('#tourSkip');
       await sp.evaluate(()=>__agSplash.open());await sp.click('[data-splash=export]');for(let k=0;k<2;k++)await sp.click('#tourNext');
       assert.equal(await sp.locator('#tourNext').textContent(),'Export video');await sp.click('#tourNext');
@@ -1002,7 +1017,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      assert.ok(s1<s0*.5,'Depth of field blurs a Waveform-render sphere: sharpness '+s0.toFixed(2)+' → '+s1.toFixed(2));}
     // A 3D Model comes wired into a 3D camera that holds the view; the point cloud is framed like the other renders.
     {await page.evaluate(p=>pro.importProject(p),L([],[]));
-     await page.locator('.library-node[data-type="waveform3d"][data-mode="model"]').first().click();
+     await (await reveal(page.locator('.library-node[data-type="waveform3d"][data-mode="model"]').first())).click();
      const g=(await project()).layers[0],m=g.nodes.find(n=>n.type==='waveform3d'),c=g.nodes.find(n=>n.type==='camera3d');
      assert.ok(m&&c&&g.edges.some(e=>e.from===m.id&&e.out==='shape'&&e.to===c.id),'A new 3D Model comes wired into a 3D camera');
      await page.waitForTimeout(1200);
@@ -1088,7 +1103,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(await count(),c0*2-1,'Paste adds the copied nodes (one Output per layer)');
     await page.fill('[data-property=customName]','Test group');await page.click('[data-property=customSave]');
     await page.keyboard.press('Delete');await page.waitForTimeout(200);assert.equal(await count(),c0,'Delete removes the selection');
-    await page.click('#library .custom-node[data-custom="Test group"]');await page.waitForTimeout(200);assert.equal(await count(),c0*2-1,'Custom node adds its group');
+    await (await reveal(page.locator('#library .custom-node[data-custom="Test group"]'))).click();await page.waitForTimeout(200);assert.equal(await count(),c0*2-1,'Custom node adds its group');
     await page.evaluate(()=>pro.removeCustom('Test group'));
     // Media inputs: one Choose button; a loaded picture shows as a thumbnail with × to remove it.
     const img=await page.evaluate(()=>{const id=pro.addNode('image');pro.select(id);return id;});
@@ -1262,7 +1277,7 @@ def Camera "Camera" {
     const projectorRect=await page.locator('#preview').boundingBox(),projectorYaw=(await page.evaluate(()=>pro.mapping())).surfaces[0].camera.yaw;
     await page.mouse.move(projectorRect.x+projectorRect.width*.5,projectorRect.y+projectorRect.height*.5);await page.mouse.down();await page.mouse.move(projectorRect.x+projectorRect.width*.6,projectorRect.y+projectorRect.height*.55,{steps:3});await page.mouse.up();assert.notEqual((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.yaw,projectorYaw,'Preview drag orbits the projector');await page.evaluate(()=>pro.undo());assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].camera.yaw,projectorYaw,'Projector drag is undoable');
     // Lattice: pick 3³, drag a point in the view, undo.
-    await page.locator('[data-property=surf3dLattice] button',{hasText:'3³'}).click();assert.equal(await page.locator('.map-overlay .lpt').count(),27,'A 3³ lattice shows 27 points');
+    await (await reveal(page.locator('[data-property=surf3dLattice] button',{hasText:'3³'}))).click();assert.equal(await page.locator('.map-overlay .lpt').count(),27,'A 3³ lattice shows 27 points');
     {const b=await page.locator('.map-overlay .lpt[data-lattice="16"]').boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(b.x+b.width/2,b.y-60,{steps:3});await page.mouse.up();}
     {const m=(await page.evaluate(()=>pro.mapping())).surfaces[0];assert.ok(m.lattice.d.slice(48,51).some(v=>Math.abs(v)>.01)&&m.lattice.d.filter(v=>v).length<=3,'Dragging a lattice point moves only that point');assert.equal(m.camera.yaw,projectorYaw,'A lattice drag does not orbit');}
     await page.evaluate(()=>pro.undo());assert.ok((await page.evaluate(()=>pro.mapping())).surfaces[0].lattice.d.every(v=>!v),'Lattice drag is undoable');
@@ -1271,42 +1286,43 @@ def Camera "Camera" {
         return {c:f(G.c),move:G.move.map(f),scale:G.scale.map(f),rings:G.rings.map(q=>q.pts.map(f))};},t);
       const drag=async(a,b)=>{await page.mouse.move(a[0],a[1]);await page.mouse.down();await page.mouse.move(b[0],b[1],{steps:4});await page.mouse.up();};
       const out=(G,tip,px=40)=>{const dx=tip[0]-G.c[0],dy=tip[1]-G.c[1],l=Math.hypot(dx,dy);return [tip[0]+dx/l*px,tip[1]+dy/l*px];},m3=async()=>(await page.evaluate(()=>pro.mapping())).surfaces[0];
-      await page.locator('[data-property=surf3dGizmo] button',{hasText:'Move'}).click();assert.equal(await page.locator('.map-overlay .gizmo[data-gizmo=move]').count(),1,'Move gizmo shows in the view');
+      await (await reveal(page.locator('[data-property=surf3dGizmo] button',{hasText:'Move'}))).click();assert.equal(await page.locator('.map-overlay .gizmo[data-gizmo=move]').count(),1,'Move gizmo shows in the view');
       let G=await giz('object');const yaw0=(await m3()).camera.yaw;await drag(G.move[0],out(G,G.move[0]));
       let m=await m3();assert.ok(m.xf.x>.05&&!m.xf.y&&!m.xf.z,'Dragging the X arrow moves the object along X only: '+JSON.stringify(m.xf));assert.equal(m.camera.yaw,yaw0,'A gizmo drag does not orbit');
       await page.evaluate(()=>pro.undo());assert.equal((await m3()).xf.x,0,'Gizmo drag is undoable');
       await page.keyboard.press('r');assert.equal(await page.locator('.map-overlay .gizmo[data-gizmo=scale]').count(),1,'R switches to Scale');
       G=await giz('object');await drag(G.scale[2],out(G,G.scale[2],30));m=await m3();assert.ok(m.xf.sz>1.05&&m.xf.sx===1&&m.xf.sy===1,'Scale Z handle stretches only Z: '+JSON.stringify(m.xf));
       await page.evaluate(()=>pro.undo());
-      await page.locator('[data-property=surf3dprojection]').selectOption('box');
-      await page.locator('[data-property=surf3dBoxGizmo] button',{hasText:'Scale'}).click();assert.equal(await page.locator('[data-property=surf3dGizmo] .mbtn.on').textContent(),'Off','The gizmo edits one transform at a time');
+      await (await reveal(page.locator('[data-property=surf3dprojection]'))).selectOption('box');
+      await (await reveal(page.locator('[data-property=surf3dBoxGizmo] button',{hasText:'Scale'}))).click();assert.equal(await page.locator('[data-property=surf3dGizmo] .mbtn.on').textContent(),'Off','The gizmo edits one transform at a time');
       G=await giz('box');await drag(G.scale[1],out(G,G.scale[1],30));m=await m3();assert.ok(m.box.sy>1.05&&m.box.sx===1&&m.box.sz===1&&m.xf.sy===1,'Box Scale Y handle stretches the projection box: '+JSON.stringify(m.box));
       assert.ok(Math.abs(await page.locator('[data-property=surf3dBoxScaleY]').evaluate(e=>+e.value)-m.box.sy)<.01,'Box Scale Y knob follows the gizmo');
       await page.keyboard.press('e');G=await giz('box');const ring=G.rings[2],a=ring[6],b=ring[14];await drag(a,b);m=await m3();
       assert.ok(Math.abs(m.box.rz)>5&&!m.box.rx&&!m.box.ry,'Dragging the Z ring turns the box about Z only: '+JSON.stringify(m.box));
       await page.keyboard.press('q');assert.equal(await page.locator('.map-overlay .gizmo').count(),0,'Q hides the gizmo');
-      await page.locator('[data-property=surf3dBoxReset]').click();m=await m3();assert.deepEqual(m.box,{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1},'Reset box clears per-axis scale');
-      await page.locator('[data-property=surf3dprojection]').selectOption('uv');}
+      await (await reveal(page.locator('[data-property=surf3dBoxReset]'))).click();m=await m3();assert.deepEqual(m.box,{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1},'Reset box clears per-axis scale');
+      await (await reveal(page.locator('[data-property=surf3dprojection]'))).selectOption('uv');}
     // Projection knobs have Auto: the knob drifts on screen while the saved value stays; undo turns it off.
-    {await page.locator('.knob[data-map-auto=tile] .knob-auto').click();const m=(await page.evaluate(()=>pro.mapping())).surfaces[0];assert.deepEqual(m.auto,['tile'],'Tiling Auto is saved on the surface');
+    {await (await reveal(page.locator('.knob[data-map-auto=tile] .knob-auto'))).click();const m=(await page.evaluate(()=>pro.mapping())).surfaces[0];assert.deepEqual(m.auto,['tile'],'Tiling Auto is saved on the surface');
       const shown=async()=>page.locator('.knob[data-map-auto=tile] .knob-value').textContent(),a=await shown();await page.waitForTimeout(1500);const b=await shown();
       assert.notEqual(a,b,'Auto Tiling drifts');assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].tile,1,'Auto drift does not change the saved value');
       await page.evaluate(()=>pro.undo());assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].auto,undefined,'Auto is undoable');}
     // Ambient occlusion: the Shading toggle darkens the corner where the two walls meet.
-    {await page.locator('[data-property=surf3dAO] button',{hasText:'On'}).click();assert.equal(await page.locator('[data-property=surf3dAOStrength]').count(),1,'AO shows its Strength knob');
+    {await (await reveal(page.locator('[data-property=surf3dAO] button',{hasText:'On'}))).click();assert.equal(await page.locator('[data-property=surf3dAOStrength]').count(),1,'AO shows its Strength knob');
       const d=await page.evaluate(()=>{const M=pro.mapping3d,s0=pro.mapping().surfaces[0],W=640,H=360,img=document.createElement('canvas');img.width=W;img.height=H;const x=img.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);
         const sum=on=>{const c=document.createElement('canvas');c.width=W;c.height=H;const cx=c.getContext('2d');M.render3d(cx,{...s0,model:'',primitive:'Two walls',wire:false,opacity:1,scale:1,projection:'uv',trackOn:false,lattice:{res:0,d:[]},xf:{x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,sx:1,sy:1,sz:1},camera:{yaw:210,pitch:20,distance:6,roll:0,panX:0,panY:0,focal:35,target:[0,0,0]},ao:{on,strength:1,radius:.3}},img,W,H,0,false);const p=cx.getImageData(0,0,W,H).data;let a=0;for(let i=0;i<p.length;i+=4)a+=p[i];return a;};
         return [sum(false),sum(true)];});
       assert.ok(d[1]<d[0]*.99,'Ambient occlusion darkens the inside corner: '+d);
       await page.evaluate(()=>pro.undo());}
     // Animated glTF on a mapping surface: Play shows its clip over time, Rest pose holds the bind pose.
-    {const [fc]=await Promise.all([page.waitForEvent('filechooser'),page.locator('[data-property=mapLoadModel]').click()]);await fc.setFiles(gltfFile());
-    await page.waitForSelector('[data-property=surf3dAnim]');
+    {await page.evaluate(()=>{const p=pro.getProject();p.mapping.surfaces=[];pro.importProject(p);});await (await reveal(page.locator('[data-property=mapAdd3d]'))).click();
+    const [fc]=await Promise.all([page.waitForEvent('filechooser'),page.locator('.map-menu [data-property=mapLoadModel]').click()]);await fc.setFiles(gltfFile());
+    await page.waitForSelector('[data-property=surf3dAnim]',{state:'attached'});
     const an=await page.evaluate(()=>{const M=pro.mapping3d,s=pro.mapping().surfaces[0],sum=g=>{let a=0;for(let i=0;i<g.data.length;i+=8)a+=g.data[i];return a;};
       return {clips:M.modelClips(s).map(c=>c.name),anim:s.anim,a:sum(M.meshOf(s,0)),b:sum(M.meshOf(s,.5)),rest:sum(M.meshOf({...s,anim:{...s.anim,on:false}},.5))};});
     assert.deepEqual(an.clips,['Slide'],'Mapping lists the model clips');assert.equal(an.anim.on,true,'Animated models play by default');
     assert.notEqual(an.a,an.b,'An animated model moves over time on the mapping surface');assert.notEqual(an.b,an.rest,'Rest pose holds the bind pose');
-    await page.locator('[data-property=surf3dAnim] .mbtn',{hasText:'Rest pose'}).click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].anim.on,false,'Rest pose toggle stops the animation');}
+    await (await reveal(page.locator('[data-property=surf3dAnim] .mbtn',{hasText:'Rest pose'}))).click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].anim.on,false,'Rest pose toggle stops the animation');}
     // USD models: a binary crate matches pxr's transforms; a dense USDA grid reaches Mapping without thinning.
     {const r=await page.evaluate(async fx=>{const {parseUSDModel}=await import('./usd-model.js'),M=await import('./map3d.js');
       const m=await parseUSDModel(Uint8Array.from(atob(fx.usdc),c=>c.charCodeAt(0)).buffer,'fx.usdc'),pr=m.meshes.map(x=>x.prims[0]);

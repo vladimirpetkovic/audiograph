@@ -310,6 +310,7 @@ footer{display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px so
 .lib-sub.hidden,.panel.lib-empty{display:none}
 .insp-sublabel{margin:10px 0 5px;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3)}
 .opt-chips+.knob-grid{margin-top:10px}
+.map-menu button{display:flex;justify-content:space-between;gap:10px}.map-menu button:disabled{opacity:.35;cursor:default}.map-menu-hint{color:var(--tx3);text-transform:none;letter-spacing:0}
 .port-menu-title{padding:5px 8px 6px;font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3)}
 .live-value{font-variant-numeric:tabular-nums;color:var(--accent2)}
 .library-node{color:var(--cat)}

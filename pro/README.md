@@ -284,10 +284,14 @@ process the finished image.
   window for a projector or second display (double-click it for fullscreen).
 - **Mapping** (the Studio | Mapping switch at the top) is projection mapping. The library
   becomes the mapping panel and the surfaces appear over the preview. Its colour-coded
-  categories fold like the library: **Scene** (Mapping, Test card, Layout, Snap, the
-  scene's layers with show/hide and the surfaces), **Surface**, **Projection** and **Camera**.
-  - Start from a layout (Single screen, Cube, Span 2, Triptych, Corridor, Curved
-    wall, Circle) or add up to 8 surfaces.
+  categories use the library colours: **Scene** (Mapping, Test card, Snap, the scene's
+  layers with show/hide and the surfaces), **Surface**, **Projection** and **Camera**.
+  Only one section is open at a time, here and in the library: opening one folds the rest.
+  - **+ Surface** opens a menu of flat layouts (Single screen, Cube, Span 2, Triptych,
+    Corridor, Curved wall, Circle); the chosen layout is added next to the existing
+    surfaces, up to 8 in total.
+  - **+ 3D object** opens a menu of 3D layouts: **Load model…** (OBJ, FBX, USD, glTF)
+    first, then the Cube, Sphere, Cylinder and Two walls primitives.
   - Drag a point to move it, drag inside a surface to move the whole surface, and
     use the arrow keys to nudge (Shift ×10). Delete removes the selected surface.
     **Snap** (on by default) pulls a dragged point or surface onto the frame corners
@@ -337,7 +341,7 @@ process the finished image.
     must use the same scene coordinates (OBJ assumes metres; use Model units
     for unit conversion and Object up for native Z-up OBJ files).
     Model geometry stays in memory, not JSON: reopen the named file when loading
-    a project; until then the selected primitive is a placeholder. Primitives and
+    a project (**Relink model** appears on that surface); until then a primitive is a placeholder. Primitives and
     camera tracks require no external files. glTF mapping uses the rest pose.
   - The **Test card** draws a numbered grid on every surface for alignment.
   - The handles are only drawn in the studio, so Detach sends the clean mapped

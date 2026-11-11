@@ -1054,14 +1054,14 @@ function renderLibrary(){
     body.append(box);root.append(pr);
   }
   // Your saved node groups: click to add, × to forget.
-  const custom=customNodes();if(!custom.length)return;
+  const custom=customNodes();if(!custom.length){ui.accordion(root);return;}
   const {root:pr,body}=ui.panel({id:'custom',title:'Custom',color:CUSTOM_COLOR,count:custom.length}),box=el('div','chips');
   for(const c of custom){
     const b=el('button','mbtn library-node custom-node');b.type='button';b.dataset.custom=c.name;b.title=`${c.nodes.length} nodes · click to add`;b.style.setProperty('--cat',CUSTOM_COLOR);b.append(document.createTextNode(c.name));
     const x=el('span','custom-x','×');x.title='Remove from Custom';x.setAttribute('role','button');x.setAttribute('aria-label','Remove '+c.name);x.onclick=e=>{e.stopPropagation();removeCustom(c.name);};
     b.append(x);b.onclick=()=>insertCustom(c);box.append(b);
   }
-  body.append(box);root.append(pr);
+  body.append(box);root.append(pr);ui.accordion(root);
 }
 const CUSTOM_COLOR='#e5e7eb';
 // Waveforms and Emitters are listed per mode: each waveform / simulation is its own library entry.
@@ -1088,6 +1088,7 @@ $('librarySearch').addEventListener('input',()=>{
   const q=$('librarySearch').value.trim().toLowerCase();
   document.querySelectorAll('#library .library-node').forEach(b=>b.classList.toggle('hidden',!!q&&!(b.textContent+' '+b.title).toLowerCase().includes(q)));
   document.querySelectorAll('#library .panel').forEach(p=>{const any=[...p.querySelectorAll('.library-node')].some(b=>!b.classList.contains('hidden'));p.classList.toggle('lib-empty',!any);if(q&&any)p.classList.remove('collapsed');});
+  if(!q)ui.accordion($('library'));
   document.querySelectorAll('#library .lib-sub').forEach(s=>{const box=s.nextElementSibling;s.classList.toggle('hidden',![...box.children].some(b=>!b.classList.contains('hidden')));});
 });
 
@@ -2461,7 +2462,7 @@ $('helpBody').innerHTML=`
 <li>On AI Render, <b>New seed</b> (Every beat / Every 4 beats) re-rolls details in time with the music; <b>Dream</b> feeds the last AI picture back in, zoomed by <b>Dream zoom</b> and turned by <b>Dream spin</b>, for endless evolving “dream zoom” imagery.</li></ol>
 <p>The first frame takes a while as the model loads; after that it streams a few frames a second on a modern GPU or Apple Silicon.</p>
 <h3 id="h-mapping">Mapping</h3>
-<p>Projection mapping onto walls and objects. Turn Mapping on, start from a layout (cube, triptych, corridor, curved wall…) or add surfaces, then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project. Projection knobs (Crop, Tiling, Box fade, Box transform) have <b>Auto</b> too: click the dot in the middle and the knob drifts around its value.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / USD (usda, usdc, usdz) / GLB / self-contained glTF at full detail (up to 1,000,000 triangles). Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object (Scale X / Y / Z or Uniform); a <b>Gizmo</b> (W move · E rotate · R scale · Q off) does the same, or moves, turns and stretches the projection box, by dragging coloured handles in the view; <b>Lattice</b> bends it to match the real object; <b>Shading</b> adds ambient occlusion (Strength, Radius) that darkens creases and corners; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres and USD stage units / up axis are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
+<p>Projection mapping onto walls and objects. Turn Mapping on, then use <b>+ Surface</b> to add a layout (single screen, cube, triptych, corridor, curved wall…) or <b>+ 3D object</b> to load a model or add a primitive, then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project. Projection knobs (Crop, Tiling, Box fade, Box transform) have <b>Auto</b> too: click the dot in the middle and the knob drifts around its value.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / USD (usda, usdc, usdz) / GLB / self-contained glTF at full detail (up to 1,000,000 triangles). Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object (Scale X / Y / Z or Uniform); a <b>Gizmo</b> (W move · E rotate · R scale · Q off) does the same, or moves, turns and stretches the projection box, by dragging coloured handles in the view; <b>Lattice</b> bends it to match the real object; <b>Shading</b> adds ambient occlusion (Strength, Radius) that darkens creases and corners; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres and USD stage units / up axis are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
 <h3 id="h-auto">Autopilot</h3>
 <p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
@@ -2634,23 +2635,46 @@ function setMapMode(on){setWorkspace(on?'map':'studio');}
 $('modeStudio').onclick=()=>setWorkspace('studio');$('modeMap').onclick=()=>setWorkspace('map');$('modeAuto').onclick=()=>setWorkspace('auto');
 function newSurfaceId(m){let i=m.surfaces.length+1;while(m.surfaces.some(s=>s.id==='s'+i))i++;return 's'+i;}
 // Mapping panel: collapsible categories like the Studio library — Scene, Surface, Projection, Camera.
-const MAP_CATS={scene:['Scene','#71f4d3'],surface:['Surface','#7199f4'],projection:['Projection','#c471f4'],camera:['Camera','#f4717f']};
+const MAP_CATS={scene:['Scene','#71f4d3'],surface:['Surface','#71ecf4'],projection:['Projection','#71c3f4'],camera:['Camera','#7199f4']};
 function mapCat(root,id,title){const [label,color]=MAP_CATS[id],{root:pr,body}=ui.panel({id:'map.'+id,title:title||label,color});pr.dataset.mapCat=id;root.append(pr);return body;}
 // Auto on a mapping knob: the dot in its centre makes it drift (keys from map3d.MAP_AUTO).
 const MAP_AUTO_PCT=/^(crop\d|fade)$/;
 const tagAuto=(k,key)=>{k.dataset.mapAuto=key;return k;};
 function mapAutoOpts(s,key,upd){return {auto:!!s.auto?.includes(key),onAuto:on=>upd(t=>{const a=new Set(t.auto||[]);on?a.add(key):a.delete(key);if(a.size)t.auto=[...a];else delete t.auto;},`Auto ${on?'on':'off'}`)};}
 function sub(body,label){const x=el('div','map-sub');if(label)x.append(el('div','insp-sublabel',label));body.append(x);return x;}
-function renderMapPanel(){
-  const root=$('mapPanel');if(!root||!mapMode)return;root.replaceChildren();
+// + Surface / + 3D object open a short menu of layouts under the button.
+function mapMenu(anchor,title,items){
+  closeMenu();const menu=el('div','port-menu map-menu');menu.setAttribute('role','menu');menu.append(el('div','port-menu-title',title));
+  for(const it of items){const b=el('button','',it.label);b.type='button';b.dataset.property=it.property;b.dataset.value=it.label;b.disabled=!!it.disabled;
+    if(it.hint)b.append(el('span','map-menu-hint',it.hint));b.onclick=()=>{closeMenu();it.run();};menu.append(b);}
+  document.body.append(menu);
+  const z=uiZ(),a=anchor.getBoundingClientRect(),r=menu.getBoundingClientRect();
+  menu.style.left=Math.max(8,Math.min(a.left,innerWidth-r.width-8))/z+'px';
+  menu.style.top=(a.bottom+r.height+8<innerHeight?a.bottom+4:Math.max(8,a.top-r.height-4))/z+'px';
+  menu.querySelector('button:not(:disabled)')?.focus();
+}
+// A layout adds its surfaces next to the ones already there.
+function addMapLayout(k){
+  mapEdit(x=>{const add=mapping.PRESETS[k]().slice(0,mapping.MAX_SURFACES-x.surfaces.length);
+    for(const t of add){t.id=newSurfaceId(x);x.surfaces.push(t);}x.on=true;if(add.length)mapSel=add[0].id;mapPt=-1;},'Added layout: '+k);
+}
+function addMap3d(props){mapEdit(x=>{const id=newSurfaceId(x);x.surfaces.push(Object.assign(map3d.surface3d(id,props.name),props.primitive?{primitive:props.primitive}:{}));x.on=true;mapSel=id;mapPt=-1;},'Added 3D object: '+props.name);}
+function loadMapModel(){
+  const f=el('input');f.type='file';f.accept='.obj,.fbx,.usd,.usda,.usdc,.usdz,.glb,.gltf';
+  f.onchange=async()=>{const file=f.files[0];if(!file)return;try{const md=await map3d.loadModel(file);
+    mapEdit(x=>{const id=newSurfaceId(x),t=map3d.surface3d(id,file.name.replace(/\.[^.]+$/,'').slice(0,40)||'Model');
+      Object.assign(t,{model:md.model,modelKey:md.modelKey,scale:1,upAxis:'Y'});t.camera.target=md.target;t.camera.distance=md.distance;x.surfaces.push(t);x.on=true;mapSel=id;mapPt=-1;},'Loaded mapping model');
+  }catch(e){message(e.message,true);}};f.click();
+}
+// One Mapping section is open at a time.
+function renderMapPanel(){const root=$('mapPanel');if(!root||!mapMode)return;renderMapSections(root);ui.accordion(root);}
+function renderMapSections(root){
+  root.replaceChildren();
   const m=curMap(),s=selSurface();
   // Scene: mapping switches, the layers it draws from, and the surfaces.
   const scene=mapCat(root,'scene'),out=sub(scene,'Output');
   out.append(ui.field('Mapping',ui.toggle({value:m.on,labels:['On','Off'],property:'mapOn',onChange:v=>mapEdit(x=>{x.on=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Mapping on':'Mapping off')})));
   out.append(ui.field('Test card',ui.toggle({value:m.test,labels:['Show','Hide'],property:'mapTest',onChange:v=>mapEdit(x=>{x.test=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Test card on':'Test card off')})));
-  const pre=el('select');pre.dataset.property='mapPreset';pre.append(new Option('Start from a layout…',''));for(const k of Object.keys(mapping.PRESETS))pre.append(new Option(k,k));
-  pre.onchange=()=>{const k=pre.value;if(!k)return;mapEdit(x=>{x.surfaces=mapping.PRESETS[k]();x.on=true;mapSel=x.surfaces[0].id;mapPt=-1;},'Mapping layout: '+k);};
-  out.append(ui.field('Layout',pre));
   out.append(ui.field('Snap',ui.toggle({value:mapSnap,labels:['On','Off'],property:'mapSnap',onChange:v=>{mapSnap=v;localStorage.setItem('agpro.mapSnap',v?'1':'0');message(v?'Snap on: points stick to other surfaces (hold Alt to drag freely)':'Snap off');}})));
   const lay=sub(scene,`Layers (${state.layers.filter(g=>g.visible).length}/${state.layers.length} on)`),ll=el('div','surf-list');lay.append(ll);
   state.layers.forEach((g,i)=>{
@@ -2670,8 +2694,12 @@ function renderMapPanel(){
   ls.append(list);
   const acts=el('div','map-actions');ls.append(acts);
   const btn=(label,title,fn,dis=false)=>{const b=el('button','mbtn',label);b.type='button';b.title=title;b.disabled=dis;b.onclick=fn;acts.append(b);return b;};
-  btn('+ Surface','Add a surface',()=>mapEdit(x=>{const id=newSurfaceId(x),k=x.surfaces.length*.04;x.surfaces.push(mapping.surface(id,'Surface '+(x.surfaces.length+1),[[.2+k,.2+k],[.8+k,.2+k],[.8+k,.8+k],[.2+k,.8+k]]));x.on=true;mapSel=id;mapPt=-1;},'Added surface'),m.surfaces.length>=mapping.MAX_SURFACES).dataset.property='mapAdd';
-  btn('+ 3D object','Add a 3D projection surface',()=>mapEdit(x=>{const id=newSurfaceId(x);x.surfaces.push(map3d.surface3d(id));x.on=true;mapSel=id;mapPt=-1;},'Added 3D surface'),m.surfaces.length>=mapping.MAX_SURFACES).dataset.property='mapAdd3d';
+  const full=m.surfaces.length>=mapping.MAX_SURFACES;
+  const add=btn('+ Surface','Add flat surfaces from a layout',()=>mapMenu(add,'Add surfaces',Object.keys(mapping.PRESETS).map(k=>{const n=mapping.PRESETS[k]().length;
+    return {label:k,hint:n>1?n+' surfaces':'',property:'mapLayout',disabled:m.surfaces.length+n>mapping.MAX_SURFACES,run:()=>addMapLayout(k)};})),full);add.dataset.property='mapAdd';
+  const add3=btn('+ 3D object','Add a 3D object to project onto',()=>mapMenu(add3,'Add a 3D object',[
+    {label:'Load model…',hint:'OBJ · FBX · USD · glTF',property:'mapLoadModel',run:loadMapModel},
+    ...map3d.PRIMITIVES.map(p=>({label:p,property:'mapPrimitive',run:()=>addMap3d({primitive:p,name:p})}))]),full);add3.dataset.property='mapAdd3d';
   if(s)btn('Duplicate','Copy the selected surface',()=>mapEdit(x=>{const id=newSurfaceId(x),c=clone(s);c.id=id;c.name=s.name+' copy';if(c.kind!=='3d')c.pts=c.pts.map(([a,b])=>[a+.03,b+.03]);x.surfaces.push(c);mapSel=id;},'Duplicated surface'),m.surfaces.length>=mapping.MAX_SURFACES);
   if(!s)return;
   // Surface: what the selected surface is and what it shows.
@@ -2717,8 +2745,9 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   const file=(label,accept,property,load,parent)=>{const b=el('button','mbtn',label);b.dataset.property=property;b.onclick=()=>{const f=el('input');f.type='file';f.accept=accept;f.onchange=async()=>{if(!f.files[0])return;try{await load(f.files[0]);}catch(e){message(e.message,true);}};f.click();};parent.append(b);};
   const knob=(parent,label,key,min,max,step,def,unit,get,set,commit,auto)=>{const k=ui.knob({label,min,max,step,def,unit,value:get(),property:'surf3d'+key,...(auto?mapAutoOpts(s,auto,upd):{}),onInput:v=>liveSurf(t=>set(t,v)),onChange:()=>liveCommit(commit||label)});if(auto)tagAuto(k,auto);parent.append(k);};
   const obj=sub(ss,'Object');
-  select(obj,'Object','primitive',map3d.PRIMITIVES.map(v=>[v,v]));select(obj,'Object up','upAxis',[['Y','Y-up'],['Z','Z-up (OBJ)']]);
-  file(s.model?(map3d.hasModel(s)?s.model:'Load model… · '+s.model):'Load model…','.obj,.fbx,.usd,.usda,.usdc,.usdz,.glb,.gltf','mapLoadModel',async f=>{const m=await map3d.loadModel(f);upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');},obj);
+  // The object is chosen with + 3D object; a loaded model keeps its up axis, and a model missing after reload can be relinked.
+  if(s.model)select(obj,'Object up','upAxis',[['Y','Y-up'],['Z','Z-up (OBJ)']]);
+  if(s.model&&!map3d.hasModel(s))file('Relink model · '+s.model,'.obj,.fbx,.usd,.usda,.usdc,.usdz,.glb,.gltf','mapRelinkModel',async f=>{const m=await map3d.loadModel(f);upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');},obj);
   obj.append(ui.field('Wireframe',ui.toggle({value:s.wire,labels:['On','Off'],property:'surf3dWire',onChange:v=>upd(t=>{t.wire=v;},'Mapping wireframe')})));
   const ok=el('div','knob-grid');obj.append(ok);
   ok.append(ui.knob({label:'Opacity',min:0,max:100,step:1,def:100,value:s.opacity*100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
@@ -3300,7 +3329,7 @@ const SPLASH_GUIDES={
     {sel:'#autoPanel select',t:'Preset Morph',txt:'Or build a playlist of presets and press Play to glide between them over time, on the beat, or shuffled.'}]},
   project:{title:'Project',steps:[
     {sel:'#modeMap',ws:'map',t:'Projection mapping',txt:'Fit the output onto walls, objects and screens. The mapping is saved with your scene and kept when you change looks.'},
-    {sel:'#mapPanel [data-map-cat=scene]',t:'Pick a layout',txt:'Turn Mapping on, then start from a layout such as a single screen, a cube or a triptych. Test card shows a grid for alignment.'},
+    {sel:'#mapPanel [data-property=mapAdd]',t:'Add a layout',txt:'+ Surface adds a layout such as a single screen, a corridor or a triptych; + 3D object loads a model or adds a primitive. Test card shows a grid for alignment.'},
     {sel:'#previewWrap',t:'Drag the corners',txt:'Drag each surface’s corners onto what the projector hits. Handles are only drawn here, never on the projector.'},
     {sel:'#output',t:'Send it to the projector',txt:'Detach opens a clean output window: drag it to the projector or second screen and double-click it for fullscreen.'}]},
   export:{title:'Export',steps:[

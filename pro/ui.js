@@ -203,8 +203,23 @@ export function panel(opts) {
     const o = root.classList.contains('collapsed');
     apply(o);
     if (key) store.set(key, o ? '1' : '0');
+    // Only one section is open at a time: opening one folds its siblings.
+    if (o && root.parentElement) for (const p of root.parentElement.querySelectorAll(':scope > .panel')) if (p !== root) collapse(p);
   });
   return { root, body };
+}
+
+function collapse(p) {
+  if (p.classList.contains('collapsed')) return;
+  p.classList.add('collapsed');
+  p.querySelector(':scope > .panel-head')?.setAttribute('aria-expanded', false);
+  if (p.dataset.panel) store.set(`agpro.panel.${p.dataset.panel}`, '0');
+}
+
+// Keeps at most one open section among the panels of a container (the first open one wins).
+export function accordion(container) {
+  const open = [...container.querySelectorAll(':scope > .panel:not(.collapsed)')];
+  open.slice(1).forEach(collapse);
 }
 
 export function field(label, control) {

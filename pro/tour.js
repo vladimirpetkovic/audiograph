@@ -42,7 +42,7 @@ export const STEPS=[
   {t:'Start from a Template',sel:['#templates','#randomGraph'],ban:'Start from a <b>Template</b>',
     txt:'Templates load ready-made looks, including every original Audiograph preset. Random builds a surprise graph. Undo always brings your scene back.'},
   {t:'Projection Mapping',sel:'#modeMap',ban:'Projection <b>Mapping</b>',
-    txt:'Mapping fits the output onto walls, objects and screens: start from a layout such as a cube or triptych, then drag the corners onto what the projector hits.'},
+    txt:'Mapping fits the output onto walls, objects and screens: add a layout from + Surface (a cube, corridor or triptych) or a model from + 3D object, then drag the corners onto what the projector hits.'},
   {t:'Autopilot',sel:'#modeAuto',ban:'Let <b>Autopilot</b> play',
     txt:'Autopilot follows the music and makes new looks at each section. Describe a vibe to steer it, or use Preset Morph to glide between the original presets.'},
   {t:'Record and Perform',sel:['#record','#snap','.transport-side.end'],ban:'Record and <b>Perform</b>',
@@ -137,6 +137,8 @@ export function createTour(api){
     build();idx=Math.max(0,Math.min(cur.length-1,i));const s=cur[idx];
     if(guideCfg){if(s.ws)api.workspace(s.ws);}
     else{if(s.scene!=='keep'){api.setScene(scene(s));api.select(s.select?ids[s.select]:null);}else if(s.select)api.select(ids[s.select]);api.workspace('studio');}
+    // A target inside a folded section opens that section first.
+    for(const q of s.node?[]:[].concat(s.sel)){const e=document.querySelector(q),p=e?.closest('.panel.collapsed');if(p&&!e.closest('.panel-head'))p.querySelector(':scope > .panel-head')?.click();}
     const ts=targets(s),tr=ts[0]?.getBoundingClientRect();if(tr&&(tr.top<12||tr.bottom>innerHeight-12||tr.left<0||tr.right>innerWidth))ts[0].scrollIntoView?.({block:tr.height<innerHeight*.6?'center':'nearest',inline:'nearest'});
     $('tourStep').textContent=guideCfg?`${guideCfg.title} · ${idx+1} of ${cur.length}`:`Step ${idx+1} of ${cur.length}`;$('tourTitle').textContent=s.t;$('tourTxt').textContent=s.txt;
     if(s.ban){els.ban.innerHTML=s.ban;show(els.ban,true);}else show(els.ban,false);
