@@ -7,7 +7,7 @@ const SEEN='agpro.tourSeen';
 const CHAIN=['A','W','PT','T','P','B','TR','O'];
 const SPEC={
   A:['audioIn',{}],W:['waveform2d',{mode:'linear',lineShape:'pins',thick:2,outline:true}],PT:['particles',{density:30,energy:1.6,trail:35,size:5}],T:['twist',{amount:30}],
-  P:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],B:['bloom',{bloom:35}],TR:['trails',{trails:79,feedback:19,smooth:100}],O:['output',{}],
+  P:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],B:['bloom',{bloom:10}],TR:['trails',{trails:70,feedback:30,smooth:100}],O:['output',{}],
   L:['oscillator',{rate:.12,depth:.8,offset:.1}],
   A2:['audioIn',{}],C:['gpuParticles',{mode:'simfluid'}],P2:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],O2:['output',{}]
 };

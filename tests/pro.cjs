@@ -1468,7 +1468,7 @@ def Camera "Camera" {
     const tourScene=await page.evaluate(()=>pro.getProject());
     assert.deepEqual(tourScene.layers[0].nodes.map(n=>n.type),['audioIn','waveform2d','particles','twist','palette','bloom','trails','output','oscillator'],'Finished tutorial scene stays');
     {const by=t=>tourScene.layers[0].nodes.find(n=>n.type===t).props;
-     assert.deepEqual([by('trails').trails,by('trails').feedback,by('trails').smooth,by('waveform2d').lineShape,by('waveform2d').thick,by('waveform2d').outline],[79,19,100,'pins',4,true],'Tutorial look: trails, pins, outline');
+     assert.deepEqual([by('bloom').bloom,by('trails').trails,by('trails').feedback,by('trails').smooth,by('waveform2d').lineShape,by('waveform2d').thick,by('waveform2d').outline],[10,70,30,100,'pins',4,true],'Tutorial look: bloom, trails, pins, outline');
      assert.deepEqual(tourScene.layers[1].nodes.map(n=>n.type+(n.props.mode?':'+n.props.mode:'')),['audioIn','gpuParticles:simfluid','palette:toneramp','output'],'Second tutorial layer is Fluid');
      await page.screenshot({path:'/tmp/ag-tour-end.png'});}
     assert.equal(await page.evaluate(()=>localStorage.getItem('agpro.tourSeen')),'1','Tutorial is remembered');
