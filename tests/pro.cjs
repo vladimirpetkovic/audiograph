@@ -682,7 +682,14 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.ok((await page.evaluate(()=>pro.autopilot.status())).slots.some(s=>s.role===0&&s.layout===layout),'A new description replaces the base with '+layout);
     }
     await page.locator('[data-property=apLive] [data-value=false]').click();
-    await page.evaluate(()=>pro.autopilot.settings({match:85}));await page.locator('#modeStudio').click();}
+    await page.evaluate(()=>pro.autopilot.settings({match:85}));
+    // Switch on bass: the look changes on a bass hit, then waits for the gap.
+    {await page.locator('[data-property=apTrigger] [data-value=bass]').click();assert.ok(await page.locator('[data-property=apLevel]').count()&&await page.locator('[data-property=apGap]').count(),'Bass switching shows Level and Gap');
+     assert.equal((await page.evaluate(()=>pro.autopilot.settings())).trigger,'bass','Switch on is saved');await settle();
+     const n0=await page.evaluate(()=>{pro.autopilot.settings({level:20,gap:1,hold:false,live:true});return pro.autopilot.status().changes;});
+     await page.waitForFunction(n=>pro.autopilot.status().changes>n,n0,{timeout:20000}).catch(async e=>{console.log(JSON.stringify(await page.evaluate(()=>({st:pro.autopilot.status(),se:pro.autopilot.settings(),b:pro.stats().bands,ws:document.body.className}))));throw e;});assert.ok(true,'A bass hit switches the look');
+     await page.evaluate(()=>pro.autopilot.settings({trigger:'song',level:40,gap:4}));assert.equal(await page.locator('[data-property=apLevel]').count(),0,'Song switching hides Level');await settle();}
+    await page.locator('#modeStudio').click();}
 
     // Off and Hold must not brighten a deliberately dark Autopilot scene.
     await page.waitForFunction(()=>!pro.autopilot.status().fading&&pro.autopilot.status().tweens===0,null,{timeout:20000});
@@ -1318,15 +1325,19 @@ def Camera "Camera" {
     {const r=await page.evaluate(()=>{const M=pro.mapping3d,W=480,H=270,img=document.createElement('canvas');img.width=W;img.height=H;const x=img.getContext('2d');const gr=x.createLinearGradient(0,0,W,H);gr.addColorStop(0,'#102080');gr.addColorStop(1,'#60a0ff');x.fillStyle=gr;x.fillRect(0,0,W,H);
         const base={...M.surface3d('fx'),primitive:'Cube'},go=(fx,t=0,sig=null)=>{const c=document.createElement('canvas');c.width=W;c.height=H;const cx=c.getContext('2d');M.render3d(cx,{...base,fx:M.cleanFx(fx)},img,W,H,t,false,sig);const d=cx.getImageData(0,0,W,H).data;let lit=0,white=0,cov=0,h=0;for(let i=0;i<d.length;i+=4){if(d[i+3]>10)cov++;if(d[i+2]>40)lit++;if(d[i]>200&&d[i+1]>200)white++;h=(h*31+d[i+2])|0;}return {lit,white,cov,h};};
         return {off:go({}),edges:go({edges:{on:true,mode:'pulse',fill:0}},0,{bands:{full:1},pulse:0}),build:go({build:{on:true}},.25),exp0:go({explode:{on:true}},0,{bands:{},pulse:0}),exp1:go({explode:{on:true}},0,{bands:{},pulse:1}),d0:go({disp:{on:true,pattern:'swell'}},.4,{bands:{bass:0}}),d1:go({disp:{on:true,pattern:'swell'}},.4,{bands:{bass:1}}),
-          flags:[...M.facetData(base,0)].filter((_,i)=>i%9===7),
+          flags:[...M.facetData(base,0)].filter((_,i)=>i%10===7),
+          maps:Object.fromEntries(['all','depth','sound','uv','parts','random'].map(m=>[m,go({scan:{on:true,map:m}},1.3,{bands:{bass:1,mids:0,high:0,full:.5},pulse:0})])),
           more:Object.fromEntries(['flow','scan','shock','flicker','snake','outline','curves','light'].map(k=>[k,go({[k]:{on:true,...(k==='flow'?{dir:'side'}:{})}},1.3,{bands:{bass:.8,full:.8,high:.8},pulse:.7})]))};});
       for(const k of ['edges','build','exp1','d1'])assert.ok(r[k].cov<=r.off.cov,k+' stays on the mesh outline');assert.equal(r.edges.white+r.build.white,0,'Edges and Build use the picture colour, not white');
       assert.ok(r.edges.lit>500&&r.edges.lit<r.off.lit*.5,'Edges draw lines on the creases');assert.deepEqual([...new Set(r.flags)].sort(),[3,5],'A cube shows its outer edges, not the triangle diagonals');
       assert.ok(r.build.lit<r.off.lit*.6,'Build starts with only some faces');assert.equal(r.exp0.h,r.off.h,'Explode rests between beats');assert.ok(r.exp1.lit<r.off.lit,'A beat breaks the picture into faces');
       assert.notEqual(r.d1.h,r.d0.h,'Displace follows the bass');
+      assert.equal(new Set(Object.values(r.maps).map(v=>v.h)).size,6,'Each Map mode puts the effect on different parts');for(const [k,v] of Object.entries(r.maps))assert.ok(v.cov<=r.off.cov&&v.white===0,'Map '+k+' stays on the mesh');
       for(const [k,v] of Object.entries(r.more)){assert.ok(v.cov<=r.off.cov,k+' stays on the mesh outline');assert.notEqual(v.h,r.off.h,k+' changes the picture');assert.equal(v.white,0,k+' keeps the picture colours');}
       await (await reveal(page.locator('[data-property=surf3dFxEdges] [data-value=true]'))).click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.on,true,'Edges switch is saved on the surface');
       assert.equal(await page.locator('[data-property=surf3dFxEdgeMode]').count(),1,'Edges show their settings when on');
+      await page.locator('[data-property=surf3dFxEdgesMap] [data-value=parts]').click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.map,'parts','Map mode is saved on the effect');await page.evaluate(()=>pro.undo());
+      const notes=()=>page.evaluate(()=>[...document.querySelectorAll('#mapPanel .insp-note')].filter(e=>e.offsetParent).length);assert.equal(await notes(),0,'Mapping explanations hide behind ?');await page.locator('[data-property=mapTips]').click();assert.ok(await notes()>0,'? shows the explanations');await page.locator('[data-property=mapTips]').click();
       await page.locator('[data-property=surf3dFxEdgeMode] [data-value=sweep]').click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.mode,'sweep');
       await page.evaluate(()=>{pro.undo();pro.undo();});assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.on,false,'Animate changes undo');
       await page.locator('[data-property=surf3dFxCombo] [data-value=living]').click();{const f=(await page.evaluate(()=>pro.mapping())).surfaces[0].fx;assert.deepEqual([f.disp.on,f.light.on,f.flow.on,f.edges.on],[true,true,true,false],'A combo switches on its mix of effects');}

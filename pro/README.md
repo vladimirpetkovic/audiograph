@@ -358,7 +358,11 @@ process the finished image.
     the projector sees it. **Curves** makes rounded, detailed parts glow. **Light** moves a light around
     the object's real shape. Highlights always use the picture's own colours.
     Effects stack (turn on any number), and **Combos** switches on a ready-made mix (Neon, Scanner,
-    Assemble, Shatter, Living, Impact, Crawl, All off). Effects are saved with the surface.
+    Assemble, Shatter, Living, Impact, Crawl, All off). Each effect's **Map** picks where it shows:
+    *All*, *Depth* (the parts nearest the projector), *Sound* (bass at the bottom, highs at the top),
+    *UV* (moving bands in the model's UV map), *Parts* (random separate meshes or regions of the model,
+    re-picked on each beat) or *Random* (random faces). Effects are saved with the surface. The
+    panel's explanations are hidden; **?** shows them.
   - The **Test card** draws a numbered grid on every surface for alignment.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when
@@ -430,6 +434,10 @@ process the finished image.
     and otherwise every **Every** seconds (8–60, default 24). Changes take
     7–10 s, 2.5 s on a drop, and are at least 8 s apart. The status line shows
     the section, the level and the time to the next change.
+  - **Switch on**: *Song* (sections and Every, default) or *Bass*, *Beat*, *Highs* or
+    *Loudness*: it switches the look on each hit, a jump above the band's recent level
+    (steady loud bass doesn't count). **Level** (default 40) sets how big a hit must be
+    (not for Beat); **Gap** is the shortest time between switches (fades take about half).
   - **Changes**: *Colours* (your layers' palettes glide along a hue walk),
     *Mood* (also shape, spin and speed) or *Everything* (default). Everything
     runs its own stack of 1–3 layers (**Layers**: Auto/1/2/3): a main look

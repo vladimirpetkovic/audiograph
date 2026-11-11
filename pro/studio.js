@@ -2462,9 +2462,9 @@ $('helpBody').innerHTML=`
 <li>On AI Render, <b>New seed</b> (Every beat / Every 4 beats) re-rolls details in time with the music; <b>Dream</b> feeds the last AI picture back in, zoomed by <b>Dream zoom</b> and turned by <b>Dream spin</b>, for endless evolving “dream zoom” imagery.</li></ol>
 <p>The first frame takes a while as the model loads; after that it streams a few frames a second on a modern GPU or Apple Silicon.</p>
 <h3 id="h-mapping">Mapping</h3>
-<p>Projection mapping onto walls and objects. Turn Mapping on, then use <b>+ Surface</b> to add a layout (single screen, cube, triptych, corridor, curved wall…) or <b>+ 3D object</b> to load a model or add a primitive (its <b>Animate</b> section ripples, outlines, builds or shatters the picture on the mesh with the music, without moving it off the object), then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project. Projection knobs (Crop, Tiling, Box fade, Box transform) have <b>Auto</b> too: click the dot in the middle and the knob drifts around its value.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / USD (usda, usdc, usdz) / GLB / self-contained glTF at full detail (up to 1,000,000 triangles). Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object (Scale X / Y / Z or Uniform); a <b>Gizmo</b> (W move · E rotate · R scale · Q off) does the same, or moves, turns and stretches the projection box, by dragging coloured handles in the view; <b>Lattice</b> bends it to match the real object; <b>Shading</b> adds ambient occlusion (Strength, Radius) that darkens creases and corners; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres and USD stage units / up axis are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
+<p>Projection mapping onto walls and objects. Turn Mapping on, then use <b>+ Surface</b> to add a layout (single screen, cube, triptych, corridor, curved wall…) or <b>+ 3D object</b> to load a model or add a primitive (its <b>Animate</b> section ripples, outlines, builds or shatters the picture on the mesh with the music, without moving it off the object; each effect's <b>Map</b> picks where it shows: everywhere, by depth, by sound (bass low, highs high), in UV bands, on random parts of the model or random faces; the panel's <b>?</b> shows explanations), then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project. Projection knobs (Crop, Tiling, Box fade, Box transform) have <b>Auto</b> too: click the dot in the middle and the knob drifts around its value.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / USD (usda, usdc, usdz) / GLB / self-contained glTF at full detail (up to 1,000,000 triangles). Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object (Scale X / Y / Z or Uniform); a <b>Gizmo</b> (W move · E rotate · R scale · Q off) does the same, or moves, turns and stretches the projection box, by dragging coloured handles in the view; <b>Lattice</b> bends it to match the real object; <b>Shading</b> adds ambient occlusion (Strength, Radius) that darkens creases and corners; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres and USD stage units / up axis are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
 <h3 id="h-auto">Autopilot</h3>
-<p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
+<p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. <b>Switch on</b>: Song (sections, or every few seconds), or Bass, Beat, Highs or Loudness, switching on each hit (a jump above the recent level; bigger <b>Level</b> = only bigger hits), at most once per <b>Gap</b> seconds. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
 <ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Reset</b> starts over from the starting scene (Undo brings your scene back). Media files (songs, videos, models) are not stored: reload them in their nodes.</li>
 <li>Record (●) captures the preview live with its audio; <b>Export</b> (↓) renders the song frame by frame to an MP4 at up to 4K / 60 fps, with no dropped frames. The camera button saves a PNG. The layer <b>Resolution</b> sets the render size.</li>
@@ -2667,7 +2667,11 @@ function loadMapModel(){
   }catch(e){message(e.message,true);}};f.click();
 }
 // One Mapping section is open at a time.
-function renderMapPanel(){const root=$('mapPanel');if(!root||!mapMode)return;renderMapSections(root);ui.accordion(root);}
+function renderMapPanel(){const root=$('mapPanel');if(!root||!mapMode)return;renderMapSections(root);ui.accordion(root);mapTips(root);}
+// Mapping help text stays hidden behind a ? (shared with the inspector's tips setting).
+function mapTips(root){root.querySelectorAll('.insp-note').forEach(t=>t.classList.add('tip'));root.classList.toggle('tips-on',tipsOn);
+  const row=el('div','map-tips-row'),b=el('button','tips-btn','?');b.type='button';b.title='Show tips';b.setAttribute('aria-label','Show tips');b.setAttribute('aria-pressed',String(tipsOn));b.dataset.property='mapTips';
+  b.onclick=()=>{tipsOn=!tipsOn;try{localStorage.setItem('agpro.tips',tipsOn?'1':'0');}catch{}root.classList.toggle('tips-on',tipsOn);b.setAttribute('aria-pressed',String(tipsOn));};row.append(b);root.prepend(row);}
 function renderMapSections(root){
   root.replaceChildren();
   const m=curMap(),s=selSurface();
@@ -2736,7 +2740,7 @@ function renderMapSections(root){
 function gizmoChips(target,s){
   const on=gizOn(s)&&mapGiz.target===target?mapGiz.tool:'off',w=el('div');
   w.append(ui.field('Gizmo',ui.chips({options:[['off','Off'],['move','Move'],['rotate','Rotate'],['scale','Scale']],value:on,property:target==='box'?'surf3dBoxGizmo':'surf3dGizmo',
-    onChange:v=>setGizmo(v==='off'?null:v,target)})),el('p','insp-note','Drag the handles in the view. Keys: W move · E rotate · R scale · Q off.'));
+    onChange:v=>setGizmo(v==='off'?null:v,target)})),el('p','insp-note tip','Drag the handles in the view. Keys: W move · E rotate · R scale · Q off.'));
   return w;
 }
 function setGizmo(tool,target=mapGiz.target){mapGiz.tool=tool;mapGiz.target=target;renderMapPanel();renderOverlay();if(tool)message(`Gizmo: ${tool} ${target==='box'?'the projection box':'the object'}`);}
@@ -2744,12 +2748,14 @@ function setGizmo(tool,target=mapGiz.target){mapGiz.tool=tool;mapGiz.target=targ
 function renderMapAnimate(root,s,upd,knob){
   const F=s.fx,an=mapCat(root,'animate'),set=(fx,k,v,label)=>upd(t=>{t.fx={...t.fx,[fx]:{...t.fx[fx],[k]:v}};},label);
   const chips=(parent,label,fx,k,options,prop)=>parent.append(ui.field(label,ui.chips({options,value:F[fx][k],property:prop,onChange:v=>set(fx,k,v,`${label}: ${v}`)})));
-  const head=(fx,label,note,prop)=>{const w=sub(an);w.append(ui.field(label,ui.toggle({value:F[fx].on,labels:['On','Off'],property:prop,onChange:v=>set(fx,'on',v,`${label} ${v?'on':'off'}`)})));if(note&&!F[fx].on)w.append(el('p','insp-note',note));return F[fx].on?w:null;};
+  // Each effect: On/Off, its tip (shown with ?), and where it shows on the object (Map).
+  const head=(fx,label,note,prop)=>{const w=sub(an);w.append(ui.field(label,ui.toggle({value:F[fx].on,labels:['On','Off'],property:prop,onChange:v=>set(fx,'on',v,`${label} ${v?'on':'off'}`)})));if(note)w.append(el('p','insp-note tip',note));
+    if(F[fx].on)chips(w,'Map',fx,'map',[['all','All'],['depth','Depth'],['sound','Sound'],['uv','UV'],['parts','Parts'],['random','Random']],prop+'Map');return F[fx].on?w:null;};
   const fk=(parent,label,key,fx,k,min,max,step,def,unit,scale=1)=>knob(parent,label,key,min,max,step,def,unit,()=>F[fx][k]*scale,(t,v)=>{t.fx={...t.fx,[fx]:{...t.fx[fx],[k]:v/scale}};},label);
   // Effects stack; Combos switch on a ready-made mix to start from.
   const combos=[['neon','Neon',{edges:{on:true,mode:'trace',fill:.25},outline:{on:true}}],['scanner','Scanner',{scan:{on:true},edges:{on:true,mode:'pulse',fill:.6}}],['assemble','Assemble',{build:{on:true},edges:{on:true,mode:'pulse'}}],['shatter','Shatter',{explode:{on:true},flicker:{on:true}}],['living','Living',{disp:{on:true},light:{on:true},flow:{on:true}}],['impact','Impact',{shock:{on:true},curves:{on:true},light:{on:true,drive:'bass'}}],['crawl','Crawl',{snake:{on:true},edges:{on:true,mode:'pulse',fill:.4}}],['off','All off',{}]];
   {const w=sub(an);w.append(ui.field('Combos',ui.chips({options:combos.map(c=>[c[0],c[1]]),value:'',property:'surf3dFxCombo',onChange:v=>{const c=combos.find(x=>x[0]===v);upd(t=>{t.fx=map3d.cleanFx(c[2]);},`Animate: ${c[1]}`);}})));
-    const n=map3d.FX_KEYS.filter(k=>F[k].on).length;w.append(el('p','insp-note',n?`${n} effect${n>1?'s':''} on. Effects stack, and none of them move the mesh, so the projection stays on the object.`:'Turn on any number of effects below; they stack. None of them move the mesh, so the projection stays on the object.'));}
+    w.append(el('p','insp-note tip','Effects stack and never move the mesh, so the projection stays on the object. Map sets where each one shows: All, Depth (nearest the projector), Sound (bass at the bottom, highs at the top), UV (bands along the model\'s UV layout), Parts (random separate meshes and sharp-edged pieces, re-picked on each beat) or Random (random faces).'));}
   let w=head('disp','Displace','Ripples the picture across the surface like relief, without moving the mesh.','surf3dFxDisp');
   if(w){chips(w,'Pattern','disp','pattern',[['ripple','Ripple'],['swell','Swell'],['noise','Noise']],'surf3dFxDispPattern');chips(w,'Follows','disp','drive',[['bass','Bass'],['full','Full'],['high','Highs']],'surf3dFxDispDrive');
     const k=el('div','knob-grid');w.append(k);fk(k,'Amount','FxDispAmount','disp','amount',0,100,1,30,'%',100);fk(k,'Speed','FxDispSpeed','disp','speed',0,4,.01,1,'×');}
@@ -2811,7 +2817,7 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   // Lattice: bend the model to match the real object; drag its points in the view.
   const lt=sub(ss,'Lattice');
   lt.append(ui.field('Points',ui.chips({options:map3d.LATTICE_RES.map(n=>[String(n),n?`${n}³`:'Off']),value:String(s.lattice.res),property:'surf3dLattice',onChange:v=>upd(t=>{t.lattice=map3d.cleanLattice({res:+v});},+v?`Lattice ${v}×${v}×${v}`:'Lattice off')})));
-  if(s.lattice.res){lt.append(el('p','insp-note','Drag the yellow points in the view. Drag empty space to orbit the projector as usual.'));const la=el('div','map-actions');lt.append(la);
+  if(s.lattice.res){lt.append(el('p','insp-note tip','Drag the yellow points in the view. Drag empty space to orbit the projector as usual.'));const la=el('div','map-actions');lt.append(la);
     const lb=el('button','mbtn','Reset lattice');lb.type='button';lb.dataset.property='surf3dLatticeReset';lb.disabled=s.lattice.d.every(v=>!v);lb.onclick=()=>upd(t=>{t.lattice=map3d.cleanLattice({res:t.lattice.res});},'Reset lattice');la.append(lb);}
   // Shading: ambient occlusion darkens creases and corners where the object shades itself.
   const sh=sub(ss,'Shading');
@@ -2937,7 +2943,7 @@ function mapKey(e){
 // stack of 1–3 layers in four fixed layers: a new look warms up out of sight and then fades in while the old one fades
 // out, so a change never rebuilds the graph or starts new engines. Full rebuilds (drops) dissolve from the last frame.
 const AP_KEY='agpro.autopilot';
-const ap={prompt:'',changes:'everything',layers:'auto',every:24,match:85,live:false,hold:false,write:false,last:''};
+const ap={prompt:'',changes:'everything',layers:'auto',every:24,match:85,trigger:'song',level:40,gap:4,live:false,hold:false,write:false,last:''};
 const tm=new TemplateMorph();
 try{tm.configure(JSON.parse(localStorage.getItem('agpro.templateMorph')||'{}'));}catch(error){message('Preset Morph settings: '+error.message,true);}
 let tmNode=null,tmStatusT=0;
@@ -2978,13 +2984,16 @@ function tmStep(dt){
   const p=tm.step(dt,A.beat);Object.assign(n.props,{from:p.from,to:p.to,mix:p.mix*100});
   if((tmStatusT+=dt)>.15){tmStatusT=0;tmStatus();}
 }
+// Switch on: the song's sections (and Every), or hits in the bass, the beat, the highs or the loudness.
+const AP_TRIGGERS=['song','bass','beat','high','full'];
 try{const s=JSON.parse(localStorage.getItem(AP_KEY)||'{}');if(s.v!==2){delete s.changes;delete s.match;delete s.every;delete s.fade;}Object.assign(ap,s,{live:false,hold:false});}catch{}
 if(!['colors','mood','everything'].includes(ap.changes))ap.changes='everything';
 if(!['auto','1','2','3'].includes(String(ap.layers)))ap.layers='auto';
 ap.every=Math.max(8,Math.min(60,+ap.every||24));
+if(!AP_TRIGGERS.includes(ap.trigger))ap.trigger='song';ap.level=Math.max(0,Math.min(100,Number.isFinite(+ap.level)?+ap.level:40));ap.gap=Math.max(1,Math.min(30,+ap.gap||4));
 const pilot=new Pilot(),gen=new Generator(),apTweens=new Map(),apSlots=[0,1,2,3].map(()=>({role:-1,layer:null,f0:0}));
 let apTrans=null,apPending=null,apWant=null,apVibeFor=null,apTyping=0;
-function apSave(){try{localStorage.setItem(AP_KEY,JSON.stringify({v:2,prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,write:ap.write}));}catch{}}
+function apSave(){try{localStorage.setItem(AP_KEY,JSON.stringify({v:2,prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,trigger:ap.trigger,level:ap.level,gap:ap.gap,write:ap.write}));}catch{}}
 const AP_SECTION={waiting:'Waiting for music…',calm:'Breakdown',groove:'Groove',build:'Build-up',drop:'Drop',phrase:'New phrase'};
 const AP_PARTS=['a','r','p','y','s','o'],apIds=k=>({g:'ap-L'+k,a:'ap-a'+k,r:'ap-r'+k,p:'ap-p'+k,y:'ap-y'+k,s:'ap-s'+k,o:'ap-o'+k});
 const apLayer=k=>state.layers.find(g=>g.id==='ap-L'+k);
@@ -3119,6 +3128,7 @@ function apRoll(T){
   const {fades,warm,later}=apSwap(w,T.later,cur,free,dur);apOrder(fades);
   apTrans={t:0,dur,fades,warm,wt:0,kind:T.kind,later};renderUI();
 }
+let apCount=0;
 function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,rebuild=false){
   if(liveBefore)return;
   if(changes==='everything'&&!apEnsure())return;
@@ -3127,7 +3137,7 @@ function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,
   // Mid-fade: a drop hurries the fade along and follows straight after; other changes wait their turn.
   if(apTrans&&!force&&!apWant){apPending=kind;if(kind==='drop'){apTrans.fast=true;apTrans.later=null;}return;}
   apWant=null;apPending=null;
-  pilot.since=0;gen.section=pilot.section==='waiting'?'groove':pilot.section;gen.match=ap.match;gen.layers=String(ap.layers);
+  pilot.since=0;apCount++;gen.section=pilot.section==='waiting'?'groove':pilot.section;gen.match=ap.match;gen.layers=String(ap.layers);
   if(ap.write){let t='';for(let i=0;i<6;i++){t=autopilot.write({energy:gen.energy(kind),seed:(Math.random()*1e9)|0,prev:ap.prompt,keep:ap.match/200});if(t!==ap.prompt)break;}
     ap.prompt=t;apSave();apShowPrompt();}
   if(apVibeFor!==ap.prompt){gen.setVibe(w,ap.prompt);apVibeFor=ap.prompt;}
@@ -3191,6 +3201,11 @@ function apCreate(prompt=ap.prompt){
   if(workspace==='auto')renderAutoPanel();
   return true;
 }
+// A hit: the chosen band (or the beat) crosses Level from below, at most once per Gap; re-arms once it falls back.
+// A hit is the band jumping above its own recent average (so steady, loud bass doesn't count); Level sets how big a jump.
+let apArmed=true,apFast=0,apSlow=0;
+function apHit(dt){let v,thr;if(ap.trigger==='beat'){v=A.beatPulse;thr=.8;}else{const b=+(A.bands?.[ap.trigger]||0);apFast+=(b-apFast)*Math.min(1,dt*20);apSlow+=(b-apSlow)*Math.min(1,dt*.6);v=apFast-apSlow;thr=.005+(ap.level/100)**2*.2;}
+  if(v<thr*.4)apArmed=true;if(!apArmed||v<thr||pilot.since<ap.gap||apTrans)return;apArmed=false;apChange(apKind(),Math.max(.4,Math.min(2,ap.gap/2)),ap.changes);}
 let apStatusT=0;
 function autopilotStep(dt){
   if(liveBefore)return;
@@ -3198,8 +3213,9 @@ function autopilotStep(dt){
   if(apWant&&apWin())apChange(apWant.kind,apWant.dur,apWant.changes,apWant.force,apWant.rebuild);
   // A section change that arrived mid-fade follows once the fade is done and the minimum gap has passed.
   if(apPending&&!apTrans&&ap.live&&!ap.hold&&(pilot.since>=MIN_GAP||apPending==='drop')){const k=apPending;apPending=null;apChange(k,k==='calm'?9:k==='drop'?durFor('drop'):7);}
-  const c=ap.live?pilot.step(dt,features(A.freq),ap.hold?1e9:ap.every,!!apTrans||ap.hold):null;
-  if(c&&!ap.hold)apChange(c.kind,c.dur);
+  const song=ap.trigger==='song',c=ap.live?pilot.step(dt,features(A.freq),ap.hold||!song?1e9:ap.every,!!apTrans||ap.hold):null;
+  if(c&&!ap.hold&&song)apChange(c.kind,c.dur);
+  if(ap.live&&!ap.hold&&!song)apHit(dt);
   apTick(dt);apExposure(dt);
   if(apTweens.size){
     const nodes=new Map();for(const g of state.layers)for(const n of g.nodes)nodes.set(n.id,n);let ended=false;
@@ -3219,7 +3235,7 @@ function apStatus(full=false){
   const on=ap.live&&pilot.section!=='waiting';
   box.querySelector('b').textContent=ap.live?(ap.hold?'Hold':AP_SECTION[pilot.section]):'Off';
   box.querySelector('.ap-bar i').style.width=(on?Math.round(pilot.level*100):0)+'%';
-  box.querySelector('span').textContent=on&&!ap.hold?`next change ≤ ${Math.ceil(Math.max(0,ap.every-pilot.since))}s`:'';
+  box.querySelector('span').textContent=on&&!ap.hold?(ap.trigger==='song'?`next change ≤ ${Math.ceil(Math.max(0,ap.every-pilot.since))}s`:`switches on ${{bass:'bass hits',beat:'the beat',high:'highs',full:'loud hits'}[ap.trigger]}`):'';
   if(full){const l=$('apLast');if(l)l.textContent=ap.last?'Last change: '+ap.last:'';}
 }
 function apStart(){
@@ -3264,8 +3280,11 @@ function renderAutoPanel(){
   const st=el('div','ap-status');st.id='apStatus';st.append(el('b'),Object.assign(el('div','ap-bar'),{innerHTML:'<i></i>'}),el('span'));live.append(st);
   live.append(ui.field('Changes',ui.chips({options:[['colors','Colours'],['mood','Mood'],['everything','Everything']],value:ap.changes,property:'apChanges',onChange:v=>{ap.changes=v;apSave();renderAutoPanel();}})));
   if(ap.changes==='everything')live.append(ui.field('Layers',ui.chips({options:[['auto','Auto'],['1','1'],['2','2'],['3','3']],value:String(ap.layers),property:'apLayers',onChange:v=>{ap.layers=v;apSave();}})));
+  live.append(ui.field('Switch on',ui.chips({options:[['song','Song'],['bass','Bass'],['beat','Beat'],['high','Highs'],['full','Loudness']],value:ap.trigger,property:'apTrigger',onChange:v=>{ap.trigger=v;apArmed=false;apSave();renderAutoPanel();}})));
   const knobs=el('div','knob-grid');
-  knobs.append(ui.knob({label:'Every',min:8,max:60,step:1,value:ap.every,def:24,unit:'s',property:'apEvery',onInput:v=>{ap.every=v;},onChange:v=>{ap.every=v;apSave();}}));
+  if(ap.trigger==='song')knobs.append(ui.knob({label:'Every',min:8,max:60,step:1,value:ap.every,def:24,unit:'s',property:'apEvery',onInput:v=>{ap.every=v;},onChange:v=>{ap.every=v;apSave();}}));
+  else{if(ap.trigger!=='beat')knobs.append(ui.knob({label:'Level',min:0,max:100,step:1,value:ap.level,def:40,unit:'%',property:'apLevel',onInput:v=>{ap.level=v;},onChange:v=>{ap.level=v;apSave();}}));
+    knobs.append(ui.knob({label:'Gap',min:1,max:30,step:.5,value:ap.gap,def:4,unit:'s',property:'apGap',onInput:v=>{ap.gap=v;},onChange:v=>{ap.gap=v;apSave();}}));}
   live.append(knobs);
   const r2=el('div','map-actions');
   const nb=el('button','mbtn','Next');nb.title='Change now';nb.dataset.property='apNext';nb.onclick=()=>apChange(apKind(),pilot.section==='drop'?2.5:7,ap.changes,true);
@@ -3330,8 +3349,8 @@ window.pro={
   mapMode:on=>{setMapMode(on);return mapMode;},workspace:w=>{if(w)setWorkspace(w);return workspace;},
   dissolve:on=>{dissolveOn=!!on;if(!on)fade=null;return dissolveOn;},autopilot:{examples:autopilot.EXAMPLES,write:o=>autopilot.write(o),parse:t=>autopilot.parse(t),read:t=>{const w=apWin();return w?vibeText(readVibe(w,t)):null;},create:t=>apCreate(t),
     change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),scene:(id,k='groove')=>{gen.force=id;return apChange(k,1,'everything',true,true);},scenes:()=>AP_SCENES.map(x=>x.id),start:()=>apStart(),stop:()=>apStop(),
-    settings:o=>{const {live,...rest}=o||{};Object.assign(ap,rest);if(live===true&&!ap.live)apStart();else if(live===false)apStop();apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,live:ap.live,hold:ap.hold,write:ap.write};},
-    status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},cameraImport:parseCamera,mapping3d:map3d,mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
+    settings:o=>{const {live,...rest}=o||{};Object.assign(ap,rest);if(live===true&&!ap.live)apStart();else if(live===false)apStop();apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,trigger:ap.trigger,level:ap.level,gap:ap.gap,live:ap.live,hold:ap.hold,write:ap.write};},
+    status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,changes:apCount,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},cameraImport:parseCamera,mapping3d:map3d,mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
   exportVideo:async cfg=>{
     if(cfg.tone){const b=new AudioBuffer({length:Math.round(cfg.tone*48000),numberOfChannels:2,sampleRate:48000});for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<d.length;i++)d[i]=.5*Math.sin(i/48000*2*Math.PI*110)*(i%12000<3000?1:.2);}cfg={...cfg,sound:{buffer:b,name:'tone'}};}
     const r=await exportVideo({height:HEIGHT,fps:30,quality:'standard',...cfg});return {bytes:r.blob?.size||0,frames:r.frames,width:r.width,height:r.height,head:r.blob?[...new Uint8Array(await r.blob.slice(0,12).arrayBuffer())]:null};},

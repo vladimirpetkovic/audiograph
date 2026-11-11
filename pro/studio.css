@@ -454,7 +454,7 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 #tourBanner.show{transform:translateX(-50%)}
 #tourBanner b{color:var(--t-number)}
 .tbtn.tour-btn{color:var(--t-number);border-color:#6ee7b766}
-#mapPanel{gap:6px}
+#mapPanel{gap:6px}#mapPanel .tip{display:none}#mapPanel.tips-on .tip{display:block}.map-tips-row{display:flex;justify-content:flex-end;margin-bottom:-2px}
 
 .shader-code{width:100%;box-sizing:border-box;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2;white-space:pre;overflow:auto;resize:vertical;min-height:180px}
 .shader-err{white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace}
