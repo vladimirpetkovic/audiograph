@@ -343,14 +343,22 @@ process the finished image.
     Model geometry stays in memory, not JSON: reopen the named file when loading
     a project (**Relink model** appears on that surface); until then a primitive is a placeholder. Primitives and
     camera tracks require no external files. glTF mapping uses the rest pose.
-  - **Animate** (3D objects) moves the mesh itself with the music, using its faces, edges and normals:
-    **Displace** pushes the surface out along its normals (Ripple, Swell or Noise; follows Bass, Full
-    or Highs). **Edges** lights the creases of the mesh (Crease angle sets which edges count, so flat
-    diagonals stay hidden) with Trace (dashes run along each edge), Pulse (flashes with the level) or
-    Sweep (a band rises up the object), in the picture's colour or white, over a dimmable Fill.
-    **Build** grows the faces in (bottom up, centre out or random) on a loop or with the loudness, with
-    a glowing front. **Explode** sends the faces out along their normals on the beat, with the bass,
-    or held. Effects stack and are saved with the surface.
+  - **Animate** (3D objects) plays the picture across the mesh's faces, edges and shape with the music.
+    The mesh never moves, so the projection always stays on the real object. **Displace** ripples the
+    picture over the surface and shades it like relief (Ripple, Swell or Noise; follows Bass, Full or
+    Highs). **Edges** lights the creases of the mesh in the picture's colour (Crease angle sets which
+    edges count, so flat diagonals stay hidden) with Trace (dashes run along each edge), Pulse (flashes
+    with the level) or Sweep (a band rises up the object), over a dimmable Fill. **Build** lights the
+    faces up inside their outlines (bottom up, centre out or random) on a loop or with the loudness,
+    with a brighter front. **Explode** breaks the picture into the faces on the beat, with the bass, or
+    held: each face slides its picture, with dark seams between. **Flow** scrolls the picture up or
+    sideways or spins it. **Scan** moves a band of light up, across or through the object. **Shockwave**
+    sends a ring over the surface from the bottom, top or side on the beat. **Flicker** flashes random
+    faces. **Snake** crawls lit faces from neighbour to neighbour. **Outline** lights the silhouette as
+    the projector sees it. **Curves** makes rounded, detailed parts glow. **Light** moves a light around
+    the object's real shape. Highlights always use the picture's own colours.
+    Effects stack (turn on any number), and **Combos** switches on a ready-made mix (Neon, Scanner,
+    Assemble, Shatter, Living, Impact, Crawl, All off). Effects are saved with the surface.
   - The **Test card** draws a numbered grid on every surface for alignment.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when

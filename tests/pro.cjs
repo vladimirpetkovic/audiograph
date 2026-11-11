@@ -1314,18 +1314,23 @@ def Camera "Camera" {
         return [sum(false),sum(true)];});
       assert.ok(d[1]<d[0]*.99,'Ambient occlusion darkens the inside corner: '+d);
       await page.evaluate(()=>pro.undo());}
-    // Animate: mesh-aware effects (crease edges, build, explode, displace) follow the music; the panel saves them on the surface.
-    {const r=await page.evaluate(()=>{const M=pro.mapping3d,W=480,H=270,img=document.createElement('canvas');img.width=W;img.height=H;const x=img.getContext('2d');x.fillStyle='#3060ff';x.fillRect(0,0,W,H);
-        const base={...M.surface3d('fx'),primitive:'Cube'},go=(fx,t=0,sig=null)=>{const c=document.createElement('canvas');c.width=W;c.height=H;const cx=c.getContext('2d');M.render3d(cx,{...base,fx:M.cleanFx(fx)},img,W,H,t,false,sig);const d=cx.getImageData(0,0,W,H).data;let lit=0,white=0;for(let i=0;i<d.length;i+=4){if(d[i+3]>10)lit++;if(d[i]>200&&d[i+1]>200&&d[i+2]>200)white++;}return {lit,white};};
-        return {off:go({}),edges:go({edges:{on:true,mode:'pulse',color:'white'}},0,{bands:{full:1},pulse:0}),build:go({build:{on:true}},.25),exp0:go({explode:{on:true}},0,{bands:{},pulse:0}),exp1:go({explode:{on:true}},0,{bands:{},pulse:1}),d0:go({disp:{on:true,pattern:'swell'}},0,{bands:{bass:0}}),d1:go({disp:{on:true,pattern:'swell'}},0,{bands:{bass:1}}),
-          flags:[...M.facetData(base,0)].filter((_,i)=>i%24===7)};});
-      assert.ok(r.edges.white>500&&r.off.white===0,'Edges draw lines on the creases');assert.deepEqual([...new Set(r.flags)].sort(),[3,5],'A cube shows its outer edges, not the triangle diagonals');
-      assert.ok(r.build.lit<r.off.lit*.6,'Build starts with only some faces');assert.equal(r.exp0.lit,r.off.lit,'Explode rests between beats');assert.notEqual(r.exp1.lit,r.off.lit,'A beat explodes the faces');
-      assert.ok(r.d1.lit>r.d0.lit*1.1,'Displace grows with the bass');
+    // Animate: mesh-aware effects follow the music but never move the mesh off the object; the panel saves them on the surface.
+    {const r=await page.evaluate(()=>{const M=pro.mapping3d,W=480,H=270,img=document.createElement('canvas');img.width=W;img.height=H;const x=img.getContext('2d');const gr=x.createLinearGradient(0,0,W,H);gr.addColorStop(0,'#102080');gr.addColorStop(1,'#60a0ff');x.fillStyle=gr;x.fillRect(0,0,W,H);
+        const base={...M.surface3d('fx'),primitive:'Cube'},go=(fx,t=0,sig=null)=>{const c=document.createElement('canvas');c.width=W;c.height=H;const cx=c.getContext('2d');M.render3d(cx,{...base,fx:M.cleanFx(fx)},img,W,H,t,false,sig);const d=cx.getImageData(0,0,W,H).data;let lit=0,white=0,cov=0,h=0;for(let i=0;i<d.length;i+=4){if(d[i+3]>10)cov++;if(d[i+2]>40)lit++;if(d[i]>200&&d[i+1]>200)white++;h=(h*31+d[i+2])|0;}return {lit,white,cov,h};};
+        return {off:go({}),edges:go({edges:{on:true,mode:'pulse',fill:0}},0,{bands:{full:1},pulse:0}),build:go({build:{on:true}},.25),exp0:go({explode:{on:true}},0,{bands:{},pulse:0}),exp1:go({explode:{on:true}},0,{bands:{},pulse:1}),d0:go({disp:{on:true,pattern:'swell'}},.4,{bands:{bass:0}}),d1:go({disp:{on:true,pattern:'swell'}},.4,{bands:{bass:1}}),
+          flags:[...M.facetData(base,0)].filter((_,i)=>i%9===7),
+          more:Object.fromEntries(['flow','scan','shock','flicker','snake','outline','curves','light'].map(k=>[k,go({[k]:{on:true,...(k==='flow'?{dir:'side'}:{})}},1.3,{bands:{bass:.8,full:.8,high:.8},pulse:.7})]))};});
+      for(const k of ['edges','build','exp1','d1'])assert.ok(r[k].cov<=r.off.cov,k+' stays on the mesh outline');assert.equal(r.edges.white+r.build.white,0,'Edges and Build use the picture colour, not white');
+      assert.ok(r.edges.lit>500&&r.edges.lit<r.off.lit*.5,'Edges draw lines on the creases');assert.deepEqual([...new Set(r.flags)].sort(),[3,5],'A cube shows its outer edges, not the triangle diagonals');
+      assert.ok(r.build.lit<r.off.lit*.6,'Build starts with only some faces');assert.equal(r.exp0.h,r.off.h,'Explode rests between beats');assert.ok(r.exp1.lit<r.off.lit,'A beat breaks the picture into faces');
+      assert.notEqual(r.d1.h,r.d0.h,'Displace follows the bass');
+      for(const [k,v] of Object.entries(r.more)){assert.ok(v.cov<=r.off.cov,k+' stays on the mesh outline');assert.notEqual(v.h,r.off.h,k+' changes the picture');assert.equal(v.white,0,k+' keeps the picture colours');}
       await (await reveal(page.locator('[data-property=surf3dFxEdges] [data-value=true]'))).click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.on,true,'Edges switch is saved on the surface');
       assert.equal(await page.locator('[data-property=surf3dFxEdgeMode]').count(),1,'Edges show their settings when on');
       await page.locator('[data-property=surf3dFxEdgeMode] [data-value=sweep]').click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.mode,'sweep');
-      await page.evaluate(()=>{pro.undo();pro.undo();});assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.on,false,'Animate changes undo');}
+      await page.evaluate(()=>{pro.undo();pro.undo();});assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].fx.edges.on,false,'Animate changes undo');
+      await page.locator('[data-property=surf3dFxCombo] [data-value=living]').click();{const f=(await page.evaluate(()=>pro.mapping())).surfaces[0].fx;assert.deepEqual([f.disp.on,f.light.on,f.flow.on,f.edges.on],[true,true,true,false],'A combo switches on its mix of effects');}
+      await page.locator('[data-property=surf3dFxCombo] [data-value=off]').click();assert.ok(!Object.values((await page.evaluate(()=>pro.mapping())).surfaces[0].fx).some(e=>e.on),'All off clears the effects');}
     // Animated glTF on a mapping surface: Play shows its clip over time, Rest pose holds the bind pose.
     {await page.evaluate(()=>{const p=pro.getProject();p.mapping.surfaces=[];pro.importProject(p);});await (await reveal(page.locator('[data-property=mapAdd3d]'))).click();
     const [fc]=await Promise.all([page.waitForEvent('filechooser'),page.locator('.map-menu [data-property=mapLoadModel]').click()]);await fc.setFiles(gltfFile());

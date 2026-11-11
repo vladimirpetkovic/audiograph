@@ -30,10 +30,19 @@ export const LATTICE_RES=[0,2,3,4];
 export function cleanLattice(l){const res=LATTICE_RES.includes(+l?.res)?+l.res:0,n=res**3*3,d=Array.isArray(l?.d)&&l.d.length===n?l.d.map(v=>clamp(v,-2,2,0)):new Array(n).fill(0);return {res,d};}
 // Mesh animation: Displace (along normals), Edges (crease lines), Build (faces grow in) and Explode (faces fly apart).
 const pick=(v,list)=>list.includes(v)?v:list[0];
-export const FX_DRIVES={disp:['bass','full','high'],build:['loop','level'],explode:['beat','bass','hold']};
-export function cleanFx(f={}){const d=f.disp||{},e=f.edges||{},b=f.build||{},x=f.explode||{};return {
-  disp:{on:!!d.on,amount:clamp(d.amount,0,1,.12),pattern:pick(d.pattern,['ripple','swell','noise']),drive:pick(d.drive,FX_DRIVES.disp),speed:clamp(d.speed,0,4,1)},
-  edges:{on:!!e.on,mode:pick(e.mode,['trace','pulse','sweep']),width:clamp(e.width,1,16,3),speed:clamp(e.speed,.05,4,1),angle:clamp(e.angle,1,90,10),color:pick(e.color,['picture','white']),fill:clamp(e.fill,0,1,.35)},
+export const FX_DRIVES={disp:['bass','full','high'],build:['loop','level'],explode:['beat','bass','hold'],scan:['full','bass','high','beat'],shock:['beat','bass','full'],flicker:['beat','high','loop'],outline:['full','bass','steady'],curves:['bass','full','steady'],light:['steady','bass','full']};
+export const FX_KEYS=['disp','edges','build','explode','flow','scan','shock','flicker','snake','outline','curves','light'];
+export function cleanFx(f={}){const d=f.disp||{},e=f.edges||{},b=f.build||{},x=f.explode||{},fl=f.flow||{},sc=f.scan||{},sh=f.shock||{},fk=f.flicker||{},sn=f.snake||{},ol=f.outline||{},cv=f.curves||{},li=f.light||{};return {
+  flow:{on:!!fl.on,dir:pick(fl.dir,['up','side','spin']),speed:clamp(fl.speed,0,2,.3)},
+  scan:{on:!!sc.on,axis:pick(sc.axis,['up','across','depth']),speed:clamp(sc.speed,.05,4,.5),width:clamp(sc.width,.02,.5,.1),drive:pick(sc.drive,FX_DRIVES.scan)},
+  shock:{on:!!sh.on,from:pick(sh.from,['bottom','top','side']),width:clamp(sh.width,.02,.3,.08),drive:pick(sh.drive,FX_DRIVES.shock)},
+  flicker:{on:!!fk.on,amount:clamp(fk.amount,0,1,.6),speed:clamp(fk.speed,.5,20,4),drive:pick(fk.drive,FX_DRIVES.flicker)},
+  snake:{on:!!sn.on,speed:clamp(sn.speed,.02,2,.3),length:clamp(sn.length,.02,.5,.12),count:Math.round(clamp(sn.count,1,8,2))},
+  outline:{on:!!ol.on,width:clamp(ol.width,.05,1,.5),drive:pick(ol.drive,FX_DRIVES.outline)},
+  curves:{on:!!cv.on,amount:clamp(cv.amount,0,2,.8),drive:pick(cv.drive,FX_DRIVES.curves)},
+  light:{on:!!li.on,amount:clamp(li.amount,0,1,.6),speed:clamp(li.speed,0,2,.3),drive:pick(li.drive,FX_DRIVES.light)},
+  disp:{on:!!d.on,amount:clamp(d.amount,0,1,.3),pattern:pick(d.pattern,['ripple','swell','noise']),drive:pick(d.drive,FX_DRIVES.disp),speed:clamp(d.speed,0,4,1)},
+  edges:{on:!!e.on,mode:pick(e.mode,['trace','pulse','sweep']),width:clamp(e.width,1,16,3),speed:clamp(e.speed,.05,4,1),angle:clamp(e.angle,1,90,10),fill:clamp(e.fill,0,1,.35)},
   build:{on:!!b.on,order:pick(b.order,['up','out','random']),drive:pick(b.drive,FX_DRIVES.build),speed:clamp(b.speed,.02,2,.2)},
   explode:{on:!!x.on,amount:clamp(x.amount,0,2,.5),drive:pick(x.drive,FX_DRIVES.explode)}};}
 export function surface3d(id,name='3D object'){return clean3d({id,name,kind:'3d'});}
@@ -67,19 +76,18 @@ let renderer;
 function init(){const canvas=document.createElement('canvas'),gl=canvas.getContext('webgl2',{alpha:true,antialias:true,preserveDrawingBuffer:true});if(!gl)throw Error('3D mapping needs WebGL2');
   const shader=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;},p=gl.createProgram();
   gl.attachShader(p,shader(gl.VERTEX_SHADER,`#version 300 es
-  in vec3 position;in vec2 uv;in vec3 normal;uniform mat4 vp;uniform float scale;uniform int upAxis;uniform vec3 objectOffset;uniform float objectSize;uniform vec3 lo;uniform vec3 span;uniform int latRes;uniform vec3 lat[64];uniform mat3 objRot;uniform vec3 pivot;uniform vec3 objMove;uniform vec3 objScale;in vec3 fcenter;in vec3 fnormal;in vec2 fmeta;uniform float time;uniform vec4 disp;uniform vec2 explode;uniform vec3 build;out vec2 tex;out vec3 obj;out vec3 nrm;out vec3 wpos;out vec3 bary;out float eflags;out float bglow;out float frnd;
+  in vec3 position;in vec2 uv;in vec3 normal;uniform mat4 vp;uniform float scale;uniform int upAxis;uniform vec3 objectOffset;uniform float objectSize;uniform vec3 lo;uniform vec3 span;uniform int latRes;uniform vec3 lat[64];uniform mat3 objRot;uniform vec3 pivot;uniform vec3 objMove;uniform vec3 objScale;in vec3 fcenter;in vec3 fnormal;in vec3 fmeta;uniform float time;uniform vec4 disp;uniform vec2 explode;uniform vec3 build;out vec2 tex;out vec3 obj;out vec3 nrm;out vec3 wpos;out vec3 bary;out float eflags;out float bglow;out float frnd;out float bgrow;out vec2 xoff;out float ford;out vec3 wnrm;
   float bern(int n,int i,float t){float c=n==1?1.:n==2?(i==1?2.:1.):(i==1||i==2?3.:1.);return c*pow(t,float(i))*pow(1.-t,float(n-i));}
-  void main(){obj=position;tex=uv;nrm=normal;vec3 q=position;int vi=gl_VertexID%3;bary=vi==0?vec3(1,0,0):vi==1?vec3(0,1,0):vec3(0,0,1);eflags=fmeta.y;frnd=fmeta.x;bglow=0.;float S=max(span.x,max(span.y,span.z));
-    // Explode: each face shrinks and flies out along its own normal (random distance per face).
-    if(explode.y>0.){q=fcenter+(q-fcenter)*(1.-.45*min(explode.y,1.))+(dot(fnormal,fnormal)>0.?normalize(fnormal):vec3(0))*explode.x*S*(.35+fmeta.x);}
-    // Build: faces grow in from their centre in height, distance or random order; the growing front glows.
-    if(build.x>.5){vec3 c=(fcenter-lo)/span;float k=build.z<.5?(upAxis==1?c.z:c.y):build.z<1.5?length(c-.5)*1.1547:fmeta.x;k=clamp(k,0.,1.)*.9;float g=smoothstep(k,k+.1,build.y);q=fcenter+(q-fcenter)*g;bglow=g>0.&&g<1.?1.-g:0.;}
-    // Displace: push the surface along its smooth normals (stays closed), shaped by a pattern.
-    if(disp.x!=0.){vec3 u=(position-lo)/span-.5;float w=disp.y<.5?.5+.5*sin(length(u)*18.-time*disp.z*4.):disp.y<1.5?1.:.5+.5*sin(dot(u,vec3(9.1,7.3,11.7))+time*disp.z*2.)*sin(dot(u,vec3(-5.3,12.1,6.7))-time*disp.z*1.3);q+=normal*disp.x*S*w;}
+  void main(){obj=position;tex=uv;nrm=normal;vec3 q=position;int vi=gl_VertexID%3;bary=vi==0?vec3(1,0,0):vi==1?vec3(0,1,0):vec3(0,0,1);eflags=fmeta.y;frnd=fmeta.x;ford=fmeta.z;bglow=0.;float S=max(span.x,max(span.y,span.z));
+    // The animations never move the mesh (the projection must stay on the real object); they only change the picture on each face.
+    // Explode: each face's picture slides by its own random offset.
+    float ang=fmeta.x*6.2832;xoff=vec2(cos(ang),sin(ang))*explode.x*.12*(.35+fmeta.x);
+    // Build: faces appear in height, distance or random order; the growing front glows.
+    bgrow=1.;if(build.x>.5){vec3 c=(fcenter-lo)/span;float k=build.z<.5?(upAxis==1?c.z:c.y):build.z<1.5?length(c-.5)*1.1547:fmeta.x;k=clamp(k,0.,1.)*.9;bgrow=smoothstep(k,k+.1,build.y);bglow=bgrow>0.&&bgrow<1.?1.-bgrow:0.;}
     if(latRes>1){vec3 u=clamp((position-lo)/span,0.,1.),d=vec3(0);int n=latRes-1;for(int i=0;i<4;i++){if(i>n)break;float bi=bern(n,i,u.x);for(int j=0;j<4;j++){if(j>n)break;float bj=bi*bern(n,j,u.y);for(int k=0;k<4;k++){if(k>n)break;d+=bj*bern(n,k,u.z)*lat[(i*latRes+j)*latRes+k];}}}q+=d*span;}
-    vec3 w=(upAxis==1?vec3(q.x,q.z,-q.y):q)*objectSize+objectOffset;w=pivot+objRot*((w-pivot)*objScale)+objMove;wpos=w*scale;gl_Position=vp*vec4(wpos,1.);}`));
+    vec3 w=(upAxis==1?vec3(q.x,q.z,-q.y):q)*objectSize+objectOffset;w=pivot+objRot*((w-pivot)*objScale)+objMove;wpos=w*scale;wnrm=objRot*((upAxis==1?vec3(normal.x,normal.z,-normal.y):normal)/objScale);gl_Position=vp*vec4(wpos,1.);}`));
   gl.attachShader(p,shader(gl.FRAGMENT_SHADER,`#version 300 es
-  precision highp float;in vec2 tex;in vec3 obj;in vec3 nrm;in vec3 wpos;uniform sampler2D picture;uniform highp sampler2D posTex;uniform sampler2D aoTex;uniform int pass;uniform bool aoOn;uniform float aoStrength;uniform float aoRadius;uniform float pxScale;uniform vec3 eye;uniform int mode;uniform bool wire;uniform vec2 size;uniform vec3 lo;uniform vec3 span;uniform float fade;uniform float tile;uniform mat3 boxRot;uniform vec3 boxMove;uniform vec3 boxScale;in vec3 bary;in float eflags;in float bglow;in float frnd;uniform float time;uniform highp int upAxis;uniform vec4 edge;uniform vec3 edge2;out vec4 color;vec2 tl(vec2 t){return (t-.5)*tile+.5;}
+  precision highp float;in vec2 tex;in vec3 obj;in vec3 nrm;in vec3 wpos;uniform sampler2D picture;uniform highp sampler2D posTex;uniform sampler2D aoTex;uniform int pass;uniform bool aoOn;uniform float aoStrength;uniform float aoRadius;uniform float pxScale;uniform vec3 eye;uniform int mode;uniform bool wire;uniform vec2 size;uniform vec3 lo;uniform vec3 span;uniform float fade;uniform float tile;uniform mat3 boxRot;uniform vec3 boxMove;uniform vec3 boxScale;in vec3 bary;in float eflags;in float bglow;in float frnd;in float bgrow;in vec2 xoff;in float ford;in vec3 wnrm;uniform vec4 fflow;uniform vec4 fscan;uniform vec4 fshock;uniform vec4 fflick;uniform vec4 fsnake;uniform vec4 foutl;uniform vec2 fcurv;uniform vec4 flight;uniform float time;uniform highp int upAxis;uniform vec4 edge;uniform vec3 edge2;uniform vec4 disp;uniform vec2 explode;out vec4 color;vec2 shift;mat2 spin=mat2(1.);vec2 tl(vec2 t){return spin*((t-.5)*tile)+.5+shift;}
   // Ambient occlusion (screen space): nearby surfaces from the position prepass that rise above this point's plane darken it.
   float occlusion(){vec3 n=normalize(cross(dFdx(wpos),dFdy(wpos)));if(dot(n,eye-wpos)<0.)n=-n;
     float r=clamp(aoRadius*pxScale*gl_FragCoord.w,2.,size.y*.15),a0=fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))*6.2832,occ=0.;ivec2 hi=ivec2(size)-1;
@@ -88,15 +96,39 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
     return clamp(1.-aoStrength*occ/6.,0.,1.);}
   // 4×4 blur of the AO buffer, skipping samples from other surfaces so edges stay crisp.
   float aoSmooth(){ivec2 c=ivec2(gl_FragCoord.xy),hi=ivec2(size)-1;float a=0.,w=0.;for(int y=-2;y<2;y++)for(int x=-2;x<2;x++){ivec2 p=clamp(c+ivec2(x,y),ivec2(0),hi);vec4 q=texelFetch(posTex,p,0);if(q.w<.5||distance(q.xyz,wpos)>aoRadius*.3)continue;a+=texelFetch(aoTex,p,0).r;w+=1.;}return w>0.?a/w:1.;}
-  void main(){if(pass==1){color=vec4(wpos,1.);return;}if(pass==2){color=vec4(vec3(occlusion()),1.);return;}vec2 t=tex;if(mode==1)t=gl_FragCoord.xy/size;if(wire){color=vec4(.15,1.,.75,1.);return;}if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(dFdx(obj),dFdy(obj)))));vec3 p=boxRot*((obj-lo)/span-.5-boxMove)/boxScale+.5;if(fade<.001){t=n.z>=n.x&&n.z>=n.y?p.xy:n.x>=n.y?p.zy:p.xz;color=texture(picture,tl(t));}else{vec3 w=pow(n,vec3(exp2(4.*(1.-fade))));w/=w.x+w.y+w.z;color=texture(picture,tl(p.zy))*w.x+texture(picture,tl(p.xz))*w.y+texture(picture,tl(p.xy))*w.z;}}else color=texture(picture,tl(t));color.rgb*=color.a;if(aoOn)color.rgb*=aoSmooth();
-    if(bglow>0.)color=vec4(mix(color.rgb,vec3(1),bglow*.7),max(color.a,bglow));
+  void main(){if(pass==1){color=vec4(wpos,1.);return;}if(pass==2){color=vec4(vec3(occlusion()),1.);return;}vec2 t=tex;if(mode==1)t=gl_FragCoord.xy/size;if(wire){color=vec4(.15,1.,.75,1.);return;}float dw=.5;shift=xoff;
+    // Flow: the picture scrolls or turns across the surface.
+    if(fflow.x>.5){if(fflow.z<.5)shift.y+=fflow.y;else if(fflow.z<1.5)shift.x+=fflow.y;else{float a=fflow.y*6.2832;spin=mat2(cos(a),sin(a),-sin(a),cos(a));}}
+    // Displace: a wave pattern on the surface warps the picture and shades it like relief.
+    if(disp.x!=0.){vec3 u=(obj-lo)/span-.5;float ph=disp.y<.5?length(u)*18.-time*disp.z*4.:disp.y<1.5?time*disp.z*3.:dot(u,vec3(9.1,7.3,11.7))+time*disp.z*2.;dw=disp.y<1.5?.5+.5*sin(ph):.5+.5*sin(ph)*sin(dot(u,vec3(-5.3,12.1,6.7))-time*disp.z*1.3);shift+=(disp.y<1.5?normalize(u.xy+1e-5)*(dw-.5):vec2(cos(ph),sin(ph))*.5)*disp.x*.12;}
+if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(dFdx(obj),dFdy(obj)))));vec3 p=boxRot*((obj-lo)/span-.5-boxMove)/boxScale+.5;if(fade<.001){t=n.z>=n.x&&n.z>=n.y?p.xy:n.x>=n.y?p.zy:p.xz;color=texture(picture,tl(t));}else{vec3 w=pow(n,vec3(exp2(4.*(1.-fade))));w/=w.x+w.y+w.z;color=texture(picture,tl(p.zy))*w.x+texture(picture,tl(p.xz))*w.y+texture(picture,tl(p.xy))*w.z;}}else color=texture(picture,tl(t));color.rgb*=color.a;if(aoOn)color.rgb*=aoSmooth();
+    if(disp.x!=0.)color.rgb*=1.+(dw-.5)*min(disp.x*2.,1.)*.9;
+    // The rest only recolour the picture where it already is: cs is the picture's own colour at full strength.
+    float mx0=max(color.r,max(color.g,color.b));vec3 cs=mx0>1e-4?color.rgb/mx0*min(1.,mx0*2.5):vec3(0),c01=(obj-lo)/span;float hU=upAxis==1?c01.z:c01.y;
+    vec3 N=dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(dFdx(obj),dFdy(obj)));
+    // Light: a moving light shades the object's real shape.
+    if(flight.x>.5){float a=flight.z;vec3 L=normalize(upAxis==1?vec3(cos(a),sin(a),.6):vec3(cos(a),.6,sin(a)));color.rgb*=mix(1.,.15+1.4*max(dot(N,L),0.),flight.y);}
+    // Curves: rounded and detailed parts of the mesh glow, flat parts dim.
+    if(fcurv.x>0.){float k=clamp(length(fwidth(N))/max(length(fwidth(obj)),1e-6)*max(span.x,max(span.y,span.z))*.15,0.,1.),a=min(fcurv.x,1.);color.rgb=mix(color.rgb*(1.-.5*a),cs,min(k*fcurv.x*1.2,1.));}
+    // Scan: a band of light moves through the object.
+    if(fscan.x>0.){float h=fscan.w<.5?hU:fscan.w<1.5?c01.x:(upAxis==1?c01.y:c01.z),b=exp(-pow((h-fscan.y)/fscan.z,2.));color.rgb=mix(color.rgb*.3,mix(color.rgb,cs,min(fscan.x*.6,1.)),b);}
+    // Shockwave: a ring spreads over the surface from a point.
+    if(fshock.x>0.){vec3 p0=fshock.w>1.5?vec3(0.,.5,.5):upAxis==1?vec3(.5,.5,fshock.w<.5?0.:1.):vec3(.5,fshock.w<.5?0.:1.,.5);float d=length(c01-p0)/1.23,g=exp(-pow((d-fshock.y)/fshock.z,2.))*fshock.x;color.rgb=mix(color.rgb,cs,min(g*1.5,1.));}
+    // Flicker: random faces flash and others go dark.
+    if(fflick.x>.5){float h=fract(sin((frnd*91.7+floor(time*fflick.z))*78.233)*43758.5453);color.rgb=mix(color.rgb,h>.5?cs:color.rgb*.15,fflick.y);}
+    // Snake: lit faces crawl across the mesh from face to neighbouring face.
+    if(fsnake.x>.5){float x=fract((fsnake.y-ford)*fsnake.w),l=x<fsnake.z?1.-x/fsnake.z:0.;color.rgb=mix(color.rgb*.2,cs,l);}
+    // Outline: the object's silhouette, as seen from the projector, lights up.
+    if(foutl.x>0.){vec3 wn=normalize(wnrm),v=normalize(eye-wpos);float o=smoothstep(1.-foutl.y,1.,1.-abs(dot(wn,v)))*foutl.x;color.rgb=mix(color.rgb*(1.-.4*min(foutl.x,1.)),cs,min(o*2.5,1.));}
+    // Explode gaps and Build growth stay inside each face's outline: the face shows only its inner part.
+    {float m=min(bary.x,min(bary.y,bary.z)),cut=max(explode.y*.12,(1.-bgrow)*.34),aa=fwidth(m);if(cut>0.)color*=smoothstep(cut,cut+aa*1.5,m);if(bgrow<1.&&bgrow>0.){float mx=max(color.r,max(color.g,color.b));if(mx>1e-4)color.rgb=mix(color.rgb,color.rgb/mx*color.a,bglow);}}
     // Edges: crease edges (flag bits) drawn by distance to the triangle side, in pixels.
     if(edge.x>.5){int f=int(eflags+.5);float e=0.,h=upAxis==1?(obj.z-lo.z)/span.z:(obj.y-lo.y)/span.y;
       for(int i=0;i<3;i++){if(((f>>i)&1)==0)continue;float d=bary[i]/max(fwidth(bary[i]),1e-6),a=1.-smoothstep(edge.z*.5-.75,edge.z*.5+.75,d),I=edge.w;
         if(edge.y>.5&&edge.y<1.5){float b1=bary[(i+1)%3],b2=bary[(i+2)%3],ph=fract(b2/max(b1+b2,1e-6)-time*edge2.x*.8+frnd);I*=smoothstep(0.,.04,ph)*(1.-smoothstep(.32,.38,ph));}
         else if(edge.y>1.5){float pos=fract(time*edge2.x*.3)*1.4-.2;I*=.12+1.2*exp(-pow((h-pos)/.07,2.));}
         e=max(e,a*min(I,1.5));}
-      float mx=max(color.r,max(color.g,color.b));vec3 ec=edge2.y>.5||mx<.03?vec3(1):mix(vec3(1),color.rgb/mx,.85);color=vec4(color.rgb*edge2.z,color.a*max(edge2.z,.001));color.rgb=mix(color.rgb,ec,min(e,1.));color.a=max(color.a,min(e,1.));}}`));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));const uniforms={};for(const k of ['time','disp','explode','build','edge','edge2','vp','scale','picture','mode','wire','size','lo','span','upAxis','objectOffset','objectSize','fade','tile','boxRot','boxMove','boxScale','latRes','lat','objRot','pivot','objMove','objScale','posTex','pass','aoOn','aoStrength','aoRadius','pxScale','eye','aoTex'])uniforms[k]=gl.getUniformLocation(p,k);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.MIRRORED_REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.MIRRORED_REPEAT);return {canvas,gl,p,uniforms,tex,buffer:gl.createBuffer(),position:gl.getAttribLocation(p,'position'),uv:gl.getAttribLocation(p,'uv'),normal:gl.getAttribLocation(p,'normal'),fcenter:gl.getAttribLocation(p,'fcenter'),fnormal:gl.getAttribLocation(p,'fnormal'),fmeta:gl.getAttribLocation(p,'fmeta'),fxBuffer:gl.createBuffer(),fxData:null,mesh:null};}
+      float mx=max(color.r,max(color.g,color.b));vec3 ec=mx>1e-4?color.rgb/mx*min(1.,mx*2.5):vec3(0);color=vec4(color.rgb*edge2.z,color.a*max(edge2.z,.001));color.rgb=mix(color.rgb,ec,min(e,1.));color.a=max(color.a,min(e,1.));}}`));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));const uniforms={};for(const k of ['fflow','fscan','fshock','fflick','fsnake','foutl','fcurv','flight','time','disp','explode','build','edge','edge2','vp','scale','picture','mode','wire','size','lo','span','upAxis','objectOffset','objectSize','fade','tile','boxRot','boxMove','boxScale','latRes','lat','objRot','pivot','objMove','objScale','posTex','pass','aoOn','aoStrength','aoRadius','pxScale','eye','aoTex'])uniforms[k]=gl.getUniformLocation(p,k);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.MIRRORED_REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.MIRRORED_REPEAT);return {canvas,gl,p,uniforms,tex,buffer:gl.createBuffer(),position:gl.getAttribLocation(p,'position'),uv:gl.getAttribLocation(p,'uv'),normal:gl.getAttribLocation(p,'normal'),fcenter:gl.getAttribLocation(p,'fcenter'),fnormal:gl.getAttribLocation(p,'fnormal'),fmeta:gl.getAttribLocation(p,'fmeta'),fxBuffer:gl.createBuffer(),fxData:null,mesh:null};}
 export function cameraPose(s,time=0){if(s.track&&s.trackOn)return sampleTrack(s.track,s.playing?(s.sync?time:performance.now()/1000)*s.speed+s.offset:s.hold);const c=s.camera,a=c.yaw*Math.PI/180,b=c.pitch*Math.PI/180,r=c.roll*Math.PI/180,cp=Math.cos(b),sp=Math.sin(b),ca=Math.cos(a),sa=Math.sin(a),cr=Math.cos(r),sr=Math.sin(r),right=[ca,0,-sa],up=[-sa*sp,cp,-ca*sp],back=[sa*cp,sp,ca*cp],m=I4();for(let i=0;i<3;i++){m[i]=right[i]*cr+up[i]*sr;m[i+4]=up[i]*cr-right[i]*sr;m[i+8]=back[i];m[i+12]=c.target[i]*s.scale+back[i]*c.distance;}return {matrix:Array.from(m),focal:c.focal};}
 // Animated glTF: the mesh is re-posed from its rig (≤30 times a second), keeping UVs, rest bounds and the welded smooth normals.
 function rig(m,g,faces){const weld=new Int32Array(g.verts.length),ids=new Map(),key=v=>v.map((x,k)=>Math.round((x-g.lo[k])/g.span[k]*1e5)).join();
@@ -186,29 +218,40 @@ function aoTarget(R,W,H){const gl=R.gl;if(R.aoFail)return null;
 const topos=new WeakMap(),facetCache=new WeakMap();
 function topology(g){let t=topos.get(g);if(t)return t;const D=g.data,T=D.length/24,lo=g.lo,sp=g.span,weld=new Map(),vid=new Int32Array(T*3);
   for(let i=0;i<T*3;i++){const o=i*8,k=Math.round((D[o]-lo[0])/sp[0]*1e5)*1e10+Math.round((D[o+1]-lo[1])/sp[1]*1e5)*1e5+Math.round((D[o+2]-lo[2])/sp[2]*1e5);let w=weld.get(k);if(w===undefined){w=weld.size;weld.set(k,w);}vid[i]=w;}
-  const fn=faceNormals(D,T),N=weld.size,edges=new Map(),cos=new Float32Array(T*3).fill(-2);
+  const fn=faceNormals(D,T),N=weld.size,edges=new Map(),cos=new Float32Array(T*3).fill(-2),nb=new Int32Array(T*3).fill(-1);
   for(let f=0;f<T;f++)for(let i=0;i<3;i++){const a=vid[f*3+(i+1)%3],b=vid[f*3+(i+2)%3];if(a===b)continue;const k=Math.min(a,b)*N+Math.max(a,b),o=edges.get(k);
-    if(o===undefined)edges.set(k,f*3+i);else if(o>=0){const g2=Math.floor(o/3),c=fn[f*3]*fn[g2*3]+fn[f*3+1]*fn[g2*3+1]+fn[f*3+2]*fn[g2*3+2];cos[f*3+i]=cos[o]=Math.abs(c)>1?Math.sign(c):c;edges.set(k,-1);}else{cos[f*3+i]=-2;}}
-  t={cos,T};topos.set(g,t);return t;}
+    if(o===undefined)edges.set(k,f*3+i);else if(o>=0){const g2=Math.floor(o/3),c=fn[f*3]*fn[g2*3]+fn[f*3+1]*fn[g2*3+1]+fn[f*3+2]*fn[g2*3+2];cos[f*3+i]=cos[o]=Math.abs(c)>1?Math.sign(c):c;nb[f*3+i]=g2;nb[o]=f;edges.set(k,-1);}else{cos[f*3+i]=-2;}}
+  // Snake order: a depth-first walk, so consecutive faces are mostly neighbours.
+  const order=new Float32Array(T),seen=new Uint8Array(T);let n=0;for(let s0=0;s0<T;s0++){if(seen[s0])continue;const st=[s0];while(st.length){const f=st.pop();if(seen[f])continue;seen[f]=1;order[f]=n++/T;for(let i=2;i>=0;i--){const q=nb[f*3+i];if(q>=0&&!seen[q])st.push(q);}}}
+  t={cos,T,order};topos.set(g,t);return t;}
 function faceNormals(D,T){const n=new Float32Array(T*3);for(let f=0;f<T;f++){const a=f*24,ex=D[a+8]-D[a],ey=D[a+9]-D[a+1],ez=D[a+10]-D[a+2],hx=D[a+16]-D[a],hy=D[a+17]-D[a+1],hz=D[a+18]-D[a+2];let x=ey*hz-ez*hy,y=ez*hx-ex*hz,z=ex*hy-ey*hx;const l=Math.hypot(x,y,z)||1;n[f*3]=x/l;n[f*3+1]=y/l;n[f*3+2]=z/l;}return n;}
-function facets(g,angle){const c=facetCache.get(g);if(c&&c.angle===angle)return c.buf;const D=g.data,T=D.length/24,top=topology(g.base||g),fn=faceNormals(D,T),lim=Math.cos(angle*Math.PI/180),buf=new Float32Array(T*24);
-  for(let f=0;f<T;f++){const a=f*24,cx=(D[a]+D[a+8]+D[a+16])/3,cy=(D[a+1]+D[a+9]+D[a+17])/3,cz=(D[a+2]+D[a+10]+D[a+18])/3;let h=Math.imul(f+1,2654435761)>>>0;h^=h>>>15;h=Math.imul(h,2246822519)>>>0;h^=h>>>13;
+function facets(g,angle){const c=facetCache.get(g);if(c&&c.angle===angle)return c.buf;const D=g.data,T=D.length/24,top=topology(g.base||g),fn=faceNormals(D,T),lim=Math.cos(angle*Math.PI/180),buf=new Float32Array(T*27);
+  for(let f=0;f<T;f++){const a=f*24,b=f*27,cx=(D[a]+D[a+8]+D[a+16])/3,cy=(D[a+1]+D[a+9]+D[a+17])/3,cz=(D[a+2]+D[a+10]+D[a+18])/3;let h=Math.imul(f+1,2654435761)>>>0;h^=h>>>15;h=Math.imul(h,2246822519)>>>0;h^=h>>>13;
     let flags=0;for(let i=0;i<3;i++)if(top.cos[f*3+i]<lim)flags|=1<<i;
-    for(let j=0;j<3;j++){const o=a+j*8;buf[o]=cx;buf[o+1]=cy;buf[o+2]=cz;buf[o+3]=fn[f*3];buf[o+4]=fn[f*3+1];buf[o+5]=fn[f*3+2];buf[o+6]=(h%10007)/10007;buf[o+7]=flags;}}
+    for(let j=0;j<3;j++){const o=b+j*9;buf[o+8]=top.order[f]||0;buf[o]=cx;buf[o+1]=cy;buf[o+2]=cz;buf[o+3]=fn[f*3];buf[o+4]=fn[f*3+1];buf[o+5]=fn[f*3+2];buf[o+6]=(h%10007)/10007;buf[o+7]=flags;}}
   facetCache.set(g,{angle,buf});return buf;}
 const ZERO_SIG={bands:{bass:0,mids:0,high:0,full:0},pulse:0};
 // Turns the surface's fx settings and the music into shader uniforms.
-function fxUniforms(R,s,g,time,sig){const gl=R.gl,u=R.uniforms,F=s.fx||cleanFx(),B=sig?.bands||ZERO_SIG.bands,lvl=k=>Math.min(1,Math.max(0,+B[k]||0)),pulse=Math.min(1,Math.max(0,+sig?.pulse||0)),on=F.disp.on||F.edges.on||F.build.on||F.explode.on;
+function fxUniforms(R,s,g,time,sig){const gl=R.gl,u=R.uniforms,F=s.fx?.light?s.fx:cleanFx(s.fx),B=sig?.bands||ZERO_SIG.bands,lvl=k=>Math.min(1,Math.max(0,+B[k]||0)),pulse=Math.min(1,Math.max(0,+sig?.pulse||0)),on=FX_KEYS.some(k=>F[k]?.on),drv=k=>k==='beat'?pulse:k==='steady'||k==='hold'||k==='loop'?1:lvl(k);
   gl.uniform1f(u.time,time);
   gl.uniform4f(u.disp,F.disp.on?F.disp.amount*(.15+lvl(F.disp.drive)*1.2):0,['ripple','swell','noise'].indexOf(F.disp.pattern),F.disp.speed,0);
   const ex=F.explode.on?(F.explode.drive==='hold'?1:F.explode.drive==='beat'?pulse:lvl('bass')):0;gl.uniform2f(u.explode,ex*F.explode.amount,ex);
   let bp=1;if(F.build.on){if(F.build.drive==='level')bp=Math.min(1,lvl('full')*1.6);else{const t=((time*F.build.speed)%1+1)%1;bp=t<.45?t/.45:t<.55?1:t<.95?1-(t-.55)/.4:0;}}
   gl.uniform3f(u.build,F.build.on?1:0,bp,['up','out','random'].indexOf(F.build.order));
-  const L=lvl('full');gl.uniform4f(u.edge,F.edges.on?1:0,['pulse','trace','sweep'].indexOf(F.edges.mode),F.edges.width*(R.dpr||1),F.edges.mode==='pulse'?.3+L*1.6:1+L*.8);gl.uniform3f(u.edge2,F.edges.speed,F.edges.color==='white'?1:0,F.edges.on?F.edges.fill:1);
-  const attrs=[[R.fcenter,3,0],[R.fnormal,3,12],[R.fmeta,2,24]].filter(a=>a[0]>=0);
+  const L=lvl('full');gl.uniform4f(u.edge,F.edges.on?1:0,['pulse','trace','sweep'].indexOf(F.edges.mode),F.edges.width*(R.dpr||1),F.edges.mode==='pulse'?.3+L*1.6:1+L*.8);gl.uniform3f(u.edge2,F.edges.speed,0,F.edges.on?F.edges.fill:1);
+  const X=F.flow,Sc=F.scan,Sh=F.shock,Fl=F.flicker,Sn=F.snake,O=F.outline,C=F.curves,Li=F.light;
+  gl.uniform4f(u.fflow,X.on?1:0,time*X.speed*(X.dir==='spin'?.1:.25),['up','side','spin'].indexOf(X.dir),0);
+  gl.uniform4f(u.fscan,Sc.on?.4+drv(Sc.drive)*1.8:0,(((time*Sc.speed*.3)%1)+1)%1*1.4-.2,Sc.width,['up','across','depth'].indexOf(Sc.axis));
+  const sb=Sh.drive==='beat';gl.uniform4f(u.fshock,Sh.on?(sb?pulse:lvl(Sh.drive)):0,sb?1-pulse:(time*.6)%1,Sh.width,['bottom','top','side'].indexOf(Sh.from));
+  gl.uniform4f(u.fflick,Fl.on?1:0,Fl.amount*drv(Fl.drive),Fl.speed,0);
+  gl.uniform4f(u.fsnake,Sn.on?1:0,time*Sn.speed*.1,Sn.length,Sn.count);
+  gl.uniform4f(u.foutl,O.on?.4+drv(O.drive)*1.2:0,O.width,0,0);
+  gl.uniform2f(u.fcurv,C.on?C.amount*(C.drive==='steady'?1:.3+lvl(C.drive)*1.4):0,0);
+  gl.uniform4f(u.flight,Li.on?1:0,Li.amount*(Li.drive==='steady'?1:.3+lvl(Li.drive)*1.2),time*Li.speed*1.57,0);
+  const attrs=[[R.fcenter,3,0],[R.fnormal,3,12],[R.fmeta,3,24]].filter(a=>a[0]>=0);
   if(!on){for(const [loc] of attrs){gl.disableVertexAttribArray(loc);gl.vertexAttrib4f(loc,0,0,0,0);}return;}
   const buf=facets(g,F.edges.angle);gl.bindBuffer(gl.ARRAY_BUFFER,R.fxBuffer);if(R.fxData!==buf){gl.bufferData(gl.ARRAY_BUFFER,buf,gl.STATIC_DRAW);R.fxData=buf;}
-  for(const [loc,n,off] of attrs){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,32,off);}gl.bindBuffer(gl.ARRAY_BUFFER,R.buffer);}
+  for(const [loc,n,off] of attrs){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,36,off);}gl.bindBuffer(gl.ARRAY_BUFFER,R.buffer);}
 export function facetData(s,time){const g=meshOf(s,time);return facets(g,(s.fx||cleanFx()).edges.angle);}
 export function render3d(ctx,s,img,W,H,time=0,test=false,sig=null){
   const R=renderer||(renderer=init()),{canvas,gl,p,uniforms:u}=R;if(canvas.width!==W||canvas.height!==H){canvas.width=W;canvas.height=H;}gl.viewport(0,0,W,H);gl.useProgram(p);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
@@ -222,6 +265,6 @@ export function render3d(ctx,s,img,W,H,time=0,test=false,sig=null){
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.uniform1i(u.pass,0);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,A.occ);gl.activeTexture(gl.TEXTURE0);gl.uniform1i(u.aoOn,1);}
   gl.drawArrays(gl.TRIANGLES,0,g.data.length/8);gl.disable(gl.POLYGON_OFFSET_FILL);gl.uniform1i(u.aoOn,0);
   if(A){for(const t of [gl.TEXTURE1,gl.TEXTURE2]){gl.activeTexture(t);gl.bindTexture(gl.TEXTURE_2D,null);}gl.activeTexture(gl.TEXTURE0);}
-  if(s.wire||test){gl.uniform1i(u.wire,1);for(const k of ['disp','edge'])gl.uniform4f(u[k],0,0,0,0);gl.uniform2f(u.explode,0,0);gl.uniform3f(u.build,0,1,0);for(const loc of [R.fcenter,R.fnormal,R.fmeta])if(loc>=0){gl.disableVertexAttribArray(loc);gl.vertexAttrib4f(loc,0,0,0,0);}gl.bufferData(gl.ARRAY_BUFFER,g.lines,gl.STATIC_DRAW);R.mesh=null;gl.vertexAttribPointer(R.position,3,gl.FLOAT,false,12,0);gl.disableVertexAttribArray(R.uv);gl.disableVertexAttribArray(R.normal);gl.drawArrays(gl.LINES,0,g.lines.length/3);}
+  if(s.wire||test){gl.uniform1i(u.wire,1);for(const k of ['disp','edge','fflow','fscan','fshock','fflick','fsnake','foutl','flight'])gl.uniform4f(u[k],0,0,0,0);gl.uniform2f(u.fcurv,0,0);gl.uniform2f(u.explode,0,0);gl.uniform3f(u.build,0,1,0);for(const loc of [R.fcenter,R.fnormal,R.fmeta])if(loc>=0){gl.disableVertexAttribArray(loc);gl.vertexAttrib4f(loc,0,0,0,0);}gl.bufferData(gl.ARRAY_BUFFER,g.lines,gl.STATIC_DRAW);R.mesh=null;gl.vertexAttribPointer(R.position,3,gl.FLOAT,false,12,0);gl.disableVertexAttribArray(R.uv);gl.disableVertexAttribArray(R.normal);gl.drawArrays(gl.LINES,0,g.lines.length/3);}
   ctx.save();ctx.globalAlpha=s.opacity;ctx.globalCompositeOperation='source-over';ctx.drawImage(canvas,0,0,W,H);ctx.restore();
 }
