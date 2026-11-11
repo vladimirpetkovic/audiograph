@@ -3,6 +3,8 @@
 const canvas=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
 const hex=c=>'#'+c.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
 
+// Resolves once a video has a frame on screen (a thumbnail taken earlier is black); gives up after 1.5 s.
+export const firstFrame=v=>new Promise(ok=>{const t=setTimeout(ok,1500),done=()=>{clearTimeout(t);ok();};v.requestVideoFrameCallback?v.requestVideoFrameCallback(done):setTimeout(done,150);});
 export class Media{
   constructor(kind){this.kind=kind;this.el=null;this.name='';this.thumb='';this.url='';this.prev=null;this.motion=0;this.brightness=0;this.palette=null;this.tPal=-1;this.asset=null;this.tAsset=-1;this.base=null;}
   async load(file){
@@ -10,7 +12,7 @@ export class Media{
     try{
       if(this.kind==='image'){el=new Image();el.src=url;await el.decode();}
       else{el=document.createElement('video');Object.assign(el,{muted:true,loop:true,playsInline:true,src:url});
-        await new Promise((ok,no)=>{el.onloadeddata=ok;el.onerror=()=>no(Error('Could not read that video'));});el.play().catch(()=>{});}
+        await new Promise((ok,no)=>{el.onloadeddata=ok;el.onerror=()=>no(Error('Could not read that video'));});el.play().catch(()=>{});await firstFrame(el);}
     }catch(e){URL.revokeObjectURL(url);throw Error(this.kind==='image'?'Could not read that image':e.message);}
     this.clear();this.el=el;this.url=url;this.name=file.name;
     const [w,h]=this.size(),s=Math.min(1,160/Math.max(w,h)),t=canvas(Math.max(1,Math.round(w*s)),Math.max(1,Math.round(h*s)));

@@ -6,6 +6,7 @@ import {TEMPLATE_BY_NAME} from './morph.js';
 import {parseGLTF,pose} from './gltf.js';
 import {parseFBXModel} from './fbx-model.js';
 import {parseUSDModel} from './usd-model.js';
+import {firstFrame} from './media.js';
 // The 3D lighting after the WebGPU Cornell box sample (soft cast shadows, light size, bounce light, floor), smooth
 // cube normals and the link width / glow / pulse knobs are built into the classic engine; Pro keeps only its own defaults.
 function patch3dLighting(patch){
@@ -489,7 +490,7 @@ export class EmitterEngine {
           video.onloadeddata=()=>{clearTimeout(timeout);resolve();};
           video.onerror=()=>{clearTimeout(timeout);reject(Error('This video format could not be decoded: '+(video.error?.message||'media error')));};
         });
-        await video.play();
+        await video.play();await firstFrame(video);
       }catch(error){URL.revokeObjectURL(url);throw error;}
       if(this.video){this.video.pause();this.video.removeAttribute('src');}
       if(this.videoURL)URL.revokeObjectURL(this.videoURL);

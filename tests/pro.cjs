@@ -1121,6 +1121,15 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await page.click('[data-property=mediaRemove]');await page.locator('#properties .media-choose').waitFor({timeout:8000});
     assert.equal(await page.locator('#properties .media-item').count(),0,'Removing the picture brings back Choose');
     void img;
+    // Video EQ: the panel thumbnail is a real frame (not black) and the node shows the file name once loaded.
+    {const clip=(process.env.TMPDIR||'/tmp')+'/ag-pro-eq.webm';require('node:child_process').execFileSync('ffmpeg',['-loglevel','error','-y','-f','lavfi','-i','testsrc=size=320x180:rate=30:duration=2','-c:v','libvpx','-b:v','400k',clip]);
+     const veq=await page.evaluate(()=>{const id=pro.addNode('videoEQ');pro.select(id);return id;});
+     await page.locator('#emitterMedia').waitFor({state:'attached',timeout:15000});await page.locator('#emitterMedia').setInputFiles(clip);
+     await page.locator('#properties .media-item img').waitFor({timeout:15000});
+     const thumbLit=await page.evaluate(async()=>{const i=document.querySelector('#properties .media-item img');await i.decode();const c=document.createElement('canvas');c.width=i.naturalWidth;c.height=i.naturalHeight;const g=c.getContext('2d');g.drawImage(i,0,0);const d=g.getImageData(0,0,c.width,c.height).data;let n=0;for(let k=0;k<d.length;k+=4)if(d[k]+d[k+1]+d[k+2]>90)n++;return n/(d.length/4);});
+     assert.ok(thumbLit>.3,'Video EQ thumbnail shows a frame, not black');
+     assert.match(await page.locator(`#nodes .node[data-id="${veq}"]`).textContent(),/ag-pro-eq\.webm/,'Video EQ node shows the loaded file');
+     await page.evaluate(id=>pro.select(id),veq);await page.keyboard.press('Delete');}
     }
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     // Template Morph reuses the original interpolation and keeps a stable renderer while blending.
