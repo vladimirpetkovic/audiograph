@@ -42,6 +42,15 @@ select.tbtn option{background:var(--elevated);color:var(--tx);text-transform:non
 
 /* ── chips ─────────────────────────────── */
 .chips{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.chips.balanced{row-gap:0}.chips-br{flex-basis:100%;height:4px;width:0}
+/* Mapping Animate: one card per effect */
+.fx-card{display:flex;flex-direction:column;gap:9px;padding:9px 10px;border:1px solid var(--line,rgba(255,255,255,.08));border-radius:8px;background:rgba(255,255,255,.02)}
+.fx-card.on{border-color:color-mix(in srgb,var(--cat,#888) 45%,transparent);background:color-mix(in srgb,var(--cat,#888) 7%,transparent)}
+.fx-card-head>label,.fx-card-head>.prop-label,.fx-card-title{font-weight:600;color:var(--tx1,#ddd)}
+.fx-card-title{font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--cat,var(--tx3))}
+.fx-card-body{display:flex;flex-direction:column;gap:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)}
+.fx-card.fx-dim:not(.fx-mix){opacity:.45}
+.fx-auto-now{font-size:.62rem;color:var(--cat,var(--tx2));min-height:1em}
 .mbtn{position:relative;display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:4px 8px;font:.52rem/1 var(--mono);text-transform:uppercase;letter-spacing:.04em;background:#23232a;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#bdbdc5;cursor:pointer;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,.025);transition:transform .12s,background .12s,border-color .12s,color .12s,box-shadow .12s}
 .mbtn:hover{color:#ededf1;background:#2c2c34;border-color:rgba(255,255,255,.11);transform:translateY(-1px)}
 .mbtn.on{color:var(--on-tx);background:var(--on);border-color:transparent;box-shadow:0 4px 12px rgba(255,255,255,.06),inset 0 1px 0 rgba(255,255,255,.3)}

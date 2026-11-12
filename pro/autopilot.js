@@ -1,6 +1,6 @@
 // Autopilot: turns a plain-language description into a node graph, and keeps it moving with the music.
 // parse(text) reads the description; build(intent,options) makes project layers; Director follows the song's sections.
-import {TYPES,MODES,PALETTES,node,spinProps} from './graph.js';
+import {TYPES,MODES,PALETTES,node,spinProps,isEngine} from './graph.js';
 
 // ---------- small helpers ----------
 export function rng(seed=Date.now()){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return ((s>>>0)%100000)/100000;};}
@@ -118,9 +118,9 @@ const W_SUBJECT=[['smoke','ink fluid','fireflies','liquid metal','sand','mandala
   ['particles','fluid','spiral','smoke','liquid metal','spectrum bars','tunnel','sphere','cube','knot','fireworks','swarm','sacred geometry']];
 const W_COLOR=['sunset','ocean','aurora','cyberpunk','synthwave','ice','fire','toxic','cosmic','luxury','pastel','tropical','forest','desert','electric','monochrome',
   'blue and gold','pink and teal','violet and lime','red and black','orange and cyan','magenta and ice','emerald and gold','white and silver'];
-const W_EXTRA=[['with soft glow','with long trails','drifting','rising','mirrored','slowly rotating','pulsing with the bass','with film grain','blur'],
-  ['swirling','with trails','pulsing with the bass','kaleidoscope','wavy','rotating','sparks on the beat','glow'],
-  ['swirling','glitchy','sparks on the beat','kaleidoscope','shockwave','fast spin','pulsing with the bass','shattered','strong glow','turbulent']];
+const W_EXTRA=[['with soft glow','with long trails','drifting','rising','mirrored','slowly rotating','pulsing with the bass','with film grain','blur','breathing slowly','slowly shifting colours','inside a circle','masked by text "DREAM"'],
+  ['swirling','with trails','pulsing with the bass','kaleidoscope','wavy','rotating','sparks on the beat','glow','wobbling','zooming on bass','revealed by the waveform','follows the clock'],
+  ['swirling','glitchy','sparks on the beat','kaleidoscope','shockwave','fast spin','pulsing with the bass','shattered','strong glow','turbulent','strobing on the beat','glitches on the drop','random jumps','tunnel on bass','masked by text "RAVE"','melting with the bass']];
 export function write({energy=50,seed=Date.now(),prev='',keep=0}={}){
   const r=rng(seed),band=energy<40?0:energy<70?1:2;
   const old=W_SUBJECT.flat().find(w=>new RegExp('\\b'+w+'\\b').test(prev));
@@ -134,12 +134,16 @@ export function parse(text){
   const raw=String(text||'').slice(0,600);let t=' '+raw.toLowerCase().replace(/[“”]/g,'"')+' ';
   const read=[];const add=(kind,text)=>{if(!read.some(r=>r.kind===kind&&r.text===text))read.push({kind,text});};
   const it={raw,visuals:[],colors:null,theme:null,energy:null,tempo:1,bpm:0,dark:false,bright:false,symmetry:null,lineShape:null,spin:null,thick:null,density:null,scale:null,
-    tilt:null,outline:false,deformers:[],forces:[],fx:{},react:[],intensity:null,text:null,sparkles:false,background:null,data:[],no:new Set(),layers:null};
+    tilt:null,outline:false,deformers:[],forces:[],fx:{},react:[],intensity:null,text:null,sparkles:false,background:null,data:[],drivers:[],mask:null,no:new Set(),layers:null};
   // Quoted words become a Text input.
-  const q=raw.match(/["“']([^"”']{1,60})["”']/);if(q){it.text=q[1];t=t.replace(q[0].toLowerCase(),' ');add('Visual',`Text “${q[1]}”`);}
+  const q=raw.match(/["“']([^"”']{1,60})["”']/);if(q){it.text=q[1];t=t.replace(q[0].toLowerCase().replace(/[“”]/g,'"'),' ');}
   // Negations: "no glow", "without trails", "not spinning".
   t=t.replace(/\b(no|without|not|zero|never|minus|less)\s+(?:any\s+|the\s+)?([a-z-]+)/g,(m,_n,w)=>{it.no.add(w);add('Off','no '+w);return ' ';});
   const has=re=>re.test(t),neg=re=>[...it.no].some(w=>re.test(' '+w+' '));
+  const maskText=has(/mask(?:ed)? (?:by|with) (?:the )?(?:text|words|letters)|through (?:the )?(?:words|letters|text)/),maskCircle=has(/inside (?:a |the )?circle|through (?:a |the )?(?:circle|shape)|circular mask/),maskWave=has(/(?:masked|revealed) by (?:the |a )?waveform|waveform mask/);
+  if(maskText||maskCircle||maskWave){it.mask={kind:maskText?'text':maskCircle?'circle':'waveform',text:q?.[1]||'SOUND'};if(maskText)it.text=null;add('Mask',maskText?`through “${it.mask.text}”`:maskCircle?'inside a circle':'revealed by the waveform');
+    t=t.replace(/(?:mask(?:ed)? (?:by|with)|through) (?:the |a )?(?:text|words|letters|circle|shape)|inside (?:a |the )?circle|circular mask|(?:masked|revealed) by (?:the |a )?waveform|waveform mask/g,' ');}
+  if(it.text)add('Visual',`Text “${it.text}”`);
   // Visuals in the order they are mentioned, per clause so colours can follow them.
   const clauses=t.split(/,|;|\band\b|\bwith\b|\bover\b|\bon top of\b|\bplus\b|\bbehind\b|\bunder\b|\binside\b|\baround\b/);
   const found=[];
@@ -197,7 +201,15 @@ export function parse(text){
   fx('feedback',/infinite|feedback|droste|endless zoom|tunnel effect|hypnotic|recursive/,{decay:.88,zoom:1.04,rotate:1.5},'feedback tunnel');
   fx('blur',/soft focus|blurr?y|out of focus|hazy|defocus|dreamy blur/,{x:18,y:0},'soft blur');
   fx('kaleido',/kaleidoscop/,{kaleido:70},'kaleidoscope');
-  fx('fracture',/shatter|fracture|broken glass|broken mirror|mosaic|shards|glitch/,{mode:/glitch/.test(t)?'flow':'shatter'},/glitch/.test(t)?'glitch':'shatter');
+  fx('fracture',/shatter|fracture|broken glass|broken mirror|mosaic|shards/,{mode:'shatter'},'shatter');
+  fx('glitch',/glitch|digital breakup|datamosh/,{amount:38,react:'always'},'digital glitch');
+  fx('strobe',/strob|flash(es|ing)?/,{amount:35,safe:true},'beat strobe (safe)');
+  fx('melt',/melt|dripping wax/,{amount:35,speed:25,length:40},'melt');
+  fx('tunnel',/\btunnel\b|zoom(ing)?/,{speed:18,bass:35,kick:20},'zoom tunnel');
+  fx('shader',/\bshader\b/,{k1:18},'shader wobble');
+  fx('blend',/double exposure|blend(?:ed|ing)? images|layered echoes/,{mix:.28},'blended echo');
+  fx('merge',/merge(?:d)? images|stacked echoes/,{b:.3},'merged echo');
+  fx('imageTransform',/pan(?:ning)? across|image transform/,{x:0},'image pan');
   fx('liquidGlass',/liquid glass|glass blobs?|metaballs?|blobs? of glass|refract|water drops?|droplets?|lava lamp/,{},'liquid glass');
   const lens={};if(has(/chromatic|rgb split|aberration|prismatic|glitch/))lens.chroma=60;if(has(/vignette|cinematic|\bfilm\b|movie/))lens.vignette=65;
   if(has(/grain|grainy|\bfilm\b|analog|vintage|retro|vhs|lo.?fi|old tv/))lens.grain=55;if(has(/scanlines?|\bcrt\b|vhs|arcade|old tv|retro tv/))lens.scanlines=55;
@@ -213,14 +225,27 @@ export function parse(text){
   if(has(/(on|with|to) the (beat|kick|drums?)|beat.?(driven|synced|reactive)|strob|flash(es|ing)?/))it.react.push('beat');
   if(has(/(on|with|to) the bass|bass.?(driven|heavy|reactive)|sub.?bass|low end|808/))it.react.push('bass');
   if(has(/hi.?hats?|treble|highs|cymbals|shimmer/))it.react.push('high');
-  for(const r of new Set(it.react))add('Sound',{pulse:'pulses',beat:'hits on the beat',bass:'follows the bass',high:'shimmers on highs'}[r]);
+  if(has(/mid.?range|\bmids\b/))it.react.push('mids');
+  for(const r of new Set(it.react)){add('Sound',{pulse:'pulses',beat:'hits on the beat',bass:'follows the bass',high:'shimmers on highs',mids:'moves with the mids'}[r]);if(r!=='pulse'||!has(/breath|puls(?:ing|es?) slowly|slow(?:ly)? puls/))add('Driver',{pulse:'smoothed bass → size',beat:'beat → glow',bass:'smoothed bass → size',high:'highs → hue',mids:'mids → force speed'}[r]);}
   it.react=[...new Set(it.react)];
+  const driver=(kind,re,name)=>{if(has(re)){it.drivers.push({kind});add('Driver',name);}};
+  driver('breath',/breath(?:ing|es)?|puls(?:ing|es?) slowly|slow(?:ly)? puls(?:ing|es?)/,'slow sine → size');
+  driver('wobble',/wobbl|sway(?:ing)?|undulat|wiggl/,'LFO → deformation');
+  driver('strobe',/strob|flash(es|ing)?/,'beat → strobe + glow');
+  driver('glitch',/glitch|digital breakup|datamosh/,has(/highs|treble|hi.?hats?/)?'highs → glitch':'beat → glitch');
+  driver('zoom',/zoom|\btunnel\b/,has(/bass/)?'bass → tunnel speed':'smoothed bass → zoom');
+  driver('colour',/shifting colou?rs|colou?r.?cycl|iridescen|chameleon/,'slow LFO → hue');
+  driver('random',/random jumps?|chaotic|randomi[sz]ed motion/,'beat → random → motion');
+  driver('clock',/follows? (?:the )?time|\bclock\b|time.?driven/,'clock → rotation');
+  driver('melt',/melt(?:ing)? (?:with|on|to) (?:the )?bass/,'bass → melt');
+  driver('force',/surging forces|pushing with (?:the )?sound|gusting/,'mids → force speed');
+  driver('pan',/pan(?:ning)? across|image transform/,'slow LFO → image pan');
   // Other inputs.
-  if(has(/\bcpu|computer load|my (computer|machine)|processor/)){it.data.push('computer');add('Input','computer activity');}
-  if(has(/mouse|cursor|pointer|follows? me/)){it.data.push('pointer');add('Input','mouse');}
+  if(has(/\bcpu|computer load|my (computer|machine)|processor/)){it.data.push('computer');add('Input','computer activity');add('Driver','computer activity → deformation');}
+  if(has(/mouse|cursor|pointer|follows? me/)){it.data.push('pointer');add('Input','mouse');add('Driver','pointer → rotation / position');}
   const LIVE=[['iss',/\biss\b|space station|orbit/,'the ISS'],['space',/space weather|solar wind|aurora|geomagnetic|sun ?storm/,'space weather'],['ocean',/ocean|\bsea\b|swell|tide|surf/,'the ocean'],
     ['weather',/weather|\bwind\b|rain|storm|temperature/,'the weather'],['quakes',/earthquake|quake|seismic|tectonic/,'earthquakes'],['wiki',/wikipedia|wiki edits|edits/,'Wikipedia edits']];
-  for(const [src,re,label] of LIVE)if(has(re)&&!it.live){it.live=src;add('Input','live data: '+label);}
+  for(const [src,re,label] of LIVE)if(has(re)&&!it.live){it.live=src;add('Input','live data: '+label);add('Driver',label+' → colour + motion');}
   if(has(/webcam|camera|my face|see me|mirror me/)&&!it.visuals.length){it.visuals.push({mode:'simparticles',type:'gpuParticles',camera:true,colors:null});add('Visual','Camera');}
   if(has(/\bcpu|computer load|processor/)&&has(/\bdata\b/)){/* already handled */}
   it.read=read;return it;
@@ -350,25 +375,94 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
     wire(bgN,'image',m,'a');wire(prev,Object.keys(TYPES[prev.type].outputs)[0],m,'b');prev=m;
   }
   const out=add('output');chainTo(prev,out);
-  // Sound and data reactions: wire numbers into knobs.
-  let dy=Y+230;const drive=(srcNode,outKey,target,input,via)=>{
-    if(!target||!TYPES[target.type].props[input])return;
-    let from=srcNode,out=outKey;if(via){const s=node(via[0],srcNode.x+215,dy,via[1]);g.nodes.push(s);wire(srcNode,outKey,s,Object.keys(TYPES[via[0]].inputs)[0]);from=s;out='value';}
-    if(g.edges.some(e=>e.to===target.id&&e.input===input))return;wire(from,out,target,input);dy+=110;};
-  const find=t=>g.nodes.find(n=>n.type===t);
-  if(it.react.includes('beat')){const b=find('bloom')||find('ripple');if(b)drive(sound,'beat',b,b.type==='bloom'?'bloom':'amount');}
-  if(it.react.includes('bass')||it.react.includes('pulse')){
-    const t=find('bulge')||find('twist')||(sim?null:vis);if(t)drive(sound,'bass',t,t===vis?'scale':'amount',['smooth',{attack:10,release:260}]);
-    else if(!find('bloom')?.id||!it.react.includes('beat')){const b=find('bloom');if(b)drive(sound,'bass',b,'bloom',['smooth',{attack:15,release:300}]);}
+  enhance(g,it,{seed:Math.floor(r()*1e9),energy:E,match:(1-explore)*100,primary:!i});
+  return g;
+}
+
+// Add the same editable graph vocabulary to a generated look or the live Director's reusable slots.
+export function enhance(g,it,{seed=1,energy=50,match=85,primary=true}={}){
+  if(!primary)return g;
+  const r=rng(seed),E=clamp(energy,0,100),explore=1-clamp(match,0,100)/100,roam=!it.raw.trim(),find=t=>g.nodes.find(n=>n.type===t),vis=g.nodes.find(n=>isEngine(n.type)),sound=find('audioIn'),output=find('output');
+  if(!vis||!sound||!output)return g;
+  const sim=SIM_MODES.includes(vis.props.mode),off=type=>[...it.no].some(w=>({bloom:/glow|bloom/,hue:/colou?r|hue/,imageTransform:/zoom|mov|motion/,strobe:/strob|flash/,glitch:/glitch/,mask:/mask/}[type]||new RegExp('^'+type+'$','i')).test(w));
+  let dy=Math.max(360,...g.nodes.map(n=>n.y+160)),col=0;
+  const wire=(a,out,b,input)=>g.edges.push({from:a.id,out,to:b.id,input}),out=n=>Object.keys(TYPES[n.type].outputs)[0],free=(n,k)=>n&&!g.edges.some(e=>e.to===n.id&&e.input===k);
+  const make=(type,props={},main=false)=>{const n=node(type,main?output.x:40+215*col++,main?output.y:dy,props);g.nodes.push(n);if(main)output.x+=215;return n;};
+  const row=()=>{dy+=160;col=0;};
+  const insert=(n,target=output,input='image')=>{const edge=g.edges.find(e=>e.to===target.id&&e.input===input);if(!edge)return n;g.edges=g.edges.filter(e=>e!==edge);g.edges.push({...edge,to:n.id,input:Object.keys(TYPES[n.type].inputs)[0]});wire(n,out(n),target,input);return n;};
+  // Shape-stage nodes (Hue) go in the shape chain before Symmetry / Spin; image FX go before Output.
+  const effect=(type,props={})=>{if(off(type))return null;const old=find(type);if(old)return old;const at=TYPES[type].outputs.shape&&[find('symmetry'),find('spin')].find(t=>t&&g.edges.some(e=>e.to===t.id&&e.input==='shape'));const n=at?insert(make(type,props),at,'shape'):insert(make(type,props,true));if(TYPES[type].inputs.audio)wire(sound,'audio',n,'audio');return n;};
+  // Map emits normalised knob modulation, not property units: 0 keeps the base, 1 reaches its maximum.
+  const sources=new Map(),source=(kind)=>{
+    if(sources.has(kind))return sources.get(kind);
+    let n,key='value';
+    if(kind==='beat'){n=make('beat',{decay:E<40?550:180});wire(sound,'audio',n,'audio');}
+    else if(['bass','mids','high','level'].includes(kind)){
+      let audio=sound;if(kind==='high'||kind==='bass'){audio=sources.get('eq')?.[0];if(!audio){audio=make('spectrum',{eq32:110,eq64:110,eq4k:120,eq8k:125});wire(sound,'audio',audio,'audio');sources.set('eq',[audio,'audio']);}}
+      n=make('audio',{band:kind==='level'?'full':kind,gain:1.2});wire(audio,'audio',n,'audio');
+    }else if(kind==='slow'||kind==='sway'||kind==='colour'){n=make('oscillator',{wave:'sine',rate:(kind==='colour'?.025:kind==='slow'?.08:.18)*clamp(it.tempo,.4,1.5),depth:1,offset:0});}
+    else if(kind==='random'){const [b,k]=source('beat');n=make('random',{trigger:'beat',glide:E<40?.85:.22});wire(b,k,n,'trigger');}
+    else if(kind==='clock'){n=make('clock',{bpm:it.bpm||120});key='minute';}
+    else if(kind==='computer'){n=make('computer');key='activity';}
+    else if(kind==='pointer'){n=make('pointer');key='x';}
+    else if(kind==='live'){n=make('liveData',{source:it.live});key='level';}
+    else{n=sound;key=kind;}
+    const src=[n,key];sources.set(kind,src);return src;
+  };
+  const bind=(kind,target,key,low,high,smooth=0)=>{
+    const spec=target&&TYPES[target.type].props[key];if(!spec||g.nodes.length>53)return false;
+    low=clamp(low,spec.min,spec.max);high=clamp(high,low,spec.max);if(high<=low)return false;
+    let [n,k]=Array.isArray(kind)?kind:source(kind);col=Math.max(col,1);
+    if(smooth){const sm=make('smooth',{attack:Math.min(150,smooth/4),release:smooth});wire(n,k,sm,'value');n=sm;k='value';}
+    const edge=g.edges.find(e=>e.to===target.id&&e.input===key),base=edge?target.props[key]:low,normal=v=>v>=base?(v-base)/(spec.max-base||1):(v-base)/(base-spec.min||1),a=normal(low),b=normal(high);
+    const m=make('map',{scale:b-a,offset:a});wire(n,k,m,'value');
+    if(edge){const mix=make('math',{op:'max'}),src=g.nodes.find(n=>n.id===edge.from);g.edges=g.edges.filter(e=>e!==edge);wire(src,edge.out,mix,'a');wire(m,'value',mix,'b');wire(mix,'value',target,key);}else{wire(m,'value',target,key);target.props[key]=low;}row();return true;
+  };
+  const shape=(type,props)=>{const old=find(type);if(old)return old;
+    const n=make(type,props);const edge=g.edges.find(e=>e.from===vis.id&&e.out==='shape'&&e.input!=='mask');
+    if(edge){g.edges=g.edges.filter(e=>e!==edge);wire(vis,'shape',n,'shape');g.edges.push({...edge,from:n.id,out:'shape'});}row();return n;};
+  const motion=()=>shape(sim?'turbulence':'wave',sim?{amount:20,scale:45}:{amount:12,speed:2});
+  const explicit=Object.entries(it.fx).filter(([type])=>!['blend','merge'].includes(type));
+  for(const [type,p] of explicit)effect(type,p);
+  const kinds=(it.drivers||[]).map(d=>d.kind);
+  if((roam&&r()<.72)||(!roam&&r()<explore*.5)){
+    const pool=E<40?['breath','colour','wobble','clock']:E>70?['strobe','glitch','zoom','random','wobble','force']:['breath','colour','zoom','wobble','random','force'];
+    const n=1+Math.floor(r()*(1+2*explore));for(let j=0;j<n;j++){const k=pick(r,pool.filter(k=>!kinds.includes(k)));if(k)kinds.push(k);}
   }
-  if(it.react.includes('high')){const h=find('hue')||find('jitter');if(h)drive(sound,'high',h,h.type==='hue'?'hue':'amount',['smooth',{attack:5,release:150}]);}
-  if(!i&&it.data.includes('computer')){const c=node('computer',40,dy);g.nodes.push(c);const t=find('turbulence')||find('hue')||find('twist');if(t)wire(c,'activity',t,t.type==='hue'?'cycle':'amount');else if(spinN)wire(c,'activity',spinN,'spin');dy+=110;}
-  if(!i&&it.live){const d=node('liveData',40,dy,{source:it.live});g.nodes.push(d);dy+=110;
-    const free=(n,k)=>n&&!g.edges.some(e=>e.to===n.id&&e.input===k),link=(out,n,k)=>{if(free(n,k)){wire(d,out,n,k);return true;}};
-    link('palette',find('palette'),'colors');
-    const b=find('bloom')||find('ripple');if(b)link('pulse',b,b.type==='bloom'?'bloom':'amount');
-    const t=find('wave')||find('twist')||find('turbulence');if(!(t&&link('level',t,'amount'))&&T.scale)link('level',vis,'scale');}
-  if(!i&&it.data.includes('pointer')){const p=node('pointer',40,dy);g.nodes.push(p);if(T.rotation)wire(p,'x',vis,'rotation');if(T.tilt)wire(p,'y',vis,'tilt');}
+  if(roam||r()<explore*.6){const combos=E<40?[['trails',{trails:35}],['blur',{x:5}],['liquidGlass',{refraction:25,speed:14,bass:25,beat:10}],['feedback',{decay:.66,zoom:1.008,rotate:.2}]]:E>70?[['glitch',{amount:24,react:'always'}],['strobe',{amount:24,safe:true,every:'2'}],['tunnel',{speed:16,kick:22}],['fracture',{mode:'flow'}],['kaleido',{kaleido:3}]]:[['melt',{amount:26,speed:20}],['trails',{trails:45}],['lens',{chroma:18,vignette:25}],['feedback',{decay:.75,zoom:1.015,rotate:.4}],['shader',{k1:12}]];
+    const pool=combos.slice(),n=1+Math.floor(r()*(1+2*explore));for(let j=0;j<n&&pool.length;j++){const [type,p]=pool.splice(Math.floor(r()*pool.length),1)[0];effect(type,p);if(type==='glitch'&&!kinds.includes('glitch'))kinds.push('glitch');if(type==='strobe'&&!kinds.includes('strobe'))kinds.push('strobe');if(type==='tunnel'&&!kinds.includes('zoom'))kinds.push('zoom');}}
+  let mask=it.mask;
+  if(!mask&&roam&&r()<.12+explore*.24&&!off('mask'))mask={kind:pick(r,['circle','waveform','text']),text:pick(r,['SOUND','FLOW','NOW'])};
+  if(mask&&!off('mask')){
+    // Alpha, not opaque black: Composite Mask uses destination-in, while emitters can also mask by luma.
+    let m;if(mask.kind==='text')m=make('plainText',{text:mask.text,color:'#ffffff',bounce:12});
+    else m=make('shader',{example:'Custom',code:mask.kind==='circle'?`void mainImage(out vec4 c,in vec2 f){vec2 p=(f-.5*iResolution.xy)/iResolution.y;float a=1.-smoothstep(.34,.36,length(p));c=vec4(vec3(1.),a);}`:`void mainImage(out vec4 c,in vec2 f){vec2 uv=f/iResolution.xy;float w=texture(iChannel1,vec2(uv.x,.75)).r-.5;float a=1.-smoothstep(.16,.19,abs(uv.y-.5-w*.45));c=vec4(vec3(1.),a);}`});
+    wire(sound,'audio',m,'audio');row();
+    if(mask.kind==='waveform'&&free(vis,'mask')){wire(m,'image',vis,'mask');vis.props.maskBy='alpha';}
+    else{const n=effect('mask',{feather:E<40?5:1});if(n&&free(n,'mask'))wire(m,'image',n,'mask');}
+  }
+  if(it.fx.blend||it.fx.merge){const echo=make('feedback',{decay:.65,zoom:1.02,rotate:.6}),edge=g.edges.find(e=>e.to===output.id&&e.input==='image'),src=edge&&g.nodes.find(n=>n.id===edge.from);row();
+    if(src){wire(src,edge.out,echo,'image');const type=it.fx.blend?'blend':'merge',n=make(type,it.fx[type],true);g.edges=g.edges.filter(e=>e!==edge);wire(src,edge.out,n,'a');wire(echo,'image',n,'b');wire(n,'image',output,'image');}}
+  for(const kind of kinds){
+    if(kind==='breath'&&!off('imageTransform')){const t=effect('imageTransform');bind('slow',t,'scale',.96,1.065);}
+    if(kind==='wobble'){const t=motion();bind('sway',t,'amount',8,E<40?28:55);}
+    if(kind==='strobe'){bind('beat',effect('strobe',{amount:0,safe:true}), 'amount',0,E>70?48:26);bind('beat',effect('bloom',{bloom:15}),'bloom',15,60,220);}
+    if(kind==='glitch')bind(it.react.includes('high')?'high':'beat',effect('glitch',{amount:0,react:'always'}),'amount',0,E>70?58:32,110);
+    if(kind==='zoom'){bind('bass',effect('tunnel',{speed:10,kick:18}),'speed',8,E>70?45:24,350);const f=find('feedback');if(f)bind('bass',f,'zoom',1.002,1.045,400);}
+    if(kind==='colour'){const h=effect('hue',{hue:-22,cycle:0});if(h)h.props.cycle=0;bind('colour',h,'hue',-28,28);}
+    if(kind==='random'){const t=motion(),[n,k]=source('random'),v=make('value',{value:E>70?.8:.45}),m=make('math',{op:'multiply'});wire(n,k,m,'a');wire(v,'value',m,'b');bind([m,'value'],t,'amount',4,E>70?70:40,160);}
+    if(kind==='force')bind('mids',shape('spin',{spin:.2,speed:1}),'speed',.4,1.3,400);
+    if(kind==='clock')bind('clock',effect('imageTransform'),'rotate',-12,12,300);
+    if(kind==='melt')bind('bass',effect('melt',{amount:16}),'amount',12,50,400);
+    if(kind==='pan')bind('slow',effect('imageTransform'),'x',-15,15);
+  }
+  if(it.react.includes('beat'))bind([sound,'beat'],effect('bloom',{bloom:15}),'bloom',15,65,180);
+  if((it.react.includes('bass')||it.react.includes('pulse'))&&!kinds.includes('breath')){const t=find('bulge')||find('twist');if(t)bind([sound,'bass'],t,'amount',8,45,300);else bind([sound,'bass'],effect('imageTransform'),'scale',.98,1.09,300);}
+  if(it.react.includes('high'))bind([sound,'high'],effect('hue',{hue:0,cycle:0}),'hue',-15,20,180);
+  if(it.react.includes('mids'))bind([sound,'mids'],shape('spin',{spin:.2,speed:1}),'speed',.4,1.3,400);
+  if(it.data.includes('computer'))bind('computer',motion(),'amount',5,42,450);
+  if(it.data.includes('pointer')){const t=effect('imageTransform');bind('pointer',t,'rotate',-16,16,120);const p=sources.get('pointer');if(p)bind([p[0],'y'],t,'y',-12,12,120);}
+  if(it.live){const [n]=source('live'),p=find('palette');if(free(p,'colors'))wire(n,'palette',p,'colors');bind('live',motion(),'amount',8,38,800);}
   return g;
 }
 

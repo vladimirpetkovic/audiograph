@@ -142,6 +142,24 @@ export function knob(opts) {
   return root;
 }
 
+// Balanced chip rows: when a row of chips doesn't fit, it splits into the fewest rows that do, as evenly as
+// possible with the longer rows first (7 chips → 4 + 3, not 6 + 1). Line breaks are inserted between the
+// buttons, so they stay direct children. Every .chips row on the page is balanced, and again on resize.
+const chipRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((es) => { for (const e of es) for (const c of e.target.querySelectorAll(':scope > .chips')) balanceChips(c); }) : null;
+export function balanceChips(root) {
+  if (!root.isConnected || !root.offsetParent || root.classList.contains('toggle')) return;
+  const old = [...root.querySelectorAll(':scope > .chips-br')], items = [...root.children].filter((c) => !c.classList.contains('chips-br') && c.offsetParent);
+  old.forEach((b) => b.remove());
+  const n = items.length, gap = parseFloat(getComputedStyle(root).columnGap) || 0, avail = root.clientWidth + .5, w = items.map((b) => b.getBoundingClientRect().width);
+  const fits = (r) => { let i = 0; for (let k = 0; k < r; k++) { const len = Math.ceil((n - i) / (r - k)); let sum = 0; for (let j = i; j < i + len; j++) sum += w[j] + (j > i ? gap : 0); if (sum > avail) return null; i += len; } return true; };
+  let breaks = [];
+  if (n > 1 && items.some((b) => b.offsetTop !== items[0].offsetTop)) for (let r = 2; r <= n; r++) if (fits(r)) { let i = 0; for (let k = 0; k < r - 1; k++) { i += Math.ceil((n - i) / (r - k)); breaks.push(items[i]); } break; }
+  for (const b of breaks) root.insertBefore(Object.assign(document.createElement('i'), { className: 'chips-br', ariaHidden: 'true' }), b);
+  root.classList.toggle('balanced', breaks.length > 0);
+}
+const watchChips = (c) => { if (c.parentElement) chipRO?.observe(c.parentElement); requestAnimationFrame(() => balanceChips(c)); };
+if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) { if (n.classList.contains('chips')) watchChips(n); for (const c of n.querySelectorAll?.('.chips') || []) watchChips(c); } }).observe(document.documentElement, { childList: true, subtree: true });
+
 export function chips(opts) {
   const root = el('div', 'chips');
   if (opts.property) root.dataset.property = opts.property;

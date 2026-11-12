@@ -942,7 +942,10 @@ function showAutoKnobs(){
 function showMapAutoKnobs(){
   if(!mapMode||!mapSel)return;
   for(const b of document.querySelectorAll('#mapPanel .knob.auto[data-map-auto]')){const k=b.dataset.mapAuto,v=mapAutoValues.get(mapSel+':'+k);if(v!==undefined)b.show?.(MAP_AUTO_PCT.test(k)?v*100:v);}
+  // Animate Autopilot: which effects it is playing now.
+  for(const e of document.querySelectorAll('#mapPanel .fx-auto-now')){const t='Playing: '+(map3d.autoPlaying(e.dataset.surf).map(k=>FX_NAMES[k]).join(' + ')||'…');if(e.textContent!==t)e.textContent=t;}
 }
+const FX_NAMES={disp:'Displace',edges:'Edges',build:'Build',explode:'Explode',flow:'Flow',scan:'Scan',shock:'Shockwave',flicker:'Flicker',snake:'Snake',outline:'Outline',curves:'Curves',light:'Light',morph:'Morph',echo:'Echo'};
 // Dissolve: any change to what is drawn (nodes, wires, layers, a template, Autopilot) fades from the last frame
 // instead of cutting. New engines start behind the held frame, then it fades out like the original's layout fade.
 const fadeCv=document.createElement('canvas');fadeCv.width=WIDTH;fadeCv.height=HEIGHT;const fadeCtx=fadeCv.getContext('2d');
@@ -2464,7 +2467,7 @@ $('helpBody').innerHTML=`
 <li>On AI Render, <b>New seed</b> (Every beat / Every 4 beats) re-rolls details in time with the music; <b>Dream</b> feeds the last AI picture back in, zoomed by <b>Dream zoom</b> and turned by <b>Dream spin</b>, for endless evolving “dream zoom” imagery.</li></ol>
 <p>The first frame takes a while as the model loads; after that it streams a few frames a second on a modern GPU or Apple Silicon.</p>
 <h3 id="h-mapping">Mapping</h3>
-<p>Projection mapping onto walls and objects. Turn Mapping on, then use <b>+ Surface</b> to add a layout (single screen, cube, triptych, corridor, curved wall…) or <b>+ 3D object</b> to load a model or add a primitive (its <b>Animate</b> section ripples, outlines, builds or shatters the picture on the mesh with the music, without moving it off the object; each effect's <b>Map</b> picks where it shows: everywhere, by depth, by sound (bass low, highs high), in UV bands, on random parts of the model, random faces or drifting noise, with <b>Re-pick</b> locking new parts to every 1–8 beats; <b>Fade</b> eases it in and out and softens its changes; <b>Intensity</b> sets its strength; <b>Morph</b> warps the picture like liquid across the surface; <b>Echo</b> delays the picture across the object so changes roll over it; <b>Post FX</b> adds brightness, contrast, kaleidoscope, trails and feedback (in screen or surface space), all kept inside the mesh outline; the panel's <b>?</b> shows explanations), then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project. Projection knobs (Crop, Tiling, Box fade, Box transform) have <b>Auto</b> too: click the dot in the middle and the knob drifts around its value.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / USD (usda, usdc, usdz) / GLB / self-contained glTF at full detail (up to 1,000,000 triangles). Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object (Scale X / Y / Z or Uniform); a <b>Gizmo</b> (W move · E rotate · R scale · Q off) does the same, or moves, turns and stretches the projection box, by dragging coloured handles in the view; <b>Lattice</b> bends it to match the real object; <b>Shading</b> adds ambient occlusion (Strength, Radius) that darkens creases and corners; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres and USD stage units / up axis are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
+<p>Projection mapping onto walls and objects. Turn Mapping on, then use <b>+ Surface</b> to add a layout (single screen, cube, triptych, corridor, curved wall…) or <b>+ 3D object</b> to load a model or add a primitive (its <b>Animate</b> section ripples, outlines, builds or shatters the picture on the mesh with the music, without moving it off the object; each effect's <b>Map</b> picks where it shows: everywhere, by depth, by sound (bass low, highs high), in UV bands, on random parts of the model, random faces or drifting noise, with <b>Re-pick</b> locking new parts to every 1–8 beats; <b>Fade</b> eases it in and out and softens its changes; <b>Intensity</b> sets its strength; <b>Morph</b> warps the picture like liquid across the surface; <b>Echo</b> delays the picture across the object so changes roll over it; <b>Flow</b> moves, turns and scales the picture; <b>Element</b> breaks Explode, Build and Flicker into polygons, edges or vertices; <b>Autopilot</b> picks a new random mix every few beats; <b>Post FX</b> adds brightness, contrast, kaleidoscope, trails and feedback (in screen or surface space), all kept inside the mesh outline; the panel's <b>?</b> shows explanations), then drag their corners on the preview to fit what the projector hits. <b>Snap</b> makes dragged points stick to other surfaces' points. Each surface can show a crop of the picture or its own layer, with feathered edges. The test card helps line things up. <b>Detach</b> opens the mapped output in its own window for the projector; double-click it there for fullscreen. The mapping is saved with the project. Projection knobs (Crop, Tiling, Box fade, Box transform) have <b>Auto</b> too: click the dot in the middle and the knob drifts around its value.</p><p><b>+ 3D object</b> uses a Cube, Sphere, Cylinder or Two walls, or loads OBJ / FBX / USD (usda, usdc, usdz) / GLB / self-contained glTF at full detail (up to 1,000,000 triangles). Its settings are grouped: <b>Scene</b> (surfaces and layers), <b>Surface</b> (content: UV, Front projection or Box with fade, tiling and box transform; <b>Transform</b> moves, rotates and scales the object (Scale X / Y / Z or Uniform); a <b>Gizmo</b> (W move · E rotate · R scale · Q off) does the same, or moves, turns and stretches the projection box, by dragging coloured handles in the view; <b>Lattice</b> bends it to match the real object; <b>Shading</b> adds ambient occlusion (Strength, Radius) that darkens creases and corners; <b>Animation</b> plays an animated model), <b>Camera</b> and <b>Projection</b>. Orbit, Tilt, Distance, Roll, lens-shift Pan and full-frame Focal length align the virtual projector (36 mm sensor width). Drag to orbit, Shift/right-drag to pan; wheel changes focal length, Shift-wheel distance. Wireframe and test card help alignment. Models stay in memory: reload the named file after reopening; a cube is shown until then. Models use metres (FBX centimetres and USD stage units / up axis are converted; OBJ has no unit metadata); Object scale converts other units; Object up aligns native Z-up OBJ files.</p><p><b>Import camera…</b> accepts binary/ASCII FBX, text USDA and glTF/GLB perspective cameras, including parent transforms. Export binary USD as USDA. The first camera/clip is sampled at up to 30 fps (2000 samples maximum), saved with the project, and can Play/Hold, scrub, change Speed or sync to transport. FBX centimetres and USD stage units/up-axis convert to metres/Y-up; export model and camera in the same scene coordinates. Bake constraints, pivots and inverse USD operations before export.</p>
 <h3 id="h-auto">Autopilot</h3>
 <p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. <b>Switch on</b>: Song (sections, or every few seconds), or Bass, Beat, Highs or Loudness, switching on each hit (a jump above the recent level; bigger <b>Level</b> = only bigger hits), at most once per <b>Gap</b> seconds. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
@@ -2750,17 +2753,26 @@ function setGizmo(tool,target=mapGiz.target){mapGiz.tool=tool;mapGiz.target=targ
 function renderMapAnimate(root,s,upd,knob){
   const F=s.fx,an=mapCat(root,'animate'),set=(fx,k,v,label)=>upd(t=>{t.fx={...t.fx,[fx]:{...t.fx[fx],[k]:v}};},label);
   const chips=(parent,label,fx,k,options,prop)=>parent.append(ui.field(label,ui.chips({options,value:F[fx][k],property:prop,onChange:v=>set(fx,k,v,`${label}: ${v}`)})));
-  // Each effect: On/Off, its tip (shown with ?), where it shows on the object (Map) and Fade.
-  const head=(fx,label,note,prop)=>{const w=sub(an);w.append(ui.field(label,ui.toggle({value:F[fx].on,labels:['On','Off'],property:prop,onChange:v=>set(fx,'on',v,`${label} ${v?'on':'off'}`)})));if(note)w.append(el('p','insp-note tip',note));
-    if(F[fx].on){chips(w,'Map',fx,'map',[['all','All'],['depth','Depth'],['sound','Sound'],['uv','UV'],['parts','Parts'],['random','Random'],['noise','Noise']],prop+'Map');
-      w.append(ui.field('Fade',ui.toggle({value:F[fx].fade,labels:['On','Off'],property:prop+'Fade',onChange:v=>set(fx,'fade',v,`${label} fade ${v?'on':'off'}`)})));
-      const ik=el('div','knob-grid');w.append(ik);fk(ik,'Intensity',prop.slice(6)+'Mix',fx,'mix',0,100,1,100,'%',100);}return F[fx].on?w:null;};
+  // Each effect is a card: On/Off and tip in its header; when on, Element (for face effects), Map, its own settings, one knob row led by Intensity, then Fade.
+  const cards=[],ELS=[['poly','Polygon'],['edge','Edge'],['vert','Vertex']];
+  const head=(fx,label,note,prop)=>{const c=el('div','fx-card'+(F[fx].on?' on':'')+(F.auto.on?' fx-dim':''));c.dataset.fx=fx;an.append(c);const h=ui.field(label,ui.toggle({value:F[fx].on,labels:['On','Off'],property:prop,onChange:v=>set(fx,'on',v,`${label} ${v?'on':'off'}`)}));h.classList.add('fx-card-head');c.append(h);if(note)c.append(el('p','insp-note tip',note));
+    if(!F[fx].on)return null;const w=el('div','fx-card-body');c.append(w);if('el' in F[fx])chips(w,'Element',fx,'el',ELS,prop+'El');
+    chips(w,'Map',fx,'map',[['all','All'],['depth','Depth'],['sound','Sound'],['uv','UV'],['parts','Parts'],['random','Random'],['noise','Noise']],prop+'Map');cards.push([fx,label,prop,w]);return w;};
+  // After each card's own settings: Intensity leads its knob row, Fade closes it.
+  const finish=()=>{for(const [fx,label,prop,w] of cards){let k=w.querySelector('.knob-grid');if(!k){k=el('div','knob-grid');w.append(k);}const t=el('div');fk(t,'Intensity',prop.slice(6)+'Mix',fx,'mix',0,100,1,100,'%',100);k.prepend(...t.childNodes);
+    w.append(ui.field('Fade',ui.toggle({value:F[fx].fade,labels:['On','Off'],property:prop+'Fade',onChange:v=>set(fx,'fade',v,`${label} fade ${v?'on':'off'}`)})));}};
   const fk=(parent,label,key,fx,k,min,max,step,def,unit,scale=1)=>knob(parent,label,key,min,max,step,def,unit,()=>F[fx][k]*scale,(t,v)=>{t.fx={...t.fx,[fx]:{...t.fx[fx],[k]:v/scale}};},label);
   // Effects stack; Combos switch on a ready-made mix to start from.
   const combos=[['neon','Neon',{edges:{on:true,mode:'trace',fill:.25},outline:{on:true}}],['scanner','Scanner',{scan:{on:true},edges:{on:true,mode:'pulse',fill:.6}}],['assemble','Assemble',{build:{on:true},edges:{on:true,mode:'pulse'}}],['shatter','Shatter',{explode:{on:true},flicker:{on:true}}],['living','Living',{disp:{on:true},light:{on:true},flow:{on:true}}],['impact','Impact',{shock:{on:true},curves:{on:true},light:{on:true,drive:'bass'}}],['crawl','Crawl',{snake:{on:true},edges:{on:true,mode:'pulse',fill:.4}}],['fluid','Fluid',{morph:{on:true,fade:true},light:{on:true}}],['ripple','Ripple',{echo:{on:true},flow:{on:true}}],['off','All off',{}]];
-  {const w=sub(an);w.append(ui.field('Combos',ui.chips({options:combos.map(c=>[c[0],c[1]]),value:'',property:'surf3dFxCombo',onChange:v=>{const c=combos.find(x=>x[0]===v);upd(t=>{t.fx=map3d.cleanFx({...c[2],repick:t.fx.repick});},`Animate: ${c[1]}`);}})));
+  {const w=el('div','fx-card fx-mix on');an.append(w);w.append(el('div','fx-card-title','Mix'));w.append(ui.field('Combos',ui.chips({options:combos.map(c=>[c[0],c[1]]),value:'',property:'surf3dFxCombo',onChange:v=>{const c=combos.find(x=>x[0]===v);upd(t=>{t.fx=map3d.cleanFx({...c[2],repick:t.fx.repick});},`Animate: ${c[1]}`);}})));
     w.append(ui.field('Re-pick',ui.chips({options:[['auto','Auto'],['1','Beat'],['2','2 beats'],['4','4 beats'],['8','8 beats']],value:F.repick,property:'surf3dFxRepick',onChange:v=>upd(t=>{t.fx={...t.fx,repick:v};},`Re-pick: ${v==='auto'?'auto':v+' beats'}`)})));
-    w.append(el('p','insp-note tip','Effects stack and never move the mesh, so the projection stays on the object. Map sets where each one shows: All, Depth (nearest the projector), Sound (bass at the bottom, highs at the top), UV (bands along the model\'s UV layout), Parts (random separate meshes and sharp-edged pieces), Random (random faces) or Noise (drifting blobs). Re-pick sets when Parts and Random choose new pieces: Auto (each beat and every 3 s) or locked to every 1, 2, 4 or 8 beats. Fade eases the effect in and out when switched, smooths its music response and crossfades Parts, Random and Flicker instead of cutting.'));}
+    w.append(el('p','insp-note tip','Effects stack and never move the mesh, so the projection stays on the object. Map sets where each one shows: All, Depth (nearest the projector), Sound (bass at the bottom, highs at the top), UV (bands along the model\'s UV layout), Parts (random separate meshes and sharp-edged pieces), Random (random faces) or Noise (drifting blobs). Re-pick sets when Parts and Random choose new pieces: Auto (each beat and every 3 s) or locked to every 1, 2, 4 or 8 beats. Fade eases the effect in and out when switched, smooths its music response and crossfades Parts, Random and Flicker instead of cutting. Element sets what Explode, Build and Flicker break the picture into: each polygon, a diamond around each edge, or a star around each vertex. Autopilot picks a new random mix of effects, settings, Maps and Elements every few beats and crossfades to it.'));
+    const A=F.auto,sa=(k,v,label)=>upd(t=>{t.fx={...t.fx,auto:{...t.fx.auto,[k]:v}};},label);
+    w.append(ui.field('Autopilot',ui.toggle({value:A.on,labels:['On','Off'],property:'surf3dFxAuto',onChange:v=>sa('on',v,`Animate autopilot ${v?'on':'off'}`)})));
+    if(A.on){w.append(ui.field('Every',ui.chips({options:[['2','2 beats'],['4','4 beats'],['8','8 beats'],['16','16 beats']],value:A.every,property:'surf3dFxAutoEvery',onChange:v=>sa('every',v,`Autopilot every ${v} beats`)})));
+      w.append(ui.field('Use Maps',ui.toggle({value:A.maps,labels:['On','Off'],property:'surf3dFxAutoMaps',onChange:v=>sa('maps',v,`Autopilot maps ${v?'on':'off'}`)})));
+      const k=el('div','knob-grid');w.append(k);knob(k,'Effects','FxAutoCount',1,4,1,2,'',()=>A.count,(t,v)=>{t.fx={...t.fx,auto:{...t.fx.auto,count:v}};},'Autopilot effects');
+      const now=el('div','fx-auto-now');now.dataset.surf=s.id;w.append(now);}}
   let w=head('disp','Displace','Ripples the picture across the surface like relief, without moving the mesh.','surf3dFxDisp');
   if(w){chips(w,'Pattern','disp','pattern',[['ripple','Ripple'],['swell','Swell'],['noise','Noise']],'surf3dFxDispPattern');chips(w,'Follows','disp','drive',[['bass','Bass'],['full','Full'],['high','Highs']],'surf3dFxDispDrive');
     const k=el('div','knob-grid');w.append(k);fk(k,'Amount','FxDispAmount','disp','amount',0,100,1,30,'%',100);fk(k,'Speed','FxDispSpeed','disp','speed',0,4,.01,1,'×');}
@@ -2773,8 +2785,9 @@ function renderMapAnimate(root,s,upd,knob){
   w=head('explode','Explode','The picture breaks into the mesh faces on the beat: each face slides its picture, with dark seams between.','surf3dFxExplode');
   if(w){chips(w,'Driven by','explode','drive',[['beat','Beat'],['bass','Bass'],['hold','Hold']],'surf3dFxExplodeDrive');
     const k=el('div','knob-grid');w.append(k);fk(k,'Amount','FxExplodeAmount','explode','amount',0,200,1,50,'%',100);}
-  w=head('flow','Flow','The picture scrolls or turns across the surface.','surf3dFxFlow');
-  if(w){chips(w,'Direction','flow','dir',[['up','Up'],['side','Sideways'],['spin','Spin']],'surf3dFxFlowDir');const k=el('div','knob-grid');w.append(k);fk(k,'Speed','FxFlowSpeed','flow','speed',0,2,.01,.3,'×');}
+  w=head('flow','Flow','The picture moves (up, sideways or diagonally), turns and scales across the surface. Negative Move or Rotate runs the other way.','surf3dFxFlow');
+  if(w){chips(w,'Direction','flow','dir',[['up','Up'],['side','Sideways'],['diag','Diagonal']],'surf3dFxFlowDir');if(F.flow.scale>0)chips(w,'Scale by','flow','drive',[['loop','Pulse'],['bass','Bass'],['beat','Beat'],['full','Full']],'surf3dFxFlowDrive');
+    const k=el('div','knob-grid');w.append(k);fk(k,'Move','FxFlowMove','flow','move',-200,200,1,30,'%',100);fk(k,'Rotate','FxFlowRotate','flow','rotate',-200,200,1,0,'%',100);fk(k,'Scale','FxFlowScale','flow','scale',0,100,1,0,'%',100);if(F.flow.scale>0&&F.flow.drive==='loop')fk(k,'Pulse','FxFlowZspeed','flow','zspeed',.05,4,.01,.5,'×');}
   w=head('scan','Scan','A band of light moves through the object; the rest dims.','surf3dFxScan');
   if(w){chips(w,'Axis','scan','axis',[['up','Up'],['across','Across'],['depth','Depth']],'surf3dFxScanAxis');chips(w,'Brightness','scan','drive',[['full','Full'],['bass','Bass'],['high','Highs'],['beat','Beat']],'surf3dFxScanDrive');
     const k=el('div','knob-grid');w.append(k);fk(k,'Speed','FxScanSpeed','scan','speed',.05,4,.01,.5,'×');fk(k,'Width','FxScanWidth','scan','width',2,50,1,10,'%',100);}
@@ -2798,6 +2811,7 @@ function renderMapAnimate(root,s,upd,knob){
     const k=el('div','knob-grid');w.append(k);fk(k,'Delay','FxEchoLength','echo','length',5,100,1,60,'%',100);fk(k,'Amount','FxEchoAmount','echo','amount',0,100,1,100,'%',100);}
   w=head('light','Light','A moving light shades the object\'s real shape.','surf3dFxLight');
   if(w){chips(w,'Follows','light','drive',[['steady','Steady'],['bass','Bass'],['full','Full']],'surf3dFxLightDrive');const k=el('div','knob-grid');w.append(k);fk(k,'Amount','FxLightAmount','light','amount',0,100,1,60,'%',100);fk(k,'Speed','FxLightSpeed','light','speed',0,2,.01,.3,'×');}
+  finish();
 }
 function renderMap3d(root,ss,info,s,upd,liveSurf){
   const select=(parent,label,key,options)=>{const e=el('select');e.dataset.property='surf3d'+key;for(const [v,l] of options)e.append(new Option(l,v));e.value=s[key];e.onchange=()=>upd(t=>{if(key==='upAxis'&&t.upAxis!==e.value){const [x,y,z]=t.camera.target;t.camera.target=e.value==='Z'?[x,z,-y]:[x,-z,y];}t[key]=e.value;if(key==='primitive'){t.model='';t.modelKey='';t.camera.target=[0,0,0];t.camera.distance=6;t.scale=1;t.upAxis='Y';t.trackOn=false;}},label);parent.append(ui.field(label,e));};
@@ -3068,6 +3082,7 @@ function apPalette(colors){
 }
 const apSpin=v=>Math.max(-5,Math.min(5,Math.round((+v||0)*10)/10));
 // A new look in slot k: the renderer switches mode in place (same engine); the layer stays invisible until it is warm.
+let apEnergy=50;
 function apAssign(w,k,l,role,opacity=.001){
   const g=apLayer(k),r=apNode(k,'r'),type=Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===l.layout))||'waveform2d';
   r.type=type;r.props={...defaults(type),mode:l.layout,look:lookDiff(w,l.params),...geoFromLook(l.params)};
@@ -3075,9 +3090,18 @@ function apAssign(w,k,l,role,opacity=.001){
   const sym=l.params._symmetryMode;apNode(k,'y').props.mode=['x','y','xy','r3','r4','r6','r8'].includes(sym)?sym:'none';
   Object.assign(apNode(k,'s').props,{...spinProps(apSpin(l.spin)),speed:Math.max(.1,Math.min(5,+l.speed||1))});
   for(const key of apTweens.keys())if(key.startsWith(g.id+'|'))apTweens.delete(key);
+  // The base look also gets what the description asks for (drivers, masks, post FX), rebuilt from the slot's own nodes each time so it never piles up.
+  const wired=apWire(k,role);
   g.visible=true;g.opacity=opacity;g.blend=role?'screen':'source-over';
-  apSlots[k]={role,layer:l,f0:engines.get(r.id)?.frames||0};
+  apSlots[k]={role,layer:l,f0:engines.get(r.id)?.frames||0,wired};
 }
+function apWire(k,role){
+  const g=apLayer(k),base=apSlotLayer(k),keep=new Map(g.nodes.map(n=>[n.id,n]));g.nodes=base.nodes.map(n=>keep.get(n.id)||n);g.edges=base.edges;
+  if(role===0)try{autopilot.enhance(g,autopilot.parse(ap.prompt),{seed:(Math.random()*1e9)|0,energy:apEnergy,match:ap.match,primary:true});}catch(e){console.warn('Autopilot enhance',e);}
+  reconcile();return role===0?ap.prompt:null;
+}
+// A kept layer that changed role, or a new description, rewires in place.
+function apRewire(){for(let k=0;k<4;k++){const sl=apSlots[k],want=sl.role===0?ap.prompt:null;if(apLayer(k)&&sl.role>=0&&(sl.wired??null)!==want)sl.wired=apWire(k,sl.role);}}
 // Warm when its engine has drawn a few frames of the new look (simulations get a moment to fill the frame).
 function apReady(k){
   const r=apNode(k,'r'),e=r&&engines.get(r.id),sim=isSim(r?.props.mode);
@@ -3157,7 +3181,7 @@ function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,
   // Mid-fade: a drop hurries the fade along and follows straight after; other changes wait their turn.
   if(apTrans&&!force&&!apWant){apPending=kind;if(kind==='drop'){apTrans.fast=true;apTrans.later=null;}return;}
   apWant=null;apPending=null;
-  pilot.since=0;apCount++;gen.section=pilot.section==='waiting'?'groove':pilot.section;gen.match=ap.match;gen.layers=String(ap.layers);
+  pilot.since=0;apCount++;gen.section=pilot.section==='waiting'?'groove':pilot.section;gen.match=ap.match;gen.layers=String(ap.layers);apEnergy=gen.energy(kind);
   if(ap.write){let t='';for(let i=0;i<6;i++){t=autopilot.write({energy:gen.energy(kind),seed:(Math.random()*1e9)|0,prev:ap.prompt,keep:ap.match/200});if(t!==ap.prompt)break;}
     ap.prompt=t;apSave();apShowPrompt();}
   if(apVibeFor!==ap.prompt){gen.setVibe(w,ap.prompt);apVibeFor=ap.prompt;}
@@ -3181,6 +3205,7 @@ function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,
     for(const k of apActive()){const l=apSlots[k].layer;l.params={...l.params,...recolorLook(l.params,st.colors[state.layers.indexOf(apLayer(k))]||st.colors[0])};}
     summary=changes==='mood'?'colours + mood':'colours';
   }
+  apRewire();
   ap.last=(AP_SECTION[kind]||kind)+' → '+summary;apStatus(true);
 }
 function apTick(dt){
@@ -3286,7 +3311,7 @@ function renderAutoPanel(){
   const d=section(apb,'Describe');
   const ta=el('textarea','ap-prompt');ta.dataset.property='apPrompt';ta.placeholder='Optional: a mood, colours, shapes or motion, e.g. slow dreamy blue and gold spirals';ta.value=ap.prompt;ta.spellcheck=false;
   const read=el('div','ap-read');read.dataset.property='apRead';
-  const showRead=()=>{const w=apWin();read.textContent=!ta.value.trim()?'Empty: Autopilot roams freely.':w?vibeText(readVibe(w,ta.value)):'';};
+  const showRead=()=>{const w=apWin(),wires=ta.value.trim()?autopilot.parse(ta.value).read.filter(x=>x.kind==='Driver'||x.kind==='Mask').map(x=>x.kind+': '+x.text):[];read.textContent=!ta.value.trim()?'Empty: Autopilot roams freely.':[w?vibeText(readVibe(w,ta.value)):'',...wires].filter(Boolean).join(' · ');};
   // Typing steers the next looks; after a pause (or Enter) the current look changes to match. Typing takes over from Write.
   const build=()=>{clearTimeout(apTyping);apTyping=0;apCreate(ta.value);};
   ta.oninput=()=>{ap.prompt=ta.value;apVibeFor=null;if(ap.write){ap.write=false;root.querySelector('[data-property=apWrite]')?.setValue(false);}

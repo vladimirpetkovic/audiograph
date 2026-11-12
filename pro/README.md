@@ -351,8 +351,8 @@ process the finished image.
     with the level) or Sweep (a band rises up the object), over a dimmable Fill. **Build** lights the
     faces up inside their outlines (bottom up, centre out or random) on a loop or with the loudness,
     with a brighter front. **Explode** breaks the picture into the faces on the beat, with the bass, or
-    held: each face slides its picture, with dark seams between. **Flow** scrolls the picture up or
-    sideways or spins it. **Scan** moves a band of light up, across or through the object. **Shockwave**
+    held: each face slides its picture, with dark seams between. **Flow** moves the picture up,
+    sideways or diagonally, rotates it and scales it (pulsing on a loop or with the bass, beat or level). **Scan** moves a band of light up, across or through the object. **Shockwave**
     sends a ring over the surface from the bottom, top or side on the beat. **Flicker** flashes random
     faces. **Snake** crawls lit faces from neighbour to neighbour. **Outline** lights the silhouette as
     the projector sees it. **Curves** makes rounded, detailed parts glow. **Light** moves a light around
@@ -367,7 +367,13 @@ process the finished image.
     *Random* (random faces) or *Noise* (drifting noise blobs). **Re-pick** sets when Parts and
     Random choose new pieces: Auto (each beat and every 3 s) or every 1, 2, 4 or 8 beats. Each effect's **Fade** eases it in and out
     when switched (about 0.8 s), smooths its music response and crossfades Parts, Random and
-    Flicker instead of cutting. Effects are saved with the surface.
+    Flicker instead of cutting. **Element** (Explode, Build, Flicker) sets what the picture breaks
+    into: each *Polygon*, a diamond around each *Edge*, or a star around each *Vertex*. Each effect
+    is a card: its switch on top, then Element, Map, its own settings, Intensity and Fade. The
+    **Mix** card holds Combos, Re-pick and **Autopilot**: every 2–16 beats (or the same number of
+    1.5 s steps in silence) it picks a new random mix of 1–4 effects, each with its own settings,
+    Map (optional) and Element, and crossfades to it; the card shows what is playing.
+    Effects are saved with the surface. Chip rows that don't fit split into even rows (7 → 4 + 3).
   - **Post FX** (3D objects) finish the picture on the mesh: **Brightness** and **Contrast**,
     **Kaleidoscope** (Segments, Spin; folds each surface's picture into mirrored segments) and
     **Trails** / **Feedback** (the last frame fades, or zooms and turns around the object, for
@@ -455,8 +461,8 @@ process the finished image.
     plus lighter companions that share its palette, are finer and spin the
     other way. It replaces the project once (one undo step) with four
     *Autopilot* layers; each change warms the new look up out of sight in a
-    free layer and crossfades to it, so it never rebuilds the graph or starts
-    new engines. When a whole stack changes (drops, Next) the new looks roll in
+    free layer and crossfades to it, so it can rewire masks, controls and effects without starting
+    new renderer engines. When a whole stack changes (drops, Next) the new looks roll in
     one layer at a time while the old ones keep playing, base first; the
     picture never freezes. The base always draws beneath its accents.
   - Everything is art-directed by **scenes**: curated pairings of a base, a
@@ -476,6 +482,16 @@ process the finished image.
     pause (Enter at once). Empty, it roams freely through the 2D and 3D
     emitters, solids and simulations. **Prompt match** (default 85%) sets how
     closely it sticks to your words.
+  - Descriptions also wire **drivers and masks**, not just static settings:
+    *“breathing slowly”* uses a sine LFO for size, *“wobbling”* bends the shape,
+    *“strobing on the beat”* drives a safe strobe and glow, *“glitchy highs”*
+    gates digital glitches, *“tunnel on bass”* pushes zoom, and *“slowly shifting
+    colours”* moves hue. *“Random jumps”* samples random motion on beats;
+    *“follows the clock”*, mouse, computer activity and live data can drive
+    knobs too. *“Masked by text "FLOW"”*, *“inside a circle”* and *“revealed
+    by the waveform”* make real masks. The readout names each understood
+    driver. Empty descriptions explore energy-matched masks, 1–3 drivers and
+    layered post FX; lower Prompt match allows more adventurous combinations.
   - **Write** lets Autopilot write its own descriptions at each change;
     typing takes over again. **Next** changes now; **Hold** keeps the look.
   - Every change to what is drawn (Autopilot, templates, adding or deleting
