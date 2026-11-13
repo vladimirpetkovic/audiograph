@@ -142,7 +142,7 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
       else{vec3 c=q*vec3(1,0,1);w=vec2((vn(q+T*.2)-.5)*.2,pow(vn(c*3.+vec3(0,T*.6,0)),1.5)*1.8);}
       shift+=w*fmorph.x*.3*msk(12);}
     // Flow: the picture moves (up, sideways or diagonally), turns and scales across the surface.
-    if(fflow.x>.5){float fm=msk(4);shift+=(fflow.z<.5?vec2(0,1):fflow.z<1.5?vec2(1,0):vec2(.7071))*fflow.y*fm;float a=fflow.w*fm;spin=mat2(cos(a),sin(a),-sin(a),cos(a));zoom=1./(1.+fzoom*fm);}
+    if(fflow.x>.5){float fm=msk(4);shift+=(fflow.z<.5?vec2(0,1):fflow.z<1.5?vec2(1,0):vec2(.7071))*fflow.y;float a=fflow.w;spin=mat2(cos(a),sin(a),-sin(a),cos(a));zoom=1./(1.+fzoom*fm);}
     // Displace: a wave pattern on the surface warps the picture and shades it like relief.
     if(disp.x!=0.){vec3 u=(obj-lo)/span-.5;dmk=msk(0);float ph=disp.y<.5?length(u)*18.-time*disp.z*4.:disp.y<1.5?time*disp.z*3.:dot(u,vec3(9.1,7.3,11.7))+time*disp.z*2.;dw=disp.y<1.5?.5+.5*sin(ph):.5+.5*sin(ph)*sin(dot(u,vec3(-5.3,12.1,6.7))-time*disp.z*1.3);shift+=(disp.y<1.5?normalize(u.xy+1e-5)*(dw-.5):vec2(cos(ph),sin(ph))*.5)*disp.x*.12*dmk;}
 if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(dFdx(obj),dFdy(obj)))));vec3 p=boxRot*((obj-lo)/span-.5-boxMove)/boxScale+.5;if(fade<.001){t=n.z>=n.x&&n.z>=n.y?p.xy:n.x>=n.y?p.zy:p.xz;color=pic(tl(t));}else{vec3 w=pow(n,vec3(exp2(4.*(1.-fade))));w/=w.x+w.y+w.z;color=pic(tl(p.zy))*w.x+pic(tl(p.xz))*w.y+pic(tl(p.xy))*w.z;}}else color=pic(tl(t));color.rgb*=color.a;if(aoOn)color.rgb*=aoSmooth();
@@ -286,8 +286,10 @@ const ZERO_SIG={bands:{bass:0,mids:0,high:0,full:0},pulse:0};
 // Turns the surface's fx settings and the music into shader uniforms.
 // Fade (per effect): it eases in and out when switched, follows smoothed music, and Parts / Random picks crossfade.
 function fadeState(R,s,F,time,test,B,pulse,seed){R.fades??=new Map();const id=s.id||'_';let st=R.fades.get(id);const dt=st?time-st.t:0,snap=!st||test||dt<0||dt>.5,ease=(a,b,up,down)=>snap?b:a+(b-a)*Math.min(1,dt*(b>a?up:down));
-  if(!st){st={lv:{},b:{},p:0,seed:[seed,seed,1]};R.fades.set(id,st);if(R.fades.size>64)R.fades.delete(R.fades.keys().next().value);}st.t=time;
-  for(const k of FX_KEYS){const to=F[k].on?1:0,a=st.lv[k]??to;st.lv[k]=snap||!F[k].fade?to:to>a?Math.min(to,a+dt/.8):Math.max(to,a-dt/.8);}
+  if(!st){st={lv:{},b:{},p:0,seed:[seed,seed,1]};R.fades.set(id,st);if(R.fades.size>64)R.fades.delete(R.fades.keys().next().value);}st.t=time;st.dt=snap?0:dt;
+  // Autopilot crossfades slower than a hand toggle.
+  const fd=F.auto?.on?1.6:.8;
+  for(const k of FX_KEYS){const to=F[k].on?1:0,a=st.lv[k]??to;st.lv[k]=snap||!F[k].fade?to:to>a?Math.min(to,a+dt/fd):Math.max(to,a-dt/fd);}
   for(const k of ['bass','mids','high','full'])st.b[k]=ease(st.b[k]??B[k],B[k],10,2.5);st.p=ease(st.p,pulse,14,2);
   const S=st.seed;if(seed!==S[1]){S[0]=snap?seed:S[1];S[1]=seed;S[2]=snap?1:0;}else S[2]=snap?1:Math.min(1,S[2]+dt/.6);return st;}
 function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.light?s.fx:cleanFx(s.fx),B0=sig?.bands||ZERO_SIG.bands,B=Object.fromEntries(['bass','mids','high','full'].map(k=>[k,Math.min(1,Math.max(0,+B0[k]||0))])),pulse=Math.min(1,Math.max(0,+sig?.pulse||0));
@@ -307,7 +309,13 @@ function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.lig
   const Ec=F.echo,eh=R.echoNow;gl.uniform4f(u.fecho,Ec.on&&eh?Ec.amount:0,eh?Math.min(23,eh.filled-1)*Ec.length*(Ec.drive==='steady'?1:.35+lv('echo',Ec.drive)*.9):0,eh?eh.head:0,['up','depth','out','random'].indexOf(Ec.style));
   const P=s.post||cleanPost();gl.uniform4f(u.fpost,P.bright,P.contrast,P.kaleido,time*P.kspin);
   const X=F.flow,Sc=F.scan,Sh=F.shock,Fl=F.flicker,Sn=F.snake,O=F.outline,C=F.curves,Li=F.light;
-  gl.uniform4f(u.fflow,X.on?1:0,time*X.move*.25,['up','side','diag'].indexOf(X.dir),time*X.rotate*.1*6.2832);gl.uniform1f(u.fzoom,X.on?X.scale*(X.drive==='loop'?.5-.5*Math.cos(time*X.zspeed*Math.PI):drv('flow',X.drive)):0);
+  // Flow travels by integrating its speed (eased by Fade), so fading or changing speed never jumps or races;
+  // fading out it settles back to an equivalent position (the picture mirrors every 2, turns every 2π).
+  const fl=st.fl??={on:false,p:0,a:0},flv=F0.flow.fade?st.lv.flow:1,P0=time*X.move*.25,A0=time*X.rotate*.1*6.2832;let fp=P0,fa=A0;
+  if(!X.on)fl.on=false;
+  else if(!test){if(!fl.on){fl.on=true;fl.p=P0;fl.a=A0;}else if(F0.flow.on){fl.p+=X.move*.25*st.dt;fl.a+=X.rotate*.1*6.2832*st.dt;}
+    const wp=Math.round(fl.p/2)*2,wa=Math.round(fl.a/6.2832)*6.2832;fp=wp+(fl.p-wp)*flv;fa=wa+(fl.a-wa)*flv;}
+  gl.uniform4f(u.fflow,X.on?1:0,fp,['up','side','diag'].indexOf(X.dir),fa);gl.uniform1f(u.fzoom,X.on?X.scale*(X.drive==='loop'?.5-.5*Math.cos(time*X.zspeed*Math.PI):drv('flow',X.drive)):0);
   gl.uniform3f(u.felem,...['explode','build','flicker'].map(k=>FX_ELEMENTS.indexOf(F[k].el||'poly')));
   gl.uniform4f(u.fscan,Sc.on?.4+drv('scan',Sc.drive)*1.8:0,(((time*Sc.speed*.3)%1)+1)%1*1.4-.2,Sc.width,['up','across','depth'].indexOf(Sc.axis));
   const sb=Sh.drive==='beat';gl.uniform4f(u.fshock,Sh.on?(sb?pu('shock'):lv('shock',Sh.drive)):0,sb?1-pu('shock'):(time*.6)%1,Sh.width,['bottom','top','side'].indexOf(Sh.from));
@@ -328,8 +336,10 @@ const rand=k=>{let x=(k>>>0)||1;return ()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return (x
 export function autoFx(R,s,time){const F=s.fx?.light?s.fx:cleanFx(s.fx),A=F.auto,id=s.id||'_',beats=R.beats||0,n=+A.every;R.autos??=new Map();let st=R.autos.get(id);
   if(st&&!(time<st.t0||beats-st.b0>=n||time-st.t0>=n*1.5))return st.fx;
   const k=st?st.k+1:[...id].reduce((h,c)=>Math.imul(h^c.charCodeAt(0),16777619),2166136261)>>>0,r=rand(Math.imul(k,2654435761)+7),pk=l=>l[Math.floor(r()*l.length)%l.length],o={repick:F.repick,auto:A};
-  const keys=[...FX_KEYS];for(let i=keys.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[keys[i],keys[j]]=[keys[j],keys[i]];}const chosen=keys.slice(0,A.count);
-  for(const x of FX_KEYS){if(!chosen.includes(x)){o[x]={...(st?.fx[x]||F[x]),on:false,fade:true};continue;}
+  const keys=[...FX_KEYS];for(let i=keys.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[keys[i],keys[j]]=[keys[j],keys[i]];}let chosen=keys.slice(0,A.count);
+  // At least one effect swaps out each time; the ones that stay keep playing exactly as they were (no jumps).
+  const was=st?FX_KEYS.filter(x=>st.fx[x].on):[];if(was.length&&chosen.every(x=>was.includes(x))){const out=pk(chosen),inn=keys.find(x=>!chosen.includes(x)&&!was.includes(x));if(inn)chosen=chosen.map(x=>x===out?inn:x);}
+  for(const x of FX_KEYS){if(!chosen.includes(x)){o[x]={...(st?.fx[x]||F[x]),on:false,fade:true};continue;}if(was.includes(x)){o[x]={...st.fx[x]};continue;}
     const e={on:true,fade:true,mix:.6+r()*.4,map:A.maps&&r()<.5?pk(FX_MAPS.slice(1)):'all'};for(const [q,l] of Object.entries(AUTO_OPTS[x]||{}))e[q]=pk(l);if(FX_DRIVES[x])e.drive=pk(FX_DRIVES[x]);
     if(x==='flow'){e.move=(r()-.5)*.8;e.rotate=r()<.5?(r()-.5)*.6:0;e.scale=r()<.5?.15+r()*.4:0;}o[x]=e;}
   st={k,t0:time,b0:beats,fx:cleanFx(o)};R.autos.set(id,st);if(R.autos.size>64)R.autos.delete(R.autos.keys().next().value);return st.fx;}
