@@ -6911,6 +6911,9 @@ function createShaderProg(gl,vsSrc,fsSrc){
   return p;
 }
 // Runs the shader chain of one pipe on srcCv, leaving the result in pipe.cv.
+// Uniform / attribute locations are looked up once per program (the chain runs per layer, every frame).
+function _pfxU(gl,p,n){var c=p._u||(p._u={});return n in c?c[n]:(c[n]=gl.getUniformLocation(p,n))}
+function _pfxA(gl,p,n){var c=p._a||(p._a={});return n in c?c[n]:(c[n]=gl.getAttribLocation(p,n))}
 function _pfxRun(pipe,srcCv,fx){
   var gl=pipe.gl,pfxCv=pipe.cv;
   var postFxProgram=pipe.prog,postFxThreshProg=pipe.thresh,postFxBloomProg=pipe.blur,postFxTexture=pipe.tex;
@@ -6942,81 +6945,81 @@ function _pfxRun(pipe,srcCv,fx){
   if(bloom>0){
     // Step 1: Threshold — extract bright pixels into fbC
     gl.useProgram(postFxThreshProg);
-    var posLocT=gl.getAttribLocation(postFxThreshProg,'pos');
+    var posLocT=_pfxA(gl,postFxThreshProg,'pos');
     gl.enableVertexAttribArray(posLocT);gl.vertexAttribPointer(posLocT,2,gl.FLOAT,false,0,0);
-    gl.uniform1f(gl.getUniformLocation(postFxThreshProg,'uThreshold'),0.15);
+    gl.uniform1f(_pfxU(gl,postFxThreshProg,'uThreshold'),0.15);
     gl.bindFramebuffer(gl.FRAMEBUFFER,postFxFbC);
     gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,postFxTexC,0);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,postFxTexture);
-    gl.uniform1i(gl.getUniformLocation(postFxThreshProg,'uTex'),0);
+    gl.uniform1i(_pfxU(gl,postFxThreshProg,'uTex'),0);
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     // Step 2: Blur the thresholded result
     var blurProg=postFxBloomProg;
     gl.useProgram(blurProg);
-    var posLoc=gl.getAttribLocation(blurProg,'pos');
+    var posLoc=_pfxA(gl,blurProg,'pos');
     gl.enableVertexAttribArray(posLoc);gl.vertexAttribPointer(posLoc,2,gl.FLOAT,false,0,0);
-    gl.uniform2f(gl.getUniformLocation(blurProg,'uRes'),w,h);
+    gl.uniform2f(_pfxU(gl,blurProg,'uRes'),w,h);
     // H blur: fbC → fbA
     gl.bindFramebuffer(gl.FRAMEBUFFER,postFxFbA);
     gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,postFxTexA,0);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,postFxTexC);
-    gl.uniform1i(gl.getUniformLocation(blurProg,'uTex'),0);
-    gl.uniform2f(gl.getUniformLocation(blurProg,'uDir'),6.0*bloom,0.0);
+    gl.uniform1i(_pfxU(gl,blurProg,'uTex'),0);
+    gl.uniform2f(_pfxU(gl,blurProg,'uDir'),6.0*bloom,0.0);
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     // V blur: fbA → fbB
     gl.bindFramebuffer(gl.FRAMEBUFFER,postFxFbB);
     gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,postFxTexB,0);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,postFxTexA);
-    gl.uniform2f(gl.getUniformLocation(blurProg,'uDir'),0.0,6.0*bloom);
+    gl.uniform2f(_pfxU(gl,blurProg,'uDir'),0.0,6.0*bloom);
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     // Second pass wider blur: fbB → fbA → fbB
     gl.bindFramebuffer(gl.FRAMEBUFFER,postFxFbA);
     gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,postFxTexA,0);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,postFxTexB);
-    gl.uniform2f(gl.getUniformLocation(blurProg,'uDir'),14.0*bloom,0.0);
+    gl.uniform2f(_pfxU(gl,blurProg,'uDir'),14.0*bloom,0.0);
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     gl.bindFramebuffer(gl.FRAMEBUFFER,postFxFbB);
     gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,postFxTexB,0);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,postFxTexA);
-    gl.uniform2f(gl.getUniformLocation(blurProg,'uDir'),0.0,14.0*bloom);
+    gl.uniform2f(_pfxU(gl,blurProg,'uDir'),0.0,14.0*bloom);
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
   }
   // Final composite pass
   gl.useProgram(postFxProgram);
-  var posLoc2=gl.getAttribLocation(postFxProgram,'pos');
+  var posLoc2=_pfxA(gl,postFxProgram,'pos');
   gl.enableVertexAttribArray(posLoc2);gl.vertexAttribPointer(posLoc2,2,gl.FLOAT,false,0,0);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,postFxTexture);
-  gl.uniform1i(gl.getUniformLocation(postFxProgram,'uTex'),0);
+  gl.uniform1i(_pfxU(gl,postFxProgram,'uTex'),0);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,bloom>0?postFxTexB:postFxTexture);
-  gl.uniform1i(gl.getUniformLocation(postFxProgram,'uBloom'),1);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBloomAmt'),bloom);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uChroma'),chroma);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uVignette'),vignette);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uScanlines'),scanlines);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uSharpen'),sharpen);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uInvert'),invert);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uReflect'),reflect);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uContrast'),contrast);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBrightness'),v('pfxBrightness'));
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uSaturation'),v('pfxSaturation'));
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uHue'),(+fx.pfxHue||0)*Math.PI/180);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBlurX'),blurX);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBlurY'),blurY);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uBlurRadial'),blurRadial);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFocal'),focal);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uEdgeGlow'),edgeGlow);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uKaleido'),kaleido);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracOn'),fracOn);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracDrive'),fracDrive);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracCells'),Math.max(8,Math.min(64,+fx.pfxFracCells||44)));
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracGap'),(+fx.pfxFracGap||0)/100);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracDisp'),(+fx.pfxFracDisp||0)/100);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracRot'),(+fx.pfxFracRot||0)/100);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracGlow'),(+fx.pfxFracGlow||0)/100);
-  var _fShat=fx&&fx.pfxFracMode==='shatter';gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracSeed'),(+fx.pfxFracSeed||0)+(_fShat?((agAudio.features().onsets||0)%997):0));gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracMode'),_fShat?1:0);gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracNoise'),(fx.pfxFracNoise!=null?+fx.pfxFracNoise:35)/100);gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracPhase'),+pipe._fracPhase||0);gl.uniform1f(gl.getUniformLocation(postFxProgram,'uFracSize'),(fx.pfxFracSize!=null?+fx.pfxFracSize:65)/100);
-  gl.uniform1f(gl.getUniformLocation(postFxProgram,'uTime'),performance.now()*0.001);
-  gl.uniform2f(gl.getUniformLocation(postFxProgram,'uRes'),w,h);
+  gl.uniform1i(_pfxU(gl,postFxProgram,'uBloom'),1);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uBloomAmt'),bloom);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uChroma'),chroma);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uVignette'),vignette);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uScanlines'),scanlines);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uSharpen'),sharpen);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uInvert'),invert);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uReflect'),reflect);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uContrast'),contrast);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uBrightness'),v('pfxBrightness'));
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uSaturation'),v('pfxSaturation'));
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uHue'),(+fx.pfxHue||0)*Math.PI/180);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uBlurX'),blurX);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uBlurY'),blurY);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uBlurRadial'),blurRadial);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uFocal'),focal);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uEdgeGlow'),edgeGlow);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uKaleido'),kaleido);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uFracOn'),fracOn);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uFracDrive'),fracDrive);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uFracCells'),Math.max(8,Math.min(64,+fx.pfxFracCells||44)));
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uFracGap'),(+fx.pfxFracGap||0)/100);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uFracDisp'),(+fx.pfxFracDisp||0)/100);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uFracRot'),(+fx.pfxFracRot||0)/100);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uFracGlow'),(+fx.pfxFracGlow||0)/100);
+  var _fShat=fx&&fx.pfxFracMode==='shatter';gl.uniform1f(_pfxU(gl,postFxProgram,'uFracSeed'),(+fx.pfxFracSeed||0)+(_fShat?((agAudio.features().onsets||0)%997):0));gl.uniform1f(_pfxU(gl,postFxProgram,'uFracMode'),_fShat?1:0);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracNoise'),(fx.pfxFracNoise!=null?+fx.pfxFracNoise:35)/100);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracPhase'),+pipe._fracPhase||0);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracSize'),(fx.pfxFracSize!=null?+fx.pfxFracSize:65)/100);
+  gl.uniform1f(_pfxU(gl,postFxProgram,'uTime'),performance.now()*0.001);
+  gl.uniform2f(_pfxU(gl,postFxProgram,'uRes'),w,h);
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);
   gl.viewport(0,0,w,h);
   gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);

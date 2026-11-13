@@ -380,9 +380,21 @@ function readAudio(t){
   A.bands=bandsOf(A.freq);
   const b=A.bands.bass;A.avg=A.avg*.95+b*.05;
   // Capped halfway to full scale so loud (near-saturated) bass still registers beats.
-  if(b>Math.min(A.avg*1.25+.04,A.avg+(1-A.avg)*.5)&&t-A.lastBeat>.22){A.lastBeat=t;A.beat++;A.beatPulse=1;}
-  A.beatPulse*=.86;
+  if(b>Math.min(A.avg*1.25+.04,A.avg+(1-A.avg)*.5)&&t-A.lastBeat>.22){A.lastBeat=t;A.beat++;A.beatPulse=1;clockHit(t);}
+  A.beatPulse*=.86;clock.now=t;if(t<clock.t0)clock.t0=t;
 }
+// Beat clock: counts beats and bars steadily at the song's tempo (from the gaps between detected beats, or Tap), nudged onto the beats.
+// Resync makes now beat 1 of a bar. The mapping Autopilot changes looks on its bars.
+const clock={bpm:120,t0:0,now:0,last:-1,gaps:[],taps:[],manual:false};
+const clockBeat=(t=clock.now)=>(t-clock.t0)*clock.bpm/60;
+function clockSet(bpm,t=clock.now){const b=clockBeat(t);clock.bpm=Math.min(200,Math.max(60,bpm));clock.t0=t-b*60/clock.bpm;}
+function clockHit(t){const g=t-clock.last;clock.last=t;if(clock.manual)return;
+  const gap=g>=.3&&g<=1?g:g/2>=.3&&g/2<=1?g/2:0;if(gap){clock.gaps.push(gap);if(clock.gaps.length>16)clock.gaps.shift();}
+  if(clock.gaps.length>=4){const m=[...clock.gaps].sort((a,b)=>a-b)[clock.gaps.length>>1];if(Math.abs(60/m-clock.bpm)>1.5)clockSet(60/m,t);}
+  const b=clockBeat(t),err=b-Math.round(b);clock.t0+=err*60/clock.bpm*.2;}
+function clockTap(){const t=clock.now;clock.taps=clock.taps.filter(x=>t-x<2.5);clock.taps.push(t);clock.manual=true;
+  if(clock.taps.length>=2){const g=(t-clock.taps[0])/(clock.taps.length-1);clockSet(60/g,t);}const b=clockBeat(t);clock.t0+=(b-Math.round(b))*60/clock.bpm;}
+function clockResync(){clock.t0=clock.now;}
 function bandsOf(freq){
   const hz=A.rate/(BINS*2),band=(a,b)=>{let s=0,c=0;for(let i=Math.max(1,Math.floor(a/hz));i<Math.min(BINS,Math.ceil(b/hz));i++){s+=freq[i]/255;c++;}return c?s/c:0;};
   return {bass:band(30,250),mids:band(250,2500),high:band(2500,14000),full:band(30,14000)};
@@ -585,8 +597,9 @@ function maskInto(canvas,m){
 }
 // Glitch: slices, RGB split, blocks and stutter on a rendered frame, scaled by how hard the sound hits (g.k, 0–1).
 let glitchTmp=null;const glitchHist=new Map();
+let glitchCh=null;
 function glitchInto(canvas,g){
-  const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d',{willReadFrequently:true});
+  const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d');
   let hist=glitchHist.get(g.id);if(!hist||hist.width!==W||hist.height!==H){hist=document.createElement('canvas');hist.width=W;hist.height=H;glitchHist.set(g.id,hist);}
   const hc=hist.getContext('2d');
   if(g.k>.003){
@@ -601,16 +614,19 @@ function glitchInto(canvas,g){
     for(let i=0;i<nb;i++){const w=(.04+rnd()*.25)*W,h=(.01+rnd()*.08)*H,sx=rnd()*(W-w),sy=rnd()*(H-h),dx=Math.min(W-w,Math.max(0,sx+(rnd()-.5)*W*.3)),dy=Math.min(H-h,Math.max(0,sy+(rnd()-.5)*H*.1));
       ctx.clearRect(dx,dy,w,h);ctx.drawImage(glitchTmp,sx,sy,w,h,dx,dy,w,h);}
     ctx.restore();
-    // Slices and RGB split in one pixel pass.
+    // Slices and RGB split, drawn on the GPU (no pixel readback): shifted strips, then each colour channel offset and added back.
     const ns=Math.round(g.slices/100*g.k*14),rs=Math.round(g.rgb/100*g.k*W*.025);
     if(ns||rs){
-      const off=new Int32Array(H);
-      for(let i=0;i<ns;i++){const y=Math.floor(rnd()*H),h=Math.max(1,Math.floor((.005+rnd()*.07)*H)),dx=Math.round((rnd()-.5)*2*W*.12*g.k);for(let j=y;j<Math.min(H,y+h);j++)off[j]=dx;}
-      const img=ctx.getImageData(0,0,W,H),src=new Uint8ClampedArray(img.data),d=img.data;
-      for(let y=0;y<H;y++){const o=off[y],row=y*W;if(!o&&!rs)continue;
-        for(let x=0;x<W;x++){const i=(row+x)*4,xg=Math.min(W-1,Math.max(0,x-o)),xr=Math.min(W-1,Math.max(0,xg+rs)),xb=Math.min(W-1,Math.max(0,xg-rs)),g0=(row+xg)*4;
-          d[i]=src[(row+xr)*4];d[i+1]=src[g0+1];d[i+2]=src[(row+xb)*4+2];d[i+3]=Math.max(src[(row+xr)*4+3],src[g0+3],src[(row+xb)*4+3]);}}
-      ctx.putImageData(img,0,0);
+      tc.clearRect(0,0,W,H);tc.drawImage(canvas,0,0);
+      ctx.save();ctx.resetTransform();
+      for(let i=0;i<ns;i++){const y=Math.floor(rnd()*H),h=Math.max(1,Math.floor((.005+rnd()*.07)*H)),dx=Math.round((rnd()-.5)*2*W*.12*g.k);ctx.clearRect(0,y,W,h);ctx.drawImage(glitchTmp,0,y,W,h,dx,y,W,h);if(dx>0)ctx.drawImage(glitchTmp,0,y,1,h,0,y,dx,h);else if(dx<0)ctx.drawImage(glitchTmp,W-1,y,1,h,W+dx,y,-dx,h);}
+      if(rs){tc.clearRect(0,0,W,H);tc.drawImage(canvas,0,0);
+        glitchCh||=document.createElement('canvas');if(glitchCh.width!==W||glitchCh.height!==H){glitchCh.width=W;glitchCh.height=H;}const cc=glitchCh.getContext('2d');
+        ctx.globalCompositeOperation='copy';ctx.fillStyle='rgba(0,0,0,0)';ctx.fillRect(0,0,W,H);
+        for(const [col,dx] of [['#f00',rs],['#0f0',0],['#00f',-rs]]){cc.globalCompositeOperation='copy';cc.drawImage(glitchTmp,-dx,0);cc.globalCompositeOperation='multiply';cc.fillStyle=col;cc.fillRect(0,0,W,H);cc.globalCompositeOperation='destination-in';cc.drawImage(glitchTmp,-dx,0);
+          ctx.globalCompositeOperation='lighter';ctx.drawImage(glitchCh,0,0);}
+      }
+      ctx.restore();
     }
   }
   // Stutter history: the last clean frame, refreshed now and then while glitching so it never goes stale.
@@ -943,7 +959,7 @@ function showMapAutoKnobs(){
   if(!mapMode||!mapSel)return;
   for(const b of document.querySelectorAll('#mapPanel .knob.auto[data-map-auto]')){const k=b.dataset.mapAuto,v=mapAutoValues.get(mapSel+':'+k);if(v!==undefined)b.show?.(MAP_AUTO_PCT.test(k)?v*100:v);}
   // Animate Autopilot: which effects it is playing now.
-  for(const e of document.querySelectorAll('#mapPanel .fx-auto-now')){const t='Playing: '+(map3d.autoPlaying(e.dataset.surf).map(k=>FX_NAMES[k]).join(' + ')||'…');if(e.textContent!==t)e.textContent=t;}
+  for(const e of document.querySelectorAll('#mapPanel .fx-auto-now')){const S=map3d.autoStatus(e.dataset.surf),SEC={intro:'Intro',build:'Build',drop:'Drop',break:'Break'},t=S?`${S.look} · ${SEC[S.section]} · bar ${S.bar}/${S.bars} · ${S.bpm} BPM — ${map3d.autoPlaying(e.dataset.surf).map(k=>FX_NAMES[k]).join(' + ')}`:'Playing: …';if(e.textContent!==t)e.textContent=t;}
 }
 const FX_NAMES={disp:'Displace',edges:'Edges',build:'Build',explode:'Explode',flow:'Flow',scan:'Scan',shock:'Shockwave',flicker:'Flicker',snake:'Snake',outline:'Outline',curves:'Curves',light:'Light',morph:'Morph',echo:'Echo'};
 // Dissolve: any change to what is drawn (nodes, wires, layers, a template, Autopilot) fades from the last frame
@@ -991,7 +1007,7 @@ function draw(time,dt=1/30){
   out.globalAlpha=1;out.globalCompositeOperation='source-over';
   if(mapped)mapTime=time;
   if(previewImg){previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.drawImage(previewImg,0,0,WIDTH,HEIGHT);}
-  else if(mapped)mapping.render(previewCtx,map3d.driftMapping(state.mapping,autoClock,mapAutoValues),src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time,{bands:A.bands,pulse:A.beatPulse});
+  else if(mapped)mapping.render(previewCtx,map3d.driftMapping(state.mapping,autoClock,mapAutoValues),src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time,{bands:A.bands,pulse:A.beatPulse,beat:clockBeat(time),bpm:clock.bpm});
   dissolveDraw(paused?0:dt);
   blackout.level+=((blackout.on?1:0)-blackout.level)*Math.min(1,dt*8);if(blackout.level<.002&&!blackout.on)blackout.level=0;
   if(blackout.level>0){previewCtx.globalAlpha=Math.min(1,blackout.level*1.02);previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.globalAlpha=1;}
@@ -2757,7 +2773,7 @@ function renderMapAnimate(root,s,upd,knob){
   const cards=[],ELS=[['poly','Polygon'],['edge','Edge'],['vert','Vertex']];
   const head=(fx,label,note,prop)=>{const c=el('div','fx-card'+(F[fx].on?' on':'')+(F.auto.on?' fx-dim':''));c.dataset.fx=fx;an.append(c);const h=ui.field(label,ui.toggle({value:F[fx].on,labels:['On','Off'],property:prop,onChange:v=>set(fx,'on',v,`${label} ${v?'on':'off'}`)}));h.classList.add('fx-card-head');c.append(h);if(note)c.append(el('p','insp-note tip',note));
     if(!F[fx].on)return null;const w=el('div','fx-card-body');c.append(w);if('el' in F[fx])chips(w,'Element',fx,'el',ELS,prop+'El');
-    chips(w,'Map',fx,'map',[['all','All'],['depth','Depth'],['sound','Sound'],['uv','UV'],['parts','Parts'],['random','Random'],['noise','Noise']],prop+'Map');cards.push([fx,label,prop,w]);return w;};
+    chips(w,'Map',fx,'map',[['all','All'],['depth','Depth'],['sound','Sound'],['uv','UV'],['parts','Parts'],['random','Random'],['noise','Noise'],['levels','Levels'],['facades','Facades'],['mirror','Mirror']],prop+'Map');cards.push([fx,label,prop,w]);return w;};
   // After each card's own settings: Intensity leads its knob row, Fade closes it.
   const finish=()=>{for(const [fx,label,prop,w] of cards){let k=w.querySelector('.knob-grid');if(!k){k=el('div','knob-grid');w.append(k);}const t=el('div');fk(t,'Intensity',prop.slice(6)+'Mix',fx,'mix',0,100,1,100,'%',100);k.prepend(...t.childNodes);
     w.append(ui.field('Fade',ui.toggle({value:F[fx].fade,labels:['On','Off'],property:prop+'Fade',onChange:v=>set(fx,'fade',v,`${label} fade ${v?'on':'off'}`)})));}};
@@ -2769,9 +2785,10 @@ function renderMapAnimate(root,s,upd,knob){
     w.append(el('p','insp-note tip','Effects stack and never move the mesh, so the projection stays on the object. Map sets where each one shows: All, Depth (nearest the projector), Sound (bass at the bottom, highs at the top), UV (bands along the model\'s UV layout), Parts (random separate meshes and sharp-edged pieces), Random (random faces) or Noise (drifting blobs). Re-pick sets when Parts and Random choose new pieces: Auto (each beat and every 3 s) or locked to every 1, 2, 4 or 8 beats. Fade eases the effect in and out when switched, smooths its music response and crossfades Parts, Random and Flicker instead of cutting. Element sets what Explode, Build and Flicker break the picture into: each polygon, a diamond around each edge, or a star around each vertex. Autopilot picks a new random mix of effects, settings, Maps and Elements every few beats and crossfades to it.'));
     const A=F.auto,sa=(k,v,label)=>upd(t=>{t.fx={...t.fx,auto:{...t.fx.auto,[k]:v}};},label);
     w.append(ui.field('Autopilot',ui.toggle({value:A.on,labels:['On','Off'],property:'surf3dFxAuto',onChange:v=>sa('on',v,`Animate autopilot ${v?'on':'off'}`)})));
-    if(A.on){w.append(ui.field('Every',ui.chips({options:[['2','2 beats'],['4','4 beats'],['8','8 beats'],['16','16 beats']],value:A.every,property:'surf3dFxAutoEvery',onChange:v=>sa('every',v,`Autopilot every ${v} beats`)})));
+    if(A.on){w.append(ui.field('Phrase',ui.chips({options:[['4','4 bars'],['8','8 bars'],['16','16 bars']],value:A.every,property:'surf3dFxAutoEvery',onChange:v=>sa('every',v,`Autopilot changes look every ${v} bars`)})));
+      const tb=el('div','fx-tempo');for(const [label,fn,prop] of [['Tap',clockTap,'surf3dFxTap'],['Resync',clockResync,'surf3dFxResync'],['Auto tempo',()=>{clock.manual=false;clock.taps=[];},'surf3dFxTempoAuto']]){const b=el('button','mbtn',label);b.type='button';b.dataset.property=prop;b.onclick=()=>{fn();message(label==='Tap'?`Tempo ${Math.round(clock.bpm)} BPM`:label==='Resync'?'Bar 1 is now':'Tempo follows the music');};tb.append(b);}w.append(ui.field('Tempo',tb));
       w.append(ui.field('Use Maps',ui.toggle({value:A.maps,labels:['On','Off'],property:'surf3dFxAutoMaps',onChange:v=>sa('maps',v,`Autopilot maps ${v?'on':'off'}`)})));
-      const k=el('div','knob-grid');w.append(k);knob(k,'Effects','FxAutoCount',1,4,1,2,'',()=>A.count,(t,v)=>{t.fx={...t.fx,auto:{...t.fx.auto,count:v}};},'Autopilot effects');
+      const k=el('div','knob-grid');w.append(k);knob(k,'Layers','FxAutoCount',1,4,1,2,'',()=>A.count,(t,v)=>{t.fx={...t.fx,auto:{...t.fx.auto,count:v}};},'Autopilot effects');
       const now=el('div','fx-auto-now');now.dataset.surf=s.id;w.append(now);}}
   let w=head('disp','Displace','Ripples the picture across the surface like relief, without moving the mesh.','surf3dFxDisp');
   if(w){chips(w,'Pattern','disp','pattern',[['ripple','Ripple'],['swell','Swell'],['noise','Noise']],'surf3dFxDispPattern');chips(w,'Follows','disp','drive',[['bass','Bass'],['full','Full'],['high','Highs']],'surf3dFxDispDrive');
@@ -2810,7 +2827,7 @@ function renderMapAnimate(root,s,upd,knob){
   if(w){chips(w,'Delay by','echo','style',[['up','Height'],['depth','Depth'],['out','Centre out'],['random','Faces']],'surf3dFxEchoStyle');chips(w,'Follows','echo','drive',[['steady','Steady'],['bass','Bass'],['full','Full']],'surf3dFxEchoDrive');
     const k=el('div','knob-grid');w.append(k);fk(k,'Delay','FxEchoLength','echo','length',5,100,1,60,'%',100);fk(k,'Amount','FxEchoAmount','echo','amount',0,100,1,100,'%',100);}
   w=head('light','Light','A moving light shades the object\'s real shape.','surf3dFxLight');
-  if(w){chips(w,'Follows','light','drive',[['steady','Steady'],['bass','Bass'],['full','Full']],'surf3dFxLightDrive');const k=el('div','knob-grid');w.append(k);fk(k,'Amount','FxLightAmount','light','amount',0,100,1,60,'%',100);fk(k,'Speed','FxLightSpeed','light','speed',0,2,.01,.3,'×');}
+  if(w){chips(w,'Follows','light','drive',[['steady','Steady'],['bass','Bass'],['mids','Mids'],['full','Full']],'surf3dFxLightDrive');const k=el('div','knob-grid');w.append(k);fk(k,'Amount','FxLightAmount','light','amount',0,100,1,60,'%',100);fk(k,'Speed','FxLightSpeed','light','speed',0,2,.01,.3,'×');}
   finish();
 }
 function renderMap3d(root,ss,info,s,upd,liveSurf){

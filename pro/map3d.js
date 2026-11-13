@@ -30,13 +30,15 @@ export const LATTICE_RES=[0,2,3,4];
 export function cleanLattice(l){const res=LATTICE_RES.includes(+l?.res)?+l.res:0,n=res**3*3,d=Array.isArray(l?.d)&&l.d.length===n?l.d.map(v=>clamp(v,-2,2,0)):new Array(n).fill(0);return {res,d};}
 // Mesh animation: Displace (along normals), Edges (crease lines), Build (faces grow in) and Explode (faces fly apart).
 const pick=(v,list)=>list.includes(v)?v:list[0];
-export const FX_DRIVES={flow:['loop','bass','beat','full'],disp:['bass','full','high'],build:['loop','level'],explode:['beat','bass','hold'],scan:['full','bass','high','beat'],shock:['beat','bass','full'],flicker:['beat','high','loop'],outline:['full','bass','steady'],curves:['bass','full','steady'],light:['steady','bass','full'],echo:['steady','bass','full'],morph:['full','bass','high','steady']};
-export const FX_MAPS=['all','depth','sound','uv','parts','random','noise'];
+export const FX_DRIVES={flow:['loop','bass','beat','full'],disp:['bass','full','high'],build:['loop','level'],explode:['beat','bass','hold'],scan:['full','bass','high','beat'],shock:['beat','bass','full'],flicker:['beat','high','loop'],outline:['full','bass','steady'],curves:['bass','full','steady'],light:['steady','bass','full','mids'],echo:['steady','bass','full'],morph:['full','bass','high','steady']};
+// Levels: floors light in a chase up the building on the beat; Facades: one side at a time (then the roof); Mirror: random pieces, the same on both halves.
+export const FX_MAPS=['all','depth','sound','uv','parts','random','noise','levels','facades','mirror'];
 // Parts / Random re-pick: on every beat and every 3 s (auto), or only every N beats.
 export const FX_REPICK=['auto','1','2','4','8'];
 // Element: what Explode, Build and Flicker break the picture into: each polygon, a diamond around each edge or a star around each vertex.
 export const FX_ELEMENTS=['poly','edge','vert'];
-export const FX_AUTO_EVERY=['2','4','8','16'];
+// Autopilot phrase: it changes look only every 4, 8 or 16 bars.
+export const FX_AUTO_EVERY=['4','8','16'];
 export const FX_KEYS=['disp','edges','build','explode','flow','scan','shock','flicker','snake','outline','curves','light','morph','echo'];
 // Post FX on a 3D surface: brightness, contrast and kaleidoscope work on the picture on the mesh; trails and feedback reuse the last frame, clipped to the mesh.
 export function cleanPost(p={}){return {bright:clamp(p?.bright,-1,1,0),contrast:clamp(p?.contrast,-1,1,0),kaleido:Math.round(clamp(p?.kaleido,0,12,0)),kspin:clamp(p?.kspin,-2,2,0),trails:clamp(p?.trails,0,.98,0),feedback:clamp(p?.feedback,0,.98,0),zoom:clamp(p?.zoom,-.1,.1,.02),rotate:clamp(p?.rotate,-5,5,0),space:pick(p?.space,['screen','surface'])};}
@@ -96,7 +98,7 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
     vec3 w=(upAxis==1?vec3(q.x,q.z,-q.y):q)*objectSize+objectOffset;w=pivot+objRot*((w-pivot)*objScale)+objMove;wpos=w*scale;wnrm=objRot*((upAxis==1?vec3(normal.x,normal.z,-normal.y):normal)/objScale);
     vec3 c=lo+span*.5,wc=(upAxis==1?vec3(c.x,c.z,-c.y):c)*objectSize+objectOffset;wc=(pivot+objRot*((wc-pivot)*objScale)+objMove)*scale;float rad=max(length(span)*.5*objectSize*max(objScale.x,max(objScale.y,objScale.z))*scale,1e-6);vdep=clamp((length(wc-eye)-length(wpos-eye))/rad,0.,1.);gl_Position=vp*vec4(wpos,1.);}`));
   gl.attachShader(p,shader(gl.FRAGMENT_SHADER,`#version 300 es
-  precision highp float;in vec2 tex;in vec3 obj;in vec3 nrm;in vec3 wpos;uniform sampler2D picture;uniform highp sampler2D posTex;uniform sampler2D aoTex;uniform int pass;uniform bool aoOn;uniform float aoStrength;uniform float aoRadius;uniform float pxScale;uniform vec3 eye;uniform int mode;uniform bool wire;uniform vec2 size;uniform vec3 lo;uniform vec3 span;uniform float fade;uniform float tile;uniform mat3 boxRot;uniform vec3 boxMove;uniform vec3 boxScale;in vec3 bary;in float eflags;in float frnd;in float ford;flat in vec3 tA;flat in vec3 tB;flat in vec3 tC;in vec3 fcen;uniform vec3 felem;uniform float fzoom;uniform vec3 build;in vec3 wnrm;in float fpart;in float vdep;uniform float fmap[14];uniform float fpres[14];uniform float fsoft[14];uniform vec4 fmorph;uniform vec4 fecho;uniform highp sampler2DArray hist;uniform vec4 fpost;uniform vec3 fseed;uniform vec4 fband;uniform vec4 fflow;uniform vec4 fscan;uniform vec4 fshock;uniform vec4 fflick;uniform vec4 fsnake;uniform vec4 foutl;uniform vec2 fcurv;uniform vec4 flight;uniform float time;uniform highp int upAxis;uniform vec4 edge;uniform vec3 edge2;uniform vec4 disp;uniform vec2 explode;out vec4 color;vec2 shift;mat2 spin=mat2(1.);float zoom=1.;vec2 tl(vec2 t){vec2 p=spin*((t-.5)*tile*zoom)+.5+shift;
+  precision highp float;in vec2 tex;in vec3 obj;in vec3 nrm;in vec3 wpos;uniform sampler2D picture;uniform highp sampler2D posTex;uniform sampler2D aoTex;uniform int pass;uniform bool aoOn;uniform float aoStrength;uniform float aoRadius;uniform float pxScale;uniform vec3 eye;uniform int mode;uniform bool wire;uniform vec2 size;uniform vec3 lo;uniform vec3 span;uniform float fade;uniform float tile;uniform mat3 boxRot;uniform vec3 boxMove;uniform vec3 boxScale;in vec3 bary;in float eflags;in float frnd;in float ford;flat in vec3 tA;flat in vec3 tB;flat in vec3 tC;in vec3 fcen;uniform vec3 felem;uniform float fzoom;uniform vec3 build;in vec3 wnrm;in float fpart;in float vdep;uniform float fmap[14];uniform float fpres[14];uniform float fsoft[14];uniform vec4 fmorph;uniform vec4 fecho;uniform highp sampler2DArray hist;uniform vec4 fpost;uniform vec3 fseed;uniform vec4 fband;uniform float fstep;uniform vec4 fflow;uniform vec4 fscan;uniform vec4 fshock;uniform vec4 fflick;uniform vec4 fsnake;uniform vec4 foutl;uniform vec2 fcurv;uniform vec4 flight;uniform float time;uniform highp int upAxis;uniform vec4 edge;uniform vec3 edge2;uniform vec4 disp;uniform vec2 explode;out vec4 color;vec2 shift;mat2 spin=mat2(1.);float zoom=1.;vec2 tl(vec2 t){vec2 p=spin*((t-.5)*tile*zoom)+.5+shift;
     // Kaleidoscope: folds the picture's own coordinates, so it wraps each surface of the mesh.
     if(fpost.z>1.5){vec2 c=p-.5;float r=length(c),s=6.2832/fpost.z,a=mod(atan(c.y,c.x)+fpost.w,s);a=abs(a-s*.5);p=.5+r*vec2(cos(a),sin(a));}return p;}
   float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -115,6 +117,10 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
     if(m==3)return smoothstep(.35,.65,.5+.5*sin((tex.x*3.+tex.y*2.)*6.2832-time*1.5));
     if(m==4)return pick(fpart,i);
     if(m==6)return smoothstep(.42,.58,vn((obj-lo)/span*2.5+vec3(0,time*.25,time*.15)));
+    if(m>=7){vec3 c=clamp((fcen-lo)/span,0.,.999);float h=upAxis==1?c.z:c.y;
+      if(m==7){float b=floor(h*6.);return exp(-mod(fstep-b,6.)*1.1);}
+      if(m==8){vec3 n=normalize(nrm);float up=upAxis==1?n.z:n.y,a=upAxis==1?atan(n.y,n.x):atan(n.z,n.x),side=abs(up)>.7?4.:mod(floor(a/1.5708+.5),4.);return 1.-step(.5,abs(side-mod(floor(fstep*.5),5.)));}
+      return pick(h3(vec3(floor(abs(c.x-.5)*8.),floor(h*6.),3.)),i);}
     return pick(frnd,i);}
   // fpres: how far the effect has faded in (1 without Fade).
   float msk(int i){return msk0(i)*fpres[i];}
@@ -174,7 +180,7 @@ if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(
         e=max(e,a*min(I,1.5));}
       float mx=max(color.r,max(color.g,color.b));vec3 ec=mx>1e-4?color.rgb/mx*min(1.,mx*2.5):vec3(0);color=vec4(color.rgb*edge2.z,color.a*max(edge2.z,.001));color.rgb=mix(color.rgb,ec,min(e,1.));color.a=max(color.a,min(e,1.));color=mix(e0,color,msk(1));}
     // Post: brightness and contrast on the picture (premultiplied, so outside the mesh stays clear).
-    if(fpost.x!=0.||fpost.y!=0.){color.rgb=clamp((color.rgb-.5*color.a)*(1.+fpost.y)+.5*color.a+fpost.x*color.a,0.,1.)*step(.001,color.a);}}`));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));const uniforms={};for(const k of ['felem','fzoom','fmap','fpres','fsoft','fseed','fecho','hist','fmorph','fpost','fband','fflow','fscan','fshock','fflick','fsnake','foutl','fcurv','flight','time','disp','explode','build','edge','edge2','vp','scale','picture','mode','wire','size','lo','span','upAxis','objectOffset','objectSize','fade','tile','boxRot','boxMove','boxScale','latRes','lat','objRot','pivot','objMove','objScale','posTex','pass','aoOn','aoStrength','aoRadius','pxScale','eye','aoTex'])uniforms[k]=gl.getUniformLocation(p,k);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.MIRRORED_REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.MIRRORED_REPEAT);return {canvas,gl,p,uniforms,tex,buffer:gl.createBuffer(),position:gl.getAttribLocation(p,'position'),uv:gl.getAttribLocation(p,'uv'),normal:gl.getAttribLocation(p,'normal'),fcenter:gl.getAttribLocation(p,'fcenter'),fnormal:gl.getAttribLocation(p,'fnormal'),fmeta:gl.getAttribLocation(p,'fmeta'),fA:gl.getAttribLocation(p,'fA'),fB:gl.getAttribLocation(p,'fB'),fC:gl.getAttribLocation(p,'fC'),fxBuffer:gl.createBuffer(),fxData:null,mesh:null};}
+    if(fpost.x!=0.||fpost.y!=0.){color.rgb=clamp((color.rgb-.5*color.a)*(1.+fpost.y)+.5*color.a+fpost.x*color.a,0.,1.)*step(.001,color.a);}}`));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));const uniforms={};for(const k of ['fstep','felem','fzoom','fmap','fpres','fsoft','fseed','fecho','hist','fmorph','fpost','fband','fflow','fscan','fshock','fflick','fsnake','foutl','fcurv','flight','time','disp','explode','build','edge','edge2','vp','scale','picture','mode','wire','size','lo','span','upAxis','objectOffset','objectSize','fade','tile','boxRot','boxMove','boxScale','latRes','lat','objRot','pivot','objMove','objScale','posTex','pass','aoOn','aoStrength','aoRadius','pxScale','eye','aoTex'])uniforms[k]=gl.getUniformLocation(p,k);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.MIRRORED_REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.MIRRORED_REPEAT);return {canvas,gl,p,uniforms,tex,buffer:gl.createBuffer(),position:gl.getAttribLocation(p,'position'),uv:gl.getAttribLocation(p,'uv'),normal:gl.getAttribLocation(p,'normal'),fcenter:gl.getAttribLocation(p,'fcenter'),fnormal:gl.getAttribLocation(p,'fnormal'),fmeta:gl.getAttribLocation(p,'fmeta'),fA:gl.getAttribLocation(p,'fA'),fB:gl.getAttribLocation(p,'fB'),fC:gl.getAttribLocation(p,'fC'),fxBuffer:gl.createBuffer(),fxData:null,mesh:null};}
 export function cameraPose(s,time=0){if(s.track&&s.trackOn)return sampleTrack(s.track,s.playing?(s.sync?time:performance.now()/1000)*s.speed+s.offset:s.hold);const c=s.camera,a=c.yaw*Math.PI/180,b=c.pitch*Math.PI/180,r=c.roll*Math.PI/180,cp=Math.cos(b),sp=Math.sin(b),ca=Math.cos(a),sa=Math.sin(a),cr=Math.cos(r),sr=Math.sin(r),right=[ca,0,-sa],up=[-sa*sp,cp,-ca*sp],back=[sa*cp,sp,ca*cp],m=I4();for(let i=0;i<3;i++){m[i]=right[i]*cr+up[i]*sr;m[i+4]=up[i]*cr-right[i]*sr;m[i+8]=back[i];m[i+12]=c.target[i]*s.scale+back[i]*c.distance;}return {matrix:Array.from(m),focal:c.focal};}
 // Animated glTF: the mesh is re-posed from its rig (≤30 times a second), keeping UVs, rest bounds and the welded smooth normals.
 function rig(m,g,faces){const weld=new Int32Array(g.verts.length),ids=new Map(),key=v=>v.map((x,k)=>Math.round((x-g.lo[k])/g.span[k]*1e5)).join();
@@ -288,7 +294,7 @@ const ZERO_SIG={bands:{bass:0,mids:0,high:0,full:0},pulse:0};
 function fadeState(R,s,F,time,test,B,pulse,seed){R.fades??=new Map();const id=s.id||'_';let st=R.fades.get(id);const dt=st?time-st.t:0,snap=!st||test||dt<0||dt>.5,ease=(a,b,up,down)=>snap?b:a+(b-a)*Math.min(1,dt*(b>a?up:down));
   if(!st){st={lv:{},b:{},p:0,seed:[seed,seed,1]};R.fades.set(id,st);if(R.fades.size>64)R.fades.delete(R.fades.keys().next().value);}st.t=time;st.dt=snap?0:dt;
   // Autopilot crossfades slower than a hand toggle.
-  const fd=F.auto?.on?1.6:.8;
+  const fd=F.fd||(F.auto?.on?1.6:.8);
   for(const k of FX_KEYS){const to=F[k].on?1:0,a=st.lv[k]??to;st.lv[k]=snap||!F[k].fade?to:to>a?Math.min(to,a+dt/fd):Math.max(to,a-dt/fd);}
   for(const k of ['bass','mids','high','full'])st.b[k]=ease(st.b[k]??B[k],B[k],10,2.5);st.p=ease(st.p,pulse,14,2);
   const S=st.seed;if(seed!==S[1]){S[0]=snap?seed:S[1];S[1]=seed;S[2]=snap?1:0;}else S[2]=snap?1:Math.min(1,S[2]+dt/.6);return st;}
@@ -297,7 +303,7 @@ function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.lig
   if(pulse>.8&&!(R.lastPulse>.8))R.beats=(R.beats||0)+1;R.lastPulse=pulse;const rp=F0.repick||'auto',seed=rp==='auto'?(R.beats||0)+Math.floor(time/3)*17:Math.floor((R.beats||0)/+rp);
   const st=fadeState(R,s,F0,time,test,B,pulse,seed),F=Object.fromEntries(FX_KEYS.map(k=>[k,{...F0[k],on:F0[k].on||st.lv[k]>.001}])),soft=FX_KEYS.some(k=>F0[k].fade),
     lv=(fx,k)=>(F0[fx].fade?st.b:B)[k]??0,pu=fx=>F0[fx].fade?st.p:pulse,on=FX_KEYS.some(k=>F[k].on),drv=(fx,k)=>k==='beat'?pu(fx):k==='steady'||k==='hold'||k==='loop'?1:lv(fx,k);
-  gl.uniform1f(u.time,time);
+  gl.uniform1f(u.time,time);gl.uniform1f(u.fstep,Number.isFinite(sig?.beat)?sig.beat:time*2);
   gl.uniform4f(u.disp,F.disp.on?F.disp.amount*(.15+lv('disp',F.disp.drive)*1.2):0,['ripple','swell','noise'].indexOf(F.disp.pattern),F.disp.speed,0);
   const ex=F.explode.on?(F.explode.drive==='hold'?1:F.explode.drive==='beat'?pu('explode'):lv('explode','bass')):0;gl.uniform2f(u.explode,ex*F.explode.amount,ex);
   let bp=1;if(F.build.on){if(F.build.drive==='level')bp=Math.min(1,lv('build','full')*1.6);else{const t=((time*F.build.speed)%1+1)%1;bp=t<.45?t/.45:t<.55?1:t<.95?1-(t-.55)/.4:0;}}
@@ -329,24 +335,60 @@ function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.lig
   const buf=facets(g,F.edges.angle);gl.bindBuffer(gl.ARRAY_BUFFER,R.fxBuffer);if(R.fxData!==buf){gl.bufferData(gl.ARRAY_BUFFER,buf,gl.STATIC_DRAW);R.fxData=buf;}
   for(const [loc,n,off] of attrs){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,76,off);}gl.bindBuffer(gl.ARRAY_BUFFER,R.buffer);}
 export function facetData(s,time){const g=meshOf(s,time);return facets(g,(s.fx||cleanFx()).edges.angle);}
-// Animate Autopilot: every few beats (or every 1.5× as many seconds without a beat) it picks a new random mix of effects,
-// each with its own settings, Map and Element, and crossfades to it (Fade is always on).
-const AUTO_OPTS={disp:{pattern:['ripple','swell','noise']},edges:{mode:['trace','pulse','sweep']},build:{order:['up','out','random'],el:FX_ELEMENTS},explode:{el:FX_ELEMENTS},flow:{dir:['up','side','diag']},scan:{axis:['up','across','depth']},shock:{from:['bottom','top','side']},flicker:{el:FX_ELEMENTS},morph:{style:['liquid','swirl','melt']},echo:{style:['up','depth','out','random']}};
+// Animate Autopilot: a choreographer. It plays curated looks (a hero effect plus quieter supports), keeps each one for a whole phrase
+// (4, 8 or 16 bars on the beat clock), picks looks that suit the song's section (intro, build, drop, break), fires a one-bar Impact
+// when a drop lands, varies one setting per bar inside a look and crossfades over one bar. Effects cost: Echo 3, Morph 2, others 1.
+const RECIPES=[
+  ['blueprint','Blueprint','intro',['edges',{mode:'trace',fill:.15}],[['outline',{drive:'steady'}],['light',{drive:'mids'}]]],
+  ['scanlines','Scan lines','intro',['scan',{axis:'up',drive:'full'}],[['edges',{mode:'pulse',fill:.5,map:'levels'}],['outline',{drive:'full'}]]],
+  ['contour','Contour','intro',['outline',{drive:'full'}],[['curves',{drive:'bass'}],['light',{drive:'mids'}]]],
+  ['floors','Floor by floor','build',['build',{order:'up',drive:'level',el:'poly'}],[['edges',{mode:'pulse',fill:.4}],['light',{drive:'mids'}]]],
+  ['snake','Snake','build',['snake',{count:3}],[['outline',{drive:'full'}],['flicker',{drive:'high',el:'edge'}]]],
+  ['facadechase','Facade chase','build',['flicker',{drive:'high',el:'poly',map:'facades'}],[['outline',{drive:'bass'}],['scan',{axis:'up',drive:'beat'}]]],
+  ['morphbuild','Morph build','build',['morph',{style:'liquid',drive:'full'}],[['light',{drive:'mids'}],['edges',{mode:'sweep',fill:.5}]]],
+  ['levels','Levels','build',['build',{order:'up',drive:'loop',map:'levels'}],[['scan',{axis:'up',drive:'full'}],['outline',{drive:'bass'}]]],
+  ['impact','Impact','drop',['shock',{drive:'beat',from:'bottom'}],[['explode',{drive:'beat',el:'poly'}],['flicker',{drive:'high'}]]],
+  ['shatter','Shatter','drop',['explode',{drive:'bass',el:'edge',map:'parts'}],[['edges',{mode:'pulse',fill:.6}],['light',{drive:'mids'}]]],
+  ['pulsefloors','Pulse floors','drop',['disp',{drive:'bass',pattern:'swell',map:'levels'}],[['flicker',{drive:'high'}],['outline',{drive:'bass'}]]],
+  ['facadestorm','Facade storm','drop',['flicker',{drive:'beat',el:'vert',map:'facades'}],[['shock',{drive:'beat'}],['light',{drive:'mids'}]]],
+  ['mirror','Mirror','drop',['explode',{drive:'bass',el:'poly',map:'mirror'}],[['light',{drive:'mids'}],['edges',{mode:'pulse',fill:.5}]]],
+  ['drift','Drift','break',['flow',{move:.15,rotate:.05,drive:'loop'}],[['light',{drive:'mids'}],['outline',{drive:'steady'}]]],
+  ['echotrace','Echo trace','break',['echo',{style:'up',drive:'steady'}],[['edges',{mode:'trace',fill:.2}]]],
+  ['melt','Melt','break',['morph',{style:'melt',drive:'steady',amount:.5}],[['outline',{drive:'steady'}],['light',{drive:'mids'}]]]];
+const HIT=['hit','Impact','drop',['shock',{drive:'beat',from:'bottom',width:.2}],[['explode',{drive:'beat',amount:.8}]]];
+const FX_COST={echo:3,morph:2};
+// Per bar inside a look: one setting steps through its options.
+const VARY={shock:['from',['bottom','top','side']],scan:['axis',['up','across']],edges:['mode',['pulse','sweep']],disp:['pattern',['swell','ripple']],flicker:['el',FX_ELEMENTS]};
 const rand=k=>{let x=(k>>>0)||1;return ()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return (x>>>0)/4294967296;};};
-export function autoFx(R,s,time){const F=s.fx?.light?s.fx:cleanFx(s.fx),A=F.auto,id=s.id||'_',beats=R.beats||0,n=+A.every;R.autos??=new Map();let st=R.autos.get(id);
-  if(st&&!(time<st.t0||beats-st.b0>=n||time-st.t0>=n*1.5))return st.fx;
-  const k=st?st.k+1:[...id].reduce((h,c)=>Math.imul(h^c.charCodeAt(0),16777619),2166136261)>>>0,r=rand(Math.imul(k,2654435761)+7),pk=l=>l[Math.floor(r()*l.length)%l.length],o={repick:F.repick,auto:A};
-  const keys=[...FX_KEYS];for(let i=keys.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[keys[i],keys[j]]=[keys[j],keys[i]];}let chosen=keys.slice(0,A.count);
-  // At least one effect swaps out each time; the ones that stay keep playing exactly as they were (no jumps).
-  const was=st?FX_KEYS.filter(x=>st.fx[x].on):[];if(was.length&&chosen.every(x=>was.includes(x))){const out=pk(chosen),inn=keys.find(x=>!chosen.includes(x)&&!was.includes(x));if(inn)chosen=chosen.map(x=>x===out?inn:x);}
-  for(const x of FX_KEYS){if(!chosen.includes(x)){o[x]={...(st?.fx[x]||F[x]),on:false,fade:true};continue;}if(was.includes(x)){o[x]={...st.fx[x]};continue;}
-    const e={on:true,fade:true,mix:.6+r()*.4,map:A.maps&&r()<.5?pk(FX_MAPS.slice(1)):'all'};for(const [q,l] of Object.entries(AUTO_OPTS[x]||{}))e[q]=pk(l);if(FX_DRIVES[x])e.drive=pk(FX_DRIVES[x]);
-    if(x==='flow'){e.move=(r()-.5)*.8;e.rotate=r()<.5?(r()-.5)*.6:0;e.scale=r()<.5?.15+r()*.4:0;}o[x]=e;}
-  st={k,t0:time,b0:beats,fx:cleanFx(o)};R.autos.set(id,st);if(R.autos.size>64)R.autos.delete(R.autos.keys().next().value);return st.fx;}
-// The effects Autopilot is playing on a surface now (for the panel).
-export function autoPlaying(id){const st=renderer?.autos?.get(id);return st?FX_KEYS.filter(k=>st.fx[k].on):[];}
+function lookFx(F,A,rc,prev,bar){const o={repick:F.repick,auto:A},[,,,hero,sup]=rc,on={},budget=A.count+1;let cost=0;
+  for(const [i,[x,set]] of [hero,...sup].slice(0,A.count).entries()){const c=FX_COST[x]||1;if(i&&cost+c>budget)continue;cost+=c;
+    const e={...F[x],...set,on:true,fade:true,mix:i?.4:1};if(!A.maps)e.map='all';else e.map=set.map||'all';
+    const v=VARY[x];if(!i&&v&&bar>0)e[v[0]]=v[1][bar%v[1].length];on[x]=e;}
+  for(const x of FX_KEYS)o[x]=on[x]||{...(prev?.[x]||F[x]),on:false,fade:true};
+  // An effect carried over between looks keeps its settings, so it never jumps.
+  if(prev)for(const x of FX_KEYS)if(on[x]&&prev[x].on)o[x]={...prev[x],mix:on[x].mix,map:on[x].map,[VARY[x]?.[0]??'_']:on[x][VARY[x]?.[0]??'_']};return o;}
+export function autoFx(R,s,time,sig){const F=s.fx?.light?s.fx:cleanFx(s.fx),A=F.auto,id=s.id||'_',P=+A.every,beat=Number.isFinite(sig?.beat)?sig.beat:time*2,bpm=Math.min(200,Math.max(60,+sig?.bpm||120)),
+    full=Math.min(1,Math.max(0,+(sig?.bands?.full)||0));R.autos??=new Map();let st=R.autos.get(id);
+  if(st&&(time<st.t||beat<st.b0-1))st=null;
+  if(!st){st={k:[...id].reduce((h,c)=>Math.imul(h^c.charCodeAt(0),16777619),2166136261)>>>0,t:time,ef:full,es:full,pk:.35,sec:'intro',hist:[],b0:beat,bar:-1,hit:-1,lastDrop:-1e9};R.autos.set(id,st);if(R.autos.size>64)R.autos.delete(R.autos.keys().next().value);}
+  // Section from the loudness: a fast (½ s) and slow (8 s) follower against a slowly falling peak.
+  const dt=Math.min(.5,Math.max(0,time-st.t));st.t=time;st.ef+=(full-st.ef)*Math.min(1,dt*2);st.es+=(full-st.es)*Math.min(1,dt/8);st.pk=Math.max(.35,full,st.pk*Math.exp(-dt/30));
+  const rel=st.ef/st.pk,secNow=rel>.75?'drop':rel>.45?'build':st.sec==='drop'||st.sec==='build'||st.sec==='break'?'break':'intro',bar=Math.floor((beat-st.b0)/4);
+  st.bpm=bpm;st.fd=Math.min(3,Math.max(.8,240/bpm));
+  const choose=sec=>{const r=rand(Math.imul(++st.k,2654435761)+7),pool=RECIPES.filter(x=>x[2]===sec),fresh=pool.filter(x=>!st.hist.includes(x[0])),l=fresh.length?fresh:pool,rc=l[Math.floor(r()*l.length)%l.length];
+    st.hist=[rc[0],...st.hist].slice(0,4);return rc;};
+  const set=(rc,sec,b)=>{st.rc=rc;st.sec=sec;st.fx=cleanFx(lookFx(F,A,rc,st.fx,b));st.fx.fd=st.fd;};
+  // A drop lands: one bar of Impact over the whole object, then a drop look starts a fresh phrase.
+  if(st.rc&&st.hit<0&&st.ef-st.es>.15&&rel>.7&&st.sec!=='drop'&&time-st.lastDrop>8){st.hit=beat;st.lastDrop=time;set(HIT,'drop',0);return st.fx;}
+  if(st.hit>=0){if(beat-st.hit<4)return st.fx;st.hit=-1;st.b0=beat;st.bar=0;set(choose('drop'),'drop',0);return st.fx;}
+  if(!st.rc||bar>=P){if(st.rc){st.b0+=Math.floor((beat-st.b0)/4/P)*P*4;if(beat-st.b0>=P*4)st.b0=beat;}st.bar=0;set(choose(secNow),secNow,0);return st.fx;}
+  if(bar!==st.bar){st.bar=bar;st.fx=cleanFx(lookFx(F,A,st.rc,st.fx,bar));st.fx.fd=st.fd;}
+  return st.fx;}
+// What Autopilot is playing on a surface now (for the panel).
+export function autoPlaying(id){const st=renderer?.autos?.get(id);return st?.fx?FX_KEYS.filter(k=>st.fx[k].on):[];}
+export function autoStatus(id){const st=renderer?.autos?.get(id);if(!st?.rc)return null;return {look:st.rc[1],section:st.sec,bar:st.hit>=0?1:st.bar+1,bars:st.hit>=0?1:+(st.fx.auto?.every||8),bpm:Math.round(st.bpm||120)};}
 export function render3d(ctx,s,img,W,H,time=0,test=false,sig=null){if(!s.post)s={...s,post:cleanPost()};
-  const R=renderer||(renderer=init()),{canvas,gl,p,uniforms:u}=R;if(!test&&s.fx?.auto?.on)s={...s,fx:autoFx(R,s,time)};if(canvas.width!==W||canvas.height!==H){canvas.width=W;canvas.height=H;}gl.viewport(0,0,W,H);gl.useProgram(p);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  const R=renderer||(renderer=init()),{canvas,gl,p,uniforms:u}=R;if(!test&&s.fx?.auto?.on)s={...s,fx:autoFx(R,s,time,sig)};if(canvas.width!==W||canvas.height!==H){canvas.width=W;canvas.height=H;}gl.viewport(0,0,W,H);gl.useProgram(p);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   const {vp,m:cam,f:focal}=viewProj(s,W,H,time);gl.uniformMatrix4fv(u.vp,false,vp);gl.uniform1f(u.scale,s.scale);gl.uniform1i(u.upAxis,s.upAxis==='Z'?1:0);gl.uniform2f(u.size,W,H);gl.uniform1i(u.mode,['uv','front','box'].indexOf(s.projection));gl.uniform1f(u.fade,s.fade);gl.uniform1f(u.tile,s.tile);gl.uniformMatrix3fv(u.boxRot,false,boxMatrix(s.box));gl.uniform3f(u.boxMove,s.box.x,s.box.y,s.box.z);gl.uniform3f(u.boxScale,s.box.scale*s.box.sx,s.box.scale*s.box.sy,s.box.scale*s.box.sz);gl.uniform1i(u.wire,0);gl.bindTexture(gl.TEXTURE_2D,R.tex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);if(!test)img=surfaceFeedback(R,s,img,time);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);R.echoNow=!test&&(s.fx?.echo?.on||R.fades?.get(s.id||'_')?.lv?.echo>.001)?echoPush(R,s,img,time):null;gl.uniform1i(u.hist,3);
   const g=meshOf(s,time),o=objectFrame(s,g);gl.uniform3fv(u.objectOffset,o.offset);gl.uniform1f(u.objectSize,o.size);gl.uniformMatrix3fv(u.objRot,false,o.rotT);gl.uniform3fv(u.pivot,o.pivot);gl.uniform3fv(u.objMove,o.move);gl.uniform3fv(u.objScale,xfScale(s.xf));gl.uniform1i(u.latRes,s.lattice.res);if(s.lattice.res){const a=new Float32Array(192);a.set(s.lattice.d);gl.uniform3fv(u.lat,a);}gl.uniform3fv(u.lo,g.lo);gl.uniform3fv(u.span,g.span);gl.uniform3f(u.eye,cam[12],cam[13],cam[14]);gl.bindBuffer(gl.ARRAY_BUFFER,R.buffer);if(R.mesh!==g){gl.bufferData(gl.ARRAY_BUFFER,g.data,gl.STATIC_DRAW);R.mesh=g;}gl.enableVertexAttribArray(R.position);gl.enableVertexAttribArray(R.uv);gl.enableVertexAttribArray(R.normal);gl.vertexAttribPointer(R.position,3,gl.FLOAT,false,32,0);gl.vertexAttribPointer(R.uv,2,gl.FLOAT,false,32,12);gl.vertexAttribPointer(R.normal,3,gl.FLOAT,false,32,20);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1,1);fxUniforms(R,s,g,time,sig,test);
   const A=s.ao?.on?aoTarget(R,W,H):null;gl.uniform1i(u.aoOn,0);gl.uniform1i(u.pass,0);gl.uniform1i(u.posTex,1);
@@ -386,5 +428,10 @@ function echoPush(R,s,img,time){const gl=R.gl,N=24;R.echoes??=new Map();const id
     R.echoes.set(id,e);if(R.echoes.size>8){const [k0,o]=R.echoes.entries().next().value;gl.deleteTexture(o.tex);R.echoes.delete(k0);}}
   gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D_ARRAY,e.tex);
   if(time<e.t||time-e.t>.5){e.filled=0;e.t=-1;}
-  if(e.t<0||time-e.t>=1/30-1e-4){const x=e.cv.getContext('2d');x.clearRect(0,0,w,h);x.drawImage(img,0,0,w,h);e.head=(e.head+1)%N;gl.texSubImage3D(gl.TEXTURE_2D_ARRAY,0,0,0,e.head,w,h,1,gl.RGBA,gl.UNSIGNED_BYTE,e.cv);e.filled=Math.min(N,e.filled+1);e.t=time;}
+  if(e.t<0||time-e.t>=1/30-1e-4){e.head=(e.head+1)%N;
+    // GPU copy: the picture is already uploaded (R.tex), so it is scaled straight into the history layer (no canvas readback).
+    const fb=R.echoFb??={r:gl.createFramebuffer(),d:gl.createFramebuffer()},iw=img.width||img.videoWidth||w,ih=img.height||img.videoHeight||h;
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER,fb.r);gl.framebufferTexture2D(gl.READ_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,R.tex,0);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,fb.d);gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,e.tex,0,e.head);
+    gl.blitFramebuffer(0,0,iw,ih,0,0,w,h,gl.COLOR_BUFFER_BIT,gl.LINEAR);gl.bindFramebuffer(gl.READ_FRAMEBUFFER,null);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,null);
+    e.filled=Math.min(N,e.filled+1);e.t=time;}
   gl.activeTexture(gl.TEXTURE0);return e;}

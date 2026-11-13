@@ -364,15 +364,26 @@ process the finished image.
     Assemble, Shatter, Living, Impact, Crawl, Fluid, Ripple, All off). Every effect has an **Intensity** knob. Each effect's **Map** picks where it shows:
     *All*, *Depth* (the parts nearest the projector), *Sound* (bass at the bottom, highs at the top),
     *UV* (moving bands in the model's UV map), *Parts* (random separate meshes or regions of the model),
-    *Random* (random faces) or *Noise* (drifting noise blobs). **Re-pick** sets when Parts and
+    *Random* (random faces), *Noise* (drifting noise blobs), *Levels* (floors light in a chase up
+    the object on the beat), *Facades* (one side at a time, then the roof, every 2 beats) or *Mirror*
+    (random pieces, the same on both halves). **Re-pick** sets when Parts and
     Random choose new pieces: Auto (each beat and every 3 s) or every 1, 2, 4 or 8 beats. Each effect's **Fade** eases it in and out
     when switched (about 0.8 s), smooths its music response and crossfades Parts, Random and
     Flicker instead of cutting. **Element** (Explode, Build, Flicker) sets what the picture breaks
     into: each *Polygon*, a diamond around each *Edge*, or a star around each *Vertex*. Each effect
     is a card: its switch on top, then Element, Map, its own settings, Intensity and Fade. The
-    **Mix** card holds Combos, Re-pick and **Autopilot**: every 2–16 beats (or the same number of
-    1.5 s steps in silence) it picks a new random mix of 1–4 effects, each with its own settings,
-    Map (optional) and Element, and crossfades to it; the card shows what is playing.
+    **Mix** card holds Combos, Re-pick and **Autopilot**, a choreographer. It plays curated looks
+    (Blueprint, Scan lines, Contour, Floor by floor, Snake, Facade chase, Morph build, Levels,
+    Impact, Shatter, Pulse floors, Facade storm, Mirror, Drift, Echo trace, Melt): one hero effect at
+    full strength with quieter supports (**Layers** 1–4 caps them; Echo and Morph count extra). It
+    picks looks to suit the song's section (*Intro*, *Build*, *Drop*, *Break*, read from the
+    loudness against its recent peak), keeps each for a whole **Phrase** (4, 8 or 16 bars), steps one
+    setting per bar inside a look, never repeats one of its last four and crossfades over one bar.
+    When a drop lands it fires one bar of Impact over the whole object, then starts a drop look.
+    Each sound has one job: bass hits, highs flicker, mids colour the light, the beat sets the pace.
+    Bars come from the **beat clock**: the tempo is read from the detected beats, **Tap** sets it by
+    hand, **Resync** makes now bar 1 and **Auto tempo** returns to following the music. The card
+    shows the look, section, bar and BPM, and what is playing.
     Effects are saved with the surface. Chip rows that don't fit split into even rows (7 → 4 + 3).
   - **Post FX** (3D objects) finish the picture on the mesh: **Brightness** and **Contrast**,
     **Kaleidoscope** (Segments, Spin; folds each surface's picture into mirrored segments) and
@@ -491,7 +502,9 @@ process the finished image.
     knobs too. *“Masked by text "FLOW"”*, *“inside a circle”* and *“revealed
     by the waveform”* make real masks. The readout names each understood
     driver. Empty descriptions explore energy-matched masks, 1–3 drivers and
-    layered post FX; lower Prompt match allows more adventurous combinations.
+    layered post FX; lower Prompt match allows more adventurous combinations. Each look keeps a
+    cost budget (Bloom, Trails, Blur, Kaleido and similar post FX count most), so heavy effects
+    don't pile up and Autopilot stays smooth.
   - **Write** lets Autopilot write its own descriptions at each change;
     typing takes over again. **Next** changes now; **Hold** keeps the look.
   - Every change to what is drawn (Autopilot, templates, adding or deleting

@@ -380,6 +380,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
 }
 
 // Add the same editable graph vocabulary to a generated look or the live Director's reusable slots.
+const FX_COST={bloom:2,trails:2,blur:2,kaleido:2,grade:2,lens:2,liquidGlass:3,glitch:1.5,tunnel:2,melt:2,fracture:2,feedback:1,mask:1,plainText:1,shader:1.5,strobe:.5,hue:.5,imageTransform:.5};
 export function enhance(g,it,{seed=1,energy=50,match=85,primary=true}={}){
   if(!primary)return g;
   const r=rng(seed),E=clamp(energy,0,100),explore=1-clamp(match,0,100)/100,roam=!it.raw.trim(),find=t=>g.nodes.find(n=>n.type===t),vis=g.nodes.find(n=>isEngine(n.type)),sound=find('audioIn'),output=find('output');
@@ -391,7 +392,9 @@ export function enhance(g,it,{seed=1,energy=50,match=85,primary=true}={}){
   const row=()=>{dy+=160;col=0;};
   const insert=(n,target=output,input='image')=>{const edge=g.edges.find(e=>e.to===target.id&&e.input===input);if(!edge)return n;g.edges=g.edges.filter(e=>e!==edge);g.edges.push({...edge,to:n.id,input:Object.keys(TYPES[n.type].inputs)[0]});wire(n,out(n),target,input);return n;};
   // Shape-stage nodes (Hue) go in the shape chain before Symmetry / Spin; image FX go before Output.
-  const effect=(type,props={})=>{if(off(type))return null;const old=find(type);if(old)return old;const at=TYPES[type].outputs.shape&&[find('symmetry'),find('spin')].find(t=>t&&g.edges.some(e=>e.to===t.id&&e.input==='shape'));const n=at?insert(make(type,props),at,'shape'):insert(make(type,props,true));if(TYPES[type].inputs.audio)wire(sound,'audio',n,'audio');return n;};
+  // Frame budget: every image FX costs CPU/GPU time each frame (engine post FX are a full GPU round trip), so the look adds only what fits.
+  let spent=g.nodes.reduce((a,n)=>a+(FX_COST[n.type]||0),0);const budget=E>70?6:5,afford=type=>{const c=FX_COST[type]??1;if(spent+c>budget)return false;spent+=c;return true;};
+  const effect=(type,props={})=>{if(off(type))return null;const old=find(type);if(old)return old;if(!afford(type))return null;const at=TYPES[type].outputs.shape&&[find('symmetry'),find('spin')].find(t=>t&&g.edges.some(e=>e.to===t.id&&e.input==='shape'));const n=at?insert(make(type,props),at,'shape'):insert(make(type,props,true));if(TYPES[type].inputs.audio)wire(sound,'audio',n,'audio');return n;};
   // Map emits normalised knob modulation, not property units: 0 keeps the base, 1 reaches its maximum.
   const sources=new Map(),source=(kind)=>{
     if(sources.has(kind))return sources.get(kind);
@@ -433,7 +436,7 @@ export function enhance(g,it,{seed=1,energy=50,match=85,primary=true}={}){
     const pool=combos.slice(),n=1+Math.floor(r()*(1+2*explore));for(let j=0;j<n&&pool.length;j++){const [type,p]=pool.splice(Math.floor(r()*pool.length),1)[0];effect(type,p);if(type==='glitch'&&!kinds.includes('glitch'))kinds.push('glitch');if(type==='strobe'&&!kinds.includes('strobe'))kinds.push('strobe');if(type==='tunnel'&&!kinds.includes('zoom'))kinds.push('zoom');}}
   let mask=it.mask;
   if(!mask&&roam&&r()<.12+explore*.24&&!off('mask'))mask={kind:pick(r,['circle','waveform','text']),text:pick(r,['SOUND','FLOW','NOW'])};
-  if(mask&&!off('mask')){
+  if(mask&&!off('mask')&&!find('mask')&&spent+FX_COST.mask+(mask.kind==='text'?FX_COST.plainText:FX_COST.shader)<=budget){spent+=mask.kind==='text'?FX_COST.plainText:FX_COST.shader;
     // Alpha, not opaque black: Composite Mask uses destination-in, while emitters can also mask by luma.
     let m;if(mask.kind==='text')m=make('plainText',{text:mask.text,color:'#ffffff',bounce:12});
     else m=make('shader',{example:'Custom',code:mask.kind==='circle'?`void mainImage(out vec4 c,in vec2 f){vec2 p=(f-.5*iResolution.xy)/iResolution.y;float a=1.-smoothstep(.34,.36,length(p));c=vec4(vec3(1.),a);}`:`void mainImage(out vec4 c,in vec2 f){vec2 uv=f/iResolution.xy;float w=texture(iChannel1,vec2(uv.x,.75)).r-.5;float a=1.-smoothstep(.16,.19,abs(uv.y-.5-w*.45));c=vec4(vec3(1.),a);}`});
@@ -441,7 +444,7 @@ export function enhance(g,it,{seed=1,energy=50,match=85,primary=true}={}){
     if(mask.kind==='waveform'&&free(vis,'mask')){wire(m,'image',vis,'mask');vis.props.maskBy='alpha';}
     else{const n=effect('mask',{feather:E<40?5:1});if(n&&free(n,'mask'))wire(m,'image',n,'mask');}
   }
-  if(it.fx.blend||it.fx.merge){const echo=make('feedback',{decay:.65,zoom:1.02,rotate:.6}),edge=g.edges.find(e=>e.to===output.id&&e.input==='image'),src=edge&&g.nodes.find(n=>n.id===edge.from);row();
+  if((it.fx.blend||it.fx.merge)&&afford('feedback')){const echo=make('feedback',{decay:.65,zoom:1.02,rotate:.6}),edge=g.edges.find(e=>e.to===output.id&&e.input==='image'),src=edge&&g.nodes.find(n=>n.id===edge.from);row();
     if(src){wire(src,edge.out,echo,'image');const type=it.fx.blend?'blend':'merge',n=make(type,it.fx[type],true);g.edges=g.edges.filter(e=>e!==edge);wire(src,edge.out,n,'a');wire(echo,'image',n,'b');wire(n,'image',output,'image');}}
   for(const kind of kinds){
     if(kind==='breath'&&!off('imageTransform')){const t=effect('imageTransform');bind('slow',t,'scale',.96,1.065);}
