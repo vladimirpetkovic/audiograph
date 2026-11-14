@@ -1426,6 +1426,41 @@ def Camera "Camera" {
     assert.deepEqual(an.clips,['Slide'],'Mapping lists the model clips');assert.equal(an.anim.on,true,'Animated models play by default');
     assert.notEqual(an.a,an.b,'An animated model moves over time on the mapping surface');assert.notEqual(an.b,an.rest,'Rest pose holds the bind pose');
     await (await reveal(page.locator('[data-property=surf3dAnim] .mbtn',{hasText:'Rest pose'}))).click();assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].anim.on,false,'Rest pose toggle stops the animation');}
+    // Show tools: song map, cues, projector blend, calibration, part tags, camera map, AI texture source and the phone remote.
+    {const q=await page.evaluate(async()=>{const S=await import('./song.js'),MP=await import('./mapping.js'),M=pro.mapping3d,sr=22050,b=new AudioBuffer({length:sr*60,numberOfChannels:1,sampleRate:sr}),d=b.getChannelData(0);
+        for(let i=0;i<d.length;i++){const t=i/sr,ph=(t*128/60)%1,l=t>30&&t<50?1:t>20?.5:.25;d[i]=l*(Math.sin(2*Math.PI*60*t)*Math.exp(-ph*8)+.1*Math.sin(2*Math.PI*440*t));}
+        const song=S.analyse(b),dt=song.drops[0],at={...S.at(song,dt+1,dt+.9),drop:S.at(song,dt+.1,dt-.5).drop};
+        const sl=MP.projectorSlices({count:2,overlap:.2}),seam=[0,.25,.5,.75,1].map(t=>MP.blendRamp(t,1)+MP.blendRamp(1-t,1));
+        const W=200,H=140,img=document.createElement('canvas');img.width=W;img.height=H;const x=img.getContext('2d');x.fillStyle='#f80';x.fillRect(0,0,W,H);const base={...M.surface3d('st'),primitive:'Cube'};
+        const sum=(o,sig={},id)=>{const c=document.createElement('canvas');c.width=W;c.height=H;const cx=c.getContext('2d');M.render3d(cx,{...base,id,...o},img,W,H,1.3,false,{bands:{full:.8},pulse:0,...sig});const d=cx.getImageData(0,0,W,H).data;let r=0,bl=0;for(let i=0;i<d.length;i+=4){r+=d[i];bl+=d[i+2];}return {r,bl};};
+        const keys=[...new Set([[60,50],[100,70],[140,60],[100,30]].map(([a,c])=>M.pickPart(base,W,H,a,c,1.3)).filter(k=>k>=0))],fl=map=>M.cleanFx({flicker:{on:true,drive:'loop',amount:1,map}});
+        const tg={none:sum({fx:fl('windows')},{},'t1').r,win:sum({tags:keys.map(k=>[k,1]),fx:fl('windows')},{},'t2').r,wrong:sum({tags:keys.map(k=>[k,2]),fx:fl('windows')},{},'t3').r,all:sum({fx:fl('all')},{},'t4').r,tint:sum({tags:keys.map(k=>[k,1])},{tagShow:'t5'},'t5').bl};
+        const cam=v=>{const c=document.createElement('canvas');c.width=8;c.height=8;const k=c.getContext('2d');k.fillStyle=v;k.fillRect(0,0,8,8);return {canvas:c,stamp:v};};
+        const cm={dark:sum({fx:fl('camera')},{cam:cam('#000')},'c1').r,lit:sum({fx:fl('camera')},{cam:cam('#fff')},'c2').r};
+        const Q=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[0,1,1]],h=M.calibHandles(M.clean3d({...base,calib:{use:false,pts:Q.map(q=>({q,t:[.5,.5]}))}}),1280,720);
+        const cal=M.clean3d({...base,calib:{use:true,pts:Q.map((q,i)=>({q,t:[h[i].x/1280,h[i].y/720]}))}}),moved=M.clean3d({...base,calib:{use:true,pts:Q.map((q,i)=>({q,t:[h[i].x/1280+.05,h[i].y/720]}))}}),hm=M.calibHandles(moved,1280,720);
+        const kept=M.clean3d({...base,source:'ai',ai:{prompt:'  neon moss ',evolve:1},tags:[[5,2],[7,9]],cues:Array.from({length:12},(_,i)=>({name:'C'+i,fx:M.cleanFx({scan:{on:true}}),post:base.post}))});
+        const R={},A=M.cleanFx({auto:{on:true,every:'4'}}),sx={id:'sg',fx:A},sm=(beat,section,drop=false)=>({beat,bpm:120,bands:{full:.5},pulse:0,song:{section,drop,toDrop:9,beat,bpm:120}});
+        M.autoFx(R,sx,0,sm(0,'intro'));const l0=R.autos.get('sg').rc[0];M.autoFx(R,sx,2,sm(4,'build'));const sec1=R.autos.get('sg').sec;M.autoFx(R,sx,3,sm(6,'build',true));const hit=R.autos.get('sg').rc[0];
+        const Rc={},sc={id:'cu',fx:A};M.autoFx(Rc,sc,0,sm(0,'intro'));M.autoCue('cu',M.cleanFx({scan:{on:true}}),'Mine');const Rs=Rc;
+        return {bpm:song.bpm,drops:song.drops,secs:song.sections.map(x=>x.kind),at,sl,seam,tg,cm,calErr:M.calibError(cal,1280,720),shift:hm[0].x-h[0].x,kept:{src:kept.source,ai:kept.ai,tags:kept.tags,cues:kept.cues.length},l0,sec1,hit};});
+      assert.ok(Math.abs(q.bpm-128)<.6,'The song map finds the tempo: '+q.bpm);assert.ok(q.drops.some(t=>Math.abs(t-30)<1.5),'The song map finds the drop: '+q.drops);assert.ok(q.secs.includes('drop')&&q.secs.includes('build'),'The song map labels builds and drops: '+q.secs);
+      assert.equal(q.at.section,'drop','At 31 s the song is in its drop');assert.equal(q.at.drop,true,'Crossing the drop is reported once');
+      assert.equal(q.sl.length,2,'Two projectors, two slices');assert.ok(Math.abs(q.sl[1].x+q.sl[1].w-1)<1e-9&&q.sl[0].x===0,'The slices cover the whole picture');assert.ok(q.seam.every(v=>Math.abs(v-1)<1e-9),'Across the overlap the two ramps add up to full light: '+q.seam);
+      assert.ok(q.tg.win<q.tg.none*.8&&Math.abs(q.tg.wrong-q.tg.none)<q.tg.none*.01,`Map Windows plays only on parts tagged Windows: ${JSON.stringify(q.tg)}`);assert.ok(q.tg.tint>0,'Tagging tints the tagged parts');
+      assert.ok(q.cm.lit<q.cm.dark*.9,`Map Camera follows the webcam's movement: ${JSON.stringify(q.cm)}`);
+      assert.ok(q.calErr<.01,'Calibration from exact points solves the camera: '+q.calErr);assert.ok(q.shift>50,'Moving the calibration targets moves the solved camera: '+q.shift);
+      assert.deepEqual(q.kept,{src:'ai',ai:{prompt:'neon moss',evolve:true},tags:[[5,2]],cues:9},'AI texture, tags (1–4) and up to 9 cues are kept');
+      assert.equal(q.sec1,'build','With a song map the Autopilot starts a new look when the section changes');assert.equal(q.hit,'hit','The song map\'s drop lands Impact on the beat');}
+    {await page.evaluate(()=>{const M=pro.mapping3d,P=pro.getProject(),s={...M.surface3d('rm'),primitive:'Cube',cues:[{name:'Scan',fx:M.cleanFx({scan:{on:true}}),post:M.surface3d('x').post}]};P.mapping={...P.mapping,on:true,surfaces:[s]};pro.importProject(P);pro.mapMode(true);});
+      const [r]=await Promise.all([page.waitForEvent('popup'),page.evaluate(()=>{window.open(new URL('remote.html',location.href).href,'_blank','width=390,height=800');})]);await r.waitForSelector('#deck:not(.hide)',{timeout:5000});
+      assert.equal(await r.locator('#cues button').first().textContent(),'1 · Scan','The remote lists the cues');
+      await r.locator('#cues button').first().click();await page.waitForFunction(()=>pro.mapping().surfaces[0].fx.scan.on);
+      await r.click('#black');await page.waitForTimeout(400);assert.equal(await page.evaluate(()=>pro.pixels()),0,'Blackout from the remote darkens the output');await r.click('#black');
+      await r.click('#auto');await page.waitForFunction(()=>pro.mapping().surfaces[0].fx.auto.on);await r.close();
+      const w=await page.evaluate(async()=>{const L=await import('./remote-link.js'),h=await L.hostLink(),j=await L.joinLink(h.offer);await h.accept(j.answer);const got=new Promise(ok=>{j.onmessage=ok;setTimeout(()=>ok(null),8000);});
+        await new Promise(ok=>{const t=setInterval(()=>{if(h.open){clearInterval(t);ok();}},50);setTimeout(ok,8000);});h.send({t:'state',look:'x'});const m=await got;h.close();j.close();return {m,len:h.offer.length};});
+      assert.equal(w.m?.look,'x','The phone link pairs with short codes and carries messages');assert.ok(w.len<400,'Pairing codes stay short: '+w.len);}
     // USD models: a binary crate matches pxr's transforms; a dense USDA grid reaches Mapping without thinning.
     {const r=await page.evaluate(async fx=>{const {parseUSDModel}=await import('./usd-model.js'),M=await import('./map3d.js');
       const m=await parseUSDModel(Uint8Array.from(atob(fx.usdc),c=>c.charCodeAt(0)).buffer,'fx.usdc'),pr=m.meshes.map(x=>x.prims[0]);

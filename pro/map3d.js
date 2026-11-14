@@ -32,7 +32,9 @@ export function cleanLattice(l){const res=LATTICE_RES.includes(+l?.res)?+l.res:0
 const pick=(v,list)=>list.includes(v)?v:list[0];
 export const FX_DRIVES={flow:['loop','bass','beat','full'],disp:['bass','full','high'],build:['loop','level'],explode:['beat','bass','hold'],scan:['full','bass','high','beat'],shock:['beat','bass','full'],flicker:['beat','high','loop'],outline:['full','bass','steady'],curves:['bass','full','steady'],light:['steady','bass','full','mids'],echo:['steady','bass','full'],morph:['full','bass','high','steady']};
 // Levels: floors light in a chase up the building on the beat; Facades: one side at a time (then the roof); Mirror: random pieces, the same on both halves.
-export const FX_MAPS=['all','depth','sound','uv','parts','random','noise','levels','facades','mirror'];
+export const FX_MAPS=['all','depth','sound','uv','parts','random','noise','levels','facades','mirror','camera','windows','columns','roof','accent'];
+// Part tags (Windows, Columns, Roof, Accent) are clicked onto a model's parts; each has its own Map.
+export const TAGS=['windows','columns','roof','accent'];
 // Parts / Random re-pick: on every beat and every 3 s (auto), or only every N beats.
 export const FX_REPICK=['auto','1','2','4','8'];
 // Element: what Explode, Build and Flicker break the picture into: each polygon, a diamond around each edge or a star around each vertex.
@@ -60,8 +62,10 @@ export function cleanFx(f={}){const d=f.disp||{},e=f.edges||{},b=f.build||{},x=f
   // Map: where on the object each effect shows (everywhere, near the projector, by the spectrum, along the UVs, on random parts or faces).
   for(const k of FX_KEYS){o[k].map=pick(f[k]?.map,FX_MAPS);o[k].fade=!!f[k]?.fade;o[k].mix=clamp(f[k]?.mix,0,1,1);}o.repick=pick(String(f.repick??'auto'),FX_REPICK);const au=f.auto||{};o.auto={on:!!au.on,every:pick(String(au.every??'8'),FX_AUTO_EVERY),count:Math.round(clamp(au.count,1,4,2)),maps:au.maps!==false};return o;}
 export function surface3d(id,name='3D object'){return clean3d({id,name,kind:'3d'});}
+// AI texture: a prompt the AI bridge turns into the surface's picture; Evolve makes a new one on every section change.
+export function cleanAiTex(a){return a&&typeof a.prompt==='string'&&a.prompt.trim()?{ai:{prompt:a.prompt.trim().slice(0,200),evolve:!!a.evolve}}:{};}
 export function clean3d(s){
-  const c=s.camera||{};return {id:s.id,name:String(s.name||'3D object').slice(0,40),kind:'3d',source:s.source==='all'||s.source===undefined?'all':Math.round(clamp(s.source,1,4,1)),opacity:clamp(s.opacity,0,1,1),primitive:PRIMITIVES.includes(s.primitive)?s.primitive:'Cube',model:typeof s.model==='string'?s.model.slice(0,240):'',modelKey:typeof s.modelKey==='string'?s.modelKey.slice(0,280):'',projection:['uv','front','box'].includes(s.projection)?s.projection:'uv',fade:clamp(s.fade,0,1,.5),tile:clamp(s.tile,.1,20,1),box:(b=>({x:clamp(b.x,-2,2,0),y:clamp(b.y,-2,2,0),z:clamp(b.z,-2,2,0),rx:clamp(b.rx,-180,180,0),ry:clamp(b.ry,-180,180,0),rz:clamp(b.rz,-180,180,0),scale:clamp(b.scale,.05,20,1),sx:clamp(b.sx,.05,20,1),sy:clamp(b.sy,.05,20,1),sz:clamp(b.sz,.05,20,1)}))(s.box||{}),anim:(a=>({on:a.on!==false,clip:Math.round(clamp(a.clip,0,63,0)),speed:clamp(a.speed,.05,4,1)}))(s.anim||{}),xf:(t=>({x:clamp(t.x,-10,10,0),y:clamp(t.y,-10,10,0),z:clamp(t.z,-10,10,0),rx:clamp(t.rx,-180,180,0),ry:clamp(t.ry,-180,180,0),rz:clamp(t.rz,-180,180,0),scale:clamp(t.scale,.01,100,1),sx:clamp(t.sx,.01,100,1),sy:clamp(t.sy,.01,100,1),sz:clamp(t.sz,.01,100,1)}))(s.xf||{}),lattice:cleanLattice(s.lattice),ao:(a=>({on:!!a.on,strength:clamp(a.strength,0,1,.6),radius:clamp(a.radius,.01,1,.1)}))(s.ao||{}),fx:cleanFx(s.fx),post:cleanPost(s.post),...(a=>a.length?{auto:a}:{})(cleanAuto(s.auto)),scale:clamp(s.scale,.0001,10000,1),wire:!!s.wire,upAxis:s.upAxis==='Z'?'Z':'Y',camera:{yaw:clamp(c.yaw,-360,360,30),pitch:clamp(c.pitch,-89,89,20),distance:clamp(c.distance,.001,100000,6),roll:clamp(c.roll,-180,180,0),panX:clamp(c.panX,-2,2,0),panY:clamp(c.panY,-2,2,0),focal:clamp(c.focal,10,200,35),target:Array.isArray(c.target)&&c.target.length===3?c.target.map(v=>clamp(v,-1e8,1e8,0)):[0,0,0]},...(s.track?{track:cleanTrack(s.track)}:{}),trackOn:s.trackOn!==false,playing:s.playing!==false,speed:clamp(s.speed,.05,4,1),sync:s.sync!==false,hold:clamp(s.hold,0,1e7,0),offset:clamp(s.offset,-1e9,1e9,0)};
+  const c=s.camera||{};return {id:s.id,name:String(s.name||'3D object').slice(0,40),kind:'3d',source:s.source==='ai'?'ai':s.source==='all'||s.source===undefined?'all':Math.round(clamp(s.source,1,4,1)),...cleanAiTex(s.ai),opacity:clamp(s.opacity,0,1,1),primitive:PRIMITIVES.includes(s.primitive)?s.primitive:'Cube',model:typeof s.model==='string'?s.model.slice(0,240):'',modelKey:typeof s.modelKey==='string'?s.modelKey.slice(0,280):'',projection:['uv','front','box'].includes(s.projection)?s.projection:'uv',fade:clamp(s.fade,0,1,.5),tile:clamp(s.tile,.1,20,1),box:(b=>({x:clamp(b.x,-2,2,0),y:clamp(b.y,-2,2,0),z:clamp(b.z,-2,2,0),rx:clamp(b.rx,-180,180,0),ry:clamp(b.ry,-180,180,0),rz:clamp(b.rz,-180,180,0),scale:clamp(b.scale,.05,20,1),sx:clamp(b.sx,.05,20,1),sy:clamp(b.sy,.05,20,1),sz:clamp(b.sz,.05,20,1)}))(s.box||{}),anim:(a=>({on:a.on!==false,clip:Math.round(clamp(a.clip,0,63,0)),speed:clamp(a.speed,.05,4,1)}))(s.anim||{}),xf:(t=>({x:clamp(t.x,-10,10,0),y:clamp(t.y,-10,10,0),z:clamp(t.z,-10,10,0),rx:clamp(t.rx,-180,180,0),ry:clamp(t.ry,-180,180,0),rz:clamp(t.rz,-180,180,0),scale:clamp(t.scale,.01,100,1),sx:clamp(t.sx,.01,100,1),sy:clamp(t.sy,.01,100,1),sz:clamp(t.sz,.01,100,1)}))(s.xf||{}),lattice:cleanLattice(s.lattice),ao:(a=>({on:!!a.on,strength:clamp(a.strength,0,1,.6),radius:clamp(a.radius,.01,1,.1)}))(s.ao||{}),fx:cleanFx(s.fx),post:cleanPost(s.post),...(Array.isArray(s.tags)&&s.tags.length?{tags:s.tags.slice(0,4000).filter(t=>Array.isArray(t)&&Number.isInteger(t[0])&&t[0]>=0&&t[0]<10112&&[1,2,3,4].includes(t[1])).map(t=>[t[0],t[1]])}:{}),...(Array.isArray(s.calib?.pts)&&s.calib.pts.length?{calib:{use:!!s.calib.use,pts:s.calib.pts.slice(0,24).filter(c=>Array.isArray(c?.q)&&c.q.length===3&&Array.isArray(c.t)&&c.t.length===2).map(c=>({q:c.q.map(v=>clamp(v,-1e8,1e8,0)),t:c.t.map(v=>clamp(v,-1,2,0))}))}}:{}),...(Array.isArray(s.cues)&&s.cues.length?{cues:s.cues.slice(0,9).map(c=>({name:String(c?.name||'Cue').slice(0,24),fx:(({auto,...f})=>f)(cleanFx(c?.fx)),post:cleanPost(c?.post)}))}:{}),...(a=>a.length?{auto:a}:{})(cleanAuto(s.auto)),scale:clamp(s.scale,.0001,10000,1),wire:!!s.wire,upAxis:s.upAxis==='Z'?'Z':'Y',camera:{yaw:clamp(c.yaw,-360,360,30),pitch:clamp(c.pitch,-89,89,20),distance:clamp(c.distance,.001,100000,6),roll:clamp(c.roll,-180,180,0),panX:clamp(c.panX,-2,2,0),panY:clamp(c.panY,-2,2,0),focal:clamp(c.focal,10,200,35),target:Array.isArray(c.target)&&c.target.length===3?c.target.map(v=>clamp(v,-1e8,1e8,0)):[0,0,0]},...(s.track?{track:cleanTrack(s.track)}:{}),trackOn:s.trackOn!==false,playing:s.playing!==false,speed:clamp(s.speed,.05,4,1),sync:s.sync!==false,hold:clamp(s.hold,0,1e7,0),offset:clamp(s.offset,-1e9,1e9,0)};
 }
 function geometry(verts,faces,uv=[]){const data=[],lines=[],lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const v of verts){if(!v||v.length!==3||!v.every(Number.isFinite))throw Error('Invalid model vertex');for(let k=0;k<3;k++){lo[k]=Math.min(lo[k],v[k]);hi[k]=Math.max(hi[k],v[k]);}}const span=hi.map((x,k)=>x-lo[k]||1);
   // Smooth normals: area-weighted face normals summed per position, so seams and split UVs still shade as one surface.
@@ -98,7 +102,7 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
     vec3 w=(upAxis==1?vec3(q.x,q.z,-q.y):q)*objectSize+objectOffset;w=pivot+objRot*((w-pivot)*objScale)+objMove;wpos=w*scale;wnrm=objRot*((upAxis==1?vec3(normal.x,normal.z,-normal.y):normal)/objScale);
     vec3 c=lo+span*.5,wc=(upAxis==1?vec3(c.x,c.z,-c.y):c)*objectSize+objectOffset;wc=(pivot+objRot*((wc-pivot)*objScale)+objMove)*scale;float rad=max(length(span)*.5*objectSize*max(objScale.x,max(objScale.y,objScale.z))*scale,1e-6);vdep=clamp((length(wc-eye)-length(wpos-eye))/rad,0.,1.);gl_Position=vp*vec4(wpos,1.);}`));
   gl.attachShader(p,shader(gl.FRAGMENT_SHADER,`#version 300 es
-  precision highp float;in vec2 tex;in vec3 obj;in vec3 nrm;in vec3 wpos;uniform sampler2D picture;uniform highp sampler2D posTex;uniform sampler2D aoTex;uniform int pass;uniform bool aoOn;uniform float aoStrength;uniform float aoRadius;uniform float pxScale;uniform vec3 eye;uniform int mode;uniform bool wire;uniform vec2 size;uniform vec3 lo;uniform vec3 span;uniform float fade;uniform float tile;uniform mat3 boxRot;uniform vec3 boxMove;uniform vec3 boxScale;in vec3 bary;in float eflags;in float frnd;in float ford;flat in vec3 tA;flat in vec3 tB;flat in vec3 tC;in vec3 fcen;uniform vec3 felem;uniform float fzoom;uniform vec3 build;in vec3 wnrm;in float fpart;in float vdep;uniform float fmap[14];uniform float fpres[14];uniform float fsoft[14];uniform vec4 fmorph;uniform vec4 fecho;uniform highp sampler2DArray hist;uniform vec4 fpost;uniform vec3 fseed;uniform vec4 fband;uniform float fstep;uniform vec4 fflow;uniform vec4 fscan;uniform vec4 fshock;uniform vec4 fflick;uniform vec4 fsnake;uniform vec4 foutl;uniform vec2 fcurv;uniform vec4 flight;uniform float time;uniform highp int upAxis;uniform vec4 edge;uniform vec3 edge2;uniform vec4 disp;uniform vec2 explode;out vec4 color;vec2 shift;mat2 spin=mat2(1.);float zoom=1.;vec2 tl(vec2 t){vec2 p=spin*((t-.5)*tile*zoom)+.5+shift;
+  precision highp float;in vec2 tex;in vec3 obj;in vec3 nrm;in vec3 wpos;uniform sampler2D picture;uniform sampler2D camTex;uniform sampler2D tagTex;uniform bool tagShow;uniform highp sampler2D posTex;uniform sampler2D aoTex;uniform int pass;uniform bool aoOn;uniform float aoStrength;uniform float aoRadius;uniform float pxScale;uniform vec3 eye;uniform int mode;uniform bool wire;uniform vec2 size;uniform vec3 lo;uniform vec3 span;uniform float fade;uniform float tile;uniform mat3 boxRot;uniform vec3 boxMove;uniform vec3 boxScale;in vec3 bary;in float eflags;in float frnd;in float ford;flat in vec3 tA;flat in vec3 tB;flat in vec3 tC;in vec3 fcen;uniform vec3 felem;uniform float fzoom;uniform vec3 build;in vec3 wnrm;in float fpart;in float vdep;uniform float fmap[14];uniform float fpres[14];uniform float fsoft[14];uniform vec4 fmorph;uniform vec4 fecho;uniform highp sampler2DArray hist;uniform vec4 fpost;uniform vec3 fseed;uniform vec4 fband;uniform float fstep;uniform vec4 fflow;uniform vec4 fscan;uniform vec4 fshock;uniform vec4 fflick;uniform vec4 fsnake;uniform vec4 foutl;uniform vec2 fcurv;uniform vec4 flight;uniform float time;uniform highp int upAxis;uniform vec4 edge;uniform vec3 edge2;uniform vec4 disp;uniform vec2 explode;out vec4 color;vec2 shift;mat2 spin=mat2(1.);float zoom=1.;vec2 tl(vec2 t){vec2 p=spin*((t-.5)*tile*zoom)+.5+shift;
     // Kaleidoscope: folds the picture's own coordinates, so it wraps each surface of the mesh.
     if(fpost.z>1.5){vec2 c=p-.5;float r=length(c),s=6.2832/fpost.z,a=mod(atan(c.y,c.x)+fpost.w,s);a=abs(a-s*.5);p=.5+r*vec2(cos(a),sin(a));}return p;}
   float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -112,7 +116,12 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
   // Map: how much effect i shows here (1 everywhere for All).
   // Parts and Random: with Fade on, the old pick crossfades into the new one.
   float pick(float x,int i){float b=step(.5,fract(x+fseed.y*.618034));return fsoft[i]>.5?mix(step(.5,fract(x+fseed.x*.618034)),b,fseed.z):b;}
+  // A part's tag: looked up by its part number in a 128-wide table.
+  int tagAt(){int k=int(fpart*10007.+.5);return int(texelFetch(tagTex,ivec2(k%128,k/128),0).r*255.+.5);}
   float msk0(int i){int m=int(fmap[i]+.5);if(m==0)return 1.;if(m==1)return smoothstep(.05,.75,vdep);
+    // Camera: movement seen by the webcam, laid over the output (so a performer's motion lights the object where it overlaps).
+    if(m==10)return texture(camTex,gl_FragCoord.xy/size).r;
+    if(m>=11)return float(tagAt()==m-10);
     if(m==2){vec3 c=(obj-lo)/span;float h=clamp(upAxis==1?c.z:c.y,0.,1.),b=h<.5?mix(fband.x,fband.y,h*2.):mix(fband.y,fband.z,h*2.-1.);return clamp(b*1.5,0.,1.);}
     if(m==3)return smoothstep(.35,.65,.5+.5*sin((tex.x*3.+tex.y*2.)*6.2832-time*1.5));
     if(m==4)return pick(fpart,i);
@@ -180,7 +189,9 @@ if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(
         e=max(e,a*min(I,1.5));}
       float mx=max(color.r,max(color.g,color.b));vec3 ec=mx>1e-4?color.rgb/mx*min(1.,mx*2.5):vec3(0);color=vec4(color.rgb*edge2.z,color.a*max(edge2.z,.001));color.rgb=mix(color.rgb,ec,min(e,1.));color.a=max(color.a,min(e,1.));color=mix(e0,color,msk(1));}
     // Post: brightness and contrast on the picture (premultiplied, so outside the mesh stays clear).
-    if(fpost.x!=0.||fpost.y!=0.){color.rgb=clamp((color.rgb-.5*color.a)*(1.+fpost.y)+.5*color.a+fpost.x*color.a,0.,1.)*step(.001,color.a);}}`));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));const uniforms={};for(const k of ['fstep','felem','fzoom','fmap','fpres','fsoft','fseed','fecho','hist','fmorph','fpost','fband','fflow','fscan','fshock','fflick','fsnake','foutl','fcurv','flight','time','disp','explode','build','edge','edge2','vp','scale','picture','mode','wire','size','lo','span','upAxis','objectOffset','objectSize','fade','tile','boxRot','boxMove','boxScale','latRes','lat','objRot','pivot','objMove','objScale','posTex','pass','aoOn','aoStrength','aoRadius','pxScale','eye','aoTex'])uniforms[k]=gl.getUniformLocation(p,k);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.MIRRORED_REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.MIRRORED_REPEAT);return {canvas,gl,p,uniforms,tex,buffer:gl.createBuffer(),position:gl.getAttribLocation(p,'position'),uv:gl.getAttribLocation(p,'uv'),normal:gl.getAttribLocation(p,'normal'),fcenter:gl.getAttribLocation(p,'fcenter'),fnormal:gl.getAttribLocation(p,'fnormal'),fmeta:gl.getAttribLocation(p,'fmeta'),fA:gl.getAttribLocation(p,'fA'),fB:gl.getAttribLocation(p,'fB'),fC:gl.getAttribLocation(p,'fC'),fxBuffer:gl.createBuffer(),fxData:null,mesh:null};}
+    if(fpost.x!=0.||fpost.y!=0.){color.rgb=clamp((color.rgb-.5*color.a)*(1.+fpost.y)+.5*color.a+fpost.x*color.a,0.,1.)*step(.001,color.a);}
+    // While tagging, tagged parts are tinted in their tag's colour.
+    if(tagShow&&pass==0){int t=tagAt();if(t>0){vec3 tc=t==1?vec3(.3,.75,1):t==2?vec3(1,.75,.25):t==3?vec3(.45,1,.45):vec3(1,.35,.8);float a=max(color.a,.55);color=vec4(mix(color.rgb,tc*a,.6),a);}}}`));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));const uniforms={};for(const k of ['camTex','tagTex','tagShow','fstep','felem','fzoom','fmap','fpres','fsoft','fseed','fecho','hist','fmorph','fpost','fband','fflow','fscan','fshock','fflick','fsnake','foutl','fcurv','flight','time','disp','explode','build','edge','edge2','vp','scale','picture','mode','wire','size','lo','span','upAxis','objectOffset','objectSize','fade','tile','boxRot','boxMove','boxScale','latRes','lat','objRot','pivot','objMove','objScale','posTex','pass','aoOn','aoStrength','aoRadius','pxScale','eye','aoTex'])uniforms[k]=gl.getUniformLocation(p,k);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.MIRRORED_REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.MIRRORED_REPEAT);return {canvas,gl,p,uniforms,tex,buffer:gl.createBuffer(),position:gl.getAttribLocation(p,'position'),uv:gl.getAttribLocation(p,'uv'),normal:gl.getAttribLocation(p,'normal'),fcenter:gl.getAttribLocation(p,'fcenter'),fnormal:gl.getAttribLocation(p,'fnormal'),fmeta:gl.getAttribLocation(p,'fmeta'),fA:gl.getAttribLocation(p,'fA'),fB:gl.getAttribLocation(p,'fB'),fC:gl.getAttribLocation(p,'fC'),fxBuffer:gl.createBuffer(),fxData:null,mesh:null};}
 export function cameraPose(s,time=0){if(s.track&&s.trackOn)return sampleTrack(s.track,s.playing?(s.sync?time:performance.now()/1000)*s.speed+s.offset:s.hold);const c=s.camera,a=c.yaw*Math.PI/180,b=c.pitch*Math.PI/180,r=c.roll*Math.PI/180,cp=Math.cos(b),sp=Math.sin(b),ca=Math.cos(a),sa=Math.sin(a),cr=Math.cos(r),sr=Math.sin(r),right=[ca,0,-sa],up=[-sa*sp,cp,-ca*sp],back=[sa*cp,sp,ca*cp],m=I4();for(let i=0;i<3;i++){m[i]=right[i]*cr+up[i]*sr;m[i+4]=up[i]*cr-right[i]*sr;m[i+8]=back[i];m[i+12]=c.target[i]*s.scale+back[i]*c.distance;}return {matrix:Array.from(m),focal:c.focal};}
 // Animated glTF: the mesh is re-posed from its rig (≤30 times a second), keeping UVs, rest bounds and the welded smooth normals.
 function rig(m,g,faces){const weld=new Int32Array(g.verts.length),ids=new Map(),key=v=>v.map((x,k)=>Math.round((x-g.lo[k])/g.span[k]*1e5)).join();
@@ -197,8 +208,82 @@ function posed(g,s,time){const R=g.rig;if(!R||!s.anim.on)return g;const c=Math.m
     const e=f[(j+1)%3],lo=(fi*3+j)*6;lines[lo]=pos[i*3];lines[lo+1]=pos[i*3+1];lines[lo+2]=pos[i*3+2];lines[lo+3]=pos[e*3];lines[lo+4]=pos[e*3+1];lines[lo+5]=pos[e*3+2];}});
   const out={...g,data,lines,base:g};R.cache={c,q,g:out};return out;}
 export const meshOf=(s,time)=>{const g=models.get(s.modelKey||s.model)||primitive(s.primitive);return time===undefined?g:posed(g,s,time);};
-function viewProj(s,W,H,time){const pose=cameraPose(s,time),m=pose.matrix,v=I4();for(let i=0;i<3;i++)for(let j=0;j<3;j++)v[i*4+j]=m[j*4+i];for(let j=0;j<3;j++)v[12+j]=-(v[j]*m[12]+v[4+j]*m[13]+v[8+j]*m[14]);const f=2*pose.focal/36,n=Math.max(1e-6,Math.hypot(...s.camera.target.map((t,i)=>m[12+i]-t*s.scale))*.001),far=Math.max(100,n*1e7),P=new Float32Array([f,0,0,0,0,f*W/H,0,0,-2*s.camera.panX,-2*s.camera.panY,-(far+n)/(far-n),-1,0,0,-2*far*n/(far-n),0]);return {vp:mul(P,v),m,f};}
+function viewProj(s,W,H,time){const cal=calibrated(s);if(cal)return cal;const pose=cameraPose(s,time),m=pose.matrix,v=I4();for(let i=0;i<3;i++)for(let j=0;j<3;j++)v[i*4+j]=m[j*4+i];for(let j=0;j<3;j++)v[12+j]=-(v[j]*m[12]+v[4+j]*m[13]+v[8+j]*m[14]);const f=2*pose.focal/36,n=Math.max(1e-6,Math.hypot(...s.camera.target.map((t,i)=>m[12+i]-t*s.scale))*.001),far=Math.max(100,n*1e7),P=new Float32Array([f,0,0,0,0,f*W/H,0,0,-2*s.camera.panX,-2*s.camera.panY,-(far+n)/(far-n),-1,0,0,-2*far*n/(far-n),0]);return {vp:mul(P,v),m,f};}
 const up=(a,v)=>a==='Z'?[v[0],v[2],-v[1]]:v;
+// Projector calibration: pairs of a point on the model and where it really lands on the object (as a fraction of the output).
+// With 6 or more, a direct linear transform (DLT) solves the projector's full 3×4 camera, lens shift and all, which then
+// replaces the hand-set camera. The solved camera is also split into an eye position and focal for lighting and AO.
+function eigMin(a,n){const v=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>+(i===j)));
+  for(let sweep=0;sweep<80;sweep++){let off=0;for(let p=0;p<n;p++)for(let q=p+1;q<n;q++)off+=a[p][q]**2;if(off<1e-24)break;
+    for(let p=0;p<n;p++)for(let q=p+1;q<n;q++){if(Math.abs(a[p][q])<1e-300)continue;const th=(a[q][q]-a[p][p])/(2*a[p][q]),t=(th>=0?1:-1)/(Math.abs(th)+Math.sqrt(th*th+1)),c=1/Math.sqrt(t*t+1),sn=t*c;
+      for(let k=0;k<n;k++){const x=a[k][p],y=a[k][q];a[k][p]=c*x-sn*y;a[k][q]=sn*x+c*y;}
+      for(let k=0;k<n;k++){const x=a[p][k],y=a[q][k];a[p][k]=c*x-sn*y;a[q][k]=sn*x+c*y;}
+      for(let k=0;k<n;k++){const x=v[k][p],y=v[k][q];v[k][p]=c*x-sn*y;v[k][q]=sn*x+c*y;}}}
+  let m=0;for(let i=1;i<n;i++)if(a[i][i]<a[m][m])m=i;return v.map(r=>r[m]);}
+export function solveDLT(X,U){const n=X.length;if(n<6||U.length!==n)return null;
+  const cx=[0,1,2].map(k=>X.reduce((a,p)=>a+p[k],0)/n),cu=[0,1].map(k=>U.reduce((a,p)=>a+p[k],0)/n),
+    sx=Math.sqrt(3)/(X.reduce((a,p)=>a+Math.hypot(p[0]-cx[0],p[1]-cx[1],p[2]-cx[2]),0)/n||1),su=Math.SQRT2/(U.reduce((a,p)=>a+Math.hypot(p[0]-cu[0],p[1]-cu[1]),0)/n||1);
+  const M=Array.from({length:12},()=>new Array(12).fill(0)),add=r=>{for(let i=0;i<12;i++)if(r[i])for(let j=0;j<12;j++)M[i][j]+=r[i]*r[j];};
+  for(let i=0;i<n;i++){const x=X[i].map((v,k)=>(v-cx[k])*sx),u=(U[i][0]-cu[0])*su,v=(U[i][1]-cu[1])*su;
+    add([...x,1,0,0,0,0,...x.map(t=>-u*t),-u]);add([0,0,0,0,...x,1,...x.map(t=>-v*t),-v]);}
+  const p=eigMin(M,12),Pn=[p.slice(0,4),p.slice(4,8),p.slice(8,12)];
+  // Undo the normalisations: P = Tu⁻¹ · Pn · Tx.
+  const PT=Pn.map(r=>[r[0]*sx,r[1]*sx,r[2]*sx,r[3]-sx*(r[0]*cx[0]+r[1]*cx[1]+r[2]*cx[2])]);
+  const P=[PT[0].map((v,j)=>v/su+cu[0]*PT[2][j]),PT[1].map((v,j)=>v/su+cu[1]*PT[2][j]),PT[2]];
+  const z=X.reduce((a,x)=>a+P[2][0]*x[0]+P[2][1]*x[1]+P[2][2]*x[2]+P[2][3],0),k=(z<0?-1:1)/(Math.hypot(P[2][0],P[2][1],P[2][2])||1);
+  return P.map(r=>r.map(v=>v*k));}
+const calibCache=new Map();
+export function calibPoints(s){const g=meshOf(s),o=objectFrame(s,g);return (s.calib?.pts||[]).map(c=>({world:toWorld(s,g,o,c.q),t:c.t}));}
+function calibrated(s){const C=s.calib;if(!C?.use||(C.pts?.length||0)<6)return null;
+  const key=JSON.stringify([C.pts,s.xf,s.scale,s.upAxis,s.model,s.primitive]);let r=calibCache.get(key);if(r)return r;
+  const pts=calibPoints(s),P=solveDLT(pts.map(p=>p.world),pts.map(p=>p.t));if(!P||!P.flat().every(Number.isFinite))return null;
+  const d=pts.map(p=>P[2][0]*p.world[0]+P[2][1]*p.world[1]+P[2][2]*p.world[2]+P[2][3]),near=Math.max(1e-6,Math.min(...d)*.01),far=Math.max(near*10,Math.max(...d)*1000),
+    A=(far+near)/(far-near),B=-2*far*near/(far-near),rows=[P[0].map((v,j)=>2*v-P[2][j]),P[1].map((v,j)=>P[2][j]-2*v),P[2].map((v,j)=>A*v+(j===3?B:0)),P[2]],vp=new Float32Array(16);
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++)vp[c*4+r]=rows[r][c];
+  // Eye = the camera centre (M·C = −p4); its axes from the rows; focal from the horizontal row.
+  const Mx=P.map(r=>r.slice(0,3)),inv=inv3(Mx),eye=inv?[0,1,2].map(i=>-(inv[i][0]*P[0][3]+inv[i][1]*P[1][3]+inv[i][2]*P[2][3])):[0,0,0],fwd=P[2].slice(0,3),
+    dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],orth=a=>{const t=dot(a,fwd);return a.map((x,i)=>x-t*fwd[i]);},nrm=a=>{const l=Math.hypot(...a)||1;return a.map(x=>x/l);},
+    a1=rows[0].slice(0,3),right=nrm(orth(a1)),back=fwd.map(x=>-x),upv=[back[1]*right[2]-back[2]*right[1],back[2]*right[0]-back[0]*right[2],back[0]*right[1]-back[1]*right[0]],
+    m=[...right,0,...upv,0,...back,0,...eye,1],f=Math.hypot(...orth(a1));
+  const err=pts.reduce((a,p)=>{const w=dot(P[2],p.world)+P[2][3];return a+Math.hypot((dot(P[0],p.world)+P[0][3])/w-p.t[0],(dot(P[1],p.world)+P[1][3])/w-p.t[1]);},0)/pts.length;
+  r={vp,m,f,P,err};calibCache.set(key,r);if(calibCache.size>32)calibCache.delete(calibCache.keys().next().value);return r;}
+function inv3(m){const [a,b,c]=m,d=a[0]*(b[1]*c[2]-b[2]*c[1])-a[1]*(b[0]*c[2]-b[2]*c[0])+a[2]*(b[0]*c[1]-b[1]*c[0]);if(Math.abs(d)<1e-30)return null;
+  return [[(b[1]*c[2]-b[2]*c[1])/d,(a[2]*c[1]-a[1]*c[2])/d,(a[1]*b[2]-a[2]*b[1])/d],[(b[2]*c[0]-b[0]*c[2])/d,(a[0]*c[2]-a[2]*c[0])/d,(a[2]*b[0]-a[0]*b[2])/d],[(b[0]*c[1]-b[1]*c[0])/d,(a[1]*c[0]-a[0]*c[1])/d,(a[0]*b[1]-a[1]*b[0])/d]];}
+// The calibration pairs on screen: where each model point lands with the current camera, and where it should land.
+export function calibHandles(s,W,H,time=0){const {vp}=viewProj(s,W,H,time);return calibPoints(s).map((p,i)=>{const w=p.world,c=[0,1,2,3].map(r=>vp[r]*w[0]+vp[4+r]*w[1]+vp[8+r]*w[2]+vp[12+r]);
+  return {i,x:(c[0]/c[3]+1)/2*W,y:(1-c[1]/c[3])/2*H,front:c[3]>0,tx:p.t[0]*W,ty:p.t[1]*H};});}
+// The webcam's movement (unit 4) and the part tag table (unit 5).
+const tagTables=new WeakMap();
+export function tagTable(s){const T=s.tags;if(!T?.length)return null;let t=tagTables.get(T);if(!t){t=new Uint8Array(128*79);for(const [k,v] of T)if(k>=0&&k<t.length)t[k]=v;tagTables.set(T,t);}return t;}
+function liveTextures(R,s,sig,u){const gl=R.gl;
+  if(!R.camTex){R.camTex=gl.createTexture();R.tagTex=gl.createTexture();for(const [unit,t] of [[4,R.camTex],[5,R.tagTex]]){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);
+      gl.texImage2D(gl.TEXTURE_2D,0,unit===4?gl.RGBA:gl.R8,1,1,0,unit===4?gl.RGBA:gl.RED,gl.UNSIGNED_BYTE,new Uint8Array(unit===4?4:1));for(const [k,v] of [[gl.TEXTURE_MIN_FILTER,unit===4?gl.LINEAR:gl.NEAREST],[gl.TEXTURE_MAG_FILTER,unit===4?gl.LINEAR:gl.NEAREST],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,k,v);}}
+  const F=s.fx,used=m=>FX_KEYS.some(k=>(F?.[k]?.on||R.fades?.get(s.id||'_')?.lv?.[k]>.001)&&F[k].map===m);
+  if(sig?.cam&&R.camSeen!==sig.cam.stamp&&(used('camera')||F?.auto?.on)){R.camSeen=sig.cam.stamp;gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,R.camTex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,sig.cam.canvas);}
+  const T=tagTable(s);if(R.tagNow!==T){R.tagNow=T;gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,R.tagTex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+    if(T)gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,128,79,0,gl.RED,gl.UNSIGNED_BYTE,T);else gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,1,1,0,gl.RED,gl.UNSIGNED_BYTE,new Uint8Array(1));gl.pixelStorei(gl.UNPACK_ALIGNMENT,4);}
+  gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,R.camTex);gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,R.tagTex);gl.activeTexture(gl.TEXTURE0);
+  gl.uniform1i(u.camTex,4);gl.uniform1i(u.tagTex,5);gl.uniform1i(u.tagShow,sig?.tagShow===s.id?1:0);}
+export function calibError(s,W,H){const c=calibrated(s);return c?c.err*Math.max(W,H):null;}
+// The model point under an output pixel (a ray through the current camera against every triangle), in model coordinates.
+export function pickPoint(s,W,H,x,y,time=0){return pickHit(s,W,H,x,y,time)?.q||null;}
+// The tag key of the part under an output pixel (or -1).
+export function pickPart(s,W,H,x,y,time=0){const h=pickHit(s,W,H,x,y,time);if(!h)return -1;const b=facetData(s);return Math.round(b[h.f*57+9]*10007);}
+function pickHit(s,W,H,x,y,time=0){const g=meshOf(s,time),o=objectFrame(s,g),{vp}=viewProj(s,W,H,time),iv=inv4(vp);if(!iv)return null;
+  const un=z=>{const p=[(x/W)*2-1,1-(y/H)*2,z,1],c=[0,1,2,3].map(r=>iv[r]*p[0]+iv[4+r]*p[1]+iv[8+r]*p[2]+iv[12+r]*p[3]);return c.slice(0,3).map(v=>v/c[3]);};
+  const a=un(-1),b=un(1),dir=b.map((v,i)=>v-a[i]),D=g.data;let best=Infinity,hit=null;
+  for(let i=0;i+23<D.length;i+=24){const t=[0,1,2].map(j=>toWorld(s,g,o,[D[i+j*8],D[i+j*8+1],D[i+j*8+2]])),e1=t[1].map((v,k)=>v-t[0][k]),e2=t[2].map((v,k)=>v-t[0][k]),
+      pv=[dir[1]*e2[2]-dir[2]*e2[1],dir[2]*e2[0]-dir[0]*e2[2],dir[0]*e2[1]-dir[1]*e2[0]],det=e1[0]*pv[0]+e1[1]*pv[1]+e1[2]*pv[2];if(Math.abs(det)<1e-30)continue;
+    const tv=a.map((v,k)=>v-t[0][k]),u=(tv[0]*pv[0]+tv[1]*pv[1]+tv[2]*pv[2])/det;if(u<0||u>1)continue;const qv=[tv[1]*e1[2]-tv[2]*e1[1],tv[2]*e1[0]-tv[0]*e1[2],tv[0]*e1[1]-tv[1]*e1[0]],
+      w=(dir[0]*qv[0]+dir[1]*qv[1]+dir[2]*qv[2])/det;if(w<0||u+w>1)continue;const d=(e2[0]*qv[0]+e2[1]*qv[1]+e2[2]*qv[2])/det;
+    if(d>=0&&d<best){best=d;hit={f:i/24,q:[0,1,2].map(k=>D[i+k]*(1-u-w)+D[i+8+k]*u+D[i+16+k]*w)};}}
+  return hit;}
+function inv4(m){const a=Array.from(m),r=new Array(16),A=(i,j)=>a[j*4+i];
+  // Gauss-Jordan on a row-major copy.
+  const M=[0,1,2,3].map(i=>[A(i,0),A(i,1),A(i,2),A(i,3),+(i===0),+(i===1),+(i===2),+(i===3)]);
+  for(let c=0;c<4;c++){let p=c;for(let i=c+1;i<4;i++)if(Math.abs(M[i][c])>Math.abs(M[p][c]))p=i;if(Math.abs(M[p][c])<1e-30)return null;[M[c],M[p]]=[M[p],M[c]];
+    const d=M[c][c];for(let j=0;j<8;j++)M[c][j]/=d;for(let i=0;i<4;i++)if(i!==c){const f=M[i][c];for(let j=0;j<8;j++)M[i][j]-=f*M[c][j];}}
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++)r[j*4+i]=M[i][4+j];return r;}
 // Object transform: rotate/scale about the object's centre, move in units of its size.
 function objectFrame(s,g){const missing=!!s.model&&!hasModel(s),size=missing?Math.max(.001,s.camera.distance/6):1,offset=missing?s.camera.target:[0,0,0],c=up(s.upAxis,g.lo.map((l,k)=>l+g.span[k]/2)).map((x,k)=>x*size+offset[k]),unit=Math.max(...g.span)*size,R=boxMatrix(s.xf),rotT=new Float32Array([R[0],R[3],R[6],R[1],R[4],R[7],R[2],R[5],R[8]]);
   return {size,offset,pivot:c,move:[s.xf.x*unit,s.xf.y*unit,s.xf.z*unit],R,rotT};}
@@ -302,7 +387,7 @@ function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.lig
   // Parts and Random re-pick their pieces on every beat (and every few seconds without one).
   if(pulse>.8&&!(R.lastPulse>.8))R.beats=(R.beats||0)+1;R.lastPulse=pulse;const rp=F0.repick||'auto',seed=rp==='auto'?(R.beats||0)+Math.floor(time/3)*17:Math.floor((R.beats||0)/+rp);
   const st=fadeState(R,s,F0,time,test,B,pulse,seed),F=Object.fromEntries(FX_KEYS.map(k=>[k,{...F0[k],on:F0[k].on||st.lv[k]>.001}])),soft=FX_KEYS.some(k=>F0[k].fade),
-    lv=(fx,k)=>(F0[fx].fade?st.b:B)[k]??0,pu=fx=>F0[fx].fade?st.p:pulse,on=FX_KEYS.some(k=>F[k].on),drv=(fx,k)=>k==='beat'?pu(fx):k==='steady'||k==='hold'||k==='loop'?1:lv(fx,k);
+    lv=(fx,k)=>(F0[fx].fade?st.b:B)[k]??0,pu=fx=>F0[fx].fade?st.p:pulse,on=FX_KEYS.some(k=>F[k].on)||sig?.tagShow===s.id,drv=(fx,k)=>k==='beat'?pu(fx):k==='steady'||k==='hold'||k==='loop'?1:lv(fx,k);
   gl.uniform1f(u.time,time);gl.uniform1f(u.fstep,Number.isFinite(sig?.beat)?sig.beat:time*2);
   gl.uniform4f(u.disp,F.disp.on?F.disp.amount*(.15+lv('disp',F.disp.drive)*1.2):0,['ripple','swell','noise'].indexOf(F.disp.pattern),F.disp.speed,0);
   const ex=F.explode.on?(F.explode.drive==='hold'?1:F.explode.drive==='beat'?pu('explode'):lv('explode','bass')):0;gl.uniform2f(u.explode,ex*F.explode.amount,ex);
@@ -360,36 +445,47 @@ const FX_COST={echo:3,morph:2};
 // Per bar inside a look: one setting steps through its options.
 const VARY={shock:['from',['bottom','top','side']],scan:['axis',['up','across']],edges:['mode',['pulse','sweep']],disp:['pattern',['swell','ripple']],flicker:['el',FX_ELEMENTS]};
 const rand=k=>{let x=(k>>>0)||1;return ()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return (x>>>0)/4294967296;};};
-function lookFx(F,A,rc,prev,bar){const o={repick:F.repick,auto:A},[,,,hero,sup]=rc,on={},budget=A.count+1;let cost=0;
+// Tagged parts take over: Facades plays on the Windows, Mirror on the Accents, and supporting edges trace the Columns.
+function tagMap(x,m,i,tags){if(!tags)return m;if(m==='facades'&&tags.has(1))return 'windows';if(m==='mirror'&&tags.has(4))return 'accent';if(i&&m==='all'&&(x==='edges'||x==='outline')&&tags.has(2))return 'columns';return m;}
+function lookFx(F,A,rc,prev,bar,tags){const o={repick:F.repick,auto:A},[,,,hero,sup]=rc,on={},budget=A.count+1;let cost=0;
   for(const [i,[x,set]] of [hero,...sup].slice(0,A.count).entries()){const c=FX_COST[x]||1;if(i&&cost+c>budget)continue;cost+=c;
-    const e={...F[x],...set,on:true,fade:true,mix:i?.4:1};if(!A.maps)e.map='all';else e.map=set.map||'all';
+    const e={...F[x],...set,on:true,fade:true,mix:i?.4:1};if(!A.maps)e.map='all';else e.map=tagMap(x,set.map||'all',i,tags);
     const v=VARY[x];if(!i&&v&&bar>0)e[v[0]]=v[1][bar%v[1].length];on[x]=e;}
   for(const x of FX_KEYS)o[x]=on[x]||{...(prev?.[x]||F[x]),on:false,fade:true};
   // An effect carried over between looks keeps its settings, so it never jumps.
   if(prev)for(const x of FX_KEYS)if(on[x]&&prev[x].on)o[x]={...prev[x],mix:on[x].mix,map:on[x].map,[VARY[x]?.[0]??'_']:on[x][VARY[x]?.[0]??'_']};return o;}
 export function autoFx(R,s,time,sig){const F=s.fx?.light?s.fx:cleanFx(s.fx),A=F.auto,id=s.id||'_',P=+A.every,beat=Number.isFinite(sig?.beat)?sig.beat:time*2,bpm=Math.min(200,Math.max(60,+sig?.bpm||120)),
-    full=Math.min(1,Math.max(0,+(sig?.bands?.full)||0));R.autos??=new Map();let st=R.autos.get(id);
+    full=Math.min(1,Math.max(0,+(sig?.bands?.full)||0)),song=sig?.song?.section?sig.song:null,bar0=b=>song?Math.floor(b/4+1e-6)*4:b;R.autos??=new Map();let st=R.autos.get(id);
   if(st&&(time<st.t||beat<st.b0-1))st=null;
-  if(!st){st={k:[...id].reduce((h,c)=>Math.imul(h^c.charCodeAt(0),16777619),2166136261)>>>0,t:time,ef:full,es:full,pk:.35,sec:'intro',hist:[],b0:beat,bar:-1,hit:-1,lastDrop:-1e9};R.autos.set(id,st);if(R.autos.size>64)R.autos.delete(R.autos.keys().next().value);}
+  if(!st){st={k:[...id].reduce((h,c)=>Math.imul(h^c.charCodeAt(0),16777619),2166136261)>>>0,t:time,ef:full,es:full,pk:.35,sec:'intro',hist:[],b0:bar0(beat),bar:-1,hit:-1,lastDrop:-1e9};R.autos.set(id,st);if(R.autos.size>64)R.autos.delete(R.autos.keys().next().value);}
   // Section from the loudness: a fast (½ s) and slow (8 s) follower against a slowly falling peak.
   const dt=Math.min(.5,Math.max(0,time-st.t));st.t=time;st.ef+=(full-st.ef)*Math.min(1,dt*2);st.es+=(full-st.es)*Math.min(1,dt/8);st.pk=Math.max(.35,full,st.pk*Math.exp(-dt/30));
-  const rel=st.ef/st.pk,secNow=rel>.75?'drop':rel>.45?'build':st.sec==='drop'||st.sec==='build'||st.sec==='break'?'break':'intro',bar=Math.floor((beat-st.b0)/4);
-  st.bpm=bpm;st.fd=Math.min(3,Math.max(.8,240/bpm));
+  // A loaded song's own map knows the section (and the drops) for sure; otherwise the loudness tells.
+  const rel=st.ef/st.pk,secNow=song?song.section:rel>.75?'drop':rel>.45?'build':st.sec==='drop'||st.sec==='build'||st.sec==='break'?'break':'intro',bar=Math.floor((beat-st.b0)/4);
+  st.bpm=bpm;st.song=!!song;st.fd=Math.min(3,Math.max(.8,240/bpm));
+  // A launched cue holds for one phrase, then the choreographer carries on.
+  if(st.cue){const c=st.cue;st.cue=null;st.hit=-1;st.b0=bar0(beat);st.bar=0;st.rc=['cue',c.name,secNow,null,[]];st.sec=secNow;const o={...c.fx,auto:A,repick:F.repick};for(const x of FX_KEYS)o[x]={...(o[x]||F[x]),fade:true};st.fx=cleanFx(o);st.fx.fd=st.fd;return st.fx;}
   const choose=sec=>{const r=rand(Math.imul(++st.k,2654435761)+7),pool=RECIPES.filter(x=>x[2]===sec),fresh=pool.filter(x=>!st.hist.includes(x[0])),l=fresh.length?fresh:pool,rc=l[Math.floor(r()*l.length)%l.length];
     st.hist=[rc[0],...st.hist].slice(0,4);return rc;};
-  const set=(rc,sec,b)=>{st.rc=rc;st.sec=sec;st.fx=cleanFx(lookFx(F,A,rc,st.fx,b));st.fx.fd=st.fd;};
+  const tags=s.tags?.length?new Set(s.tags.map(t=>t[1])):null,set=(rc,sec,b)=>{st.rc=rc;st.sec=sec;st.fx=cleanFx(lookFx(F,A,rc,st.fx,b,tags));st.fx.fd=st.fd;};
+  // Next look (remote / key): a fresh look for this section now.
+  if(st.next&&st.rc){st.next=false;st.hit=-1;st.b0=bar0(beat);set(choose(secNow),secNow,0);st.bar=0;return st.fx;}
   // A drop lands: one bar of Impact over the whole object, then a drop look starts a fresh phrase.
-  if(st.rc&&st.hit<0&&st.ef-st.es>.15&&rel>.7&&st.sec!=='drop'&&time-st.lastDrop>8){st.hit=beat;st.lastDrop=time;set(HIT,'drop',0);return st.fx;}
-  if(st.hit>=0){if(beat-st.hit<4)return st.fx;st.hit=-1;st.b0=beat;st.bar=0;set(choose('drop'),'drop',0);return st.fx;}
-  if(!st.rc||bar>=P){if(st.rc){st.b0+=Math.floor((beat-st.b0)/4/P)*P*4;if(beat-st.b0>=P*4)st.b0=beat;}st.bar=0;set(choose(secNow),secNow,0);return st.fx;}
-  if(bar!==st.bar){st.bar=bar;st.fx=cleanFx(lookFx(F,A,st.rc,st.fx,bar));st.fx.fd=st.fd;}
+  if(st.rc&&st.hit<0&&(song?song.drop:st.ef-st.es>.15&&rel>.7&&st.sec!=='drop')&&time-st.lastDrop>(song?1:8)){st.hit=beat;st.lastDrop=time;set(HIT,'drop',0);return st.fx;}
+  if(st.hit>=0){if(beat-st.hit<4)return st.fx;st.hit=-1;st.b0=bar0(beat);st.bar=0;set(choose('drop'),'drop',0);return st.fx;}
+  // With a song map a new section starts a new look on its first bar.
+  if(!st.rc||bar>=P||song&&st.rc[0]!=='cue'&&song.section!==st.sec&&bar!==st.bar){if(song&&bar<P&&st.rc){st.b0=bar0(beat);}else if(st.rc){st.b0+=Math.floor((beat-st.b0)/4/P)*P*4;if(beat-st.b0>=P*4)st.b0=bar0(beat);}st.bar=0;set(choose(secNow),secNow,0);return st.fx;}
+  if(bar!==st.bar){st.bar=bar;if(st.rc[0]!=='cue')st.fx=cleanFx(lookFx(F,A,st.rc,st.fx,bar,tags));st.fx.fd=st.fd;}
   return st.fx;}
+export function autoCue(id,fx,name){const st=renderer?.autos?.get(id);if(!st)return false;st.cue={fx,name};return true;}
+export function autoNext(id){const st=renderer?.autos?.get(id);if(!st)return false;st.next=true;return true;}
+export function autoNow(id){const st=renderer?.autos?.get(id);return st?.fx?{fx:st.fx,look:st.rc?.[1]}:null;}
 // What Autopilot is playing on a surface now (for the panel).
 export function autoPlaying(id){const st=renderer?.autos?.get(id);return st?.fx?FX_KEYS.filter(k=>st.fx[k].on):[];}
-export function autoStatus(id){const st=renderer?.autos?.get(id);if(!st?.rc)return null;return {look:st.rc[1],section:st.sec,bar:st.hit>=0?1:st.bar+1,bars:st.hit>=0?1:+(st.fx.auto?.every||8),bpm:Math.round(st.bpm||120)};}
+export function autoStatus(id){const st=renderer?.autos?.get(id);if(!st?.rc)return null;return {look:st.rc[1],section:st.sec,bar:st.hit>=0?1:st.bar+1,bars:st.hit>=0?1:+(st.fx.auto?.every||8),bpm:Math.round(st.bpm||120),song:!!st.song};}
 export function render3d(ctx,s,img,W,H,time=0,test=false,sig=null){if(!s.post)s={...s,post:cleanPost()};
   const R=renderer||(renderer=init()),{canvas,gl,p,uniforms:u}=R;if(!test&&s.fx?.auto?.on)s={...s,fx:autoFx(R,s,time,sig)};if(canvas.width!==W||canvas.height!==H){canvas.width=W;canvas.height=H;}gl.viewport(0,0,W,H);gl.useProgram(p);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-  const {vp,m:cam,f:focal}=viewProj(s,W,H,time);gl.uniformMatrix4fv(u.vp,false,vp);gl.uniform1f(u.scale,s.scale);gl.uniform1i(u.upAxis,s.upAxis==='Z'?1:0);gl.uniform2f(u.size,W,H);gl.uniform1i(u.mode,['uv','front','box'].indexOf(s.projection));gl.uniform1f(u.fade,s.fade);gl.uniform1f(u.tile,s.tile);gl.uniformMatrix3fv(u.boxRot,false,boxMatrix(s.box));gl.uniform3f(u.boxMove,s.box.x,s.box.y,s.box.z);gl.uniform3f(u.boxScale,s.box.scale*s.box.sx,s.box.scale*s.box.sy,s.box.scale*s.box.sz);gl.uniform1i(u.wire,0);gl.bindTexture(gl.TEXTURE_2D,R.tex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);if(!test)img=surfaceFeedback(R,s,img,time);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);R.echoNow=!test&&(s.fx?.echo?.on||R.fades?.get(s.id||'_')?.lv?.echo>.001)?echoPush(R,s,img,time):null;gl.uniform1i(u.hist,3);
+  const {vp,m:cam,f:focal}=viewProj(s,W,H,time);gl.uniformMatrix4fv(u.vp,false,vp);gl.uniform1f(u.scale,s.scale);gl.uniform1i(u.upAxis,s.upAxis==='Z'?1:0);gl.uniform2f(u.size,W,H);gl.uniform1i(u.mode,['uv','front','box'].indexOf(s.projection));gl.uniform1f(u.fade,s.fade);gl.uniform1f(u.tile,s.tile);gl.uniformMatrix3fv(u.boxRot,false,boxMatrix(s.box));gl.uniform3f(u.boxMove,s.box.x,s.box.y,s.box.z);gl.uniform3f(u.boxScale,s.box.scale*s.box.sx,s.box.scale*s.box.sy,s.box.scale*s.box.sz);gl.uniform1i(u.wire,0);gl.bindTexture(gl.TEXTURE_2D,R.tex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);if(!test)img=surfaceFeedback(R,s,img,time);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);R.echoNow=!test&&(s.fx?.echo?.on||R.fades?.get(s.id||'_')?.lv?.echo>.001)?echoPush(R,s,img,time):null;gl.uniform1i(u.hist,3);liveTextures(R,s,sig,u);
   const g=meshOf(s,time),o=objectFrame(s,g);gl.uniform3fv(u.objectOffset,o.offset);gl.uniform1f(u.objectSize,o.size);gl.uniformMatrix3fv(u.objRot,false,o.rotT);gl.uniform3fv(u.pivot,o.pivot);gl.uniform3fv(u.objMove,o.move);gl.uniform3fv(u.objScale,xfScale(s.xf));gl.uniform1i(u.latRes,s.lattice.res);if(s.lattice.res){const a=new Float32Array(192);a.set(s.lattice.d);gl.uniform3fv(u.lat,a);}gl.uniform3fv(u.lo,g.lo);gl.uniform3fv(u.span,g.span);gl.uniform3f(u.eye,cam[12],cam[13],cam[14]);gl.bindBuffer(gl.ARRAY_BUFFER,R.buffer);if(R.mesh!==g){gl.bufferData(gl.ARRAY_BUFFER,g.data,gl.STATIC_DRAW);R.mesh=g;}gl.enableVertexAttribArray(R.position);gl.enableVertexAttribArray(R.uv);gl.enableVertexAttribArray(R.normal);gl.vertexAttribPointer(R.position,3,gl.FLOAT,false,32,0);gl.vertexAttribPointer(R.uv,2,gl.FLOAT,false,32,12);gl.vertexAttribPointer(R.normal,3,gl.FLOAT,false,32,20);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1,1);fxUniforms(R,s,g,time,sig,test);
   const A=s.ao?.on?aoTarget(R,W,H):null;gl.uniform1i(u.aoOn,0);gl.uniform1i(u.pass,0);gl.uniform1i(u.posTex,1);
   if(A){gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,null);gl.activeTexture(gl.TEXTURE0);gl.bindFramebuffer(gl.FRAMEBUFFER,A.fb);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,null);gl.activeTexture(gl.TEXTURE0);gl.uniform1i(u.aoTex,2);gl.uniform1i(u.pass,1);gl.drawArrays(gl.TRIANGLES,0,g.data.length/8);

@@ -111,8 +111,19 @@ export function pointer(p,dt){
 
 // ---------- MIDI ----------
 const midi={access:null,error:'',cc:new Float32Array(16*128),notes:new Float32Array(16*128),lastNote:0,lastVel:0,held:0,learn:null,devices:[],pitch:.5,listeners:new Set(),raw:new Set()};
+// MIDI clock (24 ticks a beat, Start, Continue, Stop) from a DAW or drum machine: the tempo and the beat count.
+const mclock={ticks:0,times:[],bpm:0,running:false,listeners:new Set()};
+function onClock(st,now){
+  if(st===0xfa){mclock.ticks=0;mclock.times=[];mclock.running=true;}else if(st===0xfb)mclock.running=true;else if(st===0xfc)mclock.running=false;
+  else if(st===0xf8){mclock.ticks++;mclock.times.push(now);if(mclock.times.length>49)mclock.times.shift();
+    const n=mclock.times.length;if(n>=7){const bpm=60000/((mclock.times[n-1]-mclock.times[0])/(n-1)*24);if(bpm>=20&&bpm<=400)mclock.bpm=bpm;}}
+  else return;
+  const m={beat:mclock.ticks/24,bpm:mclock.bpm,running:mclock.running,start:st===0xfa};for(const f of mclock.listeners)f(m);
+}
+export function onMidiClock(f){mclock.listeners.add(f);return ()=>mclock.listeners.delete(f);}
 function onMidi(e){
   const [st,a=0,b=0]=e.data,type=st&0xf0,ch=st&0x0f;
+  if(st>=0xf8||st===0xfa||st===0xfb||st===0xfc){onClock(st,e.timeStamp||performance.now());return;}
   if(type===0xb0){midi.cc[ch*128+a]=b/127;if(midi.learn){midi.learn({cc:a,channel:ch+1});midi.learn=null;}}
   else if(type===0x90&&b>0){midi.notes[ch*128+a]=b/127;midi.lastNote=a;midi.lastVel=b/127;midi.held++;midi.lastCh=ch;}
   else if(type===0x80||type===0x90){midi.notes[ch*128+a]=0;midi.held=Math.max(0,midi.held-1);}

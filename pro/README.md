@@ -382,8 +382,26 @@ process the finished image.
     When a drop lands it fires one bar of Impact over the whole object, then starts a drop look.
     Each sound has one job: bass hits, highs flicker, mids colour the light, the beat sets the pace.
     Bars come from the **beat clock**: the tempo is read from the detected beats, **Tap** sets it by
-    hand, **Resync** makes now bar 1 and **Auto tempo** returns to following the music. The card
-    shows the look, section, bar and BPM, and what is playing.
+    hand and **Resync** makes now bar 1. **Follow** picks the clock: *Song map* (the loaded track is
+    analysed once for its tempo, sections and drops, drawn as a timeline; Autopilot changes look on
+    each new section and lands Impact exactly on each drop), *Beats* (live beat detection) or
+    *MIDI clock* (a DJ mixer or DAW's clock and Start). The card shows the look, section, bar and
+    BPM, and what is playing. Autopilot also uses part tags (below).
+  - **Cues** save the Animate effects and Post FX playing now (with Autopilot on, its current
+    look), up to 9 per surface. Launch one by clicking it, with keys 1–9 or MIDI notes 36–44; it
+    crossfades in, and with Autopilot on it holds for one phrase before Autopilot carries on.
+  - **Tag parts** names the model's parts: pick Windows, Columns, Roof or Accent and click parts
+    in the view (Erase clears one; tagged parts are tinted while tagging). Every Map then offers
+    those tags, and Autopilot uses them: Facade looks play on Windows, Mirror on Accents and
+    supporting edges trace Columns. Map **Camera** lights the object where the webcam sees movement.
+  - **Calibrate** lines the projection up with the real object: pick 6 or more corners spread over
+    the model, drag each dot to where that corner really is (watching the projector) and set
+    Camera to *Solved*; the projector's position, lens and lens shift are solved from the pairs
+    (Error shows the average miss in pixels).
+  - **Shows › AI texture** paints a prompt as the surface's picture through the AI bridge
+    (`ai/start.command`); **Evolve** repaints a variation on each song section and **Repaint**
+    asks again. Effects, masks and Post FX run on top. Without the bridge a stand-in coloured
+    from the prompt is shown.
     Effects are saved with the surface. Chip rows that don't fit split into even rows (7 → 4 + 3).
   - **Post FX** (3D objects) finish the picture on the mesh: **Brightness** and **Contrast**,
     **Kaleidoscope** (Segments, Spin; folds each surface's picture into mirrored segments) and
@@ -392,6 +410,14 @@ process the finished image.
     before it wraps the mesh, so trails flow along the surface). Everything is cut to the mesh outline, so it stays on the object. The
     panel's explanations are hidden; **?** shows them.
   - The **Test card** draws a numbered grid on every surface for alignment.
+  - **Projectors** (Mapping › Output) splits the picture across 2–4 side-by-side projectors:
+    Output opens one window per projector. **Overlap** is the shared width, across which the two
+    fade into each other (edge blending); **Blend** is that fade's gamma.
+  - **Remote** (Mapping › Scene) turns a phone into a controller: **Connect phone** shows a QR
+    code; the phone (same Wi-Fi) opens `remote.html` and shows a code to paste back or scan with
+    the webcam. It connects peer to peer (WebRTC), with no server. The remote has Master,
+    Blackout, Autopilot, Next look, Tap tempo and the cues. **Open remote here** opens it in a
+    window on this computer instead.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when
     you switch templates.

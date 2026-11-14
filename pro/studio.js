@@ -12,6 +12,9 @@ import {cleanView,spinProps,WATER_HEIGHT,midiKnob} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as map3d from './map3d.js';
+import * as songMap from './song.js';
+import {hostLink,localLink} from './remote-link.js';
+import qrcode from './vendor/qrcode.js';
 import {parseCamera} from './camera-import.js';
 import * as autopilot from './autopilot.js';
 import {SCENES} from './scenes.js';
@@ -382,17 +385,30 @@ function readAudio(t){
   // Capped halfway to full scale so loud (near-saturated) bass still registers beats.
   if(b>Math.min(A.avg*1.25+.04,A.avg+(1-A.avg)*.5)&&t-A.lastBeat>.22){A.lastBeat=t;A.beat++;A.beatPulse=1;clockHit(t);}
   A.beatPulse*=.86;clock.now=t;if(t<clock.t0)clock.t0=t;
+  // A loaded song's own map (analysed once, in the background) sets the tempo and puts the bars exactly where they are in the song.
+  const ss=songSignal(),S=ss&&songOf(ss.buffer);songNow=null;
+  if(S){songNow=songMap.at(S,ss.time,songPrev);songNow.map=S;songNow.time=ss.time;if(clock.source==='song'){clock.bpm=S.bpm;clock.t0=t-(ss.time-S.beat0);}}
+  songPrev=ss?ss.time:-1;
 }
+// An external MIDI clock leads the beat clock while its ticks keep coming (Tempo: MIDI clock).
+const midiClock={last:-1e9,bpm:0,beat:0};
+sensors.onMidiClock(m=>{midiClock.last=performance.now();midiClock.beat=m.beat;if(m.bpm)midiClock.bpm=m.bpm;
+  if(clock.source==='midi'&&midiClock.bpm){clock.bpm=Math.min(200,Math.max(60,midiClock.bpm));clock.t0=clock.now-m.beat*60/clock.bpm;}});
+const songMaps=new WeakMap();let songNow=null,songPrev=-1;
+function songOf(buffer){const m=songMaps.get(buffer);if(m)return m==='busy'?null:m;songMaps.set(buffer,'busy');
+  setTimeout(()=>{try{songMaps.set(buffer,songMap.analyse(buffer));}catch(e){console.warn('Song analysis failed',e);}},0);return null;}
 // Beat clock: counts beats and bars steadily at the song's tempo (from the gaps between detected beats, or Tap), nudged onto the beats.
 // Resync makes now beat 1 of a bar. The mapping Autopilot changes looks on its bars.
-const clock={bpm:120,t0:0,now:0,last:-1,gaps:[],taps:[],manual:false};
+const clock={bpm:120,t0:0,now:0,last:-1,gaps:[],taps:[],manual:false,source:'song'};
 const clockBeat=(t=clock.now)=>(t-clock.t0)*clock.bpm/60;
 function clockSet(bpm,t=clock.now){const b=clockBeat(t);clock.bpm=Math.min(200,Math.max(60,bpm));clock.t0=t-b*60/clock.bpm;}
-function clockHit(t){const g=t-clock.last;clock.last=t;if(clock.manual)return;
+function clockHit(t){const g=t-clock.last;clock.last=t;if(clock.manual||clock.source!=='beats'&&clockLocked())return;
   const gap=g>=.3&&g<=1?g:g/2>=.3&&g/2<=1?g/2:0;if(gap){clock.gaps.push(gap);if(clock.gaps.length>16)clock.gaps.shift();}
   if(clock.gaps.length>=4){const m=[...clock.gaps].sort((a,b)=>a-b)[clock.gaps.length>>1];if(Math.abs(60/m-clock.bpm)>1.5)clockSet(60/m,t);}
   const b=clockBeat(t),err=b-Math.round(b);clock.t0+=err*60/clock.bpm*.2;}
-function clockTap(){const t=clock.now;clock.taps=clock.taps.filter(x=>t-x<2.5);clock.taps.push(t);clock.manual=true;
+// Song: the song's own map leads while one plays; MIDI: an external clock (24 ticks a beat) leads; Beats: follow the detected beats.
+const clockLocked=()=>clock.source==='song'&&!!songNow||clock.source==='midi'&&performance.now()-midiClock.last<1000;
+function clockTap(){const t=clock.now;clock.taps=clock.taps.filter(x=>t-x<2.5);clock.taps.push(t);clock.manual=true;if(clock.source==='song')clock.source='beats';
   if(clock.taps.length>=2){const g=(t-clock.taps[0])/(clock.taps.length-1);clockSet(60/g,t);}const b=clockBeat(t);clock.t0+=(b-Math.round(b))*60/clock.bpm;}
 function clockResync(){clock.t0=clock.now;}
 function bandsOf(freq){
@@ -959,7 +975,14 @@ function showMapAutoKnobs(){
   if(!mapMode||!mapSel)return;
   for(const b of document.querySelectorAll('#mapPanel .knob.auto[data-map-auto]')){const k=b.dataset.mapAuto,v=mapAutoValues.get(mapSel+':'+k);if(v!==undefined)b.show?.(MAP_AUTO_PCT.test(k)?v*100:v);}
   // Animate Autopilot: which effects it is playing now.
-  for(const e of document.querySelectorAll('#mapPanel .fx-auto-now')){const S=map3d.autoStatus(e.dataset.surf),SEC={intro:'Intro',build:'Build',drop:'Drop',break:'Break'},t=S?`${S.look} · ${SEC[S.section]} · bar ${S.bar}/${S.bars} · ${S.bpm} BPM — ${map3d.autoPlaying(e.dataset.surf).map(k=>FX_NAMES[k]).join(' + ')}`:'Playing: …';if(e.textContent!==t)e.textContent=t;}
+  for(const e of document.querySelectorAll('#mapPanel .fx-auto-now')){const S=map3d.autoStatus(e.dataset.surf),SEC={intro:'Intro',build:'Build',drop:'Drop',break:'Break'},t=S?`${S.look} · ${SEC[S.section]} · bar ${S.bar}/${S.bars} · ${S.bpm} BPM${S.song&&songNow&&Number.isFinite(songNow.toDrop)?` · drop in ${Math.ceil(songNow.toDrop/4)} bars`:''} — ${map3d.autoPlaying(e.dataset.surf).map(k=>FX_NAMES[k]).join(' + ')}`:'Playing: …';if(e.textContent!==t)e.textContent=t;}
+  if(remote.links.size&&performance.now()-remote.sent>1000)remoteSend();
+  for(const e of document.querySelectorAll('#mapPanel .rem-status')){const n=[...remote.links].filter(L=>L!==remote.local&&L.open).length,t=(n?`${n} phone${n>1?'s':''} connected`:remote.pending?'Waiting for the phone\'s code…':'No phone connected')+(remote.black?' · Blackout':remote.master<1?` · Master ${Math.round(remote.master*100)}%`:'');if(e.textContent!==t)e.textContent=t;}
+  for(const e of document.querySelectorAll('#mapPanel .ai-tex-note')){const T=aiTex.get(e.dataset.surf),t=T?.note||'Waiting for the first frame…';if(e.textContent!==t)e.textContent=t;}
+  for(const e of document.querySelectorAll('#mapPanel .fx-song')){const S=songNow&&clock.source==='song'?songNow.map:null,key=S?S.duration+':'+S.sections.length:'';
+    if(e.dataset.key!==key){e.dataset.key=key;e.replaceChildren();if(S){for(const x of S.sections){const d=el('i','fx-song-'+x.kind);d.style.flexGrow=x.t1-x.t0;d.title=`${x.kind} ${x.t0.toFixed(0)}–${x.t1.toFixed(0)} s`;e.append(d);}
+      for(const t of S.drops){const d=el('b','fx-song-drop');d.style.left=t/S.duration*100+'%';e.append(d);}e.append(el('u','fx-song-head'));}}
+    const h=e.querySelector('.fx-song-head');if(h&&S)h.style.left=songNow.time/S.duration*100+'%';}
 }
 const FX_NAMES={disp:'Displace',edges:'Edges',build:'Build',explode:'Explode',flow:'Flow',scan:'Scan',shock:'Shockwave',flicker:'Flicker',snake:'Snake',outline:'Outline',curves:'Curves',light:'Light',morph:'Morph',echo:'Echo'};
 // Dissolve: any change to what is drawn (nodes, wires, layers, a template, Autopilot) fades from the last frame
@@ -1007,7 +1030,7 @@ function draw(time,dt=1/30){
   out.globalAlpha=1;out.globalCompositeOperation='source-over';
   if(mapped)mapTime=time;
   if(previewImg){previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.drawImage(previewImg,0,0,WIDTH,HEIGHT);}
-  else if(mapped)mapping.render(previewCtx,map3d.driftMapping(state.mapping,autoClock,mapAutoValues),src=>src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time,{bands:A.bands,pulse:A.beatPulse,beat:clockBeat(time),bpm:clock.bpm});
+  else if(mapped)mapping.render(previewCtx,remoteDim(map3d.driftMapping(state.mapping,autoClock,mapAutoValues)),(src,sf)=>src==='ai'?aiTexOf(sf):src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time,{bands:A.bands,pulse:A.beatPulse,beat:clockBeat(time),bpm:clock.bpm,song:clock.source==='song'?songNow:null,cam:camMapFrame(),tagShow:tagMode?mapSel:null});
   dissolveDraw(paused?0:dt);
   blackout.level+=((blackout.on?1:0)-blackout.level)*Math.min(1,dt*8);if(blackout.level<.002&&!blackout.on)blackout.level=0;
   if(blackout.level>0){previewCtx.globalAlpha=Math.min(1,blackout.level*1.02);previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.globalAlpha=1;}
@@ -1035,6 +1058,38 @@ function camProvider(){
   return camPromise;
 }
 setCameraProvider(camProvider);
+// AI textures: a surface whose source is 'ai' shows a picture the AI bridge paints from its prompt (seeded noise, full strength).
+// Evolve repaints on every song section; while the bridge is offline a procedural stand-in coloured from the prompt is shown.
+const aiTex=new Map();let aiTexGen=0,aiTexReq=0;
+const hashStr=t=>{let h=2166136261;for(const c of t)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;};
+const AI_HUES={fire:12,lava:8,red:0,gold:45,sun:40,wood:30,brick:14,sand:38,grass:110,forest:120,moss:95,green:120,ocean:200,water:195,ice:190,sky:205,blue:220,neon:290,purple:275,violet:270,pink:320,marble:0,chrome:210,night:235};
+function aiStandIn(prompt,seed){const c=Object.assign(document.createElement('canvas'),{width:256,height:256}),x=c.getContext('2d'),h=hashStr(prompt+seed),w=prompt.toLowerCase().split(/\W+/),hs=w.map(k=>AI_HUES[k]).filter(v=>v!==undefined),base=hs.length?hs[0]:h%360,grey=/marble|chrome|stone|concrete/.test(prompt.toLowerCase());
+  let r=h;const rnd=()=>((r=Math.imul(r^r>>>15,2246822507)^Math.imul(r^r>>>13,3266489909))>>>0)/4294967296;
+  x.fillStyle=`hsl(${base},${grey?8:60}%,18%)`;x.fillRect(0,0,256,256);
+  for(let i=0;i<70;i++){const g=x.createRadialGradient(0,0,0,0,0,1),hu=(hs[i%Math.max(1,hs.length)]??base)+(rnd()-.5)*40;g.addColorStop(0,`hsla(${hu},${grey?6:75}%,${45+rnd()*35}%,.55)`);g.addColorStop(1,`hsla(${hu},70%,40%,0)`);
+    x.save();x.translate(rnd()*256,rnd()*256);x.rotate(rnd()*6.3);x.scale(20+rnd()*90,6+rnd()*40);x.fillStyle=g;x.beginPath();x.arc(0,0,1,0,6.3);x.fill();x.restore();}
+  return c;}
+function aiTexOf(s){const a=s.ai;if(!a)return null;let T=aiTex.get(s.id);if(!T){T={key:'',img:null,busy:false,sec:'',n:0,note:''};aiTex.set(s.id,T);}
+  const sec=a.evolve&&songNow?songNow.section+':'+Math.floor((songNow.map.sections.findIndex(x=>x.t0<=songNow.time&&songNow.time<x.t1))):'';
+  if(a.evolve&&sec&&sec!==T.sec){if(T.sec)T.n++;T.sec=sec;}
+  const key=a.prompt+'|'+T.n+'|'+aiTexGen,c=aiClient(AI_DEFAULT_URL);c.use();if(T.offline&&c.state==='connected'){T.offline=false;T.key='';}
+  // The bridge keeps only the newest frame per connection, so a texture request can be superseded by an AI Render node: retry.
+  if(T.busy&&performance.now()-T.at>30000){T.busy=false;T.key='';}
+  if(key!==T.key&&!T.busy){T.key=key;T.stand=aiStandIn(a.prompt,T.n);if(c.state==='connected'){T.busy=true;T.at=performance.now();T.note='Painting…';const n=Object.assign(document.createElement('canvas'),{width:512,height:512}),x=n.getContext('2d'),d=x.createImageData(512,512);let r=hashStr(key);for(let i=0;i<d.data.length;i+=4){r=Math.imul(r^r>>>15,2246822507)>>>0;d.data[i]=r&255;d.data[i+1]=r>>8&255;d.data[i+2]=r>>16&255;d.data[i+3]=255;}x.putImageData(d,0,0);x.globalAlpha=.5;x.drawImage(T.stand,0,0,512,512);
+      const t0=performance.now();c.send({type:'frame',id:'tex'+(++aiTexReq),model:'sd-turbo',prompt:a.prompt+', seamless texture, highly detailed',negative:'text, watermark, blurry',strength:1,steps:2,seed:hashStr(key)%100000,guidance:0,size:512,image:n.toDataURL('image/jpeg',.85)})
+        .then(m=>{const img=new Image();img.onload=()=>{T.img=img;T.busy=false;T.note=`Painted in ${((performance.now()-t0)/1000).toFixed(1)} s`;};img.onerror=()=>{T.busy=false;};img.src=m.image;},e=>{T.busy=false;T.note=e.message;});}
+    else{T.img=null;T.offline=true;T.note='AI bridge offline — showing a stand-in. Start ai/start.command, then Repaint.';}}
+  return T.img||T.stand;}
+// Camera map: the webcam's movement as a soft greyscale mask (bright where something moved, fading over ~½ s), sampled over the output.
+const camMap={video:null,cv:null,out:null,prev:null,acc:null,stamp:0,err:false,starting:false};
+const camMapOn=()=>!!state.mapping?.on&&(state.mapping.surfaces||[]).some(s=>s.kind==='3d'&&map3d.FX_KEYS.some(k=>s.fx?.[k]?.on&&s.fx[k].map==='camera'));
+function camMapFrame(){if(!camMapOn())return null;const C=camMap;
+  if(!C.video){if(C.starting||C.err)return null;C.starting=true;camProvider().then(st=>{const v=document.createElement('video');v.muted=true;v.playsInline=true;v.srcObject=st;v.play().catch(()=>{});C.video=v;C.starting=false;},e=>{C.err=true;C.starting=false;message(e.message,true);});return null;}
+  const v=C.video;if(!v.srcObject?.active){C.video=null;return null;}if(v.readyState<2)return null;
+  const w=96,h=54;if(!C.cv){C.cv=Object.assign(document.createElement('canvas'),{width:w,height:h});C.out=Object.assign(document.createElement('canvas'),{width:w,height:h});C.prev=new Float32Array(w*h);C.acc=new Float32Array(w*h);}
+  const x=C.cv.getContext('2d',{willReadFrequently:true});x.drawImage(v,0,0,w,h);const d=x.getImageData(0,0,w,h),p=d.data;
+  for(let i=0;i<w*h;i++){const l=(p[i*4]*.3+p[i*4+1]*.59+p[i*4+2]*.11)/255,m=Math.min(1,Math.abs(l-C.prev[i])*6);C.prev[i]=l;C.acc[i]=Math.max(C.acc[i]*.86,m);const b=C.acc[i]*255;p[i*4]=p[i*4+1]=p[i*4+2]=b;p[i*4+3]=255;}
+  C.out.getContext('2d').putImageData(d,0,0);C.stamp++;return {canvas:C.out,stamp:C.stamp};}
 // Image / Video / Camera nodes: one picture source each (files are not saved in projects).
 const mediaEls=new Map();
 function mediaOf(n){
@@ -1043,7 +1098,7 @@ function mediaOf(n){
   return m;
 }
 function releaseCameraIfUnused(){
-  if(!camStream||state.layers.some(g=>g.nodes.some(n=>n.type==='camera'))||[...engines.values()].some(e=>e.usesCamera()))return;
+  if(!camStream||camMapOn()||state.layers.some(g=>g.nodes.some(n=>n.type==='camera'))||[...engines.values()].some(e=>e.usesCamera()))return;
   for(const [id,m] of mediaEls)if(m.kind==='camera'){m.clear();mediaEls.delete(id);}
   camStream.getTracks().forEach(t=>t.stop());camStream=null;camPromise=null;
 }
@@ -2346,21 +2401,36 @@ preview.addEventListener('dblclick',()=>{if(viewOff())return;const cam=viewCam(g
   if(cam)setCam(cam.id,c=>{c.turn=T.turn.value;c.tilt=T.tilt.value;c.zoom=T.zoom.value;});setView(v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
 
 // Output window for a projector / second display: mirrors the preview as a live stream.
-let outWin=null;
+let outWins=[];
+// One output window, or with Projectors set to 2–4 one window per projector, each showing its slice of the picture with
+// soft edges across the overlaps (Mapping › Output › Projectors).
+function outputFrame(w,d,v,i){
+  const c=d.createElement('canvas');c.style.cssText='width:100vw;height:100vh;display:block';d.body.append(c);const ctx=c.getContext('2d');
+  const tick=()=>{if(w.closed)return;w.requestAnimationFrame(tick);const dpr=w.devicePixelRatio||1,W=Math.round(w.innerWidth*dpr),H=Math.round(w.innerHeight*dpr);
+    if(c.width!==W||c.height!==H){c.width=W;c.height=H;}ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+    const P=curMap().projectors,sl=mapping.projectorSlices(P)[i],vw=v.videoWidth,vh=v.videoHeight;if(!sl||!vw)return;
+    const sw=sl.w*vw,k=Math.min(W/sw,H/vh),dw=sw*k,dh=vh*k,dx=(W-dw)/2,dy=(H-dh)/2;ctx.drawImage(v,sl.x*vw,0,sw,vh,dx,dy,dw,dh);
+    for(const [o,side] of [[sl.left,0],[sl.right,1]]){if(!o)continue;const ow=o*dw,x0=side?dx+dw-ow:dx,g=ctx.createLinearGradient(side?dx+dw:dx,0,side?dx+dw-ow:dx+ow,0);
+      for(let j=0;j<=16;j++)g.addColorStop(j/16,`rgba(0,0,0,${1-mapping.blendRamp(j/16,P.gamma)})`);ctx.fillStyle=g;ctx.fillRect(x0,dy,ow,dh);}};
+  w.requestAnimationFrame(tick);}
 $('output').onclick=()=>{
-  if(outWin&&!outWin.closed){outWin.focus();return;}
-  outWin=window.open('','audiograph-pro-output','popup,width=960,height=540');
-  if(!outWin)return message('Allow pop-ups to open the output window',true);
-  const d=outWin.document;d.title='Audiograph Pro · Output';
-  d.body.style.cssText='margin:0;background:#000;overflow:hidden;cursor:none';d.body.replaceChildren();
-  const v=d.createElement('video');v.muted=true;v.autoplay=true;v.playsInline=true;v.style.cssText='width:100vw;height:100vh;object-fit:contain;display:block';
-  v.srcObject=preview.captureStream(60);d.body.append(v);v.play().catch(()=>{});
-  v.ondblclick=()=>d.fullscreenElement?d.exitFullscreen():d.documentElement.requestFullscreen().catch(()=>{});
+  const open=outWins.filter(w=>!w.closed);if(open.length){open.forEach(w=>w.focus());return;}
+  const n=mapping.projectorSlices(curMap().projectors).length,stream=preview.captureStream(60);outWins=[];
+  for(let i=0;i<n;i++){
+    const w=window.open('',n>1?`audiograph-pro-output-${i+1}`:'audiograph-pro-output',n>1?`popup,width=640,height=360,left=${40+i*660},top=60`:'popup,width=960,height=540');
+    if(!w){message('Allow pop-ups to open the output window',true);break;}
+    outWins.push(w);const d=w.document;d.title=n>1?`Audiograph Pro · Projector ${i+1}`:'Audiograph Pro · Output';
+    d.body.style.cssText='margin:0;background:#000;overflow:hidden;cursor:none';d.body.replaceChildren();
+    const v=d.createElement('video');v.muted=true;v.autoplay=true;v.playsInline=true;v.style.cssText='width:100vw;height:100vh;object-fit:contain;display:block';
+    v.srcObject=stream;if(n>1){v.style.display='none';d.body.append(v);outputFrame(w,d,v,i);}else d.body.append(v);v.play().catch(()=>{});
+    d.body.ondblclick=()=>d.fullscreenElement?d.exitFullscreen():d.documentElement.requestFullscreen().catch(()=>{});
+    w.addEventListener('pagehide',()=>{if(outWins.every(x=>x===w||x.closed)){stream.getTracks().forEach(t=>t.stop());outWins=[];$('output').classList.remove('on');}});
+  }
+  if(!outWins.length)return stream.getTracks().forEach(t=>t.stop());
   $('output').classList.add('on');
-  outWin.addEventListener('pagehide',()=>{v.srcObject?.getTracks().forEach(t=>t.stop());outWin=null;$('output').classList.remove('on');});
-  message('Output window open · move it to the projector and double-click for fullscreen');
+  message(n>1?`${outWins.length} projector windows open · move each to its projector and double-click for fullscreen`:'Output window open · move it to the projector and double-click for fullscreen');
 };
-addEventListener('pagehide',()=>{if(outWin&&!outWin.closed)outWin.close();});
+addEventListener('pagehide',()=>{for(const w of outWins)if(!w.closed)w.close();});
 $('snap').onclick=()=>preview.toBlob(blob=>{if(!blob)return message('Snapshot failed',true);const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);message('Snapshot saved');},'image/png');
 $('fullscreen').onclick=toggleFullscreen;
 $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
@@ -2550,6 +2620,7 @@ document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&!e.altKey&&/^[so]$/i.test(e.key)){e.preventDefault();if(e.key.toLowerCase()==='s')(e.shiftKey?saveTemplate:saveScene)();else $('import').click();return;}
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
   const k=e.key.toLowerCase();
+  if(/^[1-9]$/.test(e.key)&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&state.mapping?.on&&launchCue(+e.key-1)){e.preventDefault();return;}
   if(mapKey(e))return;
   if(e.key==='Tab'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&(pointer.inGraph||e.target.closest?.('#graphViewport'))){e.preventDefault();openSearch();}
   else if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();}
@@ -2700,6 +2771,28 @@ function renderMapSections(root){
   const scene=mapCat(root,'scene'),out=sub(scene,'Output');
   out.append(ui.field('Mapping',ui.toggle({value:m.on,labels:['On','Off'],property:'mapOn',onChange:v=>mapEdit(x=>{x.on=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Mapping on':'Mapping off')})));
   out.append(ui.field('Test card',ui.toggle({value:m.test,labels:['Show','Hide'],property:'mapTest',onChange:v=>mapEdit(x=>{x.test=v;if(v&&!x.surfaces.length){x.surfaces=mapping.PRESETS['Single screen']();mapSel=x.surfaces[0].id;}},v?'Test card on':'Test card off')})));
+  {const P=m.projectors||{count:1,overlap:.15,gamma:2.2},setP=(k,v,label)=>mapEdit(x=>{x.projectors={...(x.projectors||{count:1,overlap:.15,gamma:2.2}),[k]:v};},label);
+    out.append(ui.field('Projectors',ui.chips({options:[['1','1'],['2','2'],['3','3'],['4','4']],value:String(P.count),property:'mapProjectors',onChange:v=>setP('count',+v,`${v} projector${v>1?'s':''}`)})));
+    if(P.count>1){const k=el('div','knob-grid');out.append(k);
+      k.append(ui.knob({label:'Overlap',min:0,max:40,step:1,def:15,unit:'%',value:Math.round(P.overlap*100),property:'mapProjOverlap',onInput:v=>live(st=>{if(st.mapping?.projectors)st.mapping.projectors.overlap=v/100;}),onChange:()=>liveCommit('Projector overlap')}));
+      k.append(ui.knob({label:'Blend',min:1,max:3,step:.1,def:2.2,unit:'γ',value:P.gamma,property:'mapProjGamma',onInput:v=>live(st=>{if(st.mapping?.projectors)st.mapping.projectors.gamma=v;}),onChange:()=>liveCommit('Projector blend')}));}
+    out.append(el('p','insp-note tip','Projectors: with 2–4 side by side, Output opens one window per projector, each with its slice of the picture. Overlap is how much of each projector\'s width it shares with its neighbour; across it the two fade into each other so the seam disappears. Blend is the gamma of that fade: raise it if the overlap looks dark, lower it if it looks bright.'));}
+  {const rm=sub(scene,'Remote'),st=el('div','fx-auto-now rem-status');rm.append(st);
+    const row=el('div','map-actions'),mk=(label,prop,fn)=>{const b=el('button','mbtn',label);b.type='button';b.dataset.property=prop;b.onclick=fn;row.append(b);return b;};rm.append(row);
+    const box=el('div','rem-pair');rm.append(box);
+    const showPair=()=>{box.replaceChildren();const L=remote.pending;if(!L)return;const url=new URL('remote.html',location.href);url.hash='o='+L.offer;
+      const q=qrcode(0,'L');q.addData(url.href);q.make();const n=q.getModuleCount(),k=4,c=Object.assign(document.createElement('canvas'),{width:n*k+16,height:n*k+16}),x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.fillStyle='#000';for(let r=0;r<n;r++)for(let j=0;j<n;j++)if(q.isDark(r,j))x.fillRect(8+j*k,8+r*k,k,k);c.className='rem-qr';box.append(c);
+      const a=el('a','rem-link','Open the remote link');a.href=url.href;a.target='_blank';a.rel='noopener';box.append(a);
+      const inp=el('input');inp.type='text';inp.placeholder='Paste the phone\'s code';inp.dataset.property='mapRemoteCode';
+      const go=async v=>{try{await L.accept(v.trim());remoteAdd(L);remote.pending=null;box.replaceChildren();message('Phone paired');}catch(e){message('That code did not work: '+e.message,true);}};
+      inp.onchange=()=>go(inp.value);box.append(ui.field('Phone\'s code',inp));
+      if('BarcodeDetector' in window){const sc=el('button','mbtn','Scan with webcam');sc.type='button';sc.dataset.property='mapRemoteScan';sc.onclick=async()=>{let v;try{const stm=await camProvider();v=document.createElement('video');v.muted=true;v.playsInline=true;v.srcObject=stm;await v.play();}catch(e){message(e.message,true);return;}
+        const d=new BarcodeDetector({formats:['qr_code']}),t0=performance.now();message('Hold the phone\'s code up to the webcam');
+        const look=async()=>{if(remote.pending!==L)return;try{const r=await d.detect(v);const c=r.find(x=>x.rawValue.includes('~'));if(c){go(c.rawValue);releaseCameraIfUnused();return;}}catch{}if(performance.now()-t0<30000)setTimeout(look,250);else{message('No code seen',true);releaseCameraIfUnused();}};look();};const sa=el('div','map-actions');sa.append(sc);box.append(sa);}};
+    mk('Connect phone','mapRemotePair',async()=>{message('Preparing a pairing code…');try{remote.pending?.close();remote.pending=await hostLink();const L=remote.pending;L.onstate=v=>{if(v==='open'){message('Phone connected');remoteSend();}else{remote.links.delete(L);message('Phone disconnected');}};showPair();}catch(e){message('Could not start pairing: '+e.message,true);}});
+    mk('Open remote here','mapRemoteLocal',()=>window.open(new URL('remote.html',location.href).href,'audiograph-remote','width=420,height=760'));
+    if(remote.pending)showPair();
+    rm.append(el('p','insp-note tip','Remote: Connect phone shows a QR code. Scan it with the phone (same Wi-Fi) and it opens the remote, which shows a code: paste it here (Universal Clipboard works) or Scan with webcam. No server is involved; the phone talks to this browser directly. The remote has Master, Blackout, Autopilot, Next look, Tap tempo and the cues. Open remote here opens it in a window on this computer instead (for a tablet or second screen beside you).'));}
   out.append(ui.field('Snap',ui.toggle({value:mapSnap,labels:['On','Off'],property:'mapSnap',onChange:v=>{mapSnap=v;localStorage.setItem('agpro.mapSnap',v?'1':'0');message(v?'Snap on: points stick to other surfaces (hold Alt to drag freely)':'Snap off');}})));
   const lay=sub(scene,`Layers (${state.layers.filter(g=>g.visible).length}/${state.layers.length} on)`),ll=el('div','surf-list');lay.append(ll);
   state.layers.forEach((g,i)=>{
@@ -2713,7 +2806,7 @@ function renderMapSections(root){
   m.surfaces.forEach((x,i)=>{
     const row=el('div','surf-row'+(x.id===mapSel?' sel':''));row.dataset.surface=x.id;
     const del=el('button','','×');del.type='button';del.title='Delete surface';del.onclick=e=>{e.stopPropagation();mapEdit(mm=>{mm.surfaces=mm.surfaces.filter(y=>y.id!==x.id);},'Deleted surface');};
-    row.append(el('span','n',`${i+1}. ${x.name}`),el('span','src',(x.kind==='3d'?'3D · ':'')+(x.source==='all'?'All':'Layer '+x.source)),del);
+    row.append(el('span','n',`${i+1}. ${x.name}`),el('span','src',(x.kind==='3d'?'3D · ':'')+(x.source==='all'?'All':x.source==='ai'?'AI texture':'Layer '+x.source)),del);
     row.onclick=()=>{mapSel=x.id;mapPt=-1;renderMapPanel();renderOverlay();};list.append(row);
   });
   ls.append(list);
@@ -2732,8 +2825,13 @@ function renderMapSections(root){
   const liveSurf=fn=>{live(st=>{const t=st.mapping?.surfaces.find(y=>y.id===s.id);if(t)fn(t);});renderOverlay();};
   const ss=mapCat(root,'surface','Surface · '+s.name),info=sub(ss);
   const name=el('input');name.type='text';name.maxLength=40;name.value=s.name;name.dataset.property='surfName';name.onchange=()=>upd(t=>{t.name=name.value.trim()||t.name;},'Renamed surface');info.append(ui.field('Name',name));
-  const src=el('select');src.dataset.property='surfSource';src.append(new Option('All layers','all'));state.layers.forEach((g,i)=>src.append(new Option(`Layer ${i+1} · ${g.name}`,String(i+1))));src.value=String(s.source);
-  src.onchange=()=>upd(t=>{t.source=src.value==='all'?'all':+src.value;},'Surface source');info.append(ui.field('Shows',src));
+  const src=el('select');src.dataset.property='surfSource';src.append(new Option('All layers','all'));state.layers.forEach((g,i)=>src.append(new Option(`Layer ${i+1} · ${g.name}`,String(i+1))));src.append(new Option('AI texture (prompt)','ai'));src.value=String(s.source);
+  src.onchange=()=>upd(t=>{t.source=src.value==='all'?'all':src.value==='ai'?'ai':+src.value;if(t.source==='ai'&&!t.ai)t.ai={prompt:'glowing marble with gold veins',evolve:false};},'Surface source');info.append(ui.field('Shows',src));
+  if(s.source==='ai'){const pr=el('input');pr.type='text';pr.maxLength=200;pr.value=s.ai?.prompt||'';pr.placeholder='Describe the texture';pr.dataset.property='surfAiPrompt';pr.onchange=()=>upd(t=>{t.ai={...t.ai,prompt:pr.value.trim()||'abstract light'};},'AI texture prompt');info.append(ui.field('Prompt',pr));
+    info.append(ui.field('Evolve',ui.toggle({value:!!s.ai?.evolve,property:'surfAiEvolve',onChange:v=>upd(t=>{t.ai={...t.ai,evolve:v};},'AI texture evolve')})));
+    const rp=el('button','mbtn','Repaint');rp.type='button';rp.dataset.property='surfAiRepaint';rp.onclick=()=>{aiTexGen++;message('Repainting the AI texture');};const ra=el('div','map-actions');ra.append(rp);info.append(ra);
+    const nt=el('p','insp-note ai-tex-note','');nt.dataset.surf=s.id;info.append(nt);
+    info.append(el('p','insp-note tip','The AI bridge (ai/start.command) paints this prompt as the surface\'s picture; every effect, mask and post FX still runs on top. Evolve paints a new variation on each section of the song. Without the bridge a stand-in coloured from the prompt is shown.'));}
   if(s.kind==='3d'){renderMap3d(root,ss,info,s,upd,liveSurf);return;}
   const grid=el('select');grid.dataset.property='surfGrid';for(const [c,r,l] of [[1,1,'Flat · 4 corners'],[2,1,'Bend sideways · 2×1'],[2,2,'Curved · 3×3 points'],[3,2,'Curved · 4×3 points'],[3,3,'Curved · 4×4 points'],[4,4,'Fine · 5×5 points']])grid.append(new Option(l,c+'x'+r));
   grid.append(new Option('Cube cap · wrap sides','cap'));
@@ -2773,7 +2871,7 @@ function renderMapAnimate(root,s,upd,knob){
   const cards=[],ELS=[['poly','Polygon'],['edge','Edge'],['vert','Vertex']];
   const head=(fx,label,note,prop)=>{const c=el('div','fx-card'+(F[fx].on?' on':'')+(F.auto.on?' fx-dim':''));c.dataset.fx=fx;an.append(c);const h=ui.field(label,ui.toggle({value:F[fx].on,labels:['On','Off'],property:prop,onChange:v=>set(fx,'on',v,`${label} ${v?'on':'off'}`)}));h.classList.add('fx-card-head');c.append(h);if(note)c.append(el('p','insp-note tip',note));
     if(!F[fx].on)return null;const w=el('div','fx-card-body');c.append(w);if('el' in F[fx])chips(w,'Element',fx,'el',ELS,prop+'El');
-    chips(w,'Map',fx,'map',[['all','All'],['depth','Depth'],['sound','Sound'],['uv','UV'],['parts','Parts'],['random','Random'],['noise','Noise'],['levels','Levels'],['facades','Facades'],['mirror','Mirror']],prop+'Map');cards.push([fx,label,prop,w]);return w;};
+    chips(w,'Map',fx,'map',[['all','All'],['depth','Depth'],['sound','Sound'],['uv','UV'],['parts','Parts'],['random','Random'],['noise','Noise'],['levels','Levels'],['facades','Facades'],['mirror','Mirror'],['camera','Camera'],...map3d.TAGS.map(t=>[t,t[0].toUpperCase()+t.slice(1)])],prop+'Map');cards.push([fx,label,prop,w]);return w;};
   // After each card's own settings: Intensity leads its knob row, Fade closes it.
   const finish=()=>{for(const [fx,label,prop,w] of cards){let k=w.querySelector('.knob-grid');if(!k){k=el('div','knob-grid');w.append(k);}const t=el('div');fk(t,'Intensity',prop.slice(6)+'Mix',fx,'mix',0,100,1,100,'%',100);k.prepend(...t.childNodes);
     w.append(ui.field('Fade',ui.toggle({value:F[fx].fade,labels:['On','Off'],property:prop+'Fade',onChange:v=>set(fx,'fade',v,`${label} fade ${v?'on':'off'}`)})));}};
@@ -2786,10 +2884,26 @@ function renderMapAnimate(root,s,upd,knob){
     const A=F.auto,sa=(k,v,label)=>upd(t=>{t.fx={...t.fx,auto:{...t.fx.auto,[k]:v}};},label);
     w.append(ui.field('Autopilot',ui.toggle({value:A.on,labels:['On','Off'],property:'surf3dFxAuto',onChange:v=>sa('on',v,`Animate autopilot ${v?'on':'off'}`)})));
     if(A.on){w.append(ui.field('Phrase',ui.chips({options:[['4','4 bars'],['8','8 bars'],['16','16 bars']],value:A.every,property:'surf3dFxAutoEvery',onChange:v=>sa('every',v,`Autopilot changes look every ${v} bars`)})));
-      const tb=el('div','fx-tempo');for(const [label,fn,prop] of [['Tap',clockTap,'surf3dFxTap'],['Resync',clockResync,'surf3dFxResync'],['Auto tempo',()=>{clock.manual=false;clock.taps=[];},'surf3dFxTempoAuto']]){const b=el('button','mbtn',label);b.type='button';b.dataset.property=prop;b.onclick=()=>{fn();message(label==='Tap'?`Tempo ${Math.round(clock.bpm)} BPM`:label==='Resync'?'Bar 1 is now':'Tempo follows the music');};tb.append(b);}w.append(ui.field('Tempo',tb));
+      const tb=el('div','fx-tempo');for(const [label,fn,prop] of [['Tap',clockTap,'surf3dFxTap'],['Resync',clockResync,'surf3dFxResync']]){const b=el('button','mbtn',label);b.type='button';b.dataset.property=prop;b.onclick=()=>{fn();message(label==='Tap'?`Tempo ${Math.round(clock.bpm)} BPM`:label==='Resync'?'Bar 1 is now':'Tempo follows the music');};tb.append(b);}w.append(ui.field('Tempo',tb));
+      w.append(ui.field('Follow',ui.chips({options:[['song','Song map'],['beats','Beats'],['midi','MIDI clock']],value:clock.source,property:'surf3dFxTempoSource',onChange:v=>{clock.source=v;clock.manual=false;clock.taps=[];
+        if(v==='midi')sensors.connectMidi().then(()=>message('Tempo follows the MIDI clock')).catch(e=>message(e.message));else message(v==='song'?'Tempo and sections follow the song map':'Tempo follows the beats');}})));
+      const tl=el('div','fx-song');tl.dataset.surf=s.id;tl.title='Song map: intro, build, drop and break, with the drops marked';w.append(tl);
       w.append(ui.field('Use Maps',ui.toggle({value:A.maps,labels:['On','Off'],property:'surf3dFxAutoMaps',onChange:v=>sa('maps',v,`Autopilot maps ${v?'on':'off'}`)})));
       const k=el('div','knob-grid');w.append(k);knob(k,'Layers','FxAutoCount',1,4,1,2,'',()=>A.count,(t,v)=>{t.fx={...t.fx,auto:{...t.fx.auto,count:v}};},'Autopilot effects');
       const now=el('div','fx-auto-now');now.dataset.surf=s.id;w.append(now);}}
+  {const w=el('div','fx-card fx-mix fx-cues on'),cues=s.cues||[];an.append(w);w.append(el('div','fx-card-title','Cues'));
+    w.append(el('p','insp-note tip','A cue saves the Animate effects and Post FX playing now (with Autopilot on, its current look). Launch one by clicking it, with keys 1–9 or MIDI notes 36–44 (C1 up); it crossfades in. With Autopilot on, a cue holds for one phrase, then Autopilot carries on. Delete removes the cue launched last.'));
+    const row=el('div','fx-tempo');cues.forEach((c,i)=>{const b=el('button','mbtn'+(cueLast===i?' on':''),`${i+1} · ${c.name}`);b.type='button';b.dataset.property='surf3dCue'+(i+1);b.onclick=()=>launchCue(i);row.append(b);});
+    const sv=el('button','mbtn','Save cue');sv.type='button';sv.dataset.property='surf3dCueSave';sv.disabled=cues.length>=9;
+    sv.onclick=()=>{const live=F.auto.on?map3d.autoNow(s.id):null;upd(t=>{const {auto,...fx}=clone(live?.fx||t.fx),n=(t.cues||[]).length+1;t.cues=[...(t.cues||[]),{name:live?.look||`Cue ${n}`,fx,post:clone(t.post)}].slice(0,9);},'Saved cue');};
+    const dl=el('button','mbtn','Delete');dl.type='button';dl.dataset.property='surf3dCueDelete';dl.disabled=!cues.length;
+    dl.onclick=()=>{const i=cueLast>=0&&cueLast<cues.length?cueLast:cues.length-1;cueLast=-1;upd(t=>{t.cues=(t.cues||[]).filter((_,j)=>j!==i);},'Deleted cue');};
+    row.append(sv,dl);w.append(ui.field('Cues',row));}
+  {const w=el('div','fx-card fx-mix fx-tags on'),T=s.tags||[];an.append(w);w.append(el('div','fx-card-title','Tag parts'));
+    w.append(el('p','insp-note tip','Tag the parts of the building (or any model) by what they are: pick a tag, then click parts on the picture; Erase clears a part. Tagged parts are tinted while tagging. Every effect\'s Map then offers Windows, Columns, Roof and Accent, and Autopilot uses them: Facade looks play on the Windows, Mirror on the Accents and supporting edges trace the Columns. Camera (in Map) lights the object where the webcam sees movement.'));
+    w.append(ui.field('Tag',ui.chips({options:[['off','Off'],...map3d.TAGS.map(t=>[t,t[0].toUpperCase()+t.slice(1)]),['erase','Erase']],value:tagMode||'off',property:'surf3dTagMode',onChange:v=>{tagMode=v==='off'?null:v;calibMode=false;renderOverlay();message(tagMode?tagMode==='erase'?'Click parts to remove their tag':`Click parts to tag them ${v}`:'Tagging off');}})));
+    const n=k=>T.filter(t=>t[1]===k).length;w.append(el('div','fx-auto-now',T.length?map3d.TAGS.map((t,i)=>`${t[0].toUpperCase()+t.slice(1)} ${n(i+1)}`).join(' · '):'No parts tagged'));
+    const cl=el('button','mbtn','Clear tags');cl.type='button';cl.dataset.property='surf3dTagClear';cl.disabled=!T.length;cl.onclick=()=>upd(t=>{delete t.tags;},'Cleared part tags');const ca=el('div','map-actions');ca.append(cl);w.append(ca);}
   let w=head('disp','Displace','Ripples the picture across the surface like relief, without moving the mesh.','surf3dFxDisp');
   if(w){chips(w,'Pattern','disp','pattern',[['ripple','Ripple'],['swell','Swell'],['noise','Noise']],'surf3dFxDispPattern');chips(w,'Follows','disp','drive',[['bass','Bass'],['full','Full'],['high','Highs']],'surf3dFxDispDrive');
     const k=el('div','knob-grid');w.append(k);fk(k,'Amount','FxDispAmount','disp','amount',0,100,1,30,'%',100);fk(k,'Speed','FxDispSpeed','disp','speed',0,4,.01,1,'×');}
@@ -2899,6 +3013,13 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   file('Import camera…','.fbx,.usda,.usd,.usdc,.usdz,.glb,.gltf','mapImportCamera',async f=>{const track=await parseCamera(await f.arrayBuffer(),f.name);upd(t=>{t.track=track;t.trackOn=true;t.playing=true;t.hold=0;t.offset=0;},'Imported camera');},ia);
   if(s.track){const clip=sub(cam,s.track.name);clip.append(ui.field('Camera',ui.toggle({value:s.trackOn,labels:['Imported','Manual'],property:'mapTrackOn',onChange:v=>upd(t=>{t.trackOn=v;},'Camera mode')})),ui.field('Playback',ui.toggle({value:s.playing,labels:['Play','Hold'],property:'mapTrackPlay',onChange:v=>upd(t=>{const clock=s.sync?elapsed:performance.now()/1000;if(!v)t.hold=((clock*s.speed+s.offset)%(s.track.duration||1)+(s.track.duration||1))%(s.track.duration||1);else t.offset=t.hold-clock*s.speed;t.playing=v;},'Camera playback')})),ui.field('Sync transport',ui.toggle({value:s.sync,labels:['On','Off'],property:'mapTrackSync',onChange:v=>upd(t=>{const now=performance.now()/1000,oldClock=s.sync?elapsed:now,newClock=v?elapsed:now;t.offset+=(oldClock-newClock)*s.speed;t.sync=v;},'Camera clock')})));
     clip.append(ui.knob({label:'Speed',min:.05,max:4,step:.05,def:1,value:s.speed,property:'mapTrackSpeed',onInput:v=>liveSurf(t=>{const clock=t.sync?elapsed:performance.now()/1000;t.offset+=clock*(t.speed-v);t.speed=v;}),onChange:()=>liveCommit('Camera speed')}),ui.knob({label:'Time',min:0,max:Math.max(.01,s.track.duration),step:.01,def:0,value:s.hold,unit:'s',property:'mapTrackTime',onInput:v=>liveSurf(t=>{t.hold=v;t.playing=false;}),onChange:()=>liveCommit('Camera time')}));}
+  // Calibrate: pairs of model points and where they really land, solved into the projector's exact camera (6+ pairs).
+  {const cs=sub(cam,'Calibrate'),C=s.calib||{use:false,pts:[]},n=C.pts.length,err=map3d.calibError(s,WIDTH,HEIGHT);
+    cs.append(ui.field('Pick points',ui.toggle({value:calibMode,labels:['On','Off'],property:'mapCalibPick',onChange:v=>{calibMode=v;renderOverlay();message(v?'Click a corner on the model, then drag its dot to where that corner really is on the object':'Calibration points hidden');}})));
+    cs.append(ui.field('Camera',ui.toggle({value:C.use,labels:['Solved','Manual'],property:'mapCalibUse',onChange:v=>{if(v&&n<6){message('Calibration needs 6 or more points',true);renderMapPanel();return;}upd(t=>{t.calib={...t.calib,use:v};},v?'Calibrated camera on':'Manual camera');}})));
+    cs.append(el('div','fx-auto-now',`${n} point${n===1?'':'s'}${n<6?` · ${6-n} more to solve`:err!=null?` · error ${err.toFixed(1)} px`:' · ready'}`));
+    const ca=el('div','map-actions');cs.append(ca);const cl=el('button','mbtn','Clear points');cl.type='button';cl.dataset.property='mapCalibClear';cl.disabled=!n;cl.onclick=()=>upd(t=>{delete t.calib;},'Cleared calibration');ca.append(cl);
+    cs.append(el('p','insp-note tip','Calibrate lines the projection up with the real object exactly. Turn on Pick points, click a sharp corner on the model, then drag its dot to where that corner really is on the object (watch the projector). Do this for 6 or more corners spread over the object, not all on one face, and set Camera to Solved: the projector\'s position, lens and lens shift are worked out from the pairs. Right-click a dot to remove it. Error is how far, on average, the points miss their dots.'));}
 }
 function overlayBox(){
   const r=preview.getBoundingClientRect(),w=$('previewWrap').getBoundingClientRect();
@@ -2928,6 +3049,10 @@ function renderOverlay(){
   }
   const s=selSurface();if(!s)return;
   if(s.kind==='3d'){const hit=svg('rect',{x:0,y:0,width:WIDTH,height:HEIGHT,fill:'transparent','pointer-events':'all'});overlay.append(hit);
+    if(calibMode){let d='';const hs=map3d.calibHandles(s,WIDTH,HEIGHT,mapTime);for(const h of hs)if(h.front)d+=`M${h.x.toFixed(1)},${h.y.toFixed(1)}L${h.tx.toFixed(1)},${h.ty.toFixed(1)}`;overlay.append(svg('path',{class:'cal-line',d}));
+      for(const h of hs){if(h.front)overlay.append(svg('circle',{class:'cal-model',cx:h.x,cy:h.y,r:3*k}));const c=svg('circle',{class:'cpt'+(mapDrag?.kind==='cal'&&mapDrag.i===h.i?' on':''),cx:h.tx,cy:h.ty,r:7*k});c.dataset.calib=h.i;overlay.append(c);
+        const t=svg('text',{x:h.tx+9*k,y:h.ty-9*k,'font-size':12*k,class:'cal-num'});t.textContent=h.i+1;overlay.append(t);}
+      return;}
     const hs=map3d.latticeHandles(s,WIDTH,HEIGHT,mapTime),n=s.lattice.res;if(!hs.length){drawGizmo(s,k);return;}let d='';
     for(const h of hs)for(let a=0;a<3;a++){if(h.ijk[a]+1>=n)continue;const ijk=[...h.ijk];ijk[a]++;const o=hs[(ijk[0]*n+ijk[1])*n+ijk[2]];if(h.front&&o.front)d+=`M${h.x.toFixed(1)},${h.y.toFixed(1)}L${o.x.toFixed(1)},${o.y.toFixed(1)}`;}
     overlay.append(svg('path',{class:'lat',d}));
@@ -2946,6 +3071,15 @@ overlay.addEventListener('pointerdown',ev=>{
   const s=selSurface();if(s?.kind==='3d'){
     if(gizOn(s)){const px=[x*WIDTH,y*HEIGHT],G=map3d.gizmo(s,mapGiz.target,WIDTH,HEIGHT,mapTime),h=G.front&&map3d.gizmoHit(G,mapGiz.tool,px[0],px[1],12*WIDTH/r.width);
       if(h){mapDrag={kind:'giz',id:s.id,h,target:mapGiz.target,p0:px,s0:clone(s)};overlay.setPointerCapture(ev.pointerId);renderOverlay();return;}}
+    if(tagMode&&ev.button===0){const k=map3d.pickPart(s,WIDTH,HEIGHT,x*WIDTH,y*HEIGHT,mapTime);if(k<0)return;const v=tagMode==='erase'?0:map3d.TAGS.indexOf(tagMode)+1;
+      mapEdit(X=>{const t=X.surfaces.find(u=>u.id===s.id),rest=(t.tags||[]).filter(e=>e[0]!==k);t.tags=v?[...rest,[k,v]]:rest;if(!t.tags.length)delete t.tags;},v?`Tagged part ${tagMode}`:'Removed part tag');return;}
+    if(calibMode){let ch=null,cb=14;for(const h of map3d.calibHandles(s,WIDTH,HEIGHT,mapTime)){const d=Math.hypot((h.tx/WIDTH-x)*r.width,(h.ty/HEIGHT-y)*r.height);if(d<cb){cb=d;ch=h;}}
+      if(ch&&ev.button===2){mapEdit(X=>{const t=X.surfaces.find(v=>v.id===s.id);t.calib.pts.splice(ch.i,1);if(t.calib.pts.length<6)t.calib.use=false;},'Removed calibration point');return;}
+      if(ch){mapDrag={kind:'cal',id:s.id,i:ch.i};overlay.setPointerCapture(ev.pointerId);renderOverlay();return;}
+      const q=ev.button===0&&map3d.pickPoint(s,WIDTH,HEIGHT,x*WIDTH,y*HEIGHT,mapTime);
+      if(q){const n=s.calib?.pts.length||0;if(n>=24){message('Calibration holds up to 24 points',true);return;}
+        live(st=>{const t=st.mapping.surfaces.find(v=>v.id===s.id);t.calib={use:false,...t.calib,pts:[...(t.calib?.pts||[]),{q:q.map(v=>+v.toFixed(6)),t:[round4(x),round4(y)]}]};});
+        mapDrag={kind:'cal',id:s.id,i:n};overlay.setPointerCapture(ev.pointerId);renderOverlay();return;}}
     let lh=null,best=14;for(const h of map3d.latticeHandles(s,WIDTH,HEIGHT,mapTime)){const d=Math.hypot((h.x/WIDTH-x)*r.width,(h.y/HEIGHT-y)*r.height);if(h.front&&d<best){best=d;lh=h;}}
     if(lh){mapDrag={kind:'lat',id:s.id,h:lh.id,depth:lh.depth,x,y,d0:[...s.lattice.d]};overlay.setPointerCapture(ev.pointerId);renderOverlay();return;}
     mapDrag={kind:'camera',id:s.id,x,y,camera:clone(s.camera),pan:ev.shiftKey||ev.button===2};overlay.setPointerCapture(ev.pointerId);return;}let hit=-1;
@@ -2963,6 +3097,7 @@ overlay.addEventListener('pointermove',ev=>{
   const snapOn=mapSnap&&!ev.altKey,box=preview.getBoundingClientRect();mapSnapAt=null;
   live(st=>{const t=st.mapping?.surfaces.find(s=>s.id===mapDrag.id);if(!t)return;
     if(mapDrag.kind==='giz'){t[mapDrag.target==='box'?'box':'xf']=map3d.gizmoDrag(mapDrag.s0,mapDrag.target,mapDrag.h,mapDrag.p0,[x*WIDTH,y*HEIGHT],WIDTH,HEIGHT,mapTime);return;}
+    if(mapDrag.kind==='cal'){if(t.calib?.pts[mapDrag.i])t.calib.pts[mapDrag.i].t=[round4(Math.max(-1,Math.min(2,x))),round4(Math.max(-1,Math.min(2,y)))];return;}
     if(mapDrag.kind==='lat'){t.lattice.d=map3d.latticeDrag(t,mapDrag.d0,mapDrag.h,mapDrag.depth,(x-mapDrag.x)*WIDTH,(y-mapDrag.y)*HEIGHT,WIDTH,HEIGHT,mapTime);return;}
     if(mapDrag.kind==='camera'){const c=mapDrag.camera,dx=x-mapDrag.x,dy=y-mapDrag.y;t.trackOn=false;if(mapDrag.pan){t.camera.panX=Math.max(-2,Math.min(2,c.panX+dx));t.camera.panY=Math.max(-2,Math.min(2,c.panY-dy));}else{t.camera.yaw=c.yaw-dx*180;t.camera.pitch=Math.max(-89,Math.min(89,c.pitch+dy*180));}return;}
     const targets=snapOn?snapTargets(st.mapping,t.id):[];
@@ -2975,8 +3110,34 @@ overlay.addEventListener('pointermove',ev=>{
 });
 overlay.addEventListener('contextmenu',e=>e.preventDefault());
 let mapWheel;overlay.addEventListener('wheel',e=>{const s=selSurface();if(s?.kind!=='3d')return;e.preventDefault();live(st=>{const t=st.mapping.surfaces.find(v=>v.id===s.id);t.trackOn=false;if(e.shiftKey)t.camera.distance=Math.max(.001,Math.min(100000,t.camera.distance*Math.exp(e.deltaY*.001)));else t.camera.focal=Math.max(10,Math.min(200,t.camera.focal*Math.exp(-e.deltaY*.001)));});clearTimeout(mapWheel);mapWheel=setTimeout(()=>liveCommit('Projector zoom'),200);},{passive:false});
-const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;mapSnapAt=null;renderOverlay();if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':k==='lat'?'Moved lattice point':k==='giz'?'Gizmo transform':k==='camera'?'Moved projector':'Moved surface');}};
+const endMapDrag=()=>{if(mapDrag){const k=mapDrag.kind;mapDrag=null;mapSnapAt=null;renderOverlay();if(liveBefore)liveCommit(k==='pt'?'Moved mapping point':k==='lat'?'Moved lattice point':k==='giz'?'Gizmo transform':k==='cal'?'Moved calibration point':k==='camera'?'Moved projector':'Moved surface');}};
 overlay.addEventListener('pointerup',endMapDrag);overlay.addEventListener('pointercancel',endMapDrag);
+// Cues: saved Animate + Post FX looks on a 3D surface, launched by click, keys 1–9 or MIDI notes 36–44 (C1 up), crossfading.
+// With Autopilot on, a cue holds for one phrase and the choreographer then carries on.
+let cueLast=-1,calibMode=false,tagMode=null;
+// Phone remote: Master/Blackout scale every surface; Autopilot, Next look, Tap and the cues act on the 3D surfaces.
+const remote={links:new Set(),local:null,pending:null,master:1,black:false,sent:0};
+function remoteState(){const ss=(state.mapping?.surfaces||[]).filter(s=>s.kind==='3d'),s=ss.find(x=>x.id===mapSel)||ss[0],S=s&&map3d.autoStatus(s.id),SEC={intro:'Intro',build:'Build',drop:'Drop',break:'Break'};
+  return {t:'state',surfaces:ss.length,auto:!!s?.fx?.auto?.on,look:S?.look||(s?map3d.FX_KEYS.filter(k=>s.fx?.[k]?.on).join(' + ')||'No effect':''),section:S?SEC[S.section]||'':'',bpm:clock.bpm,cues:(s?.cues||[]).map(c=>c.name),cue:cueLast,master:remote.master,black:remote.black};}
+function remoteSend(){if(!remote.links.size)return;const m=remoteState();remote.sent=performance.now();for(const L of remote.links)L.send(m);}
+function remoteDo(m){const ss=()=>(state.mapping?.surfaces||[]).filter(s=>s.kind==='3d');
+  if(m.t==='master')remote.master=Math.min(1,Math.max(0,+m.v||0));
+  else if(m.t==='black'){remote.black=!!m.on;message(remote.black?'Blackout':'Blackout off');}
+  else if(m.t==='tap')clockTap();
+  else if(m.t==='next'){for(const s of ss())map3d.autoNext(s.id);message('Next look');}
+  else if(m.t==='auto')mapEdit(x=>{for(const t of x.surfaces)if(t.kind==='3d')t.fx={...t.fx,auto:{...t.fx.auto,on:!!m.on}};},`Animate autopilot ${m.on?'on':'off'}`);
+  else if(m.t==='cue'&&Number.isInteger(m.i))launchCue(m.i);
+  remoteSend();}
+function remoteAdd(L){L.onmessage=remoteDo;remote.links.add(L);}
+try{remote.local=localLink();remoteAdd(remote.local);}catch{}
+// Every surface's opacity times the remote's Master (0 while Blacked out).
+const remoteDim=m=>remote.black||remote.master<1?{...m,surfaces:m.surfaces.map(s=>({...s,opacity:s.opacity*(remote.black?0:remote.master)}))}:m;
+function launchCue(i){const ss=(state.mapping?.surfaces||[]).filter(s=>s.kind==='3d'&&s.cues?.[i]);if(!ss.length)return false;cueLast=i;
+  for(const s of ss)if(s.fx.auto?.on)map3d.autoCue(s.id,s.cues[i].fx,s.cues[i].name);
+  mapEdit(x=>{for(const t of x.surfaces)if(t.kind==='3d'&&t.cues?.[i]){const c=t.cues[i];t.post=clone(c.post);
+    if(!t.fx.auto?.on){const f={...clone(c.fx),auto:t.fx.auto,repick:t.fx.repick};for(const k of map3d.FX_KEYS)f[k]={...f[k],fade:true};t.fx=map3d.cleanFx(f);}}},`Cue ${i+1}: ${ss[0].cues[i].name}`);
+  remoteSend?.();return true;}
+sensors.onMidiMessage(m=>{if(m.kind==='on'&&m.num>=36&&m.num<=44&&state.mapping?.on)launchCue(m.num-36);});
 function mapKey(e){
   if(!mapMode||!mapSel)return false;const s=selSurface();if(!s)return false;
   const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];

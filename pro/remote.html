@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0b0d12">
+<title>Audiograph Remote</title>
+<style>
+  :root{--bg:#0b0d12;--card:#151924;--line:#262c3b;--ink:#e9ecf3;--dim:#8a93a8;--acc:#7c9cff;--hot:#ff5d73;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:14px 14px 28px;user-select:none}
+  h1{font-size:17px;margin:0 0 2px;font-weight:650;letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:12px;min-height:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+  .row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .row.two{grid-template-columns:1fr 1fr}
+  button{appearance:none;border:1px solid var(--line);background:#1d2231;color:var(--ink);border-radius:12px;font:inherit;font-weight:600;padding:16px 6px;min-height:58px;touch-action:manipulation}
+  button:active{transform:scale(.97);background:#28304a}
+  button.on{background:var(--acc);border-color:var(--acc);color:#0b0d12}
+  button.hot.on{background:var(--hot);border-color:var(--hot);color:#fff}
+  button:disabled{opacity:.35}
+  .label{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.8px;margin:0 0 8px}
+  input[type=range]{width:100%;height:44px;accent-color:var(--acc)}
+  .now{font-size:20px;font-weight:650}
+  .meta{color:var(--dim);font-size:13px;margin-top:2px}
+  .pair{text-align:center}
+  .pair canvas{width:min(78vw,300px);height:auto;background:#fff;border-radius:10px;padding:10px;image-rendering:pixelated}
+  .code{font:12px/1.3 ui-monospace,Menlo,monospace;word-break:break-all;background:#0f121a;border:1px solid var(--line);border-radius:8px;padding:8px;margin:10px 0;color:var(--dim);user-select:all}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<h1>Audiograph Remote</h1>
+<div class="sub" id="status">Connecting…</div>
+
+<div class="card pair hide" id="pair">
+  <p class="label">Give this code to the studio</p>
+  <canvas id="qr"></canvas>
+  <div class="code" id="answer"></div>
+  <button id="copy" type="button" style="width:100%">Copy code</button>
+  <p class="meta">In the studio: Mapping › Output › Remote › paste it into “Phone's code” (or Scan with webcam).</p>
+</div>
+
+<div id="deck" class="hide">
+  <div class="card">
+    <p class="label">Now playing</p>
+    <div class="now" id="look">—</div>
+    <div class="meta" id="meta"></div>
+  </div>
+  <div class="card">
+    <p class="label">Master</p>
+    <input type="range" id="master" min="0" max="100" value="100">
+    <div class="row two"><button id="black" class="hot" type="button">Blackout</button><button id="auto" type="button">Autopilot</button></div>
+  </div>
+  <div class="card">
+    <div class="row two"><button id="next" type="button">Next look</button><button id="tap" type="button">Tap tempo</button></div>
+  </div>
+  <div class="card">
+    <p class="label">Cues</p>
+    <div class="row" id="cues"></div>
+  </div>
+</div>
+
+<script type="module">
+import {joinLink,localLink} from './remote-link.js';
+import qrcode from './vendor/qrcode.js';
+const $=id=>document.getElementById(id),st={};
+let link=null;
+function draw(code){const q=qrcode(0,'L');q.addData(code);q.make();const n=q.getModuleCount(),c=$('qr'),k=6;c.width=c.height=n*k;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.fillStyle='#000';for(let r=0;r<n;r++)for(let col=0;col<n;col++)if(q.isDark(r,col))x.fillRect(col*k,r*k,k,k);}
+const send=m=>link?.send(m);
+function show(m){Object.assign(st,m);$('look').textContent=st.look||'—';
+  $('meta').textContent=[st.section,st.bpm?Math.round(st.bpm)+' BPM':'',st.surfaces===0?'No 3D surface':''].filter(Boolean).join(' · ');
+  $('auto').classList.toggle('on',!!st.auto);$('black').classList.toggle('on',!!st.black);
+  if(document.activeElement!==$('master'))$('master').value=Math.round((st.master??1)*100);
+  const cs=$('cues'),names=st.cues||[];if(cs.dataset.k!==names.join('|')+st.cue){cs.dataset.k=names.join('|')+st.cue;cs.textContent='';
+    for(let i=0;i<9;i++){const b=document.createElement('button');b.type='button';b.textContent=names[i]?`${i+1} · ${names[i]}`:String(i+1);b.disabled=!names[i];b.classList.toggle('on',st.cue===i);b.onclick=()=>send({t:'cue',i});cs.append(b);}}}
+function ready(){$('pair').classList.add('hide');$('deck').classList.remove('hide');$('status').textContent='Connected';send({t:'hello'});}
+async function start(){
+  const offer=new URLSearchParams(location.hash.slice(1)).get('o');
+  if(!offer){link=localLink();link.onmessage=m=>{if(m.t==='state'){show(m);if($('deck').classList.contains('hide'))ready();}};link.send({t:'hello'});
+    $('status').textContent='Looking for the studio on this computer…';setTimeout(()=>{if($('deck').classList.contains('hide'))$('status').textContent='No studio found. Open the Pro studio in this browser, or scan the QR code it shows in Mapping › Output › Remote.';},1500);return;}
+  $('status').textContent='Pairing…';
+  try{link=await joinLink(offer);}catch(e){$('status').textContent='Could not pair: '+e.message;return;}
+  link.onmessage=m=>{if(m.t==='state')show(m);};link.onstate=s=>{if(s==='open')ready();else{$('status').textContent='Disconnected — scan the studio\u2019s code again.';$('deck').classList.add('hide');}};
+  $('answer').textContent=link.answer;draw(link.answer);$('pair').classList.remove('hide');$('status').textContent='Almost there';
+  $('copy').onclick=async()=>{try{await navigator.clipboard.writeText(link.answer);$('copy').textContent='Copied';}catch{$('copy').textContent='Select the code above and copy it';}};
+}
+$('master').oninput=e=>send({t:'master',v:e.target.value/100});
+$('black').onclick=()=>send({t:'black',on:!st.black});
+$('auto').onclick=()=>send({t:'auto',on:!st.auto});
+$('next').onclick=()=>send({t:'next'});
+$('tap').onclick=()=>send({t:'tap'});
+start();
+</script>
+</body>
+</html>

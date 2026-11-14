@@ -1,4 +1,4 @@
-import {clean3d,render3d,cleanAuto} from './map3d.js';
+import {clean3d,render3d,cleanAuto,cleanAiTex} from './map3d.js';
 // Projection mapping: the finished picture (or one layer) is cropped, masked and warped onto surfaces.
 // A surface is a grid of control points in output space (0–1). A 1×1 grid is a true perspective corner pin
 // (homography); bigger grids bend smoothly through every point (Catmull-Rom) for curved or uneven walls.
@@ -34,19 +34,25 @@ export function cleanMapping(m){
     const pts=s.pts.map(p=>{if(!Array.isArray(p)||p.length!==2)throw Error('Invalid mapping point');return [num(p[0],-1,2,0),num(p[1],-1,2,0)];});
     const c=Array.isArray(s.crop)&&s.crop.length===4?s.crop.map((v,i)=>num(v,0,1,i<2?0:1)):[0,0,1,1];
     if(c[2]-c[0]<.01||c[3]-c[1]<.01)throw Error('Mapping crop is too small');
-    const source=s.source==='all'||s.source===undefined?'all':Math.round(num(s.source,1,4,1));
+    const source=s.source==='ai'?'ai':s.source==='all'||s.source===undefined?'all':Math.round(num(s.source,1,4,1));
     if(s.wrap!==undefined&&!['flat','cap'].includes(s.wrap))throw Error('Invalid mapping wrap');
     if(s.wrap==='cap'&&(cols!==1||rows!==1))throw Error('Cube cap needs four corners');
     return {id,name:typeof s.name==='string'&&s.name.trim()?s.name.slice(0,40):`Surface ${k+1}`,source,cols,rows,pts,crop:c,
-      opacity:num(s.opacity,0,1,1),feather:num(s.feather,0,.5,0),mask:s.mask==='ellipse'?'ellipse':'rect',...(s.wrap!==undefined?{wrap:s.wrap}:{}),...(a=>a.length?{auto:a}:{})(cleanAuto(s.auto).filter(k=>k.startsWith('crop')))};
+      opacity:num(s.opacity,0,1,1),feather:num(s.feather,0,.5,0),mask:s.mask==='ellipse'?'ellipse':'rect',...cleanAiTex(s.ai),...(s.wrap!==undefined?{wrap:s.wrap}:{}),...(a=>a.length?{auto:a}:{})(cleanAuto(s.auto).filter(k=>k.startsWith('crop')))};
   });
   // Older cube presets used a rectangle on the cap, which cannot meet both side crops at their shared vertex.
   const top=surfaces.find(s=>s.id==='top'),left=surfaces.find(s=>s.id==='left'),right=surfaces.find(s=>s.id==='right');
   if(top&&left&&right&&top.kind!=='3d'&&left.kind!=='3d'&&right.kind!=='3d'&&top.wrap===undefined&&top.cols===1&&top.rows===1&&
     JSON.stringify([top.crop,left.crop,right.crop])==='[[0,0,1,0.5],[0,0.5,0.5,1],[0.5,0.5,1,1]]'&&
     JSON.stringify([corners(top)[0],corners(top)[2],corners(top)[3]])===JSON.stringify([corners(left)[0],corners(right)[1],corners(left)[1]]))top.wrap='cap';
-  return {on:!!m.on,test:!!m.test,surfaces};
+  const pj=m.projectors,count=pj&&typeof pj==='object'?Math.round(num(pj.count,1,4,1)):1;
+  return {on:!!m.on,test:!!m.test,surfaces,...(count>1?{projectors:{count,overlap:num(pj.overlap,0,.4,.15),gamma:num(pj.gamma,1,3,2.2)}}:{})};
 }
+// Projectors side by side share the picture: each shows a slice (x, w as fractions of the picture's width) that overlaps its
+// neighbours by `overlap` of its own width; across an overlap each fades with a smooth ramp, gamma-corrected so the light adds up evenly.
+export function projectorSlices(p){const n=p?.count||1,o=n>1?p.overlap:0,w=1/(n-(n-1)*o);
+  return Array.from({length:n},(_,i)=>({x:i*w*(1-o),w,left:i>0?o:0,right:i<n-1?o:0}));}
+export function blendRamp(t,gamma=2.2){const s=Math.min(1,Math.max(0,t)),r=s*s*(3-2*s);return Math.pow(r,1/gamma);}
 
 // ---------- geometry ----------
 function homography(q){
@@ -121,7 +127,7 @@ function testCard(x,w,h,s,index){
 export function render(ctx,mapping,sources,W,H,time=0,sig=null){
   ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.restore();
   mapping.surfaces.forEach((s,index)=>{
-    const img=sources(s.source);if(!img&&!mapping.test)return;
+    const img=sources(s.source,s);if(!img&&!mapping.test)return;
     if(s.kind==='3d'){let tex=img;if(mapping.test){tex=scratch('3d-card',W,H);testCard(tex.getContext('2d'),W,H,s,index);}render3d(ctx,s,tex,W,H,time,mapping.test,sig);return;}
     const [l,t,r,b]=s.crop,cw=Math.max(2,Math.round((r-l)*W)),ch=Math.max(2,Math.round((b-t)*H)),c=scratch(s.id,cw,ch),x=c.getContext('2d');
     x.globalCompositeOperation='source-over';x.clearRect(0,0,cw,ch);
