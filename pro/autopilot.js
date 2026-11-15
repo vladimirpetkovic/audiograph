@@ -298,6 +298,8 @@ export function build(it,{seed=Date.now(),energy:forced=null,match=85}={}){
     if(explore>.3&&r()<explore*.6){const m2=pick(r,E>60?hot:calm);if(m2!==m&&!(SIM_MODES.includes(m)&&SIM_MODES.includes(m2)))visuals.push({mode:m2,type:typeOf(m2),colors:null});}
   }
   if(it.text)visuals.unshift({mode:'text',type:'text',colors:null});
+  // Like Ripples: a lone particle field gets a fine line accent to hold the shape.
+  if(!it.layers&&visuals.length===1&&visuals[0].mode==='simparticles'&&!visuals[0].camera&&r()<.6){const m=pick(r,['phyllotaxis','circle']);visuals.push({mode:m,type:typeOf(m),colors:null});}
   const want=clamp(it.layers||visuals.length,1,3);visuals=visuals.slice(0,want);
   while(visuals.length<want){const m=pick(r,['scatter','concentric','spiral','circle']);if(!visuals.some(v=>v.mode===m))visuals.push({mode:m,type:typeOf(m),colors:null});}
   const base=it.colors||moodPalette(r,E,it.dark);
@@ -315,6 +317,8 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   if(v.type==='text'){props.text=it.text;props.scale=it.scale??130;props.thick=it.thick??1.5;}
   else if(!['gpuParticles','cloner'].includes(v.type)){props.mode=v.mode;Object.assign(props,LOOK[v.mode]||{});}
   if(v.type==='gpuParticles')props.mode=v.mode;
+  // Particles start from the Ripples recipe: a wrapping ring, coloured by age, a little turbulence; forces named in the description add to it.
+  if(v.mode==='simparticles'&&!v.camera)props.look={pSpTurb:Math.round(32+E*.2),pSpTurbScale:43,pSpTrail:55,pSimBloom:0,_sim:{pEmit:'ring',pBounds:'wrap',pColor:'age'}};
   const mo={},T=TYPES[v.type].props,set=(k,val)=>{if(T[k]&&val!=null){const s=T[k];props[k]=s.kind==='number'?clamp(val,s.min,s.max):val;}};
   if(!sim){
     set('thick',it.thick!=null?it.thick:(props.thick??1.5)*(E>70?1.4:E<35?.8:1));
@@ -432,9 +436,11 @@ export function enhance(g,it,{seed=1,energy=50,match=85,primary=true}={}){
     const pool=E<40?['breath','colour','wobble','clock']:E>70?['strobe','glitch','zoom','random','wobble','force']:['breath','colour','zoom','wobble','random','force'];
     const n=1+Math.floor(r()*(1+2*explore));for(let j=0;j<n;j++){const k=pick(r,pool.filter(k=>!kinds.includes(k)));if(k)kinds.push(k);}
   }
+  // A mask the description asks for keeps its share of the budget; random extras only get what is left.
+  const reserve=it.mask&&!off('mask')?FX_COST.mask+(it.mask.kind==='text'?FX_COST.plainText:FX_COST.shader):0;spent+=reserve;
   if(roam||r()<explore*.6){const combos=E<40?[['trails',{trails:35}],['blur',{x:5}],['liquidGlass',{refraction:25,speed:14,bass:25,beat:10}],['feedback',{decay:.66,zoom:1.008,rotate:.2}]]:E>70?[['glitch',{amount:24,react:'always'}],['strobe',{amount:24,safe:true,every:'2'}],['tunnel',{speed:16,kick:22}],['fracture',{mode:'flow'}],['kaleido',{kaleido:3}]]:[['melt',{amount:26,speed:20}],['trails',{trails:45}],['lens',{chroma:18,vignette:25}],['feedback',{decay:.75,zoom:1.015,rotate:.4}],['shader',{k1:12}]];
     const pool=combos.slice(),n=1+Math.floor(r()*(1+2*explore));for(let j=0;j<n&&pool.length;j++){const [type,p]=pool.splice(Math.floor(r()*pool.length),1)[0];effect(type,p);if(type==='glitch'&&!kinds.includes('glitch'))kinds.push('glitch');if(type==='strobe'&&!kinds.includes('strobe'))kinds.push('strobe');if(type==='tunnel'&&!kinds.includes('zoom'))kinds.push('zoom');}}
-  let mask=it.mask;
+  spent-=reserve;let mask=it.mask;
   if(!mask&&roam&&r()<.12+explore*.24&&!off('mask'))mask={kind:pick(r,['circle','waveform','text']),text:pick(r,['SOUND','FLOW','NOW'])};
   if(mask&&!off('mask')&&!find('mask')&&spent+FX_COST.mask+(mask.kind==='text'?FX_COST.plainText:FX_COST.shader)<=budget){spent+=mask.kind==='text'?FX_COST.plainText:FX_COST.shader;
     // Alpha, not opaque black: Composite Mask uses destination-in, while emitters can also mask by luma.

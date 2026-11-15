@@ -482,6 +482,7 @@ process the finished image.
   Apply expands the current blend into editable nodes. Stacks exceeding the
   eight-renderer limit remain exactly editable through a Preset Morph node.
   Playlist and playback options are remembered, but playback never starts on reload.
+  Templates with WebGPU simulations (Ripples, Ink) morph too: each simulation keeps running through the blend.
 - **Autopilot** (third switch at the top) is the original Audiograph's Automation:
   - Turn it **On** and it listens for the song's sections (breakdown, groove,
     build-up, drop) and at each one slowly crossfades to a fitting variation,
@@ -513,6 +514,11 @@ process the finished image.
     keep motion smooth. The scenes were tuned by rendering each one and
     scoring brightness, coverage, clipping, colour and flicker. The status
     line names the scene.
+  - Particles follow the **Ripples** template's recipe: a ring that wraps, coloured by
+    age through a palette whose darkest stop is clear (old particles fade out),
+    gentle turbulence and no bloom; energy only nudges the flow (sometimes an orbit
+    or rising embers). Embers pairs them with fine phyllotaxis or circle lines, and a
+    description that asks only for particles often gets the same line accent.
   - **Describe** is optional: mood, colours, emitters, line style and motion
     (*"slow dreamy blue and gold spirals"*, *"ocean smoke"*, *"neon particles,
     fast"*). The line under it shows what it read. Typing builds after a

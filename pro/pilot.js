@@ -115,7 +115,7 @@ export const SCENES=[
   {id:'shatter',label:'Shatter',E:[70,100],base:['concentric','sphere'],accent:['spiral'],shapes:['rounded','caps','straight'],harmony:'complement',fx:{pfxBloom:40,pfxFracture:true,pfxFracMode:'flow',pfxFracCells:36,pfxFracDisp:45,pfxFracBass:110}},
   {id:'tunnel',label:'Tunnel',E:[45,95],base:['spiral','concentric'],accent:null,shapes:['tapered','needles','straight'],harmony:'analogous',fx:{pfxTrails:55,pfxFeedback:35,pfxBloom:30}},
   {id:'stars',label:'Constellation',E:[0,55],base:['graph','scatter'],accent:['phyllotaxis'],shapes:['dotted','circles','pins'],harmony:'mono',fx:{pfxBloom:55,pfxEdgeGlow:20,pfxVignette:30}},
-  {id:'embers',label:'Embers',E:[55,100],sim:true,base:['simparticles'],accent:['sphere','knot'],shapes:['straight','pins'],harmony:'complement',fx:{pfxBloom:40,pfxVignette:30}},
+  {id:'embers',label:'Embers',E:[55,100],sim:true,base:['simparticles'],accent:['phyllotaxis','circle'],shapes:['straight','dotted'],harmony:'complement',fx:{pfxVignette:25}},
   {id:'mirror',label:'Mirror garden',E:[15,75],base:['phyllotaxis','spiral','sacred'],accent:['circle'],shapes:['tapered','rounded'],harmony:'analogous',fx:{pfxReflect:40,pfxBloom:30,pfxVignette:25}},
   {id:'prism',label:'Prism',E:[60,100],base:['cube','knot','tetrahedron'],accent:['concentric','circle'],shapes:['straight','caps','pins'],harmony:'triad',fx:{pfxBloom:48,pfxEdgeGlow:22,pfxChroma:22,pfxVignette:30}}
 ];
@@ -204,6 +204,7 @@ export class Generator{
     // Pro tunes each simulation's response itself (smoke clips to white at full punch), so only glow and pace follow the music.
     for(const k of ['pSimEnergy','pSimBass','pSimSens','pSimExpo','pSimBurst','pSimReact','pSimAttack','pSimRelease'])delete p[k];
     p.pSimBloom=Math.round(Math.min(s.glow,40)*.5);p.pSimSpeed=Math.round(85+e*30);
+    if(l.layout==='simparticles')this.ripple(w,p,s);
     if('pSpAmount' in p)p.pSpAmount=Math.min(p.pSpAmount,100);
     p.pSfIter=Math.min(p.pSfIter||24,16);p.pSmIter=Math.min(p.pSmIter||24,16);
     // Hot, thick smoke presets saturate to white once coloured: keep them in the ramp's range.
@@ -219,6 +220,23 @@ export class Generator{
     p._particlesOn=false;p._spin=0;p._symmetryMode='none';p._simId=1;
     const fx=w.pfxNorm(p._postFx);fx.pfxTrails=0;p._postFx=fx;
     return l;
+  }
+  // Particles read best the way the Ripples template sets them: the original's calm defaults, a ring that wraps,
+  // colour by age through a ramp whose first stop is clear (young sparks glow, old ones fade out), no bloom.
+  // Energy only nudges the flow; the showy presets (fireworks, dust storms) turn into noise when they change every phrase.
+  ripple(w,p,s){
+    const e=s.energy/100,r=Math.random,d=w.getDefaultLayerParams?.()||{};
+    for(const k of Object.keys(p))if(/^pSp/.test(k)&&k in d)p[k]=d[k];
+    const v=r()<.7?'ring':any(['orbit','embers']);
+    Object.assign(p,{pSpTurb:Math.round(32+e*14+r()*8),pSpTurbScale:Math.round(38+r()*14),pSpTrail:Math.round(50+r()*15)});
+    if(v==='orbit')Object.assign(p,{pSpAttract:30+Math.round(r()*15),pSpSwirl:55+Math.round(r()*15)});
+    if(v==='embers')Object.assign(p,{pSpGravity:-(15+Math.round(r()*20)),pSpTurb:Math.round(42+e*10)});
+    p._sim={...p._sim,pEmit:v==='orbit'?'orbit':'ring',pBounds:'wrap',pColor:'age'};
+    p.pSimBloom=Math.round(r()*6);p.pSimSpeed=Math.round(90+e*20);
+    const ts=Array.isArray(p._toneStops)?p._toneStops.slice():null;
+    if(ts&&ts.length>2&&/^#[0-9a-f]{6}$/i.test(ts[0]))ts[0]+='00';
+    if(ts)p._toneStops=ts;
+    p._colorMode='toneramp';
   }
   // spec → layer, with the original's renderer (Pro solids use the original's 3D object layout).
   toLayer(w,s){

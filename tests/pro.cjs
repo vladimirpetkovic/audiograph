@@ -665,7 +665,16 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
        const want={orbit:'pfxVignette',mandala:'pfxKaleido',prism:'pfxChroma'}[id];
        assert.ok(base.enabled&&base[want]>0,`${id}: base layer carries ${want} ${JSON.stringify(base)}`);
        assert.ok(await page.evaluate(()=>{const L=pro.getProject().layers,k=pro.autopilot.status().slots.findIndex(s=>s.role===0);return L.findIndex(g=>g.id==='ap-L'+k)===L.findIndex(g=>g.opacity>0);}),'The base draws beneath its accents');
-       assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],`${id}: renders without errors`);}}
+       assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[],`${id}: renders without errors`);}
+     // Particles follow the Ripples recipe: a wrapping ring coloured by age through a clear first stop, little bloom, calm turbulence.
+     await page.evaluate(()=>pro.autopilot.scene('embers','drop'));await settle();
+     const sp=await page.evaluate(()=>pro.getProject().layers.flatMap(g=>g.nodes.filter(n=>n.type==='gpuParticles'&&n.props.mode==='simparticles').map(n=>n.props.look)));
+     const gpu=await page.evaluate(()=>pro.autopilot.status().slots.some(x=>x.layout==='simparticles'));
+     assert.equal(!!sp.length,gpu,'Embers particle layers are WebGPU particle nodes');
+     const built=await page.evaluate(async()=>{const a=await import('/pro/autopilot.js');return a.build(a.parse('glowing particles'),{seed:7}).flatMap(g=>g.nodes).find(n=>n.type==='gpuParticles').props.look;});
+     sp.push({...built,_toneStops:['#00000000']});
+     for(const l of sp){assert.equal(l._sim.pColor,'age','Particles colour by age');assert.equal(l._sim.pBounds,'wrap','Particles wrap');
+       assert.ok(l.pSimBloom<=6&&l.pSpTurb<=60,'Particles stay calm: '+JSON.stringify([l.pSimBloom,l.pSpTurb]));assert.match(l._toneStops[0],/00$/,'The first tone stop is clear');}}
     // Colours and Mood restyle your own project in place.
     await page.evaluate(()=>{pro.loadTemplate('Cloned');pro.autopilot.settings({changes:'colors'});});await lit(.02,25000);
     const pal=()=>page.evaluate(()=>pro.getProject().layers.flatMap(g=>g.nodes.filter(n=>n.type==='palette').map(n=>n.props.stops.map(s=>s.c).join())).join());
@@ -1158,6 +1167,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       return {same,numeric,mid:m.layers[0].params[numeric],expected:(a.layers[0].params[numeric]+b.layers[0].params[numeric])/2,
         different:e.templateBlend('Echo','Firepit',.5).layers.map(l=>({layout:l.layout,opacity:l.opacity}))};
     },morphID);
+    // Morphing a WebGPU-sim template keeps one simulation alive instead of starting a new one every frame.
+    assert.ok(await page.evaluate(id=>{const e=pro.engine(id),s=v=>e.templateBlend('Ripples','Cell',v).layers.find(l=>l.layout==='simparticles').params._simId;return s(.2)&&s(.2)===s(.6);},morphID),'Morphed simulations keep a stable id');
     assert.ok(blends.numeric,'Templates have a varying numeric parameter');
     assert.ok(blends.same,'The interpolation test uses matching layouts');
     assert.equal(blends.mid,blends.expected,'Matching layouts interpolate numeric parameters');

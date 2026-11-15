@@ -423,7 +423,10 @@ export class EmitterEngine {
     };
     const A=normalize(from),B=normalize(to),fx={enabled:true};
     for(const k of new Set([...Object.keys(A.postFx),...Object.keys(B.postFx)]))fx[k]=(A.postFx[k]||0)*(1-mix)+(B.postFx[k]||0)*mix;
-    return {layers:w.pmBlendNorm(A,B,mix),postFx:fx};
+    // Each simulation keeps one id across frames (and across pairs), so it keeps running instead of restarting every frame.
+    const layers=w.pmBlendNorm(A,B,mix),seen={};this.simIds||=new Map();
+    for(const l of layers)if(w._agIsSim(l.layout)){const k=l.layout+':'+(seen[l.layout]=(seen[l.layout]||0)+1);if(!this.simIds.has(k))this.simIds.set(k,w.simNewId());l.params._simId=this.simIds.get(k);}
+    return {layers,postFx:fx};
   }
   // A loaded song is drawn by the original's file loop (animLoop): each line is a slice of the whole song,
   // scaled by the current loudness, exactly like the regular app. Mic, system audio and silence use its live loop.
