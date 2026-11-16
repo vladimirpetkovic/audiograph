@@ -370,7 +370,11 @@ process the finished image.
     Random choose new pieces: Auto (each beat and every 3 s) or every 1, 2, 4 or 8 beats. Each effect's **Fade** eases it in and out
     when switched (about 0.8 s), smooths its music response and crossfades Parts, Random and
     Flicker instead of cutting. **Element** (Explode, Build, Flicker) sets what the picture breaks
-    into: each *Polygon*, a diamond around each *Edge*, or a star around each *Vertex*. Each effect
+    into, an opacity map laid in the object's own space so the mesh's triangles never show: *Cells*
+    (organic shards), *Tiles* (panels across each face), *Bands* (floors up the object) or *Organic*
+    (soft noise islands), all with soft edges. Random, Levels, Echo and Snake use the same
+    object-space maps instead of faces (older Polygon / Edge / Vertex looks load as Cells / Tiles /
+    Organic). Each effect
     is a card: its switch on top, then Element, Map, its own settings, Intensity and Fade. The
     **Mix** card holds Combos, Re-pick and **Autopilot**, a choreographer. It plays curated looks
     (Blueprint, Scan lines, Contour, Floor by floor, Snake, Facade chase, Morph build, Levels,

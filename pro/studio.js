@@ -2868,7 +2868,7 @@ function renderMapAnimate(root,s,upd,knob){
   const F=s.fx,an=mapCat(root,'animate'),set=(fx,k,v,label)=>upd(t=>{t.fx={...t.fx,[fx]:{...t.fx[fx],[k]:v}};},label);
   const chips=(parent,label,fx,k,options,prop)=>parent.append(ui.field(label,ui.chips({options,value:F[fx][k],property:prop,onChange:v=>set(fx,k,v,`${label}: ${v}`)})));
   // Each effect is a card: On/Off and tip in its header; when on, Element (for face effects), Map, its own settings, one knob row led by Intensity, then Fade.
-  const cards=[],ELS=[['poly','Polygon'],['edge','Edge'],['vert','Vertex']];
+  const cards=[],ELS=[['cells','Cells'],['tiles','Tiles'],['bands','Bands'],['organic','Organic']];
   const head=(fx,label,note,prop)=>{const c=el('div','fx-card'+(F[fx].on?' on':'')+(F.auto.on?' fx-dim':''));c.dataset.fx=fx;an.append(c);const h=ui.field(label,ui.toggle({value:F[fx].on,labels:['On','Off'],property:prop,onChange:v=>set(fx,'on',v,`${label} ${v?'on':'off'}`)}));h.classList.add('fx-card-head');c.append(h);if(note)c.append(el('p','insp-note tip',note));
     if(!F[fx].on)return null;const w=el('div','fx-card-body');c.append(w);if('el' in F[fx])chips(w,'Element',fx,'el',ELS,prop+'El');
     chips(w,'Map',fx,'map',[['all','All'],['depth','Depth'],['sound','Sound'],['uv','UV'],['parts','Parts'],['random','Random'],['noise','Noise'],['levels','Levels'],['facades','Facades'],['mirror','Mirror'],['camera','Camera'],...map3d.TAGS.map(t=>[t,t[0].toUpperCase()+t.slice(1)])],prop+'Map');cards.push([fx,label,prop,w]);return w;};

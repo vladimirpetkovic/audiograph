@@ -37,8 +37,11 @@ export const FX_MAPS=['all','depth','sound','uv','parts','random','noise','level
 export const TAGS=['windows','columns','roof','accent'];
 // Parts / Random re-pick: on every beat and every 3 s (auto), or only every N beats.
 export const FX_REPICK=['auto','1','2','4','8'];
-// Element: what Explode, Build and Flicker break the picture into: each polygon, a diamond around each edge or a star around each vertex.
-export const FX_ELEMENTS=['poly','edge','vert'];
+// Element: the opacity map Explode, Build and Flicker break the picture into, laid in the object's own space so the mesh's
+// triangles never show: Cells (organic shards), Tiles (panels), Bands (floors) or Organic (soft noise islands).
+export const FX_ELEMENTS=['cells','tiles','bands','organic'];
+const OLD_ELEMENTS={poly:'cells',edge:'tiles',vert:'organic'};
+const pickEl=v=>pick(OLD_ELEMENTS[v]||v,FX_ELEMENTS);
 // Autopilot phrase: it changes look only every 4, 8 or 16 bars.
 export const FX_AUTO_EVERY=['4','8','16'];
 export const FX_KEYS=['disp','edges','build','explode','flow','scan','shock','flicker','snake','outline','curves','light','morph','echo'];
@@ -50,15 +53,15 @@ export function cleanFx(f={}){const d=f.disp||{},e=f.edges||{},b=f.build||{},x=f
   flow:(()=>{const old=fl.dir==='spin';return {on:!!fl.on,dir:pick(old?'up':fl.dir,['up','side','diag']),move:clamp(fl.move??(old?0:fl.speed),-2,2,.3),rotate:clamp(fl.rotate??(old?fl.speed:0),-2,2,0),scale:clamp(fl.scale,0,1,0),zspeed:clamp(fl.zspeed,.05,4,.5),drive:pick(fl.drive,FX_DRIVES.flow)};})(),
   scan:{on:!!sc.on,axis:pick(sc.axis,['up','across','depth']),speed:clamp(sc.speed,.05,4,.5),width:clamp(sc.width,.02,.5,.1),drive:pick(sc.drive,FX_DRIVES.scan)},
   shock:{on:!!sh.on,from:pick(sh.from,['bottom','top','side']),width:clamp(sh.width,.02,.3,.08),drive:pick(sh.drive,FX_DRIVES.shock)},
-  flicker:{on:!!fk.on,amount:clamp(fk.amount,0,1,.6),speed:clamp(fk.speed,.5,20,4),drive:pick(fk.drive,FX_DRIVES.flicker),el:pick(fk.el,FX_ELEMENTS)},
+  flicker:{on:!!fk.on,amount:clamp(fk.amount,0,1,.6),speed:clamp(fk.speed,.5,20,4),drive:pick(fk.drive,FX_DRIVES.flicker),el:pickEl(fk.el)},
   snake:{on:!!sn.on,speed:clamp(sn.speed,.02,2,.3),length:clamp(sn.length,.02,.5,.12),count:Math.round(clamp(sn.count,1,8,2))},
   outline:{on:!!ol.on,width:clamp(ol.width,.05,1,.5),drive:pick(ol.drive,FX_DRIVES.outline)},
   curves:{on:!!cv.on,amount:clamp(cv.amount,0,2,.8),drive:pick(cv.drive,FX_DRIVES.curves)},
   light:{on:!!li.on,amount:clamp(li.amount,0,1,.6),speed:clamp(li.speed,0,2,.3),drive:pick(li.drive,FX_DRIVES.light)},
   disp:{on:!!d.on,amount:clamp(d.amount,0,1,.3),pattern:pick(d.pattern,['ripple','swell','noise']),drive:pick(d.drive,FX_DRIVES.disp),speed:clamp(d.speed,0,4,1)},
   edges:{on:!!e.on,mode:pick(e.mode,['trace','pulse','sweep']),width:clamp(e.width,1,16,3),speed:clamp(e.speed,.05,4,1),angle:clamp(e.angle,1,90,10),fill:clamp(e.fill,0,1,.35)},
-  build:{on:!!b.on,order:pick(b.order,['up','out','random']),drive:pick(b.drive,FX_DRIVES.build),speed:clamp(b.speed,.02,2,.2),el:pick(b.el,FX_ELEMENTS)},
-  explode:{on:!!x.on,amount:clamp(x.amount,0,2,.5),drive:pick(x.drive,FX_DRIVES.explode),el:pick(x.el,FX_ELEMENTS)}};
+  build:{on:!!b.on,order:pick(b.order,['up','out','random']),drive:pick(b.drive,FX_DRIVES.build),speed:clamp(b.speed,.02,2,.2),el:pickEl(b.el)},
+  explode:{on:!!x.on,amount:clamp(x.amount,0,2,.5),drive:pick(x.drive,FX_DRIVES.explode),el:pickEl(x.el)}};
   // Map: where on the object each effect shows (everywhere, near the projector, by the spectrum, along the UVs, on random parts or faces).
   for(const k of FX_KEYS){o[k].map=pick(f[k]?.map,FX_MAPS);o[k].fade=!!f[k]?.fade;o[k].mix=clamp(f[k]?.mix,0,1,1);}o.repick=pick(String(f.repick??'auto'),FX_REPICK);const au=f.auto||{};o.auto={on:!!au.on,every:pick(String(au.every??'8'),FX_AUTO_EVERY),count:Math.round(clamp(au.count,1,4,2)),maps:au.maps!==false};return o;}
 export function surface3d(id,name='3D object'){return clean3d({id,name,kind:'3d'});}
@@ -107,12 +110,21 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
     if(fpost.z>1.5){vec2 c=p-.5;float r=length(c),s=6.2832/fpost.z,a=mod(atan(c.y,c.x)+fpost.w,s);a=abs(a-s*.5);p=.5+r*vec2(cos(a),sin(a));}return p;}
   float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
   float vn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}
-  // Element cells: Polygon is each triangle; Edge a diamond around each mesh edge and Vertex a star around each vertex, both spanning the neighbouring faces.
-  // key: the cell's random number (from its position, so neighbouring faces agree); m: distance to the cell border (0 on it, about 1/3 at its middle); C: its centre.
-  float ckey(vec3 p){return h3(floor((p-lo)/span*4096.+.5)*.01);}
-  void cell(float e,out float key,out float m,out vec3 C){if(e<.5){key=frnd;m=min(bary.x,min(bary.y,bary.z));C=fcen;return;}vec3 P[3]=vec3[3](tA,tB,tC);
-    if(e<1.5){int i=bary.x<=bary.y&&bary.x<=bary.z?0:bary.y<=bary.z?1:2,j=(i+1)%3,k=(i+2)%3;C=(P[j]+P[k])*.5;key=ckey(C);m=(min(bary[j],bary[k])-bary[i])*.66;return;}
-    int i=bary.x>=bary.y&&bary.x>=bary.z?0:bary.y>=bary.z?1:2;C=P[i];key=ckey(C);m=(bary[i]-max(bary[(i+1)%3],bary[(i+2)%3]))*.33;}
+  // Element opacity maps, in object space (the triangulation never shows): Cells are organic shards, Tiles panels across each face,
+  // Bands floors up the object and Organic soft noise islands. key: the region's random number; m: distance to its border
+  // (0 on it, about 1/3 in the middle); C: its centre.
+  vec3 h33(vec3 p){return fract(sin(vec3(dot(p,vec3(127.1,311.7,74.7)),dot(p,vec3(269.5,183.3,246.1)),dot(p,vec3(113.5,271.9,124.6))))*43758.5453);}
+  void vor(vec3 q,out float d1,out float d2,out vec3 id){vec3 i=floor(q),f=fract(q);d1=8.;d2=8.;id=i;
+    for(int z=-1;z<=1;z++)for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec3 g=vec3(x,y,z);float d=length(g+.15+.7*h33(i+g)-f);if(d<d1){d2=d1;d1=d;id=i+g;}else if(d<d2)d2=d;}}
+  float vkey(vec3 q){float a,b;vec3 id;vor(q,a,b,id);return h3(id*.37+1.3);}
+  vec3 oq(){return (obj-lo)/max(span.x,max(span.y,span.z));}
+  void cell(float e,out float key,out float m,out vec3 C){float S=max(span.x,max(span.y,span.z));vec3 q=oq();
+    if(e<.5){float K=5.,d1,d2;vec3 id;vor(q*K,d1,d2,id);key=h3(id*.37+1.3);m=(d2-d1)*.75;C=lo+(id+.5+.35*(h33(id)-.5))/K*S;return;}
+    if(e<1.5){float K=6.;vec3 p=q*K+.5,id=floor(p),f=fract(p),b=min(f,1.-f),n=abs(normalize(cross(dFdx(obj),dFdy(obj))));
+      m=(n.x>=n.y&&n.x>=n.z?min(b.y,b.z):n.y>=n.z?min(b.x,b.z):min(b.x,b.y))*.66;key=h3(id*.71+2.9);C=lo+(id-.5+.5)/K*S;return;}
+    if(e<2.5){vec3 c=(obj-lo)/span;float N=8.,h=clamp(upAxis==1?c.z:c.y,0.,.9999)*N,id=floor(h),f=h-id;m=min(f,1.-f)*.66;key=h3(vec3(id,7.,3.));C=obj;
+      if(upAxis==1)C.z=lo.z+(id+.5)/N*span.z;else C.y=lo.y+(id+.5)/N*span.y;return;}
+    float v=clamp((vn(q*1.7+3.1)-.5)*2.+.5,0.,.9999)*3.,id=floor(v),f=v-id;m=min(f,1.-f)*.66;key=h3(vec3(id,1.7,9.1));C=obj;}
   // Map: how much effect i shows here (1 everywhere for All).
   // Parts and Random: with Fade on, the old pick crossfades into the new one.
   float pick(float x,int i){float b=step(.5,fract(x+fseed.y*.618034));return fsoft[i]>.5?mix(step(.5,fract(x+fseed.x*.618034)),b,fseed.z):b;}
@@ -126,11 +138,11 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
     if(m==3)return smoothstep(.35,.65,.5+.5*sin((tex.x*3.+tex.y*2.)*6.2832-time*1.5));
     if(m==4)return pick(fpart,i);
     if(m==6)return smoothstep(.42,.58,vn((obj-lo)/span*2.5+vec3(0,time*.25,time*.15)));
-    if(m>=7){vec3 c=clamp((fcen-lo)/span,0.,.999);float h=upAxis==1?c.z:c.y;
+    if(m>=7){vec3 c=clamp((obj-lo)/span,0.,.999);float h=upAxis==1?c.z:c.y;
       if(m==7){float b=floor(h*6.);return exp(-mod(fstep-b,6.)*1.1);}
       if(m==8){vec3 n=normalize(nrm);float up=upAxis==1?n.z:n.y,a=upAxis==1?atan(n.y,n.x):atan(n.z,n.x),side=abs(up)>.7?4.:mod(floor(a/1.5708+.5),4.);return 1.-step(.5,abs(side-mod(floor(fstep*.5),5.)));}
       return pick(h3(vec3(floor(abs(c.x-.5)*8.),floor(h*6.),3.)),i);}
-    return pick(frnd,i);}
+    return pick(vkey(oq()*3.),i);}
   // fpres: how far the effect has faded in (1 without Fade).
   float msk(int i){return msk0(i)*fpres[i];}
   // Echo: the picture from a few frames ago, delayed more the higher (or nearer, further out, or per face) the point is.
@@ -147,9 +159,9 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
   float aoSmooth(){ivec2 c=ivec2(gl_FragCoord.xy),hi=ivec2(size)-1;float a=0.,w=0.;for(int y=-2;y<2;y++)for(int x=-2;x<2;x++){ivec2 p=clamp(c+ivec2(x,y),ivec2(0),hi);vec4 q=texelFetch(posTex,p,0);if(q.w<.5||distance(q.xyz,wpos)>aoRadius*.3)continue;a+=texelFetch(aoTex,p,0).r;w+=1.;}return w>0.?a/w:1.;}
   void main(){if(pass==1){color=vec4(wpos,1.);return;}if(pass==2){color=vec4(vec3(occlusion()),1.);return;}vec2 t=tex;if(mode==1)t=gl_FragCoord.xy/size;if(wire){color=vec4(.15,1.,.75,1.);return;}float dw=.5,dmk=0.;
     // Explode: each cell's picture slides by its own random offset. Build: cells appear in height, distance or random order; the growing front glows.
-    float ek,em,bk,bm;vec3 eC,bC;cell(felem.x,ek,em,eC);cell(felem.y,bk,bm,bC);float ang=ek*6.2832;shift=vec2(cos(ang),sin(ang))*explode.x*.12*(.35+ek)*msk(3);
+    float ek=0.,em=1.,bk=0.,bm=1.;vec3 eC=obj,bC=obj;if(explode.x>0.||explode.y>0.)cell(felem.x,ek,em,eC);if(build.x>.5)cell(felem.y,bk,bm,bC);float ang=ek*6.2832;shift=vec2(cos(ang),sin(ang))*explode.x*.12*(.35+ek)*msk(3);
     float bgrow=1.,bglow=0.;if(build.x>.5){vec3 c=(bC-lo)/span;float k=build.z<.5?(upAxis==1?c.z:c.y):build.z<1.5?length(c-.5)*1.1547:bk;k=clamp(k,0.,1.)*.9;bgrow=smoothstep(k,k+.1,build.y);bglow=bgrow>0.&&bgrow<1.?1.-bgrow:0.;}
-    if(fecho.x>0.){vec3 c=(obj-lo)/span;float e=fecho.w<.5?(upAxis==1?c.z:c.y):fecho.w<1.5?vdep:fecho.w<2.5?length(c-.5)*1.1547:frnd;edel=clamp(e,0.,1.);emk=fecho.x*msk(13);}
+    if(fecho.x>0.){vec3 c=(obj-lo)/span;float e=fecho.w<.5?(upAxis==1?c.z:c.y):fecho.w<1.5?vdep:fecho.w<2.5?length(c-.5)*1.1547:vkey(oq()*4.);edel=clamp(e,0.,1.);emk=fecho.x*msk(13);}
     // Morph: a flowing noise field in object space warps the picture, continuous across faces, so the mesh never moves.
     if(fmorph.x>0.){vec3 q=(obj-lo)/span*fmorph.z;float T=fmorph.w;vec2 w;
       if(fmorph.y<.5){vec3 a=vec3(vn(q+T),vn(q+vec3(5.2,1.3,2.8)-T*.7),vn(q+vec3(9.1,4.7,3.3)+T*.5));w=vec2(vn(q+a*2.5+vec3(1.7,9.2,0)+T*.3),vn(q+a*2.5+vec3(8.3,2.8,4.1)-T*.4))-.5;}
@@ -175,12 +187,12 @@ if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(
     if(fshock.x>0.){vec3 c0=color.rgb;vec3 p0=fshock.w>1.5?vec3(0.,.5,.5):upAxis==1?vec3(.5,.5,fshock.w<.5?0.:1.):vec3(.5,fshock.w<.5?0.:1.,.5);float d=length(c01-p0)/1.23,g=exp(-pow((d-fshock.y)/fshock.z,2.))*fshock.x;color.rgb=mix(color.rgb,cs,min(g*1.5,1.));color.rgb=mix(c0,color.rgb,msk(6));}
     // Flicker: random faces flash and others go dark.
     if(fflick.x>.5){vec3 c0=color.rgb,fC;float fk,fm_;cell(felem.z,fk,fm_,fC);float ft=time*fflick.z,h=step(.5,fract(sin((fk*91.7+floor(ft))*78.233)*43758.5453));if(fsoft[7]>.5)h=mix(h,step(.5,fract(sin((fk*91.7+floor(ft)+1.)*78.233)*43758.5453)),smoothstep(0.,1.,fract(ft)));color.rgb=mix(color.rgb,mix(color.rgb*.15,cs,h),fflick.y);color.rgb=mix(c0,color.rgb,msk(7));}
-    // Snake: lit faces crawl across the mesh from face to neighbouring face.
-    if(fsnake.x>.5){vec3 c0=color.rgb;float x=fract((fsnake.y-ford)*fsnake.w),l=x<fsnake.z?1.-x/fsnake.z:0.;color.rgb=mix(color.rgb*.2,cs,l);color.rgb=mix(c0,color.rgb,msk(8));}
+    // Snake: soft ribbons of light crawl up and around the object along a noise field (not face by face).
+    if(fsnake.x>.5){vec3 c0=color.rgb,c=(obj-lo)/span;float o=vn(oq()*1.8+7.)*.6+(upAxis==1?c.z:c.y)*.4,x=fract((fsnake.y-o)*fsnake.w),l=x<fsnake.z?1.-x/fsnake.z:smoothstep(.97,1.,x);color.rgb=mix(color.rgb*.2,cs,l);color.rgb=mix(c0,color.rgb,msk(8));}
     // Outline: the object's silhouette, as seen from the projector, lights up.
     if(foutl.x>0.){vec3 c0=color.rgb;vec3 wn=normalize(wnrm),v=normalize(eye-wpos);float o=smoothstep(1.-foutl.y,1.,1.-abs(dot(wn,v)))*foutl.x;color.rgb=mix(color.rgb*(1.-.4*min(foutl.x,1.)),cs,min(o*2.5,1.));color.rgb=mix(c0,color.rgb,msk(9));}
     // Explode gaps and Build growth stay inside each face's outline: the face shows only its inner part.
-    {float ce=explode.y*.12*msk(3),cb=(1.-bgrow)*.34*msk(2),ae=fwidth(em),ab=fwidth(bm);if(ce>0.)color*=smoothstep(ce,ce+ae*1.5,em);if(cb>0.)color*=smoothstep(cb,cb+ab*1.5,bm);if(bgrow<1.&&bgrow>0.){float mx=max(color.r,max(color.g,color.b));if(mx>1e-4)color.rgb=mix(color.rgb,color.rgb/mx*color.a,bglow*msk(2));}}
+    {float ce=explode.y*.12*msk(3),cb=(1.-bgrow)*.34*msk(2),ae=fwidth(em),ab=fwidth(bm);if(ce>0.)color*=smoothstep(ce*.7,ce*1.3+ae*1.5,em);if(cb>0.)color*=smoothstep(cb*.7,cb*1.3+ab*1.5,bm);if(bgrow<1.&&bgrow>0.){float mx=max(color.r,max(color.g,color.b));if(mx>1e-4)color.rgb=mix(color.rgb,color.rgb/mx*color.a,bglow*msk(2));}}
     // Edges: crease edges (flag bits) drawn by distance to the triangle side, in pixels.
     if(edge.x>.5){vec4 e0=color;int f=int(eflags+.5);float e=0.,h=upAxis==1?(obj.z-lo.z)/span.z:(obj.y-lo.y)/span.y;
       for(int i=0;i<3;i++){if(((f>>i)&1)==0)continue;float d=bary[i]/max(fwidth(bary[i]),1e-6),a=1.-smoothstep(edge.z*.5-.75,edge.z*.5+.75,d),I=edge.w;
@@ -407,7 +419,7 @@ function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.lig
   else if(!test){if(!fl.on){fl.on=true;fl.p=P0;fl.a=A0;}else if(F0.flow.on){fl.p+=X.move*.25*st.dt;fl.a+=X.rotate*.1*6.2832*st.dt;}
     const wp=Math.round(fl.p/2)*2,wa=Math.round(fl.a/6.2832)*6.2832;fp=wp+(fl.p-wp)*flv;fa=wa+(fl.a-wa)*flv;}
   gl.uniform4f(u.fflow,X.on?1:0,fp,['up','side','diag'].indexOf(X.dir),fa);gl.uniform1f(u.fzoom,X.on?X.scale*(X.drive==='loop'?.5-.5*Math.cos(time*X.zspeed*Math.PI):drv('flow',X.drive)):0);
-  gl.uniform3f(u.felem,...['explode','build','flicker'].map(k=>FX_ELEMENTS.indexOf(F[k].el||'poly')));
+  gl.uniform3f(u.felem,...['explode','build','flicker'].map(k=>Math.max(0,FX_ELEMENTS.indexOf(F[k].el))));
   gl.uniform4f(u.fscan,Sc.on?.4+drv('scan',Sc.drive)*1.8:0,(((time*Sc.speed*.3)%1)+1)%1*1.4-.2,Sc.width,['up','across','depth'].indexOf(Sc.axis));
   const sb=Sh.drive==='beat';gl.uniform4f(u.fshock,Sh.on?(sb?pu('shock'):lv('shock',Sh.drive)):0,sb?1-pu('shock'):(time*.6)%1,Sh.width,['bottom','top','side'].indexOf(Sh.from));
   gl.uniform4f(u.fflick,Fl.on?1:0,Fl.amount*drv('flicker',Fl.drive),Fl.speed,0);
@@ -427,16 +439,16 @@ const RECIPES=[
   ['blueprint','Blueprint','intro',['edges',{mode:'trace',fill:.15}],[['outline',{drive:'steady'}],['light',{drive:'mids'}]]],
   ['scanlines','Scan lines','intro',['scan',{axis:'up',drive:'full'}],[['edges',{mode:'pulse',fill:.5,map:'levels'}],['outline',{drive:'full'}]]],
   ['contour','Contour','intro',['outline',{drive:'full'}],[['curves',{drive:'bass'}],['light',{drive:'mids'}]]],
-  ['floors','Floor by floor','build',['build',{order:'up',drive:'level',el:'poly'}],[['edges',{mode:'pulse',fill:.4}],['light',{drive:'mids'}]]],
-  ['snake','Snake','build',['snake',{count:3}],[['outline',{drive:'full'}],['flicker',{drive:'high',el:'edge'}]]],
-  ['facadechase','Facade chase','build',['flicker',{drive:'high',el:'poly',map:'facades'}],[['outline',{drive:'bass'}],['scan',{axis:'up',drive:'beat'}]]],
+  ['floors','Floor by floor','build',['build',{order:'up',drive:'level',el:'bands'}],[['edges',{mode:'pulse',fill:.4}],['light',{drive:'mids'}]]],
+  ['snake','Snake','build',['snake',{count:3}],[['outline',{drive:'full'}],['flicker',{drive:'high',el:'tiles'}]]],
+  ['facadechase','Facade chase','build',['flicker',{drive:'high',el:'tiles',map:'facades'}],[['outline',{drive:'bass'}],['scan',{axis:'up',drive:'beat'}]]],
   ['morphbuild','Morph build','build',['morph',{style:'liquid',drive:'full'}],[['light',{drive:'mids'}],['edges',{mode:'sweep',fill:.5}]]],
   ['levels','Levels','build',['build',{order:'up',drive:'loop',map:'levels'}],[['scan',{axis:'up',drive:'full'}],['outline',{drive:'bass'}]]],
-  ['impact','Impact','drop',['shock',{drive:'beat',from:'bottom'}],[['explode',{drive:'beat',el:'poly'}],['flicker',{drive:'high'}]]],
-  ['shatter','Shatter','drop',['explode',{drive:'bass',el:'edge',map:'parts'}],[['edges',{mode:'pulse',fill:.6}],['light',{drive:'mids'}]]],
+  ['impact','Impact','drop',['shock',{drive:'beat',from:'bottom'}],[['explode',{drive:'beat',el:'cells'}],['flicker',{drive:'high'}]]],
+  ['shatter','Shatter','drop',['explode',{drive:'bass',el:'cells',map:'parts'}],[['edges',{mode:'pulse',fill:.6}],['light',{drive:'mids'}]]],
   ['pulsefloors','Pulse floors','drop',['disp',{drive:'bass',pattern:'swell',map:'levels'}],[['flicker',{drive:'high'}],['outline',{drive:'bass'}]]],
-  ['facadestorm','Facade storm','drop',['flicker',{drive:'beat',el:'vert',map:'facades'}],[['shock',{drive:'beat'}],['light',{drive:'mids'}]]],
-  ['mirror','Mirror','drop',['explode',{drive:'bass',el:'poly',map:'mirror'}],[['light',{drive:'mids'}],['edges',{mode:'pulse',fill:.5}]]],
+  ['facadestorm','Facade storm','drop',['flicker',{drive:'beat',el:'organic',map:'facades'}],[['shock',{drive:'beat'}],['light',{drive:'mids'}]]],
+  ['mirror','Mirror','drop',['explode',{drive:'bass',el:'cells',map:'mirror'}],[['light',{drive:'mids'}],['edges',{mode:'pulse',fill:.5}]]],
   ['drift','Drift','break',['flow',{move:.15,rotate:.05,drive:'loop'}],[['light',{drive:'mids'}],['outline',{drive:'steady'}]]],
   ['echotrace','Echo trace','break',['echo',{style:'up',drive:'steady'}],[['edges',{mode:'trace',fill:.2}]]],
   ['melt','Melt','break',['morph',{style:'melt',drive:'steady',amount:.5}],[['outline',{drive:'steady'}],['light',{drive:'mids'}]]]];
