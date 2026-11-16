@@ -33,9 +33,12 @@ export const LATTICE_RES=[0,2,3,4];
 export function cleanLattice(l){const res=LATTICE_RES.includes(+l?.res)?+l.res:0,n=res**3*3,d=Array.isArray(l?.d)&&l.d.length===n?l.d.map(v=>clamp(v,-2,2,0)):new Array(n).fill(0);return {res,d};}
 // Mesh animation: Displace (along normals), Edges (crease lines), Build (faces grow in) and Explode (faces fly apart).
 const pick=(v,list)=>list.includes(v)?v:list[0];
-export const FX_DRIVES={flow:['loop','bass','beat','full'],disp:['bass','full','high'],build:['loop','level'],explode:['beat','bass','hold'],scan:['full','bass','high','beat'],shock:['beat','bass','full'],flicker:['beat','high','loop'],outline:['full','bass','steady'],curves:['bass','full','steady'],light:['steady','bass','full','mids'],echo:['steady','bass','full'],morph:['full','bass','high','steady']};
+export const FX_DRIVES={flow:['loop','bass','beat','full'],disp:['bass','full','high'],reveal:['beat','kick'],build:['loop','level'],explode:['beat','bass','hold'],scan:['full','bass','high','beat'],shock:['beat','bass','full'],flicker:['beat','high','loop'],outline:['full','bass','steady'],curves:['bass','full','steady'],light:['steady','bass','full','mids'],echo:['steady','bass','full'],morph:['full','bass','high','steady']};
 // Levels: floors light in a chase up the building on the beat; Facades: one side at a time (then the roof); Mirror: random pieces, the same on both halves.
-export const FX_MAPS=['all','depth','sound','uv','parts','random','noise','levels','facades','mirror','camera','windows','columns','roof','accent'];
+// Clouds, Veins, Dissolve and Rings are noise maps for an uneven reveal: drifting cloud islands, thin ridged veins, grain that
+// dissolves in and out over two beats, and rings that roll out from a point that jumps every bar.
+export const FX_MAPS=['all','depth','sound','uv','parts','random','noise','levels','facades','mirror','camera','windows','columns','roof','accent','clouds','veins','dissolve','rings'];
+export const REVEAL_PATTERNS=['cells','tiles','bands','organic','clouds','veins','dissolve','rings'];
 // Part tags (Windows, Columns, Roof, Accent) are clicked onto a model's parts; each has its own Map.
 export const TAGS=['windows','columns','roof','accent'];
 // Parts / Random re-pick: on every beat and every 3 s (auto), or only every N beats.
@@ -47,10 +50,14 @@ const OLD_ELEMENTS={poly:'cells',edge:'tiles',vert:'organic'};
 const pickEl=v=>pick(OLD_ELEMENTS[v]||v,FX_ELEMENTS);
 // Autopilot phrase: it changes look only every 4, 8 or 16 bars.
 export const FX_AUTO_EVERY=['4','8','16'];
-export const FX_KEYS=['disp','edges','build','explode','flow','scan','shock','flicker','snake','outline','curves','light','morph','echo'];
+export const FX_KEYS=['disp','edges','build','explode','flow','scan','shock','flicker','snake','outline','curves','light','morph','echo','reveal','impact'];
 // Post FX on a 3D surface: brightness, contrast and kaleidoscope work on the picture on the mesh; trails and feedback reuse the last frame, clipped to the mesh.
 export function cleanPost(p={}){return {bright:clamp(p?.bright,-1,1,0),contrast:clamp(p?.contrast,-1,1,0),kaleido:Math.round(clamp(p?.kaleido,0,12,0)),kspin:clamp(p?.kspin,-2,2,0),trails:clamp(p?.trails,0,.98,0),feedback:clamp(p?.feedback,0,.98,0),zoom:clamp(p?.zoom,-.1,.1,.02),rotate:clamp(p?.rotate,-5,5,0),space:pick(p?.space,['screen','surface'])};}
-export function cleanFx(f={}){const d=f.disp||{},e=f.edges||{},b=f.build||{},x=f.explode||{},fl=f.flow||{},sc=f.scan||{},sh=f.shock||{},fk=f.flicker||{},sn=f.snake||{},ol=f.outline||{},cv=f.curves||{},li=f.light||{},mo=f.morph||{},ec=f.echo||{},o={
+export function cleanFx(f={}){const d=f.disp||{},e=f.edges||{},b=f.build||{},x=f.explode||{},fl=f.flow||{},sc=f.scan||{},sh=f.shock||{},fk=f.flicker||{},sn=f.snake||{},ol=f.outline||{},cv=f.curves||{},li=f.light||{},mo=f.morph||{},ec=f.echo||{},rv=f.reveal||{},im=f.impact||{},o={
+  // Reveal: the object waits in the dark and each beat (or kick) reveals different parts; Stack adds parts through the bar, Swap cuts.
+  reveal:{on:!!rv.on,pattern:pick(rv.pattern,REVEAL_PATTERNS),mode:pick(rv.mode,['beat','stack','swap']),every:pick(String(rv.every??'1'),['1','2','0.5']),amount:clamp(rv.amount,.05,1,.45),dark:clamp(rv.dark,0,1,.85),drive:pick(rv.drive,FX_DRIVES.reveal)},
+  // Impact: a hit on drops, every bar or on strong kicks: Flash bursts white and breaks off cell by cell, Glitch tears and splits it, Slam blacks it out and snaps the cells back.
+  impact:{on:!!im.on,style:pick(im.style,['all','flash','glitch','slam']),trigger:pick(im.trigger,['drops','bars','beats']),length:clamp(im.length,.25,4,1),amount:clamp(im.amount,0,1,1)},
   echo:{on:!!ec.on,style:pick(ec.style,['up','depth','out','random']),length:clamp(ec.length,.05,1,.6),amount:clamp(ec.amount,0,1,1),drive:pick(ec.drive,FX_DRIVES.echo)},
   morph:{on:!!mo.on,style:pick(mo.style,['liquid','swirl','melt']),scale:clamp(mo.scale,.2,8,2),speed:clamp(mo.speed,0,4,.5),amount:clamp(mo.amount,0,2,.6),drive:pick(mo.drive,FX_DRIVES.morph)},
   flow:(()=>{const old=fl.dir==='spin';return {on:!!fl.on,dir:pick(old?'up':fl.dir,['up','side','diag']),move:clamp(fl.move??(old?0:fl.speed),-2,2,.3),rotate:clamp(fl.rotate??(old?fl.speed:0),-2,2,0),scale:clamp(fl.scale,0,1,0),zspeed:clamp(fl.zspeed,.05,4,.5),drive:pick(fl.drive,FX_DRIVES.flow)};})(),
@@ -108,11 +115,12 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
     vec3 w=(upAxis==1?vec3(q.x,q.z,-q.y):q)*objectSize+objectOffset;w=pivot+objRot*((w-pivot)*objScale)+objMove;wpos=w*scale;wnrm=objRot*((upAxis==1?vec3(normal.x,normal.z,-normal.y):normal)/objScale);
     vec3 c=lo+span*.5,wc=(upAxis==1?vec3(c.x,c.z,-c.y):c)*objectSize+objectOffset;wc=(pivot+objRot*((wc-pivot)*objScale)+objMove)*scale;float rad=max(length(span)*.5*objectSize*max(objScale.x,max(objScale.y,objScale.z))*scale,1e-6);vdep=clamp((length(wc-eye)-length(wpos-eye))/rad,0.,1.);gl_Position=vp*vec4(wpos,1.);}`));
   gl.attachShader(p,shader(gl.FRAGMENT_SHADER,`#version 300 es
-  precision highp float;in vec2 tex;in vec3 obj;in vec3 nrm;in vec3 wpos;uniform sampler2D picture;uniform sampler2D camTex;uniform sampler2D tagTex;uniform bool tagShow;uniform highp sampler2D posTex;uniform sampler2D aoTex;uniform int pass;uniform bool aoOn;uniform float aoStrength;uniform float aoRadius;uniform float pxScale;uniform vec3 eye;uniform int mode;uniform bool wire;uniform vec2 size;uniform vec3 lo;uniform vec3 span;uniform float fade;uniform float tile;uniform mat3 boxRot;uniform vec3 boxMove;uniform vec3 boxScale;in vec3 bary;in float eflags;in float frnd;in float ford;flat in vec3 tA;flat in vec3 tB;flat in vec3 tC;in vec3 fcen;uniform vec3 felem;uniform float fzoom;uniform vec3 build;in vec3 wnrm;in float fpart;in float vdep;uniform float fmap[14];uniform float fpres[14];uniform float fsoft[14];uniform vec4 fmorph;uniform vec4 fecho;uniform highp sampler2DArray hist;uniform vec4 fpost;uniform vec3 fseed;uniform vec4 fband;uniform float fstep;uniform vec4 fflow;uniform vec4 fscan;uniform vec4 fshock;uniform vec4 fflick;uniform vec4 fsnake;uniform vec4 foutl;uniform vec2 fcurv;uniform vec4 flight;uniform float time;uniform highp int upAxis;uniform vec4 edge;uniform vec3 edge2;uniform vec4 disp;uniform vec2 explode;out vec4 color;vec2 shift;mat2 spin=mat2(1.);float zoom=1.;vec2 tl(vec2 t){vec2 p=spin*((t-.5)*tile*zoom)+.5+shift;
+  precision highp float;in vec2 tex;in vec3 obj;in vec3 nrm;in vec3 wpos;uniform sampler2D picture;uniform sampler2D camTex;uniform sampler2D tagTex;uniform bool tagShow;uniform highp sampler2D posTex;uniform sampler2D aoTex;uniform int pass;uniform bool aoOn;uniform float aoStrength;uniform float aoRadius;uniform float pxScale;uniform vec3 eye;uniform int mode;uniform bool wire;uniform vec2 size;uniform vec3 lo;uniform vec3 span;uniform float fade;uniform float tile;uniform mat3 boxRot;uniform vec3 boxMove;uniform vec3 boxScale;in vec3 bary;in float eflags;in float frnd;in float ford;flat in vec3 tA;flat in vec3 tB;flat in vec3 tC;in vec3 fcen;uniform vec3 felem;uniform float fzoom;uniform vec3 build;in vec3 wnrm;in float fpart;in float vdep;uniform float fmap[16];uniform float fpres[16];uniform float fsoft[16];uniform vec4 frev;uniform vec4 frev2;uniform vec4 fimp;uniform vec4 fmorph;uniform vec4 fecho;uniform highp sampler2DArray hist;uniform vec4 fpost;uniform vec3 fseed;uniform vec4 fband;uniform float fstep;uniform vec4 fflow;uniform vec4 fscan;uniform vec4 fshock;uniform vec4 fflick;uniform vec4 fsnake;uniform vec4 foutl;uniform vec2 fcurv;uniform vec4 flight;uniform float time;uniform highp int upAxis;uniform vec4 edge;uniform vec3 edge2;uniform vec4 disp;uniform vec2 explode;out vec4 color;vec2 shift;mat2 spin=mat2(1.);float zoom=1.;vec2 tl(vec2 t){vec2 p=spin*((t-.5)*tile*zoom)+.5+shift;
     // Kaleidoscope: folds the picture's own coordinates, so it wraps each surface of the mesh.
     if(fpost.z>1.5){vec2 c=p-.5;float r=length(c),s=6.2832/fpost.z,a=mod(atan(c.y,c.x)+fpost.w,s);a=abs(a-s*.5);p=.5+r*vec2(cos(a),sin(a));}return p;}
   float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
   float vn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}
+  float fbm(vec3 p){return vn(p)*.55+vn(p*2.03+5.1)*.3+vn(p*4.1+9.7)*.15;}
   // Element opacity maps, in object space (the triangulation never shows): Cells are organic shards, Tiles panels across each face,
   // Bands floors up the object and Organic soft noise islands. key: the region's random number; m: distance to its border
   // (0 on it, about 1/3 in the middle); C: its centre.
@@ -133,7 +141,12 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
   float pick(float x,int i){float b=step(.5,fract(x+fseed.y*.618034));return fsoft[i]>.5?mix(step(.5,fract(x+fseed.x*.618034)),b,fseed.z):b;}
   // A part's tag: looked up by its part number in a 128-wide table.
   int tagAt(){int k=int(fpart*10007.+.5);return int(texelFetch(tagTex,ivec2(k%128,k/128),0).r*255.+.5);}
-  float msk0(int i){int m=int(fmap[i]+.5);if(m==0)return 1.;if(m==1)return smoothstep(.05,.75,vdep);
+  // Noise maps: Clouds drift (bass opens them), Veins are thin ridges, Dissolve grains in and out over two beats, Rings roll out each beat.
+  float nmap(int m){vec3 q=oq();if(m==15)return smoothstep(.5-.12*fband.x,.62-.12*fband.x,fbm(q*2.2+vec3(0,time*.12,time*.08)));
+    if(m==16)return smoothstep(.86,.93,1.-abs(fbm(q*2.+vec3(time*.05,0,0))*2.-1.));
+    if(m==17){float k=1.-abs(fract(fstep*.5)*2.-1.),n=vn(q*11.+floor(fstep*.5)*3.7);return smoothstep(n-.08,n+.02,k);}
+    vec3 p0=h33(vec3(floor(fstep/4.),4.,1.));float v=fract(length(q-p0)*3.-fract(fstep));return smoothstep(0.,.08,v)*(1.-smoothstep(.3,.45,v));}
+  float msk0(int i){int m=int(fmap[i]+.5);if(m==0)return 1.;if(m>=15)return nmap(m);if(m==1)return smoothstep(.05,.75,vdep);
     // Camera: movement seen by the webcam, laid over the output (so a performer's motion lights the object where it overlaps).
     if(m==10)return texture(camTex,gl_FragCoord.xy/size).r;
     if(m>=11)return float(tagAt()==m-10);
@@ -175,7 +188,8 @@ function init(){const canvas=document.createElement('canvas'),gl=canvas.getConte
     if(fflow.x>.5){float fm=msk(4);shift+=(fflow.z<.5?vec2(0,1):fflow.z<1.5?vec2(1,0):vec2(.7071))*fflow.y;float a=fflow.w;spin=mat2(cos(a),sin(a),-sin(a),cos(a));zoom=1./(1.+fzoom*fm);}
     // Displace: a wave pattern on the surface warps the picture and shades it like relief.
     if(disp.x!=0.){vec3 u=(obj-lo)/span-.5;dmk=msk(0);float ph=disp.y<.5?length(u)*18.-time*disp.z*4.:disp.y<1.5?time*disp.z*3.:dot(u,vec3(9.1,7.3,11.7))+time*disp.z*2.;dw=disp.y<1.5?.5+.5*sin(ph):.5+.5*sin(ph)*sin(dot(u,vec3(-5.3,12.1,6.7))-time*disp.z*1.3);shift+=(disp.y<1.5?normalize(u.xy+1e-5)*(dw-.5):vec2(cos(ph),sin(ph))*.5)*disp.x*.12*dmk;}
-if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(dFdx(obj),dFdy(obj)))));vec3 p=boxRot*((obj-lo)/span-.5-boxMove)/boxScale+.5;if(fade<.001){t=n.z>=n.x&&n.z>=n.y?p.xy:n.x>=n.y?p.zy:p.xz;color=pic(tl(t));}else{vec3 w=pow(n,vec3(exp2(4.*(1.-fade))));w/=w.x+w.y+w.z;color=pic(tl(p.zy))*w.x+pic(tl(p.xz))*w.y+pic(tl(p.xy))*w.z;}}else color=pic(tl(t));color.rgb*=color.a;if(aoOn)color.rgb*=aoSmooth();
+float gk=0.;if(fimp.y>0.){vec3 q=oq();float sg=fimp.z+floor(time*15.)*7.1,r=h3(vec3(floor(q.y*(8.+h3(vec3(sg))*28.)),sg,1.)),r2=h3(vec3(floor(q.x*5.),floor(q.y*7.),sg+3.));gk=step(1.-fimp.y*.7,r);shift+=vec2((r2-.5)*.35,(h3(vec3(r,sg,9.))-.5)*.05)*gk;}
+    if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(dFdx(obj),dFdy(obj)))));vec3 p=boxRot*((obj-lo)/span-.5-boxMove)/boxScale+.5;if(fade<.001){t=n.z>=n.x&&n.z>=n.y?p.xy:n.x>=n.y?p.zy:p.xz;color=pic(tl(t));}else{vec3 w=pow(n,vec3(exp2(4.*(1.-fade))));w/=w.x+w.y+w.z;color=pic(tl(p.zy))*w.x+pic(tl(p.xz))*w.y+pic(tl(p.xy))*w.z;}}else color=pic(tl(t));color.rgb*=color.a;if(fimp.y>0.&&mode!=2){float o=.006+.03*fimp.y;vec4 a=pic(tl(t+vec2(o,0))),b=pic(tl(t-vec2(o,0)));color.r=mix(color.r,a.r*a.a,fimp.y);color.b=mix(color.b,b.b*b.a,fimp.y);}if(aoOn)color.rgb*=aoSmooth();
     if(disp.x!=0.)color.rgb*=1.+(dw-.5)*min(disp.x*2.,1.)*.9*dmk;
     // The rest only recolour the picture where it already is: cs is the picture's own colour at full strength.
     float mx0=max(color.r,max(color.g,color.b));vec3 cs=mx0>1e-4?color.rgb/mx0*min(1.,mx0*2.5):vec3(0),c01=(obj-lo)/span;float hU=upAxis==1?c01.z:c01.y;
@@ -192,6 +206,13 @@ if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(
     if(fflick.x>.5){vec3 c0=color.rgb,fC;float fk,fm_;cell(felem.z,fk,fm_,fC);float ft=time*fflick.z,h=step(.5,fract(sin((fk*91.7+floor(ft))*78.233)*43758.5453));if(fsoft[7]>.5)h=mix(h,step(.5,fract(sin((fk*91.7+floor(ft)+1.)*78.233)*43758.5453)),smoothstep(0.,1.,fract(ft)));color.rgb=mix(color.rgb,mix(color.rgb*.15,cs,h),fflick.y);color.rgb=mix(c0,color.rgb,msk(7));}
     // Snake: soft ribbons of light crawl up and around the object along a noise field (not face by face).
     if(fsnake.x>.5){vec3 c0=color.rgb,c=(obj-lo)/span;float o=vn(oq()*1.8+7.)*.6+(upAxis==1?c.z:c.y)*.4,x=fract((fsnake.y-o)*fsnake.w),l=x<fsnake.z?1.-x/fsnake.z:smoothstep(.97,1.,x);color.rgb=mix(color.rgb*.2,cs,l);color.rgb=mix(c0,color.rgb,msk(8));}
+    // Reveal: the object waits in the dark; each beat reveals different parts (regions or noise) with a glowing front.
+    if(frev.x>.5){vec3 c0=color.rgb,q=oq();float ph=frev.y,sd=frev.z,pt=frev.w,cov=frev2.x,md=frev2.y,dk=frev2.z,v,
+      grow=md>1.5?1.:smoothstep(0.,.2,ph),dec=md<.5?1.-smoothstep(.35,1.,ph)*.8:1.,st=mod(sd,4.),lim=md>.5&&md<1.5?cov*(st+1.)*.5:cov,lp=md>.5&&md<1.5?cov*st*.5:0.,ss=md>.5&&md<1.5?floor(sd/4.):sd;
+      if(pt<3.5){float k,m;vec3 C;cell(pt,k,m,C);float sel=fract(k*7.13+ss*.6180339),g=vn(q*13.+sd*1.7);v=sel<lp?1.:step(sel,lim)*smoothstep(g-.15,g,grow*1.15);}
+      else{vec3 o=vec3(ss*3.1,ss*1.7,ss*2.3);float f=pt<4.5?fbm(q*2.4+o):pt<5.5?1.-abs(fbm(q*2.+o)*2.-1.):pt<6.5?vn(q*10.+o):1.-fract(length(q-h33(vec3(ss,2.,5.)))*2.5-ph*.6);
+        if(pt>4.5&&pt<5.5)f=pow(f,10.);float th=1.-mix(lp,lim,grow);v=smoothstep(th-.05,th+.05,f);}
+      v*=dec;float fr=v*(1.-v)*4.;color.rgb=mix(color.rgb*(1.-dk),color.rgb,v)+cs*fr*.7;color.rgb=mix(c0,color.rgb,msk(14));}
     // Outline: the object's silhouette, as seen from the projector, lights up.
     if(foutl.x>0.){vec3 c0=color.rgb;vec3 wn=normalize(wnrm),v=normalize(eye-wpos);float o=smoothstep(1.-foutl.y,1.,1.-abs(dot(wn,v)))*foutl.x;color.rgb=mix(color.rgb*(1.-.4*min(foutl.x,1.)),cs,min(o*2.5,1.));color.rgb=mix(c0,color.rgb,msk(9));}
     // Explode gaps and Build growth stay inside each face's outline: the face shows only its inner part.
@@ -203,10 +224,15 @@ if(mode==2){vec3 n=abs(boxRot*(dot(nrm,nrm)>1e-8?normalize(nrm):normalize(cross(
         else if(edge.y>1.5){float pos=fract(time*edge2.x*.3)*1.4-.2;I*=.12+1.2*exp(-pow((h-pos)/.07,2.));}
         e=max(e,a*min(I,1.5));}
       float mx=max(color.r,max(color.g,color.b));vec3 ec=mx>1e-4?color.rgb/mx*min(1.,mx*2.5):vec3(0);color=vec4(color.rgb*edge2.z,color.a*max(edge2.z,.001));color.rgb=mix(color.rgb,ec,min(e,1.));color.a=max(color.a,min(e,1.));color=mix(e0,color,msk(1));}
+    // Impact: Flash bursts over the object and breaks off cell by cell, Glitch tears blocks (some flip colour or go dark), Slam blacks it out and snaps the cells back.
+    if(fimp.x>0.||fimp.y>0.||fimp.w>0.){float im=msk(15),k=vkey(oq()*4.+fimp.z*.37);
+      if(gk>.5)color.rgb=mix(color.rgb,k>.6?color.gbr*1.4:k>.3?color.rgb*.12:color.rgb,im);
+      if(fimp.w>0.){float v=smoothstep(k-.06,k+.06,1.-fimp.w);color.rgb=mix(color.rgb,color.rgb*v+cs*v*(1.-v)*2.4,im);}
+      if(fimp.x>0.){float f=pow(fimp.x,1.+k*3.)*im;color.rgb=mix(color.rgb,mix(vec3(1),cs,.15),f);color.a=max(color.a,f);}}
     // Post: brightness and contrast on the picture (premultiplied, so outside the mesh stays clear).
     if(fpost.x!=0.||fpost.y!=0.){color.rgb=clamp((color.rgb-.5*color.a)*(1.+fpost.y)+.5*color.a+fpost.x*color.a,0.,1.)*step(.001,color.a);}
     // While tagging, tagged parts are tinted in their tag's colour.
-    if(tagShow&&pass==0){int t=tagAt();if(t>0){vec3 tc=t==1?vec3(.3,.75,1):t==2?vec3(1,.75,.25):t==3?vec3(.45,1,.45):vec3(1,.35,.8);float a=max(color.a,.55);color=vec4(mix(color.rgb,tc*a,.6),a);}}}`));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));const uniforms={};for(const k of ['camTex','tagTex','tagShow','fstep','felem','fzoom','fmap','fpres','fsoft','fseed','fecho','hist','fmorph','fpost','fband','fflow','fscan','fshock','fflick','fsnake','foutl','fcurv','flight','time','disp','explode','build','edge','edge2','vp','scale','picture','mode','wire','size','lo','span','upAxis','objectOffset','objectSize','fade','tile','boxRot','boxMove','boxScale','latRes','lat','objRot','pivot','objMove','objScale','posTex','pass','aoOn','aoStrength','aoRadius','pxScale','eye','aoTex'])uniforms[k]=gl.getUniformLocation(p,k);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.MIRRORED_REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.MIRRORED_REPEAT);return {canvas,gl,p,uniforms,tex,buffer:gl.createBuffer(),position:gl.getAttribLocation(p,'position'),uv:gl.getAttribLocation(p,'uv'),normal:gl.getAttribLocation(p,'normal'),fcenter:gl.getAttribLocation(p,'fcenter'),fnormal:gl.getAttribLocation(p,'fnormal'),fmeta:gl.getAttribLocation(p,'fmeta'),fA:gl.getAttribLocation(p,'fA'),fB:gl.getAttribLocation(p,'fB'),fC:gl.getAttribLocation(p,'fC'),fxBuffer:gl.createBuffer(),fxData:null,mesh:null};}
+    if(tagShow&&pass==0){int t=tagAt();if(t>0){vec3 tc=t==1?vec3(.3,.75,1):t==2?vec3(1,.75,.25):t==3?vec3(.45,1,.45):vec3(1,.35,.8);float a=max(color.a,.55);color=vec4(mix(color.rgb,tc*a,.6),a);}}}`));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));const uniforms={};for(const k of ['camTex','tagTex','tagShow','fstep','felem','fzoom','fmap','fpres','fsoft','fseed','fecho','hist','fmorph','fpost','fband','frev','frev2','fimp','fflow','fscan','fshock','fflick','fsnake','foutl','fcurv','flight','time','disp','explode','build','edge','edge2','vp','scale','picture','mode','wire','size','lo','span','upAxis','objectOffset','objectSize','fade','tile','boxRot','boxMove','boxScale','latRes','lat','objRot','pivot','objMove','objScale','posTex','pass','aoOn','aoStrength','aoRadius','pxScale','eye','aoTex'])uniforms[k]=gl.getUniformLocation(p,k);const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.MIRRORED_REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.MIRRORED_REPEAT);return {canvas,gl,p,uniforms,tex,buffer:gl.createBuffer(),position:gl.getAttribLocation(p,'position'),uv:gl.getAttribLocation(p,'uv'),normal:gl.getAttribLocation(p,'normal'),fcenter:gl.getAttribLocation(p,'fcenter'),fnormal:gl.getAttribLocation(p,'fnormal'),fmeta:gl.getAttribLocation(p,'fmeta'),fA:gl.getAttribLocation(p,'fA'),fB:gl.getAttribLocation(p,'fB'),fC:gl.getAttribLocation(p,'fC'),fxBuffer:gl.createBuffer(),fxData:null,mesh:null};}
 export function cameraPose(s,time=0){if(s.track&&s.trackOn)return sampleTrack(s.track,s.playing?(s.sync?time:performance.now()/1000)*s.speed+s.offset:s.hold);const c=s.camera,a=c.yaw*Math.PI/180,b=c.pitch*Math.PI/180,r=c.roll*Math.PI/180,cp=Math.cos(b),sp=Math.sin(b),ca=Math.cos(a),sa=Math.sin(a),cr=Math.cos(r),sr=Math.sin(r),right=[ca,0,-sa],up=[-sa*sp,cp,-ca*sp],back=[sa*cp,sp,ca*cp],m=I4();for(let i=0;i<3;i++){m[i]=right[i]*cr+up[i]*sr;m[i+4]=up[i]*cr-right[i]*sr;m[i+8]=back[i];m[i+12]=c.target[i]*s.scale+back[i]*c.distance;}return {matrix:Array.from(m),focal:c.focal};}
 // Animated glTF: the mesh is re-posed from its rig (≤30 times a second), keeping UVs, rest bounds and the welded smooth normals.
 function rig(m,g,faces){const weld=new Int32Array(g.verts.length),ids=new Map(),key=v=>v.map((x,k)=>Math.round((x-g.lo[k])/g.span[k]*1e5)).join();
@@ -425,6 +451,21 @@ function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.lig
   gl.uniform3f(u.felem,...['explode','build','flicker'].map(k=>Math.max(0,FX_ELEMENTS.indexOf(F[k].el))));
   gl.uniform4f(u.fscan,Sc.on?.4+drv('scan',Sc.drive)*1.8:0,(((time*Sc.speed*.3)%1)+1)%1*1.4-.2,Sc.width,['up','across','depth'].indexOf(Sc.axis));
   const sb=Sh.drive==='beat';gl.uniform4f(u.fshock,Sh.on?(sb?pu('shock'):lv('shock',Sh.drive)):0,sb?1-pu('shock'):(time*.6)%1,Sh.width,['bottom','top','side'].indexOf(Sh.from));
+  // Reveal steps on the beat clock (every 1, 2 or ½ beat) or on detected kicks.
+  const Rv=F.reveal,bt=Number.isFinite(sig?.beat)?sig.beat:time*2,rk=Rv.drive==='kick',rb=bt/+Rv.every;
+  gl.uniform4f(u.frev,Rv.on?1:0,rk?1-pu('reveal'):rb-Math.floor(rb),rk?(R.beats||0):Math.floor(rb),REVEAL_PATTERNS.indexOf(Rv.pattern));gl.uniform4f(u.frev2,Rv.amount,['beat','stack','swap'].indexOf(Rv.mode),Rv.dark,0);
+  // Impact fires on a drop (the song map's, a jump in loudness, or Autopilot's), on every bar or on strong kicks, then decays over Length beats.
+  const Im=F.impact,ist=st.imp??={n:0,t:-1e9,ef:0,es:0,pk:.35,ld:-1e9};let fire=false;
+  if(!test){const dt=st.dt,fu=B.full;ist.ef+=(fu-ist.ef)*Math.min(1,dt*2);ist.es+=(fu-ist.es)*Math.min(1,dt/8);ist.pk=Math.max(.35,fu,ist.pk*Math.exp(-dt/30));
+    if(F0.impact.on){const song=sig?.song?.section?sig.song:null,drop=song?!!song.drop:ist.ef-ist.es>.15&&ist.ef/ist.pk>.7,bar=Math.floor(bt/4);
+      if(F0.kick!==undefined&&F0.kick!==ist.kick)fire=true;
+      if(Im.trigger==='drops'&&drop&&time-ist.ld>(song?1:8)){fire=true;ist.ld=time;}
+      if(Im.trigger==='bars'&&ist.bar!==undefined&&bar!==ist.bar)fire=true;
+      if(Im.trigger==='beats'&&pulse>.8&&!(ist.lp>.8)&&B.bass>.45)fire=true;ist.bar=bar;}
+    ist.kick=F0.kick;ist.lp=pulse;}
+  if(fire){ist.n++;ist.t=time;}
+  const ie=Im.on?Im.amount*Math.exp(-Math.max(0,time-ist.t)/(Im.length*60/Math.min(200,Math.max(60,+sig?.bpm||120)))*2.5):0,ig=ie>.01?ie:0,jit=((Math.sin(Math.floor(time*24)*91.3)*43758.5)%1+1)%1;
+  gl.uniform4f(u.fimp,Im.style==='all'||Im.style==='flash'?ig:0,Im.style==='all'||Im.style==='glitch'?ig*(jit>.3?1:.25):0,ist.n,Im.style==='slam'?ig:0);
   gl.uniform4f(u.fflick,Fl.on?1:0,Fl.amount*drv('flicker',Fl.drive),Fl.speed,0);
   gl.uniform4f(u.fsnake,Sn.on?1:0,time*Sn.speed*.1,Sn.length,Sn.count);
   gl.uniform4f(u.foutl,O.on?.4+drv('outline',O.drive)*1.2:0,O.width,0,0);
@@ -441,31 +482,41 @@ export function facetData(s,time){const g=meshOf(s,time);return facets(g,(s.fx||
 const RECIPES=[
   ['blueprint','Blueprint','intro',['edges',{mode:'trace',fill:.15}],[['outline',{drive:'steady'}],['light',{drive:'mids'}]]],
   ['scanlines','Scan lines','intro',['scan',{axis:'up',drive:'full'}],[['edges',{mode:'pulse',fill:.5,map:'levels'}],['outline',{drive:'full'}]]],
+  ['clouds','Clouds','intro',['reveal',{pattern:'clouds',mode:'beat',every:'2',dark:.6,amount:.55}],[['light',{drive:'mids'}],['outline',{drive:'steady'}]]],
   ['contour','Contour','intro',['outline',{drive:'full'}],[['curves',{drive:'bass'}],['light',{drive:'mids'}]]],
   ['floors','Floor by floor','build',['build',{order:'up',drive:'level',el:'bands'}],[['edges',{mode:'pulse',fill:.4}],['light',{drive:'mids'}]]],
   ['snake','Snake','build',['snake',{count:3}],[['outline',{drive:'full'}],['flicker',{drive:'high',el:'tiles'}]]],
   ['facadechase','Facade chase','build',['flicker',{drive:'high',el:'tiles',map:'facades'}],[['outline',{drive:'bass'}],['scan',{axis:'up',drive:'beat'}]]],
-  ['morphbuild','Morph build','build',['morph',{style:'liquid',drive:'full'}],[['light',{drive:'mids'}],['edges',{mode:'sweep',fill:.5}]]],
+  ['morphbuild','Morph build','build',['morph',{style:'liquid',drive:'full'}],[['light',{drive:'mids',map:'clouds'}],['edges',{mode:'sweep',fill:.5}]]],
+  ['stackfloors','Stack floors','build',['reveal',{pattern:'bands',mode:'stack'}],[['scan',{axis:'up',drive:'beat'}],['outline',{drive:'bass'}]]],
+  ['veins','Veins','build',['reveal',{pattern:'veins',mode:'stack',amount:.5}],[['outline',{drive:'full'}],['light',{drive:'mids'}]]],
+  ['rings','Rings','build',['reveal',{pattern:'rings',mode:'beat',amount:.5}],[['edges',{mode:'pulse',fill:.4}],['light',{drive:'mids'}]]],
   ['levels','Levels','build',['build',{order:'up',drive:'loop',map:'levels'}],[['scan',{axis:'up',drive:'full'}],['outline',{drive:'bass'}]]],
-  ['impact','Impact','drop',['shock',{drive:'beat',from:'bottom'}],[['explode',{drive:'beat',el:'cells'}],['flicker',{drive:'high'}]]],
+  ['impact','Impact','drop',['shock',{drive:'beat',from:'bottom'}],[['explode',{drive:'beat',el:'cells'}],['flicker',{drive:'high',map:'veins'}]]],
   ['shatter','Shatter','drop',['explode',{drive:'bass',el:'cells',map:'parts'}],[['edges',{mode:'pulse',fill:.6}],['light',{drive:'mids'}]]],
-  ['pulsefloors','Pulse floors','drop',['disp',{drive:'bass',pattern:'swell',map:'levels'}],[['flicker',{drive:'high'}],['outline',{drive:'bass'}]]],
+  ['pulsefloors','Pulse floors','drop',['disp',{drive:'bass',pattern:'swell',map:'levels'}],[['flicker',{drive:'high',map:'dissolve'}],['outline',{drive:'bass'}]]],
   ['facadestorm','Facade storm','drop',['flicker',{drive:'beat',el:'organic',map:'facades'}],[['shock',{drive:'beat'}],['light',{drive:'mids'}]]],
+  ['beatreveal','Beat reveal','drop',['reveal',{pattern:'cells',mode:'beat'}],[['impact',{trigger:'bars',style:'flash'}],['outline',{drive:'bass'}]]],
+  ['glitchstorm','Glitch storm','drop',['reveal',{pattern:'tiles',mode:'swap',every:'0.5',amount:.55}],[['impact',{trigger:'beats',style:'glitch',length:.5}],['light',{drive:'mids'}]]],
+  ['veinburst','Vein burst','drop',['reveal',{pattern:'veins',mode:'beat',amount:.6}],[['impact',{trigger:'bars',style:'slam'}],['curves',{drive:'bass'}]]],
   ['mirror','Mirror','drop',['explode',{drive:'bass',el:'cells',map:'mirror'}],[['light',{drive:'mids'}],['edges',{mode:'pulse',fill:.5}]]],
   ['drift','Drift','break',['flow',{move:.15,rotate:.05,drive:'loop'}],[['light',{drive:'mids'}],['outline',{drive:'steady'}]]],
   ['echotrace','Echo trace','break',['echo',{style:'up',drive:'steady'}],[['edges',{mode:'trace',fill:.2}]]],
+  ['dissolve','Dissolve','break',['reveal',{pattern:'dissolve',mode:'beat',every:'2',dark:.7,amount:.6}],[['light',{drive:'mids'}],['outline',{drive:'steady'}]]],
   ['melt','Melt','break',['morph',{style:'melt',drive:'steady',amount:.5}],[['outline',{drive:'steady'}],['light',{drive:'mids'}]]]];
-const HIT=['hit','Impact','drop',['shock',{drive:'beat',from:'bottom',width:.2}],[['explode',{drive:'beat',amount:.8}]]];
-const FX_COST={echo:3,morph:2};
+// The drop hit: Flash + Glitch over the whole object, the reveal cutting new cells every half beat, and a shockwave.
+const HIT=['hit','Impact','drop',['impact',{style:'all',trigger:'drops',length:2}],[['reveal',{pattern:'cells',mode:'swap',every:'0.5',amount:.6,dark:.9}],['shock',{drive:'beat',from:'bottom',width:.2}]]];
+const FX_COST={echo:3,morph:2,impact:0};
 // Per bar inside a look: one setting steps through its options.
-const VARY={shock:['from',['bottom','top','side']],scan:['axis',['up','across']],edges:['mode',['pulse','sweep']],disp:['pattern',['swell','ripple']],flicker:['el',FX_ELEMENTS]};
+const VARY={shock:['from',['bottom','top','side']],scan:['axis',['up','across']],edges:['mode',['pulse','sweep']],disp:['pattern',['swell','ripple']],flicker:['el',FX_ELEMENTS],reveal:['pattern',REVEAL_PATTERNS],impact:['style',['flash','glitch','slam']]};
 const rand=k=>{let x=(k>>>0)||1;return ()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return (x>>>0)/4294967296;};};
 // Tagged parts take over: Facades plays on the Windows, Mirror on the Accents, and supporting edges trace the Columns.
 function tagMap(x,m,i,tags){if(!tags)return m;if(m==='facades'&&tags.has(1))return 'windows';if(m==='mirror'&&tags.has(4))return 'accent';if(i&&m==='all'&&(x==='edges'||x==='outline')&&tags.has(2))return 'columns';return m;}
 function lookFx(F,A,rc,prev,bar,tags){const o={repick:F.repick,auto:A},[,,,hero,sup]=rc,on={},budget=A.count+1;let cost=0;
-  for(const [i,[x,set]] of [hero,...sup].slice(0,A.count).entries()){const c=FX_COST[x]||1;if(i&&cost+c>budget)continue;cost+=c;
+  for(const [i,[x,set]] of [hero,...sup].slice(0,A.count).entries()){const c=FX_COST[x]??1;if(i&&cost+c>budget)continue;cost+=c;
     const e={...F[x],...set,on:true,fade:true,mix:i?.4:1};if(!A.maps)e.map='all';else e.map=tagMap(x,set.map||'all',i,tags);
     const v=VARY[x];if(!i&&v&&bar>0)e[v[0]]=v[1][bar%v[1].length];on[x]=e;}
+  if(rc[2]==='drop'&&rc[0]!=='hit'&&!on.impact)on.impact={...F.impact,on:true,fade:true,mix:.45,map:'all',trigger:'bars',length:1,style:['flash','glitch','slam'][Math.max(0,bar)%3]};
   for(const x of FX_KEYS)o[x]=on[x]||{...(prev?.[x]||F[x]),on:false,fade:true};
   // An effect carried over between looks keeps its settings, so it never jumps.
   if(prev)for(const x of FX_KEYS)if(on[x]&&prev[x].on)o[x]={...prev[x],mix:on[x].mix,map:on[x].map,[VARY[x]?.[0]??'_']:on[x][VARY[x]?.[0]??'_']};return o;}
@@ -486,7 +537,7 @@ export function autoFx(R,s,time,sig){const F=s.fx?.light?s.fx:cleanFx(s.fx),A=F.
   // Next look (remote / key): a fresh look for this section now.
   if(st.next&&st.rc){st.next=false;st.hit=-1;st.b0=bar0(beat);set(choose(secNow),secNow,0);st.bar=0;return st.fx;}
   // A drop lands: one bar of Impact over the whole object, then a drop look starts a fresh phrase.
-  if(st.rc&&st.hit<0&&(song?song.drop:st.ef-st.es>.15&&rel>.7&&st.sec!=='drop')&&time-st.lastDrop>(song?1:8)){st.hit=beat;st.lastDrop=time;set(HIT,'drop',0);return st.fx;}
+  if(st.rc&&st.hit<0&&(song?song.drop:st.ef-st.es>.15&&rel>.7&&st.sec!=='drop')&&time-st.lastDrop>(song?1:8)){st.hit=beat;st.lastDrop=time;set(HIT,'drop',0);st.fx.kick=beat;return st.fx;}
   if(st.hit>=0){if(beat-st.hit<4)return st.fx;st.hit=-1;st.b0=bar0(beat);st.bar=0;set(choose('drop'),'drop',0);return st.fx;}
   // With a song map a new section starts a new look on its first bar.
   if(!st.rc||bar>=P||song&&st.rc[0]!=='cue'&&song.section!==st.sec&&bar!==st.bar){if(song&&bar<P&&st.rc){st.b0=bar0(beat);}else if(st.rc){st.b0+=Math.floor((beat-st.b0)/4/P)*P*4;if(beat-st.b0>=P*4)st.b0=bar0(beat);}st.bar=0;set(choose(secNow),secNow,0);return st.fx;}
@@ -510,7 +561,7 @@ export function render3d(ctx,s,img,W,H,time=0,test=false,sig=null){if(!s.post)s=
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.uniform1i(u.pass,0);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,A.occ);gl.activeTexture(gl.TEXTURE0);gl.uniform1i(u.aoOn,1);}
   gl.drawArrays(gl.TRIANGLES,0,g.data.length/8);gl.disable(gl.POLYGON_OFFSET_FILL);gl.uniform1i(u.aoOn,0);
   if(A){for(const t of [gl.TEXTURE1,gl.TEXTURE2]){gl.activeTexture(t);gl.bindTexture(gl.TEXTURE_2D,null);}gl.activeTexture(gl.TEXTURE0);}
-  if(s.wire||test){gl.uniform1i(u.wire,1);for(const k of ['disp','edge','fflow','fscan','fshock','fflick','fsnake','foutl','flight','fmorph','fpost','fecho'])gl.uniform4f(u[k],0,0,0,0);gl.uniform2f(u.fcurv,0,0);gl.uniform1f(u.fzoom,0);gl.uniform2f(u.explode,0,0);gl.uniform3f(u.build,0,1,0);for(const loc of [R.fcenter,R.fnormal,R.fmeta,R.fA,R.fB,R.fC])if(loc>=0){gl.disableVertexAttribArray(loc);gl.vertexAttrib4f(loc,0,0,0,0);}gl.bufferData(gl.ARRAY_BUFFER,g.lines,gl.STATIC_DRAW);R.mesh=null;gl.vertexAttribPointer(R.position,3,gl.FLOAT,false,12,0);gl.disableVertexAttribArray(R.uv);gl.disableVertexAttribArray(R.normal);gl.drawArrays(gl.LINES,0,g.lines.length/3);}
+  if(s.wire||test){gl.uniform1i(u.wire,1);for(const k of ['disp','edge','fflow','fscan','fshock','fflick','fsnake','foutl','flight','fmorph','fpost','fecho','frev','fimp'])gl.uniform4f(u[k],0,0,0,0);gl.uniform2f(u.fcurv,0,0);gl.uniform1f(u.fzoom,0);gl.uniform2f(u.explode,0,0);gl.uniform3f(u.build,0,1,0);for(const loc of [R.fcenter,R.fnormal,R.fmeta,R.fA,R.fB,R.fC])if(loc>=0){gl.disableVertexAttribArray(loc);gl.vertexAttrib4f(loc,0,0,0,0);}gl.bufferData(gl.ARRAY_BUFFER,g.lines,gl.STATIC_DRAW);R.mesh=null;gl.vertexAttribPointer(R.position,3,gl.FLOAT,false,12,0);gl.disableVertexAttribArray(R.uv);gl.disableVertexAttribArray(R.normal);gl.drawArrays(gl.LINES,0,g.lines.length/3);}
   ctx.save();ctx.globalAlpha=s.opacity;ctx.globalCompositeOperation='source-over';ctx.drawImage(test||s.wire||s.post.space==='surface'?canvas:postFrame(R,s,g,o,vp,canvas,W,H,time),0,0,W,H);ctx.restore();
 }
 // Trails and Feedback: the last frame fades (Feedback also zooms and turns it around the object), the brighter of old and new wins, and the result is cut to this frame's mesh outline.

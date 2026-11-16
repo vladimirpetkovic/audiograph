@@ -361,14 +361,24 @@ process the finished image.
     the object's real shape. **Morph** warps the picture with a flowing noise field in object space
     (Liquid, Swirl or Melt), continuous across faces. **Echo** is a time delay across the object
     (like TouchDesigner's Time Machine): higher, nearer, outer or random parts show the picture
-    from up to a second ago, so changes roll over the surface. Highlights always use the picture's own colours.
+    from up to a second ago, so changes roll over the surface. **Reveal** keeps the object in the
+    dark and reveals different parts on each beat (or each detected kick, every ½, 1 or 2 beats), with a
+    glowing front: *Cells*, *Tiles*, *Bands* or *Organic* regions, or noise (*Clouds*, *Veins*,
+    *Dissolve*, *Rings*). *Beat* reveals new parts and lets them fade, *Stack* adds parts through
+    the bar and *Swap* cuts; Amount sets how much shows and Dark how dark the rest goes. **Impact**
+    hits on drops (the song map's, a jump in loudness or Autopilot's), every bar or on strong kicks:
+    *Flash* bursts white and breaks off cell by cell, *Glitch* tears blocks, splits the colours and
+    flips some dark or hue-shifted, *Slam* blacks the object out and snaps the cells back, and
+    *Flash + Glitch* does both; Length sets the decay in beats. Highlights always use the picture's own colours.
     Effects stack (turn on any number), and **Combos** switches on a ready-made mix (Neon, Scanner,
-    Assemble, Shatter, Living, Impact, Crawl, Fluid, Ripple, All off). Every effect has an **Intensity** knob. Each effect's **Map** picks where it shows:
+    Assemble, Shatter, Living, Impact, Crawl, Fluid, Reveal, Ripple, All off). Every effect has an **Intensity** knob. Each effect's **Map** picks where it shows:
     *All*, *Depth* (the parts nearest the projector), *Sound* (bass at the bottom, highs at the top),
     *UV* (moving bands in the model's UV map), *Parts* (random separate meshes or regions of the model),
     *Random* (random faces), *Noise* (drifting noise blobs), *Levels* (floors light in a chase up
     the object on the beat), *Facades* (one side at a time, then the roof, every 2 beats) or *Mirror*
-    (random pieces, the same on both halves). **Re-pick** sets when Parts and
+    (random pieces, the same on both halves), or a noise map for an uneven reveal: *Clouds*
+    (drifting cloud islands the bass opens), *Veins* (thin ridged veins), *Dissolve* (grain that
+    dissolves in and out over two beats) or *Rings* (rings rolling out from a point that jumps each bar). **Re-pick** sets when Parts and
     Random choose new pieces: Auto (each beat and every 3 s) or every 1, 2, 4 or 8 beats. Each effect's **Fade** eases it in and out
     when switched (about 0.8 s), smooths its music response and crossfades Parts, Random and
     Flicker instead of cutting. **Element** (Explode, Build, Flicker) sets what the picture breaks
@@ -379,13 +389,16 @@ process the finished image.
     Organic). Each effect
     is a card: its switch on top, then Element, Map, its own settings, Intensity and Fade. The
     **Mix** card holds Combos, Re-pick and **Autopilot**, a choreographer. It plays curated looks
-    (Blueprint, Scan lines, Contour, Floor by floor, Snake, Facade chase, Morph build, Levels,
-    Impact, Shatter, Pulse floors, Facade storm, Mirror, Drift, Echo trace, Melt): one hero effect at
+    (Blueprint, Scan lines, Clouds, Contour, Floor by floor, Snake, Facade chase, Morph build, Stack
+    floors, Veins, Rings, Levels, Impact, Shatter, Pulse floors, Facade storm, Beat reveal, Glitch
+    storm, Vein burst, Mirror, Drift, Echo trace, Dissolve, Melt): one hero effect at
     full strength with quieter supports (**Layers** 1–4 caps them; Echo and Morph count extra). It
     picks looks to suit the song's section (*Intro*, *Build*, *Drop*, *Break*, read from the
     loudness against its recent peak), keeps each for a whole **Phrase** (4, 8 or 16 bars), steps one
     setting per bar inside a look, never repeats one of its last four and crossfades over one bar.
-    When a drop lands it fires one bar of Impact over the whole object, then starts a drop look.
+    When a drop lands it fires one bar of Impact (Flash + Glitch with cells cut in every half beat
+    and a shockwave), then starts a drop look; drop looks hit again on every bar (Flash, Glitch,
+    Slam in turn).
     Each sound has one job: bass hits, highs flicker, mids colour the light, the beat sets the pace.
     Bars come from the **beat clock**: the tempo is read from the detected beats, **Tap** sets it by
     hand and **Resync** makes now bar 1. **Follow** picks the clock: *Song map* (the loaded track is
