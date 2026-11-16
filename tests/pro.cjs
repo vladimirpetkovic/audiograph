@@ -949,7 +949,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.equal(await sp.evaluate(()=>getComputedStyle(document.getElementById('preview')).visibility),'visible','The preview returns after the splash');
       assert.ok(await sp.evaluate(()=>[...document.querySelectorAll('.splash-video')].every(v=>v.paused)),'Closing the splash pauses its video');
       assert.deepEqual(await sp.evaluate(()=>[document.getElementById('splash').hidden,document.body.classList.contains('ws-map')]),[true,true],'Splash Project opens Mapping');
-      assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Project · 1 of 4','A splash section opens its guide');
+      assert.equal(await sp.evaluate(()=>document.getElementById('tourStep').textContent),'Mapping · 1 of 15','A splash section opens its guide');
       await sp.evaluate(()=>document.querySelector('#mapPanel [data-map-cat=scene]').classList.add('collapsed'));await sp.click('#tourNext');
       assert.ok(await sp.locator('[data-property=mapAdd]').isVisible(),'A guide opens the folded section that holds its target');
       await sp.click('#tourSkip');
@@ -1623,6 +1623,8 @@ def Camera "Camera" {
     const titles=await page.evaluate(()=>pro.tour.steps);
     assert.ok(titles.length>=12,'Tutorial has its steps');
     await page.click('#tourButton');
+    assert.deepEqual(await page.$$eval('.map-menu button',b=>b.map(x=>x.dataset.property)),['tourFirst','tourMapping','tourAutopilot'],'Tutorial offers First Mile, Mapping and Autopilot');
+    await page.click('[data-property=tourFirst]');
     await page.locator('#tourCard.show').waitFor({timeout:5000});
     const ids=await page.evaluate(()=>pro.tour.status().ids);
     await page.waitForFunction(id=>pro.engine(id)?.status==='ready',ids.W,{timeout:30000});

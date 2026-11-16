@@ -2500,7 +2500,7 @@ $('helpBody').innerHTML=`
 <p>Audiograph Pro turns sound into moving images you build from nodes. Each node does one thing: bring something in, draw it, bend it, colour it, polish it. Wire them into a chain, end the chain in <b>Output</b>, and everything reacts to the music as it plays.</p>
 <nav class="help-toc" aria-label="Guide contents"><a href="#h-start">Quick start</a><a href="#h-screen">The screen</a><a href="#h-graph">Nodes &amp; wires</a><a href="#h-library">The library</a><a href="#h-audio">Audio</a><a href="#h-drive">Driving knobs</a><a href="#h-layers">Layers</a><a href="#h-3d">3D &amp; models</a><a href="#h-sims">Simulations</a><a href="#h-fx">Post FX</a><a href="#h-ai">AI rendering</a><a href="#h-mapping">Mapping</a><a href="#h-auto">Autopilot</a><a href="#h-files">Saving &amp; output</a><a href="#h-keys">Keys</a><a href="#h-trouble">Troubleshooting</a></nav>
 <h3 id="h-start">Quick start</h3>
-<p>New here? Press <b>Tutorial</b> (top right) for the First Mile: it builds a scene with you node by node, then shows Mapping, Autopilot, recording and saving.</p>
+<p>New here? Press <b>Tutorial</b> (top right): the First Mile builds a scene with you node by node; Mapping and Autopilot each have their own tutorial.</p>
 <ol><li>Pick a look from <b>Templates</b> (top right): your own <b>User templates</b> or the <b>Audiograph presets</b>.</li>
 <li>Click the source name in the transport bar (under the preview) to load a song, or use the Mic or System audio. Until then the visuals stay still and the Audio node asks you to select your audio source.</li>
 <li>Click any node in the graph and turn its knobs in the inspector on the right.</li>
@@ -3587,10 +3587,15 @@ const tour=createTour({
   stopAutomation:()=>{apStop();tm.playing=false;if(workspace==='auto')renderAutoPanel();},
   zoom:uiZ
 });
-$('tourButton').onclick=()=>tour.start();
+// Tutorial menu: the First Mile builds a scene; Mapping and Autopilot have their own tutorials.
+function openGuide(id){const i=SPLASH_ITEMS.findIndex(x=>x[0]===id),g=SPLASH_GUIDES[id];if(g.demo)loadTestTrack();tour.guide({id,color:splashColor(i),...g});}
+$('tourButton').onclick=()=>mapMenu($('tourButton'),'Tutorials',[
+  {label:'First Mile',hint:'Build a scene, node by node',property:'tourFirst',run:()=>tour.start()},
+  {label:'Mapping',hint:'Project onto walls and objects',property:'tourMapping',run:()=>openGuide('project')},
+  {label:'Autopilot',hint:'Let the music run the show',property:'tourAutopilot',run:()=>openGuide('auto')}]);
 window.pro={
   randomGraph,
-  tour:{start:()=>tour.start(),stop:()=>tour.stop(),go:i=>tour.go(i),next:()=>tour.next(),invite:()=>tour.invite(),steps:tour.steps.map(s=>s.t),status:()=>({index:tour.index,live:tour.live,ids:tour.ids})},
+  tour:{start:()=>tour.start(),guide:id=>openGuide(id),guides:()=>Object.fromEntries(Object.entries(SPLASH_GUIDES).map(([k,g])=>[k,g.steps.map(s=>s.t)])),stop:()=>tour.stop(),go:i=>tour.go(i),next:()=>tour.next(),invite:()=>tour.invite(),steps:tour.steps.map(s=>s.t),status:()=>({index:tour.index,live:tour.live,ids:tour.ids})},
   morph:{settings:o=>{if(o){tm.configure(o);tmSave();if(workspace==='auto')renderAutoPanel();}return tm.settings();},
     start:tmStart,stop:()=>{tm.playing=false;tmStatus();},scrub:v=>{tm.playing=false;tm.scrub(v);return tmSetPair();},apply:()=>attempt(tmApply),
     status:()=>({...tm.pair(),playing:tm.playing,position:tm.position,node:tmNode})},
@@ -3625,6 +3630,13 @@ const SPLASH_ICONS={
   share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98"/>'
 };
 const openTemplates=()=>{const s=$('templates');s.focus();try{s.showPicker();}catch{}};
+// The Mapping tutorial needs a 3D surface to point at: it selects the first one, or adds a Cube (one Undo step).
+function tourNeed3d(auto){
+  const m=curMap();let t=m.surfaces.find(x=>x.id===mapSel&&x.kind==='3d')||m.surfaces.find(x=>x.kind==='3d');
+  if(!t){if(m.surfaces.length>=mapping.MAX_SURFACES)return;addMap3d({primitive:'Cube',name:'Cube'});t=curMap().surfaces.find(x=>x.id===mapSel);}
+  else if(mapSel!==t.id){mapSel=t.id;mapPt=-1;renderMapPanel();renderOverlay();}
+  if(auto&&t&&!t.fx?.auto?.on)mapEdit(x=>{const y=x.surfaces.find(z=>z.id===t.id);y.fx={...y.fx,auto:{...y.fx.auto,on:true}};},'Animate autopilot on');
+}
 const SPLASH_GUIDES={
   visualize:{title:'Visualize',steps:[
     {sel:'#previewWrap',ws:'studio',t:'The preview',txt:'This is what your audience sees, live with the music. Drag to orbit 3D, right-drag to pan, scroll or pinch to zoom, double-click to reset the view.'},
@@ -3637,16 +3649,37 @@ const SPLASH_GUIDES={
     {sel:['#randomGraph','#reset'],t:'Random and Reset',txt:'Random builds a surprise graph. Reset returns to the simple starting scene.'},
     {sel:'#save',t:'Save your own',txt:'Save → Save as template adds your look to Templates → User templates, ready for next time.'}],
     done:{label:'Choose a template',run:()=>openTemplates()}},
-  auto:{title:'Auto-play',steps:[
-    {sel:'#modeAuto',ws:'auto',t:'Autopilot',txt:'Autopilot listens to the song (build-ups, drops, breakdowns) and changes the visuals at each moment, hands-free.'},
-    {sel:'.ap-prompt',t:'Describe the show',txt:'Type a vibe: tempo, mood, colours or styles (“dreamy, slow, deep blue”). The line below shows what it understood.'},
-    {sel:'#apStatus',t:'Turn it on',txt:'Switch Autopilot On and play music. The bar shows the energy; each change crossfades smoothly. Off keeps the current look, and Undo returns to where you started.'},
-    {sel:'#autoPanel select',t:'Preset Morph',txt:'Or build a playlist of presets and press Play to glide between them over time, on the beat, or shuffled.'}]},
-  project:{title:'Project',steps:[
-    {sel:'#modeMap',ws:'map',t:'Projection mapping',txt:'Fit the output onto walls, objects and screens. The mapping is saved with your scene and kept when you change looks.'},
-    {sel:'#mapPanel [data-property=mapAdd]',t:'Add a layout',txt:'+ Surface adds a layout such as a single screen, a corridor or a triptych; + 3D object loads a model or adds a primitive. Test card shows a grid for alignment.'},
-    {sel:'#previewWrap',t:'Drag the corners',txt:'Drag each surface’s corners onto what the projector hits. Handles are only drawn here, never on the projector.'},
-    {sel:'#output',t:'Send it to the projector',txt:'Detach opens a clean output window: drag it to the projector or second screen and double-click it for fullscreen.'}]},
+  auto:{title:'Autopilot',demo:true,steps:[
+    {sel:'#modeAuto',ws:'auto',t:'Autopilot',txt:'Autopilot is a hands-free VJ: it listens to the song (intro, build-ups, drops, breakdowns) and builds a new look for each moment, crossfading between them. The test track plays so you can follow along.'},
+    {sel:'.prop-row:has([data-property=apLive])',t:'Turn it on',txt:'On starts following the music; Off keeps whatever is showing. Everything it does is undoable, so you can always return to your own scene.'},
+    {sel:'.ap-prompt',t:'Describe the show',txt:'Type a vibe: mood, colours, shapes, motion (“slow dreamy blue and gold spirals”, “neon particles, fast”). Leave it empty and Autopilot roams freely. Single colours become rich gradients automatically.'},
+    {sel:'[data-property=apRead]',t:'What it understood',txt:'This line shows how your words were read: colours, mood, emitters and any drivers or masks (“breathing slowly”, “glitchy highs”, “masked by text \"FLOW\"”).'},
+    {sel:'#autoPanel .knob-grid:has([data-property=apMatch])',t:'Prompt match',txt:'How closely it sticks to your words. Lower values let it surprise you with bolder combinations.'},
+    {sel:'.prop-row:has([data-property=apWrite])',t:'Let it write',txt:'Write makes Autopilot invent its own descriptions at each change, so the show keeps evolving. Typing in Describe takes over again.'},
+    {sel:'#apStatus',t:'Follow the music',txt:'The bar shows the energy and the section it hears. Drops get bigger, brighter looks; breakdowns calm down. If a look comes out washed out, it recolours it.'},
+    {sel:['.prop-row:has([data-property=apChanges])','.prop-row:has([data-property=apLayers])'],t:'How much changes',txt:'Colours only recolours your scene, Mood also moves its knobs, Everything builds whole new looks. Layers sets how many it stacks (Auto picks by energy).'},
+    {sel:'.prop-row:has([data-property=apTrigger])',t:'When it changes',txt:'Song changes on sections of the song (Every sets the longest wait). Bass, Beat, Highs or Loudness change on hits above Level, at least Gap seconds apart.'},
+    {sel:['[data-property=apNext]','[data-property=apHold]'],t:'Next and Hold',txt:'Next changes the look now. Hold keeps the current one until you release it: great for a moment you love.'},
+    {sel:'#autoPanel .ws-block:last-child',t:'Preset Morph',txt:'Prefer the classic presets? Build a playlist here and press Play to glide between them over time or on the beat, in order or shuffled.'},
+    {sel:'#modeMap',t:'On a projection',txt:'Projecting onto an object? Mapping has its own Autopilot (Animate) that reveals parts of the object with the beat and hits the drops. The Mapping tutorial shows it.'}],
+    done:{label:'Start Autopilot',run:()=>{apStart();renderAutoPanel();message('Autopilot is following the music');}}},
+  project:{title:'Mapping',demo:true,steps:[
+    {sel:'#modeMap',ws:'map',t:'Projection mapping',txt:'Mapping fits your visuals onto real things: walls, screens, a building or a sculpture. It is saved with your scene and stays when you change looks.'},
+    {sel:'[data-property=mapAdd]',t:'Flat surfaces',txt:'+ Surface adds flat layouts (a screen, a corridor, a triptych, a cube). Drag each corner on the preview onto what the projector hits; curved grids bend around columns.'},
+    {sel:'[data-property=mapAdd3d]',run:()=>tourNeed3d(),t:'3D objects',txt:'+ 3D object loads a model of your object (OBJ, FBX, USD, glTF) or adds a primitive. We added a Cube so you can try everything; Undo removes it.'},
+    {sel:'#previewWrap',t:'Line up the projector',txt:'Drag to orbit, right-drag to pan, scroll to zoom: match the view to where your projector stands. Handles only show here, never on the projector.'},
+    {sel:'#mapPanel [data-map-cat=camera]',run:()=>tourNeed3d(),t:'Camera and calibration',txt:'The Camera section holds the projector’s exact position. Calibrate solves it for you: click 6 or more corners on the model and drag each dot to where it really lands.'},
+    {sel:'#mapPanel [data-map-cat=projection]',run:()=>tourNeed3d(),t:'How the picture wraps',txt:'Box wraps the visuals around the object from all sides (the default), Front throws them from the projector, UV uses the model’s own layout.'},
+    {sel:'#mapPanel [data-map-cat=animate]',run:()=>tourNeed3d(),t:'Animate the object',txt:'Effects play on the object without moving the mesh: reveals, edges, glitches, flashes, shock waves. Each card’s Map decides where it shows: noise, rings, dissolve, depth, parts…'},
+    {sel:'#mapPanel .fx-mix:not(.fx-cues):not(.fx-tags)',run:()=>tourNeed3d(),t:'Combos and Re-pick',txt:'Combos switch on a ready-made mix to start from. Re-pick sets how often Parts and Random reveal new pieces, on the beat.'},
+    {sel:'.prop-row:has([data-property=surf3dFxAuto])',run:()=>tourNeed3d(true),t:'Mapping Autopilot',txt:'Autopilot plays the object for you: it reads the song map (intro, build, drop, break), reveals parts with the beat and fires a flash or glitch on each drop. Phrase sets how often it moves on.'},
+    {sel:'#mapPanel .fx-cues',run:()=>tourNeed3d(),t:'Cues',txt:'Save cue keeps the effects playing now. Launch cues with a click, keys 1–9 or MIDI pads; they crossfade in, then Autopilot carries on.'},
+    {sel:'#mapPanel .fx-tags',run:()=>tourNeed3d(),t:'Tag the parts',txt:'Tell it what the parts are: pick Windows, Columns, Roof or Accent and click parts on the preview. Autopilot then plays facades on windows and traces columns.'},
+    {sel:'#mapPanel [data-map-cat=post]',run:()=>tourNeed3d(),t:'Post FX on the object',txt:'Glow, trails, kaleidoscope and tone for this surface only, applied after the projection.'},
+    {sel:'.prop-row:has([data-property=mapProjectors])',t:'More projectors',txt:'With 2–4 projectors side by side, Output opens one window each; Overlap and Blend fade the seams away.'},
+    {sel:'#mapPanel .map-sub:has([data-property=mapRemotePair])',t:'Phone remote',txt:'Connect phone shows a QR code: scan it on the same Wi-Fi, then paste the code it shows back here. Your phone gets Master, Blackout, Autopilot, Next and cues.'},
+    {sel:'#output',t:'Send it out',txt:'Detach opens a clean output window: drag it to the projector and double-click for fullscreen. If the computer struggles, mapping lowers its resolution for a moment and recovers.'}],
+    done:{label:'Done'}},
   export:{title:'Export',steps:[
     {sel:'#exportVideo',ws:'studio',t:'Export a video',txt:'Renders a sound file offline, frame by frame, to MP4: up to 4K at 60 fps with no dropped frames, however heavy the scene.'},
     {sel:'#record',t:'Record live',txt:'REC captures exactly what you see and hear in real time, including mic or system audio and your knob and MIDI moves.'},
@@ -3675,7 +3708,7 @@ function buildSplash(){
     const b=el('button','splash-item');b.type='button';b.dataset.splash=id;b.title=hint;
     b.style.setProperty('--g',splashGradient(i));b.style.setProperty('--icon',`url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
     b.append(el('span','splash-icon'),el('span','splash-label',label));
-    b.onclick=()=>{splashAfter=null;closeSplash();tour.guide({id,color:splashColor(i),...SPLASH_GUIDES[id]});};menu.append(b);
+    b.onclick=()=>{splashAfter=null;closeSplash();openGuide(id);};menu.append(b);
   });
 }
 // Background clips, recorded from templates; shuffled each time so the welcome never looks the same twice.

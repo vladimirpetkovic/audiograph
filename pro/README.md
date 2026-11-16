@@ -452,7 +452,17 @@ process the finished image.
   Echo, Flares, Ripples, Sacred geometry, Tree, Universe; `splash/*.mp4`)
   crossfade in a fresh random order each time. Add or replace clips there and in
   `SPLASH_CLIPS`. It is skipped with reduced motion.
-- **Tutorial** (top right) is the First Mile, like the original's interactive
+- **Tutorial** (top right) offers three tutorials: First Mile, **Mapping** and
+  **Autopilot** (the welcome screen's Project and Auto-play open the same two).
+  Mapping (15 steps) covers surfaces, 3D objects, lining up the projector and
+  calibration, projection, Animate effects and their Maps, Combos, the mapping
+  Autopilot and its song map, cues, part tags, Post FX, multiple projectors,
+  the phone remote and Detach; it adds a Cube if there is no 3D object (one Undo
+  removes it) and turns on its Animate Autopilot. Autopilot (12 steps) covers
+  Describe, what it understood, Prompt match, Write, the music bar, Changes,
+  Layers, Switch on, Next and Hold, Preset Morph and mapping, and ends with
+  Start Autopilot. Both play the test track if no sound is chosen.
+- The **First Mile** is like the original's interactive
   tutorial: it first highlights each audio source (Load file, Mic and System) and
   explains it (if no source is chosen yet, a short looping test track, shown as
   “Test track (tutorial)”, plays so the preview moves; the tutorial waits for it

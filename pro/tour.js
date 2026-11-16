@@ -135,7 +135,7 @@ export function createTour(api){
   function loop(){place();timer=requestAnimationFrame(loop);}
   function go(i){
     build();idx=Math.max(0,Math.min(cur.length-1,i));const s=cur[idx];
-    if(guideCfg){if(s.ws)api.workspace(s.ws);}
+    if(guideCfg){if(s.ws)api.workspace(s.ws);s.run?.();}
     else{if(s.scene!=='keep'){api.setScene(scene(s));api.select(s.select?ids[s.select]:null);}else if(s.select)api.select(ids[s.select]);api.workspace('studio');}
     // A target inside a folded section opens that section first.
     for(const q of s.node?[]:[].concat(s.sel)){const e=document.querySelector(q),p=e?.closest('.panel.collapsed');if(p&&!e.closest('.panel-head'))p.querySelector(':scope > .panel-head')?.click();}
