@@ -12,6 +12,8 @@ export function boxMatrix(b){const [x,y,z]=[b.rx,b.ry,b.rz].map(v=>v*Math.PI/180
 // Auto: projection knobs that drift by themselves. key → [min, max, drift amplitude] in stored units.
 const C=[0,1,.1],BM=[-2,2,.3],BR=[-180,180,40],BS=[.05,20,.4];
 export const MAP_AUTO={crop0:C,crop1:C,crop2:C,crop3:C,tile:[.1,20,.5],fade:[0,1,.35],'box.x':BM,'box.y':BM,'box.z':BM,'box.rx':BR,'box.ry':BR,'box.rz':BR,'box.sx':BS,'box.sy':BS,'box.sz':BS,'box.scale':BS};
+// Scale drift is locked uniform: every scale key follows one shared curve as a factor, so the box never skews.
+const SCALE_AUTO=new Set(['box.sx','box.sy','box.sz','box.scale']);
 export function cleanAuto(a){return Array.isArray(a)?[...new Set(a.filter(k=>typeof k==='string'&&Object.hasOwn(MAP_AUTO,k)))]:[];}
 const autoGet=(s,k)=>k.startsWith('crop')?s.crop[+k[4]]:k.startsWith('box.')?s.box[k.slice(4)]:s[k];
 function wander(seed,clock){let h=2166136261;for(let i=0;i<seed.length;i++){h^=seed.charCodeAt(i);h=Math.imul(h,16777619);}
@@ -20,7 +22,8 @@ function wander(seed,clock){let h=2166136261;for(let i=0;i<seed.length;i++){h^=s
 export function driftMapping(m,clock,shown){
   if(!m?.surfaces.some(s=>s.auto?.length))return m;
   return {...m,surfaces:m.surfaces.map(s=>{if(!s.auto?.length)return s;const t={...s,crop:s.crop&&[...s.crop],box:s.box&&{...s.box}};
-    for(const k of s.auto){const [lo,hi,amp]=MAP_AUTO[k],home=autoGet(s,k);if(home===undefined)continue;const v=Math.max(lo,Math.min(hi,home+wander(s.id+k,clock)*amp));
+    const zf=2**(wander(s.id+'box.scale',clock)*.5);
+    for(const k of s.auto){const [lo,hi,amp]=MAP_AUTO[k],home=autoGet(s,k);if(home===undefined)continue;const v=Math.max(lo,Math.min(hi,SCALE_AUTO.has(k)?home*zf:home+wander(s.id+k,clock)*amp));
       if(k.startsWith('crop'))t.crop[+k[4]]=v;else if(k.startsWith('box.'))t.box[k.slice(4)]=v;else t[k]=v;}
     if(t.crop){t.crop[0]=Math.min(t.crop[0],.98);t.crop[1]=Math.min(t.crop[1],.98);t.crop[2]=Math.max(t.crop[2],t.crop[0]+.02);t.crop[3]=Math.max(t.crop[3],t.crop[1]+.02);}
     for(const k of s.auto)shown?.set(s.id+':'+k,autoGet(t,k));return t;})};

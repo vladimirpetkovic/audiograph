@@ -1343,6 +1343,9 @@ def Camera "Camera" {
       const shown=async()=>page.locator('.knob[data-map-auto=tile] .knob-value').textContent(),a=await shown();await page.waitForTimeout(1500);const b=await shown();
       assert.notEqual(a,b,'Auto Tiling drifts');assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].tile,1,'Auto drift does not change the saved value');
       await page.evaluate(()=>pro.undo());assert.equal((await page.evaluate(()=>pro.mapping())).surfaces[0].auto,undefined,'Auto is undoable');}
+    // Auto box scale is locked uniform: the axes keep their proportions while the size drifts.
+    {const r=await page.evaluate(async()=>{const M=await import('./map3d.js'),s={id:'u',auto:['box.sx','box.sy','box.sz'],box:{x:0,y:0,z:0,rx:0,ry:0,rz:0,sx:1,sy:2,sz:.5,scale:1}};const out=[];for(let c=0;c<40;c+=1.3){const b=M.driftMapping({surfaces:[s]},c).surfaces[0].box;out.push([b.sx,b.sy/b.sx,b.sz/b.sx]);}return out;});
+      assert.ok(r.every(([,y,z])=>Math.abs(y-2)<1e-9&&Math.abs(z-.5)<1e-9),'Auto box scale never skews');assert.ok(Math.max(...r.map(v=>v[0]))-Math.min(...r.map(v=>v[0]))>.2,'Auto box scale still drifts');}
     // Ambient occlusion: the Shading toggle darkens the corner where the two walls meet.
     {await (await reveal(page.locator('[data-property=surf3dAO] button',{hasText:'On'}))).click();assert.equal(await page.locator('[data-property=surf3dAOStrength]').count(),1,'AO shows its Strength knob');
       const d=await page.evaluate(()=>{const M=pro.mapping3d,s0=pro.mapping().surfaces[0],W=640,H=360,img=document.createElement('canvas');img.width=W;img.height=H;const x=img.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);

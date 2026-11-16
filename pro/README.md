@@ -322,7 +322,9 @@ process the finished image.
     and is skipped otherwise.
     Projection knobs (2D Crop; 3D Tiling, Box fade, Box move / rotate / scale)
     have **Auto**: the centre dot makes the knob drift around its value at draw
-    time (the saved value stays put; the surface keeps an `auto` key list).
+    time (the saved value stays put; the surface keeps an `auto` key list). Box scale
+    Auto is locked uniform: all its scale knobs grow and shrink together by the same factor,
+    so the picture never skews.
     Animated GLB/glTF models (skinned characters, node animation) play on the surface:
     **Animation** toggles Play / Rest pose, picks the clip and sets the speed.
     Flat/unlit WebGL2 rendering includes depth testing and double-sided faces.
