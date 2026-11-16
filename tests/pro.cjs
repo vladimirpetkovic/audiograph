@@ -1485,7 +1485,9 @@ def Camera "Camera" {
       await r.click('#auto');await page.waitForFunction(()=>pro.mapping().surfaces[0].fx.auto.on);await r.close();
       const w=await page.evaluate(async()=>{const L=await import('./remote-link.js'),h=await L.hostLink(),j=await L.joinLink(h.offer);await h.accept(j.answer);const got=new Promise(ok=>{j.onmessage=ok;setTimeout(()=>ok(null),8000);});
         await new Promise(ok=>{const t=setInterval(()=>{if(h.open){clearInterval(t);ok();}},50);setTimeout(ok,8000);});h.send({t:'state',look:'x'});const m=await got;h.close();j.close();return {m,len:h.offer.length};});
-      assert.equal(w.m?.look,'x','The phone link pairs with short codes and carries messages');assert.ok(w.len<400,'Pairing codes stay short: '+w.len);}
+      assert.equal(w.m?.look,'x','The phone link pairs with short codes and carries messages');assert.ok(w.len<400,'Pairing codes stay short: '+w.len);
+      const plus=await page.evaluate(async()=>{const L=await import('./remote-link.js'),sdp='a=ice-ufrag:a+b/\r\na=ice-pwd:p+q/r+s/t+u/v+w/x+yz\r\na=fingerprint:sha-256 AB:CD\r\na=candidate:1 1 udp 1 192.168.1.2 5000 typ host\r\n',code=L.packSdp(sdp),viaUrl=new URLSearchParams('o='+code).get('o'),out=L.unpackSdp(viaUrl,'offer').sdp,old=L.unpackSdp(code.replace(/-/g,' '),'offer').sdp;return {code,out,old};});
+      assert.ok(!/[+/]/.test(plus.code.split('~').slice(0,2).join('')),'Remote codes are URL safe');assert.ok(plus.out.includes('a=ice-ufrag:a+b/')&&plus.out.includes('a=ice-pwd:p+q/r+s/t+u/v+w/x+yz'),'ICE credentials with + and / survive the QR link');assert.ok(plus.old.includes('a=ice-ufrag:a+b'),'Links where + became a space still pair');}
     // USD models: a binary crate matches pxr's transforms; a dense USDA grid reaches Mapping without thinning.
     {const r=await page.evaluate(async fx=>{const {parseUSDModel}=await import('./usd-model.js'),M=await import('./map3d.js');
       const m=await parseUSDModel(Uint8Array.from(atob(fx.usdc),c=>c.charCodeAt(0)).buffer,'fx.usdc'),pr=m.meshes.map(x=>x.prims[0]);

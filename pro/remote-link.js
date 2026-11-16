@@ -5,6 +5,8 @@ export const CHANNEL='audiograph-remote';
 const ICE=[{urls:'stun:stun.l.google.com:19302'}];
 const b64=u=>btoa(String.fromCharCode(...u)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const unb64=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+// ICE ufrag/pwd may hold '+' and '/', which URLs mangle ('+' reads as a space), so codes carry '-' and '_' instead.
+const safe=t=>t.replace(/\+/g,'-').replace(/\//g,'_'),unsafe=t=>t.replace(/[- ]/g,'+').replace(/_/g,'/');
 
 // ufrag~pwd~fingerprint~candidates; a candidate is h|s, address and port.
 export function packSdp(sdp){
@@ -14,10 +16,10 @@ export function packSdp(sdp){
   for(const m of sdp.matchAll(/a=candidate:\S+ 1 udp \d+ (\S+) (\d+) typ (host|srflx)/gi)){const k=m[1]+':'+m[2];if(seen.has(k))continue;seen.add(k);cs.push((m[3]==='host'?'h':'s')+m[1]+'_'+m[2]);}
   if(!cs.length)throw Error('No network route found');
   const alg=fp[1].toLowerCase()==='sha-256'?'':fp[1]+'!';
-  return [uf,pw,alg+b64(fp[2].split(':').map(h=>parseInt(h,16))),cs.slice(0,6).join(',')].join('~');
+  return [safe(uf),safe(pw),alg+b64(fp[2].split(':').map(h=>parseInt(h,16))),cs.slice(0,6).join(',')].join('~');
 }
 export function unpackSdp(code,type){
-  const [uf,pw,f,c]=String(code).trim().split('~');if(!uf||!pw||!f||!c)throw Error('That code is not a remote code');
+  let [uf,pw,f,c]=String(code).trim().split('~');if(!uf||!pw||!f||!c)throw Error('That code is not a remote code');uf=unsafe(uf);pw=unsafe(pw);
   const [alg,fh]=f.includes('!')?f.split('!'):['sha-256',f],fp=[...unb64(fh)].map(x=>x.toString(16).padStart(2,'0').toUpperCase()).join(':');
   const cand=c.split(',').map((x,i)=>{const host=x[0]==='h',[a,p]=x.slice(1).split('_');return `a=candidate:${i+1} 1 udp ${(host?2122260223:1686052607)-i} ${a} ${p} typ ${host?'host':'srflx raddr 0.0.0.0 rport 0'}`;});
   return {type,sdp:['v=0','o=- 1 2 IN IP4 127.0.0.1','s=-','t=0 0','a=group:BUNDLE 0','a=msid-semantic: WMS','m=application 9 UDP/DTLS/SCTP webrtc-datachannel','c=IN IP4 0.0.0.0',...cand,
