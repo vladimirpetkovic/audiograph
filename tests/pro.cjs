@@ -1505,6 +1505,25 @@ def Camera "Camera" {
       assert.ok(r.drift<=25.01&&r.drift>15,'Auto drift sways a 3D tilt by at most 25°: '+r.drift);assert.ok(r.tilted<=25,'"Tilted" leans 25° at most');
       assert.ok(r.full>1000&&Math.abs(r.half/r.full-1)<.08,'A lower mapping resolution still fills the same area: '+r.full+' / '+r.half);
       const st=await page.evaluate(()=>pro.stats().mapRes);assert.equal(st,1,'Mapping renders at full resolution while frames are on time');}
+    // Cutter: every cut pattern tiles the frame; beats shuffle and recolour the pieces; Noir turns them grey; presets apply.
+    {const r=await page.evaluate(async()=>{const C=await import('./cutter.js'),G=await import('./graph.js');
+      const area=q=>{let a=0;for(let i=0;i<q.length;i++){const [x1,y1]=q[i],[x2,y2]=q[(i+1)%q.length];a+=x1*y2-x2*y1;}return Math.abs(a)/2;};
+      const cover=C.PATTERNS.map(([k])=>[k,Math.round(C.layout(k,9,3,960,540).reduce((s,c)=>s+area(c.pts),0))]);
+      const src=Object.assign(document.createElement('canvas'),{width:320,height:180}),sx=src.getContext('2d'),g=sx.createLinearGradient(0,0,320,0);g.addColorStop(0,'#f30');g.addColorStop(1,'#03f');sx.fillStyle=g;sx.fillRect(0,0,320,180);
+      const out=Object.assign(document.createElement('canvas'),{width:320,height:180}),x=out.getContext('2d'),snap=()=>x.getImageData(0,0,320,180).data;
+      const run=(props,beats)=>{const p={...Object.fromEntries(Object.entries(G.TYPES.cutter.props).map(([k,v])=>[k,v.value])),...props},st=C.createState();let hits=0;
+        for(let i=0;i<beats*6;i++){x.clearRect(0,0,320,180);hits+=C.render(x,src,st,p,{bands:{bass:.8,high:.5,full:.6},beat:Math.floor(i/6)},i/30,1/30,320,180)||0;}return hits;};
+      run({},1);const a=snap().slice();const hits=run({},6);const b=snap();let diff=0;for(let i=0;i<a.length;i+=4)diff+=Math.abs(a[i]-b[i])>20;
+      run({...C.PRESETS.Noir,recolor:100,recolorOn:'all'},4);const d=snap();let col=0;for(let i=0;i<d.length;i+=4)col=Math.max(col,Math.abs(d[i]-d[i+2]));
+      return {cover,hits,diff,col,presets:Object.keys(C.PRESETS)};});
+      for(const [k,a] of r.cover)assert.ok(Math.abs(a-518400)<600,'The '+k+' cut tiles the whole frame: '+a);
+      assert.ok(r.hits>=4&&r.diff>2000,'Beats shuffle the Cutter pieces: '+r.hits+' hits, '+r.diff+' px');assert.ok(r.col<30,'Noir turns the pieces grey: '+r.col);
+      assert.ok(r.presets.length>=7,'Cutter has cut presets');
+      await page.evaluate(()=>{const P=pro.getProject();const L=P.layers[0];L.nodes.push({id:'cutT',type:'cutter',x:0,y:0,props:{}});pro.importProject(P);pro.select('cutT');});await page.waitForTimeout(300);
+      await page.evaluate(()=>document.querySelector('[data-property=cutterPreset] button[data-value=Glitch]').click());await page.waitForTimeout(200);
+      const pr=await page.evaluate(()=>{const n=pro.getProject().layers[0].nodes.find(n=>n.id==='cutT');return n&&[n.props.pattern,n.props.colors];});
+      assert.deepEqual(pr,['rows','chroma'],'The Glitch preset chip sets the cut and colour effect');
+      await page.evaluate(()=>{const P=pro.getProject();P.layers[0].nodes=P.layers[0].nodes.filter(n=>n.id!=='cutT');pro.importProject(P);});}
     // USD models: a binary crate matches pxr's transforms; a dense USDA grid reaches Mapping without thinning.
     {const r=await page.evaluate(async fx=>{const {parseUSDModel}=await import('./usd-model.js'),M=await import('./map3d.js');
       const m=await parseUSDModel(Uint8Array.from(atob(fx.usdc),c=>c.charCodeAt(0)).buffer,'fx.usdc'),pr=m.meshes.map(x=>x.prims[0]);

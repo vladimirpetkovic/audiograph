@@ -18,7 +18,7 @@ export const CATEGORIES = [
   {id:'emitters',label:'Emitters',color:'#71c3f4',hint:'Particles: classic and native WebGPU simulations'},
   {id:'3d',label:'3D',color:'#7199f4',hint:'3D waveforms, and the Cloner with its objects, effectors, material, light and camera'},
   {id:'forces',label:'Forces',color:'#7271f4',hint:'Spin any shape; push and steer WebGPU simulations: gravity, drag, swirl, wind…'},
-  {id:'deformers',label:'Deformers',color:'#9b71f4',hint:'Bend, mirror and repeat the shape, or add noise'},
+  {id:'deformers',label:'Deformers',color:'#9b71f4',hint:'Bend, mirror and repeat the shape, add noise, or cut the picture into pieces'},
   {id:'color',label:'Color',color:'#c471f4',hint:'Palettes and hue'},
   {id:'postfx',label:'Post FX',color:'#ed71f4',hint:'Image effects (GPU shaders)'},
   {id:'controls',label:'Controls',color:'#f471d1',hint:'Numbers that move knobs'},
@@ -298,6 +298,20 @@ export const TYPES = {
   flowField:{category:'deformers',group:'Noise',label:'Flow field',description:'Noise forces that steer classic Particles.',...SHAPE_IO,props:{
     perlin:n('Perlin',40,0,100,1,{key:'pNoisePerlin'}),curl:n('Curl',0,0,100,1,{key:'pNoiseCurl'}),brownian:n('Brownian',0,0,100,1,{key:'pNoiseBrownian'}),vortex:n('Vortex',0,0,100,1,{key:'pNoiseVortex'}),
     scale:n('Scale',30,1,100,1,{key:'pNoiseScale'}),speed:n('Speed',20,1,100,1,{key:'pNoiseSpeed'})}},
+  // Cutter: cuts any picture (an emitter's shape, a layer, video, image) into geometric pieces and plays them like a puzzle with the sound (cutter.js).
+  cutter:{category:'deformers',label:'Cutter',description:'Cuts the picture into pieces (golden ratio, random shards, grid, columns, rows, Mondrian, triangles) and plays them like a puzzle with the sound: hits shuffle what the pieces show, pop, nudge and flip them, and colour them (hues, two colours, black & white, invert, chromatic aberration). Presets set it all in one click. Works on anything: shapes, layers, video, images.',
+    inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
+    pattern:pick('Cut','golden',['golden','random','grid','columns','rows','mondrian','triangles'],{labels:[['golden','Golden ratio'],['random','Random shards'],['grid','Grid'],['columns','Columns'],['rows','Rows'],['mondrian','Mondrian'],['triangles','Triangles']]}),
+    pieces:n('Pieces',7,2,64,1),seed:n('Seed',1,0,999,1),
+    react:G('Moves on',pick('Moves on','beat',['beat','bass','high','level','tempo'],{labels:[['beat','Beats'],['bass','Bass'],['high','Highs'],['level','Loudness'],['tempo','Steady rate']]})),
+    every:G('Moves on',pick('Every','1',['1','2','4','8'],{labels:[['1','Beat'],['2','2 beats'],['4','4 beats'],['8','8 beats']]})),
+    threshold:G('Moves on',n('Threshold',45,0,95,1)),rate:G('Moves on',n('Rate (per s)',2,.25,12,.25)),recut:G('Moves on',n('Re-cut every (hits)',0,0,32,1)),
+    shuffle:G('Pieces',n('Shuffle',50,0,100,1)),scale:G('Pieces',n('Scale',40,0,100,1)),move:G('Pieces',n('Move',25,0,100,1)),rotate:G('Pieces',n('Flip / turn',20,0,100,1)),
+    glide:G('Pieces',n('Glide (ms)',350,0,2000,10)),decay:G('Pieces',n('Pop decay (ms)',300,40,2000,10)),
+    recolor:G('Colour',n('Colour amount',30,0,100,1)),recolorOn:G('Colour',pick('Colour on','hits',['hits','all'],{labels:[['hits','Pieces it hits'],['all','Every piece']]})),
+    colors:G('Colour',pick('Colour effect','hues',['hues','duo','mono','invert','chroma','mix'],{labels:[['hues','Hues'],['duo','Two colours'],['mono','Black & white'],['invert','Invert'],['chroma','Chromatic aberration'],['mix','Mix']]})),
+    c1:G('Colour',color('Colour A','#ff3d7f')),c2:G('Colour',color('Colour B','#3dd6ff')),
+    gap:G('Lines',n('Gap',10,0,100,1)),lines:G('Lines',n('Line width',0,0,12,.5)),lineColor:G('Lines',color('Line colour','#3d8bff'))}},
   // Post FX (original per-layer GPU shaders)
   // Glitch and Strobe: canvas Post FX that hit with the sound (beats, a band or loudness), each with an optional audio input.
   glitch:{category:'postfx',label:'Glitch',description:'Digital breakup that hits with the sound: sliced and shifted rows, RGB split, displaced blocks and stuttering frames. Quiet parts stay clean.',

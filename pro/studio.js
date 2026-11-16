@@ -13,6 +13,7 @@ import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as map3d from './map3d.js';
 import * as songMap from './song.js';
+import * as cutter from './cutter.js';
 import {hostLink,localLink} from './remote-link.js';
 import qrcode from './vendor/qrcode.js';
 import {parseCamera} from './camera-import.js';
@@ -851,6 +852,8 @@ function execute(g,time,dt){
       case 'layerIn':{const target=state.layers[p.layer-1];if(!target){nodeErrors.add(n.id);throw Error(`${g.name}: there is no layer ${p.layer}`);}
         if(target.id===g.id){nodeErrors.add(n.id);throw Error(`${g.name}: a Layer node cannot show its own layer`);}
         r.image=layerImages.get(target.id)||surface(n.id).canvas;break;}
+      case 'cutter':{const src=asImage(need(n,'image','an image'),n.id),sig=input(n,'audio')??projectSignal(),st=nstate(n.id+':cut',cutter.createState),{canvas,ctx}=surface(n.id);
+        lastValues.set(n.id,cutter.render(ctx,src,st,p,sig,time,dt,WIDTH,HEIGHT));r.image=canvas;break;}
       case 'glitch':case 'strobe':{const src=asImage(need(n,'image','an image'),n.id),sig=input(n,'audio')??projectSignal(),st=nstate(n.id+':hit',()=>({beat:sig.beat,v:0,seed:1,last:-1,count:0,flash:-9,armed:true,step:-1}));
         const b=sig.bands||{},level=p.react==='bass'?b.bass:p.react==='high'?Math.min(1,(b.high||0)*1.6):b.full,th=p.threshold/100,newBeat=sig.beat!==st.beat;st.beat=sig.beat;
         const {canvas,ctx}=surface(n.id);ctx.clearRect(0,0,WIDTH,HEIGHT);if(src)ctx.drawImage(src,0,0,WIDTH,HEIGHT);
@@ -1587,6 +1590,8 @@ function renderProperties(){
     if(n.type==='aiRender'||n.type==='aiModel')renderAiStatus(root,n);
     if(['image','video','camera'].includes(n.type))renderMediaPicker(root,n);
     if(n.type==='shader')renderShaderEditor(root,n);
+    if(n.type==='cutter')section(root,'Preset').append(ui.chips({options:Object.keys(cutter.PRESETS).map(k=>[k,k]),value:'',property:'cutterPreset',
+      onChange:v=>edit((P,g)=>{const m=g.nodes.find(x=>x.id===n.id);if(m)Object.assign(m.props,cutter.PRESETS[v]);},'Cutter: '+v)}));
     if(SIM_PROPS(n.type)&&t.category!=='3d')renderSimNote(root,g,n);
     const masked=g.edges.some(e=>e.to===n.id&&e.input==='mask');
     if(n.type!=='shader')renderProps(root,n,n.type==='palette'?paletteKeys(n.props):simKeys(g,n).filter(k=>masked||!MASK_KEYS.includes(k)));

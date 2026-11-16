@@ -165,6 +165,14 @@ each with its own opacity and blend mode (up to four).
   lines become knobs (wireable). Examples: Sound rings, Wobble, Kaleidoscope, Plasma, Edge glow.
   Apply with ⌘/Ctrl+Enter; compile errors show under the code (with line numbers) and the picture
   passes through untouched.
+  **Cutter** (Deformers) cuts any picture — shapes, video, images, a whole chain — into pieces and
+  shuffles them like a puzzle with the music. *Cut*: Golden ratio (Fibonacci squares), Random shards,
+  Grid, Columns, Rows, Mondrian, Triangles; Pieces and Seed vary it. *Moves on*: beat (every N),
+  bass, highs, level or a steady rate; Re-cut every N hits flips to a new layout. *Pieces*: Shuffle
+  swaps where pieces show (gliding over Glide ms), Scale pops, Move nudges, Flip / turn mirrors or turns.
+  *Colour* recolours the hit pieces (or all): Hues, Duo (two colours), Black & white, Invert, Chromatic
+  (RGB split) or Mix. Gap and Lines draw the seams. Presets: Golden, Puzzle, Random shards, Collage,
+  Glitch, Pop art, Noir.
   All of these take an optional audio input (otherwise the project's audio). Older projects' Glitch
   deformers open as the Post FX.
   **Smooth** on Trails (with Feedback) and on the Feedback node fills the gaps
