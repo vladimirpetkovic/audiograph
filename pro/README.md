@@ -556,6 +556,11 @@ process the finished image.
     layered post FX; lower Prompt match allows more adventurous combinations. Each look keeps a
     cost budget (Bloom, Trails, Blur, Kaleido and similar post FX count most), so heavy effects
     don't pile up and Autopilot stays smooth.
+  - Colours come out as rich gradients: a single colour becomes a dark-to-light ramp that travels
+    a little around the colour wheel, and several colours are ordered from dark to light. Cameras
+    and tilts stay near eye level (at most about 25°), and Auto drift on angle knobs sways at most
+    ±25°. When a look comes out washed out (blown-out white or pale, colourless frames), Autopilot
+    recolours it with a richer gradient over a couple of seconds.
   - **Write** lets Autopilot write its own descriptions at each change;
     typing takes over again. **Next** changes now; **Hold** keeps the look.
   - Every change to what is drawn (Autopilot, templates, adding or deleting
@@ -587,6 +592,8 @@ not saved in projects.
 ## Limits
 
 - Output is fixed at 960×540, with Low simulation quality.
+- When the computer can't keep up, Mapping renders the 3D projection at 85%, 70% or 55% size
+  and scales it up, returning to full size once it catches up. Video export always uses full size.
 - Share links grow with the scene; very long ones (lots of custom code) may not
   survive chat apps or email, so send an .ag file instead.
 - Each project allows four drawing nodes (Inputs other than Audio, and

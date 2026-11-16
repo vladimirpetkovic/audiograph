@@ -28,7 +28,7 @@ const THEMES=[
   [/ocean|underwater|deep sea|\bsea\b|marine|aquatic|lagoon/,'ocean',['#001219','#005f73','#0a9396','#94d2bd']],
   [/forest|jungle|nature|woods|leaf|leaves|moss/,'forest',['#081c15','#1b4332','#52b788','#d8f3dc']],
   [/fire|flame|lava|inferno|volcan|magma|burning|blaze/,'fire',['#03071e','#9d0208','#e85d04','#ffba08']],
-  [/\bice\b|icy|arctic|frozen|frost|winter|glacier|snow/,'ice',['#03045e','#0077b6','#90e0ef','#ffffff']],
+  [/\bice\b|icy|arctic|frozen|frost|winter|glacier|snow/,'ice',['#03045e','#0077b6','#48cae4','#bdeefa']],
   [/cyberpunk|neon city|blade runner/,'cyberpunk',['#0d0221','#ff00e5','#00f0ff','#f9f871']],
   [/vaporwave|synthwave|retrowave|outrun|\b80s\b|miami/,'synthwave',['#120458','#ff2bd6','#7a04eb','#00e5ff']],
   [/pastel|candy|soft colou?rs|cotton candy/,'pastel',['#2b2d42','#ffafcc','#bde0fe','#fdffb6']],
@@ -44,7 +44,7 @@ const THEMES=[
   [/tropical|tropic|summer|beach|paradise/,'tropic',['#001b2e','#00b4d8','#ffd166','#ef476f']],
   [/autumn|fall leaves|harvest/,'autumn',['#1b0e04','#9a3412','#ea580c','#facc15']],
   [/spring|bloom(ing)? flowers|cherry blossom|sakura/,'spring',['#1f1d2b','#f9a8d4','#bbf7d0','#fef9c3']],
-  [/electric|lightning|plasma/,'electric',['#00010d','#3a0ca3','#4cc9f0','#ffffff']],
+  [/electric|lightning|plasma/,'electric',['#00010d','#3a0ca3','#4cc9f0','#b8f2ff']],
   [/earth|earthy|natural tones|clay/,'earth',['#1c1917','#78350f','#a3a380','#f5f5dc']]
 ];
 const VISUALS=[
@@ -116,8 +116,9 @@ const W_MOOD=[['slow dreamy','calm','gentle floating','serene','soft ambient'],[
 const W_SUBJECT=[['smoke','ink fluid','fireflies','liquid metal','sand','mandala','sacred geometry','waves','starfield','rings','sphere','dna helix'],
   ['particles','fluid','spiral','rings','flower','neural network','fractal tree','terrain','knot','torus','birds','vines','circle'],
   ['particles','fluid','spiral','smoke','liquid metal','spectrum bars','tunnel','sphere','cube','knot','fireworks','swarm','sacred geometry']];
-const W_COLOR=['sunset','ocean','aurora','cyberpunk','synthwave','ice','fire','toxic','cosmic','luxury','pastel','tropical','forest','desert','electric','monochrome',
-  'blue and gold','pink and teal','violet and lime','red and black','orange and cyan','magenta and ice','emerald and gold','white and silver'];
+// Every colour word resolves to a palette in both readers (this parser and the original's agAI), and none is colourless.
+const W_COLOR=['sunset','ocean','aurora','cyberpunk','synthwave','vaporwave','ice','fire','lava','toxic','acid','cosmic','nebula','galaxy','luxury','pastel','candy','forest','desert','neon',
+  'blue and gold','pink and teal','violet and lime','red and black','orange and cyan','magenta and ice','emerald and gold','purple and orange','crimson and gold','indigo and peach'];
 const W_EXTRA=[['with soft glow','with long trails','drifting','rising','mirrored','slowly rotating','pulsing with the bass','with film grain','blur','breathing slowly','slowly shifting colours','inside a circle','masked by text "DREAM"'],
   ['swirling','with trails','pulsing with the bass','kaleidoscope','wavy','rotating','sparks on the beat','glow','wobbling','zooming on bass','revealed by the waveform','follows the clock'],
   ['swirling','glitchy','sparks on the beat','kaleidoscope','shockwave','fast spin','pulsing with the bass','shattered','strong glow','turbulent','strobing on the beat','glitches on the drop','random jumps','tunnel on bass','masked by text "RAVE"','melting with the bass']];
@@ -186,7 +187,7 @@ export function parse(text){
   for(const [re,s] of LINE_SHAPES)if(has(re)&&!neg(re)){it.lineShape=s;add('Style',s+' lines');break;}
   if(has(/outlined?|neon tubes?|double lines?|echo(ed)? lines|contour/)&&!neg(/outline/)){it.outline=true;add('Style','outline');}
   for(const [re,s] of SYM)if(has(re)&&!neg(/symmetr|mirror|kaleido/)){it.symmetry=s;add('Style',s==='x'?'mirrored':s.slice(1)+'-fold symmetry');break;}
-  if(has(/perspective|tilted|from above|isometric|bird'?s.?eye|3d view/)){it.tilt=55;add('Style','tilted');}
+  if(has(/perspective|tilted|from above|isometric|bird'?s.?eye|3d view/)){it.tilt=25;add('Style','tilted');}
   // Motion.
   if(neg(/spin|rotat|turn|mov/)||has(/\bstill\b|static|frozen|motionless/)){it.spin=0;add('Motion','still');}
   else if(has(/spin|rotat|turning|revolv|orbiting|whirling|twirl/)){const r=has(/counter|anti.?clock|reverse|backwards/)?-1:1;it.spin=r*(has(/fast spin|spinning fast|rapid/)?2.6:has(/slow(ly)? spin|gentle spin|slowly rotat/)?.4:1.1);add('Motion',(r<0?'reverse ':'')+'spin');}
@@ -260,7 +261,8 @@ function colorWords(t){
 export function rampFrom(cs){
   cs=cs.filter(Boolean);if(!cs.length)return null;
   const byL=[...cs].sort((a,b)=>hex2hsl(a)[2]-hex2hsl(b)[2]);
-  if(cs.length===1)return ['#000000',shade(cs[0],-28),cs[0],shade(cs[0],25)];
+  // One colour: the hue travels a little along the ramp (deeper and cooler/warmer below, a coloured highlight above).
+  if(cs.length===1){const [H,S,L]=hex2hsl(cs[0]);if(S<12)return ['#000000',shade(cs[0],-28),cs[0],shade(cs[0],25)];return [hsl2hex(H-24,Math.max(S,70),7),hsl2hex(H-10,Math.max(S,65),Math.max(18,L-24)),cs[0],hsl2hex(H+16,Math.max(S,70),Math.min(76,L+18))];}
   if(cs.length===2)return [shade(byL[0],-35),byL[0],byL[1],shade(byL[1],18)];
   if(cs.length===3)return [shade(byL[0],-38),...byL];
   return byL.slice(0,4);
@@ -287,7 +289,7 @@ export function paletteFor(it,{seed=Date.now(),energy=50,index=0}={}){
 const LOOK={
   circle:{height:110,thick:2},concentric:{thick:1.6,height:90},spiral:{thick:1.4},phyllotaxis:{thick:2.4,height:120},fractal:{thick:1.2},growth:{thick:1.4},
   sacred:{thick:1.2},graph:{thick:1},lissajous:{thick:1.6},scatter:{thick:2.5},sine:{thick:1.6,height:100},linear:{thick:2,height:110},
-  terrain:{tilt:40,thick:1},sphere:{thick:1.2},tetrahedron:{thick:1.4},dna:{thick:1.6},knot:{thick:1.4},cube:{thick:1.4},torus:{thick:1.2}
+  terrain:{tilt:28,thick:1},sphere:{thick:1.2},tetrahedron:{thick:1.4},dna:{thick:1.6},knot:{thick:1.4},cube:{thick:1.4},torus:{thick:1.2}
 };
 export function build(it,{seed=Date.now(),energy:forced=null,match=85}={}){
   const r=rng(seed),E=forced??it.energy??(40+r()*30),explore=1-match/100;

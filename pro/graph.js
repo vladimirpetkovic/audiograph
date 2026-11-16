@@ -835,12 +835,14 @@ export function autoKnob(type,key){
   const s=TYPES[type]?.props[key];if(s)return s.kind==='number'&&!s.noPort;
   return !!TYPES[type]?.engine&&/^opt:[a-zA-Z][a-zA-Z0-9_]{0,40}$/.test(key);
 }
-// Auto drift: two slow sines per knob (seeded by node and knob) around the knob's own value.
+// Auto drift: two slow sines per knob (seeded by node and knob) around the knob's own value (±35% of its range).
 export function autoDrift(s,home,seed,clock){
   let h=2166136261;for(let i=0;i<seed.length;i++){h^=seed.charCodeAt(i);h=Math.imul(h,16777619);}
   const r=k=>((h>>>(k*5))&1023)/1023,ph1=r(0)*6.283,ph2=r(1)*6.283,w1=6.283/(16+r(2)*14),w2=6.283/(7+r(3)*6);
   const u=.6*Math.sin(ph1+clock*w1)+.4*Math.sin(ph2+clock*w2);
-  return Math.max(s.min,Math.min(s.max,home+u*(s.max-s.min)*.35));
+  // Angles (3D tilt and rotate) sway at most ±25° around home: a wider swing turns the picture edge-on.
+  const amp=s.rad||/tilt|^rot[XYZ]$/i.test(s.key||'')?Math.min(25,(s.max-s.min)*.35):(s.max-s.min)*.35;
+  return Math.max(s.min,Math.min(s.max,home+u*amp));
 }
 export function connect(graph,from,out,to,input) {
   const candidate={from,out,to,input},edges=graph.edges.filter(e=>e.to!==to||e.input!==input);

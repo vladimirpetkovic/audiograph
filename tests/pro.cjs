@@ -1488,6 +1488,23 @@ def Camera "Camera" {
       assert.equal(w.m?.look,'x','The phone link pairs with short codes and carries messages');assert.ok(w.len<400,'Pairing codes stay short: '+w.len);
       const plus=await page.evaluate(async()=>{const L=await import('./remote-link.js'),sdp='a=ice-ufrag:a+b/\r\na=ice-pwd:p+q/r+s/t+u/v+w/x+yz\r\na=fingerprint:sha-256 AB:CD\r\na=candidate:1 1 udp 1 192.168.1.2 5000 typ host\r\n',code=L.packSdp(sdp),viaUrl=new URLSearchParams('o='+code).get('o'),out=L.unpackSdp(viaUrl,'offer').sdp,old=L.unpackSdp(code.replace(/-/g,' '),'offer').sdp;return {code,out,old};});
       assert.ok(!/[+/]/.test(plus.code.split('~').slice(0,2).join('')),'Remote codes are URL safe');assert.ok(plus.out.includes('a=ice-ufrag:a+b/')&&plus.out.includes('a=ice-pwd:p+q/r+s/t+u/v+w/x+yz'),'ICE credentials with + and / survive the QR link');assert.ok(plus.old.includes('a=ice-ufrag:a+b'),'Links where + became a space still pair');}
+    // Autopilot taste: palette words become 5-stop gradients with hue travel and no white; angles stay near eye level;
+    // Auto drift sways a 3D tilt by at most 25°; the mapping renders smaller when asked (adaptive resolution).
+    {const r=await page.evaluate(async()=>{const P=await import('./pilot.js'),A=await import('./autopilot.js'),G=await import('./graph.js'),M=await import('./map3d.js');
+      const hsl=c=>{const [x,y,z]=[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255),mx=Math.max(x,y,z),mn=Math.min(x,y,z),d=mx-mn;return [d?(mx===x?((y-z)/d+6)%6:mx===y?(z-x)/d+2:(x-y)/d+4)*60:0,(mx+mn)/2,d];};
+      const mint=P.richRamp(['#2b8a6e','#7dffc7','#ffffff']),hs=mint.map(hsl),spread=Math.max(...hs.map(h=>h[0]))-Math.min(...hs.map(h=>h[0]));
+      const words=[...new Set(Array.from({length:60},(_,i)=>A.write({energy:i%3*40,seed:i+1})))],tame=P.tameAngles({pSphereTilt:80,pDnaTilt:-70,pTerrainCam:75,_dragRotX:1.3,_dragRotY:-1.1});
+      const tilt=G.TYPES.camera3d.props.tilt,drift=Math.max(...Array.from({length:200},(_,i)=>Math.abs(G.autoDrift(tilt,0,'n1tilt',i*.7))));
+      const box={...M.surface3d('r'),primitive:'Cube'},img=Object.assign(document.createElement('canvas'),{width:64,height:36});img.getContext('2d').fillStyle='#f80';img.getContext('2d').fillRect(0,0,64,36);
+      const out=Object.assign(document.createElement('canvas'),{width:640,height:360}),x=out.getContext('2d'),lit=()=>{const d=x.getImageData(0,0,640,360).data;let n=0;for(let i=3;i<d.length;i+=4)n+=d[i]>0;return n;};
+      M.render3d(x,box,img,640,360,1,false,{bands:{full:.5},beat:1});const full=lit();x.clearRect(0,0,640,360);M.render3d(x,box,img,640,360,1,false,{bands:{full:.5},beat:1,res:.55});const half=lit();
+      return {n:mint.length,dark:hs[0][1],top:hs[4][1],topC:hs[4][2],spread,grey:P.richRamp(['#ffffff','#9a9a9a','#3a3a3a']),bland:words.filter(w=>/monochrome|white and silver|electric|tropical/.test(w)),tame,drift,full,half,tilted:A.parse('a tilted sphere').tilt};});
+      assert.ok(r.n===5&&r.dark<.12&&r.top<.8&&r.topC>.3&&r.spread>=30,'A colour-plus-white palette becomes a deep-to-coloured gradient: '+JSON.stringify(r));
+      assert.equal(r.grey,null,'A deliberately colourless palette stays grey');assert.deepEqual(r.bland,[],'Written prompts use only colourful palette words');
+      assert.deepEqual(r.tame,{pSphereTilt:25,pDnaTilt:-25,pTerrainCam:38,_dragRotX:.35,_dragRotY:-.5},'Autopilot layers keep 3D angles near eye level');
+      assert.ok(r.drift<=25.01&&r.drift>15,'Auto drift sways a 3D tilt by at most 25°: '+r.drift);assert.ok(r.tilted<=25,'"Tilted" leans 25° at most');
+      assert.ok(r.full>1000&&Math.abs(r.half/r.full-1)<.08,'A lower mapping resolution still fills the same area: '+r.full+' / '+r.half);
+      const st=await page.evaluate(()=>pro.stats().mapRes);assert.equal(st,1,'Mapping renders at full resolution while frames are on time');}
     // USD models: a binary crate matches pxr's transforms; a dense USDA grid reaches Mapping without thinning.
     {const r=await page.evaluate(async fx=>{const {parseUSDModel}=await import('./usd-model.js'),M=await import('./map3d.js');
       const m=await parseUSDModel(Uint8Array.from(atob(fx.usdc),c=>c.charCodeAt(0)).buffer,'fx.usdc'),pr=m.meshes.map(x=>x.prims[0]);

@@ -18,7 +18,7 @@ import qrcode from './vendor/qrcode.js';
 import {parseCamera} from './camera-import.js';
 import * as autopilot from './autopilot.js';
 import {SCENES} from './scenes.js';
-import {Pilot,Generator,SCENES as AP_SCENES,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother} from './pilot.js';
+import {Pilot,Generator,SCENES as AP_SCENES,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother,richRamp} from './pilot.js';
 import {ORIGINAL_PRESETS} from './templates.js';
 import earcut from './vendor/earcut.js';
 import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
@@ -1030,7 +1030,7 @@ function draw(time,dt=1/30){
   out.globalAlpha=1;out.globalCompositeOperation='source-over';
   if(mapped)mapTime=time;
   if(previewImg){previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.drawImage(previewImg,0,0,WIDTH,HEIGHT);}
-  else if(mapped)mapping.render(previewCtx,remoteDim(map3d.driftMapping(state.mapping,autoClock,mapAutoValues)),(src,sf)=>src==='ai'?aiTexOf(sf):src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time,{bands:A.bands,pulse:A.beatPulse,beat:clockBeat(time),bpm:clock.bpm,song:clock.source==='song'?songNow:null,cam:camMapFrame(),tagShow:tagMode?mapSel:null});
+  else if(mapped)mapping.render(previewCtx,remoteDim(map3d.driftMapping(state.mapping,autoClock,mapAutoValues)),(src,sf)=>src==='ai'?aiTexOf(sf):src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time,{bands:A.bands,pulse:A.beatPulse,beat:clockBeat(time),bpm:clock.bpm,song:clock.source==='song'?songNow:null,cam:camMapFrame(),tagShow:tagMode?mapSel:null,res:exporting?1:mapLoad.res});
   dissolveDraw(paused?0:dt);
   blackout.level+=((blackout.on?1:0)-blackout.level)*Math.min(1,dt*8);if(blackout.level<.002&&!blackout.on)blackout.level=0;
   if(blackout.level>0){previewCtx.globalAlpha=Math.min(1,blackout.level*1.02);previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.globalAlpha=1;}
@@ -1102,9 +1102,22 @@ function releaseCameraIfUnused(){
   for(const [id,m] of mediaEls)if(m.kind==='camera'){m.clear();mediaEls.delete(id);}
   camStream.getTracks().forEach(t=>t.stop());camStream=null;camPromise=null;
 }
+// Mapping load: while frames arrive late (the GPU can't keep up with a heavy model at full size) the 3D mapping renders at
+// 85 → 70 → 55 % resolution and is scaled up; it climbs back a step after 6 s on time. Exports always render full size.
+// "Late" is measured against the display: the loop draws every second vsync on 60 Hz (33 ms), every 40 ms on 50 Hz.
+const mapLoad={res:1,ema:1,t:0,tick:1/60,prev:0};
+function mapTick(now){const d=(now-mapLoad.prev)/1000;mapLoad.prev=now;if(d>.003&&d<.1)mapLoad.tick=Math.min(mapLoad.tick*1.0001,d);}
+function mapLoadStep(gap){
+  if(!mapActive()){mapLoad.res=1;mapLoad.t=0;mapLoad.ema=1;return;}
+  const want=Math.ceil(1/31/mapLoad.tick-.05)*mapLoad.tick;
+  mapLoad.ema+=(Math.min(4,gap/want)-mapLoad.ema)*.08;mapLoad.t+=gap;if(mapLoad.t<2)return;
+  if(mapLoad.ema>1.12&&mapLoad.res>.55){mapLoad.res=+(mapLoad.res-.15).toFixed(2);mapLoad.t=0;mapLoad.ema=1;}
+  else if(mapLoad.ema<1.04&&mapLoad.res<1&&mapLoad.t>6){mapLoad.res=Math.min(1,+(mapLoad.res+.15).toFixed(2));mapLoad.t=0;}
+}
 function loop(now){
+  mapTick(now);
   if(frame%60===59)releaseCameraIfUnused();
-  if(!pageHidden&&!paused&&!exporting&&!document.body.classList.contains('splash-on')&&now-lastTime>1000/31){const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;elapsed+=dt;lastTime=now;const t0=performance.now();try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}sensors.frameTiming(performance.now()-t0,dt);}
+  if(!pageHidden&&!paused&&!exporting&&!document.body.classList.contains('splash-on')&&now-lastTime>1000/31){const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;if(lastTime)mapLoadStep((now-lastTime)/1000);elapsed+=dt;lastTime=now;const t0=performance.now();try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}sensors.frameTiming(performance.now()-t0,dt);}
   requestAnimationFrame(loop);
 }
 
@@ -3406,17 +3419,27 @@ function apTick(dt){
 }
 // Exposure: a quiet passage on fine, faded looks can sit near black, so Autopilot gently opens its layers up
 // (louder response, quiet tones shown) and eases a blinding stack back. New looks start from their own values.
-let apExpT=0,apDim=0;
+// Taste: a frame that clips to white (lines piling up into a blown-out centre) or reads colourless (thin pale lines on black)
+// gets the stack's palettes swapped for deeper gradients of the same hues, at most every 6 s.
+let apExpT=0,apDim=0,apTasteT=0;
 function apExposure(dt){
   if(!ap.live||ap.hold||ap.changes!=='everything'||!apIsSlots()){apExpT=0;apDim=0;return;}
-  if((apExpT+=dt)<1)return;apExpT=0;
+  if((apExpT+=dt)<1)return;apExpT=0;apTasteT++;
   const ks=apActive();if(apTrans||apWant||!ks.length||!frame){apDim=0;return;}
-  const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=64)s+=d[i]+d[i+1]+d[i+2];
-  const lv=s/(d.length/64)/3;apDim=lv<1.5?Math.max(0,apDim)+1:lv>45?Math.min(0,apDim)-1:0;
+  const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0,clip=0,lit=0,ch=0;
+  for(let i=0;i<d.length;i+=64){const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);s+=r+g+b;if(mn>230)clip++;if(mx>40){lit++;ch+=mx-mn;}}
+  const n=d.length/64,lv=s/n/3,hot=clip/n>.05,pale=lit>n*.03&&ch/lit<30;
+  if((hot||pale)&&apTasteT>=6){apTasteT=0;apEnrich(ks);}
+  apDim=lv<1.5?Math.max(0,apDim)+1:lv>45||hot?Math.min(0,apDim)-1:0;
   if(Math.abs(apDim)<2)return;const up=apDim>0;apDim=0;
   for(const k of ks){const g=apLayer(k),r=apNode(k,'r'),pl=apNode(k,'p');if(!r||isSim(r.props.mode))continue;
     if('sensitivity' in TYPES[r.type].props){const v=+r.props.sensitivity||100,to=Math.max(up?v:Math.min(v,80),Math.min(200,v+(up?25:-20)));if(to!==v)apTween(g,r,'sensitivity',to,1.5);}
     if(up&&pl&&pl.props.fade<1)apTween(g,pl,'fade',Math.min(1,Math.round((pl.props.fade+.25)*20)/20),1.5);}
+}
+function apEnrich(ks){
+  ks.forEach((k,i)=>{const g=apLayer(k),pl=apNode(k,'p');if(!g||!pl||pl.props.mode==='solid')return;
+    const cur=(pl.props.stops||[]).map(x=>x.c),rr=richRamp(cur,gen.hue+i*30)||(gen.vb?.palette?null:richRamp([],gen.hue+i*30));if(!rr)return;
+    const a=Math.round(Math.max(0,Math.min(1,+pl.props.fade||0))*255).toString(16).padStart(2,'0');rr[0]+=a;apRecolor(g,rr,2.5);});
 }
 // A written prompt types itself into the box.
 function apShowPrompt(){const ta=document.querySelector('[data-property=apPrompt]');if(!ta||workspace!=='auto')return;const t=ap.prompt;let k=0;clearInterval(ta._type);
@@ -3575,7 +3598,7 @@ window.pro={
   getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
   select:id=>{selected=id;multi.clear();renderUI();},selectNodes:ids=>setSelection(ids),selection:()=>selIds(),copy:()=>copySel(),paste:(x,y)=>pasteNodes(clip,x,y),saveCustom:n=>saveCustom(n),customNodes:()=>customNodes(),removeCustom:n=>removeCustom(n),selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
-  stats:()=>({frame,paused,active,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
+  stats:()=>({frame,paused,active,mapRes:mapLoad.res,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
   mapMode:on=>{setMapMode(on);return mapMode;},workspace:w=>{if(w)setWorkspace(w);return workspace;},
   dissolve:on=>{dissolveOn=!!on;if(!on)fade=null;return dissolveOn;},autopilot:{examples:autopilot.EXAMPLES,write:o=>autopilot.write(o),parse:t=>autopilot.parse(t),read:t=>{const w=apWin();return w?vibeText(readVibe(w,t)):null;},create:t=>apCreate(t),
     change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),scene:(id,k='groove')=>{gen.force=id;return apChange(k,1,'everything',true,true);},scenes:()=>AP_SCENES.map(x=>x.id),start:()=>apStart(),stop:()=>apStop(),

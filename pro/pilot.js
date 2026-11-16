@@ -27,6 +27,38 @@ export function vivid(c){
   const [R,G,B]=[[C,X,0],[X,C,0],[0,C,X],[0,X,C],[X,0,C],[C,0,X]][Math.floor(h)%6];
   return '#'+[R,G,B].map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('')+c.slice(7);
 }
+const toHsl=c=>{const [r,g,b]=[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn,l=(mx+mn)/2;
+  const h=d?(mx===r?((g-b)/d+6)%6:mx===g?(b-r)/d+2:(r-g)/d+4)*60:0;return [h,d?d/(1-Math.abs(2*l-1)):0,l];};
+const toHex=(h,s,l)=>{h=((h%360)+360)%360;s=clamp(s,0,1);l=clamp(l,0,1);const C=(1-Math.abs(2*l-1))*s,X=C*(1-Math.abs(h/60%2-1)),m=l-C/2;
+  const [R,G,B]=[[C,X,0],[X,C,0],[0,C,X],[0,X,C],[X,0,C],[C,0,X]][Math.floor(h/60)%6];return '#'+[R,G,B].map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('');};
+// A gradient worth looking at: five stops from a deep, saturated shadow to a coloured highlight (never white), the hue
+// travelling between the named colours (or ±35° around a single one), so a palette word never collapses to colour-plus-white.
+// A deliberately colourless palette (black and white, noir, mono) stays grey.
+export function richRamp(colors,hue=0){
+  const hs=(colors||[]).filter(c=>/^#[0-9a-f]{6}/i.test(c)).map(c=>toHsl(c.slice(0,7)));
+  const chroma=hs.filter(([,s,l])=>s>.2&&l>.07&&l<.93).sort((a,b)=>a[2]-b[2]);
+  if(hs.length&&!chroma.length)return null;
+  const dist=(a,b)=>Math.abs(((a-b+540)%360)-180),H=[];for(const [h] of chroma)if(H.every(x=>dist(h,x)>22))H.push(h);
+  if(!H.length)H.push(hue);
+  const L=[.08,.27,.45,.6,.72],S=[.85,.78,.74,.8,.82];
+  // Highlights lean towards the naturally light hues (yellow or cyan), shadows away from them.
+  const toward=h=>{const t=dist(h,60)<dist(h,180)?60:180,d=((t-h+540)%360)-180;return Math.abs(d)<1?1:Math.sign(d);};
+  let hues;
+  if(H.length===1){const d=toward(H[0]);hues=[-30,-12,0,14,26].map(o=>H[0]+o*d);}
+  else{const a=H[0],b=H[1],c=H[2]??H[1];hues=[a-12*toward(a),a,b,c,c+10*toward(c)];}
+  return hues.map((h,i)=>toHex(h,S[i],L[i]));
+}
+// Autopilot keeps the camera near eye level: classic 3D layouts lean by at most ~25°, the drag rotation stays small,
+// so a sphere, helix or terrain reads as an object rather than a smear seen edge-on.
+const TILTS=['pSphereTilt','pTetTilt','pDnaTilt','pObjTilt'];
+export function tameAngles(p){
+  if(!p)return p;
+  for(const k of TILTS)if(typeof p[k]==='number')p[k]=clamp(p[k],-25,25);
+  if(typeof p.pTerrainCam==='number')p.pTerrainCam=clamp(p.pTerrainCam,18,38);
+  if(typeof p._dragRotX==='number')p._dragRotX=clamp(p._dragRotX,-.35,.35);
+  if(typeof p._dragRotY==='number')p._dragRotY=clamp(p._dragRotY,-.5,.5);
+  return p;
+}
 // Song structure from loudness: the level is relative to the song's own recent range (8th–95th percentile).
 export class Pilot{
   constructor(){this.reset();}
@@ -84,6 +116,7 @@ export function readVibe(w,text){
   else if(/\b(slow|calm|ambient|gentle|chill|lazy|serene|drift|meditat|downtempo|dreamy)/.test(t))v.tempo=.6;
   else if(/\b(fast|quick|rapid|frantic|energetic|hyper|drum ?n ?bass|dnb|techno|rave)/.test(t))v.tempo=1.4;
   v.palette=!!h.colors||kw.colors.join()!=='#e94560,#f5a623,#6ee7b7';
+  if(v.palette){const rr=richRamp(kw.colors,0);if(rr)kw.colors=rr;}
   v.dark=/\b(dark|moody|night|noir|gloom|shadow)/.test(t);
   return v;
 }
@@ -120,11 +153,12 @@ export const SCENES=[
   {id:'prism',label:'Prism',E:[60,100],base:['cube','knot','tetrahedron'],accent:['concentric','circle'],shapes:['straight','caps','pins'],harmony:'triad',fx:{pfxBloom:48,pfxEdgeGlow:22,pfxChroma:22,pfxVignette:30}}
 ];
 const SCENE_BY=Object.fromEntries(SCENES.map(x=>[x.id,x]));
-// Colour harmonies: [dark, mid, bright, highlight] around one hue, kept in a calm saturation/lightness band.
+// Colour harmonies: [dark, mid, bright, highlight], the hue always travelling (even Mono drifts ~50° along the ramp) and the
+// highlight kept coloured, so stacks read as gradients rather than one colour fading to white.
 function harmony(hx,kind,h,E){
-  const sat=E>75?72:E<30?52:62,L=[12,48,64,80];
-  const hues={analogous:[h-25,h,h+22,h+45],complement:[h,h,h+180,h+165],triad:[h,h+120,h+240,h+120],split:[h,h+150,h+210,h+30],mono:[h,h,h+8,h+15]}[kind]||[h-20,h,h+35,h+70];
-  return hues.map((x,i)=>hx(((x%360)+360)%360,kind==='mono'&&i===3?sat-15:sat+(i===3?8:0),L[i]));
+  const sat=E>75?78:E<30?62:70,L=[10,42,60,74];
+  const hues={analogous:[h-25,h,h+22,h+45],complement:[h,h,h+180,h+165],triad:[h,h+120,h+240,h+120],split:[h,h+150,h+210,h+30],mono:[h-22,h,h+14,h+32]}[kind]||[h-20,h,h+35,h+70];
+  return hues.map((x,i)=>hx(((x%360)+360)%360,sat+(i===3?10:i===0?8:0),L[i]));
 }
 
 // ---------- looks ----------
@@ -181,7 +215,7 @@ export class Generator{
     }else if(isSim(s.layout)&&!this.simOK(w))s.layout=any(E>60?hotL:calmL);
     if(!sc||v?.shapes.length||v?.layouts.length)s.shape=this.pick(v?.shapes,shapes,'shape');
     if(v){const kw=v.kw,h=v.hit;
-      if(v.palette){s.colors=kw.colors.slice();if(m<100&&kind!=='calm'&&kind!=='drop'&&s.colors.length>2){const c=s.colors.slice(1);for(let n=Math.floor(r()*c.length);n>0;n--)c.push(c.shift());s.colors=[s.colors[0],...c];}}
+      if(v.palette){s.colors=kw.colors.slice();if(m<100&&kind!=='calm'&&kind!=='drop'){const d=(r()-.5)*36;s.colors=s.colors.map(c=>{if(!/^#[0-9a-f]{6}$/i.test(c))return c;const [h,sa,l]=toHsl(c);return sa<.12?c:toHex(h+d,sa,l);});}}
       if(h.growth)s.growth=kw.growth;if(h.symmetry)s.symmetry=kw.symmetry;if(h.particles)s.particles=kw.particles;
       if(h.thickness)s.thickness=j(kw.thickness);if(h.density)s.density=j(kw.density);
       ['glow','trails','warp'].forEach(k=>{if(kw[k])s[k]=j(kw[k]);});
@@ -242,7 +276,7 @@ export class Generator{
   toLayer(w,s){
     const solid=SOLIDS.includes(s.layout),l=w.agAI.toLayer({...s,layout:solid?'object':s.layout});
     l.layout=s.layout;if(solid){l.params._objModel=s.layout;l.params.pObjRotate=Math.round(2+s.energy/10);}
-    l.params._zoomLoud=false;
+    l.params._zoomLoud=false;tameAngles(l.params);
     if(isSim(s.layout))this.simify(w,l,s);
     return l;
   }
