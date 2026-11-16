@@ -304,8 +304,8 @@ process the finished image.
     mask, Match crop, Full frame, Flatten and Flip.
   - **+ 3D object**: Cube, Sphere, Cylinder or Two walls; load OBJ, FBX, USD, GLB or
     self-contained glTF with UVs at full detail (up to 1,000,000 triangles) (planar fallback), Front projection or Box content.
-    Normals are smoothed, so faceted models blend cleanly. **Box** content has a Box
-    fade (soft blend between the three planar projections), Tiling (mirrored repeat)
+    Normals are smoothed, so faceted models blend cleanly. **Box** content (the default for new
+    objects, at 100% Box fade) has a Box fade (soft blend between the three planar projections), Tiling (mirrored repeat)
     and a Box transform (move, rotate, and scale X / Y / Z or uniform).
     **Transform** moves, rotates and scales the object about its centre (X / Y / Z
     or uniform). A **Gizmo** for either transform (Off / Move / Rotate / Scale;

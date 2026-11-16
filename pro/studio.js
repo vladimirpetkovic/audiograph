@@ -3004,7 +3004,7 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   const hk=el('div','knob-grid');how.append(hk);
   knob(hk,'Tiling','Tile',.1,20,.01,1,'×',()=>s.tile,(t,v)=>{t.tile=v;},'Mapping tiling','tile');
   if(s.projection==='box'){
-    knob(hk,'Box fade','Fade',0,100,1,50,'%',()=>s.fade*100,(t,v)=>{t.fade=v/100;},'Box projection fade','fade');
+    knob(hk,'Box fade','Fade',0,100,1,100,'%',()=>s.fade*100,(t,v)=>{t.fade=v/100;},'Box projection fade','fade');
     const bx=sub(pj,'Box transform'),mk=el('div','knob-grid'),rk=el('div','knob-grid'),sk=el('div','knob-grid');bx.append(gizmoChips('box',s),el('div','insp-sublabel minor','Move'),mk,el('div','insp-sublabel minor','Rotate'),rk,el('div','insp-sublabel minor','Scale'),sk);
     for(const a of ['x','y','z'])knob(mk,a.toUpperCase(),'BoxMove'+a.toUpperCase(),-2,2,.001,0,'',()=>s.box[a],(t,v)=>{t.box[a]=v;},'Box move','box.'+a);
     for(const a of ['x','y','z'])knob(rk,a.toUpperCase(),'BoxRot'+a.toUpperCase(),-180,180,.1,0,'°',()=>s.box['r'+a],(t,v)=>{t.box['r'+a]=v;},'Box rotate','box.r'+a);
