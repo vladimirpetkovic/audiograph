@@ -18,6 +18,7 @@ import {hostLink,localLink} from './remote-link.js';
 import qrcode from './vendor/qrcode.js';
 import {parseCamera} from './camera-import.js';
 import * as autopilot from './autopilot.js';
+import {WORDS as CURATOR_WORDS} from './curator.js';
 import {SCENES} from './scenes.js';
 import {Pilot,Generator,SCENES as AP_SCENES,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother,richRamp} from './pilot.js';
 import {ORIGINAL_PRESETS} from './templates.js';
@@ -3285,7 +3286,7 @@ function apPalette(colors){
 }
 const apSpin=v=>Math.max(-5,Math.min(5,Math.round((+v||0)*10)/10));
 // A new look in slot k: the renderer switches mode in place (same engine); the layer stays invisible until it is warm.
-let apEnergy=50;
+let apEnergy=50,apSection='groove';
 function apAssign(w,k,l,role,opacity=.001){
   const g=apLayer(k),r=apNode(k,'r'),type=Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===l.layout))||'waveform2d';
   r.type=type;r.props={...defaults(type),mode:l.layout,look:lookDiff(w,l.params),...geoFromLook(l.params)};
@@ -3296,11 +3297,14 @@ function apAssign(w,k,l,role,opacity=.001){
   // The base look also gets what the description asks for (drivers, masks, post FX), rebuilt from the slot's own nodes each time so it never piles up.
   const wired=apWire(k,role);
   g.visible=true;g.opacity=opacity;g.blend=role?'screen':'source-over';
-  apSlots[k]={role,layer:l,f0:engines.get(r.id)?.frames||0,wired};
+  apSlots[k]={role,layer:l,f0:engines.get(r.id)?.frames||0,wired,curated:apSlots[k].curated};
 }
 function apWire(k,role){
   const g=apLayer(k),base=apSlotLayer(k),keep=new Map(g.nodes.map(n=>[n.id,n]));g.nodes=base.nodes.map(n=>keep.get(n.id)||n);g.edges=base.edges;
-  if(role===0)try{autopilot.enhance(g,autopilot.parse(ap.prompt),{seed:(Math.random()*1e9)|0,energy:apEnergy,match:ap.match,primary:true});}catch(e){console.warn('Autopilot enhance',e);}
+  // The Curator treats every layer of the stack: the base gets its motion, signature effect and finish, supports a quiet movement.
+  const cur={section:apSection,role};
+  try{autopilot.enhance(g,autopilot.parse(role===0?ap.prompt:''),{seed:(Math.random()*1e9)|0,energy:apEnergy,match:ap.match,primary:role===0,curate:cur});}catch(e){console.warn('Autopilot enhance',e);}
+  apSlots[k].curated=cur.picks||[];
   reconcile();return role===0?ap.prompt:null;
 }
 // A kept layer that changed role, or a new description, rewires in place.
@@ -3384,7 +3388,7 @@ function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,
   // Mid-fade: a drop hurries the fade along and follows straight after; other changes wait their turn.
   if(apTrans&&!force&&!apWant){apPending=kind;if(kind==='drop'){apTrans.fast=true;apTrans.later=null;}return;}
   apWant=null;apPending=null;
-  pilot.since=0;apCount++;gen.section=pilot.section==='waiting'?'groove':pilot.section;gen.match=ap.match;gen.layers=String(ap.layers);apEnergy=gen.energy(kind);
+  pilot.since=0;apCount++;gen.section=pilot.section==='waiting'?'groove':pilot.section;gen.match=ap.match;gen.layers=String(ap.layers);apEnergy=gen.energy(kind);apSection=kind==='phrase'?gen.section:kind;if(!['calm','groove','build','drop'].includes(apSection))apSection='groove';
   if(ap.write){let t='';for(let i=0;i<6;i++){t=autopilot.write({energy:gen.energy(kind),seed:(Math.random()*1e9)|0,prev:ap.prompt,keep:ap.match/200});if(t!==ap.prompt)break;}
     ap.prompt=t;apSave();apShowPrompt();}
   if(apVibeFor!==ap.prompt){gen.setVibe(w,ap.prompt);apVibeFor=ap.prompt;}
@@ -3400,6 +3404,8 @@ function apChange(kind,dur=durFor(kind,ap.every),changes=ap.changes,force=false,
     apOrder(fades);
     apTrans={t:0,dur:Math.max(.3,dur),fades,warm,wt:0,kind,later};
     summary=(st.scene?st.scene.label+': ':'')+st.roles.map(r=>nameOf(r.layer.layout)).join(' + ');
+    const k0=[0,1,2,3].find(k=>apSlots[k].role===0),words=(apSlots[k0]?.curated||[]).map(t=>CURATOR_WORDS[t]||t);
+    if(words.length)summary+=' · '+words.join(', ');
     renderUI();
   }else{
     // Colours / Mood: your layers glide to the new palette (and, for Mood, to the new motion and shape).
@@ -3435,6 +3441,8 @@ function apExposure(dt){
   for(let i=0;i<d.length;i+=64){const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);s+=r+g+b;if(mn>230)clip++;if(mx>40){lit++;ch+=mx-mn;}}
   const n=d.length/64,lv=s/n/3,hot=clip/n>.05,pale=lit>n*.03&&ch/lit<30;
   if((hot||pale)&&apTasteT>=6){apTasteT=0;apEnrich(ks);}
+  // Badly blown out (a white sim filling the frame): ease the layers back, 10% a second, never below 55%.
+  if(lv>100||clip/n>.25)for(const k of ks){const g=apLayer(k);if(g&&g.opacity>.55)g.opacity=Math.max(.55,Math.round(g.opacity*90)/100);}
   apDim=lv<1.5?Math.max(0,apDim)+1:lv>45||hot?Math.min(0,apDim)-1:0;
   if(Math.abs(apDim)<2)return;const up=apDim>0;apDim=0;
   for(const k of ks){const g=apLayer(k),r=apNode(k,'r'),pl=apNode(k,'p');if(!r||isSim(r.props.mode))continue;

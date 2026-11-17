@@ -1,6 +1,7 @@
 // Autopilot: turns a plain-language description into a node graph, and keeps it moving with the music.
 // parse(text) reads the description; build(intent,options) makes project layers; Director follows the song's sections.
 import {TYPES,MODES,PALETTES,node,spinProps,isEngine} from './graph.js';
+import {plan as curatePlan,VOCAB} from './curator.js';
 
 // ---------- small helpers ----------
 export function rng(seed=Date.now()){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return ((s>>>0)%100000)/100000;};}
@@ -113,15 +114,15 @@ export {EXAMPLES};
 // Writes a new description in words parse() understands, matched to the energy of the music (0–100).
 // `keep` (0–1) reuses the subject of the previous prompt so a song's looks feel related.
 const W_MOOD=[['slow dreamy','calm','gentle floating','serene','soft ambient'],['groovy','playful','bouncy','upbeat','funky'],['intense','explosive','wild','energetic','chaotic']];
-const W_SUBJECT=[['smoke','ink fluid','fireflies','liquid metal','sand','mandala','sacred geometry','waves','starfield','rings','sphere','dna helix'],
-  ['particles','fluid','spiral','rings','flower','neural network','fractal tree','terrain','knot','torus','birds','vines','circle'],
-  ['particles','fluid','spiral','smoke','liquid metal','spectrum bars','tunnel','sphere','cube','knot','fireworks','swarm','sacred geometry']];
+const W_SUBJECT=[['smoke','ink fluid','fireflies','liquid metal','sand','mandala','sacred geometry','waves','starfield','rings','sphere','dna helix','crystal','sand dunes','landscape','vines'],
+  ['particles','fluid','spiral','rings','flower','neural network','fractal tree','terrain','knot','torus','birds','vines','circle','pyramid','icosphere','harmonograph','sand'],
+  ['particles','fluid','spiral','smoke','liquid metal','spectrum bars','tunnel','sphere','cube','knot','fireworks','swarm','sacred geometry','pyramid','portal frame','crystal']];
 // Every colour word resolves to a palette in both readers (this parser and the original's agAI), and none is colourless.
 const W_COLOR=['sunset','ocean','aurora','cyberpunk','synthwave','vaporwave','ice','fire','lava','toxic','acid','cosmic','nebula','galaxy','luxury','pastel','candy','forest','desert','neon',
   'blue and gold','pink and teal','violet and lime','red and black','orange and cyan','magenta and ice','emerald and gold','purple and orange','crimson and gold','indigo and peach'];
-const W_EXTRA=[['with soft glow','with long trails','drifting','rising','mirrored','slowly rotating','pulsing with the bass','with film grain','blur','breathing slowly','slowly shifting colours','inside a circle','masked by text "DREAM"'],
-  ['swirling','with trails','pulsing with the bass','kaleidoscope','wavy','rotating','sparks on the beat','glow','wobbling','zooming on bass','revealed by the waveform','follows the clock'],
-  ['swirling','glitchy','sparks on the beat','kaleidoscope','shockwave','fast spin','pulsing with the bass','shattered','strong glow','turbulent','strobing on the beat','glitches on the drop','random jumps','tunnel on bass','masked by text "RAVE"','melting with the bass']];
+const W_EXTRA=[['with soft glow','with long trails','drifting','rising','mirrored','slowly rotating','pulsing with the bass','with film grain','blur','breathing slowly','slowly shifting colours','inside a circle','masked by text "DREAM"','liquid glass','rippling','flowing','soft focus','curly eddies'],
+  ['swirling','with trails','pulsing with the bass','kaleidoscope','wavy','rotating','sparks on the beat','glow','wobbling','zooming on bass','revealed by the waveform','follows the clock','cut into a puzzle','rippling','flowing','liquid glass','twisted','mondrian cuts','rising'],
+  ['swirling','glitchy','sparks on the beat','kaleidoscope','shockwave','fast spin','pulsing with the bass','shattered','strong glow','turbulent','strobing on the beat','glitches on the drop','random jumps','tunnel on bass','masked by text "RAVE"','melting with the bass','cut up on the beat','fractured','mosaic','curly eddies','pulled into a black hole']];
 export function write({energy=50,seed=Date.now(),prev='',keep=0}={}){
   const r=rng(seed),band=energy<40?0:energy<70?1:2;
   const old=W_SUBJECT.flat().find(w=>new RegExp('\\b'+w+'\\b').test(prev));
@@ -211,6 +212,7 @@ export function parse(text){
   fx('blend',/double exposure|blend(?:ed|ing)? images|layered echoes/,{mix:.28},'blended echo');
   fx('merge',/merge(?:d)? images|stacked echoes/,{b:.3},'merged echo');
   fx('imageTransform',/pan(?:ning)? across|image transform/,{x:0},'image pan');
+  {const m=t.match(/golden ratio|mondrian|triangles|\bgrid\b|columns|\brows\b/);fx('cutter',/cut (?:up|into)|puzzle|collage|mondrian|sliced|golden ratio cuts?/,{pattern:m?{'golden ratio':'golden',grid:'grid',columns:'columns',rows:'rows'}[m[0]]||m[0]:'golden',pieces:7,shuffle:35,scale:20,move:14},'cutter');}
   fx('liquidGlass',/liquid glass|glass blobs?|metaballs?|blobs? of glass|refract|water drops?|droplets?|lava lamp/,{},'liquid glass');
   const lens={};if(has(/chromatic|rgb split|aberration|prismatic|glitch/))lens.chroma=60;if(has(/vignette|cinematic|\bfilm\b|movie/))lens.vignette=65;
   if(has(/grain|grainy|\bfilm\b|analog|vintage|retro|vhs|lo.?fi|old tv/))lens.grain=55;if(has(/scanlines?|\bcrt\b|vhs|arcade|old tv|retro tv/))lens.scanlines=55;
@@ -386,9 +388,10 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
 }
 
 // Add the same editable graph vocabulary to a generated look or the live Director's reusable slots.
-const FX_COST={bloom:2,trails:2,blur:2,kaleido:2,grade:2,lens:2,liquidGlass:3,glitch:1.5,tunnel:2,melt:2,fracture:2,feedback:1,mask:1,plainText:1,shader:1.5,strobe:.5,hue:.5,imageTransform:.5};
-export function enhance(g,it,{seed=1,energy=50,match=85,primary=true}={}){
-  if(!primary)return g;
+const FX_COST={cutter:2,cornerPin:1,effect:1,bloom:2,trails:2,blur:2,kaleido:2,grade:2,lens:2,liquidGlass:3,glitch:1.5,tunnel:2,melt:2,fracture:2,feedback:1,mask:1,plainText:1,shader:1.5,strobe:.5,hue:.5,imageTransform:.5};
+// curate: {section, role} hands the look's treatment to the Curator (the live Autopilot): every node in rotation, within the section's budget.
+export function enhance(g,it,{seed=1,energy=50,match=85,primary=true,curate=null}={}){
+  if(!primary&&!curate)return g;
   const r=rng(seed),E=clamp(energy,0,100),explore=1-clamp(match,0,100)/100,roam=!it.raw.trim(),find=t=>g.nodes.find(n=>n.type===t),vis=g.nodes.find(n=>isEngine(n.type)),sound=find('audioIn'),output=find('output');
   if(!vis||!sound||!output)return g;
   const sim=SIM_MODES.includes(vis.props.mode),off=type=>[...it.no].some(w=>({bloom:/glow|bloom/,hue:/colou?r|hue/,imageTransform:/zoom|mov|motion/,strobe:/strob|flash/,glitch:/glitch/,mask:/mask/}[type]||new RegExp('^'+type+'$','i')).test(w));
@@ -431,18 +434,36 @@ export function enhance(g,it,{seed=1,energy=50,match=85,primary=true}={}){
     const n=make(type,props);const edge=g.edges.find(e=>e.from===vis.id&&e.out==='shape'&&e.input!=='mask');
     if(edge){g.edges=g.edges.filter(e=>e!==edge);wire(vis,'shape',n,'shape');g.edges.push({...edge,from:n.id,out:'shape'});}row();return n;};
   const motion=()=>shape(sim?'turbulence':'wave',sim?{amount:20,scale:45}:{amount:12,speed:2});
+  // The Curator's picks: shape stages (deformers, forces, sparkles) after the visual, colour after the palette, image effects before Output.
+  const place=(type,props,drive=[])=>{const n=VOCAB[type]?.img||type==='hue'?effect(type,props):off(type)?null:shape(type,props);if(n)for(const [s,k,lo,hi,sm] of drive)bind(s,n,k,lo,hi,sm);return n;};
+  const curated=()=>{
+    const e=E/100,c={section:curate.section,mode:vis.props.mode},forceOK=f=>sim&&Object.keys(f.props).some(k=>TYPES[f.type].props[k]?.sims?.includes(vis.props.mode));
+    if(primary){
+      // What the description names comes first, at the Curator's tasteful strength.
+      for(const d of it.deformers){if(sim&&!['turbulence','jitter','disorder','flowField'].includes(d.type))continue;const v=VOCAB[d.type];if(v)place(d.type,v.props(r,e,c),v.drive?v.drive(r,e,c):[]);else place(d.type,d.props);}
+      for(const f of it.forces)if(forceOK(f)){const v=VOCAB[f.type];place(f.type,v?v.props(r,e,c):f.props,v?.drive?v.drive(r,e,c):[]);}
+    }
+    const picks=curatePlan({r,energy:E,section:curate.section,role:primary?0:(curate.role||1),mode:vis.props.mode,symmetry:find('symmetry')?.props.mode,postFx:vis.props.look?._postFx,have:g.nodes.map(n=>n.type),no:off});
+    curate.picks=[];for(const p of picks)if(place(p.type,p.props,p.drive))curate.picks.push(p.type);
+  };
+  if(!primary){curated();return g;}
   const explicit=Object.entries(it.fx).filter(([type])=>!['blend','merge'].includes(type));
-  for(const [type,p] of explicit)effect(type,p);
+  // Live, named effects meet the Curator halfway: the words pick the effect and its style, the strength leans toward taste.
+  const soften=(type,p)=>{const v=VOCAB[type];if(!curate||!v)return p;const t=v.props(r,E/100,{section:curate.section,mode:vis.props.mode}),o={...t};
+    for(const [k,x] of Object.entries(p))o[k]=typeof x==='number'&&typeof t[k]==='number'?+((x+t[k])/2).toFixed(3):x;return o;};
+  for(const [type,p] of explicit)effect(type,soften(type,p));
   const kinds=(it.drivers||[]).map(d=>d.kind);
-  if((roam&&r()<.72)||(!roam&&r()<explore*.5)){
+  if(!curate&&((roam&&r()<.72)||(!roam&&r()<explore*.5))){
     const pool=E<40?['breath','colour','wobble','clock']:E>70?['strobe','glitch','zoom','random','wobble','force']:['breath','colour','zoom','wobble','random','force'];
     const n=1+Math.floor(r()*(1+2*explore));for(let j=0;j<n;j++){const k=pick(r,pool.filter(k=>!kinds.includes(k)));if(k)kinds.push(k);}
   }
   // A mask the description asks for keeps its share of the budget; random extras only get what is left.
   const reserve=it.mask&&!off('mask')?FX_COST.mask+(it.mask.kind==='text'?FX_COST.plainText:FX_COST.shader):0;spent+=reserve;
-  if(roam||r()<explore*.6){const combos=E<40?[['trails',{trails:35}],['blur',{x:5}],['liquidGlass',{refraction:25,speed:14,bass:25,beat:10}],['feedback',{decay:.66,zoom:1.008,rotate:.2}]]:E>70?[['glitch',{amount:24,react:'always'}],['strobe',{amount:24,safe:true,every:'2'}],['tunnel',{speed:16,kick:22}],['fracture',{mode:'flow'}],['kaleido',{kaleido:3}]]:[['melt',{amount:26,speed:20}],['trails',{trails:45}],['lens',{chroma:18,vignette:25}],['feedback',{decay:.75,zoom:1.015,rotate:.4}],['shader',{k1:12}]];
+  if(!curate&&(roam||r()<explore*.6)){const combos=E<40?[['trails',{trails:35}],['blur',{x:5}],['liquidGlass',{refraction:25,speed:14,bass:25,beat:10}],['feedback',{decay:.66,zoom:1.008,rotate:.2}]]:E>70?[['glitch',{amount:24,react:'always'}],['strobe',{amount:24,safe:true,every:'2'}],['tunnel',{speed:16,kick:22}],['fracture',{mode:'flow'}],['kaleido',{kaleido:3}]]:[['melt',{amount:26,speed:20}],['trails',{trails:45}],['lens',{chroma:18,vignette:25}],['feedback',{decay:.75,zoom:1.015,rotate:.4}],['shader',{k1:12}]];
     const pool=combos.slice(),n=1+Math.floor(r()*(1+2*explore));for(let j=0;j<n&&pool.length;j++){const [type,p]=pool.splice(Math.floor(r()*pool.length),1)[0];effect(type,p);if(type==='glitch'&&!kinds.includes('glitch'))kinds.push('glitch');if(type==='strobe'&&!kinds.includes('strobe'))kinds.push('strobe');if(type==='tunnel'&&!kinds.includes('zoom'))kinds.push('zoom');}}
   spent-=reserve;let mask=it.mask;
+  // Letters cut away most of a thin, sparse picture and leave a near-black frame; a soft circle keeps it readable.
+  if(curate&&mask?.kind==='text'&&/^(fractal|growth|scatter|network|graph|linear|constellation|lissajous)$/.test(vis.props.mode))mask={...mask,kind:'circle'};
   if(!mask&&roam&&r()<.12+explore*.24&&!off('mask'))mask={kind:pick(r,['circle','waveform','text']),text:pick(r,['SOUND','FLOW','NOW'])};
   if(mask&&!off('mask')&&!find('mask')&&spent+FX_COST.mask+(mask.kind==='text'?FX_COST.plainText:FX_COST.shader)<=budget){spent+=mask.kind==='text'?FX_COST.plainText:FX_COST.shader;
     // Alpha, not opaque black: Composite Mask uses destination-in, while emitters can also mask by luma.
@@ -474,6 +495,7 @@ export function enhance(g,it,{seed=1,energy=50,match=85,primary=true}={}){
   if(it.data.includes('computer'))bind('computer',motion(),'amount',5,42,450);
   if(it.data.includes('pointer')){const t=effect('imageTransform');bind('pointer',t,'rotate',-16,16,120);const p=sources.get('pointer');if(p)bind([p[0],'y'],t,'y',-12,12,120);}
   if(it.live){const [n]=source('live'),p=find('palette');if(free(p,'colors'))wire(n,'palette',p,'colors');bind('live',motion(),'amount',8,38,800);}
+  if(curate)curated();
   return g;
 }
 

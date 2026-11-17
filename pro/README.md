@@ -548,12 +548,26 @@ process the finished image.
     grain, trails, fracture), a colour harmony (analogous, complementary,
     triad, split, mono) and an energy range: Halo, Orbit, Mandala, Liquid,
     Smoke temple, Helix lab, Shatter, Tunnel, Constellation, Embers,
-    Mirror garden and Prism (Orbit, Helix lab, Prism and Shatter use 3D). A scene holds through a section;
+    Mirror garden, Prism, Tide, Harmonograph, Dunes, Skyline, Crystal, Garden and Landscape
+    (Orbit, Helix lab, Prism, Shatter and Crystal use 3D). A scene holds through a section;
     its phrases swap the accent, then the base, so it evolves instead of
     jumping. Audio response, height and speed are capped (more on drops) to
     keep motion smooth. The scenes were tuned by rendering each one and
     scoring brightness, coverage, clipping, colour and flicker. The status
     line names the scene.
+  - The **Curator** (`curator.js`) dresses every look with the rest of the node library, so
+    Autopilot uses all of it: movement (wave, twist, bulge, ripple, water drops, depth, flow
+    field, turbulence, and the simulations' own forces), texture (jitter, disorder, randomize,
+    mirror), sparkles, one signature effect (kaleido, fracture, liquid glass, tunnel, melt,
+    cutter, shader, echo, trails, perspective), a finish (lens, soft focus, grade, saturate,
+    glow), hue drift and, only on build-ups and drops, a glitch or a safe flash every 4 beats.
+    Each node has a cost and each section a budget (calm 2.2, groove 3, build 3.4, drop 4.2;
+    supporting layers a third), so calm looks stay sparse and drops get more. Amounts sit in
+    ranges taken from the templates, every audio drive is smoothed, the least recently used
+    nodes come first, and nothing the scene's post FX already does is doubled. Cuts leave gaps
+    without outlines; nothing shears or stretches the picture. A described effect is still
+    honoured, eased toward the same ranges. The status line names what was added. If a look
+    still blows out to white, its layers ease back to 55% until the next change.
   - Particles follow the **Ripples** template's recipe: a ring that wraps, coloured by
     age through a palette whose darkest stop is clear (old particles fade out),
     gentle turbulence and no bloom; energy only nudges the flow (sometimes an orbit

@@ -1505,6 +1505,21 @@ def Camera "Camera" {
       assert.ok(r.drift<=25.01&&r.drift>15,'Auto drift sways a 3D tilt by at most 25°: '+r.drift);assert.ok(r.tilted<=25,'"Tilted" leans 25° at most');
       assert.ok(r.full>1000&&Math.abs(r.half/r.full-1)<.08,'A lower mapping resolution still fills the same area: '+r.full+' / '+r.half);
       const st=await page.evaluate(()=>pro.stats().mapRes);assert.equal(st,1,'Mapping renders at full resolution while frames are on time');}
+    // Curator: across many plans every node in the vocabulary gets used, a look never exceeds its section's budget, flashes and glitches
+    // only punctuate builds and drops, supporting layers stay light, cuts draw no outlines and nothing shears; live, every layer is curated.
+    {const r=await page.evaluate(async()=>{const C=await import('./curator.js');C.resetUsage();const B={calm:2.2,groove:3,build:3.4,drop:4.2},secs=Object.keys(B),bad=[];let punctCalm=0,support=0,lines=0;
+      const modes=['circle','spiral','knot','simparticles','simsmoke','simfluid','simsand','sphere'];
+      for(let i=0;i<1200;i++){const section=secs[i%4],mode=modes[i%modes.length],role=i%5===4?1:0,ps=C.plan({seed:i+1,section,energy:{calm:20,groove:50,build:72,drop:90}[section],mode,role}),w=ps.reduce((a,p)=>a+C.VOCAB[p.type].w,0);
+        if(w>B[section]*(role?.35:1)+.06)bad.push(section+':'+w.toFixed(2));if(/calm|groove/.test(section)&&ps.some(p=>p.role==='punct'))punctCalm++;if(role&&ps.length>2)support++;
+        for(const p of ps)if(p.type==='cutter'&&p.props.lines>0)lines++;}
+      const used=C.usage();return {missing:Object.keys(C.VOCAB).filter(t=>!used[t]),bad:bad.slice(0,3),punctCalm,support,lines,shear:'shear' in C.VOCAB};});
+      assert.deepEqual(r.missing,[],'The Autopilot curator uses every node it knows');assert.deepEqual(r.bad,[],'A curated look stays within its section budget');
+      assert.equal(r.punctCalm,0,'Flashes and glitches only punctuate builds and drops');assert.equal(r.support,0,'Supporting layers get one light touch at most');
+      assert.equal(r.lines,0,'Autopilot cuts leave gaps, not outlines');assert.ok(!r.shear,'The curator never shears the picture');
+      let live;for(let k=0;k<3&&!/ · /.test(live?.last||'');k++){await page.evaluate(()=>{pro.autopilot.settings({changes:'everything',layers:'auto',write:true});pro.autopilot.change('drop',1);});await page.waitForTimeout(3500);
+        live=await page.evaluate(()=>({last:pro.autopilot.status().last,types:pro.getProject().layers.filter(g=>g.id.startsWith('ap-L')).flatMap(g=>g.nodes.map(n=>n.type)),errors:pro.stats().errors}));}
+      await page.evaluate(()=>pro.autopilot.settings({live:false,write:false}));
+      assert.ok(/ · /.test(live.last),'The Autopilot status names what the curator added: '+live.last);assert.ok(live.types.length>12,'Live Autopilot layers carry curated nodes');assert.deepEqual(live.errors,[],'Curated looks render without errors');}
     // Mapping Autopilot pacing: crossfades are long when calm and short on drops, builds swell across the phrase (Floor by floor
     // rises with it), calm sections follow the sound softly, flashes inside a drop look land once per 4-bar phrase, variations every few bars.
     {const r=await page.evaluate(async()=>{const M=await import('./map3d.js'),A=M.cleanFx({auto:{on:true,every:'4'}}),sm=(beat,section,drop=false)=>({beat,bpm:120,bands:{full:.5,bass:.6},pulse:0,song:{section,drop,toDrop:9,beat,bpm:120}});
