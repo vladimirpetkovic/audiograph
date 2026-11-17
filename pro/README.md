@@ -446,8 +446,10 @@ process the finished image.
   - **Remote** (Mapping › Scene) turns a phone into a controller: **Connect phone** shows a QR
     code; the phone (same Wi-Fi) opens `remote.html` and shows a code to paste back or scan with
     the webcam. It connects peer to peer (WebRTC), with no server. The remote has Master,
-    Blackout, Autopilot, Next look, Tap tempo and the cues. **Open remote here** opens it in a
-    window on this computer instead.
+    Blackout, Autopilot, Next look, Tap tempo and the cues, plus **Describe the look**: type a
+    description (or tap an example, or **Surprise me**) and the studio's Autopilot creates it and
+    keeps playing. Without a mapped 3D surface, Autopilot and Next look drive the studio's
+    Autopilot. **Open remote here** opens it in a window on this computer instead.
   - The handles are only drawn in the studio, so Detach sends the clean mapped
     picture to the projector. The mapping is saved with the project and kept when
     you switch templates.
@@ -568,6 +570,10 @@ process the finished image.
     without outlines; nothing shears or stretches the picture. A described effect is still
     honoured, eased toward the same ranges. The status line names what was added. If a look
     still blows out to white, its layers ease back to 55% until the next change.
+  - The **Array** scene brings in the **Cloner**, rigged like the *Cloned* template: one or two
+    primitives (drawn as solids) copied in a grid, ring, sphere, spiral, helix, scatter or
+    network, lit by a Light, grown by a Sound effector and shaded by a Material. The Curator
+    gives a cloner only the cloner effectors (Field, Random) and picture effects.
   - Particles follow the **Ripples** template's recipe: a ring that wraps, coloured by
     age through a palette whose darkest stop is clear (old particles fade out),
     gentle turbulence and no bloom; energy only nudges the flow (sometimes an orbit

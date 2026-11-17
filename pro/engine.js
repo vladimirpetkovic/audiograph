@@ -166,6 +166,17 @@ const strCache=new WeakMap();
 const str=o=>{if(!o||typeof o!=='object')return JSON.stringify(o??{});let v=strCache.get(o);if(v===undefined){v=JSON.stringify(o);strCache.set(o,v);}return v;};
 const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',job.poly?'poly':'',job.solidMesh?.id||'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|');
 // Same parameters as last frame? (objects compare by content; they are small)
+// The original's underscore keys that only move one slider (setLayoutParams does nothing else with them).
+const QUICK={_contrast:'pContrast',_sensitivity:'pSensitivity',_height:'pHeight',_thick:'pThick',_zoom:'pZoom',_offX:'pOffX',_offY:'pOffY',_rotation:'pRotation',
+  _speed:'pSpeed',_amplify:'pAmplify',_twist:'pTwist',_bulge:'pBulge',_wave:'pWave',_waveFreq:'pWaveFreq',_depth:'pDepth',_ripple:'pRipple'};
+function quickSet(d,a,b){
+  if(!b)return null;const out=[];
+  for(const k in b)if(!(k in a))return null;
+  for(const k in a){const x=a[k],y=b[k];if(x===y)continue;if(x&&y&&typeof x==='object'&&typeof y==='object'&&str(x)===str(y))continue;
+    if(typeof x!=='number'||typeof y!=='number')return null;
+    const id=k[0]==='_'?QUICK[k]:k==='pTextSlant'?null:k,e=id&&d.getElementById(id);if(!e||e.type==='file')return null;out.push([e,x]);}
+  return out;
+}
 function sameParams(a,b){
   if(!a||!b)return false;
   for(const k in a){const x=a[k],y=b[k];if(x===y)continue;if(x&&y&&typeof x==='object'&&typeof y==='object'&&str(x)===str(y))continue;return false;}
@@ -384,7 +395,8 @@ export class EmitterEngine {
     w.__agFov=camOn&&mode==='simsplat'?(+cm.pG3Focal||28)/28:1;
     w.__agSplBnd=job.mesh?3.3:null;
     if(camOn&&mode==='simsplat'){p.pGsTilt=cm.pG3Tilt??18;p.pGsZoom=cm.pG3Zoom??100;p.pGsOrbit=0;}
-    if(!sameParams(p,this.applied)){this.realSet(p);this.applied=p;}
+    // Driven knobs change every frame; when only plain sliders moved, set just those (the full apply rewrites the whole panel).
+    if(!sameParams(p,this.applied)){const q=!mode.startsWith('sim')&&quickSet(w.document,p,this.applied);if(q)for(const [e,v] of q)e.value=v;else this.realSet(p);this.applied=p;}
     // A node's own 3D tilt / rotate turn the sim camera (3D Object drawn Normal, Cloner, splats) on top of the viewport orbit.
     if(this.viewMode==='sim'){const so=w.simOpt;so.vYaw=(v.yaw||0)-(p._dragRotY||0)/dg+(cm.pG3Zoom!=null?camYaw:0);so.vPit=(v.pit||0)+(p._dragRotX||0)/dg;so.vPx=v.px||0;so.vPy=v.py||0;so.vZm=v.zm||1;}
     if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)||job.poly&&job.solidMesh?job.mode:'file';

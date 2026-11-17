@@ -27,6 +27,10 @@
   .pair canvas{width:min(78vw,300px);height:auto;background:#fff;border-radius:10px;padding:10px;image-rendering:pixelated}
   .code{font:12px/1.3 ui-monospace,Menlo,monospace;word-break:break-all;background:#0f121a;border:1px solid var(--line);border-radius:8px;padding:8px;margin:10px 0;color:var(--dim);user-select:all}
   .hide{display:none}
+  textarea{width:100%;min-height:76px;resize:vertical;background:#0f121a;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font:16px/1.35 inherit;font-family:inherit;margin-bottom:8px;-webkit-user-select:text;user-select:text}
+  textarea:focus{outline:none;border-color:var(--acc)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chips button{min-height:0;padding:8px 10px;font-size:13px;font-weight:500;border-radius:16px;color:var(--dim);text-align:left}
 </style>
 </head>
 <body>
@@ -53,6 +57,12 @@
     <div class="row two"><button id="black" class="hot" type="button">Blackout</button><button id="auto" type="button">Autopilot</button></div>
   </div>
   <div class="card">
+    <p class="label">Describe the look</p>
+    <textarea id="prompt" rows="3" maxlength="300" placeholder="e.g. slow dreamy blue and gold smoke with soft glow" enterkeyhint="send" autocapitalize="off"></textarea>
+    <div class="row two"><button id="create" type="button">Create</button><button id="surprise" type="button">Surprise me</button></div>
+    <div class="chips" id="examples"></div>
+  </div>
+  <div class="card">
     <div class="row two"><button id="next" type="button">Next look</button><button id="tap" type="button">Tap tempo</button></div>
   </div>
   <div class="card">
@@ -68,9 +78,13 @@ const $=id=>document.getElementById(id),st={};
 let link=null;
 function draw(code){const q=qrcode(0,'L');q.addData(code);q.make();const n=q.getModuleCount(),c=$('qr'),k=6;c.width=c.height=n*k;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.fillStyle='#000';for(let r=0;r<n;r++)for(let col=0;col<n;col++)if(q.isDark(r,col))x.fillRect(col*k,r*k,k,k);}
 const send=m=>link?.send(m);
-function show(m){Object.assign(st,m);$('look').textContent=st.look||'—';
-  $('meta').textContent=[st.section,st.bpm?Math.round(st.bpm)+' BPM':'',st.surfaces===0?'No 3D surface':''].filter(Boolean).join(' · ');
-  $('auto').classList.toggle('on',!!st.auto);$('black').classList.toggle('on',!!st.black);
+function show(m){Object.assign(st,m);const S=st.studio||{},mapped=st.surfaces>0;
+  $('look').textContent=(mapped?st.look:S.last||(S.live?'Autopilot':''))||'—';
+  $('meta').textContent=[mapped?st.section:S.section,st.bpm?Math.round(st.bpm)+' BPM':''].filter(Boolean).join(' · ');
+  $('auto').classList.toggle('on',mapped?!!st.auto:!!S.live);
+  const pr=$('prompt');if(document.activeElement!==pr&&!pr.value)pr.placeholder=S.prompt||'e.g. '+(st.examples?.[0]||'slow dreamy smoke');
+  const ex=$('examples'),es=st.examples||[];if(ex.dataset.k!==es.join('|')){ex.dataset.k=es.join('|');ex.textContent='';
+    for(const t of es){const b=document.createElement('button');b.type='button';b.textContent=t;b.onclick=()=>{pr.value=t;create();};ex.append(b);}}$('black').classList.toggle('on',!!st.black);
   if(document.activeElement!==$('master'))$('master').value=Math.round((st.master??1)*100);
   const cs=$('cues'),names=st.cues||[];if(cs.dataset.k!==names.join('|')+st.cue){cs.dataset.k=names.join('|')+st.cue;cs.textContent='';
     for(let i=0;i<9;i++){const b=document.createElement('button');b.type='button';b.textContent=names[i]?`${i+1} · ${names[i]}`:String(i+1);b.disabled=!names[i];b.classList.toggle('on',st.cue===i);b.onclick=()=>send({t:'cue',i});cs.append(b);}}}
@@ -87,7 +101,11 @@ async function start(){
 }
 $('master').oninput=e=>send({t:'master',v:e.target.value/100});
 $('black').onclick=()=>send({t:'black',on:!st.black});
-$('auto').onclick=()=>send({t:'auto',on:!st.auto});
+$('auto').onclick=()=>send({t:'auto',on:!(st.surfaces>0?st.auto:st.studio?.live)});
+function create(){const pr=$('prompt'),t=pr.value.trim();if(!t)return;send({t:'prompt',text:t});pr.blur();pr.value='';pr.placeholder=t;const b=$('create');b.textContent='Sent';setTimeout(()=>b.textContent='Create',1200);}
+$('create').onclick=create;
+$('prompt').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();create();}};
+$('surprise').onclick=()=>send({t:'surprise'});
 $('next').onclick=()=>send({t:'next'});
 $('tap').onclick=()=>send({t:'tap'});
 start();

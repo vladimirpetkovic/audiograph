@@ -5,6 +5,8 @@ export const ROLE_OP=[100,70,55];
 export const MIN_GAP=8;
 export const SIMS=['simparticles','simfluid','simsmoke','simsand'];
 export const isSim=n=>SIMS.includes(n);
+// Simulations and the Cloner run on WebGPU (one per stack, so the frame rate holds).
+const gpu=n=>isSim(n)||n==='simcloner';
 const SOLIDS=['knot','torus','cube','ico','pyramid','frame','cone','cylinder'];
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const q=(a,p)=>{const s=a.slice().sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p*s.length))];};
@@ -96,7 +98,7 @@ export const durFor=(kind,every)=>kind==='drop'?2.5:kind==='build'?clamp(every*.
 
 // ---------- the description ----------
 const SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl)/],['simsmoke',/\b(smoke|smoky|fog|mist|steam|incense|campfire|cloud|plume)/],
-  ['simparticles',/\b(particles?|particle field|firework|embers?|sparks?|stardust|confetti|fountain)/],['simsand',/\b(sand|granular|dunes?|hourglass)/]];
+  ['simparticles',/\b(particles?|particle field|firework|embers?|sparks?|stardust|confetti|fountain)/],['simsand',/\b(sand|granular|dunes?|hourglass)/],['simcloner',/\b(cubes|blocks|clones?|cloner|voxels?|array of)\b/]];
 const LAYOUT_NAMES=['spiral','phyllotaxis','concentric','sphere','growth','circle','tetrahedron','dna','scatter','sacred','graph','fractal'];
 const SOLID_W=[['knot',/\b(knot|tangle)/],['torus',/\b(torus|donut|doughnut)/],['cube',/\b(cube|box)/],['ico',/\b(icosphere|gem|crystal)/],['pyramid',/\bpyramid/],['frame',/\b(frame|portal)/],['cone',/\bcone/],['cylinder',/\b(cylinder|column|pillar)/]];
 // The original's reading of a description: tempo, energy, palette, layouts and styles (steers; the music decides when).
@@ -120,7 +122,7 @@ export function readVibe(w,text){
   v.dark=/\b(dark|moody|night|noir|gloom|shadow)/.test(t);
   return v;
 }
-const NAMES={simparticles:'particles',simfluid:'fluid',simsmoke:'smoke',simsand:'sand',lissajous:'harmonic',inkwater:'ink in water'};
+const NAMES={simcloner:'cloner',simparticles:'particles',simfluid:'fluid',simsmoke:'smoke',simsand:'sand',lissajous:'harmonic',inkwater:'ink in water'};
 export const nameOf=n=>NAMES[n]||n;
 export function vibeText(v){
   if(!v)return '';const o=[];
@@ -155,6 +157,7 @@ export const SCENES=[
   {id:'dunes',label:'Dunes',E:[25,85],sim:true,base:['simsand'],accent:['sine','linear'],shapes:['straight','dotted'],harmony:'analogous',fx:{pfxVignette:35}},
   {id:'skyline',label:'Skyline',E:[50,100],base:['linear','graph'],accent:['scatter','sine'],shapes:['caps','pins','straight'],harmony:'split',fx:{pfxBloom:40,pfxReflect:35,pfxVignette:30}},
   {id:'crystal',label:'Crystal',E:[35,95],base:['ico','pyramid','frame','cone','cylinder'],accent:['circle','concentric','scatter'],shapes:['straight','pins'],harmony:'complement',fx:{pfxBloom:40,pfxEdgeGlow:18,pfxVignette:35}},
+  {id:'array',label:'Array',E:[20,95],sim:true,base:['simcloner'],accent:['circle','concentric','phyllotaxis','scatter'],shapes:['straight','dotted'],harmony:'triad',fx:{pfxVignette:30}},
   {id:'garden',label:'Garden',E:[0,60],base:['growth','fractal'],accent:['phyllotaxis','scatter'],shapes:['tapered','rounded'],harmony:'analogous',fx:{pfxBloom:35,pfxVignette:35}},
   {id:'land',label:'Landscape',E:[20,80],base:['terrain'],accent:['concentric','scatter'],shapes:['straight','dotted'],harmony:'mono',fx:{pfxBloom:34,pfxChroma:12,pfxVignette:60,pfxBlurRadial:35,pfxFocal:60,pfxTrails:40}},
   {id:'prism',label:'Prism',E:[60,100],base:['cube','knot','tetrahedron'],accent:['concentric','circle'],shapes:['straight','caps','pins'],harmony:'triad',fx:{pfxBloom:48,pfxEdgeGlow:22,pfxChroma:22,pfxVignette:30}}
@@ -214,13 +217,13 @@ export class Generator{
     const shapes=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted'];
     s.layout=this.pick(v?.layouts,E>60?hotL:calmL,'layout');
     if(!v?.layouts.length&&sc){
-      const pool=this.role==='accent'&&sc.accent?sc.accent:sc.base;s.layout=any(pool);if(isSim(s.layout)&&!this.simOK(w))s.layout=any(sc.accent||['circle']);
+      const pool=this.role==='accent'&&sc.accent?sc.accent:sc.base;s.layout=any(pool);if(gpu(s.layout)&&!this.simOK(w))s.layout=any(sc.accent||['circle']);
       s.shape=any(sc.shapes);
     }else if(!v?.layouts.length){
       // Pro adds its 3D solids, drawn as waveforms, to the mix.
       if(r()<(E>60?.12:.06))s.layout=any(SOLIDS);
       else if(this.simOK(w)&&r()<(kind==='calm'?.35:kind==='drop'?.3:.22))s.layout=any(E>60?['simfluid','simparticles','simparticles','simsmoke']:['simsmoke','simfluid','simparticles']);
-    }else if(isSim(s.layout)&&!this.simOK(w))s.layout=any(E>60?hotL:calmL);
+    }else if(gpu(s.layout)&&!this.simOK(w))s.layout=any(E>60?hotL:calmL);
     if(!sc||v?.shapes.length||v?.layouts.length)s.shape=this.pick(v?.shapes,shapes,'shape');
     if(v){const kw=v.kw,h=v.hit;
       if(v.palette){s.colors=kw.colors.slice();if(m<100&&kind!=='calm'&&kind!=='drop'){const d=(r()-.5)*36;s.colors=s.colors.map(c=>{if(!/^#[0-9a-f]{6}$/i.test(c))return c;const [h,sa,l]=toHsl(c);return sa<.12?c:toHex(h+d,sa,l);});}}
@@ -233,10 +236,10 @@ export class Generator{
     if(kind==='calm'&&!companion&&r()<.3)this.dir=-this.dir;
     let amt=r()<.3?0:(E>60?.2+r()*.5:.1+r()*.35);
     if(v){if(v.hit.spin)amt=Math.max(amt,v.kw.spin>60?.9:.6);amt*=v.tempo;}
-    s.spinAmt=isSim(s.layout)?0:+Math.min(1.2,amt).toFixed(2);
+    s.spinAmt=gpu(s.layout)?0:+Math.min(1.2,amt).toFixed(2);
     // Quiet tones fade through the ramp's first stop: transparent more often when calm, partly see-through otherwise.
     const fadeP=E<30?.85:E<60?.65:.4;
-    if(!v?.palette&&!isSim(s.layout)&&r()<fadeP&&s.colors.length>2&&/^#[0-9a-f]{6}$/i.test(s.colors[0])){s.colors=s.colors.slice();s.colors[0]+=r()<.5?'00':any(['33','55','77']);}
+    if(!v?.palette&&!gpu(s.layout)&&r()<fadeP&&s.colors.length>2&&/^#[0-9a-f]{6}$/i.test(s.colors[0])){s.colors=s.colors.slice();s.colors[0]+=r()<.5?'00':any(['33','55','77']);}
     return s;
   }
   simify(w,l,s){
@@ -282,7 +285,7 @@ export class Generator{
   }
   // spec → layer, with the original's renderer (Pro solids use the original's 3D object layout).
   toLayer(w,s){
-    const solid=SOLIDS.includes(s.layout),l=w.agAI.toLayer({...s,layout:solid?'object':s.layout});
+    const solid=SOLIDS.includes(s.layout),l=w.agAI.toLayer({...s,layout:solid?'object':s.layout==='simcloner'?'circle':s.layout});
     l.layout=s.layout;if(solid){l.params._objModel=s.layout;l.params.pObjRotate=Math.round(2+s.energy/10);}
     l.params._zoomLoud=false;tameAngles(l.params);
     if(isSim(s.layout))this.simify(w,l,s);
@@ -321,8 +324,8 @@ export class Generator{
     if(i===0&&!used.includes(base.layout))return this.finish(this.toLayer(w,s),s,0);
     let c=null;
     this.role=i?'accent':'base';
-    for(let k=0;k<8;k++){c=this.spec(w,kind,true);if(!used.includes(c.layout)&&(i===0||c.layout!=='growth')&&!(isSim(c.layout)&&used.some(isSim)))break;}
-    if(isSim(c.layout)&&used.some(isSim)){for(let k=0;k<8&&isSim(c.layout);k++)c=this.spec(w,kind,true);if(isSim(c.layout))c.layout='circle';}
+    for(let k=0;k<8;k++){c=this.spec(w,kind,true);if(!used.includes(c.layout)&&(i===0||c.layout!=='growth')&&!(gpu(c.layout)&&used.some(gpu)))break;}
+    if(gpu(c.layout)&&used.some(gpu)){for(let k=0;k<8&&gpu(c.layout);k++)c=this.spec(w,kind,true);if(gpu(c.layout))c.layout='circle';}
     c.colors=this.paletteFor(s,i);c.trails=s.trails;
     if(i>0){const fine=['straight','tapered','needles','dotted','pins'];
       if(!(this.match>=90&&this.vb?.shapes.length)&&!fine.includes(c.shape))c.shape=any(fine);
@@ -356,7 +359,7 @@ export class Generator{
   }
   // Colours / Mood on your own layers: a palette per layer and (Mood) the new look's shape, spin and speed.
   restyle(w,kind,n){
-    const s=this.spec(w,kind,false),l=this.toLayer(w,isSim(s.layout)?{...s,layout:'circle'}:s);
+    const s=this.spec(w,kind,false),l=this.toLayer(w,gpu(s.layout)?{...s,layout:'circle'}:s);
     return {colors:Array.from({length:Math.max(1,n)},(_,i)=>this.paletteFor(s,i)),params:l.params,spinAmt:s.spinAmt||.2,speed:clamp(+((l.params._speed||1)*(this.vb?.tempo||1)).toFixed(1),.1,5)};
   }
 }

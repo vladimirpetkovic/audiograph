@@ -1482,7 +1482,14 @@ def Camera "Camera" {
       assert.equal(await r.locator('#cues button').first().textContent(),'1 · Scan','The remote lists the cues');
       await r.locator('#cues button').first().click();await page.waitForFunction(()=>pro.mapping().surfaces[0].fx.scan.on);
       await r.click('#black');await page.waitForTimeout(400);assert.equal(await page.evaluate(()=>pro.pixels()),0,'Blackout from the remote darkens the output');await r.click('#black');
-      await r.click('#auto');await page.waitForFunction(()=>pro.mapping().surfaces[0].fx.auto.on);await r.close();
+      await r.click('#auto');await page.waitForFunction(()=>pro.mapping().surfaces[0].fx.auto.on);
+      // Describe the look: the studio's Autopilot creates it and keeps playing; example chips arrive from the studio.
+      assert.ok(await r.locator('#examples button').count()>2,'The remote offers example descriptions');
+      await r.fill('#prompt','slow dreamy teal smoke with soft glow');await r.click('#create');
+      await page.waitForFunction(()=>pro.autopilot.status().prompt==='slow dreamy teal smoke with soft glow',null,{timeout:8000}).catch(()=>{});
+      const rp=await page.evaluate(()=>pro.autopilot.status());
+      assert.ok(rp.live&&rp.prompt==='slow dreamy teal smoke with soft glow','A description from the remote starts the studio Autopilot with it: '+rp.prompt);
+      await page.evaluate(()=>pro.autopilot.settings({live:false}));await r.close();
       const w=await page.evaluate(async()=>{const L=await import('./remote-link.js'),h=await L.hostLink(),j=await L.joinLink(h.offer);await h.accept(j.answer);const got=new Promise(ok=>{j.onmessage=ok;setTimeout(()=>ok(null),8000);});
         await new Promise(ok=>{const t=setInterval(()=>{if(h.open){clearInterval(t);ok();}},50);setTimeout(ok,8000);});h.send({t:'state',look:'x'});const m=await got;h.close();j.close();return {m,len:h.offer.length};});
       assert.equal(w.m?.look,'x','The phone link pairs with short codes and carries messages');assert.ok(w.len<400,'Pairing codes stay short: '+w.len);
@@ -1508,7 +1515,7 @@ def Camera "Camera" {
     // Curator: across many plans every node in the vocabulary gets used, a look never exceeds its section's budget, flashes and glitches
     // only punctuate builds and drops, supporting layers stay light, cuts draw no outlines and nothing shears; live, every layer is curated.
     {const r=await page.evaluate(async()=>{const C=await import('./curator.js');C.resetUsage();const B={calm:2.2,groove:3,build:3.4,drop:4.2},secs=Object.keys(B),bad=[];let punctCalm=0,support=0,lines=0;
-      const modes=['circle','spiral','knot','simparticles','simsmoke','simfluid','simsand','sphere'];
+      const modes=['circle','spiral','knot','simparticles','simsmoke','simfluid','simsand','sphere','simcloner'];
       for(let i=0;i<1200;i++){const section=secs[i%4],mode=modes[i%modes.length],role=i%5===4?1:0,ps=C.plan({seed:i+1,section,energy:{calm:20,groove:50,build:72,drop:90}[section],mode,role}),w=ps.reduce((a,p)=>a+C.VOCAB[p.type].w,0);
         if(w>B[section]*(role?.35:1)+.06)bad.push(section+':'+w.toFixed(2));if(/calm|groove/.test(section)&&ps.some(p=>p.role==='punct'))punctCalm++;if(role&&ps.length>2)support++;
         for(const p of ps)if(p.type==='cutter'&&p.props.lines>0)lines++;}
@@ -1520,6 +1527,18 @@ def Camera "Camera" {
         live=await page.evaluate(()=>({last:pro.autopilot.status().last,types:pro.getProject().layers.filter(g=>g.id.startsWith('ap-L')).flatMap(g=>g.nodes.map(n=>n.type)),errors:pro.stats().errors}));}
       await page.evaluate(()=>pro.autopilot.settings({live:false,write:false}));
       assert.ok(/ · /.test(live.last),'The Autopilot status names what the curator added: '+live.last);assert.ok(live.types.length>12,'Live Autopilot layers carry curated nodes');assert.deepEqual(live.errors,[],'Curated looks render without errors');}
+    // Autopilot's Array scene builds a full cloner rig (objects, light, sound effector, material) and gives it only cloner effectors and picture FX.
+    {const c=await page.evaluate(async()=>{const C=await import('./curator.js'),rigs=[...Array(12)].map((_,i)=>C.clonerRig({seed:i+1,energy:60}));
+      const plans=[...Array(60)].map((_,i)=>C.plan({seed:i+1,section:'drop',energy:85,mode:'simcloner',role:0})).flat().map(p=>p.type);
+      return {layouts:[...new Set(rigs.map(g=>g.props.layout))].length,chain:rigs.every(g=>['light','soundEffector','material'].every(t=>g.chain.some(c=>c[0]===t))&&g.objects.length>0),
+        geo:plans.filter(t=>C.VOCAB[t].cl!=='only'&&!C.VOCAB[t].img),eff:plans.some(t=>C.VOCAB[t].cl==='only')};});
+      assert.ok(c.layouts>=5,'Cloner rigs vary their layout: '+c.layouts);assert.ok(c.chain,'Every cloner rig wires objects, light, a sound effector and a material');
+      assert.deepEqual(c.geo,[],'A cloner never gets 2D deformers');assert.ok(c.eff,'A cloner gets cloner effectors');
+      if(await page.evaluate(()=>!!navigator.gpu)){await page.evaluate(()=>{pro.autopilot.settings({changes:'everything',layers:'auto',write:false,prompt:'',live:true});pro.autopilot.scene('array','groove');});
+        await page.waitForFunction(()=>pro.getProject().layers.some(g=>g.id.startsWith('ap-L')&&g.nodes.some(n=>n.type==='cloner'))&&!pro.autopilot.status().fading,null,{timeout:12000}).catch(()=>{});await page.waitForTimeout(1500);
+        const a=await page.evaluate(()=>({types:pro.getProject().layers.filter(g=>g.id.startsWith('ap-L')).flatMap(g=>g.nodes.map(n=>n.type)),errors:pro.stats().errors}));
+        await page.evaluate(()=>pro.autopilot.settings({live:false}));
+        for(const t of ['cloner','waveform3d','light','soundEffector','material'])assert.ok(a.types.includes(t),'The Array scene wires a '+t+': '+a.types);assert.deepEqual(a.errors,[],'The Array scene renders without errors');}}
     // Mapping Autopilot pacing: crossfades are long when calm and short on drops, builds swell across the phrase (Floor by floor
     // rises with it), calm sections follow the sound softly, flashes inside a drop look land once per 4-bar phrase, variations every few bars.
     {const r=await page.evaluate(async()=>{const M=await import('./map3d.js'),A=M.cleanFx({auto:{on:true,every:'4'}}),sm=(beat,section,drop=false)=>({beat,bpm:120,bands:{full:.5,bass:.6},pulse:0,song:{section,drop,toDrop:9,beat,bpm:120}});

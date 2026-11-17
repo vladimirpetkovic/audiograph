@@ -390,11 +390,11 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
 // Add the same editable graph vocabulary to a generated look or the live Director's reusable slots.
 const FX_COST={cutter:2,cornerPin:1,effect:1,bloom:2,trails:2,blur:2,kaleido:2,grade:2,lens:2,liquidGlass:3,glitch:1.5,tunnel:2,melt:2,fracture:2,feedback:1,mask:1,plainText:1,shader:1.5,strobe:.5,hue:.5,imageTransform:.5};
 // curate: {section, role} hands the look's treatment to the Curator (the live Autopilot): every node in rotation, within the section's budget.
-export function enhance(g,it,{seed=1,energy=50,match=85,primary=true,curate=null}={}){
+export function enhance(g,it,{seed=1,energy=50,match=85,primary=true,curate=null,typed=false}={}){
   if(!primary&&!curate)return g;
   const r=rng(seed),E=clamp(energy,0,100),explore=1-clamp(match,0,100)/100,roam=!it.raw.trim(),find=t=>g.nodes.find(n=>n.type===t),vis=g.nodes.find(n=>isEngine(n.type)),sound=find('audioIn'),output=find('output');
   if(!vis||!sound||!output)return g;
-  const sim=SIM_MODES.includes(vis.props.mode),off=type=>[...it.no].some(w=>({bloom:/glow|bloom/,hue:/colou?r|hue/,imageTransform:/zoom|mov|motion/,strobe:/strob|flash/,glitch:/glitch/,mask:/mask/}[type]||new RegExp('^'+type+'$','i')).test(w));
+  const vmode=vis.type==='cloner'?'simcloner':vis.props.mode,sim=SIM_MODES.includes(vmode),off=type=>[...it.no].some(w=>({bloom:/glow|bloom/,hue:/colou?r|hue/,imageTransform:/zoom|mov|motion/,strobe:/strob|flash/,glitch:/glitch/,mask:/mask/}[type]||new RegExp('^'+type+'$','i')).test(w));
   let dy=Math.max(360,...g.nodes.map(n=>n.y+160)),col=0;
   const wire=(a,out,b,input)=>g.edges.push({from:a.id,out,to:b.id,input}),out=n=>Object.keys(TYPES[n.type].outputs)[0],free=(n,k)=>n&&!g.edges.some(e=>e.to===n.id&&e.input===k);
   const make=(type,props={},main=false)=>{const n=node(type,main?output.x:40+215*col++,main?output.y:dy,props);g.nodes.push(n);if(main)output.x+=215;return n;};
@@ -437,19 +437,19 @@ export function enhance(g,it,{seed=1,energy=50,match=85,primary=true,curate=null
   // The Curator's picks: shape stages (deformers, forces, sparkles) after the visual, colour after the palette, image effects before Output.
   const place=(type,props,drive=[])=>{const n=VOCAB[type]?.img||type==='hue'?effect(type,props):off(type)?null:shape(type,props);if(n)for(const [s,k,lo,hi,sm] of drive)bind(s,n,k,lo,hi,sm);return n;};
   const curated=()=>{
-    const e=E/100,c={section:curate.section,mode:vis.props.mode},forceOK=f=>sim&&Object.keys(f.props).some(k=>TYPES[f.type].props[k]?.sims?.includes(vis.props.mode));
+    const e=E/100,c={section:curate.section,mode:vmode},forceOK=f=>sim&&Object.keys(f.props).some(k=>TYPES[f.type].props[k]?.sims?.includes(vmode));
     if(primary){
       // What the description names comes first, at the Curator's tasteful strength.
       for(const d of it.deformers){if(sim&&!['turbulence','jitter','disorder','flowField'].includes(d.type))continue;const v=VOCAB[d.type];if(v)place(d.type,v.props(r,e,c),v.drive?v.drive(r,e,c):[]);else place(d.type,d.props);}
       for(const f of it.forces)if(forceOK(f)){const v=VOCAB[f.type];place(f.type,v?v.props(r,e,c):f.props,v?.drive?v.drive(r,e,c):[]);}
     }
-    const picks=curatePlan({r,energy:E,section:curate.section,role:primary?0:(curate.role||1),mode:vis.props.mode,symmetry:find('symmetry')?.props.mode,postFx:vis.props.look?._postFx,have:g.nodes.map(n=>n.type),no:off});
+    const picks=curatePlan({r,energy:E,section:curate.section,role:primary?0:(curate.role||1),mode:vmode,symmetry:find('symmetry')?.props.mode,postFx:vis.props.look?._postFx,have:g.nodes.map(n=>n.type),no:off});
     curate.picks=[];for(const p of picks)if(place(p.type,p.props,p.drive))curate.picks.push(p.type);
   };
   if(!primary){curated();return g;}
   const explicit=Object.entries(it.fx).filter(([type])=>!['blend','merge'].includes(type));
   // Live, named effects meet the Curator halfway: the words pick the effect and its style, the strength leans toward taste.
-  const soften=(type,p)=>{const v=VOCAB[type];if(!curate||!v)return p;const t=v.props(r,E/100,{section:curate.section,mode:vis.props.mode}),o={...t};
+  const soften=(type,p)=>{const v=VOCAB[type];if(!curate||!v)return p;const t=v.props(r,E/100,{section:curate.section,mode:vmode}),o={...t};
     for(const [k,x] of Object.entries(p))o[k]=typeof x==='number'&&typeof t[k]==='number'?+((x+t[k])/2).toFixed(3):x;return o;};
   for(const [type,p] of explicit)effect(type,soften(type,p));
   const kinds=(it.drivers||[]).map(d=>d.kind);
@@ -462,8 +462,8 @@ export function enhance(g,it,{seed=1,energy=50,match=85,primary=true,curate=null
   if(!curate&&(roam||r()<explore*.6)){const combos=E<40?[['trails',{trails:35}],['blur',{x:5}],['liquidGlass',{refraction:25,speed:14,bass:25,beat:10}],['feedback',{decay:.66,zoom:1.008,rotate:.2}]]:E>70?[['glitch',{amount:24,react:'always'}],['strobe',{amount:24,safe:true,every:'2'}],['tunnel',{speed:16,kick:22}],['fracture',{mode:'flow'}],['kaleido',{kaleido:3}]]:[['melt',{amount:26,speed:20}],['trails',{trails:45}],['lens',{chroma:18,vignette:25}],['feedback',{decay:.75,zoom:1.015,rotate:.4}],['shader',{k1:12}]];
     const pool=combos.slice(),n=1+Math.floor(r()*(1+2*explore));for(let j=0;j<n&&pool.length;j++){const [type,p]=pool.splice(Math.floor(r()*pool.length),1)[0];effect(type,p);if(type==='glitch'&&!kinds.includes('glitch'))kinds.push('glitch');if(type==='strobe'&&!kinds.includes('strobe'))kinds.push('strobe');if(type==='tunnel'&&!kinds.includes('zoom'))kinds.push('zoom');}}
   spent-=reserve;let mask=it.mask;
-  // Letters cut away most of a thin, sparse picture and leave a near-black frame; a soft circle keeps it readable.
-  if(curate&&mask?.kind==='text'&&/^(fractal|growth|scatter|network|graph|linear|constellation|lissajous)$/.test(vis.props.mode))mask={...mask,kind:'circle'};
+  // Letters cut away most of a thin, sparse picture and leave a near-black frame; a soft circle keeps it readable (typed words stay).
+  if(curate&&!typed&&mask?.kind==='text'&&/^(fractal|growth|scatter|network|graph|linear|constellation|lissajous)$/.test(vis.props.mode))mask={...mask,kind:'circle'};
   if(!mask&&roam&&r()<.12+explore*.24&&!off('mask'))mask={kind:pick(r,['circle','waveform','text']),text:pick(r,['SOUND','FLOW','NOW'])};
   if(mask&&!off('mask')&&!find('mask')&&spent+FX_COST.mask+(mask.kind==='text'?FX_COST.plainText:FX_COST.shader)<=budget){spent+=mask.kind==='text'?FX_COST.plainText:FX_COST.shader;
     // Alpha, not opaque black: Composite Mask uses destination-in, while emitters can also mask by luma.

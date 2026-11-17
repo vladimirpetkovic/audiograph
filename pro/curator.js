@@ -63,6 +63,28 @@ export const VOCAB={
   glitch:{role:'punct',img:true,w:1.1,E:[60,100],props:(r)=>({amount:I(r,18,30),react:'beat',threshold:I(r,55,70),decay:I(r,140,220),speed:12,slices:I(r,30,55),rgb:I(r,25,45),blocks:I(r,15,30),stutter:I(r,5,15)})},
   strobe:{role:'punct',img:true,w:1,E:[70,100],props:(r)=>({amount:I(r,16,26),react:'beat',every:'4',threshold:55,rate:2,decay:90,style:'flash',safe:true})}
 };
+// ---- Cloner effectors (only on a Cloner): the clones drift on a field or settle into a random arrangement ----
+Object.assign(VOCAB,{
+  fieldEffector:{role:'motion',cl:'only',w:.6,E:[0,100],props:(r,e)=>({field:one(r,['wave','wave','noise','ripple']),strength:I(r,40,70+e*30),size:I(r,110,200),speed:I(r,25,40+e*30)}),
+    drive:(r,e)=>[['bass','strength',I(r,35,55),I(r,80,100+e*40),520]]},
+  randomEffector:{role:'texture',cl:'only',w:.5,E:[0,100],props:(r)=>({seed:I(r,1,999),color:I(r,10,30),size:I(r,15,35),rotX:I(r,0,40),rotY:I(r,10,60),rotZ:I(r,0,40),posX:I(r,0,25),posY:I(r,0,25),posZ:I(r,0,25)})}
+});
+// A Cloner look the way the Cloned template builds one: an array of a solid or two, lit, coloured by the sound through the
+// palette, its clones growing with the music; sparse when calm, fuller (and sometimes linked) as the energy rises.
+const rigRecent=[];
+export function clonerRig(o={}){
+  const r=o.r||rngOf(o.seed),E=Math.max(0,Math.min(100,o.energy??50)),e=E/100;
+  const layout=one(r,['grid','ring','sphere','spiral','helix','scatter','network'].filter(x=>!rigRecent.includes(x)));rigRecent.push(layout);if(rigRecent.length>2)rigRecent.shift();
+  const C={grid:[I(r,6,9),I(r,4,6),I(r,1,2),I(r,200,250)],linear:[I(r,10,16),1,1,I(r,90,130)],ring:[I(r,14,22),I(r,1,2),1,I(r,260,320)],sphere:[I(r,8,11),I(r,6,8),1,I(r,300,360)],
+    spiral:[I(r,30,48),1,1,I(r,220,280)],helix:[I(r,30,48),1,1,I(r,210,260)],scatter:[I(r,30,50),1,1,I(r,200,260)],network:[I(r,8,11),I(r,8,10),I(r,5,8),I(r,700,900)]}[layout];
+  const objects=[one(r,['cube','cube','sphere','ico','torus','cylinder','pyramid','frame'])];if(r()<.35)objects.push(one(r,['sphere','cube','ico','cone']));
+  const chain=[['light',{key:I(r,120,155),ambient:I(r,90,120),angle:I(r,-60,-25),height:I(r,35,55),shadow:I(r,45,65),ao:50,bounce:40}],
+    ['soundEffector',{listen:one(r,['random','index','distance']),spread:I(r,25,45),grow:r()<.4?I(r,40,80):0,rotate:r()<.3?I(r,20,60)*sg(r):0,
+      scaleX:I(r,20,40+e*25),scaleY:I(r,35,60+e*45),scaleZ:I(r,20,40+e*25),delay:I(r,0,30)}],
+    ['material',{display:'solid',shading:r()<.7?'smooth':'flat',roughness:I(r,25,55),metallic:I(r,10,45),rim:I(r,25,50),emission:I(r,0,20+e*40),colorBy:one(r,['sound','sound','clone','height']),surface:'palette',edges:'palette'}]];
+  if(layout==='network'||(E>45&&r()<.3))chain.splice(1,0,['links',{links:I(r,2,5),distance:I(r,150,260),width:+L(r,.8,1.6).toFixed(1),glow:I(r,50,90),pulse:80}]);
+  return {props:{layout,countX:C[0],countY:C[1],countZ:C[2],spacingX:C[3],spacingY:C[3],spacingZ:C[3],twist:/spiral|helix/.test(layout)?I(r,5,15)*sg(r):0,cloneSpin:I(r,0,30)*sg(r),variety:100,opts:{pG3Size:{grid:I(r,40,55),ring:I(r,40,55),sphere:I(r,30,42),spiral:I(r,40,55),helix:I(r,40,55),scatter:I(r,28,42),network:I(r,3,5)}[layout]}},objects,chain};
+}
 export const ROLES=['motion','texture','accent','signature','finish','colour','punct'];
 // What each section can afford (sum of weights) and how likely each role is.
 const BUDGET={calm:2.2,groove:3,build:3.4,drop:4.2};
@@ -76,6 +98,7 @@ export function resetUsage(){uses.clear();recent.length=0;}
 const sectionOf=E=>E<35?'calm':E<62?'groove':E<84?'build':'drop';
 function fits(type,ctx){
   const v=VOCAB[type];if(!v)return false;
+  if(v.cl==='only'?ctx.mode!=='simcloner':ctx.mode==='simcloner'&&!v.img)return false;
   if(ctx.sim&&!v.sim&&!v.img)return false;if(!ctx.sim&&v.sim==='only')return false;
   if(v.force&&!(FORCE_KNOBS[ctx.mode]&&Object.values(FORCE_KNOBS[ctx.mode]).some(k=>k[0]===type)))return false;
   if(v.needsNoSym&&ctx.symmetry)return false;
@@ -130,6 +153,6 @@ export function plan(o={}){
 }
 function rngOf(seed=Date.now()){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return ((s>>>0)%100000)/100000;};}
 // Short words for the status line.
-export const WORDS={wave:'wave',twist:'twist',bulge:'bulge',ripple:'ripple',water:'water drops',depth:'depth',flowField:'flow field',turbulence:'turbulence',swirl:'swirl',attract:'attract',gravity:'gravity',
+export const WORDS={fieldEffector:'field',randomEffector:'scatter',wave:'wave',twist:'twist',bulge:'bulge',ripple:'ripple',water:'water drops',depth:'depth',flowField:'flow field',turbulence:'turbulence',swirl:'swirl',attract:'attract',gravity:'gravity',
   wind:'wind',vorticity:'eddies',drag:'drag',jitter:'jitter',disorder:'disorder',randomize:'randomize',mirror:'mirror',particles:'sparkles',kaleido:'kaleidoscope',fracture:'fracture',liquidGlass:'liquid glass',
   tunnel:'tunnel',melt:'melt',cutter:'cutter',shader:'shader',feedback:'echo',trails:'trails',cornerPin:'perspective',lens:'lens',blur:'soft focus',grade:'grade',effect:'saturate',bloom:'glow',hue:'hue drift',glitch:'glitch',strobe:'strobe'};

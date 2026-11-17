@@ -18,7 +18,7 @@ import {hostLink,localLink} from './remote-link.js';
 import qrcode from './vendor/qrcode.js';
 import {parseCamera} from './camera-import.js';
 import * as autopilot from './autopilot.js';
-import {WORDS as CURATOR_WORDS} from './curator.js';
+import {WORDS as CURATOR_WORDS,clonerRig} from './curator.js';
 import {SCENES} from './scenes.js';
 import {Pilot,Generator,SCENES as AP_SCENES,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother,richRamp} from './pilot.js';
 import {ORIGINAL_PRESETS} from './templates.js';
@@ -980,7 +980,6 @@ function showMapAutoKnobs(){
   for(const b of document.querySelectorAll('#mapPanel .knob.auto[data-map-auto]')){const k=b.dataset.mapAuto,v=mapAutoValues.get(mapSel+':'+k);if(v!==undefined)b.show?.(MAP_AUTO_PCT.test(k)?v*100:v);}
   // Animate Autopilot: which effects it is playing now.
   for(const e of document.querySelectorAll('#mapPanel .fx-auto-now')){const S=map3d.autoStatus(e.dataset.surf),SEC={intro:'Intro',build:'Build',drop:'Drop',break:'Break'},t=S?`${S.look} · ${SEC[S.section]} · bar ${S.bar}/${S.bars} · ${S.bpm} BPM${S.song&&songNow&&Number.isFinite(songNow.toDrop)?` · drop in ${Math.ceil(songNow.toDrop/4)} bars`:''} — ${map3d.autoPlaying(e.dataset.surf).map(k=>FX_NAMES[k]).join(' + ')}`:'Playing: …';if(e.textContent!==t)e.textContent=t;}
-  if(remote.links.size&&performance.now()-remote.sent>1000)remoteSend();
   for(const e of document.querySelectorAll('#mapPanel .rem-status')){const n=[...remote.links].filter(L=>L!==remote.local&&L.open).length,t=(n?`${n} phone${n>1?'s':''} connected`:remote.pending?'Waiting for the phone\'s code…':'No phone connected')+(remote.black?' · Blackout':remote.master<1?` · Master ${Math.round(remote.master*100)}%`:'');if(e.textContent!==t)e.textContent=t;}
   for(const e of document.querySelectorAll('#mapPanel .ai-tex-note')){const T=aiTex.get(e.dataset.surf),t=T?.note||'Waiting for the first frame…';if(e.textContent!==t)e.textContent=t;}
   for(const e of document.querySelectorAll('#mapPanel .fx-song')){const S=songNow&&clock.source==='song'?songNow.map:null,key=S?S.duration+':'+S.sections.length:'';
@@ -1039,7 +1038,7 @@ function draw(time,dt=1/30){
   blackout.level+=((blackout.on?1:0)-blackout.level)*Math.min(1,dt*8);if(blackout.level<.002&&!blackout.on)blackout.level=0;
   if(blackout.level>0){previewCtx.globalAlpha=Math.min(1,blackout.level*1.02);previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.globalAlpha=1;}
   frame++;
-  if(frame%2===0){drawSpectrum();showAutoKnobs();showMapAutoKnobs();}
+  if(frame%2===0){drawSpectrum();showAutoKnobs();showMapAutoKnobs();if(remote.links.size&&performance.now()-remote.sent>1000)remoteSend();}
   if(frame%4===0)updatePalettePreview();
   const list=[...engines.values()],starting=list.some(e=>e.status==='starting');
   if(renderErrors.length&&!starting)message(renderErrors[0]+(renderErrors.length>1?` (+${renderErrors.length-1})`:''),true,'render');
@@ -3142,15 +3141,20 @@ overlay.addEventListener('pointerup',endMapDrag);overlay.addEventListener('point
 // With Autopilot on, a cue holds for one phrase and the choreographer then carries on.
 let cueLast=-1,calibMode=false,tagMode=null;
 // Phone remote: Master/Blackout scale every surface; Autopilot, Next look, Tap and the cues act on the 3D surfaces.
+// Without a mapped 3D surface Autopilot and Next look drive the studio's Autopilot; a description always creates a studio look.
 const remote={links:new Set(),local:null,pending:null,master:1,black:false,sent:0};
 function remoteState(){const ss=(state.mapping?.surfaces||[]).filter(s=>s.kind==='3d'),s=ss.find(x=>x.id===mapSel)||ss[0],S=s&&map3d.autoStatus(s.id),SEC={intro:'Intro',build:'Build',drop:'Drop',break:'Break'};
-  return {t:'state',surfaces:ss.length,auto:!!s?.fx?.auto?.on,look:S?.look||(s?map3d.FX_KEYS.filter(k=>s.fx?.[k]?.on).join(' + ')||'No effect':''),section:S?SEC[S.section]||'':'',bpm:clock.bpm,cues:(s?.cues||[]).map(c=>c.name),cue:cueLast,master:remote.master,black:remote.black};}
+  return {t:'state',surfaces:ss.length,auto:!!s?.fx?.auto?.on,look:S?.look||(s?map3d.FX_KEYS.filter(k=>s.fx?.[k]?.on).join(' + ')||'No effect':''),section:S?SEC[S.section]||'':'',bpm:clock.bpm,cues:(s?.cues||[]).map(c=>c.name),cue:cueLast,master:remote.master,black:remote.black,
+    studio:{live:ap.live,section:ap.live?AP_SECTION[pilot.section]||'':'',last:ap.last||'',prompt:ap.prompt||''},examples:autopilot.EXAMPLES.slice(0,6)};}
 function remoteSend(){if(!remote.links.size)return;const m=remoteState();remote.sent=performance.now();for(const L of remote.links)L.send(m);}
 function remoteDo(m){const ss=()=>(state.mapping?.surfaces||[]).filter(s=>s.kind==='3d');
   if(m.t==='master')remote.master=Math.min(1,Math.max(0,+m.v||0));
   else if(m.t==='black'){remote.black=!!m.on;message(remote.black?'Blackout':'Blackout off');}
   else if(m.t==='tap')clockTap();
-  else if(m.t==='next'){for(const s of ss())map3d.autoNext(s.id);message('Next look');}
+  else if(m.t==='next'){for(const s of ss())map3d.autoNext(s.id);if(!ss().length||ap.live){if(ap.live)apChange(apKind(),2,ap.changes,true);else apStart();}message('Next look');}
+  else if(m.t==='prompt'||m.t==='surprise'){const t=m.t==='surprise'?autopilot.write({energy:35+Math.random()*50,seed:(Math.random()*1e9)|0,prev:ap.prompt}):String(m.text||'').replace(/\s+/g,' ').trim().slice(0,300);
+    if(t){if(!ap.live){pilot.reset();ap.live=true;ap.hold=false;}apCreate(t);message(`Remote: “${t}”`);}}
+  else if(m.t==='auto'&&!ss().length){if(m.on)apStart();else apStop();message(`Autopilot ${m.on?'on':'off'}`);}
   else if(m.t==='auto')mapEdit(x=>{for(const t of x.surfaces)if(t.kind==='3d')t.fx={...t.fx,auto:{...t.fx.auto,on:!!m.on}};},`Animate autopilot ${m.on?'on':'off'}`);
   else if(m.t==='cue'&&Number.isInteger(m.i))launchCue(m.i);
   remoteSend();}
@@ -3288,8 +3292,10 @@ const apSpin=v=>Math.max(-5,Math.min(5,Math.round((+v||0)*10)/10));
 // A new look in slot k: the renderer switches mode in place (same engine); the layer stays invisible until it is warm.
 let apEnergy=50,apSection='groove';
 function apAssign(w,k,l,role,opacity=.001){
-  const g=apLayer(k),r=apNode(k,'r'),type=Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===l.layout))||'waveform2d';
-  r.type=type;r.props={...defaults(type),mode:l.layout,look:lookDiff(w,l.params),...geoFromLook(l.params)};
+  const g=apLayer(k),r=apNode(k,'r'),cl=l.layout==='simcloner',type=cl?'cloner':Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===l.layout))||'waveform2d';
+  // A Cloner look is rigged like the Cloned template (objects, light, sound effector, material); apWire builds the rig.
+  const rig=cl?clonerRig({energy:apEnergy,seed:Math.random()*1e9|0}):null;apSlots[k].rig=rig;
+  r.type=type;r.props=cl?{...defaults('cloner'),...rig.props,opts:{...defaults('cloner').opts,...rig.props.opts}}:{...defaults(type),mode:l.layout,look:lookDiff(w,l.params),...geoFromLook(l.params)};
   const cs=apColorsOf(l.params);if(cs.length)Object.assign(apNode(k,'p').props,apPalette(cs));
   const sym=l.params._symmetryMode;apNode(k,'y').props.mode=['x','y','xy','r3','r4','r6','r8'].includes(sym)?sym:'none';
   Object.assign(apNode(k,'s').props,{...spinProps(apSpin(l.spin)),speed:Math.max(.1,Math.min(5,+l.speed||1))});
@@ -3297,13 +3303,19 @@ function apAssign(w,k,l,role,opacity=.001){
   // The base look also gets what the description asks for (drivers, masks, post FX), rebuilt from the slot's own nodes each time so it never piles up.
   const wired=apWire(k,role);
   g.visible=true;g.opacity=opacity;g.blend=role?'screen':'source-over';
-  apSlots[k]={role,layer:l,f0:engines.get(r.id)?.frames||0,wired,curated:apSlots[k].curated};
+  apSlots[k]={role,layer:l,f0:engines.get(r.id)?.frames||0,wired,curated:apSlots[k].curated,rig};
 }
 function apWire(k,role){
   const g=apLayer(k),base=apSlotLayer(k),keep=new Map(g.nodes.map(n=>[n.id,n]));g.nodes=base.nodes.map(n=>keep.get(n.id)||n);g.edges=base.edges;
+  const rr=apNode(k,'r'),rig=rr?.type==='cloner'&&apSlots[k].rig;
+  if(rig){const id=apIds(k),add=(type,props,x,y)=>{const n={...node(type,rr.x+x,rr.y+y,{...defaults(type),...props}),id:`${id.r}-${type}${g.nodes.length}`};g.nodes.push(n);return n;};
+    rig.objects.forEach((m,i)=>{const o=add('waveform3d',{mode:m,render:'normal'},-10,170+i*120);g.edges.push({from:o.id,out:'object',to:rr.id,input:i?'object2':'object'});});
+    const link=g.edges.find(e=>e.from===rr.id&&e.out==='shape');let prev=rr;
+    rig.chain.forEach(([type,props],i)=>{const n=add(type,props,40+i*60,-150);g.edges.push({from:prev.id,out:'shape',to:n.id,input:'shape'});prev=n;});
+    if(link)link.from=prev.id;}
   // The Curator treats every layer of the stack: the base gets its motion, signature effect and finish, supports a quiet movement.
   const cur={section:apSection,role};
-  try{autopilot.enhance(g,autopilot.parse(role===0?ap.prompt:''),{seed:(Math.random()*1e9)|0,energy:apEnergy,match:ap.match,primary:role===0,curate:cur});}catch(e){console.warn('Autopilot enhance',e);}
+  try{autopilot.enhance(g,autopilot.parse(role===0?ap.prompt:''),{seed:(Math.random()*1e9)|0,energy:apEnergy,match:ap.match,primary:role===0,curate:cur,typed:!ap.write});}catch(e){console.warn('Autopilot enhance',e);}
   apSlots[k].curated=cur.picks||[];
   reconcile();return role===0?ap.prompt:null;
 }
@@ -3311,7 +3323,7 @@ function apWire(k,role){
 function apRewire(){for(let k=0;k<4;k++){const sl=apSlots[k],want=sl.role===0?ap.prompt:null;if(apLayer(k)&&sl.role>=0&&(sl.wired??null)!==want)sl.wired=apWire(k,sl.role);}}
 // Warm when its engine has drawn a few frames of the new look (simulations get a moment to fill the frame).
 function apReady(k){
-  const r=apNode(k,'r'),e=r&&engines.get(r.id),sim=isSim(r?.props.mode);
+  const r=apNode(k,'r'),e=r&&engines.get(r.id),sim=isSim(r?.props.mode)||r?.type==='cloner';
   if(!e||e.status!=='ready')return false;
   if(sim&&e.w?.agSim?.status?.()!=='ready')return false;
   return e.frames-(apSlots[k].f0||0)>=(sim?45:8);
@@ -3334,7 +3346,7 @@ function apMood(g,p,spinAmt,speed,dur,flip){
   const geo=geoFromLook(p);
   for(const n of g.nodes){
     const wired=k=>g.edges.some(e=>e.to===n.id&&e.input===k);
-    if(TYPES[n.type].engine&&!isSim(n.props.mode))for(const [k,v] of Object.entries(geo)){const s=TYPES[n.type].props[k];if(s?.kind==='number'&&MOOD_GEO.has(s.key)&&!wired(k))apTween(g,n,k,v,dur);}
+    if(TYPES[n.type].engine&&!isSim(n.props.mode)&&n.type!=='cloner')for(const [k,v] of Object.entries(geo)){const s=TYPES[n.type].props[k];if(s?.kind==='number'&&MOOD_GEO.has(s.key)&&!wired(k))apTween(g,n,k,v,dur);}
     if(n.type==='spin'&&!wired('spin')){const amt=apSpin(spinAmt*(flip||1));if(amt<0)n.props.dir=n.props.dir==='left'?'right':'left';apTween(g,n,'spin',Math.abs(amt),dur);if(!wired('speed'))apTween(g,n,'speed',speed,dur);}
   }
 }
@@ -3432,20 +3444,23 @@ function apTick(dt){
 // (louder response, quiet tones shown) and eases a blinding stack back. New looks start from their own values.
 // Taste: a frame that clips to white (lines piling up into a blown-out centre) or reads colourless (thin pale lines on black)
 // gets the stack's palettes swapped for deeper gradients of the same hues, at most every 6 s.
-let apExpT=0,apDim=0,apTasteT=0;
+let apExpT=0,apDim=0,apTasteT=0,apExpCv=null;
 function apExposure(dt){
   if(!ap.live||ap.hold||ap.changes!=='everything'||!apIsSlots()){apExpT=0;apDim=0;return;}
   if((apExpT+=dt)<1)return;apExpT=0;apTasteT++;
   const ks=apActive();if(apTrans||apWant||!ks.length||!frame){apDim=0;return;}
-  const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0,clip=0,lit=0,ch=0;
-  for(let i=0;i<d.length;i+=64){const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);s+=r+g+b;if(mn>230)clip++;if(mx>40){lit++;ch+=mx-mn;}}
-  const n=d.length/64,lv=s/n/3,hot=clip/n>.05,pale=lit>n*.03&&ch/lit<30;
+  // Meter a small copy (a full-size readback stalls the GPU).
+  const mc=apExpCv||(apExpCv=Object.assign(document.createElement('canvas'),{width:160,height:90})),mcx=mc.getContext('2d',{willReadFrequently:true});
+  mcx.clearRect(0,0,160,90);mcx.drawImage(preview,0,0,160,90);
+  const d=mcx.getImageData(0,0,160,90).data;let s=0,clip=0,lit=0,ch=0;
+  for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);s+=r+g+b;if(mn>230)clip++;if(mx>40){lit++;ch+=mx-mn;}}
+  const n=d.length/4,lv=s/n/3,hot=clip/n>.05,pale=lit>n*.03&&ch/lit<30;
   if((hot||pale)&&apTasteT>=6){apTasteT=0;apEnrich(ks);}
   // Badly blown out (a white sim filling the frame): ease the layers back, 10% a second, never below 55%.
   if(lv>100||clip/n>.25)for(const k of ks){const g=apLayer(k);if(g&&g.opacity>.55)g.opacity=Math.max(.55,Math.round(g.opacity*90)/100);}
   apDim=lv<1.5?Math.max(0,apDim)+1:lv>45||hot?Math.min(0,apDim)-1:0;
   if(Math.abs(apDim)<2)return;const up=apDim>0;apDim=0;
-  for(const k of ks){const g=apLayer(k),r=apNode(k,'r'),pl=apNode(k,'p');if(!r||isSim(r.props.mode))continue;
+  for(const k of ks){const g=apLayer(k),r=apNode(k,'r'),pl=apNode(k,'p');if(!r||isSim(r.props.mode)||r.type==='cloner')continue;
     if('sensitivity' in TYPES[r.type].props){const v=+r.props.sensitivity||100,to=Math.max(up?v:Math.min(v,80),Math.min(200,v+(up?25:-20)));if(to!==v)apTween(g,r,'sensitivity',to,1.5);}
     if(up&&pl&&pl.props.fade<1)apTween(g,pl,'fade',Math.min(1,Math.round((pl.props.fade+.25)*20)/20),1.5);}
 }
@@ -3621,7 +3636,7 @@ window.pro={
   dissolve:on=>{dissolveOn=!!on;if(!on)fade=null;return dissolveOn;},autopilot:{examples:autopilot.EXAMPLES,write:o=>autopilot.write(o),parse:t=>autopilot.parse(t),read:t=>{const w=apWin();return w?vibeText(readVibe(w,t)):null;},create:t=>apCreate(t),
     change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),scene:(id,k='groove')=>{gen.force=id;return apChange(k,1,'everything',true,true);},scenes:()=>AP_SCENES.map(x=>x.id),start:()=>apStart(),stop:()=>apStop(),
     settings:o=>{const {live,...rest}=o||{};Object.assign(ap,rest);if(live===true&&!ap.live)apStart();else if(live===false)apStop();apSave();if(workspace==='auto')renderAutoPanel();return {prompt:ap.prompt,changes:ap.changes,layers:ap.layers,every:ap.every,match:ap.match,trigger:ap.trigger,level:ap.level,gap:ap.gap,live:ap.live,hold:ap.hold,write:ap.write};},
-    status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,changes:apCount,tweens:apTweens.size,last:ap.last,live:ap.live,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},cameraImport:parseCamera,mapping3d:map3d,mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
+    status:()=>({section:pilot.section,level:pilot.level,since:pilot.since,changes:apCount,tweens:apTweens.size,last:ap.last,live:ap.live,prompt:ap.prompt,fading:!!apTrans,warming:apBusy(),slots:apSlots.map((s,k)=>({role:s.role,layout:s.layer?.layout||null,opacity:apLayer(k)?.opacity??null}))})},cameraImport:parseCamera,mapping3d:map3d,mapping:()=>clone(curMap()),selectSurface:id=>{mapSel=id;mapPt=-1;renderMapPanel();renderOverlay();},
   exportVideo:async cfg=>{
     if(cfg.tone){const b=new AudioBuffer({length:Math.round(cfg.tone*48000),numberOfChannels:2,sampleRate:48000});for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<d.length;i++)d[i]=.5*Math.sin(i/48000*2*Math.PI*110)*(i%12000<3000?1:.2);}cfg={...cfg,sound:{buffer:b,name:'tone'}};}
     const r=await exportVideo({height:HEIGHT,fps:30,quality:'standard',...cfg});return {bytes:r.blob?.size||0,frames:r.frames,width:r.width,height:r.height,head:r.blob?[...new Uint8Array(await r.blob.slice(0,12).arrayBuffer())]:null};},
@@ -3690,7 +3705,7 @@ const SPLASH_GUIDES={
     {sel:'#mapPanel .fx-tags',run:()=>tourNeed3d(),t:'Tag the parts',txt:'Tell it what the parts are: pick Windows, Columns, Roof or Accent and click parts on the preview. Autopilot then plays facades on windows and traces columns.'},
     {sel:'#mapPanel [data-map-cat=post]',run:()=>tourNeed3d(),t:'Post FX on the object',txt:'Glow, trails, kaleidoscope and tone for this surface only, applied after the projection.'},
     {sel:'.prop-row:has([data-property=mapProjectors])',t:'More projectors',txt:'With 2–4 projectors side by side, Output opens one window each; Overlap and Blend fade the seams away.'},
-    {sel:'#mapPanel .map-sub:has([data-property=mapRemotePair])',t:'Phone remote',txt:'Connect phone shows a QR code: scan it on the same Wi-Fi, then paste the code it shows back here. Your phone gets Master, Blackout, Autopilot, Next and cues.'},
+    {sel:'#mapPanel .map-sub:has([data-property=mapRemotePair])',t:'Phone remote',txt:'Connect phone shows a QR code: scan it on the same Wi-Fi, then paste the code it shows back here. Your phone gets Master, Blackout, Autopilot, Next, cues and a box to describe the look.'},
     {sel:'#output',t:'Send it out',txt:'Detach opens a clean output window: drag it to the projector and double-click for fullscreen. If the computer struggles, mapping lowers its resolution for a moment and recovers.'}],
     done:{label:'Done'}},
   export:{title:'Export',steps:[
