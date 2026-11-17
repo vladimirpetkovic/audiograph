@@ -7,7 +7,7 @@ import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} f
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
-import {shaderInto,checkShader,dropShaderState,releaseShaders,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
+import {shaderInto,checkShader,dropShaderState,releaseShaders,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,WARP_TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
 import {cleanView,spinProps,WATER_HEIGHT,midiKnob} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
@@ -69,7 +69,7 @@ let multi=new Set();
 const uiZ=()=>parseFloat(getComputedStyle(document.body).zoom)||1;
 const DATA_INPUTS=new Set(['computer','clock','pointer','midi','liveData']),lastOuts=new Map();
 const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new Map(),view={x:20,y:20,zoom:.9},nodeState=new Map(),fxSlots=new Map(),thumbs=new Map();
-const shaderErrors=new Map(),SHADER_NODES=new Set(['melt','tunnel','shader']);
+const shaderErrors=new Map(),SHADER_NODES=new Set(['melt','tunnel','warpTunnel','shader']);
 let plans=new Map(),frame=0,lastTime=0,elapsed=0,renderErrors=[],nodeErrors=new Set(),statusSource='action',liveBefore=null;
 const preview=$('preview'),previewCtx=preview.getContext('2d');
 const graph=()=>state.layers.find(g=>g.id===active)||state.layers[0];
@@ -879,11 +879,11 @@ function execute(g,time,dt){
             ctx.fillRect(0,0,WIDTH,HEIGHT);ctx.restore();}
         }
         r.image=canvas;lastValues.set(n.id,k);break;}
-      case 'melt':case 'tunnel':case 'shader':{
+      case 'melt':case 'tunnel':case 'warpTunnel':case 'shader':{
         const src=n.type==='shader'?asImage(input(n,'image'),n.id):asImage(need(n,'image','an image'),n.id),sig=input(n,'audio')??projectSignal(),b=sig.bands||{};
         const {canvas,ctx}=surface(n.id),st=nstate(n.id+':sh',()=>({phase:0,kick:0,beat:sig.beat,frame:0}));
         const newBeat=sig.beat!==st.beat;st.beat=sig.beat;st.frame++;
-        let code,knobs,feedback=false;
+        let code,knobs,feedback=false,aux;
         if(n.type==='melt'){
           const lvl=p.react==='always'?1:p.react==='beat'?sig.pulse||0:p.react==='bass'?b.bass||0:b.full||0,k=1-p.sound/100+p.sound/100*Math.min(1,lvl*1.6);
           code=MELT;feedback=true;knobs=knobValues(MELT,{drip:p.amount/100*k,speed:p.speed/100*(.35+.65*k),threshold:p.threshold/100,hold:p.length/100});
@@ -894,10 +894,20 @@ function execute(g,time,dt){
           st.phase=(st.phase+dt*(p.speed/100*.6+(b.bass||0)*p.bass/100*1.2)+push)%1;
           code=TUNNEL;knobs=knobValues(TUNNEL,{shrink:p.scale/100,twist:(p.twist+(sig.pulse||0)*p.twistBeat)/180,phase:st.phase,key:p.key/100});
           lastValues.set(n.id,st.phase);
+        }else if(n.type==='warpTunnel'){
+          // Sound eases in fast and out slowly (no jumps); beats add a short push that fades.
+          if(newBeat&&p.react==='beat')st.kick=1;st.kick=Math.max(0,st.kick-dt*2.2);
+          const sm=x=>Math.max(0,Math.min(1,(x-.18)/.62)),lvl=p.react==='always'?0:p.react==='beat'?st.kick:sm(p.react==='bass'?b.bass||0:b.full||0)**1.4;
+          st.boost??=0;st.boost+=(lvl*p.sound/100-st.boost)*Math.min(1,dt*(lvl*p.sound/100>st.boost?7:2.2));
+          st.t=(st.t||0)+dt*(.25+p.speed/100*.9)*(1+st.boost);
+          const dr=p.drift/100,cx=.5+p.x/100+dr*(.16*Math.sin(st.t*.21)+.06*Math.sin(st.t*.53+1.3)),cy=.5-p.y/100+dr*(.11*Math.sin(st.t*.17+2.1)+.05*Math.sin(st.t*.41));
+          code=WARP_TUNNEL;feedback=p.trails>0;knobs=knobValues(WARP_TUNNEL,{len:p.amount/100,curve:p.curve/100*(1+.25*st.boost),swirl:p.swirl/100,trail:p.trails/100});
+          aux=[cx,cy,(.004+p.speed/100*.03)*(1+2.2*st.boost)*Math.min(3,dt*60),st.boost];
+          lastValues.set(n.id,st.boost);
         }else{
           code=p.code;feedback=/\biChannel2\b/.test(code);knobs=[p.k1,p.k2,p.k3,p.k4].map(v=>v/100);
         }
-        const err=shaderInto(ctx,src||null,code,{id:n.id,time,dt,frame:st.frame,sig,knobs,feedback});
+        const err=shaderInto(ctx,src||null,code,{id:n.id,time,dt,frame:st.frame,sig,knobs,feedback,aux});
         if(err){nodeErrors.add(n.id);shaderErrors.set(n.id,err.message);ctx.clearRect(0,0,WIDTH,HEIGHT);if(src)ctx.drawImage(src,0,0,WIDTH,HEIGHT);}else shaderErrors.delete(n.id);
         r.image=canvas;break;}
       case 'output':image=asImage(need(n,'image','an image'),n.id);r.image=image;break;

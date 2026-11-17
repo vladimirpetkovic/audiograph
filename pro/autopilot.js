@@ -50,7 +50,7 @@ const THEMES=[
 ];
 const VISUALS=[
   [/\bfluid|liquid(?! metal)|\bink\b|paint|marbl|\bdye\b|water(?!fall)|watercolou?r|honey|syrup/,'simfluid'],
-  [/smoke|smoky|\bfog|mist|steam|incense|vapou?r|haze|\bclouds?\b|plume|wisp/,'simsmoke'],
+  [/smoke|smoky|\bfog|mist|steam|incense|vapou?r|haze|\bclouds?\b|plume|wisp/,'simfluid'],
   [/firework|embers?|sparks? fountain|stardust|confetti|fountain|particle (field|system|storm)|particles?\b(?! overlay)/,'simparticles'],
   [/flock|boids?|swarm|murmuration|\bbirds?\b|school of fish|\bfish\b|insects|fireflies/,'simparticles'],
   [/\bsand\b|granular|hourglass|\bdust\b|powder/,'simsand'],
@@ -105,7 +105,7 @@ const LINE_SHAPES=[[/dotted|dots? line|polka/,'dotted'],[/dashed|dashes/,'dashed
   [/\bwords\b|letters|typograph|text art/,'words'],[/matrix rain|code rain|cascade|falling code/,'cascade']];
 const SYM=[[/kaleido|mandala|six.?fold|hexagonal|snowflake/,'r6'],[/eight.?fold|octagon|8.?fold/,'r8'],[/four.?fold|4.?fold|quad|cross symmetry/,'r4'],
   [/three.?fold|triangular|trinity|3.?fold/,'r3'],[/mirror(ed)?|symmetr|reflected|rorschach|butterfly/,'x']];
-const EXAMPLES=['slow dreamy blue and gold smoke with soft glow','intense red fluid, swirling, sparks on the beat, glitchy','cyberpunk neon spiral, kaleidoscope, thin lines, fast spin',
+const EXAMPLES=['slow dreamy blue and gold ink fluid with soft glow','intense red fluid, swirling, sparks on the beat, glitchy','cyberpunk neon spiral, kaleidoscope, thin lines, fast spin',
   'calm ocean waves with long trails and film grain','sunset sphere over a starfield, pulsing with the bass','pink particle swarm rising, dreamy blur, 90 bpm',
   'black and white sacred geometry, mirrored, high contrast','toxic green liquid metal pulled into a black hole'];
 export {EXAMPLES};
@@ -114,15 +114,15 @@ export {EXAMPLES};
 // Writes a new description in words parse() understands, matched to the energy of the music (0–100).
 // `keep` (0–1) reuses the subject of the previous prompt so a song's looks feel related.
 const W_MOOD=[['slow dreamy','calm','gentle floating','serene','soft ambient'],['groovy','playful','bouncy','upbeat','funky'],['intense','explosive','wild','energetic','chaotic']];
-const W_SUBJECT=[['smoke','ink fluid','fireflies','liquid metal','sand','mandala','sacred geometry','waves','starfield','rings','sphere','dna helix','crystal','sand dunes','landscape','vines'],
+const W_SUBJECT=[['ink fluid','fireflies','liquid metal','sand','mandala','sacred geometry','waves','starfield','rings','sphere','dna helix','crystal','sand dunes','landscape','vines'],
   ['particles','fluid','spiral','rings','flower','neural network','fractal tree','terrain','knot','torus','birds','vines','circle','pyramid','icosphere','harmonograph','sand'],
-  ['particles','fluid','spiral','smoke','liquid metal','spectrum bars','tunnel','sphere','cube','knot','fireworks','swarm','sacred geometry','pyramid','portal frame','crystal']];
+  ['particles','fluid','spiral','liquid metal','spectrum bars','tunnel','sphere','cube','knot','fireworks','swarm','sacred geometry','pyramid','portal frame','crystal']];
 // Every colour word resolves to a palette in both readers (this parser and the original's agAI), and none is colourless.
 const W_COLOR=['sunset','ocean','aurora','cyberpunk','synthwave','vaporwave','ice','fire','lava','toxic','acid','cosmic','nebula','galaxy','luxury','pastel','candy','forest','desert','neon',
   'blue and gold','pink and teal','violet and lime','red and black','orange and cyan','magenta and ice','emerald and gold','purple and orange','crimson and gold','indigo and peach'];
 const W_EXTRA=[['with soft glow','with long trails','drifting','rising','mirrored','slowly rotating','pulsing with the bass','with film grain','blur','breathing slowly','slowly shifting colours','inside a circle','masked by text "DREAM"','liquid glass','rippling','flowing','soft focus','curly eddies'],
-  ['swirling','with trails','pulsing with the bass','kaleidoscope','wavy','rotating','sparks on the beat','glow','wobbling','zooming on bass','revealed by the waveform','follows the clock','cut into a puzzle','rippling','flowing','liquid glass','twisted','mondrian cuts','rising'],
-  ['swirling','glitchy','sparks on the beat','kaleidoscope','shockwave','fast spin','pulsing with the bass','shattered','strong glow','turbulent','strobing on the beat','glitches on the drop','random jumps','tunnel on bass','masked by text "RAVE"','melting with the bass','cut up on the beat','fractured','mosaic','curly eddies','pulled into a black hole']];
+  ['swirling','with trails','through a warp tunnel','pulsing with the bass','kaleidoscope','wavy','rotating','sparks on the beat','glow','wobbling','zooming on bass','revealed by the waveform','follows the clock','cut into a puzzle','rippling','flowing','liquid glass','twisted','mondrian cuts','rising'],
+  ['swirling','glitchy','warp speed light streaks','sparks on the beat','kaleidoscope','shockwave','fast spin','pulsing with the bass','shattered','strong glow','turbulent','strobing on the beat','glitches on the drop','random jumps','tunnel on bass','masked by text "RAVE"','melting with the bass','cut up on the beat','fractured','mosaic','curly eddies','pulled into a black hole']];
 export function write({energy=50,seed=Date.now(),prev='',keep=0}={}){
   const r=rng(seed),band=energy<40?0:energy<70?1:2;
   const old=W_SUBJECT.flat().find(w=>new RegExp('\\b'+w+'\\b').test(prev));
@@ -207,7 +207,8 @@ export function parse(text){
   fx('glitch',/glitch|digital breakup|datamosh/,{amount:38,react:'always'},'digital glitch');
   fx('strobe',/strob|flash(es|ing)?/,{amount:35,safe:true},'beat strobe (safe)');
   fx('melt',/melt|dripping wax/,{amount:35,speed:25,length:40},'melt');
-  fx('tunnel',/\btunnel\b|zoom(ing)?/,{speed:18,bass:35,kick:20},'zoom tunnel');
+  fx('warpTunnel',/warp (tunnel|speed|drive)|light ?speed|hyperspace|hyperdrive|wormhole|light streaks|star ?gate|tunnel blur/,{amount:55,curve:30,speed:30,trails:50,sound:55},'warp tunnel');
+  if(!it.fx.warpTunnel)fx('tunnel',/\btunnel\b|zoom(ing)?/,{speed:18,bass:35,kick:20},'zoom tunnel');
   fx('shader',/\bshader\b/,{k1:18},'shader wobble');
   fx('blend',/double exposure|blend(?:ed|ing)? images|layered echoes/,{mix:.28},'blended echo');
   fx('merge',/merge(?:d)? images|stacked echoes/,{b:.3},'merged echo');
@@ -297,7 +298,7 @@ export function build(it,{seed=Date.now(),energy:forced=null,match=85}={}){
   const r=rng(seed),E=forced??it.energy??(40+r()*30),explore=1-match/100;
   let visuals=it.visuals.slice();
   if(!visuals.length&&!it.text){
-    const calm=['phyllotaxis','spiral','simsmoke','sphere','growth','concentric','simfluid','sacred','terrain'],hot=['simparticles','circle','concentric','simfluid','spiral','dna','tetrahedron','scatter','sacred'];
+    const calm=['phyllotaxis','spiral','sphere','growth','concentric','simfluid','sacred','terrain'],hot=['simparticles','circle','concentric','simfluid','spiral','dna','tetrahedron','scatter','sacred'];
     const m=pick(r,E>60?hot:calm);visuals=[{mode:m,type:typeOf(m),colors:null}];
     if(explore>.3&&r()<explore*.6){const m2=pick(r,E>60?hot:calm);if(m2!==m&&!(SIM_MODES.includes(m)&&SIM_MODES.includes(m2)))visuals.push({mode:m2,type:typeOf(m2),colors:null});}
   }
@@ -333,7 +334,8 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
     else if(!i&&explore>.25&&E>75&&r()<.35&&!['terrain','linear','sine'].includes(v.mode))mo.symmetry=pick(r,['r4','r6','xy']);
     if(it.lineShape&&T.lineShape)set('lineShape',it.lineShape);else if(i&&T.lineShape)set('lineShape',pick(r,['straight','tapered','dotted','pins']));
     if(it.outline&&T.outline)set('outline',true);
-    if(it.tilt!=null)set('tilt',it.tilt);
+    // 3D forms already have a camera tilt; only flat layouts lean back for a "perspective" look.
+    if(it.tilt!=null&&!/^(sphere|tetrahedron|dna|knot|cube|torus|ico|pyramid|frame|cone|cylinder|terrain|model|text3d)$/.test(v.mode))set('tilt',Math.min(it.tilt,20));
     const spin=it.spin!=null?it.spin:(r()<.35?0:(E>60?.3+r()*.6:.1+r()*.35)*(r()<.5?-1:1))*it.tempo;mo.spin=clamp(+spin.toFixed(2),-5,5);
     mo.speed=clamp(it.tempo,.1,5);
     if(it.react.includes('pulse'))set('pulse',true);
@@ -388,7 +390,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
 }
 
 // Add the same editable graph vocabulary to a generated look or the live Director's reusable slots.
-const FX_COST={cutter:2,cornerPin:1,effect:1,bloom:2,trails:2,blur:2,kaleido:2,grade:2,lens:2,liquidGlass:3,glitch:1.5,tunnel:2,melt:2,fracture:2,feedback:1,mask:1,plainText:1,shader:1.5,strobe:.5,hue:.5,imageTransform:.5};
+const FX_COST={cutter:2,cornerPin:1,effect:1,bloom:2,trails:2,blur:2,kaleido:2,grade:2,lens:2,liquidGlass:3,glitch:1.5,tunnel:2,warpTunnel:2,melt:2,fracture:2,feedback:1,mask:1,plainText:1,shader:1.5,strobe:.5,hue:.5,imageTransform:.5};
 // curate: {section, role} hands the look's treatment to the Curator (the live Autopilot): every node in rotation, within the section's budget.
 export function enhance(g,it,{seed=1,energy=50,match=85,primary=true,curate=null,typed=false}={}){
   if(!primary&&!curate)return g;

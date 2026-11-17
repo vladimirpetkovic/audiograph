@@ -1,5 +1,5 @@
 // Shader runner for Post FX: one shared WebGL2 context runs Shadertoy-style fragment shaders over a picture.
-// Built-ins (Melt, Tunnel) and the user's Shader node use the same path:
+// Built-ins (Melt, Tunnel, Warp tunnel) and the user's Shader node use the same path:
 //   iChannel0 = the incoming picture, iChannel1 = sound (row 0 spectrum, row 1 waveform, 512 × 2 like Shadertoy),
 //   iChannel2 = this node's previous output (feedback), plus iResolution, iTime, iTimeDelta, iFrame and
 //   uBass, uMids, uHigh, uLevel, uBeat (0–1) and uKnob[4].
@@ -8,7 +8,7 @@ const HEAD=`#version 300 es
 precision highp float;
 uniform vec3 iResolution;uniform float iTime,iTimeDelta;uniform int iFrame;uniform vec4 iMouse;
 uniform sampler2D iChannel0,iChannel1,iChannel2;
-uniform float uBass,uMids,uHigh,uLevel,uBeat;uniform float uKnob[${KNOBS}];
+uniform float uBass,uMids,uHigh,uLevel,uBeat;uniform float uKnob[${KNOBS}];uniform vec4 uAux;
 out vec4 agOut;
 #define texture2D texture
 `;
@@ -77,7 +77,7 @@ function program(code){
   if(!/\bmainImage\s*\(/.test(code))throw Error('The shader needs a mainImage(out vec4 fragColor, in vec2 fragCoord) function, as on Shadertoy');
   try{p={prog:compile(src),loc:{}};}
   catch(e){throw Error(String(e.message).replace(/ERROR:\s*0:(\d+):/g,(_,l)=>`line ${Math.max(1,l-headLines)}:`).trim().split('\n').slice(0,4).join('\n'));}
-  for(const k of ['iResolution','iTime','iTimeDelta','iFrame','iMouse','iChannel0','iChannel1','iChannel2','uBass','uMids','uHigh','uLevel','uBeat','uKnob'])p.loc[k]=gl.getUniformLocation(p.prog,k);
+  for(const k of ['iResolution','iTime','iTimeDelta','iFrame','iMouse','iChannel0','iChannel1','iChannel2','uBass','uMids','uHigh','uLevel','uBeat','uKnob','uAux'])p.loc[k]=gl.getUniformLocation(p.prog,k);
   if(progs.size>=24){const [k,old]=progs.entries().next().value;gl.deleteProgram(old.prog);progs.delete(k);}
   progs.set(code,p);return p;
 }
@@ -103,7 +103,7 @@ function soundTexture(sig){
   gl.bindTexture(gl.TEXTURE_2D,sndTex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,512,2,gl.RED,gl.UNSIGNED_BYTE,snd);
 }
 /** Runs `code` over `src` (a canvas, or null for a generator) into ctx. Returns null when it drew, or an Error.
- *  opts: {id, time, dt, frame, sig:{freq,wave,bands,pulse}, knobs:[0..1 ×4], feedback} */
+ *  opts: {id, time, dt, frame, sig:{freq,wave,bands,pulse}, knobs:[0..1 ×4], aux:[4 floats for built-ins], feedback} */
 export function shaderInto(ctx,src,code,opts){
   const w=ctx.canvas.width,h=ctx.canvas.height;
   if(!gl&&!init(w,h))return Error('WebGL2 is not available in this browser');
@@ -120,7 +120,7 @@ export function shaderInto(ctx,src,code,opts){
   gl.uniform1i(L.iChannel0,0);gl.uniform1i(L.iChannel1,1);gl.uniform1i(L.iChannel2,2);
   gl.uniform3f(L.iResolution,w,h,1);gl.uniform1f(L.iTime,opts.time||0);gl.uniform1f(L.iTimeDelta,opts.dt||0);gl.uniform1i(L.iFrame,opts.frame||0);gl.uniform4f(L.iMouse,0,0,0,0);
   gl.uniform1f(L.uBass,b.bass||0);gl.uniform1f(L.uMids,b.mids||0);gl.uniform1f(L.uHigh,b.high||0);gl.uniform1f(L.uLevel,b.full||0);gl.uniform1f(L.uBeat,opts.sig?.pulse||0);
-  const k=new Float32Array(KNOBS);(opts.knobs||[]).slice(0,KNOBS).forEach((v,i)=>k[i]=v);if(L.uKnob)gl.uniform1fv(L.uKnob,k);
+  const k=new Float32Array(KNOBS);(opts.knobs||[]).slice(0,KNOBS).forEach((v,i)=>k[i]=v);if(L.uKnob)gl.uniform1fv(L.uKnob,k);if(L.uAux){const a=opts.aux||[];gl.uniform4f(L.uAux,a[0]||0,a[1]||0,a[2]||0,a[3]||0);}
   gl.disable(gl.BLEND);
   if(f){
     // Draw into the other buffer (it reads this one as the previous frame), then show it.
@@ -180,6 +180,32 @@ void mainImage(out vec4 o,in vec2 fc){
     c.a*=w;col+=(1.-a)*c.rgb*c.a;a+=(1.-a)*c.a;
   }
   o=vec4(a>0.?col/a:col,a);
+}`;
+
+// Warp tunnel: a depth (zoom) motion blur toward a vanishing point that drifts and bends the streaks around it,
+// fed back so light streams out of the tunnel. uAux = vanishing point (uv), fly-through step, sound boost.
+export const WARP_TUNNEL=`uniform float len; // @knob 0..1
+uniform float curve; // @knob -1..1
+uniform float swirl; // @knob -1..1
+uniform float trail; // @knob 0..1
+mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+void mainImage(out vec4 o,in vec2 fc){
+  vec2 R=iResolution.xy,uv=fc/R,asp=vec2(R.x/R.y,1.);
+  vec2 c=uAux.xy,d=(uv-c)*asp;float boost=uAux.w,L=clamp(len*(.75+.5*boost),0.,.94);
+  // Streaks: samples run from the pixel toward the vanishing point along a curved (spiralling) path.
+  const int N=36;float j=fract(52.9829189*fract(dot(fc,vec2(.06711056,.00583715)))+float(iFrame%8)*.125);vec3 acc=vec3(0);float aa=0.,wsum=0.;vec3 hi=vec3(0);
+  for(int i=0;i<N;i++){
+    float s=(float(i)+j)/float(N)*L,w=pow(1.-s/max(L,1e-3),1.6)+.02;
+    vec2 q=c+(rot(curve*2.2*s)*d*(1.-s))/asp;
+    vec4 t=texture(iChannel0,q);
+    acc+=t.rgb*t.a*w;aa+=t.a*w;wsum+=w;hi=max(hi,t.rgb*min(1.,t.a*w*1.5));
+  }
+  vec3 col=acc/max(aa,1e-4);float a=aa/wsum;
+  col=min(mix(col,max(col,hi),.4)*(1.+.6*boost),vec3(1));a=clamp(a*(1.25+.6*boost),0.,1.);
+  // The last frame, pulled toward the centre and turned, so what was drawn streams outward.
+  vec2 pd=rot(swirl*.035)*d/(1.+uAux.z);vec4 prev=texture(iChannel2,c+pd/asp);
+  float k=trail*.93;vec4 cur=vec4(col,a);
+  o=max(cur,prev*k);
 }`;
 
 // Examples for the Shader node. Each one uses @knob uniforms, the picture (iChannel0) and/or the sound.

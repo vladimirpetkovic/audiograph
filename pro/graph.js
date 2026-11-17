@@ -331,10 +331,15 @@ export const TYPES = {
     inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
     amount:n('Amount',75,0,100,1),react:pick('Drips with','level',['beat','bass','level','always'],{labels:[['beat','Beats'],['bass','Bass'],['level','Loudness'],['always','Always']]}),sound:n('Sound',70,0,100,1),
     speed:n('Speed',45,0,100,1),threshold:n('Threshold',35,0,95,1),length:n('Length',60,0,100,1)}},
-  tunnel:{category:'postfx',label:'Tunnel',description:'An endless zoom into copies of the picture inside itself, turning as they come. Bass speeds it up, beats kick it forward; dark areas show the copies behind.',
+  tunnel:{category:'postfx',label:'Zoom tunnel',description:'An endless zoom into copies of the picture inside itself, turning as they come. Bass speeds it up, beats kick it forward; dark areas show the copies behind.',
     inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
     scale:n('Copy size',62,35,90,1),speed:n('Speed',25,0,100,1),bass:n('Bass push',50,0,100,1),kick:n('Beat kick',40,0,100,1),
     twist:n('Twist',12,-180,180,1),twistBeat:n('Beat twist',0,0,90,1),key:n('See-through dark',100,0,100,1)}},
+  warpTunnel:{category:'postfx',label:'Warp tunnel',description:'Depth motion blur: the picture streaks toward a vanishing point that drifts and curves the streaks around it, and the light flies out of the tunnel. Bass (or beats, or loudness) lengthens the streaks, speeds the flight and brightens it, eased in and out.',
+    inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
+    amount:n('Intensity',60,0,100,1),curve:n('Curve',35,-100,100,1),swirl:n('Swirl',10,-100,100,1),speed:n('Speed',35,0,100,1),trails:n('Trails',55,0,100,1),
+    react:G('Sound',pick('Reacts to','bass',['bass','beat','level','always'],{labels:[['bass','Bass'],['beat','Beats'],['level','Loudness'],['always','Nothing (steady)']]})),sound:G('Sound',n('Sound',60,0,100,1)),
+    drift:G('Centre',n('Centre drift',35,0,100,1)),x:G('Centre',n('Centre X',0,-50,50,1)),y:G('Centre',n('Centre Y',0,-50,50,1))}},
   shader:{category:'postfx',label:'Shader',description:'Your own GLSL fragment shader, Shadertoy style: write mainImage(), read the picture from iChannel0 and the sound from iChannel1 or uBass / uMids / uHigh / uLevel / uBeat. “uniform float x; // @knob 0..1” lines become knobs. Works without a picture too.',
     inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
     example:pick('Example',SHADER_DEFAULT,[...Object.keys(SHADER_EXAMPLES),'Custom']),code:text('Code',SHADER_EXAMPLES[SHADER_DEFAULT],20000),

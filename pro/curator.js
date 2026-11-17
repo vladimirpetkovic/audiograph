@@ -43,6 +43,7 @@ export const VOCAB={
     :{mode:'flow',cells:I(r,24,40),size:I(r,55,70),gap:I(r,15,28),disp:I(r,22,38),rot:I(r,12,26),drift:I(r,30,48),bass:I(r,50,85),beat:I(r,30,65),recover:I(r,52,66),glow:I(r,25,42),noise:I(r,18,32),seed:I(r,1,999)}},
   liquidGlass:{role:'signature',img:true,w:1.1,E:[0,75],props:(r)=>({blobs:I(r,4,7),size:I(r,40,60),merge:I(r,45,60),spread:I(r,70,90),speed:I(r,10,22),seed:I(r,1,999),refraction:I(r,22,40),edge:I(r,40,55),chroma:I(r,12,26),rim:I(r,35,50),highlight:I(r,35,52),bass:I(r,25,50),beat:I(r,10,28),wobble:I(r,15,28)})},
   tunnel:{role:'signature',img:true,w:1.3,E:[45,100],props:(r)=>({scale:I(r,56,70),speed:I(r,8,15),bass:I(r,22,38),kick:I(r,10,20),twist:sg(r)*I(r,4,12),twistBeat:0,key:100})},
+  warpTunnel:{role:'signature',img:true,w:1.3,E:[40,100],props:(r,e)=>({amount:I(r,38,52+e*14),curve:sg(r)*I(r,18,45),swirl:sg(r)*I(r,0,14),speed:I(r,18,30+e*16),trails:I(r,35,55),react:'bass',sound:I(r,40,60),drift:I(r,25,45),x:0,y:0})},
   melt:{role:'signature',img:true,w:1.2,E:[30,85],props:(r)=>({amount:I(r,14,24),react:'level',sound:I(r,40,58),speed:I(r,15,25),threshold:35,length:I(r,30,44)})},
   cutter:{role:'signature',img:true,w:1.4,E:[40,100],props:(r,e,c)=>{const hot=c.section==='drop';return {pattern:one(r,['golden','mondrian','triangles','grid','columns','rows','random']),pieces:I(r,5,hot?11:8),seed:I(r,1,999),
     react:'beat',every:hot?'2':c.section==='build'?'4':'8',threshold:55,rate:2,recut:hot?4:0,shuffle:I(r,18,hot?45:32),scale:I(r,10,24),move:I(r,8,18),rotate:I(r,0,10),glide:I(r,550,900),decay:I(r,420,700),
@@ -155,4 +156,4 @@ function rngOf(seed=Date.now()){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s^=s>>>
 // Short words for the status line.
 export const WORDS={fieldEffector:'field',randomEffector:'scatter',wave:'wave',twist:'twist',bulge:'bulge',ripple:'ripple',water:'water drops',depth:'depth',flowField:'flow field',turbulence:'turbulence',swirl:'swirl',attract:'attract',gravity:'gravity',
   wind:'wind',vorticity:'eddies',drag:'drag',jitter:'jitter',disorder:'disorder',randomize:'randomize',mirror:'mirror',particles:'sparkles',kaleido:'kaleidoscope',fracture:'fracture',liquidGlass:'liquid glass',
-  tunnel:'tunnel',melt:'melt',cutter:'cutter',shader:'shader',feedback:'echo',trails:'trails',cornerPin:'perspective',lens:'lens',blur:'soft focus',grade:'grade',effect:'saturate',bloom:'glow',hue:'hue drift',glitch:'glitch',strobe:'strobe'};
+  tunnel:'tunnel',warpTunnel:'warp tunnel',melt:'melt',cutter:'cutter',shader:'shader',feedback:'echo',trails:'trails',cornerPin:'perspective',lens:'lens',blur:'soft focus',grade:'grade',effect:'saturate',bloom:'glow',hue:'hue drift',glitch:'glitch',strobe:'strobe'};

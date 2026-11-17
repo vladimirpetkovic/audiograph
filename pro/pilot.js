@@ -52,10 +52,13 @@ export function richRamp(colors,hue=0){
 }
 // Autopilot keeps the camera near eye level: classic 3D layouts lean by at most ~25°, the drag rotation stays small,
 // so a sphere, helix or terrain reads as an object rather than a smear seen edge-on.
-const TILTS=['pSphereTilt','pTetTilt','pDnaTilt','pObjTilt'];
+const TILTS=['pSphereTilt','pTetTilt','pDnaTilt','pObjTilt','pOctTilt'],PERSPS=['pSpherePersp','pTetPersp','pOctPersp','pObjPersp'],ELEVS=['pSphereElev','pTetElev','pOctElev','pObjElev'];
 export function tameAngles(p){
   if(!p)return p;
   for(const k of TILTS)if(typeof p[k]==='number')p[k]=clamp(p[k],-25,25);
+  // A short lens throw turns the near side into a fisheye smear; tall bumps poke through the camera.
+  for(const k of PERSPS)if(typeof p[k]==='number')p[k]=clamp(p[k],240,450);
+  for(const k of ELEVS)if(typeof p[k]==='number')p[k]=Math.min(p[k],100);
   if(typeof p.pTerrainCam==='number')p.pTerrainCam=clamp(p.pTerrainCam,18,38);
   if(typeof p._dragRotX==='number')p._dragRotX=clamp(p._dragRotX,-.35,.35);
   if(typeof p._dragRotY==='number')p._dragRotY=clamp(p._dragRotY,-.5,.5);
@@ -97,7 +100,8 @@ export class Pilot{
 export const durFor=(kind,every)=>kind==='drop'?2.5:kind==='build'?clamp(every*.5,6,12):kind==='calm'?9:kind==='phrase'?10:7;
 
 // ---------- the description ----------
-const SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl)/],['simsmoke',/\b(smoke|smoky|fog|mist|steam|incense|campfire|cloud|plume)/],
+// Autopilot doesn't use smoke: smoky words read as fluid.
+const SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl|smoke|smoky|fog|mist|steam|incense|cloud|plume)/],
   ['simparticles',/\b(particles?|particle field|firework|embers?|sparks?|stardust|confetti|fountain)/],['simsand',/\b(sand|granular|dunes?|hourglass)/],['simcloner',/\b(cubes|blocks|clones?|cloner|voxels?|array of)\b/]];
 const LAYOUT_NAMES=['spiral','phyllotaxis','concentric','sphere','growth','circle','tetrahedron','dna','scatter','sacred','graph','fractal'];
 const SOLID_W=[['knot',/\b(knot|tangle)/],['torus',/\b(torus|donut|doughnut)/],['cube',/\b(cube|box)/],['ico',/\b(icosphere|gem|crystal)/],['pyramid',/\bpyramid/],['frame',/\b(frame|portal)/],['cone',/\bcone/],['cylinder',/\b(cylinder|column|pillar)/]];
@@ -145,7 +149,6 @@ export const SCENES=[
   {id:'orbit',label:'Orbit',E:[30,100],base:['sphere','torus','knot'],accent:['circle','phyllotaxis'],shapes:['straight','pins','tapered'],harmony:'complement',fx:{pfxBloom:38,pfxVignette:40,pfxChroma:12}},
   {id:'mandala',label:'Mandala',E:[25,90],base:['spiral','phyllotaxis','concentric'],accent:['circle'],shapes:['needles','diamonds','tapered'],harmony:'triad',fx:{pfxKaleido:45,pfxBloom:35,pfxVignette:20}},
   {id:'liquid',label:'Liquid',E:[0,70],sim:true,base:['simfluid'],accent:['circle','concentric'],shapes:['straight','tapered'],harmony:'analogous',fx:{pfxBloom:22,pfxVignette:35}},
-  {id:'temple',label:'Smoke temple',E:[0,60],sim:true,base:['simsmoke'],accent:['tetrahedron','sphere'],shapes:['straight','pins'],harmony:'mono',fx:{pfxVignette:45,pfxBloom:20}},
   {id:'helix',label:'Helix lab',E:[35,85],base:['dna'],accent:['graph','scatter'],shapes:['pins','dotted','straight'],harmony:'split',fx:{pfxChroma:22,pfxScanlines:12,pfxVignette:35,pfxBloom:25}},
   {id:'shatter',label:'Shatter',E:[70,100],base:['concentric','sphere'],accent:['spiral'],shapes:['rounded','caps','straight'],harmony:'complement',fx:{pfxBloom:40,pfxFracture:true,pfxFracMode:'flow',pfxFracCells:36,pfxFracDisp:45,pfxFracBass:110}},
   {id:'tunnel',label:'Tunnel',E:[45,95],base:['spiral','concentric'],accent:null,shapes:['tapered','needles','straight'],harmony:'analogous',fx:{pfxTrails:55,pfxFeedback:35,pfxBloom:30}},
@@ -222,7 +225,7 @@ export class Generator{
     }else if(!v?.layouts.length){
       // Pro adds its 3D solids, drawn as waveforms, to the mix.
       if(r()<(E>60?.12:.06))s.layout=any(SOLIDS);
-      else if(this.simOK(w)&&r()<(kind==='calm'?.35:kind==='drop'?.3:.22))s.layout=any(E>60?['simfluid','simparticles','simparticles','simsmoke']:['simsmoke','simfluid','simparticles']);
+      else if(this.simOK(w)&&r()<(kind==='calm'?.35:kind==='drop'?.3:.22))s.layout=any(E>60?['simfluid','simparticles','simparticles']:['simfluid','simfluid','simparticles']);
     }else if(gpu(s.layout)&&!this.simOK(w))s.layout=any(E>60?hotL:calmL);
     if(!sc||v?.shapes.length||v?.layouts.length)s.shape=this.pick(v?.shapes,shapes,'shape');
     if(v){const kw=v.kw,h=v.hit;

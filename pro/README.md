@@ -154,7 +154,13 @@ each with its own opacity and blend mode (up to four).
   **Melt** drips the bright parts down like hot wax (each column at its own pace) while the
   sound is up (React: Beats / Bass / Loudness / Always; Sound sets how much it depends on it) and
   heals when it calms; Threshold picks what melts, Length how long drips last.
-  **Tunnel** zooms endlessly into recursive copies of the picture (Scale = size of each copy),
+  **Warp tunnel** is a depth motion blur: every pixel is smeared along a curving path toward a
+  drifting vanishing point, with trails flying outward, like light streaks at warp speed.
+  Intensity sets streak length, Curve how much the tunnel bends around, Swirl the spiral twist,
+  Speed the flight speed and Trails how long streaks linger. Sound (React: Bass / Beats / Loudness /
+  Always) stretches, bends and speeds it up; Centre drift wanders the vanishing point (or pin it
+  with Centre X/Y). Autopilot uses it for words like *warp speed*, *hyperspace* or *wormhole*.
+  **Zoom tunnel** zooms endlessly into recursive copies of the picture (Scale = size of each copy),
   pushed by Speed and Bass and kicked by beats, with Twist per copy; Key lets dark areas show the
   copies behind.
   **Shader** runs custom GLSL in Shadertoy style: `void mainImage(out vec4 fragColor, in vec2 fragCoord)`.
@@ -549,7 +555,7 @@ process the finished image.
     lighter accent, post FX (bloom, kaleido, reflect, chromatic, vignette,
     grain, trails, fracture), a colour harmony (analogous, complementary,
     triad, split, mono) and an energy range: Halo, Orbit, Mandala, Liquid,
-    Smoke temple, Helix lab, Shatter, Tunnel, Constellation, Embers,
+    Helix lab, Shatter, Tunnel, Constellation, Embers,
     Mirror garden, Prism, Tide, Harmonograph, Dunes, Skyline, Crystal, Garden and Landscape
     (Orbit, Helix lab, Prism, Shatter and Crystal use 3D). A scene holds through a section;
     its phrases swap the accent, then the base, so it evolves instead of
@@ -580,10 +586,11 @@ process the finished image.
     or rising embers). Embers pairs them with fine phyllotaxis or circle lines, and a
     description that asks only for particles often gets the same line accent.
   - **Describe** is optional: mood, colours, emitters, line style and motion
-    (*"slow dreamy blue and gold spirals"*, *"ocean smoke"*, *"neon particles,
+    (*"slow dreamy blue and gold spirals"*, *"ocean ink"*, *"neon particles,
     fast"*). The line under it shows what it read. Typing builds after a
     pause (Enter at once). Empty, it roams freely through the 2D and 3D
-    emitters, solids and simulations. **Prompt match** (default 85%) sets how
+    emitters, solids and simulations (Autopilot leaves Smoke out and keeps
+    3D camera angles gentle; smoky words give fluid). **Prompt match** (default 85%) sets how
     closely it sticks to your words.
   - Descriptions also wire **drivers and masks**, not just static settings:
     *“breathing slowly”* uses a sine LFO for size, *“wobbling”* bends the shape,
