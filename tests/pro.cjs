@@ -1413,11 +1413,11 @@ def Camera "Camera" {
        assert.ok(new Set(['clouds','veins','dissolve','rings'].map(m=>e.r['m'+m].h)).size===4,'Noise maps (Clouds, Veins, Dissolve, Rings) shape an effect differently');
        const I=e.imp;assert.ok(I.flash.lum>I.late.lum*1.3,'Impact Flash bursts bright: '+I.flash.lum/I.late.lum);assert.ok(I.slam.lum<I.late.lum*.8,'Impact Slam blacks the object out');
        assert.ok(new Set([I.flash.h,I.glitch.h,I.slam.h,I.late.h]).size===4&&I.late.white===0,'Flash, Glitch and Slam differ and the hit decays');
-       assert.ok(/impact/.test(e.hitOn)&&/reveal/.test(e.hitOn)&&/kick/.test(e.hitOn),'A drop hit fires Impact with a Reveal: '+e.hitOn);assert.ok(e.afterImpact,'Drop looks hit on every bar');
+       assert.ok(/impact/.test(e.hitOn)&&/reveal/.test(e.hitOn)&&/kick/.test(e.hitOn),'A drop hit fires Impact with a Reveal: '+e.hitOn);assert.ok(e.afterImpact,'Drop looks keep an Impact for the phrase hits');
        assert.equal(new Set(['rot','scale','diag','up'].map(k=>e.r[k].h)).size,4,'Flow moves, turns and scales');assert.deepEqual(e.legacy,['up',0,.7],'Old Flow Spin becomes Rotate');
        assert.ok(e.flowFade<4,'Flow fades out smoothly late in a set (no racing): '+e.flowFade);
        assert.ok(e.count>=2&&e.count<=3&&e.same&&e.held&&e.changed&&e.looks>=8&&e.fadeOut,'Animate Autopilot holds a look for a whole phrase and changes on the phrase: '+JSON.stringify({...e,r:0}));
-       assert.ok(e.mixes.at(-1)===1&&e.mixes.slice(0,-1).every(m=>m<.5),'A look is one hero effect with quieter supports: '+e.mixes);assert.ok(Math.abs(e.fd-2)<.01,'Looks crossfade over one bar');
+       assert.ok(e.mixes.at(-1)>.7&&e.mixes.slice(0,-1).every(m=>m<e.mixes.at(-1)/2),'A look is one hero effect with quieter supports: '+e.mixes);assert.ok(Math.abs(e.fd-4)<.01,'Calm looks crossfade over two bars: '+e.fd);
        assert.ok(e.hit>20&&e.hit<23&&/:drop$/.test(e.after)&&!e.after.startsWith('hit'),'A drop fires one bar of Impact, then a drop look: '+e.hit+' '+e.after);}
       // Fade: the effect eases in over time, crossfades Flicker and eases out when switched off.
       {const f=await page.evaluate(()=>{const M=pro.mapping3d,W=240,H=160,img=document.createElement('canvas');img.width=W;img.height=H;const x=img.getContext('2d');x.fillStyle='#3060ff';x.fillRect(0,0,W,H);
@@ -1505,6 +1505,21 @@ def Camera "Camera" {
       assert.ok(r.drift<=25.01&&r.drift>15,'Auto drift sways a 3D tilt by at most 25°: '+r.drift);assert.ok(r.tilted<=25,'"Tilted" leans 25° at most');
       assert.ok(r.full>1000&&Math.abs(r.half/r.full-1)<.08,'A lower mapping resolution still fills the same area: '+r.full+' / '+r.half);
       const st=await page.evaluate(()=>pro.stats().mapRes);assert.equal(st,1,'Mapping renders at full resolution while frames are on time');}
+    // Mapping Autopilot pacing: crossfades are long when calm and short on drops, builds swell across the phrase (Floor by floor
+    // rises with it), calm sections follow the sound softly, flashes inside a drop look land once per 4-bar phrase, variations every few bars.
+    {const r=await page.evaluate(async()=>{const M=await import('./map3d.js'),A=M.cleanFx({auto:{on:true,every:'4'}}),sm=(beat,section,drop=false)=>({beat,bpm:120,bands:{full:.5,bass:.6},pulse:0,song:{section,drop,toDrop:9,beat,bpm:120}});
+      const run=(id,sec,beats,from=0)=>{const R={},s={id,fx:A},out=[];for(let b=from;b<from+beats;b+=.25){const f=M.autoFx(R,s,b/2,sm(b,sec));const st=R.autos.get(id),h=M.FX_KEYS.find(k=>f[k].on&&f[k].mix>=.5)||M.FX_KEYS.find(k=>f[k].on);
+        out.push({b,fd:f.fd,ease:f.ease,mix:h?f[h].mix:0,prog:f.build.prog,look:st.rc[0],imp:f.impact.on?f.impact.trigger:'',key:JSON.stringify(M.FX_KEYS.filter(k=>f[k].on).map(k=>[k,f[k].pattern,f[k].mode,f[k].from,f[k].axis,f[k].el]))});}return out;};
+      const intro=run('pi','intro',16),build=run('pb','build',64),drop=run('pd','drop',64),brk=run('pk','break',16);
+      const ph=build.filter(x=>x.b<64),early=ph.filter(x=>x.b>2&&x.b<6),late=ph.filter(x=>x.b>56);
+      const changes=d=>{let n=0;for(let i=1;i<d.length;i++)if(d[i].look===d[i-1].look&&d[i].key!==d[i-1].key)n++;return n;};
+      return {fd:[intro[4].fd,build[4].fd,drop[4].fd,brk[4].fd],ease:[intro[4].ease,build[4].ease,drop[4].ease],swell:[early.at(-1).mix,late.at(-1).mix],
+        prog:[early[0].prog,late.at(-1).prog,drop[4].prog],imp:[...new Set(drop.map(x=>x.imp).filter(Boolean))],dropVary:changes(drop),buildVary:changes(build)};});
+      assert.ok(r.fd[0]>r.fd[1]&&r.fd[1]>r.fd[2]&&r.fd[3]===r.fd[0],'Calm crossfades are longest, drops shortest: '+r.fd);
+      assert.ok(r.ease[0]<r.ease[1]&&r.ease[1]<r.ease[2],'Calm sections follow the sound more softly: '+r.ease);
+      assert.ok(r.swell[1]>r.swell[0]*1.4,'A build swells across its phrase: '+r.swell);assert.ok(r.prog[0]<.15&&r.prog[1]>.85&&r.prog[2]===undefined,'Floor by floor rises with the build phrase: '+r.prog);
+      assert.ok(r.imp.length&&r.imp.every(t=>t!=='beats'),'Drop looks never flash on every kick: '+r.imp);
+      assert.ok(r.dropVary<=8&&r.buildVary<=4,'Looks vary every few bars, not every bar: '+r.dropVary+' / '+r.buildVary);}
     // Cutter: every cut pattern tiles the frame; beats shuffle and recolour the pieces; Noir turns them grey; presets apply.
     {const r=await page.evaluate(async()=>{const C=await import('./cutter.js'),G=await import('./graph.js');
       const area=q=>{let a=0;for(let i=0;i<q.length;i++){const [x1,y1]=q[i],[x2,y2]=q[(i+1)%q.length];a+=x1*y2-x2*y1;}return Math.abs(a)/2;};

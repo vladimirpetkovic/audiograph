@@ -374,7 +374,7 @@ process the finished image.
     glowing front: *Cells*, *Tiles*, *Bands* or *Organic* regions, or noise (*Clouds*, *Veins*,
     *Dissolve*, *Rings*). *Beat* reveals new parts and lets them fade, *Stack* adds parts through
     the bar and *Swap* cuts; Amount sets how much shows and Dark how dark the rest goes. **Impact**
-    hits on drops (the song map's, a jump in loudness or Autopilot's), every bar or on strong kicks:
+    hits on drops (the song map's, a jump in loudness or Autopilot's), every 4 bars, every bar or on strong kicks:
     *Flash* bursts white and breaks off cell by cell, *Glitch* tears blocks, splits the colours and
     flips some dark or hue-shifted, *Slam* blacks the object out and snaps the cells back, and
     *Flash + Glitch* does both; Length sets the decay in beats. Highlights always use the picture's own colours.
@@ -403,10 +403,13 @@ process the finished image.
     full strength with quieter supports (**Layers** 1–4 caps them; Echo and Morph count extra). It
     picks looks to suit the song's section (*Intro*, *Build*, *Drop*, *Break*, read from the
     loudness against its recent peak), keeps each for a whole **Phrase** (4, 8 or 16 bars), steps one
-    setting per bar inside a look, never repeats one of its last four and crossfades over one bar.
-    When a drop lands it fires one bar of Impact (Flash + Glitch with cells cut in every half beat
-    and a shockwave), then starts a drop look; drop looks hit again on every bar (Flash, Glitch,
-    Slam in turn).
+    setting every 2 bars on a drop and every 4 otherwise, and never repeats one of its last four. It paces
+    itself like a mapping show: intros and breaks crossfade over two bars, sit lower and follow the
+    sound softly; builds crossfade over one bar and swell from about half to full strength across the
+    phrase (Floor by floor rises with it and completes at the drop); drops crossfade in half a bar at
+    full strength. When a drop lands it fires one bar of Impact (Flash + Glitch with cells cut in every
+    half beat and a shockwave), then starts a drop look, which hits again every 4 bars (Flash, Glitch,
+    Slam in turn), so flashes stay special.
     Each sound has one job: bass hits, highs flicker, mids colour the light, the beat sets the pace.
     Bars come from the **beat clock**: the tempo is read from the detected beats, **Tap** sets it by
     hand and **Resync** makes now bar 1. **Follow** picks the clock: *Song map* (the loaded track is

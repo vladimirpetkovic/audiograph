@@ -57,7 +57,7 @@ export function cleanFx(f={}){const d=f.disp||{},e=f.edges||{},b=f.build||{},x=f
   // Reveal: the object waits in the dark and each beat (or kick) reveals different parts; Stack adds parts through the bar, Swap cuts.
   reveal:{on:!!rv.on,pattern:pick(rv.pattern,REVEAL_PATTERNS),mode:pick(rv.mode,['beat','stack','swap']),every:pick(String(rv.every??'1'),['1','2','0.5']),amount:clamp(rv.amount,.05,1,.45),dark:clamp(rv.dark,0,1,.85),drive:pick(rv.drive,FX_DRIVES.reveal)},
   // Impact: a hit on drops, every bar or on strong kicks: Flash bursts white and breaks off cell by cell, Glitch tears and splits it, Slam blacks it out and snaps the cells back.
-  impact:{on:!!im.on,style:pick(im.style,['all','flash','glitch','slam']),trigger:pick(im.trigger,['drops','bars','beats']),length:clamp(im.length,.25,4,1),amount:clamp(im.amount,0,1,1)},
+  impact:{on:!!im.on,style:pick(im.style,['all','flash','glitch','slam']),trigger:pick(im.trigger,['drops','phrases','bars','beats']),length:clamp(im.length,.25,4,1),amount:clamp(im.amount,0,1,1)},
   echo:{on:!!ec.on,style:pick(ec.style,['up','depth','out','random']),length:clamp(ec.length,.05,1,.6),amount:clamp(ec.amount,0,1,1),drive:pick(ec.drive,FX_DRIVES.echo)},
   morph:{on:!!mo.on,style:pick(mo.style,['liquid','swirl','melt']),scale:clamp(mo.scale,.2,8,2),speed:clamp(mo.speed,0,4,.5),amount:clamp(mo.amount,0,2,.6),drive:pick(mo.drive,FX_DRIVES.morph)},
   flow:(()=>{const old=fl.dir==='spin';return {on:!!fl.on,dir:pick(old?'up':fl.dir,['up','side','diag']),move:clamp(fl.move??(old?0:fl.speed),-2,2,.3),rotate:clamp(fl.rotate??(old?fl.speed:0),-2,2,0),scale:clamp(fl.scale,0,1,0),zspeed:clamp(fl.zspeed,.05,4,.5),drive:pick(fl.drive,FX_DRIVES.flow)};})(),
@@ -420,9 +420,9 @@ const ZERO_SIG={bands:{bass:0,mids:0,high:0,full:0},pulse:0};
 function fadeState(R,s,F,time,test,B,pulse,seed){R.fades??=new Map();const id=s.id||'_';let st=R.fades.get(id);const dt=st?time-st.t:0,snap=!st||test||dt<0||dt>.5,ease=(a,b,up,down)=>snap?b:a+(b-a)*Math.min(1,dt*(b>a?up:down));
   if(!st){st={lv:{},b:{},p:0,seed:[seed,seed,1]};R.fades.set(id,st);if(R.fades.size>64)R.fades.delete(R.fades.keys().next().value);}st.t=time;st.dt=snap?0:dt;
   // Autopilot crossfades slower than a hand toggle.
-  const fd=F.fd||(F.auto?.on?1.6:.8);
+  const fd=F.fd||(F.auto?.on?1.6:.8),sf=F.ease||1;
   for(const k of FX_KEYS){const to=F[k].on?1:0,a=st.lv[k]??to;st.lv[k]=snap||!F[k].fade?to:to>a?Math.min(to,a+dt/fd):Math.max(to,a-dt/fd);}
-  for(const k of ['bass','mids','high','full'])st.b[k]=ease(st.b[k]??B[k],B[k],10,2.5);st.p=ease(st.p,pulse,14,2);
+  for(const k of ['bass','mids','high','full'])st.b[k]=ease(st.b[k]??B[k],B[k],10*sf,2.5*sf);st.p=ease(st.p,pulse,14*sf,2*Math.sqrt(sf));
   const S=st.seed;if(seed!==S[1]){S[0]=snap?seed:S[1];S[1]=seed;S[2]=snap?1:0;}else S[2]=snap?1:Math.min(1,S[2]+dt/.6);return st;}
 function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.light?s.fx:cleanFx(s.fx),B0=sig?.bands||ZERO_SIG.bands,B=Object.fromEntries(['bass','mids','high','full'].map(k=>[k,Math.min(1,Math.max(0,+B0[k]||0))])),pulse=Math.min(1,Math.max(0,+sig?.pulse||0));
   // Parts and Random re-pick their pieces on every beat (and every few seconds without one).
@@ -432,7 +432,7 @@ function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.lig
   gl.uniform1f(u.time,time);gl.uniform1f(u.fstep,Number.isFinite(sig?.beat)?sig.beat:time*2);
   gl.uniform4f(u.disp,F.disp.on?F.disp.amount*(.15+lv('disp',F.disp.drive)*1.2):0,['ripple','swell','noise'].indexOf(F.disp.pattern),F.disp.speed,0);
   const ex=F.explode.on?(F.explode.drive==='hold'?1:F.explode.drive==='beat'?pu('explode'):lv('explode','bass')):0;gl.uniform2f(u.explode,ex*F.explode.amount,ex);
-  let bp=1;if(F.build.on){if(F.build.drive==='level')bp=Math.min(1,lv('build','full')*1.6);else{const t=((time*F.build.speed)%1+1)%1;bp=t<.45?t/.45:t<.55?1:t<.95?1-(t-.55)/.4:0;}}
+  let bp=1;if(F.build.on){if(F.build.drive==='level')bp=Number.isFinite(F0.build.prog)?Math.min(1,F0.build.prog*(.85+.3*lv('build','full'))):Math.min(1,lv('build','full')*1.6);else{const t=((time*F.build.speed)%1+1)%1;bp=t<.45?t/.45:t<.55?1:t<.95?1-(t-.55)/.4:0;}}
   gl.uniform3f(u.build,F.build.on?1:0,bp,['up','out','random'].indexOf(F.build.order));
   const L=lv('edges','full');gl.uniform4f(u.edge,F.edges.on?1:0,['pulse','trace','sweep'].indexOf(F.edges.mode),F.edges.width*(R.dpr||1),F.edges.mode==='pulse'?.3+L*1.6:1+L*.8);gl.uniform3f(u.edge2,F.edges.speed,0,F.edges.on?F.edges.fill:1);
   gl.uniform1fv(u.fmap,new Float32Array(FX_KEYS.map(k=>FX_MAPS.indexOf(F[k].map||'all'))));gl.uniform1fv(u.fpres,new Float32Array(FX_KEYS.map(k=>(F0[k].fade?st.lv[k]:1)*(F0[k].mix??1))));gl.uniform1fv(u.fsoft,new Float32Array(FX_KEYS.map(k=>F0[k].fade?1:0)));
@@ -461,6 +461,7 @@ function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.lig
       if(F0.kick!==undefined&&F0.kick!==ist.kick)fire=true;
       if(Im.trigger==='drops'&&drop&&time-ist.ld>(song?1:8)){fire=true;ist.ld=time;}
       if(Im.trigger==='bars'&&ist.bar!==undefined&&bar!==ist.bar)fire=true;
+      if(Im.trigger==='phrases'&&ist.bar!==undefined&&bar!==ist.bar&&bar%4===0)fire=true;
       if(Im.trigger==='beats'&&pulse>.8&&!(ist.lp>.8)&&B.bass>.45)fire=true;ist.bar=bar;}
     ist.kick=F0.kick;ist.lp=pulse;}
   if(fire){ist.n++;ist.t=time;}
@@ -478,7 +479,8 @@ function fxUniforms(R,s,g,time,sig,test){const gl=R.gl,u=R.uniforms,F0=s.fx?.lig
 export function facetData(s,time){const g=meshOf(s,time);return facets(g,(s.fx||cleanFx()).edges.angle);}
 // Animate Autopilot: a choreographer. It plays curated looks (a hero effect plus quieter supports), keeps each one for a whole phrase
 // (4, 8 or 16 bars on the beat clock), picks looks that suit the song's section (intro, build, drop, break), fires a one-bar Impact
-// when a drop lands, varies one setting per bar inside a look and crossfades over one bar. Effects cost: Echo 3, Morph 2, others 1.
+// when a drop lands, varies one setting every few bars inside a look and crossfades by section (2 bars calm, 1 build, ½ drop);
+// builds ramp up across the phrase (Floor by floor completes at the drop) and calm sections follow the sound more softly. Effects cost: Echo 3, Morph 2, others 1.
 const RECIPES=[
   ['blueprint','Blueprint','intro',['edges',{mode:'trace',fill:.15}],[['outline',{drive:'steady'}],['light',{drive:'mids'}]]],
   ['scanlines','Scan lines','intro',['scan',{axis:'up',drive:'full'}],[['edges',{mode:'pulse',fill:.5,map:'levels'}],['outline',{drive:'full'}]]],
@@ -496,9 +498,9 @@ const RECIPES=[
   ['shatter','Shatter','drop',['explode',{drive:'bass',el:'cells',map:'parts'}],[['edges',{mode:'pulse',fill:.6}],['light',{drive:'mids'}]]],
   ['pulsefloors','Pulse floors','drop',['disp',{drive:'bass',pattern:'swell',map:'levels'}],[['flicker',{drive:'high',map:'dissolve'}],['outline',{drive:'bass'}]]],
   ['facadestorm','Facade storm','drop',['flicker',{drive:'beat',el:'organic',map:'facades'}],[['shock',{drive:'beat'}],['light',{drive:'mids'}]]],
-  ['beatreveal','Beat reveal','drop',['reveal',{pattern:'cells',mode:'beat'}],[['impact',{trigger:'bars',style:'flash'}],['outline',{drive:'bass'}]]],
-  ['glitchstorm','Glitch storm','drop',['reveal',{pattern:'tiles',mode:'swap',every:'0.5',amount:.55}],[['impact',{trigger:'beats',style:'glitch',length:.5}],['light',{drive:'mids'}]]],
-  ['veinburst','Vein burst','drop',['reveal',{pattern:'veins',mode:'beat',amount:.6}],[['impact',{trigger:'bars',style:'slam'}],['curves',{drive:'bass'}]]],
+  ['beatreveal','Beat reveal','drop',['reveal',{pattern:'cells',mode:'beat'}],[['impact',{trigger:'phrases',style:'flash'}],['outline',{drive:'bass'}]]],
+  ['glitchstorm','Glitch storm','drop',['reveal',{pattern:'tiles',mode:'swap',every:'0.5',amount:.55}],[['impact',{trigger:'bars',style:'glitch',length:.5,amount:.7}],['light',{drive:'mids'}]]],
+  ['veinburst','Vein burst','drop',['reveal',{pattern:'veins',mode:'beat',amount:.6}],[['impact',{trigger:'phrases',style:'slam'}],['curves',{drive:'bass'}]]],
   ['mirror','Mirror','drop',['explode',{drive:'bass',el:'cells',map:'mirror'}],[['light',{drive:'mids'}],['edges',{mode:'pulse',fill:.5}]]],
   ['drift','Drift','break',['flow',{move:.15,rotate:.05,drive:'loop'}],[['light',{drive:'mids'}],['outline',{drive:'steady'}]]],
   ['echotrace','Echo trace','break',['echo',{style:'up',drive:'steady'}],[['edges',{mode:'trace',fill:.2}]]],
@@ -507,19 +509,26 @@ const RECIPES=[
 // The drop hit: Flash + Glitch over the whole object, the reveal cutting new cells every half beat, and a shockwave.
 const HIT=['hit','Impact','drop',['impact',{style:'all',trigger:'drops',length:2}],[['reveal',{pattern:'cells',mode:'swap',every:'0.5',amount:.6,dark:.9}],['shock',{drive:'beat',from:'bottom',width:.2}]]];
 const FX_COST={echo:3,morph:2,impact:0};
-// Per bar inside a look: one setting steps through its options.
-const VARY={shock:['from',['bottom','top','side']],scan:['axis',['up','across']],edges:['mode',['pulse','sweep']],disp:['pattern',['swell','ripple']],flicker:['el',FX_ELEMENTS],reveal:['pattern',REVEAL_PATTERNS],impact:['style',['flash','glitch','slam']]};
+// Inside a look one setting steps through its options every 2 bars on a drop, every 4 otherwise (never the reveal pattern).
+const VARY={shock:['from',['bottom','top','side']],scan:['axis',['up','across']],edges:['mode',['pulse','sweep']],disp:['pattern',['swell','ripple']],flicker:['el',FX_ELEMENTS],impact:['style',['flash','glitch','slam']]};
 const rand=k=>{let x=(k>>>0)||1;return ()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return (x>>>0)/4294967296;};};
 // Tagged parts take over: Facades plays on the Windows, Mirror on the Accents, and supporting edges trace the Columns.
 function tagMap(x,m,i,tags){if(!tags)return m;if(m==='facades'&&tags.has(1))return 'windows';if(m==='mirror'&&tags.has(4))return 'accent';if(i&&m==='all'&&(x==='edges'||x==='outline')&&tags.has(2))return 'columns';return m;}
 function lookFx(F,A,rc,prev,bar,tags){const o={repick:F.repick,auto:A},[,,,hero,sup]=rc,on={},budget=A.count+1;let cost=0;
   for(const [i,[x,set]] of [hero,...sup].slice(0,A.count).entries()){const c=FX_COST[x]??1;if(i&&cost+c>budget)continue;cost+=c;
     const e={...F[x],...set,on:true,fade:true,mix:i?.4:1};if(!A.maps)e.map='all';else e.map=tagMap(x,set.map||'all',i,tags);
-    const v=VARY[x];if(!i&&v&&bar>0)e[v[0]]=v[1][bar%v[1].length];on[x]=e;}
-  if(rc[2]==='drop'&&rc[0]!=='hit'&&!on.impact)on.impact={...F.impact,on:true,fade:true,mix:.45,map:'all',trigger:'bars',length:1,style:['flash','glitch','slam'][Math.max(0,bar)%3]};
+    const v=VARY[x],vb=Math.floor(Math.max(0,bar)/(rc[2]==='drop'?2:4));if(!i&&v&&vb>0)e[v[0]]=v[1][vb%v[1].length];on[x]=e;}
+  if(rc[2]==='drop'&&rc[0]!=='hit'&&!on.impact)on.impact={...F.impact,on:true,fade:true,mix:.45,map:'all',trigger:'phrases',length:1,style:['flash','glitch','slam'][Math.floor(Math.max(0,bar)/4)%3]};
   for(const x of FX_KEYS)o[x]=on[x]||{...(prev?.[x]||F[x]),on:false,fade:true};
   // An effect carried over between looks keeps its settings, so it never jumps.
   if(prev)for(const x of FX_KEYS)if(on[x]&&prev[x].on)o[x]={...prev[x],mix:on[x].mix,map:on[x].map,[VARY[x]?.[0]??'_']:on[x][VARY[x]?.[0]??'_']};return o;}
+// Every frame: the energy arc. Builds swell from 55% to full across the phrase, calm sections sit lower and follow the
+// sound more softly, drops play at full strength; Floor by floor rises with the phrase. The arc itself eases, so nothing jumps.
+function finish(st,beat,dt,P){const f=st.fx,sec=st.sec,p=Math.min(1,Math.max(0,(beat-st.b0)/(4*P))),hit=st.hit>=0;
+  const to=hit||sec==='drop'?1:sec==='build'?.55+.45*p*p:sec==='break'?.7:.78;st.arc=st.arc===undefined?to:st.arc+(to-st.arc)*Math.min(1,dt*1.5);
+  if(!st.mix)st.mix=Object.fromEntries(FX_KEYS.map(k=>[k,f[k].mix??1]));
+  for(const k of FX_KEYS)if(f[k].on&&k!=='impact')f[k].mix=st.mix[k]*st.arc;
+  f.ease=hit||sec==='drop'?1:sec==='build'?.7:.4;f.build.prog=sec==='build'?p:undefined;return f;}
 export function autoFx(R,s,time,sig){const F=s.fx?.light?s.fx:cleanFx(s.fx),A=F.auto,id=s.id||'_',P=+A.every,beat=Number.isFinite(sig?.beat)?sig.beat:time*2,bpm=Math.min(200,Math.max(60,+sig?.bpm||120)),
     full=Math.min(1,Math.max(0,+(sig?.bands?.full)||0)),song=sig?.song?.section?sig.song:null,bar0=b=>song?Math.floor(b/4+1e-6)*4:b;R.autos??=new Map();let st=R.autos.get(id);
   if(st&&(time<st.t||beat<st.b0-1))st=null;
@@ -528,21 +537,22 @@ export function autoFx(R,s,time,sig){const F=s.fx?.light?s.fx:cleanFx(s.fx),A=F.
   const dt=Math.min(.5,Math.max(0,time-st.t));st.t=time;st.ef+=(full-st.ef)*Math.min(1,dt*2);st.es+=(full-st.es)*Math.min(1,dt/8);st.pk=Math.max(.35,full,st.pk*Math.exp(-dt/30));
   // A loaded song's own map knows the section (and the drops) for sure; otherwise the loudness tells.
   const rel=st.ef/st.pk,secNow=song?song.section:rel>.75?'drop':rel>.45?'build':st.sec==='drop'||st.sec==='build'||st.sec==='break'?'break':'intro',bar=Math.floor((beat-st.b0)/4);
-  st.bpm=bpm;st.song=!!song;st.fd=Math.min(3,Math.max(.8,240/bpm));
+  st.bpm=bpm;st.song=!!song;const barS=240/bpm,fdOf=sec=>Math.min(6,Math.max(.4,barS*(sec==='drop'?.5:sec==='build'?1:2)));st.fd=fdOf(st.sec);
   // A launched cue holds for one phrase, then the choreographer carries on.
   if(st.cue){const c=st.cue;st.cue=null;st.hit=-1;st.b0=bar0(beat);st.bar=0;st.rc=['cue',c.name,secNow,null,[]];st.sec=secNow;const o={...c.fx,auto:A,repick:F.repick};for(const x of FX_KEYS)o[x]={...(o[x]||F[x]),fade:true};st.fx=cleanFx(o);st.fx.fd=st.fd;return st.fx;}
   const choose=sec=>{const r=rand(Math.imul(++st.k,2654435761)+7),pool=RECIPES.filter(x=>x[2]===sec),fresh=pool.filter(x=>!st.hist.includes(x[0])),l=fresh.length?fresh:pool,rc=l[Math.floor(r()*l.length)%l.length];
     st.hist=[rc[0],...st.hist].slice(0,4);return rc;};
-  const tags=s.tags?.length?new Set(s.tags.map(t=>t[1])):null,set=(rc,sec,b)=>{st.rc=rc;st.sec=sec;st.fx=cleanFx(lookFx(F,A,rc,st.fx,b,tags));st.fx.fd=st.fd;};
+  const tags=s.tags?.length?new Set(s.tags.map(t=>t[1])):null,set=(rc,sec,b)=>{st.rc=rc;st.sec=sec;st.fd=rc===HIT?barS*.25:fdOf(sec);st.fx=cleanFx(lookFx(F,A,rc,st.fx,b,tags));st.fx.fd=st.fd;st.mix=null;};
+  const out=()=>finish(st,beat,dt,P);
   // Next look (remote / key): a fresh look for this section now.
-  if(st.next&&st.rc){st.next=false;st.hit=-1;st.b0=bar0(beat);set(choose(secNow),secNow,0);st.bar=0;return st.fx;}
+  if(st.next&&st.rc){st.next=false;st.hit=-1;st.b0=bar0(beat);set(choose(secNow),secNow,0);st.bar=0;return out();}
   // A drop lands: one bar of Impact over the whole object, then a drop look starts a fresh phrase.
-  if(st.rc&&st.hit<0&&(song?song.drop:st.ef-st.es>.15&&rel>.7&&st.sec!=='drop')&&time-st.lastDrop>(song?1:8)){st.hit=beat;st.lastDrop=time;set(HIT,'drop',0);st.fx.kick=beat;return st.fx;}
-  if(st.hit>=0){if(beat-st.hit<4)return st.fx;st.hit=-1;st.b0=bar0(beat);st.bar=0;set(choose('drop'),'drop',0);return st.fx;}
+  if(st.rc&&st.hit<0&&(song?song.drop:st.ef-st.es>.2&&rel>.8&&st.sec!=='drop')&&time-st.lastDrop>(song?1:16)){st.hit=beat;st.lastDrop=time;set(HIT,'drop',0);st.fx.kick=beat;return out();}
+  if(st.hit>=0){if(beat-st.hit<4)return out();st.hit=-1;st.b0=bar0(beat);st.bar=0;set(choose('drop'),'drop',0);return out();}
   // With a song map a new section starts a new look on its first bar.
-  if(!st.rc||bar>=P||song&&st.rc[0]!=='cue'&&song.section!==st.sec&&bar!==st.bar){if(song&&bar<P&&st.rc){st.b0=bar0(beat);}else if(st.rc){st.b0+=Math.floor((beat-st.b0)/4/P)*P*4;if(beat-st.b0>=P*4)st.b0=bar0(beat);}st.bar=0;set(choose(secNow),secNow,0);return st.fx;}
-  if(bar!==st.bar){st.bar=bar;if(st.rc[0]!=='cue')st.fx=cleanFx(lookFx(F,A,st.rc,st.fx,bar,tags));st.fx.fd=st.fd;}
-  return st.fx;}
+  if(!st.rc||bar>=P||song&&st.rc[0]!=='cue'&&song.section!==st.sec&&bar!==st.bar){if(song&&bar<P&&st.rc){st.b0=bar0(beat);}else if(st.rc){st.b0+=Math.floor((beat-st.b0)/4/P)*P*4;if(beat-st.b0>=P*4)st.b0=bar0(beat);}st.bar=0;set(choose(secNow),secNow,0);return out();}
+  if(bar!==st.bar){st.bar=bar;if(st.rc[0]!=='cue'){st.fx=cleanFx(lookFx(F,A,st.rc,st.fx,bar,tags));st.mix=null;}st.fx.fd=st.fd;}
+  return out();}
 export function autoCue(id,fx,name){const st=renderer?.autos?.get(id);if(!st)return false;st.cue={fx,name};return true;}
 export function autoNext(id){const st=renderer?.autos?.get(id);if(!st)return false;st.next=true;return true;}
 export function autoNow(id){const st=renderer?.autos?.get(id);return st?.fx?{fx:st.fx,look:st.rc?.[1]}:null;}
