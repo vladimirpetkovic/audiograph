@@ -482,8 +482,8 @@ process the finished image.
   drawn at two-thirds size (Eternity full size) with an oval fade to black, centred on the logo's circle; `splash/*.mp4`)
   crossfade in a fresh random order each time. Add or replace clips there and in
   `SPLASH_CLIPS`. It is skipped with reduced motion.
-- **Tutorial** (top right) offers three tutorials: First Mile, **Mapping** and
-  **Autopilot** (the welcome screen's Project and Auto-play open the same two).
+- **Tutorial** (top right) lists every tutorial by name: First Mile, then the welcome screen's guides
+  (Visualize, Presets, **Autopilot**, **Mapping**, Export, Share).
   Mapping (15 steps) covers surfaces, 3D objects, lining up the projector and
   calibration, projection, Animate effects and their Maps, Combos, the mapping
   Autopilot and its song map, cues, part tags, Post FX, multiple projectors,

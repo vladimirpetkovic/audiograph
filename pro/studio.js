@@ -3663,12 +3663,12 @@ const tour=createTour({
   stopAutomation:()=>{apStop();tm.playing=false;if(workspace==='auto')renderAutoPanel();},
   zoom:uiZ
 });
-// Tutorial menu: the First Mile builds a scene; Mapping and Autopilot have their own tutorials.
+// Tutorial menu: the First Mile builds a scene, then every guide from the welcome screen (same order).
 function openGuide(id){const i=SPLASH_ITEMS.findIndex(x=>x[0]===id),g=SPLASH_GUIDES[id];if(g.demo)loadTestTrack();tour.guide({id,color:splashColor(i),...g});}
+const GUIDE_PROPS={project:'tourMapping',auto:'tourAutopilot'};
 $('tourButton').onclick=()=>mapMenu($('tourButton'),'Tutorials',[
-  {label:'First Mile',hint:'Build a scene, node by node',property:'tourFirst',run:()=>tour.start()},
-  {label:'Mapping',hint:'Project onto walls and objects',property:'tourMapping',run:()=>openGuide('project')},
-  {label:'Autopilot',hint:'Let the music run the show',property:'tourAutopilot',run:()=>openGuide('auto')}]);
+  {label:'First Mile',property:'tourFirst',run:()=>tour.start()},
+  ...SPLASH_ITEMS.filter(([id])=>SPLASH_GUIDES[id]).map(([id])=>({label:SPLASH_GUIDES[id].title,property:GUIDE_PROPS[id]||'tour'+id[0].toUpperCase()+id.slice(1),run:()=>openGuide(id)}))]);
 window.pro={
   randomGraph,
   tour:{start:()=>tour.start(),guide:id=>openGuide(id),guides:()=>Object.fromEntries(Object.entries(SPLASH_GUIDES).map(([k,g])=>[k,g.steps.map(s=>s.t)])),stop:()=>tour.stop(),go:i=>tour.go(i),next:()=>tour.next(),invite:()=>tour.invite(),steps:tour.steps.map(s=>s.t),status:()=>({index:tour.index,live:tour.live,ids:tour.ids})},

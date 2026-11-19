@@ -1703,7 +1703,8 @@ def Camera "Camera" {
     const titles=await page.evaluate(()=>pro.tour.steps);
     assert.ok(titles.length>=12,'Tutorial has its steps');
     await page.click('#tourButton');
-    assert.deepEqual(await page.$$eval('.map-menu button',b=>b.map(x=>x.dataset.property)),['tourFirst','tourMapping','tourAutopilot'],'Tutorial offers First Mile, Mapping and Autopilot');
+    assert.deepEqual(await page.$$eval('.map-menu button',b=>b.map(x=>x.dataset.property)),['tourFirst','tourVisualize','tourPresets','tourAutopilot','tourMapping','tourExport','tourShare'],'Tutorial offers the First Mile and every welcome-screen guide');
+    assert.equal(await page.$$eval('.map-menu .map-menu-hint',h=>h.length),0,'Tutorial items have no descriptions');
     await page.click('[data-property=tourFirst]');
     await page.locator('#tourCard.show').waitFor({timeout:5000});
     const ids=await page.evaluate(()=>pro.tour.status().ids);
