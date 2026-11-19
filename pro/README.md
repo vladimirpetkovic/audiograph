@@ -479,7 +479,7 @@ process the finished image.
   **Welcome screen**, or add `?splash` to the URL. It is skipped for shared scene
   links. Behind the logo, full-HD muted clips (darkened towards the bottom by a gradient) recorded on black from templates (Doppler, Cell,
   Eternity, Fractal, Sacred geometry, Tree, Ripples; without Blur nodes, Cell with softer bloom;
-  drawn at two-thirds size with an oval fade to black; `splash/*.mp4`)
+  drawn at two-thirds size (Eternity full size) with an oval fade to black, centred on the logo's circle; `splash/*.mp4`)
   crossfade in a fresh random order each time. Add or replace clips there and in
   `SPLASH_CLIPS`. It is skipped with reduced motion.
 - **Tutorial** (top right) offers three tutorials: First Mile, **Mapping** and

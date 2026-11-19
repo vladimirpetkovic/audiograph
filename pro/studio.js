@@ -3801,12 +3801,15 @@ function splashSwap(){
   nxt.onplaying=()=>{nxt.onplaying=null;nxt.classList.add('ready');cur.classList.remove('ready');P.front=1-P.front;setTimeout(()=>{cur.pause();P.fading=false;},1000);};
   nxt.src=splashNextClip();splashPlay(nxt);
 }
-// The clips are centred on the logo: the video box grows (still covering the card) so its middle sits at the logo's centre.
+// The clips are centred on the logo's circle (48.7% across, 44.3% down splash-logo.png): the video box grows (still
+// covering the card) so its middle sits at the circle's centre.
+const LOGO_CIRCLE=[.487,.443];
 function splashAlign(){
   const card=document.querySelector('#splash .splash-card'),logo=document.querySelector('#splash .splash-logo');if(!card||!logo||$('splash').hidden)return;
   const c=card.getBoundingClientRect(),l=logo.getBoundingClientRect();if(!c.height||!l.height)return;
-  const y=Math.min(1,Math.max(0,(l.top+l.height/2-c.top)/c.height)),h=2*Math.max(y,1-y);
-  card.style.setProperty('--splash-vy',(y-h/2)*100+'%');card.style.setProperty('--splash-vh',h*100+'%');
+  const fit=(v,size)=>{const f=Math.min(1,Math.max(0,v/size)),s=2*Math.max(f,1-f);return [(f-s/2)*100+'%',s*100+'%'];};
+  const [vx,vw]=fit(l.left+l.width*LOGO_CIRCLE[0]-c.left,c.width),[vy,vh]=fit(l.top+l.height*LOGO_CIRCLE[1]-c.top,c.height);
+  for(const [k,v] of [['--splash-vx',vx],['--splash-vw',vw],['--splash-vy',vy],['--splash-vh',vh]])card.style.setProperty(k,v);
 }
 addEventListener('resize',splashAlign);
 function splashVideo(){
