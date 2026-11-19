@@ -195,6 +195,15 @@ each with its own opacity and blend mode (up to four).
   `audio` wire (or the project sound if unwired). **Audio EQ** (10 bands) sits
   in an audio wire and reshapes what follows it.
 - **Composite**: Background (flat, vertical, radial), Blend, Output.
+- **Lights** (Composite) is a second kind of output, for real LED lights. Wire any picture into
+  it (the same one as Output, or another) and press **Connect lights**: Chrome or Edge sends it
+  over USB, as Adalight frames, to a WLED controller (ESP32 boards sold with WLED, e.g. Gledopto
+  or Athom, with a USB data port) or any ESP32/Arduino running `tools/audiograph-lights.ino`
+  (FastLED, WS2812B strip). Set **LEDs** to the strip length and pick a **Layout**: a strip across
+  the middle of the picture, around its edges (like a TV backlight) or one colour for the whole
+  picture. Each LED takes the brightest pixels it covers. Brightness, Sound (pumps with the
+  music), Smooth and Baud rate (match WLED's Sync settings) shape the result. The strip needs its
+  own 5 V power supply; only the colours travel over USB.
 - **AI** (needs the local AI bridge, see [`ai/README.md`](../ai/README.md)): **AI Model**
   (SD-Turbo, SDXL-Turbo, SD 1.5 + LCM; bridge address), **AI Prompt** (prompt, negative,
   a second prompt and an audio-drivable Mix between them, plus a Style preset such as Oil

@@ -408,6 +408,10 @@ export const TYPES = {
   imageTransform:{category:'composite',label:'Image transform',description:'Move, scale, rotate and fade an image.',inputs:{image:'image'},outputs:{image:'image'},props:{
     scale:n('Scale',1,.1,4,.01),rotate:n('Rotate (°)',0,-180,180,1),x:n('Offset X',0,-100,100,1),y:n('Offset Y',0,-100,100,1),opacity:n('Opacity',1,0,1,.01),spin:n('Spin (°/s)',0,-180,180,1)}},
   layerIn:{category:'composite',label:'Layer',description:'Another layer’s picture as an image, to remix it here (the previous frame if that layer comes later).',inputs:{},outputs:{image:'image'},props:{layer:n('Layer',1,1,4,1,{noPort:true})}},
+  lights:{category:'composite',label:'Lights',description:'An output for real LED lights: sends whatever picture is wired in to a WLED controller or Arduino over USB. Use it next to Output (same picture or a different one). Chrome or Edge.',inputs:{image:'image',audio:'audio'},outputs:{},props:{
+    count:n('LEDs',60,1,1000,1,{noPort:true}),layout:pick('Layout','row',['row','edges','average'],{labels:[['row','Strip across the middle'],['edges','Around the edges'],['average','One colour']]}),
+    brightness:n('Brightness',80,0,100,1),sound:n('Sound',30,0,100,1),smooth:n('Smooth',40,0,95,1),
+    baud:pick('Baud rate','115200',['115200','230400','460800','921600'])}},
   output:{category:'composite',label:'Output',description:'The end of the chain: what this layer shows.',inputs:{image:'image'},outputs:{},props:{}}
 };
 export const EQ_KEYS=['eq32','eq64','eq125','eq250','eq500','eq1k','eq2k','eq4k','eq8k','eq16k'];

@@ -1,4 +1,4 @@
-import * as sensors from './sensors.js';
+import * as sensors from './sensors.js';import * as lights from './lights.js';
 import {renderVideo,exportSupported} from './export.js';
 import {liveData,liveStatus} from './livedata.js';
 import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
@@ -88,8 +88,8 @@ function reconcile(){
   for(const [id,m] of mediaEls)if(!nodeIDs.has(id)){m.clear();mediaEls.delete(id);}
   dropShaderState(nodeIDs);if(!state.layers.some(g=>g.nodes.some(n=>SHADER_NODES.has(n.type))))releaseShaders();for(const id of shaderErrors.keys())if(!nodeIDs.has(id))shaderErrors.delete(id);
   plans=new Map(state.layers.map(g=>{
-    // Outputs and everything feeding them run; data inputs always run (cheap) so their meters stay live.
-    const needed=new Set(g.nodes.filter(n=>n.type==='output'||DATA_INPUTS.has(n.type)).map(n=>n.id)),queue=[...needed];
+    // Outputs (and Lights) and everything feeding them run; data inputs always run (cheap) so their meters stay live.
+    const needed=new Set(g.nodes.filter(n=>n.type==='output'||n.type==='lights'||DATA_INPUTS.has(n.type)).map(n=>n.id)),queue=[...needed];
     for(let i=0;i<queue.length;i++)for(const edge of g.edges)if(edge.to===queue[i]&&!needed.has(edge.from)){needed.add(edge.from);queue.push(edge.from);}
     return [g.id,order(g).filter(n=>needed.has(n.id))];
   }));
@@ -910,6 +910,8 @@ function execute(g,time,dt){
         const err=shaderInto(ctx,src||null,code,{id:n.id,time,dt,frame:st.frame,sig,knobs,feedback,aux});
         if(err){nodeErrors.add(n.id);shaderErrors.set(n.id,err.message);ctx.clearRect(0,0,WIDTH,HEIGHT);if(src)ctx.drawImage(src,0,0,WIDTH,HEIGHT);}else shaderErrors.delete(n.id);
         r.image=canvas;break;}
+      case 'lights':{const src=asImage(need(n,'image','an image'),n.id),sig=input(n,'audio')??projectSignal(),st=nstate(n.id+':led',()=>({}));
+        if(lights.connected()){const b=sig.bands||{},rgb=lights.shape(lights.sample(src,WIDTH,HEIGHT,p.count,p.layout),st,p,Math.min(1,(b.full||0)*1.4));lights.send(rgb);}break;}
       case 'output':image=asImage(need(n,'image','an image'),n.id);r.image=image;break;
       case 'trails':{let src=asImage(need(n,'image','an image'),n.id);const {canvas,ctx}=surface(n.id);
         // Smooth: stamp the new frame at in-between zoom steps so it bridges the gap to the previous (zoomed) echo.
@@ -1495,7 +1497,7 @@ function setFolds(open){
 // Help text (descriptions, notes, tips) sits behind a ? in each inspector header; the choice is remembered.
 let tipsOn=localStorage.getItem('agpro.tips')==='1';
 function tipify(root=$('properties')){
-  root.querySelectorAll('.insp-desc,.insp-note:not(.live-value):not(.data-status):not(.audio-source):not(.insp-err):not(.ai-status)').forEach(t=>t.classList.add('tip'));
+  root.querySelectorAll('.insp-desc,.insp-note:not(.live-value):not(.data-status):not(.lights-status):not(.audio-source):not(.insp-err):not(.ai-status)').forEach(t=>t.classList.add('tip'));
   root.classList.toggle('tips-on',tipsOn);
   const head=root.querySelector('.insp-head');if(!head||head.querySelector('.tips-btn')||!root.querySelector('.tip'))return;
   const b=el('button','tips-btn','?');b.type='button';b.title='Show tips';b.setAttribute('aria-label','Show tips');b.setAttribute('aria-pressed',String(tipsOn));b.dataset.property='tips';
@@ -1596,7 +1598,7 @@ function renderProperties(){
   else{
     if(n.type==='audioIn')renderAudioSource(root);
     if(n.type==='palette')renderPalettePresets(root,n);
-    if(DATA_INPUTS.has(n.type))renderDataInput(root,n);
+    if(DATA_INPUTS.has(n.type)||n.type==='lights')renderDataInput(root,n);
     if(n.type==='aiRender'||n.type==='aiModel')renderAiStatus(root,n);
     if(['image','video','camera'].includes(n.type))renderMediaPicker(root,n);
     if(n.type==='shader')renderShaderEditor(root,n);
@@ -1716,7 +1718,7 @@ function renderAiStatus(root,n){
 }
 // Data inputs: live meters (filled by the readout timer), plus source status and helper / MIDI actions.
 function renderDataInput(root,n){
-  const s=section(root,'Live');s.append(el('p','insp-note data-status'));
+  const s=section(root,n.type==='lights'?'Connection':'Live');if(n.type!=='lights')s.append(el('p','insp-note data-status'));
   if(n.type==='computer'){
     s.append(el('p','insp-note','Browsers cannot see the real CPU or GPU use. For true values pick “Local helper” and run this once in Terminal (needs Node.js):'));
     const code=el('code','cmd',`node computer-feed.mjs ${n.props.port}`);s.append(code);
@@ -1729,6 +1731,15 @@ function renderDataInput(root,n){
     learn.title='Move a knob or fader on your controller';
     learn.onclick=async()=>{try{await sensors.connectMidi();learn.textContent='Move a control…';const r=await sensors.midiLearn();edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);x.props.cc=r.cc;x.props.channel=r.channel;},`MIDI: learned CC ${r.cc}`);}catch(e){message(e.message,true);}};
     row.append(con,learn);s.append(row);
+  }
+  if(n.type==='lights'){
+    const row=el('div','audio-src'),con=el('button','btn','Connect lights'),off=el('button','btn','Disconnect');con.type=off.type='button';
+    const st=el('p','insp-note lights-status',lights.info());
+    con.onclick=()=>lights.connect(+n.props.baud).then(()=>{message('Lights connected');st.textContent=lights.info();}).catch(e=>{if(e.name!=='NotFoundError')message(e.message,true);st.textContent=lights.info();});
+    off.onclick=()=>lights.disconnect().then(()=>{st.textContent=lights.info();});
+    row.append(con,off);s.append(row,st);
+    s.append(el('p','insp-note','Works with a WLED controller (its USB port speaks Adalight; match the baud rate in WLED’s Sync settings) or any ESP32/Arduino running the Audiograph sketch. Set LEDs to the length of your strip.'));
+    const a=el('a','btn','Download Arduino sketch');a.href='tools/audiograph-lights.ino';a.download='audiograph-lights.ino';s.append(a);
   }
   if(n.type==='pointer')s.append(el('p','insp-note','Reads the mouse and keyboard anywhere in this window (key names are never recorded, only how often you type).'));
 }
@@ -2673,6 +2684,7 @@ window.addEventListener('pagehide',event=>{
 window.addEventListener('pageshow',()=>{pageHidden=false;lastTime=0;renderUI();if(paused)draw(elapsed);});
 setInterval(()=>{
   // Live readout for the selected control node.
+  const ls=document.querySelector('#properties .lights-status');if(ls)ls.textContent=lights.info();
   const v=document.querySelector('.live-value');if(!v)return;const n=findNode(v.dataset.node);if(!n)return;
   if(DATA_INPUTS.has(n.type)){
     const o=lastOuts.get(n.id);v.replaceChildren();
