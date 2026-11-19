@@ -3787,7 +3787,7 @@ function buildSplash(){
   });
 }
 // Background clips, recorded from templates; shuffled each time so the welcome never looks the same twice.
-const SPLASH_CLIPS=['cell','doppler','echo','flares','ripples','sacred-geometry','tree','universe'];
+const SPLASH_CLIPS=['doppler','cell','eternity','fractal','sacred-geometry','tree','ripples'];
 const splashPlayer={order:[],at:0,front:0,fading:false};
 function splashNextClip(){
   const P=splashPlayer;if(P.at>=P.order.length){const last=P.order.at(-1);P.order=[...SPLASH_CLIPS].sort(()=>Math.random()-.5);if(P.order[0]===last)P.order.push(P.order.shift());P.at=0;}

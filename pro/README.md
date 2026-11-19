@@ -477,8 +477,8 @@ process the finished image.
   **Tutorial** runs the full First Mile tutorial. Close it with × or Esc. Tick
   "Don't show at startup" to skip it; reopen it from the Guide (?) with
   **Welcome screen**, or add `?splash` to the URL. It is skipped for shared scene
-  links. Behind the logo, full-HD muted clips (darkened towards the bottom by a gradient) recorded from templates (Cell, Doppler,
-  Echo, Flares, Ripples, Sacred geometry, Tree, Universe; `splash/*.mp4`)
+  links. Behind the logo, full-HD muted clips (darkened towards the bottom by a gradient) recorded on black from templates (Doppler, Cell,
+  Eternity, Fractal, Sacred geometry, Tree, Ripples; without Blur nodes; `splash/*.mp4`)
   crossfade in a fresh random order each time. Add or replace clips there and in
   `SPLASH_CLIPS`. It is skipped with reduced motion.
 - **Tutorial** (top right) offers three tutorials: First Mile, **Mapping** and
