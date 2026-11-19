@@ -116,7 +116,8 @@ each with its own opacity and blend mode (up to four).
   Without a Palette node a renderer draws in grayscale.
 - **Knobs** turn like the original's: drag around the knob (270° = full range,
   Shift for fine). The dot in the middle switches the knob to **Auto**: it drifts
-  by itself around its value (saved with the project).
+  by itself around its value (saved with the project). Every Auto knob (Mapping ones too) takes its own
+  random path, gliding to a new random target every 3–14 s, and starts a fresh one each time Auto is switched on.
 - **Deformers**: **Symmetry** and **Mirror** (above), **Bend** (Twist, Bulge, Wave, Shear, Depth, Ripple, **Water ripples**:
   beats drop stones onto the shape and the travelling rings push it around, Webcam:
   camera brightness displaces the shape and can color it) and **Noise** (Jitter,
@@ -267,7 +268,7 @@ process the finished image.
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
-- **Templates**: **User templates** (Save → Save as template, kept in the browser) and the **Audiograph presets** (the originals plus saved scenes in `scenes.js`: **Cloned**, **Doppler**, **Cell**, **Eternity**, **Firepit**, **Scene** and **Globe**; a saved scene replaces the original preset of the same name, and Sacred circle, Spiral planes and Organica are retired from the menu and the Template morph list but still load in old projects).
+- **Templates**: **User templates** (Save → Save as template, kept in the browser) and the **Audiograph presets** (the originals plus saved scenes in `scenes.js`: **Cloned**, **Doppler**, **Cell**, **Eternity**, **Firepit**, **Scene** and **Globe**; a saved scene replaces the original preset of the same name, and Sacred circle, Spiral planes and Organica are retired from the menu and the Template morph list but still load in old projects). The **×** next to a user template deletes it (after a confirm).
 - **Save**: Save scene writes an .ag file wherever you choose (⌘S); Save as template (⇧⌘S) adds a User template.
 - **Tips stay hidden**: node descriptions and help notes sit behind the **?** in
   the inspector header (and the graph toolbar); click it to show them. The choice is

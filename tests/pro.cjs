@@ -450,12 +450,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
       assert.ok((await page.evaluate(()=>pro.view())).zoom>after.zoom,'Pinch zooms');}
 
     // 9. Templates and layers: every template renders without errors; layers add, blend and delete.
+    const pickTpl=async v=>{await page.locator('#templates').click();await page.locator(`#templateMenu .tpl-row[data-value="${v}"] .tpl-name`).click();};
     for(const t of await page.evaluate(()=>pro.templates)){
-      await page.locator('#templates').selectOption(t);await lit(.05,25000).catch(async()=>assert.fail(`${t}: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));
+      await pickTpl(t);await lit(.05,25000).catch(async()=>assert.fail(`${t}: ${JSON.stringify(await page.evaluate(()=>pro.stats().errors))}`));
     }
-    {const t=await page.evaluate(()=>[pro.templates.includes('Cloned'),[...document.querySelectorAll('#templates optgroup')].map(g=>g.label)]);
+    {const t=await page.evaluate(()=>[pro.templates.includes('Cloned'),[...document.querySelectorAll('#templateMenu .tpl-group-label')].map(g=>g.textContent)]);
      assert.ok(t[0],'The Cloned scene is a template');assert.deepEqual(t[1],['Audiograph presets'],'Only Audiograph presets until a user template is saved');}
-    await page.locator('#templates').selectOption('Cloned');await lit(.05,25000);assert.ok((await layer0()).nodes.some(n=>n.type==='cloner'&&n.props.layout==='network'),'Cloned scene loads');
+    await pickTpl('Cloned');await lit(.05,25000);assert.ok((await layer0()).nodes.some(n=>n.type==='cloner'&&n.props.layout==='network'),'Cloned scene loads');
     {const r=await page.evaluate(async()=>{const L=pro.getProject().layers[0],lk=L.nodes.find(n=>n.type==='links'),cl=L.nodes.find(n=>n.type==='cloner');
        pro.select(lk.id);const knobs=[...document.querySelectorAll('#properties [data-property]')].map(k=>k.dataset.property);
        const P=pro.getProject();P.layers[0].nodes.find(n=>n.id===lk.id).props.width=4.5;pro.importProject(P,'links');await new Promise(r=>setTimeout(r,1200));
@@ -752,11 +753,15 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     const [sceneDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#save').selectOption('scene')]);
     // Save as template: it appears under User templates and loads back.
     {page.once('dialog',d=>d.accept('My look'));await page.locator('#save').selectOption('template');
-     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('#templates optgroup')].map(g=>g.label)),['User templates','Audiograph presets'],'User templates group appears');
-     const mine=await project();await page.evaluate(()=>pro.loadTemplate('Ink'));await page.locator('#templates').selectOption('user:My look');
+     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('#templateMenu .tpl-group-label')].map(g=>g.textContent)),['User templates','Audiograph presets'],'User templates group appears');
+     const mine=await project();await page.evaluate(()=>pro.loadTemplate('Ink'));await page.locator('#templates').click();await page.locator('#templateMenu .tpl-row[data-value="user:My look"] .tpl-name').click();
      assert.deepEqual((await project()).layers.map(l=>l.nodes.length),mine.layers.map(l=>l.nodes.length),'A user template loads back');
      page.once('dialog',d=>d.accept('My look'));await page.locator('#save').selectOption('remove');
-     assert.ok(!(await page.evaluate(()=>!!document.querySelector('#templates option[value="user:My look"]'))),'A user template can be removed');}
+     assert.ok(!(await page.evaluate(()=>!!document.querySelector('#templateMenu [data-value="user:My look"]'))),'A user template can be removed');
+     page.once('dialog',d=>d.accept('Gone soon'));await page.locator('#save').selectOption('template');
+     await page.locator('#templates').click();page.once('dialog',d=>d.accept());await page.locator('#templateMenu .tpl-row[data-value="user:Gone soon"] .tpl-x').click();
+     assert.ok(!(await page.evaluate(()=>!!document.querySelector('#templateMenu [data-value="user:Gone soon"]')||'Gone soon' in JSON.parse(localStorage.getItem('audiograph-pro-user-templates')||'{}'))),'The × deletes a user template');
+     await page.keyboard.press('Escape');}
     await sceneDownload.path();const saved=await project();
     await page.evaluate(()=>pro.loadTemplate('Ink'));const ink=(await project()).layers.map(l=>l.name);await page.locator('#reset').click();
     assert.notDeepEqual((await project()).layers.map(l=>l.name),ink,'Reset loads the starting scene');
@@ -1506,10 +1511,13 @@ def Camera "Camera" {
       const mint=P.richRamp(['#2b8a6e','#7dffc7','#ffffff']),hs=mint.map(hsl),spread=Math.max(...hs.map(h=>h[0]))-Math.min(...hs.map(h=>h[0]));
       const words=[...new Set(Array.from({length:60},(_,i)=>A.write({energy:i%3*40,seed:i+1})))],tame=P.tameAngles({pSphereTilt:80,pDnaTilt:-70,pTerrainCam:75,_dragRotX:1.3,_dragRotY:-1.1});
       const tilt=G.TYPES.camera3d.props.tilt,drift=Math.max(...Array.from({length:200},(_,i)=>Math.abs(G.autoDrift(tilt,0,'n1tilt',i*.7))));
+      const path=k=>Array.from({length:40},(_,i)=>G.autoDrift(G.TYPES.camera3d.props.tilt,0,k,i*.5).toFixed(3)).join();
+      const rnd=path('aK')!==path('bK')&&path('aK')!==path('aK');
       const box={...M.surface3d('r'),primitive:'Cube'},img=Object.assign(document.createElement('canvas'),{width:64,height:36});img.getContext('2d').fillStyle='#f80';img.getContext('2d').fillRect(0,0,64,36);
       const out=Object.assign(document.createElement('canvas'),{width:640,height:360}),x=out.getContext('2d'),lit=()=>{const d=x.getImageData(0,0,640,360).data;let n=0;for(let i=3;i<d.length;i+=4)n+=d[i]>0;return n;};
       M.render3d(x,box,img,640,360,1,false,{bands:{full:.5},beat:1});const full=lit();x.clearRect(0,0,640,360);M.render3d(x,box,img,640,360,1,false,{bands:{full:.5},beat:1,res:.55});const half=lit();
-      return {n:mint.length,dark:hs[0][1],top:hs[4][1],topC:hs[4][2],spread,grey:P.richRamp(['#ffffff','#9a9a9a','#3a3a3a']),bland:words.filter(w=>/monochrome|white and silver|electric|tropical/.test(w)),tame,drift,full,half,tilted:A.parse('a tilted sphere').tilt};});
+      return {n:mint.length,dark:hs[0][1],top:hs[4][1],topC:hs[4][2],spread,grey:P.richRamp(['#ffffff','#9a9a9a','#3a3a3a']),bland:words.filter(w=>/monochrome|white and silver|electric|tropical/.test(w)),tame,drift,rnd,full,half,tilted:A.parse('a tilted sphere').tilt};});
+      assert.ok(r.rnd,'Auto knobs wander randomly, each on its own path and fresh each time');
       assert.ok(r.n===5&&r.dark<.12&&r.top<.8&&r.topC>.3&&r.spread>=30,'A colour-plus-white palette becomes a deep-to-coloured gradient: '+JSON.stringify(r));
       assert.equal(r.grey,null,'A deliberately colourless palette stays grey');assert.deepEqual(r.bland,[],'Written prompts use only colourful palette words');
       assert.deepEqual(r.tame,{pSphereTilt:25,pDnaTilt:-25,pTerrainCam:38,_dragRotX:.35,_dragRotY:-.5},'Autopilot layers keep 3D angles near eye level');

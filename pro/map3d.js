@@ -1,4 +1,5 @@
 import {triangulate} from './polygon.js';
+import {wander} from './wander.js';
 import {parseGLTF,rawPose,I4,mul} from './gltf.js';
 import {parseFBXModel} from './fbx-model.js';
 import {parseUSDModel} from './usd-model.js';
@@ -16,8 +17,6 @@ export const MAP_AUTO={crop0:C,crop1:C,crop2:C,crop3:C,tile:[.1,20,.5],fade:[0,1
 const SCALE_AUTO=new Set(['box.sx','box.sy','box.sz','box.scale']);
 export function cleanAuto(a){return Array.isArray(a)?[...new Set(a.filter(k=>typeof k==='string'&&Object.hasOwn(MAP_AUTO,k)))]:[];}
 const autoGet=(s,k)=>k.startsWith('crop')?s.crop[+k[4]]:k.startsWith('box.')?s.box[k.slice(4)]:s[k];
-function wander(seed,clock){let h=2166136261;for(let i=0;i<seed.length;i++){h^=seed.charCodeAt(i);h=Math.imul(h,16777619);}
-  const r=k=>((h>>>(k*5))&1023)/1023;return .6*Math.sin(r(0)*6.283+clock*6.283/(16+r(2)*14))+.4*Math.sin(r(1)*6.283+clock*6.283/(7+r(3)*6));}
 // The mapping as drawn at this moment: surfaces with Auto knobs get drifted copies; values lands in `shown` (surfaceId:key).
 export function driftMapping(m,clock,shown){
   if(!m?.surfaces.some(s=>s.auto?.length))return m;

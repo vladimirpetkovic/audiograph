@@ -2478,15 +2478,33 @@ $('undo').onclick=undo;$('redo').onclick=redo;$('addLayer').onclick=addLayer;
 const USER_KEY='audiograph-pro-user-templates';
 const userTemplates=()=>{try{return JSON.parse(localStorage.getItem(USER_KEY))||{};}catch{return {};}};
 function fillTemplates(){
-  const sel=$('templates');sel.replaceChildren(Object.assign(el('option','','Templates'),{value:''}));
+  const menu=$('templateMenu');menu.replaceChildren();
   for(const [label,names,pre] of [['User templates',Object.keys(userTemplates()),'user:'],['Audiograph presets',ORIGINAL_NAMES,'']]){
     if(!names.length)continue;
-    const grp=el('optgroup');grp.label=label;for(const name of names){const o=el('option','',name);o.value=pre+name;grp.append(o);}sel.append(grp);}
+    const grp=el('div','tpl-group');grp.append(el('div','tpl-group-label',label));
+    for(const name of names){
+      const row=el('div','tpl-row');row.dataset.value=pre+name;row.setAttribute('role','option');
+      const pickBtn=el('button','tpl-name',name);pickBtn.type='button';pickBtn.onclick=()=>{closeTemplates();pickTemplate(pre+name);};row.append(pickBtn);
+      if(pre){const x=el('button','tpl-x','×');x.type='button';x.title=x.ariaLabel=`Delete template ${name}`;x.onclick=e=>{e.stopPropagation();deleteTemplate(name);};row.append(x);}
+      grp.append(row);}
+    menu.append(grp);}
 }
-fillTemplates();
-$('templates').onchange=()=>{const v=$('templates').value;$('templates').value='';if(!v)return;
+function pickTemplate(v){
   if(v.startsWith('user:')){const name=v.slice(5),p=userTemplates()[name];attempt(()=>{if(!p)throw Error('Template '+name+' is gone');importProject(clone(p),'Loaded '+name);});}
-  else attempt(()=>loadTemplate(v));};
+  else attempt(()=>loadTemplate(v));
+}
+function deleteTemplate(name){
+  if(!confirm(`Delete the template “${name}”?`))return;
+  const all=userTemplates();delete all[name];
+  try{localStorage.setItem(USER_KEY,JSON.stringify(all));}catch(e){return message('Could not delete: '+e.message,true);}
+  fillTemplates();message(`Deleted template ${name}`);
+}
+const openTemplates=()=>{const m=$('templateMenu');m.hidden=false;m.style.maxHeight=Math.max(160,innerHeight-$('templates').getBoundingClientRect().bottom-12)+'px';$('templates').setAttribute('aria-expanded','true');};
+function closeTemplates(){$('templateMenu').hidden=true;$('templates').setAttribute('aria-expanded','false');}
+fillTemplates();
+$('templates').onclick=()=>$('templateMenu').hidden?openTemplates():closeTemplates();
+document.addEventListener('pointerdown',e=>{if(!$('templateMenu').hidden&&!e.target.closest('.tpl-dd'))closeTemplates();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('templateMenu').hidden)closeTemplates();});
 function saveTemplate(){
   const all=userTemplates(),name=prompt('Template name',state.layers[0]?.name||'My template')?.trim();if(!name)return;
   if(all[name]&&!confirm(`Replace the template “${name}”?`))return;
@@ -3680,7 +3698,6 @@ const SPLASH_ICONS={
   export:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M3 7.5h4M3 12h18M3 16.5h4M17 3v18M17 7.5h4M17 16.5h4"/>',
   share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98"/>'
 };
-const openTemplates=()=>{const s=$('templates');s.focus();try{s.showPicker();}catch{}};
 // The Mapping tutorial needs a 3D surface to point at: it selects the first one, or adds a Cube (one Undo step).
 function tourNeed3d(auto){
   const m=curMap();let t=m.surfaces.find(x=>x.id===mapSel&&x.kind==='3d')||m.surfaces.find(x=>x.kind==='3d');

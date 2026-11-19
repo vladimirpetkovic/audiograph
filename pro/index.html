@@ -70,7 +70,7 @@
           <span class="graph-hint" id="graphHint">Tab: add node · drag output → input · click a wire to remove it · hold a node to detach</span>
           <button class="tbtn tips-btn" id="graphTips" aria-pressed="false" title="Show tips" aria-label="Show graph tips">?</button>
           <span class="sep"></span>
-          <select class="tbtn" id="templates" aria-label="Start from a template"><option value="">Templates</option></select>
+          <div class="tpl-dd"><button class="tbtn tpl-btn" id="templates" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Start from a template">Templates</button><div class="tpl-menu" id="templateMenu" role="listbox" hidden></div></div>
           <button class="tbtn" id="randomGraph" title="Create a random node graph (Undo restores your scene)">Random</button>
           <button class="tbtn" id="reset" title="Start over from the starting scene (Undo brings your scene back)">Reset</button>
         </div>
