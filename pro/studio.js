@@ -1991,7 +1991,6 @@ function presetGraph(P){
   const add=(type,x,y,props={})=>{const n=node(type,x,y,props);g.nodes.push(n);return n;},wire=(a,out,b,input)=>g.edges.push({from:a.id,out,to:b.id,input});
   const sound=add('audioIn',40,80);let src=sound,x=260;
   if(P.eq){const eq={};for(const k of EQ_KEYS)if(P.eq[k]!==undefined)eq[k]=clampProp('spectrum',k,P.eq[k]);src=add('spectrum',x,80,eq);wire(sound,'audio',src,'audio');x+=220;}
-  const bg=add('background',x,80,{fill:'flat',c1:/^#[0-9a-f]{6}$/i.test(P.bg)?P.bg.toLowerCase():'#0f0f12'});
   const response={};if(P.bass){response.punch=clampProp('waveform2d','punch',P.bass.punch??60);response.release=clampProp('waveform2d','release',P.bass.release??220);}
   if(P.dynamics!=null)response.dynamics=clampProp('waveform2d','dynamics',P.dynamics);
   const renderers=P.layers.map((l,i)=>{
@@ -2006,9 +2005,10 @@ function presetGraph(P){
   });
   x+=230+220*Math.max(0,...renderers.map(r=>r.steps));
   // Merge chains: A carries what is below, B–D take the next renderers.
-  let below=bg,y=80;
+  // No Background node: templates sit on plain black.
+  let below=null,y=80;
   for(let i=0;i<renderers.length;i+=3){
-    const m=add('merge',x,y,{mode:'source-over'});wire(below,'image',m,'a');
+    const m=add('merge',x,y,{mode:'source-over'});if(below)wire(below,'image',m,'a');
     renderers.slice(i,i+3).forEach((r,k)=>{const port='bcd'[k];m.props[port]=r.opacity;wire(r.n,'shape',m,port);});
     below=m;x+=220;y+=60;
   }

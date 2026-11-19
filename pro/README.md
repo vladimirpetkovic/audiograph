@@ -268,7 +268,7 @@ process the finished image.
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
   F toggles fullscreen.
-- **Templates**: **User templates** (Save → Save as template, kept in the browser) and the **Audiograph presets** (the originals plus saved scenes in `scenes.js`: **Cloned**, **Doppler**, **Cell**, **Eternity**, **Firepit**, **Scene** and **Globe**; a saved scene replaces the original preset of the same name, and Sacred circle, Spiral planes and Organica are retired from the menu and the Template morph list but still load in old projects). The **×** next to a user template deletes it (after a confirm).
+- **Templates**: **User templates** (Save → Save as template, kept in the browser) and the **Audiograph presets** (the originals plus saved scenes in `scenes.js`: **Cloned**, **Doppler**, **Cell**, **Eternity**, **Firepit**, **Fractal** and **Globe**; a saved scene replaces the original preset of the same name, and Sacred circle, Spiral planes and Organica are retired from the menu and the Template morph list but still load in old projects). The **×** next to a user template deletes it (after a confirm). All presets sit on plain black (no Background node).
 - **Save**: Save scene writes an .ag file wherever you choose (⌘S); Save as template (⇧⌘S) adds a User template.
 - **Tips stay hidden**: node descriptions and help notes sit behind the **?** in
   the inspector header (and the graph toolbar); click it to show them. The choice is
