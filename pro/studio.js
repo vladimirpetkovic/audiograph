@@ -23,7 +23,7 @@ import {SCENES} from './scenes.js';
 import {Pilot,Generator,SCENES as AP_SCENES,features,durFor,readVibe,vibeText,nameOf,recolor as recolorLook,ROLE_OP,MIN_GAP,isSim,smoother,richRamp} from './pilot.js';
 import {ORIGINAL_PRESETS} from './templates.js';
 import earcut from './vendor/earcut.js';
-import {TemplateMorph,TEMPLATE_NAMES} from './morph.js';
+import {TemplateMorph,TEMPLATE_NAMES,RETIRED} from './morph.js';
 import {createTour,startScene} from './tour.js';
 
 const $=id=>document.getElementById(id),el=ui.el;
@@ -2021,8 +2021,9 @@ function presetGraph(P){
   const out=add('output',x,80);wire(below,'image',out,'image');
   return [g];
 }
-for(const P of ORIGINAL_PRESETS)TEMPLATES[P.name]=()=>presetGraph(P);
-const ORIGINAL_NAMES=[...SCENES.map(([name])=>name),...ORIGINAL_PRESETS.map(P=>P.name)];
+// Saved scenes replace the converted preset of the same name; RETIRED presets stay loadable (old projects) but are not offered.
+for(const P of ORIGINAL_PRESETS)if(!Object.hasOwn(TEMPLATES,P.name))TEMPLATES[P.name]=()=>presetGraph(P);
+const ORIGINAL_NAMES=[...SCENES.map(([name])=>name),...ORIGINAL_PRESETS.map(P=>P.name).filter(n=>!RETIRED.has(n)&&!SCENES.some(([s])=>s===n))];
 function loadTemplate(name){
   if(!Object.hasOwn(TEMPLATES,name))throw Error('Unknown template '+name);
   const layers=TEMPLATES[name]();layers.forEach((g,i)=>{if(i===0)g.blend='source-over';});
@@ -3650,7 +3651,7 @@ window.pro={
     start:tmStart,stop:()=>{tm.playing=false;tmStatus();},scrub:v=>{tm.playing=false;tm.scrub(v);return tmSetPair();},apply:()=>attempt(tmApply),
     status:()=>({...tm.pair(),playing:tm.playing,position:tm.position,node:tmNode})},
   pause:v=>setPaused(v===undefined?!paused:!!v),
-  getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES),
+  getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES).filter(n=>!RETIRED.has(n)),
   select:id=>{selected=id;multi.clear();renderUI();},selectNodes:ids=>setSelection(ids),selection:()=>selIds(),copy:()=>copySel(),paste:(x,y)=>pasteNodes(clip,x,y),saveCustom:n=>saveCustom(n),customNodes:()=>customNodes(),removeCustom:n=>removeCustom(n),selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
   stats:()=>({frame,paused,active,mapRes:mapLoad.res,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),

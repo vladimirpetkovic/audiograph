@@ -1,6 +1,7 @@
 import {ORIGINAL_PRESETS} from './templates.js';
 
-export const TEMPLATE_NAMES=ORIGINAL_PRESETS.map(p=>p.name);
+export const RETIRED=new Set(['Sacred circle','Spiral planes']);
+export const TEMPLATE_NAMES=ORIGINAL_PRESETS.map(p=>p.name).filter(n=>!RETIRED.has(n));
 export const TEMPLATE_BY_NAME=new Map(ORIGINAL_PRESETS.map(p=>[p.name,p]));
 
 export class TemplateMorph{
