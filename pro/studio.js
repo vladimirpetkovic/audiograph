@@ -2499,12 +2499,19 @@ function deleteTemplate(name){
   try{localStorage.setItem(USER_KEY,JSON.stringify(all));}catch(e){return message('Could not delete: '+e.message,true);}
   fillTemplates();message(`Deleted template ${name}`);
 }
-const openTemplates=()=>{const m=$('templateMenu');m.hidden=false;m.style.maxHeight=Math.max(160,innerHeight-$('templates').getBoundingClientRect().bottom-12)+'px';$('templates').setAttribute('aria-expanded','true');};
+// The menu is fixed to the viewport and opens up or down, whichever has more room between the top bar and the footer, so it always fits.
+const openTemplates=()=>{const m=$('templateMenu'),b=$('templates').getBoundingClientRect(),gap=6;
+  const top=(document.querySelector('.topbar')?.getBoundingClientRect().bottom??0)+gap,bottom=(document.querySelector('footer')?.getBoundingClientRect().top??innerHeight)-gap;
+  const below=bottom-b.bottom-gap,above=b.top-gap-top,down=below>=above||below>=320;m.hidden=false;
+  // Rects are screen pixels; the body is zoomed (uiZ), so styles take them divided by the zoom.
+  const z=uiZ(),px=v=>v/z+'px';
+  Object.assign(m.style,{position:'fixed',right:px(Math.max(gap,innerWidth-b.right)),maxHeight:px(Math.max(80,down?below:above)),top:down?px(b.bottom+gap):'auto',bottom:down?'auto':px(innerHeight-b.top+gap)});$('templates').setAttribute('aria-expanded','true');};
 function closeTemplates(){$('templateMenu').hidden=true;$('templates').setAttribute('aria-expanded','false');}
 fillTemplates();
 $('templates').onclick=()=>$('templateMenu').hidden?openTemplates():closeTemplates();
 document.addEventListener('pointerdown',e=>{if(!$('templateMenu').hidden&&!e.target.closest('.tpl-dd'))closeTemplates();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('templateMenu').hidden)closeTemplates();});
+addEventListener('resize',()=>{if(!$('templateMenu').hidden)closeTemplates();});
 function saveTemplate(){
   const all=userTemplates(),name=prompt('Template name',state.layers[0]?.name||'My template')?.trim();if(!name)return;
   if(all[name]&&!confirm(`Replace the template “${name}”?`))return;
