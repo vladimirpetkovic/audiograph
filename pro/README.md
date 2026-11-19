@@ -67,6 +67,14 @@ each with its own opacity and blend mode (up to four).
   (**Field**) or a rippling side-on mesh (**Surface**). Wavelength, Speed, Fade, Rings and Rain
   shape the water. Water starts with short ticks (Height 10); Line style › Angle turns them and
   Outline echoes each ring (or each Surface row).
+  **Tech Lines** draws one straight-line path (only 0°, 45° and 90° runs) that turns with the sound
+  and never crosses itself, with its pixel X / Y written at every corner. **Turn on** picks the
+  trigger (beats, bass, mids, highs or level); **Sound turns** is the chance a hit turns it,
+  **Random turns** adds turns of its own and **Min run** keeps runs long. **Hug** makes turns run
+  alongside earlier lines, so paths nest like insets. After **Turns per shape** it routes home,
+  closes, fills solid, flashes (**Flashes**), holds (**Hold**) and starts a new shape. **HUD** shows
+  the status, position, points, turns and length; **Gallery** keeps the finished shapes beside it.
+  It draws white (or **Color**): wire a Palette after it for colour.
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain, **3D text** (your words
   extruded from the letters' outlines, smooth curves and crisp corners, with Font and Depth) and **3D model** (your

@@ -202,6 +202,15 @@ export const TYPES = {
     inputs:{audio:'audio',drive:'number'},outputs:{image:'image'},props:{
     from:pick('From',TEMPLATE_NAMES[0],TEMPLATE_NAMES,{noPort:true}),to:pick('To',TEMPLATE_NAMES[1],TEMPLATE_NAMES,{noPort:true}),
     mix:n('Morph',0,0,100,1,{unit:'%'})}},
+  techLines:{category:'waveforms',group:'2D',label:'Tech Lines',description:'One straight-line path (0°, 45° and 90° runs) that turns with the sound and never crosses itself, with pixel coordinates at every corner. After its turns it closes, fills solid, flashes and starts a new shape. White: wire a Palette after it for colour.',
+    inputs:{audio:'audio'},outputs:{image:'image'},props:{
+    react:G('Sound',pick('Turn on','beat',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),
+    sens:G('Sound',n('Sound turns',70,0,100,1,{unit:'%'})),wander:G('Sound',n('Random turns',10,0,100,1,{unit:'%'})),
+    speed:G('Sound',n('Speed',24,1,120,1)),boost:G('Sound',n('Speed with sound',50,0,200,1,{unit:'%'})),
+    minRun:G('Shape',n('Min run',3,1,20,1)),hug:G('Shape',n('Hug',60,0,100,1,{unit:'%'})),turns:G('Shape',n('Turns per shape',36,6,200,1)),grid:G('Shape',n('Grid',16,6,60,1)),
+    size:G('Shape',n('Size',80,20,100,1,{unit:'%'})),area:G('Shape',pick('Area','square',['square','frame'],{labels:[['square','Square'],['frame','Whole frame']]})),
+    chamfer:G('Shape',n('Chamfer',60,0,100,1,{unit:'%'})),hold:G('Shape',n('Hold',1.5,0,10,.1,{unit:'s'})),flash:G('Shape',n('Flashes',3,0,8,1)),
+    line:G('Look',n('Line',1.5,.5,8,.5)),labels:G('Look',n('Labels',10,0,30,1)),hud:G('Look',bool('HUD',true)),gallery:G('Look',bool('Gallery',true)),color:G('Look',color('Color','#ffffff'))}},
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads an OBJ, FBX, GLB or glTF; animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
