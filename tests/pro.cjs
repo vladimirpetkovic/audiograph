@@ -149,7 +149,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.equal(await page.locator('.library-node[data-mode]').count(),31,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
     assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','3D','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite','AI'],'Library categories, Inputs first');
     assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','Gaussian Splat','Computer','Clock','Mouse & keys','Live data','MIDI'],'Inputs');
-    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','2D','Particles','WebGPU particles','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
+    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','Classic','Organic','Math','Tech','Media','Particles','WebGPU particles','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
     assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
 
     // 2. Emitter inspector exposes the original's own options; a preset chip changes knobs and survives undo/redo.
@@ -879,6 +879,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
            :L([w],[A,{from:'w',out:'shape',to:'out',input:'image'}]));await new Promise(r=>setTimeout(r,1200));let s=0;for(let i=0;i<3;i++){pro.draw();s+=pro.pixels();}return s/3;};
        return [await lum({}),await lum({compOpacity:10}),await lum({},true),await lum({compBlend:'screen'},true),pro.stats().errors.length];});
       assert.ok(c[1]<c[0]*.5&&c[3]>254&&c[3]>c[2]+1&&!c[4],'Emitter Compositing: opacity and blend apply: '+c.map(x=>x.toFixed?.(2)??x));}
+     // Strange Attractor: every system lights up, keeps moving and stays finite (morph, kick and spin on).
+     {const r=await page.evaluate(async()=>{const out=[];for(const system of ['lorenz','aizawa','thomas','halvorsen','dadras','rossler']){
+       pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'t',type:'attractor',x:300,y:0,props:{system,count:800,kick:100,morph:100}},{id:'out',type:'output',x:900,y:0,props:{}}],edges:[{from:'a',out:'audio',to:'t',input:'audio'},{from:'t',out:'image',to:'out',input:'image'}]}]});
+       await new Promise(r=>setTimeout(r,900));pro.draw();const a=pro.pixels();for(let i=0;i<20;i++)pro.draw();out.push([system,a,pro.pixels(),pro.stats().errors.length]);}return out;});
+      assert.ok(r.every(([,a,b,e])=>a>.3&&b>.3&&Number.isFinite(b)&&!e),'Strange Attractor draws every system: '+JSON.stringify(r));}
     // Cloner Scale: uniform and per axis, on top of the object's own size and stretch.
     {const lit=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<d.length;i+=16)if(d[i]+d[i+1]+d[i+2]>30)n++;return n;});
      const run=async props=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'cube',render:'normal'}},{id:'c',type:'cloner',x:300,y:0,props:{countX:3,countY:3,countZ:1,...props}}],[{from:'a',out:'audio',to:'c',input:'audio'},{from:'o',out:'object',to:'c',input:'object'},{from:'c',out:'shape',to:'out',input:'image'}]));

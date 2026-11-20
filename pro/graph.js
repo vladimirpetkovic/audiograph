@@ -1,5 +1,6 @@
 // Audiograph Pro graph model: categorized node catalog, typed ports, validation and migration.
 // Emitter modes by node type: each is one of the original Audiograph renderers.
+import {ATTRACTOR_LIST} from './attractors.js';
 import {cleanMapping} from './mapping.js';
 import {SHADER_EXAMPLES,SHADER_DEFAULT,parseKnobs,knobDefault} from './shaderfx.js';
 import {TEMPLATE_NAMES} from './morph.js';
@@ -10,6 +11,8 @@ export const MODES = {
   gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand']]
 };
 // Retired modes: still load and render in old scenes, but are no longer offered.
+// Library groups for each waveform mode (Waveforms lists every mode as its own entry).
+export const MODE_GROUPS={waveform2d:{linear:'Classic',circle:'Classic',concentric:'Classic',spiral:'Classic',sine:'Classic',phyllotaxis:'Organic',growth:'Organic',water:'Organic',scatter:'Organic',fractal:'Math',sacred:'Math',lissajous:'Math',custom:'Math',graph:'Tech'}};
 export const HIDDEN_MODES=new Set(['lissajous']);
 export const emitterNames = {...Object.fromEntries(Object.values(MODES).flat()),simcloner:'Cloner'};
 
@@ -197,16 +200,25 @@ export const TYPES = {
   plainText:{category:'inputs',group:'Media',label:'Text',description:'Your words as plain letters: a picture for effects, masks or GPU Particles emit. Wire audio in and Bounce scales them with the sound.',inputs:{audio:'audio',mask:'visual'},
     outputs:{image:'image'},props:{text:text('Text','SOUND'),font:pick('Font','Impact',TEXT_FONTS),
       weight:pick('Weight','900',['400','700','900'],{labels:[['400','Regular'],['700','Bold'],['900','Black']]}),color:color('Color','#ffffff'),bounce:n('Bounce',0,0,100,1),...MASK_PROPS}},
-  text:ENGINE('waveforms','Text EQ','Your words drawn as audio-reactive lines.',{text:text('Text','SOUND')}),
-  imageEQ:ENGINE('waveforms','Image EQ','A picture drawn as audio-reactive lines (the original Image layout). Load the image in its properties.',{}),
-  videoEQ:ENGINE('waveforms','Video EQ','A video drawn as audio-reactive lines (the original Video layout). Load the video in its properties.',{}),
+  text:ENGINE('waveforms','Text EQ','Your words drawn as audio-reactive lines.',{text:text('Text','SOUND')},{},'Media'),
+  imageEQ:ENGINE('waveforms','Image EQ','A picture drawn as audio-reactive lines (the original Image layout). Load the image in its properties.',{},{},'Media'),
+  videoEQ:ENGINE('waveforms','Video EQ','A video drawn as audio-reactive lines (the original Video layout). Load the video in its properties.',{},{},'Media'),
   splat:ENGINE('inputs','Gaussian Splat','A .ply / .splat point cloud that reacts to the sound (a demo cloud until you load one).',{}),
   // Waveforms and Emitters (particles)
   templateMorph:{category:'composite',group:'Templates',label:'Preset Morph',engine:true,description:'Blend original Audiograph templates: matching layouts interpolate; different layouts crossfade. Audio drives the full stack; its finished image feeds palettes, post effects and Output.',
     inputs:{audio:'audio',drive:'number'},outputs:{image:'image'},props:{
     from:pick('From',TEMPLATE_NAMES[0],TEMPLATE_NAMES,{noPort:true}),to:pick('To',TEMPLATE_NAMES[1],TEMPLATE_NAMES,{noPort:true}),
     mix:n('Morph',0,0,100,1,{unit:'%'}),...COMP_PROPS}},
-  techLines:{category:'waveforms',group:'2D',label:'Tech Lines',description:'A straight-line path (0°, 45° and 90° runs) with pixel coordinates at every corner. Every sound hit turns it (a crosshair marks the turn) and loudness sets its speed; the HUD meter shows what it listens to. It never crosses itself, closes into a solid shape that stays, and the next shape grows in the empty space. When the area is full they all flash and it starts over. White: wire a Palette after it for colour.',
+  attractor:{category:'waveforms',group:'Math',label:'Strange Attractor',description:'Thousands of points flowing through a chaotic 3D system (Lorenz, Aizawa, Thomas, Halvorsen, Dadras, Rössler), drawn as glowing trails. A band of the sound morphs the equations (the HUD prints them live), loudness speeds the flow and spin, each beat kicks the points outward and the attractor pulls them back. Probes follow single points with their x, y, z. White: wire a Palette after it for colour.',
+    inputs:{audio:'audio'},outputs:{image:'image'},props:{
+    system:pick('System','lorenz',ATTRACTOR_LIST.map(a=>a[0]),{labels:ATTRACTOR_LIST}),
+    react:G('Sound',pick('Morph from','bass',['bass','mids','high','full'],{labels:[['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),
+    morph:G('Sound',n('Morph',60,0,100,1,{unit:'%'})),speed:G('Sound',n('Flow',40,1,200,1)),boost:G('Sound',n('Flow from loudness',100,0,200,1,{unit:'%'})),
+    kick:G('Sound',n('Beat kick',30,0,100,1,{unit:'%'})),spin:G('Sound',n('Spin',8,-90,90,1,{unit:'°/s'})),spinBoost:G('Sound',n('Spin from loudness',50,0,200,1,{unit:'%'})),
+    count:G('Form',n('Particles',2000,100,8000,100)),size:G('Form',n('Size',80,10,150,1,{unit:'%'})),tilt:G('Form',n('Tilt',15,-90,90,1,{unit:'°'})),depth:G('Form',n('Perspective',40,0,100,1,{unit:'%'})),
+    trail:G('Look',n('Trail',60,0,100,1,{unit:'%'})),line:G('Look',n('Line',1,.5,4,.5)),glow:G('Look',n('Brightness',60,5,100,1,{unit:'%'})),
+    probes:G('Look',n('Probes',2,0,6,1)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+  techLines:{category:'waveforms',group:'Tech',label:'Tech Lines',description:'A straight-line path (0°, 45° and 90° runs) with pixel coordinates at every corner. Every sound hit turns it (a crosshair marks the turn) and loudness sets its speed; the HUD meter shows what it listens to. It never crosses itself, closes into a solid shape that stays, and the next shape grows in the empty space. When the area is full they all flash and it starts over. White: wire a Palette after it for colour.',
     inputs:{audio:'audio'},outputs:{image:'image'},props:{
     react:G('Sound',pick('Turn on','beat',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass hits'],['mids','Mids hits'],['high','Highs hits'],['full','Level hits']]})),
     sens:G('Sound',n('Turn chance',100,0,100,1,{unit:'%'})),thresh:G('Sound',n('Hit sensitivity',60,0,100,1,{unit:'%'})),

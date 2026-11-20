@@ -42,7 +42,7 @@ each with its own opacity and blend mode (up to four).
   - **Text**: plain letters (font, weight, colour; **Bounce** scales them with wired audio). It
     outputs an `image`, so it can feed effects, masks or **WebGPU particles → emit**.
   - **Gaussian Splat** (.ply / .splat, demo cloud by default).
-- **Compositing**: the last section of every generator (and Tech Lines, Template Morph) sets
+- **Compositing**: the last section of every generator (and Tech Lines, Strange Attractor, Template Morph) sets
   **Opacity** and **Blend** (Normal, Screen, Add, Multiply, Difference, Overlay). The blend
   travels with the picture through Palette, Post FX and other nodes: in a **Merge** it decides how
   that input sits over the earlier ones, and at the Output it blends the layer over the layers
@@ -65,8 +65,10 @@ each with its own opacity and blend mode (up to four).
     - **Mouse & keys**: x, y, speed, click, held, keys (typing rate), scroll.
     - **Live data**: the ISS orbit, space weather (NOAA), ocean swell and weather (Open-Meteo, for a city or your location), earthquakes (USGS) or Wikipedia edits. Every source gives the same smooth level, change, pulse (events: a quake, a wave crest, the ISS entering sunlight) and phase, plus a palette made from the data; wire it into a Palette's **colors** to let the data pick the colours. Glide smooths slow feeds; Auto range stretches small swings. Offline it keeps moving on a simulated stream.
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
-- **Waveforms**: **Text EQ**, **Image EQ** and **Video EQ** draw your words, a picture or a video as
-  audio-reactive lines (the original layouts; load the picture or video in the node). **2D** (Linear, Circle, Spiral, Sacred, Water, Math…). **Water** drops a stone
+- **Waveforms**, grouped in the library: **Classic** (Linear, Circle, Concentric, Spiral, Sine),
+  **Organic** (Phyllotaxis, Growth, Water, Scatter), **Math** (Strange Attractor, Fractal, Sacred,
+  Math), **Tech** (Tech Lines, Graph) and **Media**: **Text EQ**, **Image EQ** and **Video EQ** draw
+  your words, a picture or a video as audio-reactive lines (load the picture or video in the node). **Water** drops a stone
   on every beat (anywhere, or always in the centre) and the high frequencies add rain; see the
   rings as audio lines riding the crests (**Rings**), a grid of lines pushed by the water
   (**Field**) or a rippling side-on mesh (**Surface**). Wavelength, Speed, Fade, Rings and Rain
@@ -84,6 +86,14 @@ each with its own opacity and blend mode (up to four).
   **Gap** keeps them apart). When **Fill until** of the area is covered, they all flash
   (**Flashes**), hold (**Hold**) and it starts over. It draws white (or **Color**): wire a Palette
   after it for colour.
+  **Strange Attractor** flows thousands of points (**Particles**) through a chaotic 3D system
+  (**System**: Lorenz, Aizawa, Thomas, Halvorsen, Dadras or Rössler, solved with RK4), each with a
+  glowing tail (**Trail**) that stays sharp while the view spins. How it hears the sound: the
+  **Morph from** band bends the system's parameters toward a wilder set (**Morph**; the HUD prints
+  the live equations and values), loudness speeds the flow (**Flow from loudness**) and the spin
+  (**Spin from loudness**), and every beat kicks the points outward (**Beat kick**) before the
+  attractor pulls them back. **Probes** follow single points with a crosshair and their x, y, z;
+  **Tilt**, **Perspective** and **Size** frame it. It draws white (or **Color**): wire a Palette after it.
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain, **3D text** (your words
   extruded from the letters' outlines, smooth curves and crisp corners, with Font and Depth) and **3D model** (your

@@ -109,7 +109,7 @@ export function createTour(api){
   // keep the nearest spot that stays clear of it (or, for a highlight too big to avoid, the one covering least).
   function placeCard(R,vw,vh,narrow){
     const cs=els.card.style,m=8,gap=12,cw=narrow?vw-2*m:Math.min(340,vw-2*m);
-    cs.width=cw+'px';cs.right='auto';cs.bottom='auto';
+    cs.width=cw+'px';cs.right='auto';cs.bottom='auto';cs.maxHeight='';cs.overflowY='';
     const ch=els.card.getBoundingClientRect().height/api.zoom();
     const cx=(R.l+R.r)/2,cy=(R.t+R.b)/2,clampX=x=>Math.max(m,Math.min(vw-m-cw,x)),clampY=y=>Math.max(m,Math.min(vh-m-ch,y));
     const spots=narrow?[[m,R.b+gap],[m,R.t-gap-ch],[m,54],[m,vh-34-ch]]:
@@ -129,6 +129,9 @@ export function createTour(api){
       if(w>=220){cs.width=w+'px';const h=els.card.getBoundingClientRect().height/api.zoom();
         if(h<=vh-2*m){cs.left=(side[1]===m?R.l-gap-w:side[1])+'px';cs.top=Math.max(m,Math.min(vh-m-h,cy-h/2))+'px';return;}
         cs.width=cw+'px';}
+      // Or a shorter card that scrolls, in the larger free band above or below it.
+      const up=R.t-gap-m,down=vh-m-R.b-gap,room=Math.max(up,down);
+      if(room>=110){cs.maxHeight=room+'px';cs.overflowY='auto';cs.left=clampX(cx-cw/2)+'px';cs.top=(up>=down?m:R.b+gap)+'px';return;}
     }
     cs.left=best.x+'px';cs.top=best.y+'px';
   }

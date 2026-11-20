@@ -8,7 +8,8 @@ import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
 import {shaderInto,checkShader,dropShaderState,releaseShaders,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,WARP_TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
-import {cleanView,spinProps,WATER_HEIGHT,midiKnob,COMP_KEYS} from './graph.js';
+import {cleanView,spinProps,WATER_HEIGHT,midiKnob,COMP_KEYS,MODE_GROUPS} from './graph.js';
+import {ATTRACTORS,attractorParams,rk4,seedAttractor} from './attractors.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as map3d from './map3d.js';
@@ -620,6 +621,67 @@ function techLines(id,p,sig,dt){
     const mx=L+ctx.measureText('SIGNAL: '+lab).width+6*k;ctx.lineWidth=k;ctx.strokeRect(mx,my+1*k,mw,sz*.8);ctx.fillRect(mx,my+1*k,mw*Math.min(1,s.meter),sz*.8);}
   return canvas;
 }
+// Strange Attractor (Waveforms · Math): thousands of points flowing through a chaotic 3D system (RK4), drawn as
+// glowing trails. A band of the sound morphs the system's parameters (the HUD prints the live equations), loudness
+// speeds the flow and the spin, and each beat kicks the points outward before the attractor pulls them back.
+function strangeAttractor(id,p,sig,dt){
+  const {canvas,ctx}=surface(id),k=HEIGHT/1080,sys=ATTRACTORS[p.system]||ATTRACTORS.lorenz,N=Math.max(50,Math.round(p.count)),full=sig.bands?.full??0;
+  const s=nstate(id,()=>({key:'',beat:sig.beat,m:0,ang:0,kick:0,meter:0,t:0,steps:0,c:null,r:1,vref:0}));
+  const lvl=sig.bands?.[p.react]??0;s.meter=Math.max(lvl,s.meter-dt*2);
+  s.m+=(Math.min(1,lvl*1.6)*p.morph/100-s.m)*Math.min(1,dt*3);
+  const prm=attractorParams(sys,s.m),key=p.system+'|'+N;
+  if(s.key!==key){s.key=key;s.P=seedAttractor(sys,prm,N);s.X=new Float32Array(N*2);s.V=new Float32Array(N);s.c=null;s.Hn=0;}
+  // Tails: each point keeps its last positions in 3D, re-projected every frame so they stay sharp while the view turns.
+  const Hn=Math.max(2,Math.round(2+p.trail/100*30));
+  if(s.Hn!==Hn||s.hist?.length!==N*Hn*3){s.Hn=Hn;s.hist=new Float32Array(N*Hn*3);for(let h=0;h<Hn;h++)s.hist.set(s.P,h*N*3);s.head=0;}
+  const P=s.P,X=s.X,V=s.V,H=s.hist;
+  // Fit: the centre and the radius holding most points, eased so morphs and kicks don't jolt the frame.
+  if(!s.c||s.steps%8===0){const m=[0,0,0],step=Math.max(1,Math.floor(N/300));let n=0;
+    for(let i=0;i<N;i+=step){m[0]+=P[i*3];m[1]+=P[i*3+1];m[2]+=P[i*3+2];n++;}m[0]/=n;m[1]/=n;m[2]/=n;
+    const d=[];for(let i=0;i<N;i+=step)d.push(Math.hypot(P[i*3]-m[0],P[i*3+1]-m[1],P[i*3+2]-m[2]));d.sort((a,b)=>a-b);const r=d[Math.floor(d.length*.96)]||1;
+    if(!s.c){s.c=m;s.r=r;}else{const e=Math.min(1,dt*1.5*8);for(let c=0;c<3;c++)s.c[c]+=(m[c]-s.c[c])*e;s.r+=(r-s.r)*e;}}
+  if(sig.beat!==s.beat){s.beat=sig.beat;if(p.kick>0){s.kick=1;const push=p.kick/100*.25*s.r;
+    for(let i=0;i<N;i++){const j=i*3,dx=P[j]-s.c[0],dy=P[j+1]-s.c[1],dz=P[j+2]-s.c[2],l=Math.hypot(dx,dy,dz)||1,a=push*Math.random()/l;P[j]+=dx*a;P[j+1]+=dy*a;P[j+2]+=dz*a;}}}
+  s.kick=Math.max(0,s.kick-dt*3);
+  // Flow: the system's own time step, sped up by Flow and loudness, in a few stable RK4 substeps.
+  const span=dt*30*sys.dt*2.5*p.speed/40*(.3+p.boost/100*Math.min(1.5,full*2.5)),sub=Math.max(1,Math.min(8,Math.ceil(span/(sys.dt*2.5)))),h=span/sub;
+  s.head=(s.head+1)%Hn;const hb=s.head*N*3;
+  for(let i=0;i<N;i++){const j=i*3;let v=0;for(let q=0;q<sub;q++)v=rk4(sys,prm,P,j,h);
+    if(!(Math.abs(P[j])+Math.abs(P[j+1])+Math.abs(P[j+2])<1e4)){const o=((i+1+Math.floor(Math.random()*(N-1)))%N)*3;P[j]=P[o];P[j+1]=P[o+1];P[j+2]=P[o+2];for(let a=0;a<Hn;a++)H.set(P.subarray(j,j+3),a*N*3+j);}
+    V[i]=Math.sqrt(v);H[hb+j]=P[j];H[hb+j+1]=P[j+1];H[hb+j+2]=P[j+2];}
+  s.steps+=sub;s.t+=dt;
+  // View: spin about the vertical axis (loudness adds spin), then tilt, with a touch of perspective.
+  s.ang+=dt*(p.spin+p.spinBoost/100*full*60)*Math.PI/180;
+  const ca=Math.cos(s.ang),sa=Math.sin(s.ang),tl=p.tilt*Math.PI/180,ct=Math.cos(tl),st=Math.sin(tl),S=HEIGHT*p.size/100/2/(s.r*1.15),pers=p.depth/100*.45;
+  const Q=s.Q?.length===N*Hn*2?s.Q:(s.Q=new Float32Array(N*Hn*2)),cx=s.c[0],cy=s.c[1],cz=s.c[2],W2=WIDTH/2,H2=HEIGHT/2;
+  for(let a=0,o=0;a<N*Hn*3;a+=3,o+=2){const x=H[a]-cx,y=H[a+1]-cy,z=H[a+2]-cz,b=x*sa+y*ca,yy=b*ct-z*st,zz=b*st+z*ct,f=1/(1+yy/s.r*pers);Q[o]=W2+(x*ca-y*sa)*S*f;Q[o+1]=H2-zz*S*f;}
+  for(let i=0;i<N;i++){X[i*2]=Q[(s.head*N+i)*2];X[i*2+1]=Q[(s.head*N+i)*2+1];}
+  // Tails taper with age (newest brightest); additive, so dense parts of the attractor glow.
+  const B=5,glow=p.glow/100*(1+s.kick*.6),jump=HEIGHT*.25;ctx.globalCompositeOperation='lighter';ctx.strokeStyle=p.color||'#ffffff';ctx.lineWidth=Math.max(.5,p.line*k);ctx.lineCap='round';
+  for(let b=0;b<B;b++){const path=new Path2D(),a0=Math.floor(b*(Hn-1)/B),a1=Math.floor((b+1)*(Hn-1)/B);if(a1<=a0)continue;
+    for(let a=a0;a<a1;a++){const n0=((s.head-a+Hn)%Hn)*N*2,n1=((s.head-a-1+Hn)%Hn)*N*2;
+      for(let i=0;i<N;i++){const x0=Q[n0+i*2],y0=Q[n0+i*2+1],x1=Q[n1+i*2],y1=Q[n1+i*2+1];if(Math.abs(x1-x0)+Math.abs(y1-y0)>jump)continue;path.moveTo(x0,y0);path.lineTo(x1,y1);}}
+    ctx.globalAlpha=Math.min(1,glow*Math.pow(1-b/B,1.4));ctx.stroke(path);}
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+  const col=p.color||'#ffffff',font=sz=>`600 ${sz}px "Helvetica Neue", Arial, sans-serif`,lw=Math.max(.5,k);ctx.fillStyle=col;ctx.strokeStyle=col;ctx.lineWidth=lw;
+  // Probes: a few points followed with a crosshair and their live x, y, z.
+  for(let n=0;n<Math.min(6,p.probes|0);n++){const i=Math.floor(n*N/Math.max(1,p.probes|0)),j=i*3,x=X[i*2],y=X[i*2+1],r=9*k,sz=11*k;
+    if(x<0||y<0||x>WIDTH||y>HEIGHT)continue;ctx.globalAlpha=.9;ctx.strokeRect(x-r,y-r,r*2,r*2);ctx.beginPath();ctx.moveTo(x-r*1.8,y);ctx.lineTo(x-r,y);ctx.moveTo(x+r,y);ctx.lineTo(x+r*1.8,y);ctx.moveTo(x,y-r*1.8);ctx.lineTo(x,y-r);ctx.moveTo(x,y+r);ctx.lineTo(x,y+r*1.8);
+    ctx.moveTo(x+r,y-r);ctx.lineTo(x+r*3,y-r*3);ctx.lineTo(x+r*3+60*k,y-r*3);ctx.stroke();ctx.font=font(sz);ctx.textAlign='left';const t2=`${P[j].toFixed(2)}, ${P[j+1].toFixed(2)}, ${P[j+2].toFixed(2)}`;
+    
+    ctx.textBaseline='bottom';ctx.fillText('P'+String(i).padStart(4,'0'),x+r*3,y-r*3-2*k);ctx.textBaseline='top';ctx.fillText(t2,x+r*3,y-r*3+3*k);}
+  ctx.globalAlpha=1;
+  if(p.hud){const sz=12*k,m=40*k,lh=sz*1.35,pad=(v,w)=>String(Math.round(v)).padStart(w,'0');ctx.font=font(sz);ctx.textBaseline='top';
+    ctx.textAlign='left';const eq=sys.eq(prm);[`SYSTEM: ${sys.label.toUpperCase()} ATTRACTOR`,'',...eq,'',sys.names.map((nm,i)=>nm+' '+prm[i].toFixed(3)).join('   ')].forEach((l,i)=>ctx.fillText(l,m,m+i*lh));
+    ctx.textAlign='right';[`PARTICLES: ${pad(N,5)}`,`Δt: ${(h||sys.dt).toFixed(4)} · RK4 × ${sub}`,`STEPS: ${pad(s.steps,8)}`,`T: ${s.t.toFixed(2).padStart(8,'0')}`].forEach((l,i)=>ctx.fillText(l,WIDTH-m,m+i*lh));
+    // Bottom left: what morphs it, with a meter; bottom right: the view's axes.
+    const lab=({bass:'BASS',mids:'MIDS',high:'HIGHS',full:'LEVEL'})[p.react]||'',y=HEIGHT-m-sz*2.4;ctx.textAlign='left';ctx.fillText('MORPH: '+lab,m,y);
+    const mx=m+ctx.measureText('MORPH: '+lab).width+6*k,mw=70*k;ctx.strokeRect(mx,y+1*k,mw,sz*.8);ctx.fillRect(mx,y+1*k,mw*Math.min(1,s.meter),sz*.8);
+    ctx.fillText(`MIX: ${pad(s.m*100,3)}%   KICK: ${s.kick>.5?'■':'□'}`,m,y+lh);
+    const gx=WIDTH-m-40*k,gy=HEIGHT-m-40*k,L=32*k;ctx.textAlign='center';ctx.textBaseline='middle';
+    for(const [nm,x,y,z] of [['X',1,0,0],['Y',0,1,0],['Z',0,0,1]]){const a=x*ca-y*sa,b=x*sa+y*ca,zz=b*st+z*ct;ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(gx+a*L,gy-zz*L);ctx.stroke();ctx.fillText(nm,gx+a*L*1.3,gy-zz*L*1.3);}}
+  return canvas;
+}
 // Lattice vertices to pixels, with 90° (and sharper) corners cut by a chamfer of `ch` grid steps.
 function tlPoints(verts,ox,oy,g,ch,closed){
   const P=verts.map(([i,j])=>[ox+i*g,oy+j*g]).filter((q,i,a)=>!i||q[0]!==a[i-1][0]||q[1]!==a[i-1][1]);
@@ -875,6 +937,9 @@ function execute(g,time,dt){
         else{r.brightness=0;r.motion=0;}
         r.image=canvas;break;}
       case 'plainText':r.image=plainText(n.id,p,input(n,'audio')??SILENT);break;
+      case 'attractor':{const c=strangeAttractor(n.id,p,input(n,'audio')??projectSignal(),dt),o=(p.compOpacity??100)/100;
+        if(o<1){const x=c.getContext('2d');x.globalCompositeOperation='destination-in';x.fillStyle=`rgba(0,0,0,${o})`;x.fillRect(0,0,WIDTH,HEIGHT);x.globalCompositeOperation='source-over';}
+        if(p.compBlend&&p.compBlend!=='source-over')blendOf.set(c,p.compBlend);r.image=c;break;}
       case 'techLines':{const c=techLines(n.id,p,input(n,'audio')??projectSignal(),dt),o=(p.compOpacity??100)/100;
         if(o<1){const x=c.getContext('2d');x.globalCompositeOperation='destination-in';x.fillStyle=`rgba(0,0,0,${o})`;x.fillRect(0,0,WIDTH,HEIGHT);x.globalCompositeOperation='source-over';}
         if(p.compBlend&&p.compBlend!=='source-over')blendOf.set(c,p.compBlend);r.image=c;break;}
@@ -1294,12 +1359,12 @@ function renderLibrary(){
 }
 const CUSTOM_COLOR='#e5e7eb';
 // Waveforms and Emitters are listed per mode: each waveform / simulation is its own library entry.
-const GROUPS={inputs:['Media','Data'],waveforms:['2D'],emitters:['Particles','WebGPU particles'],'3d':['Objects','Cloner','Effectors','Look'],deformers:['Bend','Symmetry','Noise']};
+const GROUPS={inputs:['Media','Data'],waveforms:['Classic','Organic','Math','Tech','Media'],emitters:['Particles','WebGPU particles'],'3d':['Objects','Cloner','Effectors','Look'],deformers:['Bend','Symmetry','Noise']};
 function groupedItems(cat){
   const items=[];
   for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat&&!TYPES[t].retired)){
     const T=TYPES[t],group=T.group||GROUPS[cat][0];
-    if(MODES[t]){for(const [mode,label] of MODES[t])if(!HIDDEN_MODES.has(mode))items.push({type:t,props:{mode},label,group,description:`${label} · ${T.label}. ${T.description}`});}
+    if(MODES[t]){for(const [mode,label] of MODES[t])if(!HIDDEN_MODES.has(mode))items.push({type:t,props:{mode},label,group:MODE_GROUPS[t]?.[mode]||group,description:`${label} · ${T.label}. ${T.description}`});}
     else items.push({type:t,props:{},label:T.label,group,description:T.description});
   }
   return items;
