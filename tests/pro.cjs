@@ -924,6 +924,16 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
        const L=pro.getProject().layers[0],t=id=>L.nodes.find(n=>n.id===id)?.type,n=L.nodes.find(n=>n.type==='attractor');
        return [marked,L.nodes.length,!!t('w'),n?.props.system,n?.x,L.edges.map(e=>t(e.from)+'.'+e.out+'>'+t(e.to)+'.'+e.input).sort().join(' ')];});
       assert.deepEqual(r,[true,4,false,'aizawa',220,'attractor.image>palette.shape audioIn.audio>attractor.audio palette.shape>output.image'],'Dropping a node onto a node replaces it and keeps the wires');}
+     // A node dragged across the graph onto another replaces it (where it fits); onto one it can't take over, it just moves.
+     {const proj={format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'w',type:'waveform2d',x:220,y:0,props:{mode:'spiral'}},{id:'p',type:'palette',x:440,y:0,props:{}},{id:'out',type:'output',x:660,y:0,props:{}},{id:'t',type:'radar',x:220,y:320,props:{}}],edges:[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'}]}]};
+      const drag=async(from,onto)=>{await page.evaluate(p=>{pro.importProject(p);},proj);await page.waitForTimeout(400);await page.evaluate(()=>pro.fit?.());
+        const h=await page.locator(`#nodes .node[data-id=${from}] .node-head`).boundingBox(),b=await page.locator(`#nodes .node[data-id=${onto}]`).boundingBox();
+        await page.mouse.move(h.x+20,h.y+h.height/2);await page.mouse.down();await page.mouse.move(h.x+40,h.y+h.height/2,{steps:3});await page.mouse.move(b.x+b.width/2,b.y+b.height/2,{steps:8});
+        const marked=await page.locator(`#nodes .node[data-id=${onto}]`).evaluate(e=>e.classList.contains('replace-target'));await page.mouse.up();await page.waitForTimeout(200);
+        return [marked,...await page.evaluate(()=>{const L=pro.getProject().layers[0],t=id=>L.nodes.find(n=>n.id===id)?.type;return [L.nodes.map(n=>n.id).sort().join(),L.edges.map(e=>t(e.from)+'.'+e.out+'>'+t(e.to)+'.'+e.input).sort().join(' ')];})];};
+      assert.deepEqual(await drag('t','w'),[true,'a,out,p,t','audioIn.audio>radar.audio palette.shape>output.image radar.image>palette.shape'],'Dragging a node onto a node replaces it and keeps its wires');
+      assert.deepEqual(await drag('p','a'),[false,'a,out,p,t,w','audioIn.audio>waveform2d.audio palette.shape>output.image waveform2d.shape>palette.shape'],'A node that cannot take over the wires does not replace');
+      assert.deepEqual((await drag('t','out')).slice(0,2),[false,'a,out,p,t,w'],'The Output is never replaced');}
     // Cloner Scale: uniform and per axis, on top of the object's own size and stretch.
     {const lit=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<d.length;i+=16)if(d[i]+d[i+1]+d[i+2]>30)n++;return n;});
      const run=async props=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'cube',render:'normal'}},{id:'c',type:'cloner',x:300,y:0,props:{countX:3,countY:3,countZ:1,...props}}],[{from:'a',out:'audio',to:'c',input:'audio'},{from:'o',out:'object',to:'c',input:'object'},{from:'c',out:'shape',to:'out',input:'image'}]));

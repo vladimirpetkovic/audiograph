@@ -302,6 +302,9 @@ process the finished image.
   lights up, and on release the node is inserted between the two nodes. No need to
   aim: any wire passing under the dragged node's body (or within ~20 px of a library
   item or the Tab-search cursor) counts, and only wires whose ports fit light up.
+- **Replace**: drop a library item onto a node, or drag a node already in the graph onto another, and it
+  takes that node's place and keeps its wires (each on the matching port where it fits). The node is outlined
+  only when it applies: never the Output, and only if the newcomer can keep at least one wire. One undo.
 - **Drive any knob**: drag a number output (teal) onto a node and pick the knob.
   On an Emitter, the menu also lists that emitter's own options (e.g. Fluid
   viscosity), so audio or an LFO can drive them.

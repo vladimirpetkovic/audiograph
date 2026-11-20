@@ -1593,30 +1593,46 @@ const wireAt=(x,y,fits)=>{const p=toGraph(x,y),t=22/view.zoom;return wireNear({x
 let libDrag=null,dropWire=null;
 const dropMark=w=>{if(dropWire===w)return;dropWire?.classList.remove('wedge');dropWire=w;w?.classList.add('wedge');};
 const fitsType=type=>d=>{const g=graph();return spliceInto({...g,edges:g.edges},node(type,0,0,{}),d,true);};
-// Replace: a library node dropped onto a node takes its place and keeps its wires. Each wire goes to the port
-// of the same name when it fits, else the first free port whose type fits; wires nothing fits are dropped.
+// Replace: a node dropped onto a node (from the library, or dragged across the graph) takes its place and keeps its
+// wires. Each wire goes to the port of the same name when it fits, else the first free port whose type fits; wires
+// nothing fits are dropped. Returns how many wires were kept.
+function rewireTo(g,oldId,n){
+  const ins=inputsOf(n.type),outs=TYPES[n.type].outputs,used=new Set(),edges=[];let kept=0;
+  for(const e of g.edges){
+    if(e.to===oldId){if(e.from===n.id)continue;const src=g.nodes.find(m=>m.id===e.from),t=src&&(TYPES[src.type].outputs[e.out]??'any');
+      const fit=k=>!used.has(k)&&compatible(t,ins[k]),port=fit(e.input)?e.input:Object.keys(ins).find(fit);
+      if(port){used.add(port);edges.push({...e,to:n.id,input:port});kept++;}}
+    else if(e.from===oldId){if(e.to===n.id)continue;const dst=g.nodes.find(m=>m.id===e.to),t=dst&&inputsOf(dst.type)[e.input];
+      const fit=k=>compatible(outs[k],t),port=outs[e.out]&&fit(e.out)?e.out:Object.keys(outs).find(fit);
+      if(port){edges.push({...e,from:n.id,out:port});kept++;}}
+    else edges.push(e);
+  }
+  g.edges=edges;return kept;
+}
+// Where applicable: never the Output, and the newcomer must keep at least one of the old node's wires (or it had none).
+function canReplace(type,oldId,movingId){
+  const g=graph(),old=g.nodes.find(m=>m.id===oldId);if(!old||oldId===movingId||old.type==='output'||type==='output'||!Object.hasOwn(TYPES,type))return false;
+  const wires=g.edges.filter(e=>(e.to===oldId&&e.from!==movingId)||(e.from===oldId&&e.to!==movingId));if(!wires.length)return true;
+  const t={...g,nodes:[...g.nodes],edges:g.edges.filter(e=>e.from!==movingId&&e.to!==movingId)};return rewireTo(t,oldId,{id:'\u0000new',type})>0;
+}
 function replaceNode(type,props,oldId){
   let made=null;const label=TYPES[type].label;
   const ok=edit((p,g)=>{
     const old=g.nodes.find(m=>m.id===oldId);if(!old)return false;
     const n=node(type,old.x,old.y,clone(props||{}));made=n;g.nodes[g.nodes.indexOf(old)]=n;
-    const ins=inputsOf(type),outs=TYPES[type].outputs,used=new Set(),edges=[];
-    for(const e of g.edges){
-      if(e.to===old.id){const src=g.nodes.find(m=>m.id===e.from),t=src&&(TYPES[src.type].outputs[e.out]??'any');
-        const fit=k=>!used.has(k)&&compatible(t,ins[k]),port=fit(e.input)?e.input:Object.keys(ins).find(fit);
-        if(port){used.add(port);edges.push({...e,to:n.id,input:port});}}
-      else if(e.from===old.id){const dst=g.nodes.find(m=>m.id===e.to),t=dst&&inputsOf(dst.type)[e.input];
-        const fit=k=>compatible(outs[k],t),port=outs[e.out]&&fit(e.out)?e.out:Object.keys(outs).find(fit);
-        if(port)edges.push({...e,from:n.id,out:port});}
-      else edges.push(e);
-    }
-    g.edges=edges;attachCamera(g,n);
+    rewireTo(g,old.id,n);attachCamera(g,n);
   },`Replaced with ${label}`);
   if(ok!==false&&made){selected=made.id;renderUI();}
 }
+// A node already in the graph dropped onto another: it leaves its own wires, moves into the other's place and takes its wires.
+function replaceWithExisting(g,mover,oldId){
+  const old=g.nodes.find(m=>m.id===oldId);if(!old)return false;
+  g.edges=g.edges.filter(e=>e.from!==mover.id&&e.to!==mover.id);rewireTo(g,oldId,mover);
+  mover.x=old.x;mover.y=old.y;g.nodes.splice(g.nodes.indexOf(old),1);attachCamera(g,mover);return true;
+}
 let dropNode=null;
 const dropOnto=el=>{if(dropNode===el)return;dropNode?.classList.remove('replace-target');dropNode=el;el?.classList.add('replace-target');};
-const nodeAt=(x,y)=>document.elementFromPoint(x,y)?.closest('#graphViewport .node[data-id]')||null;
+const nodeAt=(x,y,skip)=>{for(const e of document.elementsFromPoint(x,y)){const b=e.closest('#graphViewport .node[data-id]');if(b&&b!==skip)return b;}return null;};
 function placeNode(it,gx,gy,wire){
   if(it.custom)return insertCustom(it.custom,gx-84,gy-20);
   let made=null;
@@ -1684,7 +1700,7 @@ function applyView(){$('graphWorld').style.transform=`translate(${view.x}px,${vi
 const HOLD_MS=380;
 function startMove(event,n,box){
   if(event.button!==0)return;event.preventDefault();const before=clone(state),start={x:event.clientX,y:event.clientY,nx:n.x,ny:n.y};box.setPointerCapture(event.pointerId);box.classList.add('dragging');
-  const live=findNode(n.id);let moved=false,detached=false,target=null;
+  const live=findNode(n.id);let moved=false,detached=false,target=null,over=null;
   // Dragging one of several selected nodes moves them all.
   const group=multi.has(n.id)?[...multi].filter(id=>id!==n.id).map(id=>{const m=findNode(id);return {m,x:m.x,y:m.y,box:$('nodes').querySelector(`.node[data-id="${id}"]`)};}):[];
   const loose=()=>{const g=state.layers.find(g=>g.id===active);return !g.edges.some(e=>e.from===n.id||e.to===n.id);};
@@ -1701,12 +1717,15 @@ function startMove(event,n,box){
     if(!moved&&Math.hypot(e.clientX-start.x,e.clientY-start.y)<4)return;moved=true;clearTimeout(hold);
     const z=uiZ()*view.zoom;live.x=Math.round(Math.max(-10000,Math.min(10000,start.nx+(e.clientX-start.x)/z)));live.y=Math.round(Math.max(-10000,Math.min(10000,start.ny+(e.clientY-start.y)/z)));box.style.left=live.x+'px';box.style.top=live.y+'px';for(const o of group){o.m.x=o.x+live.x-start.nx;o.m.y=o.y+live.y-start.ny;if(o.box){o.box.style.left=o.m.x+'px';o.box.style.top=o.m.y+'px';}}renderWires();
     // An unconnected node dropped on a wire wedges itself in between.
-    target=null;mark(!group.length&&loose()&&isChain(n.type)?wireNear({x:live.x,y:live.y,w:box.offsetWidth,h:box.offsetHeight},18,d=>d.from!==n.id&&d.to!==n.id&&spliceInto(graph(),live,d,true)):null);
+    // Dropped onto another node (where it fits): it replaces that node and takes over its wires.
+    const on=group.length?null:nodeAt(e.clientX,e.clientY,box);over=on&&canReplace(n.type,on.dataset.id,n.id)?on:null;dropOnto(over);
+    target=null;mark(!over&&!group.length&&loose()&&isChain(n.type)?wireNear({x:live.x,y:live.y,w:box.offsetWidth,h:box.offsetHeight},18,d=>d.from!==n.id&&d.to!==n.id&&spliceInto(graph(),live,d,true)):null);
   };
   const end=()=>{clearTimeout(hold);box.classList.remove('dragging','hold','detached');box.removeEventListener('pointermove',move);box.removeEventListener('pointerup',end);box.removeEventListener('pointercancel',end);
-    const w=target&&{...target.dataset};mark(null);
+    const w=target&&{...target.dataset},rid=over?.dataset.id;mark(null);dropOnto(null);
     attempt(()=>{let label=detached?'Detached node':group.length?`Moved ${group.length+1} nodes`:'Moved node';
-      if(w){const g=state.layers.find(g=>g.id===active);if(spliceInto(g,live,w))label=`Wedged ${TYPES[n.type].label} into the wire`;}
+      if(rid){const g=state.layers.find(g=>g.id===active),old=g.nodes.find(m=>m.id===rid);if(old&&replaceWithExisting(g,live,rid)){label=`Replaced ${TYPES[old.type].label} with ${TYPES[n.type].label}`;if(selected===rid)selected=n.id;multi.delete(rid);}}
+      else if(w){const g=state.layers.find(g=>g.id===active);if(spliceInto(g,live,w))label=`Wedged ${TYPES[n.type].label} into the wire`;}
       commit(clone(state),label,before);});};
   box.addEventListener('pointermove',move);box.addEventListener('pointerup',end);box.addEventListener('pointercancel',end);
 }
@@ -2832,6 +2851,7 @@ $('helpBody').innerHTML=`
 <ul><li>Drag from an output port to an input port to connect. Click a wire to remove it. Ports only accept matching types.</li>
 <li><b>Tab</b> over the graph searches every node and drops it at the cursor; over (or near) a wire it is inserted into the wire.</li>
 <li>Drag an unconnected node so its body covers a wire and the wire lights up; let go to wedge it in. Library items work the same way.</li>
+<li>Drop a library item onto a node, or drag a node onto another, to replace it: the node is outlined when it fits and the newcomer keeps its wires.</li>
 <li>Drag empty space to pan, wheel or pinch to zoom, <b>Fit</b> frames everything (and tidies a messy graph).</li>
 <li><b>Delete</b> removes the selected node and heals the chain. Press and hold a node's title (or Alt-drag) to pull it out of its chain.</li>
 <li><b>Bypass</b> (⏻ on a node, or <b>B</b>) switches it off: its input passes straight through, so you can compare with and without. Bypassed nodes look dashed and dim.</li>
@@ -2908,12 +2928,12 @@ $('helpBody').innerHTML=`
 $('helpButton').onclick=()=>$('help').showModal();
 $('graphTips').onclick=()=>{const on=$('graphHint').classList.toggle('show');$('graphTips').setAttribute('aria-pressed',String(on));};$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
-viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';const on=libDrag||e.dataTransfer.types.includes('application/audiograph-node')?nodeAt(e.clientX,e.clientY):null;dropOnto(on);dropMark(!on&&libDrag&&isChain(libDrag)?wireAt(e.clientX,e.clientY,fitsType(libDrag)):null);};
+viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';const n0=libDrag||e.dataTransfer.types.includes('application/audiograph-node')?nodeAt(e.clientX,e.clientY):null,on=n0&&(!libDrag||canReplace(libDrag,n0.dataset.id))?n0:null;dropOnto(on);dropMark(!on&&libDrag&&isChain(libDrag)?wireAt(e.clientX,e.clientY,fitsType(libDrag)):null);};
 viewport.ondragleave=e=>{if(!viewport.contains(e.relatedTarget)){dropMark(null);dropOnto(null);}};
 viewport.addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;pointer.inGraph=true;});
 viewport.addEventListener('pointerleave',()=>{pointer.inGraph=false;});
 viewport.ondrop=e=>{e.preventDefault();let d;try{d=JSON.parse(e.dataTransfer.getData('application/audiograph-node'));}catch{return;}if(!Object.hasOwn(TYPES,d?.type))return;const r=viewport.getBoundingClientRect(),z=uiZ(),gx=((e.clientX-r.left)/z-view.x)/view.zoom,gy=((e.clientY-r.top)/z-view.y)/view.zoom;
-  dropMark(null);dropOnto(null);const on=nodeAt(e.clientX,e.clientY);if(on){replaceNode(d.type,d.props,on.dataset.id);return;}
+  dropMark(null);dropOnto(null);const on=nodeAt(e.clientX,e.clientY);if(on&&canReplace(d.type,on.dataset.id)){replaceNode(d.type,d.props,on.dataset.id);return;}
   const w=Object.hasOwn(TYPES,d.type)&&isChain(d.type)?wireAt(e.clientX,e.clientY,fitsType(d.type)):null;if(w){placeNode({type:d.type,label:TYPES[d.type].label,props:d.props||{}},gx,gy,{...w.dataset});return;}
   addNode(d.type,gx-84,gy-20,d.props||{});};
 // Drag on empty graph space draws a selection box (Shift adds to the selection); middle-drag or Alt-drag pans.
