@@ -92,8 +92,12 @@ each with its own opacity and blend mode (up to four).
   **Morph from** band bends the system's parameters toward a wilder set (**Morph**; the HUD prints
   the live equations and values), loudness speeds the flow (**Flow from loudness**) and the spin
   (**Spin from loudness**), and every beat kicks the points outward (**Beat kick**) before the
-  attractor pulls them back. **Probes** follow single points with a crosshair and their x, y, z;
-  **Tilt**, **Perspective** and **Size** frame it. It draws white (or **Color**): wire a Palette after it.
+  attractor pulls them back. **Vibrate** shakes every point off its route with the **Vibrate from**
+  band (each its own direction and rate; the flow itself is untouched). The framing eases over a few
+  seconds, so the picture never bobs. **Probes** follow single points with a crosshair and their x, y, z;
+  **Tilt**, **Perspective** and **Size** frame it. It draws in greys (or shades of **Color**) by
+  **Shade by** Speed or Depth, tails fading with age, so a Palette after it spreads its whole ramp over
+  the attractor; **Glow** adds the tails up instead (dense parts burn to the top colour).
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain, **3D text** (your words
   extruded from the letters' outlines, smooth curves and crisp corners, with Font and Depth) and **3D model** (your
@@ -535,7 +539,7 @@ process the finished image.
   original default track; your own files are read like the classic app.
   Its card always sits beside the highlighted control, never over it.
   The studio opens with a simple starting scene (Audio →
-  Concentric waveform drawn as Pins → Palette in the Classic colours → Output),
+  Spiral waveform drawn as Pins → Palette in the Classic colours, its dark stop at 0% → Output),
   which Reset also returns to.
 - **Random** (beside Templates) creates a new wired node graph with random
   emitters, colours, motion and effects. It stops Autopilot; Undo restores your scene.

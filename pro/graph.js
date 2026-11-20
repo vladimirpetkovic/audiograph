@@ -214,10 +214,10 @@ export const TYPES = {
     system:pick('System','lorenz',ATTRACTOR_LIST.map(a=>a[0]),{labels:ATTRACTOR_LIST}),
     react:G('Sound',pick('Morph from','bass',['bass','mids','high','full'],{labels:[['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),
     morph:G('Sound',n('Morph',60,0,100,1,{unit:'%'})),speed:G('Sound',n('Flow',40,1,200,1)),boost:G('Sound',n('Flow from loudness',100,0,200,1,{unit:'%'})),
-    kick:G('Sound',n('Beat kick',30,0,100,1,{unit:'%'})),spin:G('Sound',n('Spin',8,-90,90,1,{unit:'°/s'})),spinBoost:G('Sound',n('Spin from loudness',50,0,200,1,{unit:'%'})),
+    kick:G('Sound',n('Beat kick',30,0,100,1,{unit:'%'})),vibrate:G('Sound',n('Vibrate',40,0,100,1,{unit:'%'})),vibeFrom:G('Sound',pick('Vibrate from','high',['bass','mids','high','full'],{labels:[['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),spin:G('Sound',n('Spin',8,-90,90,1,{unit:'°/s'})),spinBoost:G('Sound',n('Spin from loudness',50,0,200,1,{unit:'%'})),
     count:G('Form',n('Particles',2000,100,8000,100)),size:G('Form',n('Size',80,10,150,1,{unit:'%'})),tilt:G('Form',n('Tilt',15,-90,90,1,{unit:'°'})),depth:G('Form',n('Perspective',40,0,100,1,{unit:'%'})),
     trail:G('Look',n('Trail',60,0,100,1,{unit:'%'})),line:G('Look',n('Line',1,.5,4,.5)),glow:G('Look',n('Brightness',60,5,100,1,{unit:'%'})),
-    probes:G('Look',n('Probes',2,0,6,1)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+    shade:G('Look',pick('Shade by','speed',['speed','depth','glow'],{labels:[['speed','Speed'],['depth','Depth'],['glow','Glow (add up)']]})),probes:G('Look',n('Probes',2,0,6,1)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   techLines:{category:'waveforms',group:'Tech',label:'Tech Lines',description:'A straight-line path (0°, 45° and 90° runs) with pixel coordinates at every corner. Every sound hit turns it (a crosshair marks the turn) and loudness sets its speed; the HUD meter shows what it listens to. It never crosses itself, closes into a solid shape that stays, and the next shape grows in the empty space. When the area is full they all flash and it starts over. White: wire a Palette after it for colour.',
     inputs:{audio:'audio'},outputs:{image:'image'},props:{
     react:G('Sound',pick('Turn on','beat',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass hits'],['mids','Mids hits'],['high','Highs hits'],['full','Level hits']]})),

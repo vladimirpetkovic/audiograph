@@ -61,7 +61,7 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      await p2.keyboard.press('Shift');await p2.mouse.click(5,5);await p2.waitForTimeout(800);
      assert.equal(await p2.locator('#audioName').textContent(),'Select your audio source','No placeholder sound');
      assert.deepEqual(await p2.evaluate(()=>{const b=document.querySelector('.node[data-type=audioIn]');return [b.classList.contains('needs-sound'),b.querySelector('.node-summary').textContent];}),[true,'Select your audio source'],'The Audio node asks for a source');
-     assert.deepEqual(await p2.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='palette').props.stops.map(s=>s.a)),[1,1,1,1],'The default palette has no transparent colour');
+     assert.deepEqual(await p2.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='palette').props.stops.map(s=>s.a)),[0,1,1,1],'The starting palette keeps only its dark stop transparent');
      assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'No song starts by itself');
      // A loaded song is drawn like the regular app: its engines run the original's file loop on the decoded song.
      await p2.evaluate(()=>pro.select(pro.getProject().layers[0].nodes.find(n=>n.type==='audioIn').id));await p2.waitForTimeout(300);
@@ -121,7 +121,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     if(!process.env.AUDIOGRAPH_RESOLUTION_ONLY&&!process.env.AUDIOGRAPH_MORPH_ONLY&&!process.env.AUDIOGRAPH_TOUR_ONLY){
     {const d=await project(),w=d.layers[0].nodes.find(n=>n.type==='waveform2d');
       assert.deepEqual(d.layers.map(l=>l.nodes.map(n=>n.type)),[['audioIn','waveform2d','palette','output']],'The studio opens with Audio → Waveform → Palette → Output');
-      assert.ok(w.props.mode==='concentric'&&w.props.lineShape==='pins'&&w.props.density===270&&w.props.height===150&&w.props.thick===2&&w.props.styleSize===190&&w.props.styleDensity===135&&d.layers[0].edges.length===3,'Starting look: a Concentric waveform drawn as Pins, wired through');
+      const pal=d.layers[0].nodes.find(n=>n.type==='palette').props.stops;
+      assert.ok(w.props.mode==='spiral'&&w.props.lineShape==='pins'&&w.props.density===350&&w.props.height===100&&w.props.thick===4&&w.props.outline===true&&pal[0].a===0&&pal.slice(1).every(s=>s.a===1)&&d.layers[0].edges.length===3,'Starting look: a Spiral waveform drawn as Pins, the Palette\'s dark stop at 0%, wired through');
       // The tests below start from the classic one-layer Fluid graph.
       await page.evaluate(async()=>{const g=await import('./graph.js');pro.importProject(g.project());});
       await page.waitForFunction(()=>Object.values(pro.stats().engines).some(e=>e.status==='ready'),null,{timeout:30000});}
@@ -884,6 +885,23 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
        pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'t',type:'attractor',x:300,y:0,props:{system,count:800,kick:100,morph:100}},{id:'out',type:'output',x:900,y:0,props:{}}],edges:[{from:'a',out:'audio',to:'t',input:'audio'},{from:'t',out:'image',to:'out',input:'image'}]}]});
        await new Promise(r=>setTimeout(r,900));pro.draw();const a=pro.pixels();for(let i=0;i<20;i++)pro.draw();out.push([system,a,pro.pixels(),pro.stats().errors.length]);}return out;});
       assert.ok(r.every(([,a,b,e])=>a>.3&&b>.3&&Number.isFinite(b)&&!e),'Strange Attractor draws every system: '+JSON.stringify(r));}
+     // Shade by Speed spreads the picture over many grey levels (so a Palette uses its whole ramp); Glow piles up at the top.
+     {const g=await page.evaluate(async()=>{const levels=async shade=>{
+       pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'t',type:'attractor',x:300,y:0,props:{shade,hud:false,probes:0}},{id:'out',type:'output',x:900,y:0,props:{}}],edges:[{from:'a',out:'audio',to:'t',input:'audio'},{from:'t',out:'image',to:'out',input:'image'}]}]});
+       await new Promise(r=>setTimeout(r,1500));pro.draw();const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,h=new Array(8).fill(0);let n=0;
+       for(let i=0;i<d.length;i+=16){const l=(d[i]+d[i+1]+d[i+2])/3;if(l<12)continue;h[Math.min(7,l/32|0)]++;n++;}return [h.filter(x=>x>n*.04).length,h[7]/n];};
+       return [await levels('speed'),await levels('glow')];});
+      assert.ok(g[0][0]>=3&&g[0][1]<g[1][1]*.7,'Strange Attractor shades by speed across the ramp, without clipping to white: '+JSON.stringify(g));}
+     // Replace: a library node dropped onto a node takes its place and keeps its wires.
+     {const r=await page.evaluate(async()=>{
+       pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'w',type:'waveform2d',x:220,y:0,props:{mode:'spiral'}},{id:'p',type:'palette',x:440,y:0,props:{}},{id:'out',type:'output',x:660,y:0,props:{}}],edges:[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'}]}]});
+       await new Promise(r=>setTimeout(r,400));const box=document.querySelector('#nodes .node[data-id=w]');box.scrollIntoView({block:'center',inline:'center'});const b=box.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,vp=document.getElementById('graphViewport');
+       const dt=new DataTransfer();dt.setData('application/audiograph-node',JSON.stringify({type:'attractor',props:{system:'aizawa'}}));
+       vp.dispatchEvent(new DragEvent('dragover',{clientX:x,clientY:y,dataTransfer:dt,bubbles:true,cancelable:true}));const marked=box.classList.contains('replace-target');
+       vp.dispatchEvent(new DragEvent('drop',{clientX:x,clientY:y,dataTransfer:dt,bubbles:true,cancelable:true}));
+       const L=pro.getProject().layers[0],t=id=>L.nodes.find(n=>n.id===id)?.type,n=L.nodes.find(n=>n.type==='attractor');
+       return [marked,L.nodes.length,!!t('w'),n?.props.system,n?.x,L.edges.map(e=>t(e.from)+'.'+e.out+'>'+t(e.to)+'.'+e.input).sort().join(' ')];});
+      assert.deepEqual(r,[true,4,false,'aizawa',220,'attractor.image>palette.shape audioIn.audio>attractor.audio palette.shape>output.image'],'Dropping a node onto a node replaces it and keeps the wires');}
     // Cloner Scale: uniform and per axis, on top of the object's own size and stretch.
     {const lit=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<d.length;i+=16)if(d[i]+d[i+1]+d[i+2]>30)n++;return n;});
      const run=async props=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'cube',render:'normal'}},{id:'c',type:'cloner',x:300,y:0,props:{countX:3,countY:3,countZ:1,...props}}],[{from:'a',out:'audio',to:'c',input:'audio'},{from:'o',out:'object',to:'c',input:'object'},{from:'c',out:'shape',to:'out',input:'image'}]));

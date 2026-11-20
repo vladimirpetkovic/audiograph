@@ -635,20 +635,25 @@ function strangeAttractor(id,p,sig,dt){
   const Hn=Math.max(2,Math.round(2+p.trail/100*30));
   if(s.Hn!==Hn||s.hist?.length!==N*Hn*3){s.Hn=Hn;s.hist=new Float32Array(N*Hn*3);for(let h=0;h<Hn;h++)s.hist.set(s.P,h*N*3);s.head=0;}
   const P=s.P,X=s.X,V=s.V,H=s.hist;
-  // Fit: the centre and the radius holding most points, eased so morphs and kicks don't jolt the frame.
-  if(!s.c||s.steps%8===0){const m=[0,0,0],step=Math.max(1,Math.floor(N/300));let n=0;
-    for(let i=0;i<N;i+=step){m[0]+=P[i*3];m[1]+=P[i*3+1];m[2]+=P[i*3+2];n++;}m[0]/=n;m[1]/=n;m[2]/=n;
-    const d=[];for(let i=0;i<N;i+=step)d.push(Math.hypot(P[i*3]-m[0],P[i*3+1]-m[1],P[i*3+2]-m[2]));d.sort((a,b)=>a-b);const r=d[Math.floor(d.length*.96)]||1;
-    if(!s.c){s.c=m;s.r=r;}else{const e=Math.min(1,dt*1.5*8);for(let c=0;c<3;c++)s.c[c]+=(m[c]-s.c[c])*e;s.r+=(r-s.r)*e;}}
+  // Fit: the centre and the radius holding most points, measured every frame over all points and eased over
+  // a few seconds, so lobe switches, morphs and kicks never bob the frame.
+  {const m=[0,0,0];for(let i=0;i<N*3;i+=3){m[0]+=P[i];m[1]+=P[i+1];m[2]+=P[i+2];}m[0]/=N;m[1]/=N;m[2]/=N;
+    const d=new Float32Array(N);for(let i=0;i<N;i++)d[i]=Math.hypot(P[i*3]-m[0],P[i*3+1]-m[1],P[i*3+2]-m[2]);d.sort();const r=d[Math.floor(N*.96)]||1;
+    if(!s.c){s.c=m;s.r=r;}else{const e=1-Math.exp(-dt*.5);for(let c=0;c<3;c++)s.c[c]+=(m[c]-s.c[c])*e;s.r+=(r-s.r)*e;}}
   if(sig.beat!==s.beat){s.beat=sig.beat;if(p.kick>0){s.kick=1;const push=p.kick/100*.25*s.r;
     for(let i=0;i<N;i++){const j=i*3,dx=P[j]-s.c[0],dy=P[j+1]-s.c[1],dz=P[j+2]-s.c[2],l=Math.hypot(dx,dy,dz)||1,a=push*Math.random()/l;P[j]+=dx*a;P[j+1]+=dy*a;P[j+2]+=dz*a;}}}
   s.kick=Math.max(0,s.kick-dt*3);
   // Flow: the system's own time step, sped up by Flow and loudness, in a few stable RK4 substeps.
   const span=dt*30*sys.dt*2.5*p.speed/40*(.3+p.boost/100*Math.min(1.5,full*2.5)),sub=Math.max(1,Math.min(8,Math.ceil(span/(sys.dt*2.5)))),h=span/sub;
   s.head=(s.head+1)%Hn;const hb=s.head*N*3;
+  // Vibrate: the sound shakes each point off its route (only where it's drawn, so the flow itself never breaks):
+  // its own direction and rate, a fast wobble scaled by the chosen band, with a jolt on each beat.
+  if(s.ph?.length!==N*4){s.ph=new Float32Array(N*4);for(let i=0;i<N*4;i++)s.ph[i]=i%4===3?25+Math.random()*45:Math.random()*2-1;}
+  const vl=sig.bands?.[p.vibeFrom]??full;s.vib=Math.max(Math.min(1.5,vl*2),(s.vib||0)-dt*4);
+  const amp=p.vibrate/100*.07*s.r*(s.vib+s.kick*.5),PH=s.ph;
   for(let i=0;i<N;i++){const j=i*3;let v=0;for(let q=0;q<sub;q++)v=rk4(sys,prm,P,j,h);
     if(!(Math.abs(P[j])+Math.abs(P[j+1])+Math.abs(P[j+2])<1e4)){const o=((i+1+Math.floor(Math.random()*(N-1)))%N)*3;P[j]=P[o];P[j+1]=P[o+1];P[j+2]=P[o+2];for(let a=0;a<Hn;a++)H.set(P.subarray(j,j+3),a*N*3+j);}
-    V[i]=Math.sqrt(v);H[hb+j]=P[j];H[hb+j+1]=P[j+1];H[hb+j+2]=P[j+2];}
+    V[i]=Math.sqrt(v);if(amp>0){const q=i*4,w=amp*Math.sin(s.t*PH[q+3]+i);H[hb+j]=P[j]+PH[q]*w;H[hb+j+1]=P[j+1]+PH[q+1]*w;H[hb+j+2]=P[j+2]+PH[q+2]*w;}else{H[hb+j]=P[j];H[hb+j+1]=P[j+1];H[hb+j+2]=P[j+2];}}
   s.steps+=sub;s.t+=dt;
   // View: spin about the vertical axis (loudness adds spin), then tilt, with a touch of perspective.
   s.ang+=dt*(p.spin+p.spinBoost/100*full*60)*Math.PI/180;
@@ -656,12 +661,19 @@ function strangeAttractor(id,p,sig,dt){
   const Q=s.Q?.length===N*Hn*2?s.Q:(s.Q=new Float32Array(N*Hn*2)),cx=s.c[0],cy=s.c[1],cz=s.c[2],W2=WIDTH/2,H2=HEIGHT/2;
   for(let a=0,o=0;a<N*Hn*3;a+=3,o+=2){const x=H[a]-cx,y=H[a+1]-cy,z=H[a+2]-cz,b=x*sa+y*ca,yy=b*ct-z*st,zz=b*st+z*ct,f=1/(1+yy/s.r*pers);Q[o]=W2+(x*ca-y*sa)*S*f;Q[o+1]=H2-zz*S*f;}
   for(let i=0;i<N;i++){X[i*2]=Q[(s.head*N+i)*2];X[i*2+1]=Q[(s.head*N+i)*2+1];}
-  // Tails taper with age (newest brightest); additive, so dense parts of the attractor glow.
-  const B=5,glow=p.glow/100*(1+s.kick*.6),jump=HEIGHT*.25;ctx.globalCompositeOperation='lighter';ctx.strokeStyle=p.color||'#ffffff';ctx.lineWidth=Math.max(.5,p.line*k);ctx.lineCap='round';
-  for(let b=0;b<B;b++){const path=new Path2D(),a0=Math.floor(b*(Hn-1)/B),a1=Math.floor((b+1)*(Hn-1)/B);if(a1<=a0)continue;
-    for(let a=a0;a<a1;a++){const n0=((s.head-a+Hn)%Hn)*N*2,n1=((s.head-a-1+Hn)%Hn)*N*2;
-      for(let i=0;i<N;i++){const x0=Q[n0+i*2],y0=Q[n0+i*2+1],x1=Q[n1+i*2],y1=Q[n1+i*2+1];if(Math.abs(x1-x0)+Math.abs(y1-y0)>jump)continue;path.moveTo(x0,y0);path.lineTo(x1,y1);}}
-    ctx.globalAlpha=Math.min(1,glow*Math.pow(1-b/B,1.4));ctx.stroke(path);}
+  // Shade: each point gets a grey level from its speed or depth (Glow adds them up instead), and tails fade with
+  // age, so a Palette after it spreads its whole ramp over the attractor rather than clipping dense parts to the top colour.
+  const G=p.shade==='glow'?1:8,T=new Uint8Array(N);
+  if(G>1){let vm=0;for(let i=0;i<N;i++)vm=Math.max(vm,V[i]);s.vref=s.vref?s.vref+(vm-s.vref)*(1-Math.exp(-dt*2)):vm;
+    for(let i=0;i<N;i++){let t;if(p.shade==='depth'){const x=P[i*3]-cx,y=P[i*3+1]-cy,z=P[i*3+2]-cz,yy=(x*sa+y*ca)*ct-z*st;t=.5-yy/s.r*.5;}else t=V[i]/(s.vref*.8||1);
+      T[i]=Math.max(0,Math.min(G-1,Math.floor(Math.max(0,Math.min(1,t))*G)));}}
+  const rgb=(c=>{const h=/^#?([\da-f]{6})$/i.exec(c||'')?.[1]||'ffffff';return [0,2,4].map(o=>parseInt(h.slice(o,o+2),16));})(p.color);
+  const B=5,glow=p.glow/100*(1+s.kick*.6),jump=HEIGHT*.25;ctx.globalCompositeOperation=G>1?'lighten':'lighter';ctx.lineWidth=Math.max(.5,p.line*k);ctx.lineCap='round';
+  for(let g=0;g<G;g++){const tone=G>1?.18+.82*(g+1)/G:1;ctx.strokeStyle=`rgb(${rgb.map(v=>Math.round(v*tone)).join(',')})`;
+    for(let b=0;b<B;b++){const path=new Path2D(),a0=Math.floor(b*(Hn-1)/B),a1=Math.floor((b+1)*(Hn-1)/B);if(a1<=a0)continue;
+      for(let a=a0;a<a1;a++){const n0=((s.head-a+Hn)%Hn)*N*2,n1=((s.head-a-1+Hn)%Hn)*N*2;
+        for(let i=0;i<N;i++){if(T[i]!==g)continue;const x0=Q[n0+i*2],y0=Q[n0+i*2+1],x1=Q[n1+i*2],y1=Q[n1+i*2+1];if(Math.abs(x1-x0)+Math.abs(y1-y0)>jump)continue;path.moveTo(x0,y0);path.lineTo(x1,y1);}}
+      ctx.globalAlpha=Math.min(1,(G>1?.35+.65*glow:glow)*Math.pow(1-b/B,1.4));ctx.stroke(path);}}
   ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
   const col=p.color||'#ffffff',font=sz=>`600 ${sz}px "Helvetica Neue", Arial, sans-serif`,lw=Math.max(.5,k);ctx.fillStyle=col;ctx.strokeStyle=col;ctx.lineWidth=lw;
   // Probes: a few points followed with a crosshair and their live x, y, z.
@@ -1374,7 +1386,7 @@ function libraryButton(type,label,description,props,color){
   b.title=description+(isChain(type)?' · Click to insert after the selected node.':'');b.style.setProperty('--cat',color);
   b.append(document.createTextNode(label));
   b.addEventListener('dragstart',e=>{libDrag=type;e.dataTransfer.setData('application/audiograph-node',JSON.stringify({type,props}));});
-  b.addEventListener('dragend',()=>{libDrag=null;dropMark(null);});
+  b.addEventListener('dragend',()=>{libDrag=null;dropMark(null);dropOnto(null);});
   b.onclick=()=>addNode(type,undefined,undefined,props);
   return b;
 }
@@ -1547,6 +1559,30 @@ const wireAt=(x,y,fits)=>{const p=toGraph(x,y),t=22/view.zoom;return wireNear({x
 let libDrag=null,dropWire=null;
 const dropMark=w=>{if(dropWire===w)return;dropWire?.classList.remove('wedge');dropWire=w;w?.classList.add('wedge');};
 const fitsType=type=>d=>{const g=graph();return spliceInto({...g,edges:g.edges},node(type,0,0,{}),d,true);};
+// Replace: a library node dropped onto a node takes its place and keeps its wires. Each wire goes to the port
+// of the same name when it fits, else the first free port whose type fits; wires nothing fits are dropped.
+function replaceNode(type,props,oldId){
+  let made=null;const label=TYPES[type].label;
+  const ok=edit((p,g)=>{
+    const old=g.nodes.find(m=>m.id===oldId);if(!old)return false;
+    const n=node(type,old.x,old.y,clone(props||{}));made=n;g.nodes[g.nodes.indexOf(old)]=n;
+    const ins=inputsOf(type),outs=TYPES[type].outputs,used=new Set(),edges=[];
+    for(const e of g.edges){
+      if(e.to===old.id){const src=g.nodes.find(m=>m.id===e.from),t=src&&(TYPES[src.type].outputs[e.out]??'any');
+        const fit=k=>!used.has(k)&&compatible(t,ins[k]),port=fit(e.input)?e.input:Object.keys(ins).find(fit);
+        if(port){used.add(port);edges.push({...e,to:n.id,input:port});}}
+      else if(e.from===old.id){const dst=g.nodes.find(m=>m.id===e.to),t=dst&&inputsOf(dst.type)[e.input];
+        const fit=k=>compatible(outs[k],t),port=outs[e.out]&&fit(e.out)?e.out:Object.keys(outs).find(fit);
+        if(port)edges.push({...e,from:n.id,out:port});}
+      else edges.push(e);
+    }
+    g.edges=edges;attachCamera(g,n);
+  },`Replaced with ${label}`);
+  if(ok!==false&&made){selected=made.id;renderUI();}
+}
+let dropNode=null;
+const dropOnto=el=>{if(dropNode===el)return;dropNode?.classList.remove('replace-target');dropNode=el;el?.classList.add('replace-target');};
+const nodeAt=(x,y)=>document.elementFromPoint(x,y)?.closest('#graphViewport .node[data-id]')||null;
 function placeNode(it,gx,gy,wire){
   if(it.custom)return insertCustom(it.custom,gx-84,gy-20);
   let made=null;
@@ -2838,12 +2874,13 @@ $('helpBody').innerHTML=`
 $('helpButton').onclick=()=>$('help').showModal();
 $('graphTips').onclick=()=>{const on=$('graphHint').classList.toggle('show');$('graphTips').setAttribute('aria-pressed',String(on));};$('closeHelp').onclick=()=>$('help').close();
 const viewport=$('graphViewport');
-viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';dropMark(libDrag&&isChain(libDrag)?wireAt(e.clientX,e.clientY,fitsType(libDrag)):null);};
-viewport.ondragleave=e=>{if(!viewport.contains(e.relatedTarget))dropMark(null);};
+viewport.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';const on=libDrag||e.dataTransfer.types.includes('application/audiograph-node')?nodeAt(e.clientX,e.clientY):null;dropOnto(on);dropMark(!on&&libDrag&&isChain(libDrag)?wireAt(e.clientX,e.clientY,fitsType(libDrag)):null);};
+viewport.ondragleave=e=>{if(!viewport.contains(e.relatedTarget)){dropMark(null);dropOnto(null);}};
 viewport.addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;pointer.inGraph=true;});
 viewport.addEventListener('pointerleave',()=>{pointer.inGraph=false;});
 viewport.ondrop=e=>{e.preventDefault();let d;try{d=JSON.parse(e.dataTransfer.getData('application/audiograph-node'));}catch{return;}if(!Object.hasOwn(TYPES,d?.type))return;const r=viewport.getBoundingClientRect(),z=uiZ(),gx=((e.clientX-r.left)/z-view.x)/view.zoom,gy=((e.clientY-r.top)/z-view.y)/view.zoom;
-  dropMark(null);const w=Object.hasOwn(TYPES,d.type)&&isChain(d.type)?wireAt(e.clientX,e.clientY,fitsType(d.type)):null;if(w){placeNode({type:d.type,label:TYPES[d.type].label,props:d.props||{}},gx,gy,{...w.dataset});return;}
+  dropMark(null);dropOnto(null);const on=nodeAt(e.clientX,e.clientY);if(on){replaceNode(d.type,d.props,on.dataset.id);return;}
+  const w=Object.hasOwn(TYPES,d.type)&&isChain(d.type)?wireAt(e.clientX,e.clientY,fitsType(d.type)):null;if(w){placeNode({type:d.type,label:TYPES[d.type].label,props:d.props||{}},gx,gy,{...w.dataset});return;}
   addNode(d.type,gx-84,gy-20,d.props||{});};
 // Drag on empty graph space draws a selection box (Shift adds to the selection); middle-drag or Alt-drag pans.
 viewport.onpointerdown=event=>{
