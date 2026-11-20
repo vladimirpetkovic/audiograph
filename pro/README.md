@@ -42,6 +42,11 @@ each with its own opacity and blend mode (up to four).
   - **Text**: plain letters (font, weight, colour; **Bounce** scales them with wired audio). It
     outputs an `image`, so it can feed effects, masks or **WebGPU particles → emit**.
   - **Gaussian Splat** (.ply / .splat, demo cloud by default).
+- **Compositing**: the last section of every generator (and Tech Lines, Template Morph) sets
+  **Opacity** and **Blend** (Normal, Screen, Add, Multiply, Difference, Overlay). The blend
+  travels with the picture through Palette, Post FX and other nodes: in a **Merge** it decides how
+  that input sits over the earlier ones, and at the Output it blends the layer over the layers
+  below (unless the layer's own blend is set to something other than Normal).
 - **Masking**: every generator (waveforms, emitters, 3D Object, Cloner, Splat, Text, Image,
   Video, Camera, the EQ nodes) has a **mask** input that takes anything visual, and any
   generator can be the mask. **Mask by** Brightness (default; works on black backgrounds) or
@@ -67,14 +72,18 @@ each with its own opacity and blend mode (up to four).
   (**Field**) or a rippling side-on mesh (**Surface**). Wavelength, Speed, Fade, Rings and Rain
   shape the water. Water starts with short ticks (Height 10); Line style › Angle turns them and
   Outline echoes each ring (or each Surface row).
-  **Tech Lines** draws one straight-line path (only 0°, 45° and 90° runs) that turns with the sound
-  and never crosses itself, with its pixel X / Y written at every corner. **Turn on** picks the
-  trigger (beats, bass, mids, highs or level); **Sound turns** is the chance a hit turns it,
-  **Random turns** adds turns of its own and **Min run** keeps runs long. **Hug** makes turns run
-  alongside earlier lines, so paths nest like insets. After **Turns per shape** it routes home,
-  closes, fills solid, flashes (**Flashes**), holds (**Hold**) and starts a new shape. **HUD** shows
-  the status, position, points, turns and length; **Gallery** keeps the finished shapes beside it.
-  It draws white (or **Color**): wire a Palette after it for colour.
+  **Tech Lines** draws a straight-line path (only 0°, 45° and 90° runs) with its pixel X / Y at
+  every corner. How it hears the sound: every hit turns the line (a crosshair flashes on that
+  corner) and loudness sets how fast it draws (**Speed from loudness**), so silence crawls and a
+  busy track zig-zags. **Turn on** picks the hits (beats, or bass / mids / highs / level jumping
+  past **Hit sensitivity**); **Turn chance** is how many hits turn it; the HUD **SIGNAL** meter
+  shows what it is listening to. **Random turns** adds turns of its own; **Min run** keeps runs long.
+  It never crosses itself; **Hug** makes turns run alongside earlier lines, so paths nest like insets.
+  After **Turns per shape** (or when boxed in) it routes home and closes into a solid shape that
+  stays; the next shape grows in the empty space (**Shape reach** limits how far one spreads,
+  **Gap** keeps them apart). When **Fill until** of the area is covered, they all flash
+  (**Flashes**), hold (**Hold**) and it starts over. It draws white (or **Color**): wire a Palette
+  after it for colour.
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain, **3D text** (your words
   extruded from the letters' outlines, smooth curves and crisp corners, with Font and Depth) and **3D model** (your

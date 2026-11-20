@@ -872,6 +872,13 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      await run([{id:'k',type:'techLines',x:300,y:0,props:{speed:120,turns:8,hold:2,flash:0,hud:false,gallery:false,labels:0}},{id:'pl',type:'palette',x:600,y:0,props:{}}],[A('k'),{from:'k',out:'image',to:'pl',input:'shape'},{from:'pl',out:'shape',to:'out',input:'image'}]);
      const tlx=[];for(let i=0;i<40;i++){await page.waitForTimeout(200);tlx.push(await page.evaluate(()=>{pro.draw();return pro.pixels();}));}
      const lo=Math.min(...tlx.filter(x=>x>0)),hi=Math.max(...tlx);assert.ok(hi>lo*4&&hi>3&&!(await page.evaluate(()=>pro.stats().errors)).length,'Tech Lines draws lines, then fills the closed shape: '+lo+' → '+hi);}
+     // Compositing (bottom of every emitter): Opacity fades its picture; Blend sets how it sits over a Merge's earlier inputs.
+     {const c=await page.evaluate(async()=>{const L=(nodes,edges)=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},...nodes,{id:'out',type:'output',x:900,y:0,props:{}}],edges}]}),bg={id:'bg',type:'background',x:0,y:0,props:{fill:'flat',c1:'#ffffff'}},A={from:'a',out:'audio',to:'w',input:'audio'};
+       const lum=async(props,merge)=>{const w={id:'w',type:'waveform2d',x:300,y:0,props:{mode:'circle',lineWidth:12,...props}};
+         pro.importProject(merge?L([bg,w,{id:'m',type:'merge',x:500,y:0,props:{}}],[A,{from:'bg',out:'image',to:'m',input:'a'},{from:'w',out:'shape',to:'m',input:'b'},{from:'m',out:'image',to:'out',input:'image'}])
+           :L([w],[A,{from:'w',out:'shape',to:'out',input:'image'}]));await new Promise(r=>setTimeout(r,1200));let s=0;for(let i=0;i<3;i++){pro.draw();s+=pro.pixels();}return s/3;};
+       return [await lum({}),await lum({compOpacity:10}),await lum({},true),await lum({compBlend:'screen'},true),pro.stats().errors.length];});
+      assert.ok(c[1]<c[0]*.5&&c[3]>254&&c[3]>c[2]+1&&!c[4],'Emitter Compositing: opacity and blend apply: '+c.map(x=>x.toFixed?.(2)??x));}
     // Cloner Scale: uniform and per axis, on top of the object's own size and stretch.
     {const lit=()=>page.evaluate(()=>{const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<d.length;i+=16)if(d[i]+d[i+1]+d[i+2]>30)n++;return n;});
      const run=async props=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'cube',render:'normal'}},{id:'c',type:'cloner',x:300,y:0,props:{countX:3,countY:3,countZ:1,...props}}],[{from:'a',out:'audio',to:'c',input:'audio'},{from:'o',out:'object',to:'c',input:'object'},{from:'c',out:'shape',to:'out',input:'image'}]));
@@ -1514,7 +1521,7 @@ def Camera "Camera" {
       const hsl=c=>{const [x,y,z]=[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255),mx=Math.max(x,y,z),mn=Math.min(x,y,z),d=mx-mn;return [d?(mx===x?((y-z)/d+6)%6:mx===y?(z-x)/d+2:(x-y)/d+4)*60:0,(mx+mn)/2,d];};
       const mint=P.richRamp(['#2b8a6e','#7dffc7','#ffffff']),hs=mint.map(hsl),spread=Math.max(...hs.map(h=>h[0]))-Math.min(...hs.map(h=>h[0]));
       const words=[...new Set(Array.from({length:60},(_,i)=>A.write({energy:i%3*40,seed:i+1})))],tame=P.tameAngles({pSphereTilt:80,pDnaTilt:-70,pTerrainCam:75,_dragRotX:1.3,_dragRotY:-1.1});
-      const tilt=G.TYPES.camera3d.props.tilt,drift=Math.max(...Array.from({length:200},(_,i)=>Math.abs(G.autoDrift(tilt,0,'n1tilt',i*.7))));
+      const tilt=G.TYPES.camera3d.props.tilt,drift=Math.max(...[1,2,3,4,5,6].flatMap(k=>Array.from({length:400},(_,i)=>Math.abs(G.autoDrift(tilt,0,'n'+k+'tilt',i*.7)))));
       const path=k=>Array.from({length:40},(_,i)=>G.autoDrift(G.TYPES.camera3d.props.tilt,0,k,i*.5).toFixed(3)).join();
       const rnd=path('aK')!==path('bK')&&path('aK')!==path('aK');
       const box={...M.surface3d('r'),primitive:'Cube'},img=Object.assign(document.createElement('canvas'),{width:64,height:36});img.getContext('2d').fillStyle='#f80';img.getContext('2d').fillRect(0,0,64,36);

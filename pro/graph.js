@@ -107,9 +107,13 @@ export function geoFromLook(look){
 // and shows only where the mask is bright (or opaque), or only where it is not.
 const MASK_PROPS={maskBy:G('Mask',pick('Mask by','luma',['luma','alpha'],{labels:[['luma','Brightness'],['alpha','Alpha']]})),maskInvert:G('Mask',bool('Invert mask')),maskFeather:G('Mask',n('Mask feather',0,0,40,1,{noPort:true}))};
 export const MASK_KEYS=Object.keys(MASK_PROPS);
+// Compositing (last section of every visual source): how its picture sits over what is beneath it (earlier Merge inputs, or the layers below).
+const COMP_PROPS={compOpacity:G('Compositing',n('Opacity',100,0,100,1,{unit:'%'})),compBlend:G('Compositing',pick('Blend','source-over',['source-over','screen','lighter','multiply','difference','overlay'],
+  {labels:[['source-over','Normal'],['screen','Screen'],['lighter','Add'],['multiply','Multiply'],['difference','Difference'],['overlay','Overlay']]}))};
+export const COMP_KEYS=Object.keys(COMP_PROPS);
 const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number',mask:'visual'},outputs:{shape:'shape',...outputs},
   props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound',n('Intensity',100,0,200,5)),punch:G('Sound',n('Bass punch',60,0,100,1)),release:G('Sound',n('Bass release',220,60,800,10)),dynamics:G('Sound',n('Dynamics',50,0,100,1)),
-    opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}},...MASK_PROPS}});
+    opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}},...MASK_PROPS,...COMP_PROPS}});
 const MEDIA=(label,description,cam)=>({category:'inputs',group:'Media',label,description,inputs:{audio:'audio',mask:'visual'},
   outputs:{image:'image',palette:'colors',brightness:'number',...(label==='Image'?{}:{motion:'number'})},
   props:{fit:pick('Fit','cover',['cover','contain'],{labels:[['cover','Fill'],['contain','Fit']]}),
@@ -201,16 +205,17 @@ export const TYPES = {
   templateMorph:{category:'composite',group:'Templates',label:'Preset Morph',engine:true,description:'Blend original Audiograph templates: matching layouts interpolate; different layouts crossfade. Audio drives the full stack; its finished image feeds palettes, post effects and Output.',
     inputs:{audio:'audio',drive:'number'},outputs:{image:'image'},props:{
     from:pick('From',TEMPLATE_NAMES[0],TEMPLATE_NAMES,{noPort:true}),to:pick('To',TEMPLATE_NAMES[1],TEMPLATE_NAMES,{noPort:true}),
-    mix:n('Morph',0,0,100,1,{unit:'%'})}},
-  techLines:{category:'waveforms',group:'2D',label:'Tech Lines',description:'One straight-line path (0°, 45° and 90° runs) that turns with the sound and never crosses itself, with pixel coordinates at every corner. After its turns it closes, fills solid, flashes and starts a new shape. White: wire a Palette after it for colour.',
+    mix:n('Morph',0,0,100,1,{unit:'%'}),...COMP_PROPS}},
+  techLines:{category:'waveforms',group:'2D',label:'Tech Lines',description:'A straight-line path (0°, 45° and 90° runs) with pixel coordinates at every corner. Every sound hit turns it (a crosshair marks the turn) and loudness sets its speed; the HUD meter shows what it listens to. It never crosses itself, closes into a solid shape that stays, and the next shape grows in the empty space. When the area is full they all flash and it starts over. White: wire a Palette after it for colour.',
     inputs:{audio:'audio'},outputs:{image:'image'},props:{
-    react:G('Sound',pick('Turn on','beat',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),
-    sens:G('Sound',n('Sound turns',70,0,100,1,{unit:'%'})),wander:G('Sound',n('Random turns',10,0,100,1,{unit:'%'})),
-    speed:G('Sound',n('Speed',24,1,120,1)),boost:G('Sound',n('Speed with sound',50,0,200,1,{unit:'%'})),
-    minRun:G('Shape',n('Min run',3,1,20,1)),hug:G('Shape',n('Hug',60,0,100,1,{unit:'%'})),turns:G('Shape',n('Turns per shape',36,6,200,1)),grid:G('Shape',n('Grid',16,6,60,1)),
+    react:G('Sound',pick('Turn on','beat',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass hits'],['mids','Mids hits'],['high','Highs hits'],['full','Level hits']]})),
+    sens:G('Sound',n('Turn chance',100,0,100,1,{unit:'%'})),thresh:G('Sound',n('Hit sensitivity',60,0,100,1,{unit:'%'})),
+    speed:G('Sound',n('Speed',30,1,120,1)),boost:G('Sound',n('Speed from loudness',100,0,200,1,{unit:'%'})),wander:G('Sound',n('Random turns',0,0,100,1,{unit:'%'})),
+    minRun:G('Shape',n('Min run',2,1,20,1)),hug:G('Shape',n('Hug',60,0,100,1,{unit:'%'})),turns:G('Shape',n('Turns per shape',24,4,200,1)),reach:G('Shape',n('Shape reach',25,10,100,1,{unit:'%'})),grid:G('Shape',n('Grid',16,6,60,1)),
     size:G('Shape',n('Size',80,20,100,1,{unit:'%'})),area:G('Shape',pick('Area','square',['square','frame'],{labels:[['square','Square'],['frame','Whole frame']]})),
-    chamfer:G('Shape',n('Chamfer',60,0,100,1,{unit:'%'})),hold:G('Shape',n('Hold',1.5,0,10,.1,{unit:'s'})),flash:G('Shape',n('Flashes',3,0,8,1)),
-    line:G('Look',n('Line',1.5,.5,8,.5)),labels:G('Look',n('Labels',10,0,30,1)),hud:G('Look',bool('HUD',true)),gallery:G('Look',bool('Gallery',true)),color:G('Look',color('Color','#ffffff'))}},
+    chamfer:G('Shape',n('Chamfer',60,0,100,1,{unit:'%'})),gap:G('Shape',n('Gap',1,0,4,1)),fill:G('Shape',n('Fill until',70,20,95,1,{unit:'%'})),
+    pause:G('Shape',n('Pause',.4,0,5,.1,{unit:'s'})),flash:G('Shape',n('Flashes',4,0,8,1)),hold:G('Shape',n('Hold',1,0,10,.1,{unit:'s'})),
+    line:G('Look',n('Line',1.5,.5,8,.5)),labels:G('Look',n('Labels',10,0,30,1)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads an OBJ, FBX, GLB or glTF; animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),

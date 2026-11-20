@@ -8,7 +8,7 @@ import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
 import {shaderInto,checkShader,dropShaderState,releaseShaders,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,WARP_TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
-import {cleanView,spinProps,WATER_HEIGHT,midiKnob} from './graph.js';
+import {cleanView,spinProps,WATER_HEIGHT,midiKnob,COMP_KEYS} from './graph.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as map3d from './map3d.js';
@@ -520,27 +520,33 @@ function techLines(id,p,sig,dt){
   const {canvas,ctx}=surface(id),k=HEIGHT/1080,ah=HEIGHT*p.size/100,aw=p.area==='frame'?WIDTH*p.size/100:ah;
   // The spacing fits the area exactly, so corners land on fractional pixels (labels read like 431.2).
   const rows=Math.max(5,Math.round(ah/Math.max(4,p.grid*k))+1),g=ah/(rows-1),cols=Math.max(5,Math.floor(aw/g)+1),ox=(WIDTH-(cols-1)*g)/2,oy=(HEIGHT-(rows-1)*g)/2;
-  const s=nstate(id,()=>({key:'',gallery:[],shape:0,beat:sig.beat,hit:false}));
-  const key=cols+'x'+rows+'|'+g.toFixed(3);
+  const s=nstate(id,()=>({key:'',shape:0,beat:sig.beat,hit:false,marks:[],meter:0}));
+  const key=cols+'x'+rows+'|'+g.toFixed(3),N=cols*rows;
   const at=(i,j)=>j*cols+i,inb=(i,j)=>i>=0&&j>=0&&i<cols&&j<rows;
-  const start=()=>{s.key=key;s.occ=new Int32Array(cols*rows);s.diag=new Set();s.phase='draw';s.t=0;s.prog=0;s.run=0;s.turns=0;s.steps=0;s.len=0;s.home=null;s.due=false;s.shape++;
-    s.i=3+Math.floor(Math.random()*(cols-6));s.j=3+Math.floor(Math.random()*(rows-6));s.d=2*Math.floor(Math.random()*4);
-    s.si=s.i;s.sj=s.j;s.occ[at(s.i,s.j)]=1;s.steps=1;s.verts=[[s.i,s.j]];};
-  if(s.key!==key)start();
+  const free=(i,j,r)=>{for(let y=j-r;y<=j+r;y++)for(let x=i-r;x<=i+r;x++)if(!inb(x,y)||s.taken[at(x,y)])return false;return true;};
+  // Finished shapes stay; each new shape starts in a free spot (room around it) and the canvas clears when it's full enough.
+  const begin=()=>{s.occ=new Int32Array(N);s.diag=new Set();s.phase='draw';s.t=0;s.prog=0;s.run=0;s.turns=0;s.steps=1;s.len=0;s.home=null;s.due=0;s.next=undefined;s.marks=[];
+    const spots=[];for(let j=3;j<rows-3;j++)for(let i=3;i<cols-3;i++)if(free(i,j,3))spots.push([i,j]);
+    if(!spots.length||s.cover>=p.fill/100){s.phase='final';s.t=0;return;}
+    [s.i,s.j]=spots[Math.floor(Math.random()*spots.length)];s.si=s.i;s.sj=s.j;s.occ[at(s.i,s.j)]=1;s.verts=[[s.i,s.j]];s.shape++;
+    const dirs=[0,2,4,6].filter(d=>free(s.i+TL_DIRS[d][0]*3,s.j+TL_DIRS[d][1]*3,0));s.d=dirs.length?dirs[Math.floor(Math.random()*dirs.length)]:0;};
+  const reset=()=>{s.key=key;s.taken=new Uint8Array(N);s.shapes=[];s.cover=0;begin();};
+  if(s.key!==key)reset();
   const diagKey=(i,j,d)=>{const [dx,dy]=TL_DIRS[d];return dx&&dy?at(Math.min(i,i+dx),Math.min(j,j+dy)):-1;};
   const isStart=(i,j)=>i===s.si&&j===s.sj;
+  const reachMax=Math.max(4,Math.round(p.reach/100*rows));
   // A step is legal into a free point (or the start, when closing) without crossing a used diagonal.
   // The start's surroundings stay a free doorway that only the way home may use, so the shape can always close.
-  const legal=(i,j,d,closing)=>{const [dx,dy]=TL_DIRS[d],x=i+dx,y=j+dy;if(!inb(x,y))return false;
-    if(!closing&&s.steps>2&&Math.max(Math.abs(x-s.si),Math.abs(y-s.sj))<=2)return false;
+  const legal=(i,j,d,closing)=>{const [dx,dy]=TL_DIRS[d],x=i+dx,y=j+dy;if(!inb(x,y)||s.taken[at(x,y)])return false;
+    if(!closing&&(s.steps>2&&Math.max(Math.abs(x-s.si),Math.abs(y-s.sj))<=2||Math.max(Math.abs(x-s.si),Math.abs(y-s.sj))>reachMax))return false;
     if(s.occ[at(x,y)]&&!(closing&&isStart(x,y)))return false;const q=diagKey(i,j,d);return q<0||!s.diag.has(q);};
   // The free room (i,j) opens onto, or 0 when the start can no longer be reached from it.
-  const reach=(i,j)=>{const seen=new Uint8Array(cols*rows),q=[at(i,j)];seen[q[0]]=1;let home=false;
+  const reach=(i,j)=>{const seen=new Uint8Array(N),q=[at(i,j)];seen[q[0]]=1;let home=false;
     for(let h=0;h<q.length;h++){const c=q[h],ci=c%cols,cj=(c-ci)/cols;
       for(let d=0;d<8;d++){if(!legal(ci,cj,d,true))continue;const x=ci+TL_DIRS[d][0],y=cj+TL_DIRS[d][1];if(isStart(x,y)){home=true;continue;}const c2=at(x,y);if(!seen[c2]){seen[c2]=1;q.push(c2);}}}
     return home?q.length:0;};
   // Route home: cheapest path with only straight/45°/90° moves (turns cost extra so runs stay long).
-  const route=wide=>{const N=cols*rows*8,cost=new Float32Array(N).fill(1e9),prev=new Int32Array(N).fill(-1),heap=[];
+  const route=wide=>{const cost=new Float32Array(N*8).fill(1e9),prev=new Int32Array(N*8).fill(-1),heap=[];
     const push=(c,v)=>{heap.push([v,c]);let x=heap.length-1;while(x){const pa=(x-1)>>1;if(heap[pa][0]<=heap[x][0])break;[heap[pa],heap[x]]=[heap[x],heap[pa]];x=pa;}};
     const pop=()=>{const top=heap[0],last=heap.pop();if(heap.length){heap[0]=last;let x=0;for(;;){const l=2*x+1,r=l+1;let m=x;if(l<heap.length&&heap[l][0]<heap[m][0])m=l;if(r<heap.length&&heap[r][0]<heap[m][0])m=r;if(m===x)break;[heap[m],heap[x]]=[heap[x],heap[m]];x=m;}}return top;};
     const s0=at(s.i,s.j)*8+s.d;cost[s0]=0;push(s0,0);
@@ -549,60 +555,69 @@ function techLines(id,p,sig,dt){
         if(isStart(x,y)){const m=[nd];for(let z=c;z!==s0;z=prev[z])m.push(z%8);return m.reverse();}
         const c2=at(x,y)*8+nd,v2=v+1+(t?Math.abs(t)*3:0);if(v2<cost[c2]){cost[c2]=v2;prev[c2]=c;push(c2,v2);}}}
     return wide?null:route(true);};
-  const close=()=>{s.phase='fill';s.t=0;const pts=tlPoints(s.verts,ox,oy,g,p.chamfer/100,true);
-    const xs=pts.map(q=>q[0]),ys=pts.map(q=>q[1]),x0=Math.min(...xs),y0=Math.min(...ys),sz=Math.max(Math.max(...xs)-x0,Math.max(...ys)-y0,1);
-    s.gallery.push({n:s.shape,pts:pts.map(([x,y])=>[(x-x0)/sz,(y-y0)/sz])});if(s.gallery.length>30)s.gallery.shift();};
+  // Closing: the shape's inside and outline (plus the Gap around it) become taken, so later shapes go around it.
+  const close=()=>{s.verts.push([s.i,s.j]);s.phase='fill';s.t=0;s.shapes.push({pts:tlPoints(s.verts,ox,oy,g,p.chamfer/100,true),born:0});
+    const V=s.verts,inside=(x,y)=>{let c=false;for(let a=0,b=V.length-1;a<V.length;b=a++){const [xa,ya]=V[a],[xb,yb]=V[b];if((ya>y)!==(yb>y)&&x<(xb-xa)*(y-ya)/(yb-ya)+xa)c=!c;}return c;};
+    const mark=new Uint8Array(N);for(let j=0;j<rows;j++)for(let i=0;i<cols;i++)if(s.occ[at(i,j)]||inside(i,j))mark[at(i,j)]=1;
+    const gap=Math.max(0,p.gap|0);for(let j=0;j<rows;j++)for(let i=0;i<cols;i++)if(mark[at(i,j)])for(let y=j-gap;y<=j+gap;y++)for(let x=i-gap;x<=i+gap;x++)if(inb(x,y))s.taken[at(x,y)]=1;
+    let n=0;for(let c=0;c<N;c++)n+=s.taken[c];s.cover=n/N;};
   const step=d=>{const [dx,dy]=TL_DIRS[d];if(d!==s.d){s.verts.push([s.i,s.j]);s.turns++;s.run=0;s.d=d;}
     const q=diagKey(s.i,s.j,d);if(q>=0)s.diag.add(q);s.i+=dx;s.j+=dy;s.run++;s.steps++;s.len+=g*(dx&&dy?Math.SQRT2:1);
-    if(isStart(s.i,s.j)){s.verts.push([s.i,s.j]);close();}else s.occ[at(s.i,s.j)]=s.steps+1;};
-  // Sound: each hit (beat, or the band rising past the threshold) asks for a turn.
-  const lvl=sig.bands?.[p.react]??0;
-  if(p.react==='beat'){if(sig.beat!==s.beat){s.beat=sig.beat;if(Math.random()*100<p.sens)s.due=true;}}
-  else{const hit=lvl>1-p.sens/100*.85;if(hit&&!s.hit)s.due=true;s.hit=hit;}
+    if(isStart(s.i,s.j))close();else s.occ[at(s.i,s.j)]=s.steps;};
+  // Sound: every hit (a beat, or the chosen band jumping past its threshold) turns the line at once (Turn chance),
+  // and loudness sets how fast it draws, so silence crawls and a busy track zig-zags quickly.
+  const lvl=p.react==='beat'?(sig.pulse??0):(sig.bands?.[p.react]??0);s.meter=Math.max(lvl,s.meter-dt*2);
+  let hit=false;if(p.react==='beat'){if(sig.beat!==s.beat){s.beat=sig.beat;hit=true;}}
+  else{const on=lvl>1-p.thresh/100*.85;hit=on&&!s.hit;s.hit=on;}
+  if(hit&&Math.random()*100<p.sens)s.due=.35;else s.due=Math.max(0,s.due-dt);
   const decide=()=>{
     if(s.home){const d=s.home.shift();if(d!==undefined&&legal(s.i,s.j,d,true))return d;s.home=null;}
     if(s.turns>=p.turns){s.home=route();if(s.home?.length)return s.home.shift();return null;}
     // Only moves that keep the way home open and don't squeeze into a much smaller pocket than the best move.
     const room={};for(const t of [0,1,-1,2,-2,3,-3]){const d=(s.d+t+8)%8;room[t]=legal(s.i,s.j,d,false)?reach(s.i+TL_DIRS[d][0],s.j+TL_DIRS[d][1]):0;}
     const best=Math.max(...Object.values(room)),ok=t=>room[t]>0&&room[t]>=best*.5;
-    if(s.steps<3)return s.d;
-    if(s.turns>=6&&s.turns>=p.turns*.75&&Math.max(Math.abs(s.i-s.si),Math.abs(s.j-s.sj))<=4){s.home=route();if(s.home?.length)return s.home.shift();}
-    const wantTurn=s.run>=p.minRun&&(s.due||Math.random()<p.wander/100*.15);
+    if(s.steps<3&&ok(0))return s.d;
+    if(s.turns>=4&&s.turns>=p.turns*.75&&Math.max(Math.abs(s.i-s.si),Math.abs(s.j-s.sj))<=4){s.home=route();if(s.home?.length)return s.home.shift();}
+    const wantTurn=s.run>=p.minRun&&(s.due>0||Math.random()<p.wander/100*.15);
     const turns=[1,-1,2,-2].filter(ok);
-    if((wantTurn||!ok(0))&&turns.length){s.due=false;
+    if((wantTurn||!ok(0))&&turns.length){const heard=s.due>0;s.due=0;
       // Hug: turns that run alongside earlier lines (not the last few steps) weigh more, so paths nest like insets.
       const w=turns.map(t=>{const d=(s.d+t+8)%8,x=s.i+TL_DIRS[d][0],y=s.j+TL_DIRS[d][1];let c=0;
-        for(const [dx,dy] of TL_DIRS){const v=inb(x+dx,y+dy)?s.occ[at(x+dx,y+dy)]:0;if(v&&v<s.steps-3)c++;}return 1+c*p.hug/12;});
-      let r=Math.random()*w.reduce((a,b)=>a+b,0),q=0;while(q<turns.length-1&&(r-=w[q])>0)q++;return (s.d+turns[q]+8)%8;}
+        for(const [dx,dy] of TL_DIRS){const v=inb(x+dx,y+dy)?(s.occ[at(x+dx,y+dy)]||s.taken[at(x+dx,y+dy)]*1):0;if(v&&v<s.steps-3)c++;}return 1+c*p.hug/12;});
+      let r=Math.random()*w.reduce((a,b)=>a+b,0),q=0;while(q<turns.length-1&&(r-=w[q])>0)q++;
+      if(heard)s.marks.push({i:s.i,j:s.j,t:0});return (s.d+turns[q]+8)%8;}
     if(ok(0))return s.d;
     const sharp=[3,-3].filter(ok);if(sharp.length)return (s.d+sharp[Math.floor(Math.random()*sharp.length)]+8)%8;
     s.home=route();return s.home?.length?s.home.shift():null;};
-  if(s.phase==='draw'){s.prog+=dt*p.speed*(1+p.boost/100*(sig.bands?.full??0)*2);
-    let guard=0;while(s.prog>=1&&s.phase==='draw'&&guard++<200){s.prog-=1;if(s.next===undefined||s.next===null)s.next=decide();
-      if(s.next===null){s.verts.push([s.i,s.j]);close();break;}step(s.next);s.next=s.phase==='draw'?decide():null;if(s.next===null&&s.phase==='draw'){s.verts.push([s.i,s.j]);close();}}}
-  else{s.t+=dt;if(s.t>p.hold+.9){s.next=undefined;start();}}
-  // Drawing.
-  const lw=Math.max(.5,p.line*k),col=p.color||'#ffffff';ctx.lineJoin='miter';ctx.lineCap='butt';
+  for(const m of s.marks)m.t+=dt;s.marks=s.marks.filter(m=>m.t<.6);for(const sh of s.shapes)sh.born+=dt;
+  if(s.phase==='draw'){s.prog+=dt*p.speed*(.15+p.boost/100*Math.min(1.5,(sig.bands?.full??0)*2.5));
+    let guard=0;while(s.prog>=1&&s.phase==='draw'&&guard++<200){s.prog-=1;if(s.next==null)s.next=decide();
+      if(s.next===null){close();break;}step(s.next);s.next=s.phase==='draw'?decide():null;if(s.next===null&&s.phase==='draw')close();}}
+  else if(s.phase==='fill'){s.t+=dt;if(s.t>=p.pause)begin();}
+  else{s.t+=dt;if(s.t>p.flash*.14+p.hold+.5)reset();}
+  // Drawing: the finished shapes solid (a touch brighter on each beat), then the live line, its labels and hit marks.
+  const lw=Math.max(.5,p.line*k),col=p.color||'#ffffff',pulse=sig.pulse??0;ctx.lineJoin='miter';ctx.lineCap='butt';ctx.fillStyle=col;ctx.strokeStyle=col;
+  const poly=pts=>{ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));};
+  let all=1;if(s.phase==='final'){const t=s.t,fl=t<p.flash*.14;all=fl?(Math.floor(t/.07)%2?.15:1):Math.max(0,1-(t-p.flash*.14-p.hold)/.5);}
+  for(const sh of s.shapes){const pop=sh.born<.12?(Math.floor(sh.born/.04)%2?.3:1):1;ctx.globalAlpha=all*pop*(.82+.18*pulse);poly(sh.pts);ctx.closePath();ctx.fill('evenodd');}
+  ctx.globalAlpha=1;
   const head=s.phase==='draw'&&s.next!=null?[s.i+TL_DIRS[s.next][0]*Math.min(1,s.prog),s.j+TL_DIRS[s.next][1]*Math.min(1,s.prog)]:[s.i,s.j];
-  const pts=tlPoints(s.phase==='draw'?[...s.verts,[s.i,s.j],head]:s.verts,ox,oy,g,p.chamfer/100,s.phase!=='draw');
-  if(s.phase==='draw'||s.t<.05){ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();}
-  if(s.phase==='fill'){const ft=s.t,fl=Math.max(0,p.flash|0),on=ft<fl*.14?Math.floor(ft/.07)%2===0:true;
-    const fade=ft>p.hold+.4?Math.max(0,1-(ft-p.hold-.4)/.5):1,beat=sig.pulse??0;
-    ctx.globalAlpha=fade*(on?1:.25)*(1-.35*beat);ctx.fillStyle=col;ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill('evenodd');ctx.globalAlpha=1;}
+  if(s.phase==='draw'){ctx.lineWidth=lw;poly(tlPoints([...s.verts,[s.i,s.j],head],ox,oy,g,p.chamfer/100,false));ctx.stroke();
+    const hx=ox+head[0]*g,hy=oy+head[1]*g,r=(3+5*s.meter)*k;ctx.fillRect(hx-r/2,hy-r/2,r,r);
+    for(const m of s.marks){const a=1-m.t/.6,x=ox+m.i*g,y=oy+m.j*g,r=(6+22*m.t)*k;ctx.globalAlpha=a;ctx.lineWidth=lw;ctx.strokeRect(x-r,y-r,r*2,r*2);ctx.beginPath();ctx.moveTo(x-r*1.6,y);ctx.lineTo(x+r*1.6,y);ctx.moveTo(x,y-r*1.6);ctx.lineTo(x,y+r*1.6);ctx.stroke();}
+    ctx.globalAlpha=1;}
   const font=sz=>`600 ${sz}px "Helvetica Neue", Arial, sans-serif`;
-  if(p.labels>0&&s.phase==='draw'){const sz=p.labels*k;ctx.font=font(sz);ctx.fillStyle=col;ctx.globalAlpha=.85;ctx.textAlign='center';ctx.textBaseline='bottom';
+  if(p.labels>0&&s.phase==='draw'){const sz=p.labels*k;ctx.font=font(sz);ctx.globalAlpha=.85;ctx.textAlign='center';ctx.textBaseline='bottom';
     for(const [i,j] of [...s.verts,[s.i,s.j]]){const x=ox+i*g,y=oy+j*g;ctx.fillText(x.toFixed(1),x,y-sz*1.3);ctx.fillText(y.toFixed(1),x,y-sz*.25);}ctx.globalAlpha=1;}
   if(p.hud){const sz=11*k,y=oy-g-sz*3,pad=(n,w)=>String(Math.round(n)).padStart(w,'0'),hx=ox+head[0]*g,hy=oy+head[1]*g,L=ox-g,R=ox+(cols-1)*g+g;
-    ctx.font=font(sz);ctx.fillStyle=col;ctx.textBaseline='top';
+    ctx.font=font(sz);ctx.textBaseline='top';
     const two=(a,b,x,al)=>{ctx.textAlign=al;ctx.fillText(a,x,y);ctx.fillText(b,x,y+sz*1.15);};
-    two('STATUS: '+(s.phase==='draw'?(s.home?'CLOSING':'DRAWING'):'FINISHED'),'ACTIVE: '+pad(s.shape,4)+'.SVG',L,'left');
-    two(`GN: (X${hx.toFixed(1)}, Y${hy.toFixed(1)})`,'T-POINTS: '+pad(s.steps,5),WIDTH/2,'center');
-    two('TURNS: '+pad(s.turns,6),'PIXEL: '+pad(s.len,6),R,'right');}
-  if(p.gallery&&s.gallery.length){const x0=ox+(cols-1)*g+g*3,room=WIDTH-x0-g;const per=Math.max(1,Math.min(4,Math.floor(room/(52*k))));
-    if(room>30*k){const cell=Math.min(52*k,room/per),box=cell*.72,sz=8*k;ctx.font=font(sz);ctx.textAlign='left';ctx.textBaseline='bottom';
-      s.gallery.slice(-per*Math.max(1,Math.floor((rows-1)*g/cell))).forEach((sh,i)=>{const x=x0+(i%per)*cell,y=oy+Math.floor(i/per)*cell+sz*1.2;
-        ctx.fillStyle=col;ctx.globalAlpha=.8;ctx.fillText(String(sh.n).padStart(2,'0'),x,y);ctx.globalAlpha=1;
-        ctx.beginPath();sh.pts.forEach(([u,v],q)=>q?ctx.lineTo(x+u*box,y+2*k+v*box):ctx.moveTo(x+u*box,y+2*k+v*box));ctx.closePath();ctx.fill('evenodd');});}}
+    two('STATUS: '+({draw:s.home?'CLOSING':'DRAWING',fill:'FINISHED',final:'COMPLETE'})[s.phase],'ACTIVE: '+pad(s.shape,4)+'.SVG',L,'left');
+    two(`GN: (X${hx.toFixed(1)}, Y${hy.toFixed(1)})`,'T-POINTS: '+pad(s.steps,5)+'  AREA: '+pad(s.cover*100,3)+'%',WIDTH/2,'center');
+    two('TURNS: '+pad(s.turns,6),'PIXEL: '+pad(s.len,6),R,'right');
+    // Signal meter under the status: what the line is listening to, lit on every hit.
+    const lab=({beat:'BEATS',bass:'BASS',mids:'MIDS',high:'HIGHS',full:'LEVEL'})[p.react]||'',my=y+sz*2.6,mw=60*k;ctx.textAlign='left';ctx.fillText('SIGNAL: '+lab,L,my);
+    const mx=L+ctx.measureText('SIGNAL: '+lab).width+6*k;ctx.lineWidth=k;ctx.strokeRect(mx,my+1*k,mw,sz*.8);ctx.fillRect(mx,my+1*k,mw*Math.min(1,s.meter),sz*.8);}
   return canvas;
 }
 // Lattice vertices to pixels, with 90° (and sharper) corners cut by a chamfer of `ch` grid steps.
@@ -796,8 +811,9 @@ function previewExtra(g,plan){
   return extra;
 }
 function execute(g,time,dt){
-  layerView.delete(g.id);layerZoom.delete(g.id);
-  const outputs=new Map(),byInput=new Map(g.edges.map(e=>[e.to+':'+e.input,e])),rendered=new Map();let image=null;
+  layerView.delete(g.id);layerZoom.delete(g.id);layerBlend.delete(g.id);
+  // blendOf: a visual source's Compositing blend, carried with its picture to the Merge or layer stack that lays it over others.
+  const outputs=new Map(),byInput=new Map(g.edges.map(e=>[e.to+':'+e.input,e])),rendered=new Map(),blendOf=new Map();let image=null;
   const input=(n,key)=>{const e=byInput.get(n.id+':'+key);return e?outputs.get(e.from)?.[e.out]:undefined;};
   const props=n=>{
     const p={...n.props};
@@ -809,7 +825,7 @@ function execute(g,time,dt){
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
   const asImage=(v,consumer)=>{
     if(!v||v instanceof HTMLCanvasElement)return v;
-    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'');
+    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+'|'+(v.comp?.o??100);
     if(rendered.has(key))return rendered.get(key);
     const e=engineFor(v.emitter.id),out=e.draw({...v.job,mods:v.mods,hue:v.hue,view:g.view});
     if(e.viewMode)layerView.set(g.id,e.viewMode);
@@ -817,7 +833,9 @@ function execute(g,time,dt){
     if(!out)return null;
     const {canvas,ctx}=surface(consumer+':r');
     // Renderers that ignore the classic deformers (simulations, Cloner, Growth...) get them as an image warp.
+    ctx.globalAlpha=(v.comp?.o??100)/100;
     if(!(needsWarp(v.mods)&&e.w?.AG_LAYOUT_NA?.rowRipple?.includes(e.mode)&&warpInto(ctx,out,v.mods,time,e.w?.agPond?.drops('def'))))ctx.drawImage(out,0,0);
+    ctx.globalAlpha=1;if(v.comp?.b&&v.comp.b!=='source-over')blendOf.set(canvas,v.comp.b);
     if(v.mask)maskInto(canvas,v.mask);
     const sym=v.mods?._symmetryMode;
     if(sym&&sym!=='none'&&e.mode?.startsWith('sim')&&e.w?.applySymmetry){const sc=e.w.applySymmetry(canvas,sym,v.mods._symGap||0,'proSym');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(sc,0,0);}
@@ -839,7 +857,7 @@ function execute(g,time,dt){
         const id=e.input.slice(4),range=engines.get(n.id)?.optRange(jobOf(n),id);
         if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
       }
-      r.shape={emitter:n,mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:MEDIA_KIND[n.type]==='image'||MEDIA_KIND[n.type]==='video'?GRAY_MEDIA:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,song:driven?null:sig.song||null,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
+      r.shape={emitter:n,comp:{o:p.compOpacity??100,b:p.compBlend??'source-over'},mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:MEDIA_KIND[n.type]==='image'||MEDIA_KIND[n.type]==='video'?GRAY_MEDIA:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,song:driven?null:sig.song||null,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
       if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
@@ -857,7 +875,9 @@ function execute(g,time,dt){
         else{r.brightness=0;r.motion=0;}
         r.image=canvas;break;}
       case 'plainText':r.image=plainText(n.id,p,input(n,'audio')??SILENT);break;
-      case 'techLines':r.image=techLines(n.id,p,input(n,'audio')??projectSignal(),dt);break;
+      case 'techLines':{const c=techLines(n.id,p,input(n,'audio')??projectSignal(),dt),o=(p.compOpacity??100)/100;
+        if(o<1){const x=c.getContext('2d');x.globalCompositeOperation='destination-in';x.fillStyle=`rgba(0,0,0,${o})`;x.fillRect(0,0,WIDTH,HEIGHT);x.globalCompositeOperation='source-over';}
+        if(p.compBlend&&p.compBlend!=='source-over')blendOf.set(c,p.compBlend);r.image=c;break;}
       case 'value':r.value=p.value;break;
       case 'oscillator':{const s=nstate(n.id,()=>({phase:0,v:0,next:0}));s.phase+=dt*p.rate;
         let w;if(p.wave==='random'){if(s.phase>=s.next){s.next=Math.floor(s.phase)+1;s.target=Math.random();}s.v+=((s.target??.5)-s.v)*Math.min(1,dt*8);w=s.v;}else w=waves[p.wave](s.phase);
@@ -942,7 +962,7 @@ function execute(g,time,dt){
         if(a)ctx.drawImage(a,0,0);if(b){ctx.globalAlpha=p.mix;ctx.globalCompositeOperation=p.mode;ctx.drawImage(b,0,0);}ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';r.image=canvas;break;}
       case 'merge':{const {canvas,ctx}=surface(n.id);let any=false;
         for(const k of ['a','b','c','d']){const v=input(n,k);if(v===undefined)continue;const img=asImage(v,n.id+k);if(!img)continue;
-          ctx.globalAlpha=p[k];ctx.globalCompositeOperation=any?p.mode:'source-over';ctx.drawImage(img,0,0);any=true;}
+          const own=blendOf.get(img);ctx.globalAlpha=p[k];ctx.globalCompositeOperation=any?(own||p.mode):'source-over';ctx.drawImage(img,0,0);any=true;}
         ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';if(!any){nodeErrors.add(n.id);throw Error(`${g.name}: connect an image to Merge`);}r.image=canvas;break;}
       case 'mask':{const src=asImage(need(n,'image','an image'),n.id+'i'),m=asImage(need(n,'mask','a mask image'),n.id+'m'),{canvas,ctx}=surface(n.id);
         if(src){ctx.drawImage(src,0,0);if(m){ctx.globalCompositeOperation=p.invert?'destination-out':'destination-in';if(p.feather)ctx.filter=`blur(${p.feather}px)`;ctx.drawImage(m,0,0);ctx.filter='none';ctx.globalCompositeOperation='source-over';}}
@@ -1048,6 +1068,8 @@ function execute(g,time,dt){
         if(r.image instanceof HTMLCanvasElement){const {canvas,ctx}=surface(n.id+':masked');ctx.drawImage(r.image,0,0,WIDTH,HEIGHT);maskInto(canvas,m);r.image=canvas;}
         if(r.shape&&!(r.shape instanceof HTMLCanvasElement))r.shape={...r.shape,mask:m};}
     }
+    // Pictures made from a blended source (Palette, Post FX…) keep its blend; a Merge has already used it.
+    if(r.image instanceof HTMLCanvasElement&&!blendOf.has(r.image)&&n.type!=='merge')for(const e of g.edges){if(e.to!==n.id)continue;const v=outputs.get(e.from)?.[e.out],b=v instanceof HTMLCanvasElement?blendOf.get(v):v?.comp?.b;if(b&&b!=='source-over'){blendOf.set(r.image,b);break;}}
     if(n.id===previewId){const v=r.image??r.shape;if(v)previewImg=asImage(v,n.id+':pv');}
     outputs.set(n.id,r);if(DATA_INPUTS.has(n.type))lastOuts.set(n.id,{...r});{const v=r.value??(typeof r.out==='number'?r.out:n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
     if(r.image&&thumbs.has(n.id)&&frame%4===0)drawThumb(n.id,r.image);
@@ -1055,6 +1077,7 @@ function execute(g,time,dt){
   // Emitter thumbnails show the raw emitter render.
   for(const [key,canvas] of rendered){const id=key.split('|')[0];if(thumbs.has(id)&&frame%4===0)drawThumb(id,canvas);}
   if(!g.nodes.some(n=>n.type==='output'))throw Error(`${g.name}: add an Output node`);
+  if(image&&blendOf.has(image))layerBlend.set(g.id,blendOf.get(image));
   return image;
 }
 // Perspective-ish warp of a full frame onto quad q (TL,TR,BR,BL) via bilinear mesh of affine triangles.
@@ -1125,7 +1148,7 @@ function dissolveDraw(dt){
   if(fade.t>=1)fade=null;
 }
 // Layers the engine cannot frame itself (2D, and pan/zoom of classic 3D) are moved and scaled as a picture.
-const layerView=new Map(),layerZoom=new Map();
+const layerView=new Map(),layerZoom=new Map(),layerBlend=new Map();
 function drawLayer(out,g,image){
   const v=g.view,zm=v?v.zm/(layerZoom.get(g.id)||1):1;if(!v||layerView.get(g.id)==='sim'||(zm===1&&!v.px&&!v.py)){out.drawImage(image,0,0);return;}
   out.setTransform(zm,0,0,zm,WIDTH/2*(1-zm)+v.px*WIDTH/2,HEIGHT/2*(1-zm)-v.py*HEIGHT/2);out.drawImage(image,0,0);out.setTransform(1,0,0,1,0,0);
@@ -1143,7 +1166,7 @@ function draw(time,dt=1/30){
   for(const g of state.layers){
     // A hidden layer still renders when a mapping surface shows it on its own.
     const shown=g.visible&&g.opacity>0,forMap=mapped&&mapLayers.has(g.id);if(!shown&&!forMap&&previewLayer!==g)continue;
-    try{const image=execute(g,time,dt);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);if(shown){out.globalAlpha=g.opacity;out.globalCompositeOperation=g.blend;drawLayer(out,g,image);}}}
+    try{const image=execute(g,time,dt);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);if(shown){out.globalAlpha=g.opacity;out.globalCompositeOperation=g.blend==='source-over'&&layerBlend.get(g.id)||g.blend;drawLayer(out,g,image);}}}
     catch(error){renderErrors.push(error.message);}
   }
   out.globalAlpha=1;out.globalCompositeOperation='source-over';
@@ -1697,6 +1720,7 @@ function renderProperties(){
       sel.onchange=()=>{tm.playing=false;edit((p,g)=>{g.nodes.find(m=>m.id===n.id).props[key]=sel.value;},'Morph template');};root.append(ui.field(TYPES[n.type].props[key].label,sel));}
     const knobs=el('div','knob-grid');knobs.append(ui.knob({label:'Morph',min:0,max:100,step:1,value:n.props.mix,def:0,unit:'%',property:'mix',
       onInput:v=>{tm.playing=false;live(()=>{findNode(n.id).props.mix=v;});},onChange:()=>liveCommit('Morph blend')}));root.append(knobs);
+    renderProps(fold(root,'Compositing'),n,COMP_KEYS,true);
   }
   else if(t.engine)renderEmitter(root,n);
   else{
@@ -1972,6 +1996,7 @@ function renderEmitter(root,n){
   const sndWrap=el('div');root.append(sndWrap);
   for(const [gr,ks] of Object.entries(geo))renderProps(fold(gr==='Line style'?styleWrap:root,gr),n,ks,true);
   if(wiredOf('mask'))renderProps(fold(root,'Mask'),n,MASK_KEYS,true);
+  if(T.props.compBlend)renderProps(fold(root,'Compositing'),n,COMP_KEYS,true);
   const d=fold(sndWrap,'Sound');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
   const sndKeys=sim?['intensity','punch','release','dynamics'].filter(used):[...(lineSens?['sensitivity','contrast','fade']:['intensity']),...(lineSens&&used('intensity')?['intensity']:[]),'punch','release','dynamics'].filter(k=>T.props[k]);
