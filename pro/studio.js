@@ -9,6 +9,7 @@ import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
 import {shaderInto,checkShader,dropShaderState,releaseShaders,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,WARP_TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
 import {cleanView,spinProps,WATER_HEIGHT,midiKnob,COMP_KEYS,MODE_GROUPS} from './graph.js';
+import * as MV from './mathviz.js';
 import {ATTRACTORS,attractorParams,rk4,seedAttractor} from './attractors.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
@@ -952,6 +953,10 @@ function execute(g,time,dt){
       case 'attractor':{const c=strangeAttractor(n.id,p,input(n,'audio')??projectSignal(),dt),o=(p.compOpacity??100)/100;
         if(o<1){const x=c.getContext('2d');x.globalCompositeOperation='destination-in';x.fillStyle=`rgba(0,0,0,${o})`;x.fillRect(0,0,WIDTH,HEIGHT);x.globalCompositeOperation='source-over';}
         if(p.compBlend&&p.compBlend!=='source-over')blendOf.set(c,p.compBlend);r.image=c;break;}
+      case 'epicycles':case 'polarPlot':case 'cellular':case 'oscilloscope':case 'radar':{const {canvas:c,ctx:x}=surface(n.id),o=(p.compOpacity??100)/100;
+        MV[n.type](x,WIDTH,HEIGHT,nstate(n.id+':'+n.type,()=>({})),p,input(n,'audio')??projectSignal(),dt);
+        if(o<1){x.globalCompositeOperation='destination-in';x.fillStyle=`rgba(0,0,0,${o})`;x.fillRect(0,0,WIDTH,HEIGHT);x.globalCompositeOperation='source-over';}
+        if(p.compBlend&&p.compBlend!=='source-over')blendOf.set(c,p.compBlend);r.image=c;break;}
       case 'techLines':{const c=techLines(n.id,p,input(n,'audio')??projectSignal(),dt),o=(p.compOpacity??100)/100;
         if(o<1){const x=c.getContext('2d');x.globalCompositeOperation='destination-in';x.fillStyle=`rgba(0,0,0,${o})`;x.fillRect(0,0,WIDTH,HEIGHT);x.globalCompositeOperation='source-over';}
         if(p.compBlend&&p.compBlend!=='source-over')blendOf.set(c,p.compBlend);r.image=c;break;}
@@ -1146,7 +1151,8 @@ function execute(g,time,dt){
         if(r.shape&&!(r.shape instanceof HTMLCanvasElement))r.shape={...r.shape,mask:m};}
     }
     // Pictures made from a blended source (Palette, Post FX…) keep its blend; a Merge has already used it.
-    if(r.image instanceof HTMLCanvasElement&&!blendOf.has(r.image)&&n.type!=='merge')for(const e of g.edges){if(e.to!==n.id)continue;const v=outputs.get(e.from)?.[e.out],b=v instanceof HTMLCanvasElement?blendOf.get(v):v?.comp?.b;if(b&&b!=='source-over'){blendOf.set(r.image,b);break;}}
+    {const pic=r.image instanceof HTMLCanvasElement?r.image:r.shape instanceof HTMLCanvasElement?r.shape:null;
+    if(pic&&!blendOf.has(pic)&&n.type!=='merge')for(const e of g.edges){if(e.to!==n.id)continue;const v=outputs.get(e.from)?.[e.out],b=v instanceof HTMLCanvasElement?blendOf.get(v):v?.comp?.b;if(b&&b!=='source-over'){blendOf.set(pic,b);break;}}}
     if(n.id===previewId){const v=r.image??r.shape;if(v)previewImg=asImage(v,n.id+':pv');}
     outputs.set(n.id,r);if(DATA_INPUTS.has(n.type))lastOuts.set(n.id,{...r});{const v=r.value??(typeof r.out==='number'?r.out:n.type==='audioIn'?r.level:undefined);if(v!==undefined)lastValues.set(n.id,v);}
     if(r.image&&thumbs.has(n.id)&&frame%4===0)drawThumb(n.id,r.image);
@@ -1154,7 +1160,7 @@ function execute(g,time,dt){
   // Emitter thumbnails show the raw emitter render.
   for(const [key,canvas] of rendered){const id=key.split('|')[0];if(thumbs.has(id)&&frame%4===0)drawThumb(id,canvas);}
   if(!g.nodes.some(n=>n.type==='output'))throw Error(`${g.name}: add an Output node`);
-  if(image&&blendOf.has(image))layerBlend.set(g.id,blendOf.get(image));
+  if(image&&blendOf.has(image))layerBlend.set(g.id,blendOf.get(image));else layerBlend.delete(g.id);
   return image;
 }
 // Perspective-ish warp of a full frame onto quad q (TL,TR,BR,BL) via bilinear mesh of affine triangles.
@@ -3910,7 +3916,7 @@ window.pro={
   getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES).filter(n=>!RETIRED.has(n)),
   select:id=>{selected=id;multi.clear();renderUI();},selectNodes:ids=>setSelection(ids),selection:()=>selIds(),copy:()=>copySel(),paste:(x,y)=>pasteNodes(clip,x,y),saveCustom:n=>saveCustom(n),customNodes:()=>customNodes(),removeCustom:n=>removeCustom(n),selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
-  stats:()=>({frame,paused,active,mapRes:mapLoad.res,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
+  stats:()=>({frame,paused,active,blends:Object.fromEntries(state.layers.map(g=>[g.id,g.blend==="source-over"&&layerBlend.get(g.id)||g.blend])),mapRes:mapLoad.res,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
   mapMode:on=>{setMapMode(on);return mapMode;},workspace:w=>{if(w)setWorkspace(w);return workspace;},
   dissolve:on=>{dissolveOn=!!on;if(!on)fade=null;return dissolveOn;},autopilot:{examples:autopilot.EXAMPLES,write:o=>autopilot.write(o),parse:t=>autopilot.parse(t),read:t=>{const w=apWin();return w?vibeText(readVibe(w,t)):null;},create:t=>apCreate(t),
     change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),scene:(id,k='groove')=>{gen.force=id;return apChange(k,1,'everything',true,true);},scenes:()=>AP_SCENES.map(x=>x.id),start:()=>apStart(),stop:()=>apStop(),

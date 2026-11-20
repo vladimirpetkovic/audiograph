@@ -42,7 +42,7 @@ each with its own opacity and blend mode (up to four).
   - **Text**: plain letters (font, weight, colour; **Bounce** scales them with wired audio). It
     outputs an `image`, so it can feed effects, masks or **WebGPU particles → emit**.
   - **Gaussian Splat** (.ply / .splat, demo cloud by default).
-- **Compositing**: the last section of every generator (and Tech Lines, Strange Attractor, Template Morph) sets
+- **Compositing**: the last section of every generator (and Tech Lines, Strange Attractor, the other Math / Tech waveforms, Template Morph) sets
   **Opacity** and **Blend** (Normal, Screen, Add, Multiply, Difference, Overlay). The blend
   travels with the picture through Palette, Post FX and other nodes: in a **Merge** it decides how
   that input sits over the earlier ones, and at the Output it blends the layer over the layers
@@ -66,8 +66,9 @@ each with its own opacity and blend mode (up to four).
     - **Live data**: the ISS orbit, space weather (NOAA), ocean swell and weather (Open-Meteo, for a city or your location), earthquakes (USGS) or Wikipedia edits. Every source gives the same smooth level, change, pulse (events: a quake, a wave crest, the ISS entering sunlight) and phase, plus a palette made from the data; wire it into a Palette's **colors** to let the data pick the colours. Glide smooths slow feeds; Auto range stretches small swings. Offline it keeps moving on a simulated stream.
     - **MIDI**: cc (with **Learn CC**), note, gate, pitch, bend (Chrome / Edge).
 - **Waveforms**, grouped in the library: **Classic** (Linear, Circle, Concentric, Spiral, Sine),
-  **Organic** (Phyllotaxis, Growth, Water, Scatter), **Math** (Strange Attractor, Fractal, Sacred,
-  Math), **Tech** (Tech Lines, Graph) and **Media**: **Text EQ**, **Image EQ** and **Video EQ** draw
+  **Organic** (Phyllotaxis, Growth, Water, Scatter), **Math** (Strange Attractor, Fourier Epicycles,
+  Polar Plot, Cellular Automaton, Fractal, Sacred, Math), **Tech** (Tech Lines, Oscilloscope, Radar
+  Sweep, Graph) and **Media**: **Text EQ**, **Image EQ** and **Video EQ** draw
   your words, a picture or a video as audio-reactive lines (load the picture or video in the node). **Water** drops a stone
   on every beat (anywhere, or always in the centre) and the high frequencies add rain; see the
   rings as audio lines riding the crests (**Rings**), a grid of lines pushed by the water
@@ -98,6 +99,22 @@ each with its own opacity and blend mode (up to four).
   **Tilt**, **Perspective** and **Size** frame it. It draws in greys (or shades of **Color**) by
   **Shade by** Speed or Depth, tails fading with age, so a Palette after it spreads its whole ramp over
   the attractor; **Glow** adds the tails up instead (dense parts burn to the top colour).
+  **Fourier Epicycles** chains spinning circles (**Circles**) whose tip draws a Fourier series of a
+  **Shape** (star, heart, infinity, square, trefoil) or of the live spectrum / waveform. Loudness speeds
+  the drawing (**Speed from loudness**), the **Wobble from** band swells the circles (**Wobble**) and hits
+  jolt them (**Beat jolt**); the HUD lists the biggest terms and the tip's complex value.
+  **Polar Plot** draws r(θ): a rose r = cos(kθ), the superformula, the butterfly curve, a limaçon or
+  the spectrum wrapped round a circle, over a polar grid. The sound swells the radius (**Swell**) and
+  bends k (**Morph**); **Echoes** repeat the curve as fading rings; the HUD prints the live equation.
+  **Cellular Automaton** runs Conway's Life, Brian's Brain, HighLife or a scrolling 1D rule (**1D rule**:
+  30, 90, 110…). Loudness speeds the generations, hits **Inject** fresh life and the spectrum
+  **sprinkles** cells along the bottom; cells shade by age and dead ones leave a **Ghost**.
+  **Oscilloscope** reads the waveform itself on a phosphor screen with graticule and readouts: **XY**
+  plots the signal against a delayed copy, **Time** is a triggered trace and **Lissajous** follows the
+  sound's pitch; **Persistence** sets the afterglow, **Gain** the scale.
+  **Radar Sweep** paints the spectrum as returns around a sweeping beam (**Sweep**, faster with
+  loudness; **Fade**), with **Contacts** drifting across the dial, labelled with bearing and range, that
+  flare on hits. All five draw in shades of **Color**, so a Palette after them spreads its ramp.
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain, **3D text** (your words
   extruded from the letters' outlines, smooth curves and crisp corners, with Font and Depth) and **3D model** (your

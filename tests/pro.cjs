@@ -892,6 +892,18 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
        for(let i=0;i<d.length;i+=16){const l=(d[i]+d[i+1]+d[i+2])/3;if(l<12)continue;h[Math.min(7,l/32|0)]++;n++;}return [h.filter(x=>x>n*.04).length,h[7]/n];};
        return [await levels('speed'),await levels('glow')];});
       assert.ok(g[0][0]>=3&&g[0][1]<g[1][1]*.7,'Strange Attractor shades by speed across the ramp, without clipping to white: '+JSON.stringify(g));}
+     // An emitter's Compositing blend reaches the layer stack through a Palette (canvas sources too) and clears when set back to Normal.
+     {const r=await page.evaluate(async()=>{const out=[];for(const [t,o] of [['techLines','image'],['attractor','image'],['waveform2d','shape']])for(const cb of ['difference','source-over']){
+       pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'s',type:t,x:0,y:0,props:{compBlend:cb}},{id:'p',type:'palette',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],
+         edges:[{from:'a',out:'audio',to:'s',input:'audio'},{from:'s',out:o,to:'p',input:'shape'},{from:'p',out:'shape',to:'o',input:'image'}]}]});
+       await new Promise(r=>setTimeout(r,500));pro.draw();out.push(pro.stats().blends.L);}return out.join(' ');});
+      assert.equal(r,'difference source-over difference source-over difference source-over','Compositing blend reaches the layer through a Palette and resets');}
+     // Math / Tech waveforms: every mode draws through a Palette without errors.
+     {const r=await page.evaluate(async()=>{const out=[];for(const [t,k,ms] of [['epicycles','shape',['star','heart','infinity','square','trefoil','spectrum','wave']],['polarPlot','curve',['rose','super','butterfly','cardioid','spectrum']],['cellular','mode',['life','brain','rule','highlife']],['oscilloscope','mode',['xy','yt','lissajous']],['radar','mode',['']]])for(const m of ms){
+       pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'s',type:t,x:0,y:0,props:{[k]:m}},{id:'p',type:'palette',x:0,y:0,props:{}},{id:'o',type:'output',x:0,y:0,props:{}}],
+         edges:[{from:'a',out:'audio',to:'s',input:'audio'},{from:'s',out:'image',to:'p',input:'shape'},{from:'p',out:'shape',to:'o',input:'image'}]}]});
+       for(let i=0;i<6;i++){await new Promise(r=>setTimeout(r,120));pro.draw();}const px=pro.pixels(),err=pro.stats().errors;if(!(px>.3)||err.length)out.push(t+':'+m+' '+px+' '+err.join());}return out.join(' | ');});
+      assert.equal(r,'','Epicycles, Polar Plot, Cellular Automaton, Oscilloscope and Radar draw in every mode');}
      // Replace: a library node dropped onto a node takes its place and keeps its wires.
      {const r=await page.evaluate(async()=>{
        pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'w',type:'waveform2d',x:220,y:0,props:{mode:'spiral'}},{id:'p',type:'palette',x:440,y:0,props:{}},{id:'out',type:'output',x:660,y:0,props:{}}],edges:[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'}]}]});

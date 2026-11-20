@@ -1,6 +1,7 @@
 // Audiograph Pro graph model: categorized node catalog, typed ports, validation and migration.
 // Emitter modes by node type: each is one of the original Audiograph renderers.
 import {ATTRACTOR_LIST} from './attractors.js';
+import {EPI_LIST,POLAR_LIST,CA_LIST,SCOPE_LIST} from './mathviz.js';
 import {cleanMapping} from './mapping.js';
 import {SHADER_EXAMPLES,SHADER_DEFAULT,parseKnobs,knobDefault} from './shaderfx.js';
 import {TEMPLATE_NAMES} from './morph.js';
@@ -228,6 +229,38 @@ export const TYPES = {
     chamfer:G('Shape',n('Chamfer',60,0,100,1,{unit:'%'})),gap:G('Shape',n('Gap',1,0,4,1)),fill:G('Shape',n('Fill until',70,20,95,1,{unit:'%'})),
     pause:G('Shape',n('Pause',.4,0,5,.1,{unit:'s'})),flash:G('Shape',n('Flashes',4,0,8,1)),hold:G('Shape',n('Hold',1,0,10,.1,{unit:'s'})),
     line:G('Look',n('Line',1.5,.5,8,.5)),labels:G('Look',n('Labels',10,0,30,1)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+  epicycles:{category:'waveforms',group:'Math',label:'Fourier Epicycles',description:'A chain of spinning circles, each riding on the last, whose tip traces a shape: the Fourier series of a star, heart, infinity sign, square or trefoil, or the live spectrum or waveform itself. Loudness speeds the drawing, beats jolt the circles and a band of the sound wobbles their radii. The HUD lists the biggest terms. White: wire a Palette after it for colour.',
+    inputs:{audio:'audio'},outputs:{image:'image'},props:{
+    shape:pick('Shape','star',EPI_LIST.map(a=>a[0]),{labels:EPI_LIST}),
+    react:G('Sound',pick('Wobble from','bass',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),wobble:G('Sound',n('Wobble',60,0,100,1,{unit:'%'})),jolt:G('Sound',n('Beat jolt',40,0,100,1,{unit:'%'})),
+    speed:G('Sound',n('Speed',.15,.01,1,.01,{unit:'rev/s'})),boost:G('Sound',n('Speed from loudness',100,0,200,1,{unit:'%'})),
+    circles:G('Form',n('Circles',40,2,128,1)),size:G('Form',n('Size',70,10,100,1,{unit:'%'})),
+    trail:G('Look',n('Trail',100,5,100,1,{unit:'%'})),line:G('Look',n('Line',2,.5,8,.5)),showCircles:G('Look',bool('Circles',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+  polarPlot:{category:'waveforms',group:'Math',label:'Polar Plot',description:'Curves drawn in polar coordinates (r as a function of θ): roses, the superformula, the butterfly curve, limaçons, or the spectrum wrapped around a circle. The sound swells the radius and morphs the petal count; echoes repeat the curve as fading rings over a polar grid. The HUD prints the live equation. White: wire a Palette after it for colour.',
+    inputs:{audio:'audio'},outputs:{image:'image'},props:{
+    curve:pick('Curve','rose',POLAR_LIST.map(a=>a[0]),{labels:POLAR_LIST}),
+    react:G('Sound',pick('React to','bass',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),swell:G('Sound',n('Swell',50,0,100,1,{unit:'%'})),morph:G('Sound',n('Morph',40,0,100,1,{unit:'%'})),spin:G('Sound',n('Spin',10,-90,90,1,{unit:'°/s'})),
+    petals:G('Form',n('Petals (k)',3,1,12,.1)),cycles:G('Form',n('Cycles',2,1,12,1)),echoes:G('Form',n('Echoes',4,0,12,1)),size:G('Form',n('Size',70,10,100,1,{unit:'%'})),
+    line:G('Look',n('Line',1.5,.5,8,.5)),grid:G('Look',bool('Polar grid',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+  cellular:{category:'waveforms',group:'Math',label:'Cellular Automaton',description:'A grid of cells living by simple rules: Conway’s Life, Brian’s Brain, HighLife or a scrolling 1D rule (Rule 30, 90, 110…). Loudness speeds the generations, beats inject fresh life and the spectrum sprinkles cells along the bottom; dead cells leave a ghost. Cells shade by age. White: wire a Palette after it for colour.',
+    inputs:{audio:'audio'},outputs:{image:'image'},props:{
+    mode:pick('Rule','life',CA_LIST.map(a=>a[0]),{labels:CA_LIST}),
+    react:G('Sound',pick('Inject on','beat',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),inject:G('Sound',n('Inject',50,0,100,1,{unit:'%'})),sprinkle:G('Sound',n('Spectrum sprinkle',30,0,100,1,{unit:'%'})),
+    speed:G('Sound',n('Speed',12,1,60,1,{unit:'steps/s'})),boost:G('Sound',n('Speed from loudness',100,0,200,1,{unit:'%'})),
+    rule:G('Form',n('1D rule',30,0,255,1)),cell:G('Form',n('Cell',10,3,40,1,{unit:'px'})),
+    gap:G('Look',n('Gap',15,0,50,1,{unit:'%'})),ghost:G('Look',n('Ghost',50,0,100,1,{unit:'%'})),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+  oscilloscope:{category:'waveforms',group:'Tech',label:'Oscilloscope',description:'A phosphor oscilloscope reading the waveform itself: XY phase plot (the signal against a delayed copy), a triggered time trace, or a Lissajous figure whose frequencies follow the sound. Glowing persistence, graticule and readouts included. White: wire a Palette after it for colour.',
+    inputs:{audio:'audio'},outputs:{image:'image'},props:{
+    mode:pick('Mode','xy',SCOPE_LIST.map(a=>a[0]),{labels:SCOPE_LIST}),
+    gain:G('Sound',n('Gain',3,.5,20,.1)),morph:G('Sound',n('Morph',40,0,100,1,{unit:'%'})),drift:G('Sound',n('Drift',30,0,100,1,{unit:'%'})),
+    span:G('Form',n('Samples',1024,256,1780,1)),delay:G('Form',n('XY delay',24,1,200,1)),size:G('Form',n('Size',100,10,100,1,{unit:'%'})),
+    persist:G('Look',n('Persistence',70,0,95,1,{unit:'%'})),line:G('Look',n('Line',1.5,.5,8,.5)),grid:G('Look',bool('Graticule',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+  radar:{category:'waveforms',group:'Tech',label:'Radar Sweep',description:'A radar scope: a sweeping beam paints the spectrum as returns around the dial, fading behind it. Loudness speeds the sweep, and contacts with bearing and range readouts drift across the screen, flaring on beats. White: wire a Palette after it for colour.',
+    inputs:{audio:'audio'},outputs:{image:'image'},props:{
+    react:G('Sound',pick('Flare on','beat',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),returns:G('Sound',n('Returns',100,0,200,1,{unit:'%'})),decay:G('Sound',n('Fade',60,0,100,1,{unit:'%'})),
+    rpm:G('Sound',n('Sweep',12,1,60,1,{unit:'rpm'})),boost:G('Sound',n('Sweep from loudness',100,0,200,1,{unit:'%'})),
+    contacts:G('Form',n('Contacts',6,0,20,1)),range:G('Form',n('Range',40,5,200,1,{unit:'NM'})),rings:G('Form',n('Rings',4,2,8,1)),size:G('Form',n('Size',80,10,100,1,{unit:'%'})),
+    labels:G('Look',bool('Labels',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads an OBJ, FBX, GLB or glTF; animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
