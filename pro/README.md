@@ -98,7 +98,8 @@ each with its own opacity and blend mode (up to four).
   seconds, so the picture never bobs. **Probes** follow single points with a crosshair and their x, y, z;
   **Tilt**, **Perspective** and **Size** frame it. It draws in greys (or shades of **Color**) by
   **Shade by** Speed or Depth, tails fading with age, so a Palette after it spreads its whole ramp over
-  the attractor; **Glow** adds the tails up instead (dense parts burn to the top colour).
+  the attractor; **Glow** adds the tails up instead (dense parts burn to the top colour). **Resolution**
+  (1–8×) takes that many tail samples per frame, so fast flows curve smoothly instead of in jagged steps.
   **Fourier Epicycles** chains spinning circles (**Circles**) whose tip draws a Fourier series of a
   **Shape** (star, heart, infinity, square, trefoil) or of the live spectrum / waveform. Loudness speeds
   the drawing (**Speed from loudness**), the **Wobble from** band swells the circles (**Wobble**) and hits
@@ -115,6 +116,9 @@ each with its own opacity and blend mode (up to four).
   **Radar Sweep** paints the spectrum as returns around a sweeping beam (**Sweep**, faster with
   loudness; **Fade**), with **Contacts** drifting across the dial, labelled with bearing and range, that
   flare on hits. All five draw in shades of **Color**, so a Palette after them spreads its ramp.
+  **Line style** (Tech Lines, Strange Attractor and all five above): Solid, Dashed, Long dash, Dotted or
+  Dash-dot, running along each curve. **Cell shape** (Cellular Automaton) and **Returns as** (Radar)
+  draw cells as Squares, Dots, Rings or Crosses.
 - **3D**: **3D Object** — one node for every shape: Sphere, Cube, Torus, Cylinder,
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain, **3D text** (your words
   extruded from the letters' outlines, smooth curves and crisp corners, with Font and Depth) and **3D model** (your
@@ -200,6 +204,10 @@ each with its own opacity and blend mode (up to four).
   **Strobe** flashes on Beats (every 1, 2, 4 or 8), when Bass / Highs / Loudness cross the Threshold, or
   at a Steady rate; Style is Flash (any colour), Blackout or Invert, and Decay sets the fade.
   **Safe** (on by default) keeps it to 3 flashes a second, the photosensitivity guideline.
+  **Motion blur** smears movement: **Shutter** averages the last **Samples** frames (**Tail fade**
+  weights older ones less), **Smear** leaves a fading trail behind a crisp picture, and
+  **Directional** (**Angle**), **Zoom** and **Spin** streak the frame itself. **Amount** sets how
+  much; **React** (Beats / Bass / Loudness…) with **Sound** lets the music push it.
   **Melt** drips the bright parts down like hot wax (each column at its own pace) while the
   sound is up (React: Beats / Bass / Loudness / Always; Sound sets how much it depends on it) and
   heals when it calms; Threshold picks what melts, Length how long drips last.

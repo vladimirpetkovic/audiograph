@@ -1,7 +1,7 @@
 // Audiograph Pro graph model: categorized node catalog, typed ports, validation and migration.
 // Emitter modes by node type: each is one of the original Audiograph renderers.
 import {ATTRACTOR_LIST} from './attractors.js';
-import {EPI_LIST,POLAR_LIST,CA_LIST,SCOPE_LIST} from './mathviz.js';
+import {EPI_LIST,POLAR_LIST,CA_LIST,SCOPE_LIST,LINE_STYLES,CELL_SHAPES} from './mathviz.js';
 import {cleanMapping} from './mapping.js';
 import {SHADER_EXAMPLES,SHADER_DEFAULT,parseKnobs,knobDefault} from './shaderfx.js';
 import {TEMPLATE_NAMES} from './morph.js';
@@ -112,6 +112,7 @@ export function geoFromLook(look){
 const MASK_PROPS={maskBy:G('Mask',pick('Mask by','luma',['luma','alpha'],{labels:[['luma','Brightness'],['alpha','Alpha']]})),maskInvert:G('Mask',bool('Invert mask')),maskFeather:G('Mask',n('Mask feather',0,0,40,1,{noPort:true}))};
 export const MASK_KEYS=Object.keys(MASK_PROPS);
 // Compositing (last section of every visual source): how its picture sits over what is beneath it (earlier Merge inputs, or the layers below).
+const LINE_STYLE=()=>G('Look',pick('Line style','solid',LINE_STYLES.map(a=>a[0]),{labels:LINE_STYLES})),CELL_SHAPE=l=>G('Look',pick(l,'square',CELL_SHAPES.map(a=>a[0]),{labels:CELL_SHAPES}));
 const COMP_PROPS={compOpacity:G('Compositing',n('Opacity',100,0,100,1,{unit:'%'})),compBlend:G('Compositing',pick('Blend','source-over',['source-over','screen','lighter','multiply','difference','overlay'],
   {labels:[['source-over','Normal'],['screen','Screen'],['lighter','Add'],['multiply','Multiply'],['difference','Difference'],['overlay','Overlay']]}))};
 export const COMP_KEYS=Object.keys(COMP_PROPS);
@@ -217,7 +218,7 @@ export const TYPES = {
     morph:G('Sound',n('Morph',60,0,100,1,{unit:'%'})),speed:G('Sound',n('Flow',40,1,200,1)),boost:G('Sound',n('Flow from loudness',100,0,200,1,{unit:'%'})),
     kick:G('Sound',n('Beat kick',30,0,100,1,{unit:'%'})),vibrate:G('Sound',n('Vibrate',40,0,100,1,{unit:'%'})),vibeFrom:G('Sound',pick('Vibrate from','high',['bass','mids','high','full'],{labels:[['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),spin:G('Sound',n('Spin',8,-90,90,1,{unit:'°/s'})),spinBoost:G('Sound',n('Spin from loudness',50,0,200,1,{unit:'%'})),
     count:G('Form',n('Particles',2000,100,8000,100)),size:G('Form',n('Size',80,10,150,1,{unit:'%'})),tilt:G('Form',n('Tilt',15,-90,90,1,{unit:'°'})),depth:G('Form',n('Perspective',40,0,100,1,{unit:'%'})),
-    trail:G('Look',n('Trail',60,0,100,1,{unit:'%'})),line:G('Look',n('Line',1,.5,4,.5)),glow:G('Look',n('Brightness',60,5,100,1,{unit:'%'})),
+    trail:G('Look',n('Trail',60,0,100,1,{unit:'%'})),res:G('Look',n('Resolution',2,1,8,1,{unit:'×'})),line:G('Look',n('Line',1,.5,4,.5)),lineStyle:LINE_STYLE(),glow:G('Look',n('Brightness',60,5,100,1,{unit:'%'})),
     shade:G('Look',pick('Shade by','speed',['speed','depth','glow'],{labels:[['speed','Speed'],['depth','Depth'],['glow','Glow (add up)']]})),probes:G('Look',n('Probes',2,0,6,1)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   techLines:{category:'waveforms',group:'Tech',label:'Tech Lines',description:'A straight-line path (0°, 45° and 90° runs) with pixel coordinates at every corner. Every sound hit turns it (a crosshair marks the turn) and loudness sets its speed; the HUD meter shows what it listens to. It never crosses itself, closes into a solid shape that stays, and the next shape grows in the empty space. When the area is full they all flash and it starts over. White: wire a Palette after it for colour.',
     inputs:{audio:'audio'},outputs:{image:'image'},props:{
@@ -228,39 +229,39 @@ export const TYPES = {
     size:G('Shape',n('Size',80,20,100,1,{unit:'%'})),area:G('Shape',pick('Area','square',['square','frame'],{labels:[['square','Square'],['frame','Whole frame']]})),
     chamfer:G('Shape',n('Chamfer',60,0,100,1,{unit:'%'})),gap:G('Shape',n('Gap',1,0,4,1)),fill:G('Shape',n('Fill until',70,20,95,1,{unit:'%'})),
     pause:G('Shape',n('Pause',.4,0,5,.1,{unit:'s'})),flash:G('Shape',n('Flashes',4,0,8,1)),hold:G('Shape',n('Hold',1,0,10,.1,{unit:'s'})),
-    line:G('Look',n('Line',1.5,.5,8,.5)),labels:G('Look',n('Labels',10,0,30,1)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+    line:G('Look',n('Line',1.5,.5,8,.5)),lineStyle:LINE_STYLE(),labels:G('Look',n('Labels',10,0,30,1)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   epicycles:{category:'waveforms',group:'Math',label:'Fourier Epicycles',description:'A chain of spinning circles, each riding on the last, whose tip traces a shape: the Fourier series of a star, heart, infinity sign, square or trefoil, or the live spectrum or waveform itself. Loudness speeds the drawing, beats jolt the circles and a band of the sound wobbles their radii. The HUD lists the biggest terms. White: wire a Palette after it for colour.',
     inputs:{audio:'audio'},outputs:{image:'image'},props:{
     shape:pick('Shape','star',EPI_LIST.map(a=>a[0]),{labels:EPI_LIST}),
     react:G('Sound',pick('Wobble from','bass',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),wobble:G('Sound',n('Wobble',60,0,100,1,{unit:'%'})),jolt:G('Sound',n('Beat jolt',40,0,100,1,{unit:'%'})),
     speed:G('Sound',n('Speed',.15,.01,1,.01,{unit:'rev/s'})),boost:G('Sound',n('Speed from loudness',100,0,200,1,{unit:'%'})),
     circles:G('Form',n('Circles',40,2,128,1)),size:G('Form',n('Size',70,10,100,1,{unit:'%'})),
-    trail:G('Look',n('Trail',100,5,100,1,{unit:'%'})),line:G('Look',n('Line',2,.5,8,.5)),showCircles:G('Look',bool('Circles',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+    trail:G('Look',n('Trail',100,5,100,1,{unit:'%'})),line:G('Look',n('Line',2,.5,8,.5)),lineStyle:LINE_STYLE(),showCircles:G('Look',bool('Circles',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   polarPlot:{category:'waveforms',group:'Math',label:'Polar Plot',description:'Curves drawn in polar coordinates (r as a function of θ): roses, the superformula, the butterfly curve, limaçons, or the spectrum wrapped around a circle. The sound swells the radius and morphs the petal count; echoes repeat the curve as fading rings over a polar grid. The HUD prints the live equation. White: wire a Palette after it for colour.',
     inputs:{audio:'audio'},outputs:{image:'image'},props:{
     curve:pick('Curve','rose',POLAR_LIST.map(a=>a[0]),{labels:POLAR_LIST}),
     react:G('Sound',pick('React to','bass',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),swell:G('Sound',n('Swell',50,0,100,1,{unit:'%'})),morph:G('Sound',n('Morph',40,0,100,1,{unit:'%'})),spin:G('Sound',n('Spin',10,-90,90,1,{unit:'°/s'})),
     petals:G('Form',n('Petals (k)',3,1,12,.1)),cycles:G('Form',n('Cycles',2,1,12,1)),echoes:G('Form',n('Echoes',4,0,12,1)),size:G('Form',n('Size',70,10,100,1,{unit:'%'})),
-    line:G('Look',n('Line',1.5,.5,8,.5)),grid:G('Look',bool('Polar grid',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+    line:G('Look',n('Line',1.5,.5,8,.5)),lineStyle:LINE_STYLE(),grid:G('Look',bool('Polar grid',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   cellular:{category:'waveforms',group:'Math',label:'Cellular Automaton',description:'A grid of cells living by simple rules: Conway’s Life, Brian’s Brain, HighLife or a scrolling 1D rule (Rule 30, 90, 110…). Loudness speeds the generations, beats inject fresh life and the spectrum sprinkles cells along the bottom; dead cells leave a ghost. Cells shade by age. White: wire a Palette after it for colour.',
     inputs:{audio:'audio'},outputs:{image:'image'},props:{
     mode:pick('Rule','life',CA_LIST.map(a=>a[0]),{labels:CA_LIST}),
     react:G('Sound',pick('Inject on','beat',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),inject:G('Sound',n('Inject',50,0,100,1,{unit:'%'})),sprinkle:G('Sound',n('Spectrum sprinkle',30,0,100,1,{unit:'%'})),
     speed:G('Sound',n('Speed',12,1,60,1,{unit:'steps/s'})),boost:G('Sound',n('Speed from loudness',100,0,200,1,{unit:'%'})),
     rule:G('Form',n('1D rule',30,0,255,1)),cell:G('Form',n('Cell',10,3,40,1,{unit:'px'})),
-    gap:G('Look',n('Gap',15,0,50,1,{unit:'%'})),ghost:G('Look',n('Ghost',50,0,100,1,{unit:'%'})),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+    cellShape:CELL_SHAPE('Cell shape'),gap:G('Look',n('Gap',15,0,50,1,{unit:'%'})),ghost:G('Look',n('Ghost',50,0,100,1,{unit:'%'})),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   oscilloscope:{category:'waveforms',group:'Tech',label:'Oscilloscope',description:'A phosphor oscilloscope reading the waveform itself: XY phase plot (the signal against a delayed copy), a triggered time trace, or a Lissajous figure whose frequencies follow the sound. Glowing persistence, graticule and readouts included. White: wire a Palette after it for colour.',
     inputs:{audio:'audio'},outputs:{image:'image'},props:{
     mode:pick('Mode','xy',SCOPE_LIST.map(a=>a[0]),{labels:SCOPE_LIST}),
     gain:G('Sound',n('Gain',3,.5,20,.1)),morph:G('Sound',n('Morph',40,0,100,1,{unit:'%'})),drift:G('Sound',n('Drift',30,0,100,1,{unit:'%'})),
     span:G('Form',n('Samples',1024,256,1780,1)),delay:G('Form',n('XY delay',24,1,200,1)),size:G('Form',n('Size',100,10,100,1,{unit:'%'})),
-    persist:G('Look',n('Persistence',70,0,95,1,{unit:'%'})),line:G('Look',n('Line',1.5,.5,8,.5)),grid:G('Look',bool('Graticule',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+    persist:G('Look',n('Persistence',70,0,95,1,{unit:'%'})),line:G('Look',n('Line',1.5,.5,8,.5)),lineStyle:LINE_STYLE(),grid:G('Look',bool('Graticule',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   radar:{category:'waveforms',group:'Tech',label:'Radar Sweep',description:'A radar scope: a sweeping beam paints the spectrum as returns around the dial, fading behind it. Loudness speeds the sweep, and contacts with bearing and range readouts drift across the screen, flaring on beats. White: wire a Palette after it for colour.',
     inputs:{audio:'audio'},outputs:{image:'image'},props:{
     react:G('Sound',pick('Flare on','beat',['beat','bass','mids','high','full'],{labels:[['beat','Beats'],['bass','Bass'],['mids','Mids'],['high','Highs'],['full','Level']]})),returns:G('Sound',n('Returns',100,0,200,1,{unit:'%'})),decay:G('Sound',n('Fade',60,0,100,1,{unit:'%'})),
     rpm:G('Sound',n('Sweep',12,1,60,1,{unit:'rpm'})),boost:G('Sound',n('Sweep from loudness',100,0,200,1,{unit:'%'})),
     contacts:G('Form',n('Contacts',6,0,20,1)),range:G('Form',n('Range',40,5,200,1,{unit:'NM'})),rings:G('Form',n('Rings',4,2,8,1)),size:G('Form',n('Size',80,10,100,1,{unit:'%'})),
-    labels:G('Look',bool('Labels',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
+    lineStyle:LINE_STYLE(),cellShape:CELL_SHAPE('Returns as'),labels:G('Look',bool('Labels',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads an OBJ, FBX, GLB or glTF; animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
@@ -400,6 +401,11 @@ export const TYPES = {
     amount:n('Intensity',60,0,100,1),curve:n('Curve',35,-100,100,1),swirl:n('Swirl',10,-100,100,1),speed:n('Speed',35,0,100,1),trails:n('Trails',55,0,100,1),
     react:G('Sound',pick('Reacts to','bass',['bass','beat','level','always'],{labels:[['bass','Bass'],['beat','Beats'],['level','Loudness'],['always','Nothing (steady)']]})),sound:G('Sound',n('Sound',60,0,100,1)),
     drift:G('Centre',n('Centre drift',35,0,100,1)),x:G('Centre',n('Centre X',0,-50,50,1)),y:G('Centre',n('Centre Y',0,-50,50,1))}},
+  motionBlur:{category:'postfx',label:'Motion blur',description:'Blurs movement. Shutter averages the last frames (a real camera shutter), Smear keeps the picture sharp with a fading tail behind it, Directional, Zoom and Spin streak it along a line, out from the centre or around it. The sound lengthens the blur.',
+    inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
+    mode:pick('Mode','shutter',['shutter','smear','directional','zoom','spin'],{labels:[['shutter','Shutter (frames)'],['smear','Smear (tail)'],['directional','Directional'],['zoom','Zoom'],['spin','Spin']]}),
+    amount:n('Amount',60,0,100,1,{unit:'%'}),samples:n('Samples',8,2,24,1),fade:n('Tail fade',40,0,100,1,{unit:'%'}),angle:n('Angle',0,-180,180,1,{unit:'°'}),
+    react:G('Sound',pick('Reacts to','level',['bass','beat','level','always'],{labels:[['bass','Bass'],['beat','Beats'],['level','Loudness'],['always','Nothing (steady)']]})),sound:G('Sound',n('Sound',50,0,100,1,{unit:'%'}))}},
   shader:{category:'postfx',label:'Shader',description:'Your own GLSL fragment shader, Shadertoy style: write mainImage(), read the picture from iChannel0 and the sound from iChannel1 or uBass / uMids / uHigh / uLevel / uBeat. “uniform float x; // @knob 0..1” lines become knobs. Works without a picture too.',
     inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
     example:pick('Example',SHADER_DEFAULT,[...Object.keys(SHADER_EXAMPLES),'Custom']),code:text('Code',SHADER_EXAMPLES[SHADER_DEFAULT],20000),

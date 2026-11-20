@@ -19,6 +19,17 @@ function hit(s,sig,react,dt){
 const specAt=(sig,f)=>{const F=sig.freq;if(!F?.length)return 0;const n=F.length*.6,i=Math.min(F.length-1,Math.floor(Math.pow(n,Math.max(0,Math.min(1,f)))));return F[i]/255;};
 const meter=(ctx,x,y,w,h,v,lw)=>{ctx.lineWidth=lw;ctx.strokeRect(x,y,w,h);ctx.fillRect(x,y,w*Math.max(0,Math.min(1,v)),h);};
 const lines=(ctx,arr,x,y,lh)=>arr.forEach((l,i)=>ctx.fillText(l,x,y+i*lh));
+// Line style: a dash pattern scaled to the line width (dots are zero-length dashes with round caps).
+export const LINE_STYLES=[['solid','Solid'],['dashed','Dashed'],['dotted','Dotted'],['dashdot','Dash-dot'],['long','Long dash']];
+export function lineDash(c,style,lw){const u=Math.max(1.5,lw),d=style==='dashed'?[u*5,u*3.5]:style==='dotted'?[0,u*2.6]:style==='dashdot'?[u*7,u*2.6,0,u*2.6]:style==='long'?[u*16,u*6]:[];
+  c.setLineDash(d);c.lineCap=d.length?'round':c.lineCap;return d.length>0;}
+// Cell / dot shapes, added to a Path2D and filled (rings and crosses keep their holes with the nonzero rule).
+export const CELL_SHAPES=[['square','Square'],['dot','Dot'],['ring','Ring'],['cross','Cross']];
+export function cellShape(P,shape,x,y,z){const r=z/2,cx=x+r,cy=y+r;
+  if(shape==='dot'){P.moveTo(cx+r,cy);P.arc(cx,cy,r,0,TAU);}
+  else if(shape==='ring'){P.moveTo(cx+r,cy);P.arc(cx,cy,r,0,TAU);P.moveTo(cx+r*.55,cy);P.arc(cx,cy,r*.55,0,TAU,true);}
+  else if(shape==='cross'){const t=z*.28;P.rect(x,cy-t/2,z,t);P.rect(cx-t/2,y,t,cy-t/2-y);P.rect(cx-t/2,cy+t/2,t,y+z-cy-t/2);}
+  else P.rect(x,y,z,z);}
 
 // ---------- Fourier Epicycles ----------
 // A chain of rotating circles (a Fourier series) whose tip draws a shape. The sound bends each circle's radius by its
@@ -56,9 +67,10 @@ export function epicycles(ctx,W,H,s,p,sig,dt){
   s.trace??=[];s.th??=0;for(let q=0;q<sub;q++){s.th+=dth;s.trace.push([...tip(s.th),s.th]);}
   const keep=TAU*Math.max(.02,p.trail/100);while(s.trace.length>2&&s.th-s.trace[0][2]>keep)s.trace.shift();if(s.trace.length>4000)s.trace.splice(0,s.trace.length-4000);
   // The drawn path: oldest dim, newest bright, in a few grey levels.
-  const T=s.trace,G=6,lw=Math.max(.5,p.line*k);ctx.lineWidth=lw;ctx.lineCap='round';ctx.lineJoin='round';
-  for(let g=0;g<G;g++){ctx.beginPath();let any=false;for(let i=1;i<T.length;i++){const age=(s.th-T[i][2])/keep;if(Math.min(G-1,Math.floor((1-age)*G))!==g)continue;ctx.moveTo(T[i-1][0],T[i-1][1]);ctx.lineTo(T[i][0],T[i][1]);any=true;}
+  const T=s.trace,G=6,lw=Math.max(.5,p.line*k);ctx.lineWidth=lw;ctx.lineCap='round';ctx.lineJoin='round';lineDash(ctx,p.lineStyle,lw);
+  for(let g=0;g<G;g++){ctx.beginPath();let any=false,last=-9;for(let i=1;i<T.length;i++){const age=(s.th-T[i][2])/keep;if(Math.min(G-1,Math.floor((1-age)*G))!==g)continue;if(last!==i-1)ctx.moveTo(T[i-1][0],T[i-1][1]);ctx.lineTo(T[i][0],T[i][1]);last=i;any=true;}
     if(any){ctx.strokeStyle=tone(rgb,.22+.78*(g+1)/G);ctx.stroke();}}
+  ctx.setLineDash([]);
   // The circles and their arms.
   if(p.showCircles){let x=cx,y=cy;const arms=[[x,y]];ctx.lineWidth=Math.max(.5,k);ctx.strokeStyle=tone(rgb,.32);ctx.beginPath();
     for(let j=0;j<cs.length;j++){const c=cs[j],m=mj(j),a=c.k*s.th,r=c.amp*S*m;if(r>.6){ctx.moveTo(x+r,y);ctx.arc(x,y,r,0,TAU);}x+=(c.re*Math.cos(a)-c.im*Math.sin(a))*S*m;y+=(c.re*Math.sin(a)+c.im*Math.cos(a))*S*m;arms.push([x,y]);}
@@ -105,7 +117,7 @@ export function polarPlot(ctx,W,H,s,p,sig,dt){
     for(let a=0;a<360;a+=30){const t=a*Math.PI/180;ctx.moveTo(cx,cy);ctx.lineTo(cx+R*1.04*Math.cos(t),cy-R*1.04*Math.sin(t));}ctx.stroke();
     ctx.font=FONT(10*k);ctx.textAlign='center';ctx.textBaseline='middle';for(let a=0;a<360;a+=30){const t=a*Math.PI/180;ctx.fillText(a+'°',cx+R*1.1*Math.cos(t),cy-R*1.1*Math.sin(t));}
     ctx.textAlign='left';ctx.textBaseline='bottom';for(const f of [.25,.5,.75,1])ctx.fillText(f.toFixed(2),cx+R*f+3*k,cy-2*k);}
-  const plot=(P,a,nm,rot,t)=>{ctx.beginPath();const c=Math.cos(rot),sn=Math.sin(rot);for(let i=0;i<n;i++){const x=P[i*2]*nm*a,y=P[i*2+1]*nm*a,X=cx+(x*c-y*sn)*R,Y=cy-(x*sn+y*c)*R;i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);}ctx.strokeStyle=tone(rgb,t);ctx.stroke();};
+  const plot=(P,a,nm,rot,t)=>{ctx.beginPath();const c=Math.cos(rot),sn=Math.sin(rot);for(let i=0;i<n;i++){const x=P[i*2]*nm*a,y=P[i*2+1]*nm*a,X=cx+(x*c-y*sn)*R,Y=cy-(x*sn+y*c)*R;i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);}ctx.strokeStyle=tone(rgb,t);lineDash(ctx,p.lineStyle,ctx.lineWidth);ctx.stroke();ctx.setLineDash([]);};
   ctx.lineWidth=lw;for(let e=s.hist.length-1;e>=1;e--){const h=s.hist[e];plot(h.pts,h.amp,h.norm,h.rot,.2+.55*(1-e/(s.hist.length+1)));}
   ctx.lineWidth=lw*1.4;plot(pts,amp,norm,s.rot,1);
   // Tracer: a point running along the curve with its r and θ.
@@ -156,7 +168,7 @@ export function cellular(ctx,W,H,s,p,sig,dt){
     if(p.mode==='rule'){if(A[i]){const ageR=((s.head-1-y)+rows*2)%rows;t=1-ageR/rows*.8;}}
     else if(A[i]===1)t=p.mode==='brain'?1:Math.max(.35,1-age[i]/24);else if(A[i]===2)t=.45;else if(gh[i]&&p.ghost>0)t=gh[i]/255*.3;
     if(t<0)continue;const lv=Math.min(G-1,Math.floor(t*G));
-    const yy=p.mode==='rule'?oy+(((y-s.head)+rows)%rows)*c:oy+y*c;paths[lv].rect(ox+x*c+g/2,yy+g/2,sz,sz);}
+    const yy=p.mode==='rule'?oy+(((y-s.head)+rows)%rows)*c:oy+y*c;cellShape(paths[lv],p.cellShape,ox+x*c+g/2,yy+g/2,sz);}
   paths.forEach((P,lv)=>{ctx.fillStyle=tone(rgb,.12+.88*(lv+1)/G);ctx.fill(P);});
   if(p.hud){const sz=12*k,m=40*k,lh=sz*1.35;ctx.font=FONT(sz);ctx.textBaseline='top';ctx.textAlign='left';ctx.fillStyle=tone(rgb,1);ctx.strokeStyle=tone(rgb,1);
     const rule=p.mode==='rule'?`RULE ${s.rule}  (${s.rule.toString(2).padStart(8,'0')})`:p.mode==='brain'?"BRIAN'S BRAIN  B2/S/3":p.mode==='highlife'?'HIGHLIFE  B36/S23':'CONWAY  B3/S23';
@@ -180,8 +192,8 @@ export function oscilloscope(ctx,W,H,s,p,sig,dt){
   else{const bb=sig.bands||{},a=1+Math.round((bb.bass??0)*p.morph/100*4),c2=2+Math.round((bb.high??0)*p.morph/100*5);s.ph=(s.ph||0)+dt*p.drift/100*1.5;
     const R=Math.min(gw,gh)*.42;for(let i=0;i<span;i++){const t=TAU*i/(span-1);pts.push([cx+(Math.sin(a*t+s.ph)*R+w[i]*gain*.4),cy-(Math.sin(c2*t)*R+w[(i+37)%L]*gain*.4)]);}s.ratio=`${a}:${c2}`;}
   const G=5,lw=Math.max(.5,p.line*k),ps=Array.from({length:G},()=>new Path2D());
-  for(let i=1;i<pts.length;i++){const [x0,y0]=pts[i-1],[x1,y1]=pts[i],l=Math.hypot(x1-x0,y1-y0),t=Math.max(0,Math.min(.999,1.15-l/(div*.5)));if(!(t>=0))continue;ps[Math.floor(t*G)].moveTo(x0,y0);ps[Math.floor(t*G)].lineTo(x1,y1);}
-  b.lineWidth=lw;b.lineCap='round';ps.forEach((P,g)=>{b.strokeStyle=tone(rgb,.25+.75*(g+1)/G);b.stroke(P);});
+  let lg=-1;for(let i=1;i<pts.length;i++){const [x0,y0]=pts[i-1],[x1,y1]=pts[i],l=Math.hypot(x1-x0,y1-y0),t=Math.max(0,Math.min(.999,1.15-l/(div*.5)));if(!(t>=0)){lg=-1;continue;}const g=Math.floor(t*G);if(g!==lg)ps[g].moveTo(x0,y0);ps[g].lineTo(x1,y1);lg=g;}
+  b.lineWidth=lw;b.lineCap='round';lineDash(b,p.lineStyle,lw);ps.forEach((P,g)=>{b.strokeStyle=tone(rgb,.25+.75*(g+1)/G);b.stroke(P);});b.setLineDash([]);
   b.globalCompositeOperation='source-over';
   if(p.grid){ctx.strokeStyle=tone(rgb,.25);ctx.lineWidth=Math.max(.5,k);ctx.beginPath();
     for(let i=0;i<=10;i++){ctx.moveTo(cx-gw/2+div*i,cy-gh/2);ctx.lineTo(cx-gw/2+div*i,cy+gh/2);}for(let j=0;j<=8;j++){ctx.moveTo(cx-gw/2,cy-gh/2+div*j);ctx.lineTo(cx+gw/2,cy-gh/2+div*j);}ctx.stroke();
@@ -205,7 +217,7 @@ export function radar(ctx,W,H,s,p,sig,dt){
   const G=6,ps=Array.from({length:G},()=>new Path2D()),nl=Math.max(1,Math.ceil(da/(.5*Math.PI/180))),J=64,dot=Math.max(1.5,R/J*.8);
   for(let l=0;l<nl;l++){const a=a0+da*(l+.5)/nl,ca=Math.cos(a),sa=Math.sin(a);
     for(let j=2;j<J;j++){const f=j/J,h=Math.sin(j*12.9898+Math.floor(a*80)*78.233)*43758.5453,nz=h-Math.floor(h),v=specAt(sig,f)*p.returns/100*(.55+.45*nz);if(v<.18)continue;
-      const lv=Math.min(G-1,Math.floor(Math.min(1,v)*G)),r=f*R;ps[lv].rect(cx+ca*r-dot/2,cy+sa*r-dot/2,dot,dot);}}
+      const lv=Math.min(G-1,Math.floor(Math.min(1,v)*G)),r=f*R;cellShape(ps[lv],p.cellShape,cx+ca*r-dot/2,cy+sa*r-dot/2,dot);}}
   ps.forEach((P,g)=>{b.fillStyle=tone(rgb,.2+.8*(g+1)/G);b.fill(P);});
   // Contacts: spawned on hits, drifting; painted when the beam crosses them.
   s.cts??=[];s.id??=0;
@@ -217,11 +229,11 @@ export function radar(ctx,W,H,s,p,sig,dt){
   // Scope furniture: range rings, bearing ticks, the beam.
   const lw=Math.max(.5,k);ctx.lineWidth=lw;ctx.strokeStyle=tone(rgb,.3);ctx.fillStyle=tone(rgb,.55);ctx.beginPath();
   const rings=Math.max(2,p.rings|0);for(let i=1;i<=rings;i++){ctx.moveTo(cx+R*i/rings,cy);ctx.arc(cx,cy,R*i/rings,0,TAU);}
-  ctx.moveTo(cx-R,cy);ctx.lineTo(cx+R,cy);ctx.moveTo(cx,cy-R);ctx.lineTo(cx,cy+R);
+  ctx.moveTo(cx-R,cy);ctx.lineTo(cx+R,cy);ctx.moveTo(cx,cy-R);ctx.lineTo(cx,cy+R);lineDash(ctx,p.lineStyle,lw);ctx.stroke();ctx.setLineDash([]);ctx.lineCap='butt';ctx.beginPath();
   for(let d=0;d<360;d+=5){const t=(d-90)*Math.PI/180,l=d%30?6*k:14*k;ctx.moveTo(cx+Math.cos(t)*R,cy+Math.sin(t)*R);ctx.lineTo(cx+Math.cos(t)*(R+l),cy+Math.sin(t)*(R+l));}ctx.stroke();
   ctx.font=FONT(10*k);ctx.textAlign='center';ctx.textBaseline='middle';for(let d=0;d<360;d+=30){const t=(d-90)*Math.PI/180;ctx.fillText(String(d).padStart(3,'0'),cx+Math.cos(t)*(R+28*k),cy+Math.sin(t)*(R+28*k));}
   ctx.textAlign='left';ctx.textBaseline='bottom';for(let i=1;i<=rings;i++)ctx.fillText(Math.round(p.range*i/rings)+' NM',cx+3*k,cy-R*i/rings-2*k);
-  for(let q=0;q<14;q++){const a=a1-q*.025;ctx.strokeStyle=tone(rgb,(1-q/14)*.9);ctx.lineWidth=q?Math.max(.5,k*2):Math.max(1,k*2);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);ctx.stroke();}
+  for(let q=0;q<14;q++){const a=a1-q*.025;ctx.strokeStyle=tone(rgb,(1-q/14)*.9);ctx.lineWidth=q?Math.max(.5,k*2):Math.max(1,k*2);lineDash(ctx,p.lineStyle,ctx.lineWidth);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);ctx.stroke();}ctx.setLineDash([]);ctx.lineCap='butt';
   ctx.font=FONT(11*k);ctx.lineWidth=lw;
   for(const c of s.cts){const age=s.t-c.seen,rev=TAU/Math.max(.1,p.rpm/60*TAU);if(age>rev*1.2)continue;const al=Math.max(0,1-age/(rev*1.2)),x=cx+Math.cos(c.b)*c.r*R,y=cy+Math.sin(c.b)*c.r*R,z=10*k;
     ctx.globalAlpha=al;ctx.strokeStyle=ctx.fillStyle=tone(rgb,1);ctx.strokeRect(x-z,y-z,z*2,z*2);

@@ -904,6 +904,16 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
          edges:[{from:'a',out:'audio',to:'s',input:'audio'},{from:'s',out:'image',to:'p',input:'shape'},{from:'p',out:'shape',to:'o',input:'image'}]}]});
        for(let i=0;i<6;i++){await new Promise(r=>setTimeout(r,120));pro.draw();}const px=pro.pixels(),err=pro.stats().errors;if(!(px>.3)||err.length)out.push(t+':'+m+' '+px+' '+err.join());}return out.join(' | ');});
       assert.equal(r,'','Epicycles, Polar Plot, Cellular Automaton, Oscilloscope and Radar draw in every mode');}
+     // Line styles draw on every new waveform; Motion blur draws in every mode.
+     {const r=await page.evaluate(async()=>{const out=[],run=async(nodes,edges,tag)=>{pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes,edges}]});
+       for(let i=0;i<8;i++){await new Promise(r=>setTimeout(r,100));pro.draw();}const px=pro.pixels(),err=pro.stats().errors;if(!(px>.3)||err.length)out.push(tag+' '+px+' '+err.join());};
+       for(const t of ['attractor','techLines','epicycles','polarPlot','oscilloscope','radar'])for(const lineStyle of ['dashed','dotted','dashdot'])
+         await run([{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'s',type:t,x:0,y:0,props:{lineStyle}},{id:'o',type:'output',x:0,y:0,props:{}}],[{from:'a',out:'audio',to:'s',input:'audio'},{from:'s',out:'image',to:'o',input:'image'}],t+':'+lineStyle);
+       for(const mode of ['shutter','smear','directional','zoom','spin'])
+         await run([{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'s',type:'radar',x:0,y:0,props:{}},{id:'m',type:'motionBlur',x:0,y:0,props:{mode,amount:80}},{id:'o',type:'output',x:0,y:0,props:{}}],
+           [{from:'a',out:'audio',to:'s',input:'audio'},{from:'s',out:'image',to:'m',input:'image'},{from:'a',out:'audio',to:'m',input:'audio'},{from:'m',out:'image',to:'o',input:'image'}],'motionBlur:'+mode);
+       return out.join(' | ');});
+      assert.equal(r,'','Line styles and Motion blur modes draw');}
      // Replace: a library node dropped onto a node takes its place and keeps its wires.
      {const r=await page.evaluate(async()=>{
        pro.importProject({format:'audiograph-pro',version:10,layers:[{id:'L',name:'L',visible:true,opacity:1,blend:'source-over',nodes:[{id:'a',type:'audioIn',x:0,y:0,props:{}},{id:'w',type:'waveform2d',x:220,y:0,props:{mode:'spiral'}},{id:'p',type:'palette',x:440,y:0,props:{}},{id:'out',type:'output',x:660,y:0,props:{}}],edges:[{from:'a',out:'audio',to:'w',input:'audio'},{from:'w',out:'shape',to:'p',input:'shape'},{from:'p',out:'shape',to:'out',input:'image'}]}]});

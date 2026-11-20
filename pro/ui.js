@@ -143,19 +143,39 @@ export function knob(opts) {
 }
 
 // Balanced chip rows: when a row of chips doesn't fit, it splits into the fewest rows that do, as evenly as
-// possible with the longer rows first (7 chips → 4 + 3, not 6 + 1). Line breaks are inserted between the
+// possible with the longer rows first (7 chips → 4 + 3, not 6 + 1), and never with one chip alone on a row when a
+// split without one fits (wide labels: 2 + 2 + 3, not 2 + 2 + 2 + 1). Line breaks are inserted between the
 // buttons, so they stay direct children. Every .chips row on the page is balanced, and again on resize.
 const chipRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((es) => { for (const e of es) for (const c of e.target.querySelectorAll(':scope > .chips')) balanceChips(c); }) : null;
 export function balanceChips(root) {
   if (!root.isConnected || !root.offsetParent || root.classList.contains('toggle')) return;
-  const old = [...root.querySelectorAll(':scope > .chips-br')], items = [...root.children].filter((c) => !c.classList.contains('chips-br') && c.offsetParent);
-  old.forEach((b) => b.remove());
+  root.querySelectorAll(':scope > .chips-br').forEach((b) => b.remove());
+  const items = [...root.children].filter((c) => c.offsetParent);items.forEach((b) => { b.style.order = ''; });
   const n = items.length, gap = parseFloat(getComputedStyle(root).columnGap) || 0, avail = root.clientWidth + .5, w = items.map((b) => b.getBoundingClientRect().width);
-  const fits = (r) => { let i = 0; for (let k = 0; k < r; k++) { const len = Math.ceil((n - i) / (r - k)); let sum = 0; for (let j = i; j < i + len; j++) sum += w[j] + (j > i ? gap : 0); if (sum > avail) return null; i += len; } return true; };
-  let breaks = [];
-  if (n > 1 && items.some((b) => b.offsetTop !== items[0].offsetTop)) for (let r = 2; r <= n; r++) if (fits(r)) { let i = 0; for (let k = 0; k < r - 1; k++) { i += Math.ceil((n - i) / (r - k)); breaks.push(items[i]); } break; }
-  for (const b of breaks) root.insertBefore(Object.assign(document.createElement('i'), { className: 'chips-br', ariaHidden: 'true' }), b);
-  root.classList.toggle('balanced', breaks.length > 0);
+  const width = (row) => row.reduce((a, i, k) => a + w[i] + (k ? gap : 0), 0), lone = (rows) => rows.filter((r) => r.length === 1).length;
+  // Best split into r rows (in order, any sizes): fewest lone chips, then the most even row widths, longer rows first.
+  const best = (r) => { let top = null; const cut = [0], pre = [0];for (const x of w) pre.push(pre[pre.length - 1] + x);const span = (a, b) => pre[b] - pre[a] + gap * (b - a - 1);
+    const go = (i, k) => { if (k === r - 1) { if (span(i, n) > avail) return; const st = [...cut, n], rows = []; for (let q = 0; q < r; q++) rows.push(Array.from({ length: st[q + 1] - st[q] }, (_, k) => st[q] + k));
+        const ws = rows.map(width); let cost = lone(rows) * 1e6 + Math.max(...ws) - Math.min(...ws); for (let q = 1; q < r; q++) if (rows[q].length > rows[q - 1].length) cost += 1;
+        if (!top || cost < top.cost) top = { cost, rows }; return; }
+      for (let j = i + 1; j <= n - (r - 1 - k); j++) { if (span(i, j) > avail) break; cut.push(j); go(j, k + 1); cut.pop(); } };
+    go(0, 0); return top; };
+  // Even split first (row sizes differ by at most one, longer rows first); only if that leaves a chip alone, search any sizes.
+  const even = (r) => { const rows = []; let i = 0; for (let k = 0; k < r; k++) { const len = Math.ceil((n - i) / (r - k)); rows.push(Array.from({ length: len }, (_, q) => i + q)); i += len; } return rows.every((x) => width(x) <= avail) ? rows : null; };
+  let plan = null;
+  if (n > 1 && items.some((b) => b.offsetTop !== items[0].offsetTop)) for (let r = 2; r <= n; r++) { const e = even(r); if (!e) continue; plan = e; if (!lone(e)) break;
+    for (let rr = 2; rr <= Math.min(n, r + 1); rr++) { const b = best(rr); if (b && b.cost < 1e6) { plan = b.rows; break; } } break; }
+  // Still a chip alone in the library? Pack them out of order (widest first, best fit), then lend lone rows a partner from a row of 3+.
+  if (plan && lone(plan) && n > 3 && root.closest('#library')) {
+    const rows = [];for (const i of [...items.keys()].sort((a, b) => w[b] - w[a])) { let at = null, room = Infinity;
+      for (const r of rows) { const left = avail - width([...r, i]); if (left >= 0 && left < room) { room = left; at = r; } } at ? at.push(i) : rows.push([i]); }
+    for (const r of rows) if (r.length === 1) for (const d of rows) if (d.length > 2) { const x = d.find((i) => width([r[0], i]) <= avail); if (x !== undefined) { d.splice(d.indexOf(x), 1); r.push(x); break; } }
+    rows.forEach((r) => r.sort((a, b) => a - b));rows.sort((a, b) => a[0] - b[0]);
+    if (lone(rows) < lone(plan) && rows.length <= plan.length + 1) plan = rows;
+  }
+  if (plan) { let o = 0; plan.forEach((r, q) => { if (q) { const br = Object.assign(document.createElement('i'), { className: 'chips-br', ariaHidden: 'true' }); br.style.order = o++; root.insertBefore(br, items[r[0]]); }
+    for (const i of r) items[i].style.order = o++; }); }
+  root.classList.toggle('balanced', !!plan);
 }
 const watchChips = (c) => { if (c.parentElement) chipRO?.observe(c.parentElement); requestAnimationFrame(() => balanceChips(c)); };
 if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) { if (n.classList.contains('chips')) watchChips(n); for (const c of n.querySelectorAll?.('.chips') || []) watchChips(c); } }).observe(document.documentElement, { childList: true, subtree: true });
