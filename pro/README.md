@@ -22,8 +22,18 @@ each with its own opacity and blend mode (up to four).
     (coloured by the picture or the palette), into a Palette's colors, or into any
     image input. Projects from v10 and earlier convert automatically.
 - **WebGPU particles → emit** takes anything visual: a picture, a waveform or
-    emitter shape, or a **3D Object** (it emits from the object's live render, so a
-    turning object's particles follow it). The sound still sets how many spawn.
+    emitter shape, or a **3D Object**. Existing 2D simulations sample the object's
+    live render. Set **Simulation: Particles → Space: 3D** for true X/Y/Z particles:
+    the object's **object → emit** wire samples its actual mesh surface, including
+    animated poses, and launches along surface normals. **Surface spread** scatters
+    launch directions; **Depth** sets the Z extent of the simulation bounds.
+    Images and waveforms emit from a plane, then particles move freely in 3D.
+    Add a **3D camera** after particles for Rotate, Orbit, Tilt, Zoom and Focal length;
+    dragging the preview also orbits the cloud. Gravity, Drag, Swirl, Attract and
+    Turbulence work in 3D. Trails become world-space velocity streaks rather than
+    screen-space accumulation, so turning the camera does not leave ghost images.
+    Mesh emission uses the particle palette; image emission can keep picture colours.
+    The sound still sets how many spawn. Existing projects stay in 2D.
 - **3D Object → Choose model** loads OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF.
     Polygons of any size are triangulated (concave ones too). USD reads the root layer's
     meshes, xform stacks, UVs, stage units and up axis; flatten files that reference

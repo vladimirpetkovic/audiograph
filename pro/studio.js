@@ -58,6 +58,11 @@ function cloneObjects(objs,p,shape){
 const SIM_PROPS=type=>Object.values(TYPES[type].props).some(s=>s.sims);
 function simKeys(g,n){
   const t=TYPES[n.type],keys=Object.keys(t.props);
+  if(n.type==='gpuParticles'){
+    return keys.filter(k=>(!t.props[k].sims||t.props[k].sims.includes(n.props.mode))&&
+      (!['particleDepth','particleSpread'].includes(k)||n.props.space==='3d'));
+  }
+  if(n.type==='camera3d'&&upstreamSim(g,n)==='simparticles')return keys.filter(k=>!['dof','focus','blur'].includes(k));
   if(n.type==='liveData')return keys.filter(k=>k!=='place'||['ocean','weather'].includes(n.props.source));
   if(!SIM_PROPS(n.type))return keys;
   const mode=upstreamSim(g,n);if(!mode)return keys;
@@ -941,12 +946,18 @@ function execute(g,time,dt){
       if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
       if(n.type==='gpuParticles'&&byInput.has(n.id+':emit')){
-        // Anything visual wired into "emit" spawns particles from its bright parts (the original's image emitter).
-        // A 3D object emits from its own node's live render, so it follows the object as it turns or animates.
-        const key={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'}[p.mode],src=byInput.get(n.id+':emit'),v=input(n,'emit'),img=key&&asImage(v&&!v.emitter&&!(v instanceof HTMLCanvasElement)?outputs.get(src.from)?.shape:v,n.id+'e');
-        const a=img&&emitterAsset(nstate(n.id+':emit',()=>({name:'Picture'})),img,time);
-        if(a){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a;}
+        // 3D particles take mesh geometry; other simulations sample the source's live render.
+        const key={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'}[p.mode],src=byInput.get(n.id+':emit'),v=input(n,'emit'),source=findNode(src.from);
+        if(p.mode==='simparticles'&&p.space==='3d'&&src.out==='object'){
+          if(!v)throw Error('The 3D emitter object is not ready');
+          r.shape.job.emitObject={object:v,turn:source?.props.turn||0,tilt:source?.props.tilt||0,spin:source?.props.look?._spin||0};
+        }else{
+          const img=key&&asImage(v&&!v.emitter&&!(v instanceof HTMLCanvasElement)?outputs.get(src.from)?.shape:v,n.id+'e');
+          const a=img&&emitterAsset(nstate(n.id+':emit',()=>({name:'Picture'})),img,time);
+          if(a){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a;}
+        }
       }
+      if(n.type==='gpuParticles'){r.shape.mods._sim={...r.shape.mods._sim,pSpace:p.space||'2d'};r.shape.job.particleDepth=p.particleDepth;r.shape.job.particleSpread=p.particleSpread;r.shape.job.particleTime=time;}
     }else switch(n.type){
       case 'image':case 'video':case 'camera':{
         const m=mediaOf(n),{canvas,ctx}=surface(n.id);
@@ -2892,7 +2903,7 @@ $('helpBody').innerHTML=`
 <ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (audio-reactive lines), Polygons (faces that flash and push out with their band; Gap separates them, Edges outlines them) or Point cloud (3D model). A <b>3D model</b> comes with a <b>3D camera</b> after it that holds the view (Rotate, Orbit, Tilt, Zoom, Focal length): drag the preview to rotate and tilt it, scroll to zoom, double-click to reset. Colours come from the layer's <b>Palette</b>: loud lines and faces take the top of the ramp (Sound › Sensitivity / Contrast set how much); a Point cloud picks Look › Colour (Palette · sound) and Sound glow.</li>
 <li><b>3D model</b> loads <b>OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers; USD must be flattened, since referenced files are not loaded). Polygons of any size are triangulated. Still models keep up to 500,000 triangles in 3D Object (Normal and Point cloud render them on the GPU; Waveform and Polygons simplify to Max faces) and 1,000,000 in Mapping; animated models are thinned to 40,000 faces, since they are re-posed every frame. Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound pushes clones with the music, Field, Random, Links draws lines between them) and <b>Look</b> nodes (Material, Light, 3D camera with lens Focal length, 14 mm wide to 200 mm telephoto, and Depth of field) after it.</li>
-<li>A 3D Object can also feed an emitter's <b>emit</b> input: particles, fluid, smoke or sand stream from the live (even animated) surface.</li></ul>
+<li>A 3D Object can also feed an emitter's <b>emit</b> input. Set <b>WebGPU particles → Simulation: Particles → Space: 3D</b> to emit from its actual mesh surface, including animated models. Particles move in X/Y/Z; add a <b>3D camera</b> after them to rotate, orbit, tilt, zoom and change focal length. <b>Depth</b> sets the simulation's Z extent; <b>Surface spread</b> scatters launch directions away from the surface normal. Existing 2D particles, fluid, smoke and sand sample the object's rendered picture instead.</li></ul>
 <h3 id="h-sims">Simulations</h3>
 <p>The WebGPU emitters (Particles, Fluid, Smoke, Granular sand) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
 <h3 id="h-fx">Post FX</h3>

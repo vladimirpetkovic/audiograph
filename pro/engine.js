@@ -7,6 +7,7 @@ import {parseGLTF,pose} from './gltf.js';
 import {parseFBXModel} from './fbx-model.js';
 import {parseUSDModel} from './usd-model.js';
 import {firstFrame} from './media.js';
+import {patchParticles3d,surfaceSource} from './particles3d.js';
 // The 3D lighting after the WebGPU Cornell box sample (soft cast shadows, light size, bounce light, floor), smooth
 // cube normals and the link width / glow / pulse knobs are built into the classic engine; Pro keeps only its own defaults.
 function patch3dLighting(patch){
@@ -125,6 +126,7 @@ async function engineSource() {
     // A selected output resolution controls render targets; simulation grid/particle quality stays independent.
     patch("var tr=st.tr,sc=Math.min(1,tr.o/Math.max(W,H));","var tr=st.tr,sc=window.__agProOutputResolution?1:Math.min(1,tr.o/Math.max(W,H));");
     patch3dLighting(patch);
+    patchParticles3d(patch);
     // Depth of field for the classic 3D line drawers: every projected vertex reports its screen position and depth.
     const DZ='window.__agDz&&window.__agDz';
     patch("rowPts.push({sx:sx,sy:sy,h:hVal/Math.max(1,maxH)});",DZ+"(sx,sy,d);rowPts.push({sx:sx,sy:sy,h:hVal/Math.max(1,maxH)});");
@@ -375,7 +377,8 @@ export class EmitterEngine {
     w.__agDofCfg=VIEW3D.includes(mode)&&mode!=='fractal'&&job.mods?.pG3Dof>0?{amt:job.mods.pG3Dof,focus:job.mods.pG3Focus??50}:null;
     // Viewport camera: the 3D cloner and splats orbit, pan and zoom natively; classic 3D modes take the orbit.
     const v=job.view||{},dg=Math.PI/180;
-    this.viewMode=mode==='simcloner'||mode==='simsplat'?'sim':VIEW3D.includes(mode)?'classic':null;
+    const particles3d=mode==='simparticles'&&p._sim?.pSpace==='3d';
+    this.viewMode=mode==='simcloner'||mode==='simsplat'||particles3d?'sim':VIEW3D.includes(mode)?'classic':null;
     if(this.viewMode==='classic'){p._dragRotX=(p._dragRotX||0)+(v.pit||0)*dg;p._dragRotY=(p._dragRotY||0)-(v.yaw||0)*dg;}
     // Classic 3D renders the viewport zoom itself (sharp lines, up to 3x); the studio scales only what is left as a picture.
     // 3D Object scales its own projection (any zoom, no cost); the other classic 3D layouts render a larger frame (up to 3x).
@@ -386,7 +389,7 @@ export class EmitterEngine {
     if(job.mods?._postFx)p._postFx=w.pfxNorm({...job.mods._postFx,enabled:true});
     w.stackLayouts[0].params=p;w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.activeLayerIdx=0;
     // 3D camera after a model / primitive drawn as lines, polygons or a point cloud (the cloner reads its own camera knobs).
-    const cm=job.mods||{},camOn=cm.pG3Zoom!=null&&(mode==='object'||mode==='simsplat'),now=this.drawnAt;
+    const cm=job.mods||{},camOn=cm.pG3Zoom!=null&&(mode==='object'||mode==='simsplat'||particles3d),now=this.drawnAt;
     if(camOn){const dt=Math.min(.1,Math.max(0,(now-(this.camAt||now))/1000)),f=job.audio?.freq,lv=f&&f.length?f.slice(0,64).reduce((a,b)=>a+b,0)/64/255:0;
       this.camYaw=((this.camYaw||0)+dt*((cm.pG3Orbit||0)/100*69+(cm.pG3OrbitSnd||0)/100*lv*90))%360;}
     this.camAt=now;
@@ -399,6 +402,17 @@ export class EmitterEngine {
     if(!sameParams(p,this.applied)){const q=!mode.startsWith('sim')&&quickSet(w.document,p,this.applied);if(q)for(const [e,v] of q)e.value=v;else this.realSet(p);this.applied=p;}
     // A node's own 3D tilt / rotate turn the sim camera (3D Object drawn Normal, Cloner, splats) on top of the viewport orbit.
     if(this.viewMode==='sim'){const so=w.simOpt;so.vYaw=(v.yaw||0)-(p._dragRotY||0)/dg+(cm.pG3Zoom!=null?camYaw:0);so.vPit=(v.pit||0)+(p._dragRotX||0)/dg;so.vPx=v.px||0;so.vPy=v.py||0;so.vZm=v.zm||1;}
+    if(particles3d){
+      const src=job.emitObject,cache=this.surfaceCache||={};
+      w.__agParticles3d={
+        source:src?(w.agSim.status()==='ready'?surfaceSource(w,src.object,cache):new Float32Array(0)):null,
+        sourceAngle:(src?.turn||0)*dg+(src?.spin||0)*(job.particleTime||0),sourceTilt:(src?.tilt||0)*dg,
+        yaw:((v.yaw||0)-(p._dragRotY||0)/dg+camYaw)*dg,
+        tilt:((v.pit||0)+(p._dragRotX||0)/dg+(cm.pG3Tilt??18))*dg,
+        zoom:(v.zm||1)*(cm.pG3Zoom??100)/100,focal:(+cm.pG3Focal||28)/28,
+        panX:v.px||0,panY:v.py||0,depth:job.particleDepth??2,spread:(job.particleSpread??15)/100
+      };
+    }else w.__agParticles3d=null;
     if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)||job.poly&&job.solidMesh?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
     if(mode==='video'||(mode==='pixelwarp'&&(this.mediaKind==='video'||w.vidCamStream)))w.sampleVideoFrame?.();

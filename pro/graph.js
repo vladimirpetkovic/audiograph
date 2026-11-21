@@ -268,7 +268,10 @@ export const TYPES = {
     render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS,
     words:text('Text','SOUND'),font3d:pick('Font','Impact',TEXT_FONTS),depth:n('Depth',30,5,150,5,{noPort:true}),
     animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
-  gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Wire anything visual into “emit” (Camera, Video, Image, a waveform or emitter, a 3D Object, even a turning one) and particles spawn from its bright parts; the sound still sets how many.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
+  gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Particles can simulate in 2D or true 3D. In 3D, a 3D Object wired into “emit” emits from its mesh surface; images emit from a plane. Add a 3D camera after particles to orbit the cloud. In 2D, visuals emit from their bright parts.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
+    space:pick('Space','2d',['2d','3d'],{sim:'pSpace',sims:['simparticles'],labels:[['2d','2D'],['3d','3D']]}),
+    particleDepth:n('Depth',2,.2,8,.1,{sims:['simparticles']}),
+    particleSpread:n('Surface spread',15,0,100,5,{sims:['simparticles']}),
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU particles')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
@@ -309,7 +312,7 @@ export const TYPES = {
     floor:G('Floor',C3('Floor',0,0,100,'pG3Floor',5)),floorHeight:G('Floor',C3('Height',0,-100,100,'pG3FloorY',5)),floorTint:G('Floor',C3('Tint',30,0,100,'pG3FloorTint',5))}),
   camera3d:C3D('Look','3D camera','Rotate, orbit (on its own or with the music), tilt and zoom, lens focal length (14–200 mm), depth of field (every 3D Object render, Waveform included) and motion blur. Drag in the preview to look around.',{
     turn:C3('Rotate',0,-180,180,'pG3Yaw'),orbit:C3('Orbit',0,-100,100,'pG3Orbit'),orbitSound:C3('Orbit with sound',0,0,100,'pG3OrbitSnd',5),tilt:C3('Tilt',18,-80,80,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
-    focal:G('Lens',pick('Focal length','28',['14','18','24','28','35','50','85','135','200'],{key:'pG3Focal',sims:['simcloner'],labels:[['14','14 mm ultra wide'],['18','18 mm'],['24','24 mm wide'],['28','28 mm'],['35','35 mm'],['50','50 mm normal'],['85','85 mm portrait'],['135','135 mm tele'],['200','200 mm long tele']]})),dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
+    focal:G('Lens',pick('Focal length','28',['14','18','24','28','35','50','85','135','200'],{key:'pG3Focal',sims:['simcloner','simparticles'],labels:[['14','14 mm ultra wide'],['18','18 mm'],['24','24 mm wide'],['28','28 mm'],['35','35 mm'],['50','50 mm normal'],['85','85 mm portrait'],['135','135 mm tele'],['200','200 mm long tele']]})),dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
   // Deformers
   symmetry:{category:'deformers',group:'Symmetry',label:'Symmetry',description:'Repeat the shape: mirror across X / Y or turn it into 3- to 8-fold rotations.',...SHAPE_IO,props:{
     mode:pick('Symmetry','r6',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'}),gap:n('Gap',0,0,100,1,{key:'_symGap'})}},
