@@ -1726,9 +1726,13 @@ def Camera "Camera" {
     assert.deepEqual([snapshotData.readUInt32BE(16),snapshotData.readUInt32BE(20)],[1280,720],'PNG has selected resolution');
     await page.evaluate(()=>pro.pause(false));
     const [detached]=await Promise.all([page.waitForEvent('popup'),page.click('#output')]);
-    await detached.waitForFunction(()=>document.querySelector('video').videoWidth===1280);
+    await detached.waitForFunction(()=>document.querySelector('canvas')?.dataset.src==='1280x720');
     await page.selectOption('#resolution','1080');
-    await detached.waitForFunction(()=>document.querySelector('video').videoWidth===1920&&document.querySelector('video').videoHeight===1080);
+    await detached.waitForFunction(()=>document.querySelector('canvas').dataset.src==='1920x1080');
+    // The output window is painted straight from the preview (no video stream): it shows the picture and keeps up.
+    {const seen=await detached.evaluate(async()=>{const c=document.querySelector('canvas'),x=c.getContext('2d'),lum=()=>{const d=x.getImageData(0,0,c.width,c.height).data;let s=0;for(let i=0;i<d.length;i+=64)s+=d[i]+d[i+1]+d[i+2];return s;};
+       const a=lum();await new Promise(r=>setTimeout(r,600));return [a,lum(),!!document.querySelector('video')];});
+     assert.ok(seen[0]>0&&seen[1]>0&&seen[0]!==seen[1]&&!seen[2],'Detached output shows the live picture without a video stream: '+seen);}
     await detached.close();
     await page.click('#audioName');await page.click('#mic');
     await page.waitForFunction(()=>pro.stats().audio.input==='mic');

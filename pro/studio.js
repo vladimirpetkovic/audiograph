@@ -1268,6 +1268,7 @@ function drawLayer(out,g,image){
 const blackout={on:false,level:0};
 function draw(time,dt=1/30){
   if(pageHidden&&!exporting)return;
+  drawSeq++;
   dissolveCheck();
   if(!paused)autoClock+=dt*knobAutoSpeed;
   readAudio(time);if(!paused)autopilotStep(dt);renderErrors=[];const prevErrors=nodeErrors;nodeErrors=new Set();
@@ -1367,11 +1368,13 @@ function mapLoadStep(gap){
   if(mapLoad.ema>1.12&&mapLoad.res>.55){mapLoad.res=+(mapLoad.res-.15).toFixed(2);mapLoad.t=0;mapLoad.ema=1;}
   else if(mapLoad.ema<1.04&&mapLoad.res<1&&mapLoad.t>6){mapLoad.res=Math.min(1,+(mapLoad.res+.15).toFixed(2));mapLoad.t=0;}
 }
-function loop(now){
+let drawSeq=0,mainRaf=0;
+function loop(now,fromOutput){
+  if(!fromOutput)mainRaf=performance.now();
   mapTick(now);
   if(frame%60===59)releaseCameraIfUnused();
   if(!pageHidden&&!paused&&!exporting&&!document.body.classList.contains('splash-on')&&now-lastTime>1000/31){const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;if(lastTime)mapLoadStep((now-lastTime)/1000);elapsed+=dt;lastTime=now;const t0=performance.now();try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}sensors.frameTiming(performance.now()-t0,dt);}
-  requestAnimationFrame(loop);
+  if(!fromOutput)requestAnimationFrame(loop);
 }
 
 // ---------- library ----------
@@ -2723,33 +2726,36 @@ preview.addEventListener('pointerup',dropTouch,true);preview.addEventListener('p
 preview.addEventListener('dblclick',()=>{if(viewOff())return;const cam=viewCam(graph()),T=TYPES.camera3d.props;if(!cam&&!graph().view)return;
   if(cam)setCam(cam.id,c=>{c.turn=T.turn.value;c.tilt=T.tilt.value;c.zoom=T.zoom.value;});setView(v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
 
-// Output window for a projector / second display: mirrors the preview as a live stream.
+// Output window for a projector / second display. Each window's canvas is painted straight from the preview (a GPU copy,
+// no video stream in between, so no added lag or dropped frames). With Projectors set to 2–4 there is one window per
+// projector, each showing its slice of the picture with soft edges across the overlaps (Mapping › Output › Projectors).
+// The windows' own animation frames keep the show running when the studio window is covered or minimised.
 let outWins=[];
-// One output window, or with Projectors set to 2–4 one window per projector, each showing its slice of the picture with
-// soft edges across the overlaps (Mapping › Output › Projectors).
-function outputFrame(w,d,v,i){
-  const c=d.createElement('canvas');c.style.cssText='width:100vw;height:100vh;display:block';d.body.append(c);const ctx=c.getContext('2d');
-  const tick=()=>{if(w.closed)return;w.requestAnimationFrame(tick);const dpr=w.devicePixelRatio||1,W=Math.round(w.innerWidth*dpr),H=Math.round(w.innerHeight*dpr);
+function outputFrame(w,d,i){
+  const c=d.createElement('canvas');c.style.cssText='width:100vw;height:100vh;display:block';d.body.append(c);const ctx=c.getContext('2d',{alpha:false});
+  let seq=-1,size='';
+  const tick=now=>{if(w.closed)return;w.requestAnimationFrame(tick);
+    if(i===0&&performance.now()-mainRaf>120)loop(performance.now(),true);
+    const dpr=w.devicePixelRatio||1,W=Math.round(w.innerWidth*dpr),H=Math.round(w.innerHeight*dpr),vw=preview.width,vh=preview.height,key=W+'x'+H+'x'+vw+'x'+vh;
+    if(seq===drawSeq&&size===key)return;seq=drawSeq;size=key;c.dataset.src=vw+'x'+vh;
     if(c.width!==W||c.height!==H){c.width=W;c.height=H;}ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
-    const P=curMap().projectors,sl=mapping.projectorSlices(P)[i],vw=v.videoWidth,vh=v.videoHeight;if(!sl||!vw)return;
-    const sw=sl.w*vw,k=Math.min(W/sw,H/vh),dw=sw*k,dh=vh*k,dx=(W-dw)/2,dy=(H-dh)/2;ctx.drawImage(v,sl.x*vw,0,sw,vh,dx,dy,dw,dh);
+    const P=curMap().projectors,sl=mapping.projectorSlices(P)[i];if(!sl||!vw||!vh)return;
+    const sw=sl.w*vw,k=Math.min(W/sw,H/vh),dw=sw*k,dh=vh*k,dx=(W-dw)/2,dy=(H-dh)/2;ctx.imageSmoothingQuality='high';ctx.drawImage(preview,sl.x*vw,0,sw,vh,dx,dy,dw,dh);
     for(const [o,side] of [[sl.left,0],[sl.right,1]]){if(!o)continue;const ow=o*dw,x0=side?dx+dw-ow:dx,g=ctx.createLinearGradient(side?dx+dw:dx,0,side?dx+dw-ow:dx+ow,0);
       for(let j=0;j<=16;j++)g.addColorStop(j/16,`rgba(0,0,0,${1-mapping.blendRamp(j/16,P.gamma)})`);ctx.fillStyle=g;ctx.fillRect(x0,dy,ow,dh);}};
   w.requestAnimationFrame(tick);}
 $('output').onclick=()=>{
   const open=outWins.filter(w=>!w.closed);if(open.length){open.forEach(w=>w.focus());return;}
-  const n=mapping.projectorSlices(curMap().projectors).length,stream=preview.captureStream(60);outWins=[];
+  const n=mapping.projectorSlices(curMap().projectors).length;outWins=[];
   for(let i=0;i<n;i++){
     const w=window.open('',n>1?`audiograph-pro-output-${i+1}`:'audiograph-pro-output',n>1?`popup,width=640,height=360,left=${40+i*660},top=60`:'popup,width=960,height=540');
     if(!w){message('Allow pop-ups to open the output window',true);break;}
     outWins.push(w);const d=w.document;d.title=n>1?`Audiograph Pro · Projector ${i+1}`:'Audiograph Pro · Output';
-    d.body.style.cssText='margin:0;background:#000;overflow:hidden;cursor:none';d.body.replaceChildren();
-    const v=d.createElement('video');v.muted=true;v.autoplay=true;v.playsInline=true;v.style.cssText='width:100vw;height:100vh;object-fit:contain;display:block';
-    v.srcObject=stream;if(n>1){v.style.display='none';d.body.append(v);outputFrame(w,d,v,i);}else d.body.append(v);v.play().catch(()=>{});
+    d.body.style.cssText='margin:0;background:#000;overflow:hidden;cursor:none';d.body.replaceChildren();outputFrame(w,d,i);
     d.body.ondblclick=()=>d.fullscreenElement?d.exitFullscreen():d.documentElement.requestFullscreen().catch(()=>{});
-    w.addEventListener('pagehide',()=>{if(outWins.every(x=>x===w||x.closed)){stream.getTracks().forEach(t=>t.stop());outWins=[];$('output').classList.remove('on');}});
+    w.addEventListener('pagehide',()=>{if(outWins.every(x=>x===w||x.closed)){outWins=[];$('output').classList.remove('on');}});
   }
-  if(!outWins.length)return stream.getTracks().forEach(t=>t.stop());
+  if(!outWins.length)return;
   $('output').classList.add('on');
   message(n>1?`${outWins.length} projector windows open · move each to its projector and double-click for fullscreen`:'Output window open · move it to the projector and double-click for fullscreen');
 };
