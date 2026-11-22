@@ -33,7 +33,16 @@ each with its own opacity and blend mode (up to four).
     Turbulence work in 3D. Trails become world-space velocity streaks rather than
     screen-space accumulation, so turning the camera does not leave ghost images.
     Mesh emission uses the particle palette; image emission can keep picture colours.
-    The sound still sets how many spawn. Existing projects stay in 2D.
+    **Initial speed** defaults to 100% (the previous launch behavior). Set it to
+    **0%**, turn **Motion trails** off, and choose **Release on: Sound**, **Object
+    motion**, or **Sound + object motion** for a clear surface cloud: particles
+    spawn even in silence, remain attached, then leave along the surface normal
+    or inherit its movement. Samples stay attached to the same face/barycentric
+    location as the mesh animates. Normal/Cloner emission samples current GPU
+    instances, including sound/random effectors; Polygons uses the actual
+    displaced/shrunk faces. A Camera/Material/Palette **shape → emit** branch keeps
+    mesh emission and its camera instead of flattening it into a picture.
+    Existing projects keep their speed/trails and stay in 2D.
 - **3D Object → Choose model** loads OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF.
     Polygons of any size are triangulated (concave ones too). USD reads the root layer's
     meshes, xform stacks, UVs, stage units and up axis; flatten files that reference
@@ -43,8 +52,32 @@ each with its own opacity and blend mode (up to four).
     "With Skin") and GLB/glTF models (node, skinned and morph animation) play automatically, with **Animation speed** and
     a **Clip** picker; Cloners and particle emission follow the moving mesh. Export
     glTF as a single .glb (or with embedded buffers).
+- **Imported PBR materials**: set a model's **Render: Normal**, then choose
+    **Materials: Imported PBR** to keep its base-colour textures, metallic/roughness,
+    normal maps, occlusion, emission and opaque/cutout/blended alpha. Material assignments,
+    UV seams and authored normals survive animation and Cloning. **Palette** restores
+    Audiograph's palette/material-node shading; line and point-cloud renders keep their
+    existing stylized colours. GLB/glTF uses metallic/roughness materials and embedded
+    PNG/JPEG/WebP/AVIF images, UV sets 0/1 and texture transforms. USD uses
+    **UsdPreviewSurface**, **UsdUVTexture** and `primvars:st`, including inherited bindings,
+    face subsets and UV transforms; package textures in **USDZ**. Standalone USDA/USDC
+    supports material factors, but external images, composed layers, MaterialX,
+    specular/glossiness and compressed GPU textures are not loaded. Unsupported required
+    texture networks/assets report an error. Textures are mipmapped and capped at 4096 px.
+    Lights, shadows, camera, depth of field and motion blur still apply.
 - **3D camera → Depth of field / Focus** works on every 3D Object render, the
-  Waveform (line) render included. Focus 0 is the near side, 100 the far side.
+  Waveform (line) render included, and on 3D particles. Normal/Polygons/model
+  point clouds and particles use a shared world-space focus plane: 50 is the
+  scene origin, 0 nearer and 100 farther.
+- **Shared 3D depth**: Normal/Polygons objects and 3D particles with matching
+  cameras intersect in depth, in Merge and across project layers. Front particles
+  remain visible and particles behind opaque surfaces disappear; imported alpha
+  masks leave holes and blended materials do not become solid blockers. Normal
+  compositing orders colour by depth, independently of Merge input order. Other
+  blend modes keep their chosen 2D blend while retaining particle occlusion.
+  Use one Camera's shape branch for both the object and its emitter, or matching
+  camera settings. Stylized wire/point renders are not solid occluders; general
+  image effects flatten their result rather than carrying stale 3D depth.
 - **3D camera → Lens → Focal length** (14–200 mm, full-frame; 28 mm is the classic
   view). The subject stays framed, so short lenses exaggerate depth and long lenses
   flatten it. In the Cloner it sets the real field of view; classic 3D modes scale

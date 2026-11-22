@@ -2,6 +2,7 @@
 // parseGLTF reads the file once; pose(model,clip,t) returns the mesh the original renderers draw ({verts,faces,normals}).
 // UVs are flat pairs per vertex (NaN for an unmapped primitive); faceMaterials parallels faces when present.
 // at time t, always in the same normalized frame so an animated model moves instead of being re-fitted every frame.
+import {gltfMaterials} from './model-materials.js';
 const COMP={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
 const SIZE={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
 const NORM={5120:127,5121:255,5122:32767,5123:65535};
@@ -49,6 +50,13 @@ function accessor(g,buffers,i,float=true){
 
 // --- small mat4 / quat helpers (column-major, like glTF) ---
 const I4=()=>new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
+export function normalMatrix(M){
+  const a=[M[5]*M[10]-M[6]*M[9],M[6]*M[8]-M[4]*M[10],M[4]*M[9]-M[5]*M[8],
+    M[9]*M[2]-M[10]*M[1],M[10]*M[0]-M[8]*M[2],M[8]*M[1]-M[9]*M[0],
+    M[1]*M[6]-M[2]*M[5],M[2]*M[4]-M[0]*M[6],M[0]*M[5]-M[1]*M[4]];
+  const det=M[0]*a[0]+M[1]*a[1]+M[2]*a[2];
+  return a.map(v=>Math.abs(det)>1e-12?v/det:0);
+}
 function mul(a,b,o=new Float32Array(16)){
   for(let c=0;c<4;c++)for(let r=0;r<4;r++)o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];
   return o;
@@ -67,7 +75,7 @@ function slerp(a,b,u){
   const o=[a[0]*k0+b[0]*k1,a[1]*k0+b[1]*k1,a[2]*k0+b[2]*k1,a[3]*k0+b[3]*k1],l=Math.hypot(...o)||1;return o.map(v=>v/l);
 }
 
-export function parseGLTF(buf,name='',cameraOnly=false){
+export function parseGLTF(buf,name='',cameraOnly=false,readMaterials=true){
   let g,bin=null;
   const glb=buf.byteLength>=12&&readGLB(buf);
   if(glb){g=glb.json;bin=glb.bin;}else g=JSON.parse(new TextDecoder().decode(buf));
@@ -86,9 +94,13 @@ export function parseGLTF(buf,name='',cameraOnly=false){
     if(mode===5){const t=[];for(let i=2;i<idx.length;i++)i%2?t.push(idx[i-1],idx[i-2],idx[i]):t.push(idx[i-2],idx[i-1],idx[i]);idx=Uint32Array.from(t);}
     else if(mode===6){const t=[];for(let i=2;i<idx.length;i++)t.push(idx[0],idx[i-1],idx[i]);idx=Uint32Array.from(t);}
     for(const i of idx)if(i>=n)throw Error('A face references a missing vertex');
-    return {pos,idx,material:p.material??null,uv:p.attributes.TEXCOORD_0!==undefined?accessor(g,buffers,p.attributes.TEXCOORD_0):null,joints:p.attributes.JOINTS_0!==undefined?accessor(g,buffers,p.attributes.JOINTS_0,false):null,
+    return {pos,idx,material:p.material??null,normals:readMaterials&&p.attributes.NORMAL!==undefined?accessor(g,buffers,p.attributes.NORMAL):null,
+      colors:readMaterials&&p.attributes.COLOR_0!==undefined?accessor(g,buffers,p.attributes.COLOR_0):null,
+      uv:p.attributes.TEXCOORD_0!==undefined?accessor(g,buffers,p.attributes.TEXCOORD_0):null,
+      uv1:readMaterials&&p.attributes.TEXCOORD_1!==undefined?accessor(g,buffers,p.attributes.TEXCOORD_1):null,joints:p.attributes.JOINTS_0!==undefined?accessor(g,buffers,p.attributes.JOINTS_0,false):null,
       weights:p.attributes.WEIGHTS_0!==undefined?accessor(g,buffers,p.attributes.WEIGHTS_0):null,
-      targets:(p.targets||[]).map(t=>t.POSITION!==undefined?accessor(g,buffers,t.POSITION):null)};
+      targets:(p.targets||[]).map(t=>t.POSITION!==undefined?accessor(g,buffers,t.POSITION):null),
+      normalTargets:readMaterials?(p.targets||[]).map(t=>t.NORMAL!==undefined?accessor(g,buffers,t.NORMAL):null):[]};
   })}));
   const skins=(g.skins||[]).map(s=>({joints:s.joints,ibm:s.inverseBindMatrices!==undefined?accessor(g,buffers,s.inverseBindMatrices):null}));
   const clips=(g.animations||[]).map((a,i)=>{
@@ -97,7 +109,22 @@ export function parseGLTF(buf,name='',cameraOnly=false){
     const duration=ch.reduce((m,c)=>Math.max(m,c.times[c.times.length-1]||0),0);
     return {name:a.name||'Clip '+(i+1),channels:ch,duration};
   }).filter(c=>c.channels.length&&c.duration>0);
-  const model={name,cameras:g.cameras||[],nodes,parent,order,meshes,skins,clips,faceStep:1};
+  const activePrims=order.flatMap(i=>meshes[nodes[i].mesh]?.prims||[]);
+  if(!cameraOnly&&activePrims.some(p=>p.colors&&p.material===null)){
+    const index=(g.materials||=[]).length;g.materials.push({});
+    for(const p of activePrims)if(p.colors&&p.material===null)p.material=index;
+  }
+  const used=new Set(activePrims.map(p=>p.material));
+  const model={name,cameras:g.cameras||[],nodes,parent,order,meshes,skins,clips,faceStep:1,materials:cameraOnly||!readMaterials?[]:gltfMaterials(g,buffers,used)};
+  if(!cameraOnly&&readMaterials)for(const p of activePrims){
+    if(p.material!=null&&!model.materials[p.material])throw Error('A primitive references a missing glTF material');
+    if(p.normals&&(p.normals.length!==p.pos.length||!p.normals.every(Number.isFinite)))throw Error('Invalid glTF vertex normals');
+    if(p.colors&&(![p.pos.length,p.pos.length/3*4].includes(p.colors.length)||!p.colors.every(Number.isFinite)))throw Error('Invalid glTF vertex colours');
+    for(const map of model.materials[p.material]?.maps||[])if(map){
+      const uv=map.texCoord?p.uv1:p.uv;
+      if(!uv||uv.length!==p.pos.length/3*2||!uv.every(Number.isFinite))throw Error('A textured primitive is missing UV set '+map.texCoord);
+    }
+  }
   return cameraOnly?model:fitModel(model);
 }
 // Face budget and one fixed fit for the whole animation: bounds over the rest pose and samples of the first clips.
@@ -133,17 +160,35 @@ export function rawPose(m,clip,t){
   const world=new Array(m.nodes.length);
   for(const i of m.order){const n=m.nodes[i],l=n.matrix&&!(c&&c.channels.some(ch=>ch.node===i&&ch.path!=='weights'))?n.matrix:trs(loc[i].t,loc[i].r,loc[i].s),p=m.parent[i];world[i]=p>=0&&world[p]?mul(world[p],l):l;}
   // Topology never changes between poses: faces are built once and shared (renderers reuse their edges).
-  const pos=[],faces=m.faces?null:[],prims=faces?m.order.flatMap(i=>m.meshes[m.nodes[i].mesh]?.prims||[]):[],
+  const allPrims=m.order.flatMap(i=>m.meshes[m.nodes[i].mesh]?.prims||[]),
+    authoredNormals=m.materials?.length&&allPrims.some(p=>p.normals)?[]:null,
+    pos=[],faces=m.faces?null:[],prims=faces?allPrims:[],
     uvs=prims.some(p=>p.uv)?new Float32Array(prims.reduce((n,p)=>n+p.pos.length/3,0)*2).fill(NaN):null,
-    faceMaterials=prims.some(p=>p.material!=null)?[]:null;let base=0;
+    uvs1=prims.some(p=>p.uv1)?new Float32Array(prims.reduce((n,p)=>n+p.pos.length/3,0)*2).fill(NaN):null,
+    vertexColors=prims.some(p=>p.colors)?new Float32Array(prims.reduce((n,p)=>n+p.pos.length/3,0)*4).fill(1):null,
+    faceMaterials=prims.some(p=>p.material!=null||p.faceMaterials?.some(i=>i!=null))?[]:null;let base=0;
   for(const i of m.order){
     const n=m.nodes[i],mesh=m.meshes[n.mesh];if(!mesh)continue;
     const mw=loc[i].w||mesh.weights,skin=n.skin!==undefined&&m.skins[n.skin],jm=skin&&skin.joints.map((j,k)=>world[j]?mul(world[j],skin.ibm?skin.ibm.subarray(k*16,k*16+16):I4()):I4());
+    const nm=authoredNormals?normalMatrix(world[i]):null,jnm=authoredNormals&&jm?jm.map(normalMatrix):null;
     for(const p of mesh.prims){
       const N=p.pos.length/3;
       if(uvs&&p.uv)uvs.set(p.uv.subarray(0,N*2),base*2);
+      if(uvs1&&p.uv1)uvs1.set(p.uv1.subarray(0,N*2),base*2);
+      if(vertexColors&&p.colors){const components=p.colors.length/N;for(let v=0;v<N;v++)for(let k=0;k<components;k++)vertexColors[(base+v)*4+k]=p.colors[v*components+k];}
       for(let v=0;v<N;v++){
         let x=p.pos[v*3],y=p.pos[v*3+1],z=p.pos[v*3+2];
+        if(authoredNormals){
+          if(!p.normals)authoredNormals.push(NaN,NaN,NaN);
+          else{
+            let a=p.normals[v*3],b=p.normals[v*3+1],c=p.normals[v*3+2];
+            for(let k=0;k<(p.normalTargets?.length||0);k++){const d=p.normalTargets[k],w=mw?.[k]||0;if(d&&w){a+=d[v*3]*w;b+=d[v*3+1]*w;c+=d[v*3+2]*w;}}
+            const out=[0,0,0],apply=(mat,w)=>{for(let k=0;k<3;k++)out[k]+=w*(mat[k]*a+mat[3+k]*b+mat[6+k]*c);};
+            let total=0;
+            if(jnm&&p.joints&&p.weights)for(let k=0;k<4;k++){const w=p.weights[v*4+k],mat=jnm[p.joints[v*4+k]];if(w&&mat){apply(mat,w);total+=w;}}
+            if(!total)apply(nm,1);authoredNormals.push(...out);
+          }
+        }
         for(let k=0;k<p.targets.length;k++){const d=p.targets[k],w=mw?.[k]||0;if(d&&w){x+=d[v*3]*w;y+=d[v*3+1]*w;z+=d[v*3+2]*w;}}
         let M=world[i];
         if(jm&&p.joints&&p.weights){
@@ -156,22 +201,26 @@ export function rawPose(m,clip,t){
       }
       if(faces)for(let f=0;f+2<p.idx.length;f+=3*m.faceStep){
         faces.push([base+p.idx[f],base+p.idx[f+1],base+p.idx[f+2]]);
-        if(faceMaterials)faceMaterials.push(p.material??null);
+        if(faceMaterials)faceMaterials.push(p.faceMaterials?.[f/3]??p.material??null);
       }
       base+=N;
     }
   }
-  if(faces){m.faces=faces;m.uvs=uvs;m.faceMaterials=faceMaterials;}
-  return {pos,faces:m.faces,uvs:m.uvs,faceMaterials:m.faceMaterials};
+  if(faces){m.faces=faces;m.uvs=uvs;m.uvs1=uvs1;m.vertexColors=vertexColors;m.faceMaterials=faceMaterials;}
+  return {pos,faces:m.faces,uvs:m.uvs,faceMaterials:m.faceMaterials,authoredNormals};
 }
 // The mesh the original draws: centred, fitted to -1…1 with Y flipped (like its OBJ loader), with smooth normals.
 export function pose(m,clip,t){
-  const {pos,faces,uvs,faceMaterials}=rawPose(m,clip,t),[cx,cy,cz]=m.center,s=2/m.scale,verts=new Array(pos.length/3),normals=new Array(pos.length/3);
+  const {pos,faces,uvs,faceMaterials,authoredNormals}=rawPose(m,clip,t),[cx,cy,cz]=m.center,s=2/m.scale,verts=new Array(pos.length/3),normals=new Array(pos.length/3);
   for(let i=0;i<verts.length;i++){verts[i]=[(pos[i*3]-cx)*s,-(pos[i*3+1]-cy)*s,(pos[i*3+2]-cz)*s];normals[i]=[0,0,0];}
   for(const f of faces){const a=verts[f[0]],b=verts[f[1]],c=verts[f[2]],e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]],
     nx=e1[1]*e2[2]-e1[2]*e2[1],ny=e1[2]*e2[0]-e1[0]*e2[2],nz=e1[0]*e2[1]-e1[1]*e2[0];for(const j of f){normals[j][0]+=nx;normals[j][1]+=ny;normals[j][2]+=nz;}}
   for(const v of normals){const l=Math.hypot(v[0],v[1],v[2])||1;v[0]/=l;v[1]/=l;v[2]/=l;}
-  return {verts,faces,normals,uvs,faceMaterials};
+  const pbrNormals=authoredNormals?normals.map((n,i)=>{
+    const a=authoredNormals[i*3],b=-authoredNormals[i*3+1],c=authoredNormals[i*3+2],l=Math.hypot(a,b,c);
+    return Number.isFinite(l)&&l>1e-12?[a/l,b/l,c/l]:n.map(v=>-v);
+  }):null;
+  return {verts,faces,normals,pbrNormals,uvs,uvs1:m.uvs1,vertexColors:m.vertexColors,faceMaterials,materials:m.materials};
 }
 
 export {I4,mul,trs,slerp,sample};

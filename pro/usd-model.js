@@ -1,8 +1,9 @@
 // USD models (.usda text, .usdc binary crate, .usdz package): mesh prims with their xform stacks are flattened
 // into the same model gltf.js poses. Only the root layer is read; references to other files are not composed.
 import {triangulate} from './polygon.js';
-import {I4,mul,trs,fitModel} from './gltf.js';
+import {I4,mul,trs,fitModel,normalMatrix} from './gltf.js';
 import {euler,invert} from './fbx-model.js';
+import {materialDefaults,textureMap,validateMaterial} from './model-materials.js';
 
 const SPEC=['def','over','class'];
 
@@ -52,14 +53,14 @@ function parseUSDA(text){
       if(w==='variantSet'){str();eat('=');skip('{','}');continue;}
       if(w==='reorder'){ident();eat('=');value();continue;}
       while(/^(uniform|custom|varying|config|prepend|append|add|delete)$/.test(w))w=ident();
-      if(w==='rel'){ident();if(peek()==='='){i++;value();}if(peek()==='(')meta();continue;}
+      if(w==='rel'){const name=ident();let v;if(peek()==='='){i++;v=value();}const m=peek()==='('?meta():{};p.attrs[name]={type:'rel',value:v,meta:m};continue;}
       const type=w,name=ident();
       if(name.endsWith('.timeSamples')){eat('=');eat('{');const samples=[];
         while(peek()!=='}'){const t=value();eat(':');samples.push([t,norm(type,value())]);if(peek()===',')i++;}i++;
         (p.attrs[name.slice(0,-12)]??={type,meta:{}}).samples=samples.sort((a,b)=>a[0]-b[0]);continue;}
       let v;if(peek()==='='){i++;v=peek()==='{'?(skip('{','}'),null):value();}
       const m=peek()==='('?meta():{};
-      if(/\.(connect|spline)$/.test(name))continue;
+      if(/\.spline$/.test(name))continue;
       const a=p.attrs[name]??={type,meta:{}};Object.assign(a.meta,m);if(v!==undefined)a.value=norm(type,v);}
     i++;return p;}
   const norm=(t,v)=>v&&v.nums?quat(t,v.nums):quat(t,v);
@@ -120,6 +121,16 @@ function parseUSDC(bytes){
       child=jumps[k]>0||jumps[k]===-1;sib=jumps[k]>=0;
       if(child){if(sib)build(k+jumps[k],parent);parent=pIdx[k];}}while(child||sib);};
   if(ne)build(0,-1);
+  const pathName=k=>{const p=paths[k];if(!p)return '';if(p.parent<0)return '';return pathName(p.parent)+(p.prop?'.':'/')+p.name;};
+  const pathList=off=>{
+    let pos=off;const flags=bytes[pos++],items=[];
+    for(const bit of [2,4,32,64,8,16])if(flags&bit){
+      const count=u64(pos);pos+=8;const list=[];
+      for(let k=0;k<count;k++){list.push({path:pathName(dv.getUint32(pos,true))});pos+=4;}
+      if(bit!==8&&bit!==16)items.push(...list);
+    }
+    return items;
+  };
   at=sections.SPECS;const ns=rd(),sPath=ints(ns),sSet=ints(ns),sType=ints(ns);
 
   const scalar=(kind,o)=>kind==='b'?bytes[o]:kind==='i'?dv.getInt32(o,true):kind==='u'?dv.getUint32(o,true):kind==='l'?Number(dv.getBigInt64(o,true)):kind==='L'?u64(o)
@@ -130,7 +141,9 @@ function parseUSDC(bytes){
   function value(lo,hi){
     const type=(hi>>>16)&255,isArr=hi>>>31,inl=(hi>>>30)&1,comp=(hi>>>29)&1,off=lo+(hi&0xffff)*2**32,T=TYPES[type];
     if(type===51)return null;
-    if(type===41||type===48||type===40){const c=u64(off);return many(type===48?'d':'t',1,off+8,c);}
+    if(type===34)return pathList(off);
+    if(type===40){const c=u64(off);return Array.from({length:c},(_,k)=>({path:pathName(dv.getUint32(off+8+k*4,true))}));}
+    if(type===41||type===48){const c=u64(off);return many(type===48?'d':'t',1,off+8,c);}
     if(type===46){at=off;const o1=dv.getBigInt64(at,true);at+=8;at+=Number(o1)-8;
       const tp=at,times=value(dv.getUint32(tp,true),dv.getUint32(tp+4,true));at=tp+8;const o2=Number(dv.getBigInt64(at,true));at+=8;at+=o2-8;
       const c=rd(),base=at,vals=[];for(let k=0;k<c;k++)vals.push(value(dv.getUint32(base+k*8,true),dv.getUint32(base+k*8+4,true)));
@@ -138,7 +151,7 @@ function parseUSDC(bytes){
     if(!T)return undefined;
     const [kind,n]=T;
     if(inl){
-      if(n===1){if(kind==='t')return tokens[lo];if(kind==='s')return strings[lo];if(kind==='f'||kind==='d')return new Float32Array(new Uint32Array([lo]).buffer)[0];
+      if(n===1){if(kind==='t'||type===12)return tokens[lo];if(kind==='s')return strings[lo];if(kind==='f'||kind==='d')return new Float32Array(new Uint32Array([lo]).buffer)[0];
         if(kind==='h')return half(lo&0xffff);if(kind==='b')return type===1?!!lo:lo;return kind==='i'?lo|0:lo;}
       const b=new Int8Array(new Uint32Array([lo,hi&0xffff]).buffer);
       if(type>=13&&type<=15){const d=Math.round(Math.sqrt(n)),o=new Float64Array(n);for(let k=0;k<d;k++)o[k*d+k]=b[k];return o;}
@@ -162,11 +175,13 @@ function parseUSDC(bytes){
     const prim={spec:sp,type:get(f,'typeName')||'',name:p.name,attrs:{},children:[],meta:{}};
     for(const key in f)if(!/^(specifier|typeName|primChildren|properties)$/.test(key))try{prim.meta[key]=get(f,key);}catch{}
     prim.childNames=get(f,'primChildren');prims.set(pi,prim);order.push(pi);}
-  for(let k=0;k<ns;k++){if(sType[k]!==1)continue;const p=paths[sPath[k]],owner=prims.get(p.parent);if(!owner)continue;
+  for(let k=0;k<ns;k++){if(sType[k]!==1&&sType[k]!==8)continue;const p=paths[sPath[k]],owner=prims.get(p.parent);if(!owner)continue;
     const f=fieldsOf(k),a={type:get(f,'typeName')||'',meta:{}};
-    for(const key of ['interpolation','elementSize'])if(f[key])a.meta[key]=get(f,key);
+    for(const key of ['interpolation','elementSize','bindMaterialAs'])if(f[key])a.meta[key]=get(f,key);
     if(f.default){const v=get(f,'default');if(v!==undefined)a.value=v;}
     if(f.timeSamples){const ts=get(f,'timeSamples');if(ts)a.samples=ts.samples;}
+    if(f.targetPaths)a.value=get(f,'targetPaths');
+    if(f.connectionPaths)owner.attrs[p.name+'.connect']={type:a.type,value:get(f,'connectionPaths'),meta:{}};
     owner.attrs[p.name]=a;}
   let root;for(const pi of order){const p=paths[pi],prim=prims.get(pi);if(p.parent<0)root=prim;else prims.get(p.parent)?.children.push(prim);}
   for(const prim of prims.values())if(Array.isArray(prim.childNames)){const rank=new Map(prim.childNames.map((x,k)=>[x,k]));prim.children.sort((a,b)=>(rank.get(a.name)??1e9)-(rank.get(b.name)??1e9));}
@@ -175,7 +190,7 @@ function parseUSDC(bytes){
 }
 
 // ---------- USDZ package ----------
-async function unzip(bytes){
+async function unzip(bytes,readTextures=true){
   const dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);let e=bytes.length-22;
   while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw Error('USDZ: not a zip package');
   const files=[];let p=dv.getUint32(e+16,true);
@@ -184,9 +199,16 @@ async function unzip(bytes){
     const name=new TextDecoder().decode(bytes.subarray(p+46,p+46+nl));p+=46+nl+xl+cl;
     const start=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true);files.push({name,method,data:bytes.subarray(start,start+csz)});}
   const f=files.find(f=>/\.usd[ac]?$/i.test(f.name));if(!f)throw Error('USDZ package contains no USD layer');
-  if(f.method===8)return new Uint8Array(await new Response(new Blob([f.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
-  if(f.method)throw Error('USDZ: unsupported compression');
-  return f.data;
+  const assets=new Map();let total=0;
+  if(files.length>1024)throw Error('USDZ has too many package entries');
+  for(const entry of files){
+    if(!(readTextures?/\.(usd[ac]?|png|jpe?g|webp|avif)$/i:/\.usd[ac]?$/i).test(entry.name))continue;
+    if(entry.method!==0&&entry.method!==8)throw Error('USDZ: unsupported compression');
+    const data=entry.method===8?new Uint8Array(await new Response(new Blob([entry.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()):entry.data;
+    total+=data.byteLength;if(total>256*1024*1024)throw Error('USDZ texture package exceeds 256 MB');
+    assets.set(entry.name.replace(/^\.\//,''),data);
+  }
+  return {bytes:assets.get(f.name.replace(/^\.\//,'')),assets,layerName:f.name};
 }
 
 // ---------- Stage → model ----------
@@ -209,7 +231,7 @@ function localXform(p){
     const A=opMatrix(op.split(':')[1],val(p.attrs[op]));L=mul(L,inv?invert(A):A);}
   return {L,reset};
 }
-function meshPrim(p,M){
+function meshPrim(p,M,material,subsets,readNormals=true){
   const A=p.attrs,pts=val(A.points),counts=val(A.faceVertexCounts),fvi=val(A.faceVertexIndices);
   if(!pts?.length||!counts?.length||!fvi?.length)return null;
   const holes=new Set(val(A.holeIndices)||[]),left=val(A.orientation)==='leftHanded';
@@ -217,38 +239,105 @@ function meshPrim(p,M){
   const uvData=uvName?val(A[uvName]):null,uvIdx=uvName?val(A[uvName+':indices']):null,nuv=uvData?(uvIdx?.length||uvData.length/2):0;
   const interp=uvData?(A[uvName].meta.interpolation||(nuv===fvi.length?'faceVarying':nuv===pts.length/3?'vertex':nuv===counts.length?'uniform':'constant')):null;
   const uvAt=(fv,c,face)=>{if(!uvData)return -1;const k=interp==='faceVarying'?fv:interp==='uniform'?face:interp==='constant'?0:c;return uvIdx?uvIdx[k]:k;};
-  const key=new Map(),pos=[],uv=[],idx=[];
-  const vert=(c,u)=>{const k=c*4194304+u+1;let i=key.get(k);if(i!==undefined)return i;i=pos.length/3;key.set(k,i);
+  const normalData=readNormals?val(A.normals):null,normalInterp=A.normals?.meta?.interpolation||'vertex',nm=normalData&&normalMatrix(M);
+  const key=new Map(),pos=[],uv=[],idx=[],faceMaterials=[],normals=[];
+  const vert=(c,u,n)=>{const k=c+'/'+u+'/'+(normalData?n:'');let i=key.get(k);if(i!==undefined)return i;i=pos.length/3;key.set(k,i);
     const x=pts[c*3],y=pts[c*3+1],z=pts[c*3+2];pos.push(M[0]*x+M[4]*y+M[8]*z+M[12],M[1]*x+M[5]*y+M[9]*z+M[13],M[2]*x+M[6]*y+M[10]*z+M[14]);
-    if(uvData)uv.push(uvData[u*2]||0,1-(uvData[u*2+1]||0));return i;};
+    if(uvData){if(!Number.isFinite(uvData[u*2])||!Number.isFinite(uvData[u*2+1]))throw Error('USD UV index references missing texture coordinates');uv.push(uvData[u*2],1-uvData[u*2+1]);}
+    if(normalData){const a=normalData[n*3],b=normalData[n*3+1],c=normalData[n*3+2];if(![a,b,c].every(Number.isFinite))throw Error('USD normal index references missing normals');
+      for(let k=0;k<3;k++)normals.push(nm[k]*a+nm[k+3]*b+nm[k+6]*c);
+    }return i;};
   let fv=0;
   for(let f=0;f<counts.length;f++){const c=counts[f];
-    if(c>=3&&!holes.has(f)&&fv+c<=fvi.length){const poly=[];for(let k=0;k<c;k++){const pi=fvi[fv+k];poly.push(vert(pi,uvAt(fv+k,pi,f)));}
+    if(c>=3&&!holes.has(f)&&fv+c<=fvi.length){const poly=[];for(let k=0;k<c;k++){const pi=fvi[fv+k],n=normalInterp==='faceVarying'?fv+k:normalInterp==='uniform'?f:normalInterp==='constant'?0:pi;poly.push(vert(pi,uvAt(fv+k,pi,f),n));}
       if(left)poly.reverse();
-      for(const [a,b,d] of triangulate(poly.map(i=>pos.slice(i*3,i*3+3))))idx.push(poly[a],poly[b],poly[d]);}
+      for(const [a,b,d] of triangulate(poly.map(i=>pos.slice(i*3,i*3+3)))){idx.push(poly[a],poly[b],poly[d]);faceMaterials.push(subsets.get(f)??material);}}
     fv+=c;}
   if(!idx.length)return null;
-  return {pos:Float32Array.from(pos),idx:Uint32Array.from(idx),uv:uvData?Float32Array.from(uv):null,joints:null,weights:null,targets:[]};
+  return {pos:Float32Array.from(pos),idx:Uint32Array.from(idx),uv:uvData?Float32Array.from(uv):null,
+    normals:normalData?Float32Array.from(normals):null,material,faceMaterials,joints:null,weights:null,targets:[]};
 }
 
-export async function parseUSDModel(buf,name='model.usd'){
+export async function parseUSDModel(buf,name='model.usd',readMaterials=true){
   let bytes=new Uint8Array(buf);
-  if(bytes[0]===0x50&&bytes[1]===0x4b)bytes=await unzip(bytes);
+  let assets=new Map(),layerName=name;
+  if(bytes[0]===0x50&&bytes[1]===0x4b){const pack=await unzip(bytes,readMaterials);bytes=pack.bytes;assets=pack.assets;layerName=pack.layerName;}
   const magic=new TextDecoder().decode(bytes.subarray(0,8));
   const root=magic==='PXR-USDC'?parseUSDC(bytes):magic.startsWith('#usda')?parseUSDA(new TextDecoder().decode(bytes)):(()=>{throw Error('Not a USD file');})();
   const mpu=+(root.meta.metersPerUnit??.01)||.01,zup=root.meta.upAxis==='Z';
   const nodes=[{children:[],t:[0,0,0],r:zup?[-Math.SQRT1_2,0,0,Math.SQRT1_2]:[0,0,0,1],s:[mpu,mpu,mpu],matrix:null}],meshes=[];
+  const index=new Map(),materials=[],materialIds=new Map(),assetCache=new Map();
+  const indexPrim=(p,path)=>{p.path=path;index.set(path,p);for(const c of p.children)indexPrim(c,path+'/'+c.name);};indexPrim(root,'');
+  const pathOf=v=>Array.isArray(v)?pathOf(v[0]):v?.path||null;
+  const bindingAttr=p=>pathOf(val(p.attrs['material:binding:preview']))?p.attrs['material:binding:preview']:p.attrs['material:binding'];
+  const binding=p=>pathOf(val(bindingAttr(p)));
+  const texture=(path,slot)=>{
+    const dot=path.lastIndexOf('.'),shader=index.get(path.slice(0,dot)),channel=path.slice(dot+1).replace('outputs:','');
+    if(!shader||val(shader.attrs['info:id'])!=='UsdUVTexture')throw Error('USD texture connections must use UsdUVTexture');
+    const source=val(shader.attrs['inputs:file']),file=source?.asset??source;
+    if(typeof file!=='string'||/^[a-z]+:/i.test(file))throw Error('USD textures must be packaged in USDZ');
+    const assetName=decodeURIComponent(new URL(file.split('/').map(encodeURIComponent).join('/'),'https://model.invalid/'+layerName).pathname.slice(1)),data=assets.get(assetName);
+    if(!data)throw Error('Missing USD texture '+file+'; package textures in USDZ');
+    let image=assetCache.get(assetName);
+    if(!image){const ext=assetName.split('.').pop().toLowerCase();image={data,mime:'image/'+({jpg:'jpeg',jpeg:'jpeg',png:'png',webp:'webp',avif:'avif'}[ext]||ext)};assetCache.set(assetName,image);}
+    const wrap=v=>{if(!v||['repeat','useMetadata'].includes(v))return 10497;if(v==='clamp')return 33071;if(v==='mirror')return 33648;if(v==='black')return 0;throw Error('Unsupported USD texture wrap '+v);};
+    const colorSpace=val(shader.attrs['inputs:sourceColorSpace']);
+    const t=textureMap(image,{srgb:colorSpace==='sRGB'||[0,5].includes(slot)&&colorSpace!=='raw',
+      channel:Math.max(0,'rgba'.indexOf(channel)),sampleScale:Array.from(val(shader.attrs['inputs:scale'])||[1,1,1,1]),
+      sampleBias:Array.from(val(shader.attrs['inputs:bias'])||[0,0,0,0]),
+      wrapS:wrap(val(shader.attrs['inputs:wrapS'])),wrapT:wrap(val(shader.attrs['inputs:wrapT']))});
+    const st=pathOf(val(shader.attrs['inputs:st.connect']));
+    if(st){const prim=index.get(st.slice(0,st.lastIndexOf('.'))),id=prim&&val(prim.attrs['info:id']);
+      if(id==='UsdTransform2d'){
+        const off=Array.from(val(prim.attrs['inputs:translation'])||[0,0]);t.scale=Array.from(val(prim.attrs['inputs:scale'])||[1,1]);
+        const angle=(val(prim.attrs['inputs:rotation'])||0)*Math.PI/180;t.rotation=-angle;
+        t.offset=[off[0]-Math.sin(angle)*t.scale[1],1-off[1]-Math.cos(angle)*t.scale[1]];
+        const input=pathOf(val(prim.attrs['inputs:in.connect'])),reader=input&&index.get(input.slice(0,input.lastIndexOf('.')));
+        if(!reader||val(reader.attrs['info:id'])!=='UsdPrimvarReader_float2'||(val(reader.attrs['inputs:varname'])||'st')!=='st')throw Error('USD texture transforms require a primvars:st reader');
+      }else if(id!=='UsdPrimvarReader_float2'||(val(prim.attrs['inputs:varname'])||'st')!=='st')throw Error('USD textures require a primvars:st reader');
+    }
+    return t;
+  };
+  const materialFor=path=>{
+    if(!readMaterials||!path)return null;if(materialIds.has(path))return materialIds.get(path);
+    const prim=index.get(path);if(!prim)throw Error('USD material binding references a missing material '+path);
+    const surface=pathOf(val(prim.attrs['outputs:surface.connect'])),shader=surface?index.get(surface.slice(0,surface.lastIndexOf('.'))):prim.children.find(p=>val(p.attrs['info:id'])==='UsdPreviewSurface');
+    if(!shader||val(shader.attrs['info:id'])!=='UsdPreviewSurface')throw Error('USD PBR supports UsdPreviewSurface; export a Preview Surface material');
+    if(val(shader.attrs['inputs:useSpecularWorkflow']))throw Error('USD PBR requires the metallic/roughness workflow');
+    const A=shader.attrs,m={...materialDefaults(),name:prim.name,roughness:.5},conn=k=>pathOf(val(A['inputs:'+k+'.connect']));
+    const slots=['diffuseColor','roughness','metallic','normal','occlusion','emissiveColor','opacity'];
+    slots.forEach((k,i)=>{const c=conn(k);if(c)m.maps[i]=texture(c,i);});
+    if(m.maps[0])m.maps[0].ignoreAlpha=true;
+    m.base=[...Array.from(conn('diffuseColor')?[1,1,1]:val(A['inputs:diffuseColor'])||[.18,.18,.18]),conn('opacity')?1:val(A['inputs:opacity'])??1];
+    m.roughness=conn('roughness')?1:val(A['inputs:roughness'])??.5;m.metallic=conn('metallic')?1:val(A['inputs:metallic'])??0;
+    m.emissive=Array.from(conn('emissiveColor')?[1,1,1]:val(A['inputs:emissiveColor'])||[0,0,0]);
+    m.alphaCutoff=val(A['inputs:opacityThreshold'])??0;
+    m.alphaMode=m.alphaCutoff>0?'MASK':m.base[3]<1||m.maps[6]?'BLEND':'OPAQUE';m.doubleSided=false;
+    m.normalSigned=!!m.maps[3];m.normalY=-1;
+    const id=materials.length;materials.push(validateMaterial(m));materialIds.set(path,id);return id;
+  };
+  const meshMaterial=(path,p)=>{
+    const id=materialFor(path);if(id===null||!val(p.attrs.doubleSided))return id;
+    const key=path+'#doubleSided';if(materialIds.has(key))return materialIds.get(key);
+    const next=materials.length;materials.push({...materials[id],doubleSided:true});materialIds.set(key,next);return next;
+  };
   let refs=0;
-  const walk=(p,W)=>{
+  const walk=(p,W,inherited)=>{
     if(p.spec==='class'||p.meta.active===false||p.type==='PointInstancer')return;
     if(p.meta.references||p.meta.payload)refs++;
     if(val(p.attrs.visibility)==='invisible'||val(p.attrs.purpose)==='guide')return;
     const {L,reset}=localXform(p),M=mul(reset?I4():W,L);
-    if(p.type==='Mesh'){const prim=meshPrim(p,M);
+    const own=binding(p),bound=inherited?.strong?inherited:own?{path:own,strong:bindingAttr(p)?.meta?.bindMaterialAs==='strongerThanDescendants'}:inherited;
+    if(p.type==='Mesh'){const subsets=new Map();
+      for(const child of p.children)if(child.type==='GeomSubset'&&val(child.attrs.elementType)==='face'){
+        const mat=meshMaterial(bound?.strong?bound.path:binding(child)||bound?.path,p);for(const face of val(child.attrs.indices)||[])subsets.set(face,mat);
+      }
+      const prim=meshPrim(p,M,meshMaterial(bound?.path,p),subsets,readMaterials);
+      if(prim&&!prim.uv&&prim.faceMaterials.some(i=>materials[i]?.maps.some(Boolean)))throw Error('A textured USD mesh is missing primvars:st');
       if(prim){nodes[0].children.push(nodes.length);nodes.push({children:[],t:[0,0,0],r:[0,0,0,1],s:[1,1,1],matrix:null,mesh:meshes.length});meshes.push({weights:[],prims:[prim]});}}
-    for(const c of p.children)walk(c,M);};
+    for(const c of p.children)walk(c,M,bound);};
   for(const c of root.children)walk(c,I4());
   if(!meshes.length)throw Error(refs?'No meshes in '+name+' — it references other USD files; export a flattened USD (e.g. usdcat --flatten)':'No mesh geometry found in '+name);
   const parent=new Int32Array(nodes.length).fill(0);parent[0]=-1;
-  return fitModel({name,cameras:[],nodes,parent,order:nodes.map((_,k)=>k),meshes,skins:[],clips:[],faceStep:1});
+  return fitModel({name,cameras:[],nodes,parent,order:nodes.map((_,k)=>k),meshes,skins:[],clips:[],faceStep:1,materials});
 }

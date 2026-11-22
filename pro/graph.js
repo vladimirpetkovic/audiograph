@@ -6,6 +6,7 @@ import {cleanMapping} from './mapping.js';
 import {SHADER_EXAMPLES,SHADER_DEFAULT,parseKnobs,knobDefault} from './shaderfx.js';
 import {TEMPLATE_NAMES} from './morph.js';
 import {wander} from './wander.js';
+import {withMaterials} from './model-materials.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['water','Water'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
   waveform3d: [['sphere','Sphere'],['cube','Cube'],['torus','Torus'],['cylinder','Cylinder'],['cone','Cone'],['ico','Icosphere'],['pyramid','Pyramid'],['frame','Frame'],['knot','Knot'],['tetrahedron','Tetrahedron'],['dna','DNA'],['terrain','Terrain'],['text3d','3D text'],['model','3D model']],
@@ -264,14 +265,18 @@ export const TYPES = {
     lineStyle:LINE_STYLE(),cellShape:CELL_SHAPE('Returns as'),labels:G('Look',bool('Labels',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
-  waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads an OBJ, FBX, GLB or glTF; animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Shape','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
+  waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads OBJ, FBX, USD, GLB or glTF; GLB/USD materials render as imported PBR in Normal. Animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Rendering','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
     render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS,
+    modelMaterials:pick('Materials','imported',['imported','palette'],{labels:[['imported','Imported PBR'],['palette','Palette']]}),
     words:text('Text','SOUND'),font3d:pick('Font','Impact',TEXT_FONTS),depth:n('Depth',30,5,150,5,{noPort:true}),
     animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
   gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Particles can simulate in 2D or true 3D. In 3D, a 3D Object wired into “emit” emits from its mesh surface; images emit from a plane. Add a 3D camera after particles to orbit the cloud. In 2D, visuals emit from their bright parts.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
     space:pick('Space','2d',['2d','3d'],{sim:'pSpace',sims:['simparticles'],labels:[['2d','2D'],['3d','3D']]}),
     particleDepth:n('Depth',2,.2,8,.1,{sims:['simparticles']}),
     particleSpread:n('Surface spread',15,0,100,5,{sims:['simparticles']}),
+    particleInitialSpeed:n('Initial speed',100,0,200,5,{sims:['simparticles']}),
+    particleTrails:bool('Motion trails',true,{sims:['simparticles']}),
+    particleResponse:pick('Release on','sound',['sound','motion','both'],{labels:[['sound','Sound'],['motion','Object motion'],['both','Sound + object motion']],sims:['simparticles']}),
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU particles')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
@@ -533,7 +538,7 @@ const CLONE_SHAPES=new Set(PRIMITIVES.map(p=>p[0]));
 let textMesher=null;export const setTextMesher=fn=>{textMesher=fn;};
 export const textMesh=p=>textMesher?.(p.words??'SOUND',p.font3d??'Impact',p.depth??30)||null;
 export function objectOf(p,modelMesh){
-  if(p.mode==='model')return {mesh:modelMesh||'knot'};
+  if(p.mode==='model')return {mesh:withMaterials(modelMesh,p.modelMaterials!=='palette')||'knot'};
   if(p.mode==='text3d'){const m=textMesh(p);return m?{shape:'text3d',size:p.size,prim:false,mesh:m.norm}:{mesh:'knot'};}
   const prim={shape:p.mode,size:p.size,detail:p.detail,stretchX:p.stretchX,stretchY:p.stretchY,stretchZ:p.stretchZ,prim:true};
   if(CLONE_SHAPES.has(p.mode))return prim;

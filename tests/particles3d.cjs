@@ -86,9 +86,9 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     await page.locator('#emitterMedia').setInputFiles(gltfFile());
     await page.waitForFunction(()=>pro.engine('o')?.anim,null,{timeout:20000});
     await page.waitForTimeout(200);
-    const mesh1=await page.evaluate(()=>Array.from(pro.engine('e').w.__agParticles3d.source));
+    const mesh1=await page.evaluate(()=>{const c=pro.engine('e').w.__agParticles3d.gpuSource.image;return Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data);});
     await page.waitForTimeout(500);
-    const mesh2=await page.evaluate(()=>Array.from(pro.engine('e').w.__agParticles3d.source));
+    const mesh2=await page.evaluate(()=>{const c=pro.engine('e').w.__agParticles3d.gpuSource.image;return Array.from(c.getContext('2d').getImageData(0,0,c.width,c.height).data);});
     assert.ok(mesh1.some((v,i)=>v!==mesh2[i]),'Animated source surface updates');
     // Images remain valid 3D plane emitters, including source colours.
     const imageScene=scene();imageScene.layers[0].nodes[0]={id:'o',type:'waveform2d',x:0,y:180,props:{mode:'circle'}};
