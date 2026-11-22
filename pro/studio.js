@@ -2245,7 +2245,7 @@ function renderEmitter(root,n){
   const styleWrap=el('div');root.append(styleWrap);
   const opts=el('div','insp-options');opts.dataset.emitterOptions='';root.append(opts);
   // One Sound section per node. Simulations hear through their own sound knobs, so the generic ones only show when already changed;
-  // waveforms use line Sensitivity as their gain. 3D tilt / rotate only exist where a classic 3D mode can use them.
+  // Waveforms expose both line Sensitivity and overall Intensity. Only classic 3D modes use tilt / rotate.
   const sim=SIM_NODES.includes(n.type)||n.type==='waveform3d'&&n.props.render==='normal',classic3d=n.type==='waveform3d'||n.type==='waveform2d'&&n.props.mode==='fractal';
   const used=k=>wiredOf(k)||n.auto?.includes(k)||n.props[k]!==undefined&&n.props[k]!==T.props[k].value;
   // A model with its 3D camera: the camera owns the view, so the object's own view knobs step aside.
@@ -2267,7 +2267,7 @@ function renderEmitter(root,n){
   if(T.props.compBlend)renderProps(fold(root,'Compositing'),n,COMP_KEYS,true);
   const d=fold(sndWrap,'Sound');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
-  const sndKeys=sim?['intensity','punch','release','dynamics'].filter(used):[...(lineSens?['sensitivity','contrast','fade']:['intensity']),...(lineSens&&used('intensity')?['intensity']:[]),'punch','release','dynamics'].filter(k=>T.props[k]);
+  const sndKeys=sim?['intensity','punch','release','dynamics'].filter(used):[...(lineSens?['sensitivity','contrast','fade']:[]),...(T.category==='waveforms'||!lineSens||used('intensity')?['intensity']:[]),'punch','release','dynamics'].filter(k=>T.props[k]);
   if(sndKeys.length){const rg=el('div','knob-grid');for(const k of sndKeys)rg.append(propControl(n,k,T.props[k],wiredOf(k)));d.append(rg);}
   const wiredAudio=graph().edges.find(e=>e.to===n.id&&e.input==='audio'),from=wiredAudio&&findNode(wiredAudio.from);
   d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':from?`Hears ${TYPES[from.type].label} (${sourceName()}).`:T.category==='inputs'?'Still until you wire audio into it.':`Hears the project sound (${sourceName()}).`));

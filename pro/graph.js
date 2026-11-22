@@ -118,7 +118,7 @@ const COMP_PROPS={compOpacity:G('Compositing',n('Opacity',100,0,100,1,{unit:'%'}
   {labels:[['source-over','Normal'],['screen','Screen'],['lighter','Add'],['multiply','Multiply'],['difference','Difference'],['overlay','Overlay']]}))};
 export const COMP_KEYS=Object.keys(COMP_PROPS);
 const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number',mask:'visual'},outputs:{shape:'shape',...outputs},
-  props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound',n('Intensity',100,0,200,5)),punch:G('Sound',n('Bass punch',60,0,100,1)),release:G('Sound',n('Bass release',220,60,800,10)),dynamics:G('Sound',n('Dynamics',50,0,100,1)),
+  props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound',n('Intensity',category==='waveforms'?85:100,0,200,5)),punch:G('Sound',n('Bass punch',category==='waveforms'?65:60,0,100,1)),release:G('Sound',n('Bass release',category==='waveforms'?150:220,60,800,10)),dynamics:G('Sound',n('Dynamics',50,0,100,1)),
     opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}},...MASK_PROPS,...COMP_PROPS}});
 const MEDIA=(label,description,cam)=>({category:'inputs',group:'Media',label,description,inputs:{audio:'audio',mask:'visual'},
   outputs:{image:'image',palette:'colors',brightness:'number',...(label==='Image'?{}:{motion:'number'})},

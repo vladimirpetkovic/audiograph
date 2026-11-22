@@ -188,13 +188,17 @@ each with its own opacity and blend mode (up to four).
   Classic 3D renders (Waveform, Polygons) zoom natively, so lines stay sharp. It applies to the active layer and is saved with it.
   Nothing rotates by default: Cloner Spin and 3D camera Orbit / Orbit with sound start at 0 (presets set their own).
 - **Emitters** (particles): **Particles** (classic) and **WebGPU
-  particles** (Particles, Fluid, Smoke, Granular sand). WebGPU simulations react harder to sound than in the original
-  (snappier attack, shorter release, bigger beat bursts; tuned per simulation),
-  and their knobs and presets still override that.
+  particles** (Particles, Fluid, Smoke, Granular sand). WebGPU uses its own
+  band envelopes and onset detector. Lower **Bass reaction** or **Audio contrast**
+  to calm sustained motion; **Beat burst** controls emphasis on new hits separately.
+  Presets and explicit knob settings override the per-simulation defaults.
   Visual inputs, waveforms and WebGPU emitters show the original's own options in the inspector
   (knobs and choice chips, including presets) plus its audio response
   (Intensity, Bass punch, Bass release, Dynamics). They take `audio` and `drive`
   inputs and give a `shape` output.
+  New 2D waveform nodes (including the starting Spiral) use **85% Intensity**,
+  **65% Bass punch**, and **150 ms Bass release**. The lower overall gain leaves
+  room for kicks; the shorter release lets the visual settle sooner between hits.
   Every renderer also carries its geometry in grouped, collapsible inspector
   sections: Lines, Transform (scale, rotation, offset, 3D tilt and rotate, zoom on
   loud). Spin lives in a Spin node (Forces) and symmetry in Symmetry and Mirror

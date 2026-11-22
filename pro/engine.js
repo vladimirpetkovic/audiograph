@@ -253,14 +253,11 @@ function fakeAnalyser(audio) {
     connect(){},disconnect(){}};
 }
 
-// Pro's sound reaction for the WebGPU simulations: snappier attack, shorter release, more audio contrast and
-// beat bursts than the original's calm defaults (measured: about 2x the beat-driven motion). Presets and knobs override it.
-const PUNCH={pSimSens:60,pSimReact:70,pSimBurst:100,pSimBass:170,pSimAttack:12,pSimRelease:180,pSimEnergy:115};
-// Fluid fills the frame quickly: half energy keeps it readable.
-// Particles keep the original's defaults: its long, smooth flowing strands are the look.
-export const SIM_TUNE={simparticles:{},simfluid:{...PUNCH,pSimEnergy:50},simsand:PUNCH,
-  // Smoke accumulates density: full punch clips it to white, so it gets faster timing and bigger bursts only.
-  simsmoke:{pSimSens:60,pSimReact:45,pSimBurst:100,pSimBass:120,pSimAttack:25,pSimRelease:250}};
+// Keep onset bursts at full strength, but back off the continuous bass-driven forces.
+const PUNCH={pSimSens:60,pSimReact:55,pSimBurst:100,pSimBass:130,pSimAttack:15,pSimRelease:150};
+export const SIM_TUNE={simparticles:{pSimAttack:25,pSimRelease:230},
+  simfluid:{...PUNCH,pSimEnergy:50},simsand:PUNCH,
+  simsmoke:{pSimSens:60,pSimReact:40,pSimBurst:100,pSimBass:115,pSimAttack:25,pSimRelease:220}};
 export class EmitterEngine {
   constructor(id,onError) {
     this.id=id;this.onError=onError;this.status='starting';this.disposed=false;this.mode='';this.mediaName='';this.mediaKind='';this.generation=0;
