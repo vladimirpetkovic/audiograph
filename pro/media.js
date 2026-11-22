@@ -64,13 +64,13 @@ export function analyse(m,img,time){
 // Particle emitter points (the original's image emitter format), refreshed ~8× a second for moving pictures.
 const samp=canvas(160,90),sctx=samp.getContext('2d',{willReadFrequently:true});
 export function emitterAsset(m,img,time,still){
-  if(m.asset&&(still||time-m.tAsset<.12)&&time>=m.tAsset)return m.asset;
+  if(m.asset!==undefined&&(still||time-m.tAsset<.12)&&time>=m.tAsset)return m.asset;
   m.tAsset=time;const W=img.width,H=img.height,s=Math.min(1,160/Math.max(W,H)),w=Math.max(1,Math.round(W*s)),h=Math.max(1,Math.round(H*s));
   if(samp.width!==w||samp.height!==h){samp.width=w;samp.height=h;}
   sctx.clearRect(0,0,w,h);sctx.drawImage(img,0,0,w,h);
   const data=sctx.getImageData(0,0,w,h).data,cum=new Float64Array(w*h);let total=0;
   for(let i=0;i<cum.length;i++){const o=i*4;total+=(data[o]*.2126+data[o+1]*.7152+data[o+2]*.0722)*data[o+3]/65025;cum[i]=total;}
-  if(!total)return m.asset;
+  if(!total)return m.asset=null;
   const pts=[],side=Math.max(w,h);let seed=71;const r=()=>(seed=(seed*16807)%2147483647)/2147483647;
   for(let j=0;j<2048;j++){
     const t=r()*total;let lo=0,hi=cum.length-1;while(lo<hi){const mid=(lo+hi)>>1;if(cum[mid]<=t)lo=mid+1;else hi=mid;}

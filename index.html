@@ -6728,7 +6728,7 @@ void main(){
     }
     float edge=uFracMode>0.5?max(0.0,sqrt(max(second,0.0))-sqrt(max(best,0.0))):max(0.0,(second-best)/(2.0*max(length(secondSeed-bestSeed),1e-4)));
     float gap=(0.002+uFracGap*0.030)*uFracDrive;
-    fracBorder=1.0-smoothstep(gap,gap+0.004,edge);
+    fracBorder=(1.0-smoothstep(gap,gap+0.004,edge))*smoothstep(0.0,0.14,uFracDrive);
     fracGlow=(1.0-smoothstep(gap+0.002,gap+0.030,edge))*uFracGlow*uFracDrive;
     vec2 cen=vec2(bestSeed.x/asp,bestSeed.y);vec2 h=hash21(bestId+7.0)-0.5;
     vec2 outward=normalize((cen-vec2(0.5))*vec2(asp,1.0)+h*0.75+vec2(0.0001));outward.x/=asp;
@@ -6914,7 +6914,7 @@ function createShaderProg(gl,vsSrc,fsSrc){
 // Uniform / attribute locations are looked up once per program (the chain runs per layer, every frame).
 function _pfxU(gl,p,n){var c=p._u||(p._u={});return n in c?c[n]:(c[n]=gl.getUniformLocation(p,n))}
 function _pfxA(gl,p,n){var c=p._a||(p._a={});return n in c?c[n]:(c[n]=gl.getAttribLocation(p,n))}
-function _pfxRun(pipe,srcCv,fx){
+function _pfxRun(pipe,srcCv,fx,motion=pipe){
   var gl=pipe.gl,pfxCv=pipe.cv;
   var postFxProgram=pipe.prog,postFxThreshProg=pipe.thresh,postFxBloomProg=pipe.blur,postFxTexture=pipe.tex;
   var postFxFbA=pipe.fbA,postFxFbB=pipe.fbB,postFxFbC=pipe.fbC,postFxTexA=pipe.texA,postFxTexB=pipe.texB,postFxTexC=pipe.texC;
@@ -6940,7 +6940,7 @@ function _pfxRun(pipe,srcCv,fx){
   var bloom=v('pfxBloom'),chroma=v('pfxChroma'),vignette=v('pfxVignette'),scanlines=v('pfxScanlines'),sharpen=v('pfxSharpen'),invert=v('pfxInvert');
   var reflect=v('pfxReflect'),contrast=v('pfxContrast'),blurX=v('pfxBlurX'),blurY=v('pfxBlurY'),blurRadial=v('pfxBlurRadial'),focal=v('pfxFocal');
   var edgeGlow=v('pfxEdgeGlow'),kaleido=v('pfxKaleido');
-  var fracDrive=_pfxFractureDrive(pipe,fx),fracOn=fx&&fx.pfxFracture?1:0;
+  var fracDrive=_pfxFractureDrive(motion,fx),fracOn=fx&&fx.pfxFracture?1:0;
   // Bloom: threshold → blur H → blur V → blur H (wider) → blur V (wider)
   if(bloom>0){
     // Step 1: Threshold — extract bright pixels into fbC
@@ -7017,7 +7017,7 @@ function _pfxRun(pipe,srcCv,fx){
   gl.uniform1f(_pfxU(gl,postFxProgram,'uFracDisp'),(+fx.pfxFracDisp||0)/100);
   gl.uniform1f(_pfxU(gl,postFxProgram,'uFracRot'),(+fx.pfxFracRot||0)/100);
   gl.uniform1f(_pfxU(gl,postFxProgram,'uFracGlow'),(+fx.pfxFracGlow||0)/100);
-  var _fShat=fx&&fx.pfxFracMode==='shatter';gl.uniform1f(_pfxU(gl,postFxProgram,'uFracSeed'),(+fx.pfxFracSeed||0)+(_fShat?((agAudio.features().onsets||0)%997):0));gl.uniform1f(_pfxU(gl,postFxProgram,'uFracMode'),_fShat?1:0);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracNoise'),(fx.pfxFracNoise!=null?+fx.pfxFracNoise:35)/100);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracPhase'),+pipe._fracPhase||0);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracSize'),(fx.pfxFracSize!=null?+fx.pfxFracSize:65)/100);
+  var _fShat=fx&&fx.pfxFracMode==='shatter';gl.uniform1f(_pfxU(gl,postFxProgram,'uFracSeed'),+fx.pfxFracSeed||0);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracMode'),_fShat?1:0);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracNoise'),(fx.pfxFracNoise!=null?+fx.pfxFracNoise:35)/100);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracPhase'),+motion._fracPhase||0);gl.uniform1f(_pfxU(gl,postFxProgram,'uFracSize'),(fx.pfxFracSize!=null?+fx.pfxFracSize:65)/100);
   gl.uniform1f(_pfxU(gl,postFxProgram,'uTime'),performance.now()*0.001);
   gl.uniform2f(_pfxU(gl,postFxProgram,'uRes'),w,h);
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);
@@ -7047,13 +7047,17 @@ function applyPostFx(){
 // composite (the shared layer GL canvas — composite it before the next layer is processed). Off = no cost.
 function _pfxNeedsShader(fx){if(fx&&fx.pfxFracture)return true;var ids=_pfxBaseIds();for(var i=0;i<ids.length;i++){if(ids[i]==='pfxTrails'||ids[i]==='pfxFeedback')continue;if(Math.abs(+fx[ids[i]])>0)return true}return false}
 function _pfxFractureDrive(pipe,fx){
-  if(!fx||!fx.pfxFracture)return 0;var now=performance.now(),dt=pipe._fracT?Math.min(0.1,Math.max(0.001,(now-pipe._fracT)/1000)):1/60;pipe._fracT=now;
-  var o=window.__agFractureDrive,feat=o?{env:o.bass||0,trans:o.beat||0,onset:(o.beat||0)>0,strength:o.beat||0}:agAudio.frame(analyser);
-  var bass=Math.max(0,Math.min(1,feat.env||0))*(+fx.pfxFracBass||0)/100;var beat=(feat.onset?Math.max(feat.strength||0,feat.trans||0,0.7):Math.max(0,feat.trans||0)*0.35)*(+fx.pfxFracBeat||0)/100;
-  var target=Math.max(0,Math.min(1,bass+beat));var rec=(+fx.pfxFracRecover||0)/100,tau=1.15-rec*1.03;if(tau<0.12)tau=0.12;
-  // v37: smooth both ways (no snapping) and drift the crack network continuously, faster with louder sound.
-  var env=+(pipe._fracEnv||0);env=target>env?(fx.pfxFracMode==='shatter'?target:env+(target-env)*(1-Math.exp(-dt/0.07))):target+(env-target)*Math.exp(-dt/tau);pipe._fracEnv=env;
-  var drift=(fx.pfxFracDrift!=null?+fx.pfxFracDrift:45)/100;pipe._fracPhase=(+(pipe._fracPhase||0)+dt*drift*(0.15+2.6*env))%6283.1853;
+  if(!fx||!fx.pfxFracture)return 0;var now=performance.now(),dt=pipe._fracT==null?1/60:Math.min(.1,Math.max(0,(now-pipe._fracT)/1000));pipe._fracT=now;
+  var o=window.__agFractureDrive,feat=o?null:agAudio.frame(analyser);
+  var bass=Math.max(0,Math.min(1,o?.bass||feat?.env||0))*(+fx.pfxFracBass||0)/100;
+  var hit=o?(o.beat||0):feat.onset?Math.max(feat.strength||0,feat.trans||0,0.7):(feat.trans||0)*.35;
+  var beat=Math.max(0,hit)*(+fx.pfxFracBeat||0)/100;
+  pipe._fracBeat=Math.max(beat,(pipe._fracBeat||0)*Math.exp(-dt/.20));
+  var target=Math.min(1,bass+pipe._fracBeat),rec=(+fx.pfxFracRecover||0)/100,env=pipe._fracEnv||0;
+  var tau=target>env?(fx.pfxFracMode==='shatter'?.095:.16):Math.max(.18,1.15-rec*.97);
+  pipe._fracEnv=target+(env-target)*Math.exp(-dt/tau);
+  var drift=(fx.pfxFracDrift!=null?+fx.pfxFracDrift:45)/100;
+  pipe._fracPhase=(pipe._fracPhase||0)+dt*drift*(.23+1.25*pipe._fracEnv);
   return Math.max(0,Math.min(1,pipe._fracEnv||0));
 }
 // v62: with Scale loud the layer canvas changes size every frame, which re-allocated the WebGL FX canvas and
@@ -7065,6 +7069,7 @@ function _pfxPadLoud(si,cv,fx,zoom,sz){
   var w=Math.ceil(sz.W*zoom*1.5*sz.dpr),h=Math.ceil(sz.H*zoom*1.5*sz.dpr);if(cv.width>w||cv.height>h)return cv;
   var c=_agPoolCv('pfxPad'+si,w,h);c.getContext('2d').drawImage(cv,Math.round((w-cv.width)/2),Math.round((h-cv.height)/2));return c}
 function applyLayerFx(si,src,fx,noHistory){
+  if(!fx?.pfxFracture&&_pfxLayerPipe?._fracLayers)_pfxLayerPipe._fracLayers.delete(si);
   if(!pfxActive(fx)||!src||!src.width||!src.height){if(!noHistory&&_layerTrails[si])delete _layerTrails[si];return src}
   if(!noHistory){
     var tv=+fx.pfxTrails||0,fb=+fx.pfxFeedback||0;
@@ -7073,7 +7078,13 @@ function applyLayerFx(si,src,fx,noHistory){
   if(!_pfxNeedsShader(fx))return src;
   if(!_pfxLayerPipe&&!_pfxLayerFailed){_pfxLayerPipe=_pfxBuildPipe(document.createElement('canvas'),true);if(!_pfxLayerPipe){_pfxLayerFailed=true;console.warn('WebGL not available for layer Post FX')}}
   if(!_pfxLayerPipe)return src;
-  _pfxRun(_pfxLayerPipe,src,fx);
+  var motion;
+  if(fx.pfxFracture){
+    var layers=_pfxLayerPipe._fracLayers||=new Map();
+    motion=layers.get(si);
+    if(!motion){motion={};layers.set(si,motion)}
+  }
+  _pfxRun(_pfxLayerPipe,src,fx,motion);
   return _pfxLayerPipe.cv;
 }
 // Transparent-layer version of applyTrails: fades history toward transparent instead of black.

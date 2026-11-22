@@ -1,6 +1,8 @@
 // Autopilot, ported from the original Audiograph: it listens for the song's sections (breakdown, groove, build-up,
 // drop), and at each one generates a fitting stack of 1–3 layers with the original's own look generator
 // (agAI.toLayer, running inside an engine frame). Studio crossfades the stack; nothing here touches the DOM.
+import {IMAGE_VISUALS,isImageVisual,particleBrief} from './autopilot.js';
+import {TYPES} from './graph.js';
 export const ROLE_OP=[100,70,55];
 export const MIN_GAP=8;
 export const SIMS=['simparticles','simfluid','simsmoke'];
@@ -100,7 +102,7 @@ export class Pilot{
 export const durFor=(kind,every)=>kind==='drop'?2.5:kind==='build'?clamp(every*.5,6,12):kind==='calm'?9:kind==='phrase'?10:7;
 
 // ---------- the description ----------
-// Autopilot doesn't use smoke: smoky words read as fluid.
+// Atmosphere words keep the softer fluid look unless the actual Smoke simulation is requested.
 const SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl|smoke|smoky|fog|mist|steam|incense|cloud|plume)/],
   ['simparticles',/\b(particles?|particle field|firework|embers?|sparks?|stardust|confetti|fountain|sand|granular|dunes?|hourglass)/],['simcloner',/\b(cubes|blocks|clones?|cloner|voxels?|array of)\b/]];
 const LAYOUT_NAMES=['spiral','phyllotaxis','concentric','sphere','growth','circle','tetrahedron','dna','scatter','sacred','graph','fractal'];
@@ -110,6 +112,9 @@ export function readVibe(w,text){
   const t=' '+String(text||'').toLowerCase()+' ';if(!t.trim()||!w?.agAI)return null;
   const kw=w.agAI.keywords(t),h=kw._hit||{},v={kw,hit:h,layouts:[],shapes:[],tempo:1,bpm:0,energy:h.energy?kw.energy:null};
   const add=n=>{if(!v.layouts.includes(n))v.layouts.push(n);};
+  const modern=IMAGE_VISUALS.find(([re])=>re.test(t))?.[1],particles=particleBrief(t);
+  v.primary=particles.mesh||particles.flat?'simparticles':/\b(?:volumetric smoke|smoke simulation)\b/.test(t)?'simsmoke':modern;
+  if(v.primary)add(v.primary);
   w.agAI.LAYW.forEach(x=>{if(x[0]!=='linear'&&x[1].test(t))add(x[0]);});
   LAYOUT_NAMES.forEach(n=>{if(new RegExp('\\b'+n).test(t))add(n);});
   SIM_W.forEach(x=>{if(x[1].test(t))add(x[0]);});
@@ -127,7 +132,7 @@ export function readVibe(w,text){
   return v;
 }
 const NAMES={simcloner:'cloner',simparticles:'particles',simfluid:'fluid',simsmoke:'smoke',lissajous:'harmonic',inkwater:'ink in water'};
-export const nameOf=n=>NAMES[n]||n;
+export const nameOf=n=>NAMES[n]||(isImageVisual(n)?TYPES[n].label:n);
 export function vibeText(v){
   if(!v)return '';const o=[];
   if(v.energy!=null)o.push(v.energy<40?'calm':v.energy>70?'intense':'medium energy');
@@ -154,6 +159,9 @@ export const SCENES=[
   {id:'tunnel',label:'Tunnel',E:[45,95],base:['spiral','concentric'],accent:null,shapes:['tapered','needles','straight'],harmony:'analogous',fx:{pfxTrails:55,pfxFeedback:35,pfxBloom:30}},
   {id:'stars',label:'Constellation',E:[0,55],base:['graph','scatter'],accent:['phyllotaxis'],shapes:['dotted','circles','pins'],harmony:'mono',fx:{pfxBloom:55,pfxEdgeGlow:20,pfxVignette:30}},
   {id:'embers',label:'Embers',E:[55,100],sim:true,base:['simparticles'],accent:['phyllotaxis','circle'],shapes:['straight','dotted'],harmony:'complement',fx:{pfxVignette:25}},
+  {id:'surface',label:'Surface currents',E:[10,75],sim:true,base:['simparticles'],accent:null,shapes:['straight'],harmony:'analogous',fx:{pfxVignette:22}},
+  {id:'chaos',label:'Phase portrait',E:[0,75],base:['attractor','epicycles','polarPlot'],accent:null,shapes:['straight'],harmony:'split'},
+  {id:'signal',label:'Signal lab',E:[30,100],base:['oscilloscope','radar','cellular','techLines'],accent:null,shapes:['straight'],harmony:'mono'},
   {id:'mirror',label:'Mirror garden',E:[15,75],base:['phyllotaxis','spiral','sacred'],accent:['circle'],shapes:['tapered','rounded'],harmony:'analogous',fx:{pfxReflect:40,pfxBloom:30,pfxVignette:25}},
   {id:'tide',label:'Tide',E:[0,60],base:['water','sine'],accent:['scatter','phyllotaxis'],shapes:['straight','rounded','dotted'],harmony:'analogous',fx:{pfxBloom:30,pfxVignette:40,pfxBlurRadial:28,pfxFocal:60}},
   {id:'harmono',label:'Harmonograph',E:[20,80],base:['lissajous'],accent:['circle','phyllotaxis'],shapes:['tapered','needles','straight'],harmony:'triad',fx:{pfxBloom:35,pfxTrails:40,pfxVignette:30}},
@@ -215,9 +223,10 @@ export class Generator{
     const s={layout:'circle',shape:'straight',colors:sc?harmony(hx,sc.harmony,hue,E):[hx(hue-20,sat,14),hx(hue,sat,45),hx(hue+35,sat+5,62),hx(hue+70,sat+10,E>70?66:76)],background:'#000000',energy:E,
       density:35+r()*30+(E>70?10:0),thickness:12+r()*16+(E>70?6:0),spin:(E>60?30:15)*(r()<.5?-1:1),warp:E<30?15+r()*20:r()*15,glow:20+r()*20,trails:E<40?25+r()*25:r()*10,
       symmetry:'none',particles:false,growth:any(['vine','coral']),pulse:false};
-    const calmL=['spiral','phyllotaxis','concentric','sphere','growth','sacred','graph','fractal','water','lissajous'],hotL=['circle','concentric','spiral','tetrahedron','sphere','dna','scatter','sacred','lissajous','graph','linear'];
+    const calmL=['spiral','phyllotaxis','concentric','sphere','growth','sacred','graph','fractal','water','lissajous','attractor','polarPlot','epicycles'],
+      hotL=['circle','concentric','spiral','tetrahedron','sphere','dna','scatter','sacred','lissajous','graph','linear','oscilloscope','radar','cellular','techLines'];
     const shapes=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted'];
-    s.layout=this.pick(v?.layouts,E>60?hotL:calmL,'layout');
+    s.layout=!companion&&v?.primary?v.primary:this.pick(v?.layouts,E>60?hotL:calmL,'layout');
     if(!v?.layouts.length&&sc){
       const pool=this.role==='accent'&&sc.accent?sc.accent:sc.base;s.layout=any(pool);if(gpu(s.layout)&&!this.simOK(w))s.layout=any(sc.accent||['circle']);
       s.shape=any(sc.shapes);
@@ -287,7 +296,7 @@ export class Generator{
   }
   // spec → layer, with the original's renderer (Pro solids use the original's 3D object layout).
   toLayer(w,s){
-    const solid=SOLIDS.includes(s.layout),l=w.agAI.toLayer({...s,layout:solid?'object':s.layout==='simcloner'?'circle':s.layout});
+    const solid=SOLIDS.includes(s.layout),l=w.agAI.toLayer({...s,layout:solid?'object':s.layout==='simcloner'||isImageVisual(s.layout)?'circle':s.layout});
     l.layout=s.layout;if(solid){l.params._objModel=s.layout;l.params.pObjRotate=Math.round(2+s.energy/10);}
     l.params._zoomLoud=false;tameAngles(l.params);
     if(isSim(s.layout))this.simify(w,l,s);

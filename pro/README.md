@@ -32,6 +32,11 @@ each with its own opacity and blend mode (up to four).
     Turbulence work in 3D. **Floor** is an invisible square that catches falling
     3D particles. **Size** sets both sides; switch **Enabled** off to let particles
     fall through. Flat (2D) emitters keep their frame bounds.
+    Without a wire, choose **Image** in **Emission** to upload a picture, or
+    **Webcam** and **Start camera** to emit from a live feed. Both sources are
+    flat. Uploaded images stay in the current session, not in the project file.
+    **Fluid** is a 2D simulation: a connected 3D object supplies its rendered
+    silhouette, not a volume or a collision surface.
     **Look → Trails** follows the particles' recent path
     in 3D, so turning the camera does not leave ghost images. Set it to **0%**
     to draw particles without trails in either 2D or 3D.
@@ -197,9 +202,8 @@ each with its own opacity and blend mode (up to four).
   **WebGPU emitters** includes Particles, Fluid and Smoke. WebGPU uses its own
   band envelopes and onset detector. Lower **Bass reaction** or **Audio contrast**
   to calm sustained motion; **Beat burst** controls emphasis on new hits separately.
-  Presets and explicit knob settings override the per-simulation defaults.
   Visual inputs, waveforms and WebGPU emitters show the original's own options in the inspector
-  (knobs and choice chips, including presets) plus its audio response
+  (knobs and choice chips) plus audio response
   (Intensity, Bass punch, Bass release, Dynamics). They take `audio` and `drive`
   inputs and give a `shape` output.
   New 2D waveform nodes (including the starting Spiral) use **85% Intensity**,
@@ -422,6 +426,9 @@ process the finished image.
   and the shared 3D camera. Older scenes keep their wired cameras unless you switch modes.
   **Performance** can cap live FPS, override WebGPU simulation quality, or skip 3D lens effects
   without changing individual nodes. The FPS cap does not affect offline exports.
+  In **Autopilot → Describe**, try “blue Aizawa attractor with soft motion blur,” “green oscilloscope
+  with flowing fracture,” or “gold particles flow across the surface of a torus, no floor, no trails.”
+  For free-flying particles, try “particles from a cube, bounce off the cube, release on sound and motion.”
   **Fit** frames the graph; if nodes overlap or wires run backwards it first arranges it into
   left-to-right columns (one undo step).
   The transport has icon buttons: **Play/Pause** (Space; Home rewinds), **Rec** (records the

@@ -41,6 +41,7 @@ function upstreamSim(g,n){
     const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}
   return null;
 }
+const SIM_SOURCE={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'};
 function meshEmitter(g,edge){
   while(edge&&(edge.out==='shape'||edge.out==='object')){
     const source=g.nodes.find(n=>n.id===edge.from);
@@ -105,7 +106,8 @@ function reconcile(){
   syncSceneResolution();
   const emitterIDs=new Set(state.layers.flatMap(g=>g.nodes.filter(n=>isEngine(n.type)).map(n=>n.id)));
   const anyFx=state.layers.some(g=>g.nodes.some(n=>TYPES[n.type].fx));
-  for(const [id,engine] of engines)if(id==='__fx'?(!anyFx||emitterIDs.size>0):!emitterIDs.has(id)){engine.dispose();engines.delete(id);}
+  const liveSlots=state.layers.some(g=>g.id.startsWith('ap-L'));
+  for(const [id,engine] of engines)if(id==='__fx'?(!liveSlots&&(!anyFx||emitterIDs.size>0)):!emitterIDs.has(id)){engine.dispose();engines.delete(id);}
   const nodeIDs=new Set(state.layers.flatMap(g=>g.nodes.map(n=>n.id)));
   for(const map of [surfaces,thumbs])for(const [id,cv] of map)if(!nodeIDs.has(id.split(':')[0])){cv.width=cv.height=1;map.delete(id);}
   for(const id of nodeState.keys())if(!nodeIDs.has(id.split(':')[0]))nodeState.delete(id);
@@ -125,6 +127,7 @@ function reconcile(){
   if(!state.layers.some(g=>g.id===active))active=state.layers[0].id;
   if(!graph().nodes.some(n=>n.id===selected))selected=null;
   for(const id of multi)if(!graph().nodes.some(n=>n.id===id))multi.delete(id);if(multi.size<2)multi.clear();
+  releaseCameraIfUnused();
 }
 function commit(next,label='Updated graph',before=state){
   const clean=validate(next);
@@ -1000,10 +1003,22 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);Object.assign(r.shape.mods,{pG3Zoom:55,pG3ScX:0,pG3ScY:0,pG3ScZ:0});}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
       const emit=n.type==='gpuParticles'&&byInput.get(n.id+':emit'),mesh=emit&&meshEmitter(g,emit);
-      const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(!emit||mesh);
+      const key=n.type==='gpuParticles'&&SIM_SOURCE[p.mode],eng=key&&engines.get(n.id);
+      const source=!emit&&key&&eng?.simSource(r.shape.job,key);
+      const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(mesh||!emit&&source!=='image'&&source!=='camera');
+      if(source==='image')r.shape.job.emitAsset=nodeState.get(n.id+':emitImage')?.asset??null;
+      if(source==='camera'){
+        const cam=emitterCameras.get(n.id),video=cam?.media.el,now=performance.now();
+        if(cam?.media.ready()&&(!cam.asset||now-cam.at>=100)){
+          cam.asset=eng.w.agEmitterImageAsset(video,video.videoWidth,video.videoHeight,'Webcam',true);cam.at=now;
+        }
+        // Feed the shared camera samples through the image input, without toggling the iframe's webcam effects.
+        r.shape.mods._sim={...r.shape.mods._sim,[key]:'image'};
+        r.shape.job.emitAsset=cam?.asset?.points.length?cam.asset:null;
+      }
       if(emit){
         // 3D particles take mesh geometry; other simulations sample the source's live render.
-        const key={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'}[p.mode],src=emit,v=input(n,'emit');
+        const src=emit,v=input(n,'emit');
         let shape=src.out==='object'?outputs.get(src.from)?.shape:v;
         const object=src.out==='object'?v:shape?.object;
         if(particles3d){
@@ -1023,7 +1038,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
         }else{
           const img=key&&asImage(src.out==='object'?outputs.get(src.from)?.shape:v,n.id+'e');
           const a=img&&emitterAsset(nstate(n.id+':emit',()=>({name:'Picture'})),img,time);
-          if(key){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a;}
+          if(key){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a??null;}
         }
       }
       if(particles3d){r.shape.mods._sim={...r.shape.mods._sim,pSpace:'3d'};r.shape.job.particleDepth=p.particleDepth;r.shape.job.particleSpread=mesh?p.particleSpread:0;r.shape.job.particleTime=time;
@@ -1447,6 +1462,7 @@ function drawSpectrum(){
 }
 // One shared camera stream for every engine (Webcam node, Video emitter camera source). Released when unused.
 let camPromise=null,camStream=null;
+const emitterCameras=new Map();
 function camProvider(){
   if(!navigator.mediaDevices?.getUserMedia)return Promise.reject(Error('Camera requires HTTPS or localhost'));
   if(!camPromise)camPromise=navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false})
@@ -1494,7 +1510,15 @@ function mediaOf(n){
   return m;
 }
 function releaseCameraIfUnused(){
-  if(!camStream||camMapOn()||state.layers.some(g=>g.nodes.some(n=>n.type==='camera'))||[...engines.values()].some(e=>e.usesCamera()))return;
+  for(const [id,c] of emitterCameras){
+    const n=findNode(id);
+    if(n?.type==='gpuParticles'&&!n.bypass){
+      const job=jobOf(n);
+      if(!job.wiredEmit&&engines.get(id)?.simSource(job,SIM_SOURCE[n.props.mode])==='camera')continue;
+    }
+    c.media.clear();emitterCameras.delete(id);
+  }
+  if(!camStream||emitterCameras.size||camMapOn()||state.layers.some(g=>g.nodes.some(n=>n.type==='camera'))||[...engines.values()].some(e=>e.usesCamera()))return;
   for(const [id,m] of mediaEls)if(m.kind==='camera'){m.clear();mediaEls.delete(id);}
   camStream.getTracks().forEach(t=>t.stop());camStream=null;camPromise=null;
 }
@@ -2245,6 +2269,47 @@ function renderMediaPicker(root,n){
   }else{const b=el('button','mbtn media-choose',`Choose ${n.type}`);b.type='button';b.onclick=()=>f.click();box.append(b);}
   box.append(f);
 }
+function renderSimulationMedia(box,n,e,source){
+  const row=el('div','media-pick'),refresh=()=>{if(selected===n.id)renderProperties();if(paused)draw(elapsed);};
+  const button=label=>{const b=el('button','mbtn media-choose',label);b.type='button';row.append(b);return b;};
+  box.append(row);
+  if(source==='image'){
+    const id=n.id+':emitImage',s=nstate(id,()=>({asset:null}));
+    const f=el('input');f.type='file';f.accept='image/*';f.hidden=true;f.setAttribute('aria-label','Emitter image');row.append(f);
+    button(s.asset?'Replace image':'Upload image').onclick=()=>f.click();
+    f.onchange=async()=>{
+      const file=f.files[0];f.value='';if(!file)return;
+      const request=s.request={};
+      try{
+        if(file.size>10*1048576)throw Error('Image is over 10 MiB. Choose a smaller image.');
+        const bitmap=await createImageBitmap(file);
+        let asset;
+        try{
+          if(nodeState.get(id)!==s||s.request!==request||e.disposed)return;
+          asset=e.w.agEmitterImageAsset(bitmap,bitmap.width,bitmap.height,file.name,false);
+        }finally{bitmap.close();}
+        s.asset=asset;message('Loaded '+asset.name);refresh();
+      }catch(error){if(nodeState.get(id)===s&&s.request===request)message('Could not load emitter image: '+error.message,true);}
+    };
+    box.append(el('p','insp-note',s.asset?`${s.asset.name} · Reload this image when reopening the project.`:'Brighter pixels emit more. Black and transparent pixels emit nothing.'));
+  }else{
+    const cam=emitterCameras.get(n.id);
+    const b=button(cam?.pending?'Starting camera…':cam?'Stop camera':'Start camera');
+    b.disabled=!!cam?.pending;
+    b.onclick=async()=>{
+      if(cam){cam.media.clear();emitterCameras.delete(n.id);releaseCameraIfUnused();refresh();return;}
+      const c={media:new Media('camera'),pending:true};emitterCameras.set(n.id,c);refresh();
+      try{
+        const stream=await camProvider();
+        if(emitterCameras.get(n.id)===c)c.media.stream(stream);
+        else releaseCameraIfUnused();
+      }catch(error){
+        if(emitterCameras.get(n.id)===c){emitterCameras.delete(n.id);message(error.message,true);}
+      }finally{c.pending=false;refresh();}
+    };
+    box.append(el('p','insp-note','Brighter parts of the live camera feed emit more.'));
+  }
+}
 function renderEmitter(root,n){
   const T=TYPES[n.type],s=section(root,n.type==='waveform3d'?null:MODES[n.type]?T.label:'Source');
   if(MODES[n.type]){
@@ -2322,12 +2387,17 @@ function renderEmitter(root,n){
     let controls;try{controls=e.controls(jobOf(n));}catch(err){opts.append(el('p','insp-note insp-err',err.message));return;}
     if(!controls)return;
     opts.replaceChildren();top.replaceChildren();
+    const sourceKey=n.type==='gpuParticles'&&SIM_SOURCE[n.props.mode],sourceChip=c=>sourceKey&&c.type==='chips'&&c.onclick.startsWith(`setSimOpt('${sourceKey}'`);
+    const source=!emissionWire&&sourceKey&&e.simSource(jobOf(n),sourceKey),flat=source==='image'||source==='camera';
+    const spatial=particleMode&&(mesh||!emissionWire&&!flat);
+    const sourceColors=c=>c.type==='chips'&&c.onclick.startsWith("setSimOpt('emitColor'");
+    if(emissionWire)controls=controls.filter(c=>!sourceChip(c)&&!sourceColors(c));
     // Choice chips (Type, Direction…) sit at the top; line-look chips join Look. Few knobs share one section named after the node.
     // A 3D Object drawn Normal runs on the cloner (a Cloner of one), so it gets the same lean inspector.
     const clonerLike=n.type==='cloner'||n.type==='waveform3d'&&n.props.render==='normal';
     const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||clonerLike&&FORCE_KNOBS.simcloner||{};
     controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
-    if(particleMode&&(!emissionWire||mesh))controls=controls.filter(c=>c.type!=='chips'||!/setSimOpt\('pBounds'/.test(c.onclick));
+    if(spatial)controls=controls.filter(c=>c.type!=='chips'||!/setSimOpt\('pBounds'/.test(c.onclick));
     if(hasFlow)controls=controls.filter(c=>!['pSpSpeed','pEmitScale'].includes(c.id));
     if(camModel)controls=controls.filter(c=>c.type!=='range'||!CAM_VIEW_KNOBS.has(c.id));
     // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
@@ -2337,15 +2407,15 @@ function renderEmitter(root,n){
     const lineChip=c=>/line|stroke|style/i.test(c.label),first=controls.find(c=>c.type!=='range'&&!c.action&&!lineChip(c));
     const groupOf=c=>{
       const g=optGroup(c.label);
-      if(c.id==='pEmitScale')return 'Emission';
+      if(['pEmitScale','pEmitRZ','pEmitPoints'].includes(c.id)||sourceColors(c))return 'Emission';
       if(n.type==='gpuParticles'&&(g==='Quality'||c.id==='pSpTrail'))return 'Look';
-      if(particleMode&&(g==='Emission'||c.type==='chips'&&/setSimOpt\('pEmit'/.test(c.onclick)))return 'Emission';
+      if(sourceChip(c)||particleMode&&g==='Emission')return 'Emission';
       if(c.type!=='range')return c===first||g==='Setup'?null:lineChip(c)||/blend/i.test(c.label)?'Look':['Quality','Camera','Look'].includes(g)?g:main;
       return few?(KEEP.includes(g)?g:main):g;
     };
     const order=[...new Set([main,...OPT_GROUPS.map(([g])=>g)])],bins=new Map(order.map(g=>[g,[]]));
     for(const c of controls){const gr=groupOf(c);if(gr)bins.get(gr).push(c);}
-    for(const [gr,list] of bins)if(gr!==main&&gr!=='Sound'&&!(n.type==='gpuParticles'&&gr==='Look'||particleMode&&gr==='Emission')&&!list.some(c=>c.id==='pEmitScale')&&list.length&&list.length<(KEEP.includes(gr)?2:3)){bins.get(main).push(...list);list.length=0;}
+    for(const [gr,list] of bins)if(gr!==main&&gr!=='Sound'&&!(n.type==='gpuParticles'&&(gr==='Look'||gr==='Emission'))&&!list.some(c=>c.id==='pEmitScale')&&list.length&&list.length<(KEEP.includes(gr)?2:3)){bins.get(main).push(...list);list.length=0;}
     const chip=c=>{
       const wrap=el('div','opt-chips');if(c.label)wrap.append(el('div','insp-sublabel',c.label));
       const current=c.options.find(o=>o.on)?.label;
@@ -2372,9 +2442,11 @@ function renderEmitter(root,n){
           onInput:v=>live(()=>{const x=findNode(n.id);if(x)x.props.opts={...x.props.opts,[c.id]:v};}),onChange:()=>liveCommit('Emitter: '+c.label)}));
       }
       if(gr==='Emission'){
-        if(particleMode&&(!emissionWire||mesh))renderProps(box,n,['particleDepth',...(mesh?[...(!hasFlow?['particleSpread','particleResponse']:[]),'particleSurfaceFlow']:[])],true);
+        if(flat)renderSimulationMedia(box,n,e,source);
+        if(spatial)renderProps(box,n,['particleDepth',...(mesh?[...(!hasFlow?['particleSpread','particleResponse']:[]),'particleSurfaceFlow']:[])],true);
         if(emissionWire&&!(particleMode&&mesh))renderProps(box,n,['emitColors'],true);
-        if(particleMode&&(!emissionWire||mesh))renderProps(fold(opts,'Floor'),n,['particleFloor',...(n.props.particleFloor?['particleFloorSize']:[])],true);
+        if(spatial)renderProps(fold(opts,'Floor'),n,['particleFloor',...(n.props.particleFloor?['particleFloorSize']:[])],true);
+        if(emissionWire&&n.props.mode==='simfluid'&&meshEmitter(graph(),emissionWire))box.append(el('p','insp-note','Fluid emits from the object’s rendered silhouette in 2D. It does not collide with the mesh.'));
       }
     }
     if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer or Color nodes after it.'));
@@ -3846,7 +3918,11 @@ const apNode=(k,key)=>apLayer(k)?.nodes.find(n=>n.id===apIds(k)[key]);
 const apIsSlots=()=>state.layers.length===4&&[0,1,2,3].every(k=>AP_PARTS.every(x=>apNode(k,x)));
 const apBusy=()=>!!(apWant||apTrans?.warm.length);
 // The original's look generator runs inside any ready engine frame.
-function apWin(){for(const e of engines.values())if(e.status==='ready'&&e.w?.agAI)return e.w;return null;}
+function apWin(){
+  for(const e of engines.values())if(e.status==='ready'&&e.w?.agAI)return e.w;
+  if(apIsSlots()&&![...engines.values()].some(e=>e.status==='starting'))engineFor('__fx');
+  return null;
+}
 function apSlotLayer(k){
   const id=apIds(k),y=60+k*30,mk=(type,nid,x,props)=>({...node(type,40+x,y,props),id:nid});
   return {id:id.g,name:'Autopilot '+(k+1),visible:true,opacity:0,blend:k?'screen':'source-over',
@@ -3858,7 +3934,8 @@ function apEnsure(){
   if(apIsSlots()){
     // A saved Autopilot project: its visible layers become the stack again.
     if(!apSlots.some(s=>s.role>=0)){let role=0;for(let k=0;k<4;k++){const g=apLayer(k),r=apNode(k,'r'),s=apNode(k,'s');
-      if(g.visible&&g.opacity>.01&&role<3)apSlots[k]={role:role++,layer:{layout:r.props.mode,params:{...r.props.look},opacity:g.opacity*100,spin:s.props.spin*(s.props.dir==='left'?-1:1),speed:s.props.speed},f0:0};}}
+      if(g.visible&&g.opacity>.01&&role<3)apSlots[k]={role:role++,layer:{layout:autopilot.isImageVisual(r.type)?r.type:r.type==='cloner'?'simcloner':r.props.mode,
+        params:{...r.props.look},opacity:g.opacity*100,spin:s.props.spin*(s.props.dir==='left'?-1:1),speed:s.props.speed},f0:0};}}
     return true;
   }
   apTrans=null;apTweens.clear();for(const s of apSlots)Object.assign(s,{role:-1,layer:null,f0:0});
@@ -3895,10 +3972,12 @@ const apSpin=v=>Math.max(-5,Math.min(5,Math.round((+v||0)*10)/10));
 // A new look in slot k: the renderer switches mode in place (same engine); the layer stays invisible until it is warm.
 let apEnergy=50,apSection='groove';
 function apAssign(w,k,l,role,opacity=.001){
-  const g=apLayer(k),r=apNode(k,'r'),cl=l.layout==='simcloner',type=cl?'cloner':Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===l.layout))||'waveform2d';
+  const g=apLayer(k),r=apNode(k,'r'),cl=l.layout==='simcloner',image=autopilot.isImageVisual(l.layout);
+  const type=cl?'cloner':image?l.layout:Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===l.layout))||'waveform2d';
   // A Cloner look is rigged like the Cloned template (objects, light, sound effector, material); apWire builds the rig.
   const rig=cl?clonerRig({energy:apEnergy,seed:Math.random()*1e9|0}):null;apSlots[k].rig=rig;
-  r.type=type;r.props=cl?{...defaults('cloner'),...rig.props,opts:{...defaults('cloner').opts,...rig.props.opts}}:{...defaults(type),mode:l.layout,look:lookDiff(w,l.params),...geoFromLook(l.params)};
+  r.type=type;r.props=cl?{...defaults('cloner'),...rig.props,opts:{...defaults('cloner').opts,...rig.props.opts}}:
+    image?{...defaults(type),...autopilot.imageVisualProps(type,role===0?ap.prompt:'')}:{...defaults(type),mode:l.layout,look:lookDiff(w,l.params),...geoFromLook(l.params)};
   const cs=apColorsOf(l.params);if(cs.length)Object.assign(apNode(k,'p').props,apPalette(cs));
   const sym=l.params._symmetryMode;apNode(k,'y').props.mode=['x','y','xy','r3','r4','r6','r8'].includes(sym)?sym:'none';
   Object.assign(apNode(k,'s').props,{...spinProps(apSpin(l.spin)),speed:Math.max(.1,Math.min(5,+l.speed||1))});
@@ -3911,6 +3990,18 @@ function apAssign(w,k,l,role,opacity=.001){
 function apWire(k,role){
   const g=apLayer(k),base=apSlotLayer(k),keep=new Map(g.nodes.map(n=>[n.id,n]));g.nodes=base.nodes.map(n=>keep.get(n.id)||n);g.edges=base.edges;
   const rr=apNode(k,'r'),rig=rr?.type==='cloner'&&apSlots[k].rig;
+  const id=apIds(k),prompt=role===0?ap.prompt:'',
+    emission=prompt||(!role&&gen.scene?.id==='surface'?'particles flow across the surface of a torus, no floor':'');
+  if(autopilot.isImageVisual(rr.type))g.edges=[
+    {from:id.a,out:'audio',to:id.r,input:'audio'},{from:id.r,out:'image',to:id.p,input:'shape'},{from:id.p,out:'shape',to:id.o,input:'image'}];
+  if(rr.type==='gpuParticles'&&rr.props.mode==='simparticles'){
+    const {mesh,flat,collide,props}=autopilot.particleBrief(emission),def=defaults('gpuParticles');
+    for(const key of ['particleSurfaceFlow','particleResponse','particleFloor','particleFloorSize','opts'])rr.props[key]=props[key]??def[key];
+    if(mesh||flat){
+      const source={...node(mesh?'waveform3d':'waveform2d',rr.x,rr.y+170,mesh?{mode:mesh,render:'waveform',collide}:{mode:'circle'}),id:id.r+'-emit'};
+      g.nodes.push(source);g.edges.push({from:id.a,out:'audio',to:source.id,input:'audio'},{from:source.id,out:mesh?'object':'shape',to:id.r,input:'emit'});
+    }
+  }
   if(rig){const id=apIds(k),add=(type,props,x,y)=>{const n={...node(type,rr.x+x,rr.y+y,{...defaults(type),...props}),id:`${id.r}-${type}${g.nodes.length}`};g.nodes.push(n);return n;};
     rig.objects.forEach((m,i)=>{const o=add('waveform3d',{mode:m,render:'normal'},-10,170+i*120);g.edges.push({from:o.id,out:'object',to:rr.id,input:i?'object2':'object'});});
     const link=g.edges.find(e=>e.from===rr.id&&e.out==='shape');let prev=rr;
@@ -3918,7 +4009,7 @@ function apWire(k,role){
     if(link)link.from=prev.id;}
   // The Curator treats every layer of the stack: the base gets its motion, signature effect and finish, supports a quiet movement.
   const cur={section:apSection,role};
-  try{autopilot.enhance(g,autopilot.parse(role===0?ap.prompt:''),{seed:(Math.random()*1e9)|0,energy:apEnergy,match:ap.match,primary:role===0,curate:cur,typed:!ap.write});}catch(e){console.warn('Autopilot enhance',e);}
+  try{autopilot.enhance(g,autopilot.parse(prompt),{seed:(Math.random()*1e9)|0,energy:apEnergy,match:ap.match,primary:role===0,curate:cur,typed:!ap.write});}catch(e){console.warn('Autopilot enhance',e);}
   apSlots[k].curated=cur.picks||[];
   reconcile();return role===0?ap.prompt:null;
 }
@@ -3927,6 +4018,7 @@ function apRewire(){for(let k=0;k<4;k++){const sl=apSlots[k],want=sl.role===0?ap
 // Warm when its engine has drawn a few frames of the new look (simulations get a moment to fill the frame).
 function apReady(k){
   const r=apNode(k,'r'),e=r&&engines.get(r.id),sim=isSim(r?.props.mode)||r?.type==='cloner';
+  if(autopilot.isImageVisual(r?.type))return true;
   if(!e||e.status!=='ready')return false;
   if(sim&&e.w?.agSim?.status?.()!=='ready')return false;
   return e.frames-(apSlots[k].f0||0)>=(sim?45:8);
@@ -4063,7 +4155,7 @@ function apExposure(dt){
   if(lv>100||clip/n>.25)for(const k of ks){const g=apLayer(k);if(g&&g.opacity>.55)g.opacity=Math.max(.55,Math.round(g.opacity*90)/100);}
   apDim=lv<1.5?Math.max(0,apDim)+1:lv>45||hot?Math.min(0,apDim)-1:0;
   if(Math.abs(apDim)<2)return;const up=apDim>0;apDim=0;
-  for(const k of ks){const g=apLayer(k),r=apNode(k,'r'),pl=apNode(k,'p');if(!r||isSim(r.props.mode)||r.type==='cloner')continue;
+  for(const k of ks){const g=apLayer(k),r=apNode(k,'r'),pl=apNode(k,'p');if(!r||autopilot.isImageVisual(r.type)||isSim(r.props.mode)||r.type==='cloner')continue;
     if('sensitivity' in TYPES[r.type].props){const v=+r.props.sensitivity||100,to=Math.max(up?v:Math.min(v,80),Math.min(200,v+(up?25:-20)));if(to!==v)apTween(g,r,'sensitivity',to,1.5);}
     if(up&&pl&&pl.props.fade<1)apTween(g,pl,'fade',Math.min(1,Math.round((pl.props.fade+.25)*20)/20),1.5);}
 }
@@ -4151,9 +4243,9 @@ function renderAutoPanel(){
   top.append(ui.field('On',ui.toggle({value:ap.live,labels:['On','Off'],property:'apLive',onChange:v=>{if(v)apStart();else apStop();message(v?'Autopilot is following the music':'Autopilot off');renderAutoPanel();}})));
   top.append(ui.field('Write',ui.toggle({value:ap.write,labels:['On','Off'],property:'apWrite',onChange:v=>{ap.write=v;apSave();if(v){if(!ap.live)apStart();apChange('phrase',4,ap.changes,true);}renderAutoPanel();}})));
   const d=section(apb,'Describe');
-  const ta=el('textarea','ap-prompt');ta.dataset.property='apPrompt';ta.placeholder='Optional: a mood, colours, shapes or motion, e.g. slow dreamy blue and gold spirals';ta.value=ap.prompt;ta.spellcheck=false;
+  const ta=el('textarea','ap-prompt');ta.dataset.property='apPrompt';ta.placeholder='Try “blue Lorenz attractor” or “gold particles flow across the surface of a torus”';ta.value=ap.prompt;ta.spellcheck=false;
   const read=el('div','ap-read');read.dataset.property='apRead';
-  const showRead=()=>{const w=apWin(),wires=ta.value.trim()?autopilot.parse(ta.value).read.filter(x=>x.kind==='Driver'||x.kind==='Mask').map(x=>x.kind+': '+x.text):[];read.textContent=!ta.value.trim()?'Empty: Autopilot roams freely.':[w?vibeText(readVibe(w,ta.value)):'',...wires].filter(Boolean).join(' · ');};
+  const showRead=()=>{const w=apWin(),wires=ta.value.trim()?autopilot.parse(ta.value).read.filter(x=>['Driver','Mask','Emission'].includes(x.kind)).map(x=>x.kind+': '+x.text):[];read.textContent=!ta.value.trim()?'Empty: Autopilot roams freely.':[w?vibeText(readVibe(w,ta.value)):'',...wires].filter(Boolean).join(' · ');};
   // Typing steers the next looks; after a pause (or Enter) the current look changes to match. Typing takes over from Write.
   const build=()=>{clearTimeout(apTyping);apTyping=0;apCreate(ta.value);};
   ta.oninput=()=>{ap.prompt=ta.value;apVibeFor=null;if(ap.write){ap.write=false;root.querySelector('[data-property=apWrite]')?.setValue(false);}

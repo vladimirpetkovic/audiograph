@@ -7,8 +7,8 @@ import {plan as curatePlan,VOCAB} from './curator.js';
 export function rng(seed=Date.now()){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return ((s>>>0)%100000)/100000;};}
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const pick=(r,a)=>a[Math.floor(r()*a.length)%a.length];
-const typeOf=mode=>mode==='simcloner'?'cloner':Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode));
-const label=mode=>{for(const t of Object.keys(MODES))for(const [m,l] of MODES[t])if(m===mode)return l;return mode;};
+const typeOf=mode=>mode==='simcloner'?'cloner':isImageVisual(mode)?mode:Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode));
+const label=mode=>{for(const t of Object.keys(MODES))for(const [m,l] of MODES[t])if(m===mode)return l;return isImageVisual(mode)?TYPES[mode].label:mode;};
 function hex2hsl(h){const n=parseInt(h.slice(1,7),16),r=(n>>16&255)/255,g=(n>>8&255)/255,b=(n&255)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;
   if(mx===mn)return [0,0,l*100];const d=mx-mn,s=l>.5?d/(2-mx-mn):d/(mx+mn);let hh=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;return [hh*60,s*100,l*100];}
 export function hsl2hex(h,s,l){h=((h%360)+360)%360;s=clamp(s,0,100)/100;l=clamp(l,0,100)/100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));
@@ -48,8 +48,52 @@ const THEMES=[
   [/electric|lightning|plasma/,'electric',['#00010d','#3a0ca3','#4cc9f0','#b8f2ff']],
   [/earth|earthy|natural tones|clay/,'earth',['#1c1917','#78350f','#a3a380','#f5f5dc']]
 ];
+export const IMAGE_VISUALS=[
+  [/\b(?:strange attractor|lorenz|aizawa|halvorsen|dadras|rössler|rossler attractor)\b/,'attractor'],
+  [/\b(?:fourier(?: epicycles?)?|epicycles?)\b/,'epicycles'],
+  [/\b(?:polar plot|polar rose|superformula|limaçon|limacon)\b/,'polarPlot'],
+  [/\b(?:cellular automaton|cellular automata|game of life|conway|rule (?:30|90|110))\b/,'cellular'],
+  [/\b(?:oscilloscope|phase scope)\b/,'oscilloscope'],
+  [/\bradar(?: sweep)?\b/,'radar'],
+  [/\btech lines\b/,'techLines']
+];
+export const isImageVisual=mode=>IMAGE_VISUALS.some(([,id])=>id===mode);
+export function imageVisualProps(mode,text){
+  const props={hud:false};
+  if(mode==='attractor'){
+    const system=text.toLowerCase().match(/\b(lorenz|aizawa|thomas|halvorsen|dadras|rössler|rossler)\b/)?.[1];
+    Object.assign(props,{count:1700,probes:0,morph:35,...(system&&{system:system.replace('ö','o')})});
+  }
+  if(mode==='cellular'){const rule=text.match(/\brule (30|90|110)\b/i)?.[1];if(rule)Object.assign(props,{mode:'rule',rule:+rule});}
+  return props;
+}
+const PARTICLE_MESH=/\b(?:particles?|sparks?|embers?)\b.{0,45}?\b(?:from|on|off|along|across|around)\s+(?:the surface of\s+)?(?:a |an |the )?(torus knot|knot|torus|cube|sphere|icosphere|ico|pyramid|cone|cylinder)\b/i;
+export function particleBrief(text){
+  const match=text.match(PARTICLE_MESH),mesh=match&&({'torus knot':'knot',icosphere:'ico'}[match[1].toLowerCase()]||match[1].toLowerCase());
+  const flat=!mesh&&/\bparticles?\b.{0,45}?\b(?:from|along|off)\s+(?:a |an |the )?(?:2d |flat )?waveform\b/i.test(text);
+  const flow=!!mesh&&/\b(?:surface flow|surface only|cling|stick|crawl|flow (?:on|along|across)|stay on)\b/i.test(text);
+  const collide=!!mesh&&/\b(?:collid\w*|bounce (?:off|against) (?:the |a )?(?:object|mesh|knot|torus|cube|sphere|icosphere|pyramid|cone|cylinder))\b/i.test(text);
+  const release=text.match(/\b(?:releas\w*|launch\w*)\s+(?:on|with|from)\s+([^,.;]+)/i)?.[1]??'';
+  const movement=/\b(?:motion|movement)\b/i.test(release),sound=/\b(?:sound|audio|beat|beats|music)\b/i.test(release);
+  const floor=/\b(?:no floor|without (?:a |the )?floor|floor off)\b/i.test(text)?false:
+    /\b(?:bounce on (?:the |a )?floor|floor on|with (?:a |the )?floor)\b/i.test(text)?true:undefined;
+  const floorSize=text.match(/\bfloor size\s+(\d{1,3})\s*%?/i)?.[1];
+  const trails=text.match(/\b(?:particle )?trails?\s+(?:at |to )?(\d{1,3})\s*%?/i)?.[1];
+  const noTrails=/\b(?:no|without|zero)\s+(?:particle )?trails\b/i.test(text);
+  const launch=text.match(/\blaunch speed\s+(?:at |to )?(\d{1,3})\s*%?/i)?.[1];
+  const bounce=/\bbounc\w* (?:off|on|against) (?:a |the )?floor\b/i.test(text)&&floor!==false;
+  const opts={...(launch!==undefined||flow?{pSpSpeed:flow?0:clamp(+launch,0,400)}:{}),
+    ...(trails!==undefined||noTrails?{pSpTrail:noTrails?0:clamp(+trails,0,100)}:{}),...(bounce&&{pSpGravity:35})};
+  return {mesh,flat,collide,props:{
+    ...(mesh&&{particleSurfaceFlow:flow,particleResponse:movement?(sound?'both':'motion'):'sound'}),
+    ...(floor!==undefined||bounce?{particleFloor:bounce||floor}:{}),...(floorSize&&{particleFloorSize:clamp(+floorSize,10,800)}),
+    ...(Object.keys(opts).length&&{opts})
+  }};
+}
 const VISUALS=[
+  ...IMAGE_VISUALS,
   [/\bfluid|liquid(?! metal)|\bink\b|paint|marbl|\bdye\b|water(?!fall)|watercolou?r|honey|syrup/,'simfluid'],
+  [/\bsmoke simulation\b|\bvolumetric smoke\b/,'simsmoke'],
   [/smoke|smoky|\bfog|mist|steam|incense|vapou?r|haze|\bclouds?\b|plume|wisp/,'simfluid'],
   [/firework|embers?|sparks? fountain|stardust|confetti|fountain|particle (field|system|storm)|particles?\b(?! overlay)/,'simparticles'],
   [/flock|boids?|swarm|murmuration|\bbirds?\b|school of fish|\bfish\b|insects|fireflies/,'simparticles'],
@@ -107,7 +151,8 @@ const SYM=[[/kaleido|mandala|six.?fold|hexagonal|snowflake/,'r6'],[/eight.?fold|
   [/three.?fold|triangular|trinity|3.?fold/,'r3'],[/mirror(ed)?|symmetr|reflected|rorschach|butterfly/,'x']];
 const EXAMPLES=['slow dreamy blue and gold ink fluid with soft glow','intense red fluid, swirling, sparks on the beat, glitchy','cyberpunk neon spiral, kaleidoscope, thin lines, fast spin',
   'calm ocean waves with long trails and film grain','sunset sphere over a starfield, pulsing with the bass','pink particle swarm rising, dreamy blur, 90 bpm',
-  'black and white sacred geometry, mirrored, high contrast','toxic green liquid metal pulled into a black hole'];
+  'black and white sacred geometry, mirrored, high contrast','toxic green liquid metal pulled into a black hole',
+  'blue Lorenz attractor with soft motion blur','gold particles flow across the surface of a torus','green oscilloscope with flowing fracture'];
 export {EXAMPLES};
 
 // ---------- prompt writer ----------
@@ -160,6 +205,15 @@ export function parse(text){
   // A force word ("swirl", "vortex") is not a separate visual when a simulation is already named.
   let vis=found;if(vis.some(v=>SIM_MODES.includes(v.mode)))vis=vis.filter(v=>!(v.mode==='spiral'&&/swirl|vortex|whirl/.test(t)&&!/spiral|galaxy/.test(t)));
   if(vis.some(v=>v.mode==='scatter')&&vis.length>1&&/\bstars\b|starfield/.test(t))vis=[...vis.filter(v=>v.mode!=='scatter'),vis.find(v=>v.mode==='scatter')];
+  const particles=particleBrief(raw),modern=vis.find(v=>isImageVisual(v.mode));
+  if(particles.mesh||particles.flat){
+    const emitter=vis.find(v=>v.mode==='simparticles')||{mode:'simparticles',colors:null};
+    vis=[emitter,...vis.filter(v=>!['simparticles',particles.mesh,particles.flat?'sine':null].includes(v.mode))];
+    add('Emission',particles.mesh?`${particles.mesh} surface`:'flat waveform');
+  }else if(modern)vis=[modern,...vis.filter(v=>v!==modern)];
+  if(vis.some(v=>v.mode==='simparticles')&&/\bfloor\b/.test(t)&&!/\b(?:terrain|landscape|mountains?|hills|valley|ground)\b/.test(t))
+    vis=vis.filter(v=>v.mode!=='terrain');
+  if(has(/\b(?:volumetric smoke|smoke simulation)\b/))vis=vis.filter(v=>v.mode!=='simfluid'||!vis.some(f=>f.mode==='simsmoke'));
   // Only one of each simulation; at most three visuals.
   // Colours named inside a clause belong to that visual only when there are several visuals.
   if(vis.length<2)vis=vis.map(v=>({...v,colors:null}));
@@ -199,11 +253,13 @@ export function parse(text){
   // Post FX.
   const fx=(k,re,v,name)=>{if(has(re)&&!neg(re)){it.fx[k]=v;add('FX',name);}};
   fx('bloom',/glow|bloom|luminous|neon|radiant|shin(y|ing)|lumin|light ?show|gleam|halo light/,{bloom:60},'glow');
-  fx('trails',/trails?\b|motion blur|streak|smear|long exposure|ghost(ing|ly)?|after.?image|persistence/,{trails:72},'trails');
+  if(!it.visuals.some(v=>v.mode==='simparticles'))
+    fx('trails',/trails?\b|streak|long exposure|ghost(ing|ly)?|after.?image|persistence/,{trails:72},'trails');
+  fx('motionBlur',/motion blur|frame shutter|smear/,{mode:has(/smear/)?'smear':'shutter',amount:24,samples:5,sound:35},'motion blur');
   fx('feedback',/infinite|feedback|droste|endless zoom|tunnel effect|hypnotic|recursive/,{decay:.88,zoom:1.04,rotate:1.5},'feedback tunnel');
   fx('blur',/soft focus|blurr?y|out of focus|hazy|defocus|dreamy blur/,{x:18,y:0},'soft blur');
   fx('kaleido',/kaleidoscop/,{kaleido:70},'kaleidoscope');
-  fx('fracture',/shatter|fracture|broken glass|broken mirror|mosaic|shards/,{mode:'shatter'},'shatter');
+  fx('fracture',/shatter|fracture|broken glass|broken mirror|mosaic|shards/,{mode:has(/\bshatter/)?'shatter':'flow'},'fracture');
   fx('glitch',/glitch|digital breakup|datamosh/,{amount:38,react:'always'},'digital glitch');
   fx('strobe',/strob|flash(es|ing)?/,{amount:35,safe:true},'beat strobe (safe)');
   fx('melt',/melt|dripping wax/,{amount:35,speed:25,length:40},'melt');
@@ -298,13 +354,14 @@ export function build(it,{seed=Date.now(),energy:forced=null,match=85}={}){
   const r=rng(seed),E=forced??it.energy??(40+r()*30),explore=1-match/100;
   let visuals=it.visuals.slice();
   if(!visuals.length&&!it.text){
-    const calm=['phyllotaxis','spiral','sphere','growth','concentric','simfluid','sacred','terrain'],hot=['simparticles','circle','concentric','simfluid','spiral','dna','tetrahedron','scatter','sacred'];
+    const calm=['phyllotaxis','spiral','sphere','growth','concentric','simfluid','sacred','terrain','attractor','polarPlot'],hot=['simparticles','circle','concentric','simfluid','spiral','dna','tetrahedron','scatter','sacred','oscilloscope','cellular'];
     const m=pick(r,E>60?hot:calm);visuals=[{mode:m,type:typeOf(m),colors:null}];
     if(explore>.3&&r()<explore*.6){const m2=pick(r,E>60?hot:calm);if(m2!==m&&!(SIM_MODES.includes(m)&&SIM_MODES.includes(m2)))visuals.push({mode:m2,type:typeOf(m2),colors:null});}
   }
   if(it.text)visuals.unshift({mode:'text',type:'text',colors:null});
   // Like Ripples: a lone particle field gets a fine line accent to hold the shape.
-  if(!it.layers&&visuals.length===1&&visuals[0].mode==='simparticles'&&!visuals[0].camera&&r()<.6){const m=pick(r,['phyllotaxis','circle']);visuals.push({mode:m,type:typeOf(m),colors:null});}
+  const particles=particleBrief(it.raw);
+  if(!it.layers&&visuals.length===1&&visuals[0].mode==='simparticles'&&!visuals[0].camera&&!particles.mesh&&!particles.flat&&r()<.6){const m=pick(r,['phyllotaxis','circle']);visuals.push({mode:m,type:typeOf(m),colors:null});}
   const want=clamp(it.layers||visuals.length,1,3);visuals=visuals.slice(0,want);
   while(visuals.length<want){const m=pick(r,['scatter','concentric','spiral','circle']);if(!visuals.some(v=>v.mode===m))visuals.push({mode:m,type:typeOf(m),colors:null});}
   const base=it.colors||moodPalette(r,E,it.dark);
@@ -318,8 +375,9 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   const wire=(a,out,b,input)=>g.edges.push({from:a.id,out,to:b.id,input});
   const chainTo=(prev,n)=>{const out=Object.keys(TYPES[prev.type].outputs)[0],inp=Object.keys(TYPES[n.type].inputs)[0];wire(prev,out,n,inp);return n;};
   const sound=add('audioIn',{});
-  const sim=SIM_MODES.includes(v.mode),props={};
+  const sim=SIM_MODES.includes(v.mode),image=isImageVisual(v.mode),props={};
   if(v.type==='text'){props.text=it.text;props.scale=it.scale??130;props.thick=it.thick??1.5;}
+  else if(image)Object.assign(props,imageVisualProps(v.mode,it.raw));
   else if(!['gpuParticles','cloner'].includes(v.type)){props.mode=v.mode;Object.assign(props,LOOK[v.mode]||{});}
   if(v.type==='gpuParticles')props.mode=v.mode;
   // Particles start from the Ripples recipe: a wrapping ring, coloured by age, a little turbulence; forces named in the description add to it.
@@ -345,22 +403,30 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
     if(it.symmetry&&it.symmetry!=='x'&&['simparticles','simcloner'].includes(v.mode))mo.symmetry=it.symmetry;
     if(it.spin)mo.spin=clamp(it.spin*.5,-5,5);
   }
+  if(v.mode==='simparticles')Object.assign(props,particleBrief(it.raw).props);
   const reactive=it.intensity??Math.round(70+E*.8);set('intensity',i?reactive*.8:reactive);
   if(T.punch)set('punch',Math.round(40+E*.6));if(T.release)set('release',Math.round(380-E*2.4));
   if(i&&!sim){set('thick',(props.thick||1.5)*.6);set('density',(props.density||350)*.6);}
   const vis=add(v.type,props);wire(sound,'audio',vis,'audio');
   // The camera picture is where the particles spawn.
   if(v.camera)wire(add('camera',{},Y+170),'image',vis,'emit');
+  else if(v.mode==='simparticles'){
+    const {mesh,flat,collide}=particleBrief(it.raw);
+    if(mesh||flat){
+      const source=add(mesh?'waveform3d':'waveform2d',mesh?{mode:mesh,render:'waveform',collide}:{mode:'circle'},Y+170);
+      wire(sound,'audio',source,'audio');wire(source,mesh?'object':'shape',vis,'emit');
+    }
+  }
   let prev=vis;
   // The Cloner copies a primitive and a Sound effector makes the clones move.
   if(v.type==='cloner'){wire(add('waveform3d',{mode:pick(r,['cube','sphere','ico','torus','cylinder']),render:'normal'},Y+170),'object',vis,'object');prev=chainTo(prev,add('soundEffector',{}));}
   // Symmetry (deformer) and Spin (force) follow the visual as their own nodes.
-  if(mo.symmetry)prev=chainTo(prev,add('symmetry',{mode:mo.symmetry,gap:0}));
-  const spinN=mo.spin!=null&&(mo.spin||(mo.speed??1)!==1||it.data.includes('computer'))?add('spin',{...spinProps(mo.spin),speed:mo.speed??1}):null;if(spinN)prev=chainTo(prev,spinN);
+  if(!image&&mo.symmetry)prev=chainTo(prev,add('symmetry',{mode:mo.symmetry,gap:0}));
+  const spinN=!image&&mo.spin!=null&&(mo.spin||(mo.speed??1)!==1||it.data.includes('computer'))?add('spin',{...spinProps(mo.spin),speed:mo.speed??1}):null;if(spinN)prev=chainTo(prev,spinN);
   // Deformers bend the shape; forces push simulations.
-  for(const d of it.deformers){if(sim&&!['turbulence','jitter','disorder','flowField'].includes(d.type))continue;prev=chainTo(prev,add(d.type,d.props));}
+  for(const d of it.deformers){if(image||sim&&!['turbulence','jitter','disorder','flowField'].includes(d.type))continue;prev=chainTo(prev,add(d.type,d.props));}
   if(sim)for(const f of it.forces){const keys=Object.keys(f.props).filter(k=>TYPES[f.type].props[k]?.sims?.includes(v.mode)||!TYPES[f.type].props[k]?.sims);if(!keys.some(k=>TYPES[f.type].props[k]?.sims?.includes(v.mode)))continue;prev=chainTo(prev,add(f.type,f.props));}
-  if(it.sparkles&&!i&&!sim)prev=chainTo(prev,add('particles',{shape:pick(r,['spark','star','circle']),density:22,trail:15}));
+  if(it.sparkles&&!i&&!sim&&!image)prev=chainTo(prev,add('particles',{shape:pick(r,['spark','star','circle']),density:22,trail:15}));
   // Colours: this visual's own colours, else the shared palette (rotated for supporting layers).
   let stops=v.colors?rampFrom(v.colors.map(w=>COLORS[w]||w)):base.slice();
   if(i&&!v.colors&&stops.length>3){const c=stops.slice(1);for(let k=0;k<i;k++)c.push(c.shift());stops=[stops[0],...c];}
@@ -374,6 +440,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
   if(!i&&it.fx.liquidGlass)img.push(['liquidGlass',it.fx.liquidGlass]);
   if(it.fx.feedback&&!i)img.push(['feedback',it.fx.feedback]);
   if(it.fx.trails)img.push(['trails',it.fx.trails]);
+  if(it.fx.motionBlur&&!i)img.push(['motionBlur',it.fx.motionBlur]);
   if(it.fx.blur&&!i)img.push(['blur',it.fx.blur]);
   const glow=it.fx.bloom?it.fx.bloom.bloom:(it.no.has('glow')||it.no.has('bloom')?0:(sim?35:45)+E*.15);
   if(glow>0)img.push(['bloom',{bloom:Math.round(clamp(i?glow*.6:glow,0,100))}]);
@@ -390,13 +457,14 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
 }
 
 // Add the same editable graph vocabulary to a generated look or the live Director's reusable slots.
-const FX_COST={cutter:2,cornerPin:1,effect:1,bloom:2,trails:2,blur:2,kaleido:2,grade:2,lens:2,liquidGlass:3,glitch:1.5,tunnel:2,warpTunnel:2,melt:2,fracture:2,feedback:1,mask:1,plainText:1,shader:1.5,strobe:.5,hue:.5,imageTransform:.5};
+const FX_COST={cutter:2,cornerPin:1,effect:1,bloom:2,trails:2,blur:2,motionBlur:2,kaleido:2,grade:2,lens:2,liquidGlass:3,glitch:1.5,tunnel:2,warpTunnel:2,melt:2,fracture:2,feedback:1,mask:1,plainText:1,shader:1.5,strobe:.5,hue:.5,imageTransform:.5};
 // curate: {section, role} hands the look's treatment to the Curator (the live Autopilot): every node in rotation, within the section's budget.
 export function enhance(g,it,{seed=1,energy=50,match=85,primary=true,curate=null,typed=false}={}){
   if(!primary&&!curate)return g;
-  const r=rng(seed),E=clamp(energy,0,100),explore=1-clamp(match,0,100)/100,roam=!it.raw.trim(),find=t=>g.nodes.find(n=>n.type===t),vis=g.nodes.find(n=>isEngine(n.type)),sound=find('audioIn'),output=find('output');
+  const r=rng(seed),E=clamp(energy,0,100),explore=1-clamp(match,0,100)/100,roam=!it.raw.trim(),find=t=>g.nodes.find(n=>n.type===t),vis=g.nodes.find(n=>isEngine(n.type)||isImageVisual(n.type)),sound=find('audioIn'),output=find('output');
   if(!vis||!sound||!output)return g;
-  const vmode=vis.type==='cloner'?'simcloner':vis.props.mode,sim=SIM_MODES.includes(vmode),off=type=>[...it.no].some(w=>({bloom:/glow|bloom/,hue:/colou?r|hue/,imageTransform:/zoom|mov|motion/,strobe:/strob|flash/,glitch:/glitch/,mask:/mask/}[type]||new RegExp('^'+type+'$','i')).test(w));
+  const vmode=vis.type==='cloner'?'simcloner':vis.props.mode,sim=SIM_MODES.includes(vmode),image=isImageVisual(vis.type),off=type=>
+    image&&VOCAB[type]&&!VOCAB[type].img&&type!=='hue'||[...it.no].some(w=>({bloom:/glow|bloom/,hue:/colou?r|hue/,imageTransform:/zoom|mov|motion/,strobe:/strob|flash/,glitch:/glitch/,mask:/mask/}[type]||new RegExp('^'+type+'$','i')).test(w));
   let dy=Math.max(360,...g.nodes.map(n=>n.y+160)),col=0;
   const wire=(a,out,b,input)=>g.edges.push({from:a.id,out,to:b.id,input}),out=n=>Object.keys(TYPES[n.type].outputs)[0],free=(n,k)=>n&&!g.edges.some(e=>e.to===n.id&&e.input===k);
   const make=(type,props={},main=false)=>{const n=node(type,main?output.x:40+215*col++,main?output.y:dy,props);g.nodes.push(n);if(main)output.x+=215;return n;};
@@ -432,7 +500,7 @@ export function enhance(g,it,{seed=1,energy=50,match=85,primary=true,curate=null
     const m=make('map',{scale:b-a,offset:a});wire(n,k,m,'value');
     if(edge){const mix=make('math',{op:'max'}),src=g.nodes.find(n=>n.id===edge.from);g.edges=g.edges.filter(e=>e!==edge);wire(src,edge.out,mix,'a');wire(m,'value',mix,'b');wire(mix,'value',target,key);}else{wire(m,'value',target,key);target.props[key]=low;}row();return true;
   };
-  const shape=(type,props)=>{const old=find(type);if(old)return old;
+  const shape=(type,props)=>{if(image)return null;const old=find(type);if(old)return old;
     const n=make(type,props);const edge=g.edges.find(e=>e.from===vis.id&&e.out==='shape'&&e.input!=='mask');
     if(edge){g.edges=g.edges.filter(e=>e!==edge);wire(vis,'shape',n,'shape');g.edges.push({...edge,from:n.id,out:'shape'});}row();return n;};
   const motion=()=>shape(sim?'turbulence':'wave',sim?{amount:20,scale:45}:{amount:12,speed:2});

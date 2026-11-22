@@ -1,6 +1,6 @@
 // v35 Voronoi Fracture acceptance: per-layer Post FX stays pixel-stable when off, cracks apart on
 // bass/beat drive, recovers, round-trips through layer/preset state, resets off, and logs no errors.
-process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_FRACTURE_BUILD || 'versions/audiograph_35.html';
+process.env.AUDIOGRAPH_GPU_BUILD = process.env.AUDIOGRAPH_FRACTURE_BUILD || 'index.html';
 const fs = require('node:fs');
 const path = require('node:path');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -8,7 +8,7 @@ if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && fs.existsSync(chrome)) p
 const assert = require('node:assert/strict');
 const { open, diff } = require('./gpu-common.cjs');
 
-const shots = '/Users/petkovic/.copilot/session-state/2b2968de-ab6c-4f2c-8575-016c32bb8774/files';
+const shots = process.env.AUDIOGRAPH_FRACTURE_SHOTS;
 const raf2 = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64" shape-rendering="crispEdges">
@@ -16,7 +16,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64" shap
 <rect x="48" y="8" width="38" height="48" fill="#25d0ff"/><path d="M0 64 L96 0" stroke="#111" stroke-width="7"/></svg>`;
 
 async function shot(page, name) {
-  if (!fs.existsSync(shots)) return;
+  if (!shots || !fs.existsSync(shots)) return;
   const b64 = await page.evaluate(() => frameCv.toDataURL('image/png').split(',')[1]);
   fs.writeFileSync(path.join(shots, name), Buffer.from(b64, 'base64'));
 }
@@ -51,6 +51,20 @@ async function render(page) { await page.evaluate(() => renderDensity()); await 
     const quiet = await render(page);
     const dq = diff(base, quiet);
     assert.ok(dq.mean < 1.5 && dq.big < 0.005, `silence not intact mean=${dq.mean} big=${dq.big}`);
+    const envelope=await page.evaluate(()=>{
+      const now=performance.now,drive=window.__agFractureDrive,fx={...pfxDefault(),pfxFracture:true,pfxFracMode:'shatter'};
+      let t=1000;const state={};
+      try{
+        performance.now=()=>t;
+        window.__agFractureDrive={bass:0,beat:0};_pfxFractureDrive(state,fx);
+        t+=16;window.__agFractureDrive.beat=1;const onset=_pfxFractureDrive(state,fx);
+        window.__agFractureDrive.beat=0;
+        t+=32;const opening=_pfxFractureDrive(state,fx);
+        for(let i=0;i<20;i++){t+=100;_pfxFractureDrive(state,fx);}
+        return {onset,opening,settled:state._fracEnv};
+      }finally{performance.now=now;window.__agFractureDrive=drive;}
+    });
+    assert.ok(envelope.onset>0&&envelope.onset<.35&&envelope.opening>envelope.onset&&envelope.settled<.1,JSON.stringify(envelope));
 
     // Bass + beat drive opens cracks, offsets/rotates shards and visibly changes the image.
     await page.evaluate(() => { window.__agFractureDrive = { bass: 1, beat: 1 }; });
@@ -86,6 +100,17 @@ async function render(page) { await page.evaluate(() => renderDensity()); await 
       const s1 = await render(page); await shot(page, 'fracture-shatter.png'); await wait(120); const s2 = await render(page);
       assert.ok(diff(base, s1).mean > 5, 'Shatter mode still cracks under drive');
       assert.ok(diff(s1, s2).mean < 0.5, `Shatter is static under steady drive mean=${diff(s1, s2).mean}`);
+      const stable=await page.evaluate(()=>{
+        const features=agAudio.features;
+        try{
+          const seed=()=>{const {gl,prog}=_pfxLayerPipe;return gl.getUniform(prog,gl.getUniformLocation(prog,'uFracSeed'));};
+          agAudio.features=()=>({...features(),onsets:7});renderDensity();
+          const first=seed();
+          agAudio.features=()=>({...features(),onsets:8});renderDensity();
+          return first===seed();
+        }finally{agAudio.features=features;}
+      });
+      assert.ok(stable,'A new onset does not regenerate the Shatter pattern at the same drive');
       const saved = await page.evaluate(() => JSON.stringify(getState()).includes('"pfxFracMode":"shatter"'));
       assert.ok(saved, 'Mode saved with the layer');
       await page.evaluate(() => { layerFx.pfxFracMode = 'flow'; _pfxStoreLayer(); syncPfxPanel(); });
@@ -121,6 +146,6 @@ async function render(page) { await page.evaluate(() => renderDensity()); await 
     assert.equal(round.reset.enabled, false); assert.equal(round.reset.pfxFracture, false);
 
     assert.deepEqual(errors, []);
-    console.log(`voronoi-fracture: PASS (quiet mean ${dq.mean.toFixed(2)}, hit mean ${dh.mean.toFixed(2)}, recovered ${dr.mean.toFixed(2)}, screenshots in ${shots})`);
+    console.log(`voronoi-fracture: PASS (quiet mean ${dq.mean.toFixed(2)}, hit mean ${dh.mean.toFixed(2)}, recovered ${dr.mean.toFixed(2)})`);
   } finally { await t.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

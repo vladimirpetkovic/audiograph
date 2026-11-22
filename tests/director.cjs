@@ -9,6 +9,8 @@ const server=http.createServer((req,res)=>{
 
 (async()=>{
   const {SCENE_RECIPES,directScene}=await import('../pro/director.js');
+  const {parse,build}=await import('../pro/autopilot.js');
+  const {validate,VERSION}=await import('../pro/graph.js');
   const base={format:'audiograph-pro',settings:{resolution:540,performance:{fps:24}}},ids=Object.keys(SCENE_RECIPES);
   for(const recipe of ids)for(let seed=0;seed<=100;seed++){
     const {project:{layers:[g],settings}}=directScene(base,{recipe,seed,energy:seed,palette:seed%2?'ember':undefined});
@@ -22,6 +24,14 @@ const server=http.createServer((req,res)=>{
   assert.throws(()=>directScene(base,{recipe:'orbit',seed:0,energy:120}),/Scene energy/);
   const normalize=g=>g.project.layers[0].nodes.map(({type,props})=>({type,props}));
   assert.deepEqual(normalize(directScene(base,{recipe:'kinetic',seed:2026})),normalize(directScene(base,{recipe:'kinetic',seed:2026})));
+  for(const [prompt,type] of [
+    ['Aizawa attractor with soft motion blur','attractor'],['Fourier epicycles','epicycles'],['polar plot','polarPlot'],
+    ['Rule 110','cellular'],['oscilloscope','oscilloscope'],['radar sweep','radar'],['tech lines','techLines'],
+    ['particles from a flat waveform','gpuParticles'],['volumetric smoke simulation','gpuParticles']
+  ]){
+    const p=validate({...base,version:VERSION,layers:build(parse(prompt),{seed:44})});
+    assert.ok(p.layers[0].nodes.some(n=>n.type===type),prompt);
+  }
   let browser;await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   try{
     browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--ignore-gpu-blocklist']});
@@ -50,6 +60,41 @@ const server=http.createServer((req,res)=>{
         throw Error(`${recipe}: ${await page.evaluate(()=>JSON.stringify({errors:pro.stats().errors,pixels:pro.pixels()}))}`,{cause:error});
       });
       console.log(`ok - ${recipe} renders under music`);
+    }
+    await page.evaluate(()=>pro.autopilot.settings({write:false,layers:'1',match:100}));
+    for(const [prompt,type] of [
+      ['blue Aizawa attractor with soft motion blur','attractor'],
+      ['gold particles flow across the surface of a torus, no floor, no trails','gpuParticles'],
+      ['particles from a cube, bounce off the cube and on the floor, floor size 200, release on sound and motion','gpuParticles'],
+      ['green oscilloscope with flowing fracture','oscilloscope']
+    ]){
+      await page.evaluate(p=>pro.autopilot.create(p),prompt);
+      await page.waitForFunction(type=>pro.getProject().layers.some(g=>g.opacity>.94&&g.nodes.some(n=>n.type===type))
+        &&!pro.autopilot.status().fading&&!pro.stats().errors.length,type,{timeout:23000}).catch(async error=>{
+        throw Error(`${prompt}: ${await page.evaluate(()=>JSON.stringify({auto:pro.autopilot.status(),errors:pro.stats().errors}))}`,{cause:error});
+      });
+      const p=await page.evaluate(()=>pro.validate(pro.getProject()));
+      const g=p.layers.find(g=>g.opacity>.94),visual=g.nodes.find(n=>n.type===type);
+      if(type==='attractor'){
+        assert.equal(visual.props.system,'aizawa');
+        assert.ok(g.nodes.some(n=>n.type==='motionBlur'));
+      }
+      if(type==='gpuParticles'){
+        const wire=g.edges.find(e=>e.to===visual.id&&e.input==='emit'),mesh=g.nodes.find(n=>n.id===wire?.from);
+        assert.equal(wire?.out,'object');
+        if(prompt.includes('torus')){
+          assert.equal(mesh.props.mode,'torus');
+          assert.equal(visual.props.particleSurfaceFlow,true);
+          assert.equal(visual.props.particleFloor,false);
+          assert.equal(visual.props.opts.pSpTrail,0);
+        }else{
+          assert.equal(mesh.props.collide,true);
+          assert.equal(visual.props.particleResponse,'both');
+          assert.equal(visual.props.particleFloorSize,200);
+        }
+      }
+      if(type==='oscilloscope')assert.equal(g.nodes.find(n=>n.type==='fracture').props.mode,'flow');
+      console.log(`ok - Autopilot: ${prompt}`);
     }
     assert.deepEqual(errors,[]);
   }finally{await browser?.close();server.close();}

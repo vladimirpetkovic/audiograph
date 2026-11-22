@@ -144,7 +144,7 @@ function installDof(w){
 }
 let sourcePromise;
 async function engineSource() {
-  if(!sourcePromise)sourcePromise=fetch(new URL('../index.html',location.href)).then(async r=>{
+  if(!sourcePromise)sourcePromise=fetch(new URL('../index.html?v=organic-fracture',location.href)).then(async r=>{
     if(!r.ok)throw Error(`Cannot load Audiograph engine: HTTP ${r.status}`);
     let html=await r.text();
     if(!html.includes('function getDefaultLayerParams'))throw Error('The parent page is not an Audiograph engine');
@@ -398,13 +398,18 @@ export class EmitterEngine {
       if(!shown(e)&&!(job.wiredEmit&&e.id==='pEmitScale'))continue;
       if(e.classList.contains('mode-btns')){
         const hide=job.mesh?/setSimOpt\('sp(Src|Mesh)'/:job.splat?/setSimOpt\('(spSrc','mesh|spMesh)'/:null;
-        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>{const on=b.getAttribute('onclick')||'';return b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(on)&&!HIDDEN.test(on)&&!hide?.test(on)&&!(this.mode==='simparticles'&&/simApplyPreset/.test(on));});
+        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>{const on=b.getAttribute('onclick')||'';return b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(on)&&!HIDDEN.test(on)&&!hide?.test(on)&&!((this.mode==='simparticles'||this.mode==='simfluid')&&/simApplyPreset/.test(on));});
         if(!buttons.length)continue;
         const action=buttons.every(b=>/simRestart|simReset|simReinit|Preset|Shuffle|objToPointCloud|click\(\)/i.test(b.getAttribute('onclick')||''));
         out.push({type:'chips',key:String(idx),label:label(e),action,onclick:buttons[0].getAttribute('onclick')||'',options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
       }else if(OPT_ID.test(e.id))out.push({type:'range',id:e.id,label:label(e)||e.id,min:+e.min,max:+e.max,step:+e.step||1,value:+e.value,def:+(SIM_TUNE[this.mode]?.[e.id]??this.defaults[e.id]??e.defaultValue)});
     }
     return out;
+  }
+  simSource(job,key) {
+    if(this.status!=='ready')return;
+    this.prepare(job);
+    return this.base._sim?.[key];
   }
   // Range of one emitter option knob (for driven option ports), cached per layout + chip state.
   optRange(job,id) {
@@ -442,7 +447,7 @@ export class EmitterEngine {
     if(mode.startsWith('sim')&&performanceSettings?.simulation&&performanceSettings.simulation!=='node'){
       p._sim={...p._sim,q:performanceSettings.simulation};
     }
-    if(job.emitAsset)p._simEmitter=job.emitAsset;
+    if(job.emitAsset!==undefined)p._simEmitter=job.emitAsset;
     if(job.meshes&&!(this.meshes&&this.meshes.length===job.meshes.length&&this.meshes.every((m,i)=>m===job.meshes[i]))){
       this.meshes=job.meshes;
       w.__agG3Meshes=job.meshes.map(m=>m==='knot'?(w._objDefault||(w._objDefault=w._objDefaultModel())):m);
