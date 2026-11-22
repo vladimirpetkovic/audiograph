@@ -2201,6 +2201,10 @@ function renderEmitter(root,n){
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k)));
+  if(n.type==='gpuParticles'&&n.props.mode==='simparticles'){
+    const keys=simKeys(graph(),n).filter(k=>k==='space'||k.startsWith('particle'));
+    renderProps(s,n,keys);
+  }
   if(n.type==='gpuParticles'&&graph().edges.some(e=>e.to===n.id&&e.input==='emit'))renderProps(root,n,['emitColors']);
   if(n.type==='waveform3d'&&n.props.mode==='text3d')renderProps(root,n,['words','font3d','depth']);
   if(n.type==='waveform3d'&&n.props.render==='normal'&&n.props.mode!=='model')renderProps(root,n,Object.keys(PRIM_DEFAULT).filter(k=>k!=='shape'&&k!=='prim'));

@@ -42,6 +42,14 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     };
     const state=()=>page.evaluate(()=>pro.engine('e').w.agSim.particleState());
     const active=data=>Array.from({length:data.length/16},(_,i)=>data.slice(i*16,i*16+16)).filter(p=>p[8]>0);
+    const inspectorScene=scene('2d');inspectorScene.layers[0].nodes.find(n=>n.id==='e').props.mode='simfluid';
+    await page.evaluate(p=>{pro.importProject(p);pro.select('e');},inspectorScene);
+    const inspector=page.locator('#properties'),space=inspector.locator('[data-property="space"]');
+    assert.equal(await space.count(),0,'Fluid does not show particle space');
+    await inspector.getByRole('combobox',{name:'Simulation'}).selectOption('simparticles');
+    await space.getByRole('button',{name:'3D',exact:true}).click();
+    for(const key of ['particleInitialSpeed','particleTrails','particleResponse'])assert.ok(await inspector.locator(`[data-property="${key}"]`).first().isVisible(),`${key} is visible in the emitter inspector`);
+    assert.equal(await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.id==='e').props.space),'3d','The inspector changes particle space');
     const volumeScene=scene();volumeScene.layers[0].edges.splice(1,1);
     await load(volumeScene);
     assert.ok(active(await state()).some(p=>Math.abs(p[2])>.1),'Unwired procedural emitters spawn in 3D');
