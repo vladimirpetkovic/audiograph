@@ -185,6 +185,9 @@ async function engineSource() {
     patchScene(patch);
     patch("var _model=_objActiveModel();","window.__agScene.beforePaint(ctx,W,H);var _model=window.__agScene.stretchModel(_objActiveModel());");
     patch("var edges=_wire.edges.slice();","window.__agScene.classicSurface(ctx,projected,_model,_wire,persp);var edges=_wire.edges.slice();");
+    patch("return db-da;","return window.__agCam?da-db:db-da;");
+    patch("if(pa.nz>0.1&&pb.nz>0.1)","if(window.__agCam?(pa.nz<-.1&&pb.nz<-.1):(pa.nz>.1&&pb.nz>.1))");
+    patch("if(!pt||pt.nz>0.1)continue;","if(!pt||(window.__agCam?pt.nz<-.1:pt.nz>.1))continue;");
     patch("var PV=V.map(proj);","var PV=V.map(proj);if(o.model)window.__agScene.classicSurface(ctx,PV,o.model,wire,o.persp);");
     patch("d3:_d3any?_d3:null,time:time});\n  if(objSignal==='poly')","d3:_d3any?_d3:null,time:time,model:_model});\n  if(objSignal==='poly')");
     // Depth of field for the classic 3D line drawers: every projected vertex reports its screen position and depth.
