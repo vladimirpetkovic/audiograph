@@ -81,7 +81,7 @@
         <div class="graph-zoom">
           <button class="tbtn" id="zoomOut" aria-label="Zoom out" title="Zoom out">−</button>
           <button class="tbtn" id="zoomIn" aria-label="Zoom in" title="Zoom in">+</button>
-          <button class="tbtn" id="fit" title="Fit the graph in view (tidies it first if nodes overlap or wires run backwards)">Fit</button>
+          <button class="tbtn" id="fit" title="Arrange nodes and fit the graph in view">Fit</button>
         </div>
       </div>
     </section>
@@ -135,9 +135,10 @@
         "./colliders.js": "./colliders.js?v=square-floor",
         "./curator.js": "./curator.js?v=particle-emission",
         "./director.js": "./director.js?v=curated-random",
-        "./engine.js": "./engine.js?v=emitter-media",
+        "./engine.js": "./engine.js?v=volume",
+        "./fluid3d.js": "./fluid3d.js?v=volume",
         "./gltf.js": "./gltf.js?v=surface-flow",
-        "./graph.js": "./graph.js?v=organic-fracture",
+        "./graph.js": "./graph.js?v=volume",
         "./map3d.js": "./map3d.js?v=surface-flow",
         "./media.js": "./media.js?v=emitter-media",
         "./model-materials.js": "./model-materials.js?v=surface-flow",
@@ -151,6 +152,6 @@
       }
     }
   </script>
-  <script type="module" src="./studio.js?v=emitter-media"></script>
+  <script type="module" src="./studio.js?v=volume-and-fit"></script>
 </body>
 </html>

@@ -37,6 +37,12 @@ each with its own opacity and blend mode (up to four).
     flat. Uploaded images stay in the current session, not in the project file.
     **Fluid** is a 2D simulation: a connected 3D object supplies its rendered
     silhouette, not a volume or a collision surface.
+    Choose **3D Fluid** for a volumetric flow instead. Connect a **3D Object**
+    or **Cloner** to emit from its surface, or connect an image, waveform,
+    or Camera to inject into a flat slice of the volume. Turn on **Collide**
+    on any 3D Object to block the flow. Use **Volume size** to fit the volume
+    around larger objects, and lower **Simulation quality** in Scene settings
+    if the preview is slow. The 3D camera controls the view.
     **Look → Trails** follows the particles' recent path
     in 3D, so turning the camera does not leave ghost images. Set it to **0%**
     to draw particles without trails in either 2D or 3D.
@@ -199,9 +205,11 @@ each with its own opacity and blend mode (up to four).
   Classic 3D renders (Waveform, Polygons) zoom natively, so lines stay sharp. It applies to the active layer and is saved with it.
   Nothing rotates by default: Cloner Spin and 3D camera Orbit / Orbit with sound start at 0 (presets set their own).
 - **Emitters**: **Simple emitters** includes **Simple particles**;
-  **WebGPU emitters** includes Particles, Fluid and Smoke. WebGPU uses its own
+  **WebGPU emitters** includes Particles, Fluid, 3D Fluid and Smoke. The original simulations use their own
   band envelopes and onset detector. Lower **Bass reaction** or **Audio contrast**
   to calm sustained motion; **Beat burst** controls emphasis on new hits separately.
+  **Emission** holds the source and simulation settings, including Time scale,
+  Pressure and Quality where available. **Look** changes only the rendered image.
   Visual inputs, waveforms and WebGPU emitters show the original's own options in the inspector
   (knobs and choice chips) plus audio response
   (Intensity, Bass punch, Bass release, Dynamics). They take `audio` and `drive`
@@ -429,8 +437,9 @@ process the finished image.
   In **Autopilot → Describe**, try “blue Aizawa attractor with soft motion blur,” “green oscilloscope
   with flowing fracture,” or “gold particles flow across the surface of a torus, no floor, no trails.”
   For free-flying particles, try “particles from a cube, bounce off the cube, release on sound and motion.”
-  **Fit** frames the graph; if nodes overlap or wires run backwards it first arranges it into
-  left-to-right columns (one undo step).
+  **Fit** arranges the active graph into compact left-to-right columns, packs
+  disconnected nodes below the signal flow, and frames all nodes. Undo restores
+  their former positions.
   The transport has icon buttons: **Play/Pause** (Space; Home rewinds), **Rec** (records the
   preview live with audio and shows elapsed time), **Export** (renders a sound file
   frame by frame to MP4), and **Snap** (saves a PNG).

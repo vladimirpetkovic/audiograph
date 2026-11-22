@@ -7,6 +7,7 @@ import {parseGLTF,pose} from './gltf.js';
 import {parseFBXModel} from './fbx-model.js';
 import {parseUSDModel} from './usd-model.js';
 import {firstFrame} from './media.js';
+import {Fluid3D} from './fluid3d.js';
 import {patchParticles3d,surfaceSource,SCENE_DISTANCE,installParticleControls} from './particles3d.js';
 import {patchPbr,installPbr} from './pbr.js';
 import {decodeMaterials,releaseMaterials} from './model-materials.js';
@@ -387,18 +388,22 @@ export class EmitterEngine {
     return [...box.querySelectorAll('.mode-btns')].map(g=>({el:g,buttons:[...g.querySelectorAll('button')]}));
   }
   // Introspect the original panel for the current layout: knobs, chips, text fields.
-  controls(job) {
+  controls(job,includeLegacy=false) {
     if(this.status!=='ready')return null;
     this.prepare(job);
     const box=this.container();if(!box)return [];
     const shown=e=>{for(let x=e;x&&x!==box;x=x.parentElement){if(x.style.display==='none'||x.hidden||x.classList.contains('ag-na'))return false;}return true;};
     const label=e=>{const row=e.closest('.prow,.sim-row,.ag-row')||e.parentElement;const l=row?.querySelector('.prow-label,.sublabel,label,span');return (l&&!l.contains(e)?l.textContent:'').trim().replace(/\s+/g,' ').slice(0,40);};
-    const out=[],groups=this.chipGroups();
+    const out=[],groups=this.chipGroups(),simSource=!!this.w._simEmitterKey(this.mode);
     for(const e of box.querySelectorAll('input[type=range],.mode-btns')){
-      if(!shown(e)&&!(job.wiredEmit&&e.id==='pEmitScale'))continue;
+      const wiredSource=job.wiredEmit&&(e.id==='pEmitScale'||e.id==='pEmitPoints'&&this.mode!=='simparticles');
+      if(!shown(e)&&!wiredSource)continue;
+      if(simSource&&!includeLegacy&&(e.id==='pEmitRZ'||e.id==='pSmSpeed'))continue;
       if(e.classList.contains('mode-btns')){
         const hide=job.mesh?/setSimOpt\('sp(Src|Mesh)'/:job.splat?/setSimOpt\('(spSrc','mesh|spMesh)'/:null;
-        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>{const on=b.getAttribute('onclick')||'';return b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(on)&&!HIDDEN.test(on)&&!hide?.test(on)&&!((this.mode==='simparticles'||this.mode==='simfluid')&&/simApplyPreset/.test(on));});
+        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>{const on=b.getAttribute('onclick')||'';return b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(on)&&!HIDDEN.test(on)&&!hide?.test(on)&&
+          !((this.mode==='simparticles'||this.mode==='simfluid')&&/simApplyPreset/.test(on))&&
+          !(simSource&&/simResetSettings/.test(on));});
         if(!buttons.length)continue;
         const action=buttons.every(b=>/simRestart|simReset|simReinit|Preset|Shuffle|objToPointCloud|click\(\)/i.test(b.getAttribute('onclick')||''));
         out.push({type:'chips',key:String(idx),label:label(e),action,onclick:buttons[0].getAttribute('onclick')||'',options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
@@ -415,7 +420,7 @@ export class EmitterEngine {
   optRange(job,id) {
     if(this.status!=='ready')return null;
     const key=jobKey(job)+'|'+!!job.wiredEmit;
-    if(this.rangeKey!==key){this.ranges=new Map((this.controls(job)||[]).filter(c=>c.type==='range').map(c=>[c.id,c]));this.rangeKey=key;}
+    if(this.rangeKey!==key){this.ranges=new Map((this.controls(job,true)||[]).filter(c=>c.type==='range').map(c=>[c.id,c]));this.rangeKey=key;}
     return this.ranges.get(id)||null;
   }
   // Perform a chip click (presets / restart / choice) and report the resulting range values.
@@ -434,6 +439,8 @@ export class EmitterEngine {
     this.drawnAt=performance.now();
     if(this.status!=='ready')return null;
     if(job.templateMorph)return this.drawTemplateMorph(job,performanceSettings);
+    if(job.mode==='simfluid3d')return this.drawFluid(job,performanceSettings);
+    if(this.fluid){this.fluid.dispose();this.fluid=null;}
     const w=this.w,mode=this.prepare(job);
     if(performanceSettings?.lensEffects===false)job={...job,mods:{...job.mods,pG3Dof:0,pG3Mb:0}};
     w.__agObjectComposite=!!job.sceneObject;
@@ -536,6 +543,29 @@ export class EmitterEngine {
       this.backend='Native WebGPU';
     }else this.backend=w.agGpu.status().t;
     return this.canvas;
+  }
+  drawFluid(job,performanceSettings){
+    const cm=job.mods,view=job.view||{},dg=Math.PI/180,f=(cm.pG3Focal||28)/28;
+    const zoom=(view.zm||1)*(cm.pG3Zoom??(job.sharedScene?55:100))/100;
+    const camera={yaw:((cm.pG3Yaw||0)+(cm._sceneYaw||0)+(view.yaw||0)-(cm._dragRotY||0)/dg)*dg,
+      tilt:((cm.pG3Tilt??18)+(view.pit||0)+(cm._dragRotX||0)/dg)*dg,
+      f,distance:SCENE_DISTANCE*f/Math.max(.3,zoom),panX:view.px||0,panY:view.py||0};
+    if(this.mode!=='simfluid3d'){this.w.agSim.reset();this.mode=job.mode;this.baseKey='';this.generation++;}
+    this.viewMode='sim';this.viewZoom=1;
+    const volume=this.fluid||=new Fluid3D(),p=job.fluid,src=job.emitObject;
+    const source=src&&surfaceSource(this.w,src.object,this.surfaceCache||={},{mapper:src.mapper,time:job.time});
+    const color=cm._colorMode==='solid'?cm._solidColor:cm._toneStops?.[1];
+    const selected=performanceSettings?.simulation;
+    const out=volume.draw({camera,width:WIDTH,height:HEIGHT,quality:selected&&selected!=='node'?selected:'med',
+      dt:job.dt,time:job.time,frame:job.frame,level:job.audio.drive.bass*p.intensity/100,beat:job.audio.drive.beat*p.punch/100,
+      props:color?{...p,fluidColor:color}:p,source,flat:job.flatFluid,collisions:job.collisions,
+      occluders:job.occluders,renderOnly:job.renderOnly});
+    if(out){
+      this.ctx.resetTransform();this.ctx.clearRect(0,0,WIDTH,HEIGHT);
+      this.ctx.filter=job.hue?`hue-rotate(${job.hue}deg)`:'none';this.ctx.drawImage(out,0,0,WIDTH,HEIGHT);this.ctx.filter='none';
+      this.frames++;this.backend='Volumetric WebGPU';return this.canvas;
+    }
+    return null;
   }
   templateBlend(from,to,mix){
     const w=this.w;
@@ -685,9 +715,10 @@ export class EmitterEngine {
     if(this.mediaKind==='splat'){Object.assign(w.AG_SPLAT,{file:null,n:0,name:''});w.AG_SPLAT.ver++;}
     this.mediaKind='';this.mediaName='';this.mediaThumb='';this.materialWarning='';this.baseKey='';this.applied=null;
   }
-  stats() {return this.w?{status:this.status,mode:this.mode,generation:this.generation,frames:this.frames,song:!!this.w.audioBuffer,sim:this.w.agSim.stats(),renderer:this.w.agGpu.stats()}: {status:this.status};}
+  stats() {return this.w?{status:this.status,mode:this.mode,generation:this.generation,frames:this.frames,song:!!this.w.audioBuffer,sim:this.w.agSim.stats(),volume:this.fluid?.stats(),renderer:this.w.agGpu.stats()}: {status:this.status};}
   dispose() {
     this.disposed=true;this.cancelLoad?.();
+    this.fluid?.dispose();
     releaseMaterials(this.anim);this.w?.__agPbr.destroy();this.w?.__agScene.destroy();
     if(this.video){this.video.pause();this.video.removeAttribute('src');}
     if(this.videoURL)URL.revokeObjectURL(this.videoURL);

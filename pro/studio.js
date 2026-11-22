@@ -6,6 +6,7 @@ import {liveData,liveStatus} from './livedata.js';
 import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
 import {MASK_KEYS,setTextMesher,HIDDEN_MODES,FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,aiStyled,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
+import {prepareFluid3D} from './fluid3d.js';
 import {sceneOf,setScene,composeScene,occludeScene,pruneScenes} from './scene3d.js';
 import {collisionField} from './colliders.js';
 import * as ui from './ui.js';
@@ -42,6 +43,10 @@ function upstreamSim(g,n){
   return null;
 }
 const SIM_SOURCE={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'};
+const EMPTY_FLUID_SOURCE=[];
+const SIM_LOOK=new Set(['pSimExpo','pSimBloom','pSpSize','pSpTrail','pSfShade','pSmLight','pSmLightI','pSmOpac','pSmShadow','pSmEmber']);
+const SIM_SOUND=new Set(['pSimSens','pSimAttack','pSimRelease','pSimReact','pSimSwirlSnd','pSimBass','pSimEnergy','pSimBurst','pSimTilt']);
+const SIM_CTRL_LABELS={pSpSize:'Particle size',pSfDye:'Dye amount',pSfFade:'Dissipation',pSmEmit:'Smoke amount',pSmOpac:'Opacity'};
 function meshEmitter(g,edge){
   while(edge&&(edge.out==='shape'||edge.out==='object')){
     const source=g.nodes.find(n=>n.id===edge.from);
@@ -78,6 +83,7 @@ function simKeys(g,n){
       (!k.startsWith('particle')||n.props.mode==='simparticles'));
   }
   if(n.type==='camera3d'&&upstreamSim(g,n)==='simparticles')return keys.filter(k=>k!=='blur');
+  if(n.type==='camera3d'&&upstreamSim(g,n)==='simfluid3d')return keys.filter(k=>!['dof','focus','blur'].includes(k));
   if(n.type==='liveData')return keys.filter(k=>k!=='place'||['ocean','weather'].includes(n.props.source));
   if(!SIM_PROPS(n.type))return keys;
   const mode=upstreamSim(g,n);if(!mode)return keys;
@@ -931,7 +937,8 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
   const asImage=(v,consumer)=>{
     if(!v||v instanceof HTMLCanvasElement)return v;
-    const shared=!!sceneCamera&&(v.job.sceneObject||v.job.mode==='simcloner'||v.job.mode==='simsplat'||v.job.mode==='simparticles'&&v.mods?._sim?.pSpace==='3d');
+    const volume=v.job.mode==='simfluid3d';
+    const shared=!!sceneCamera&&(volume||v.job.sceneObject||v.job.mode==='simcloner'||v.job.mode==='simsplat'||v.job.mode==='simparticles'&&v.mods?._sim?.pSpace==='3d');
     if(shared)sharedViewLayers.add(g.id);
     const mods=shared?{...applyShapeNode('camera3d',sceneCamera,v.mods),_sceneYaw:sceneCamera.yaw}:v.mods;
     const view=shared?{...VIEW0,px:sceneCamera.px||0,py:sceneCamera.py||0}:g.view;
@@ -945,7 +952,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
     if(!out)return null;
     const sourceApi=e.w.__agScene;
     v.gpuSurface=null;
-    if(sourceApi.sourceValid){
+    if(!volume&&sourceApi.sourceValid){
       const c=surface(consumer+':surface').canvas;c.width=sourceApi.source.width;c.height=sourceApi.source.height;
       c.getContext('2d').imageSmoothingEnabled=false;c.getContext('2d').drawImage(sourceApi.source,0,0);
       v.gpuSurface={image:c,key:v.emitter.id+':'+sourceApi.sourceEpoch,token:sourceApi.sourceSerial,time};
@@ -960,12 +967,19 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
     ctx.resetTransform();ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.globalCompositeOperation='source-over';
     // Renderers that ignore the classic deformers (simulations, Cloner, Growth...) get them as an image warp.
     ctx.globalAlpha=(v.comp?.o??100)/100;
-    if(!(needsWarp(v.mods)&&e.w?.AG_LAYOUT_NA?.rowRipple?.includes(e.mode)&&warpInto(ctx,out,v.mods,time,e.w?.agPond?.drops('def'))))ctx.drawImage(out,0,0);
+    if(!(needsWarp(v.mods)&&e.w?.AG_LAYOUT_NA?.rowRipple?.includes(e.mode)&&warpInto(ctx,out,v.mods,time,e.w?.agPond?.drops('def'))))ctx.drawImage(out,0,0,WIDTH,HEIGHT);
     ctx.globalAlpha=1;if(v.comp?.b&&v.comp.b!=='source-over')blendOf.set(canvas,v.comp.b);
     if(v.mask)maskInto(canvas,v.mask);
     const sym=v.mods?._symmetryMode;
     if(sym&&sym!=='none'&&e.mode?.startsWith('sim')&&e.w?.applySymmetry){const sc=e.w.applySymmetry(canvas,sym,v.mods._symGap||0,'proSym');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(sc,0,0);}
-    if(e.w.__agScene.valid){
+    if(volume){
+      const cm=mods,camera=JSON.stringify([(cm.pG3Yaw||0)+(cm._sceneYaw??0),cm.pG3Tilt??18,cm.pG3Zoom??(job.sharedScene?55:100),cm.pG3Focal??28,cm.pG3Orbit||0,cm.pG3OrbitSnd||0,view||{}]);
+      const {canvas:depth,ctx:x}=surface(consumer+':depth');x.clearRect(0,0,WIDTH,HEIGHT);x.imageSmoothingEnabled=false;x.drawImage(e.fluid.depthCanvas,0,0,WIDTH,HEIGHT);
+      if(v.mask)maskInto(depth,v.mask);
+      if(!root)root={id:consumer,camera,kind:'particles',depth,occlusion:'',
+        refresh:maps=>{const out=e.draw({...job,renderOnly:true,occluders:maps},performanceSettings);if(out)capture(out);}};
+      setScene(canvas,{camera,depth,opaque:null,roots:[root]});
+    }else if(e.w.__agScene.valid){
       const depth=surface(consumer+':depth').canvas,opaque=surface(consumer+':opaque').canvas;
       for(const [c,raw] of [[depth,e.w.__agScene.depth],[opaque,e.w.__agScene.opaque]]){
         c.getContext('2d').imageSmoothingEnabled=false;c.getContext('2d').drawImage(raw,0,0,WIDTH,HEIGHT);
@@ -998,7 +1012,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
         const id=e.input.slice(4),range=engines.get(n.id)?.optRange(jobOf(n),id);
         if(range){if(opts===p.opts)opts={...opts};opts[id]=modulate(range,opts[id]??range.value,input(n,e.input));}
       }
-      r.shape={emitter:n,comp:{o:p.compOpacity??100,b:p.compBlend??'source-over'},mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:MEDIA_KIND[n.type]==='image'||MEDIA_KIND[n.type]==='video'?GRAY_MEDIA:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,song:driven?null:sig.song||null,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
+      r.shape={emitter:n,comp:{o:p.compOpacity??100,b:p.compBlend??'source-over'},mods:{...geoMods(p),...(spec.mode==='simfluid3d'||p.look?._colorMode||p.look?._toneStops?{}:MEDIA_KIND[n.type]==='image'||MEDIA_KIND[n.type]==='video'?GRAY_MEDIA:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,song:driven?null:sig.song||null,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
       if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);Object.assign(r.shape.mods,{pG3Zoom:55,pG3ScX:0,pG3ScY:0,pG3ScZ:0});}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
@@ -1006,6 +1020,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       const key=n.type==='gpuParticles'&&SIM_SOURCE[p.mode],eng=key&&engines.get(n.id);
       const source=!emit&&key&&eng?.simSource(r.shape.job,key);
       const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(mesh||!emit&&source!=='image'&&source!=='camera');
+      const fluid3d=n.type==='gpuParticles'&&p.mode==='simfluid3d';
       if(source==='image')r.shape.job.emitAsset=nodeState.get(n.id+':emitImage')?.asset??null;
       if(source==='camera'){
         const cam=emitterCameras.get(n.id),video=cam?.media.el,now=performance.now();
@@ -1021,7 +1036,19 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
         const src=emit,v=input(n,'emit');
         let shape=src.out==='object'?outputs.get(src.from)?.shape:v;
         const object=src.out==='object'?v:shape?.object;
-        if(particles3d){
+        if(fluid3d){
+          if(mesh&&shape?.emitter){
+            shape={...shape,job:{...shape.job,wantSource:true}};
+            asImage(shape,n.id+'e');
+            if(shape.meshSurface)r.shape.job.emitObject={object:{mesh:shape.meshSurface}};
+            else if(object&&shape.surfaceMapper)r.shape.job.emitObject={object,mapper:shape.surfaceMapper};
+            for(const k of ['pG3Yaw','pG3Tilt','pG3Zoom','pG3Focal','pG3Orbit','pG3OrbitSnd','_sceneYaw'])if(shape.mods[k]!=null)r.shape.mods[k]=shape.mods[k];
+            r.shape.job.flatFluid=EMPTY_FLUID_SOURCE;
+          }else{
+            const img=asImage(shape,n.id+'e');
+            r.shape.job.flatFluid=(img&&emitterAsset(nstate(n.id+':emit',()=>({name:'Picture'})),img,time))?.points??EMPTY_FLUID_SOURCE;
+          }
+        }else if(particles3d){
           if(!v||(!object&&shape?.job?.mode!=='simcloner'))throw Error('The 3D emitter object is not ready');
           if(shape?.emitter){
             const flow=p.particleSurfaceFlow?time:null;
@@ -1041,6 +1068,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
           if(key){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a??null;}
         }
       }
+      if(fluid3d)Object.assign(r.shape.job,{fluid:p,dt,time,frame:drawSeq,collisions,sharedScene:!!(sceneCamera||mesh||colliderIds.size)});
       if(particles3d){r.shape.mods._sim={...r.shape.mods._sim,pSpace:'3d'};r.shape.job.particleDepth=p.particleDepth;r.shape.job.particleSpread=mesh?p.particleSpread:0;r.shape.job.particleTime=time;
         r.shape.job.particleFloorSize=p.particleFloor?p.particleFloorSize:0;
         if(state.layers.some(l=>l.visible&&l.nodes.some(n=>n.type==='waveform3d'||n.type==='cloner')))r.shape.job.sharedScene=true;
@@ -1909,41 +1937,50 @@ function startMove(event,n,box){
 }
 function fit(){
   const g=graph(),vp=$('graphViewport');if(!g.nodes.length){view.x=20;view.y=20;view.zoom=.9;applyView();return;}
-  const xs=g.nodes.map(n=>n.x),ys=g.nodes.map(n=>n.y),minX=Math.min(...xs)-20,minY=Math.min(...ys)-20,maxX=Math.max(...xs)+190,maxY=Math.max(...ys)+230;
-  view.zoom=Math.max(.35,Math.min(1,Math.min(vp.clientWidth/(maxX-minX),vp.clientHeight/(maxY-minY))));
-  view.x=(vp.clientWidth-(maxX-minX)*view.zoom)/2-minX*view.zoom;view.y=Math.max(4,(vp.clientHeight-(maxY-minY)*view.zoom)/2)-minY*view.zoom;applyView();requestAnimationFrame(renderWires);
+  if(!vp.clientWidth||!vp.clientHeight)return;
+  const sizes=nodeSizes();
+  const minX=Math.min(...g.nodes.map(n=>n.x)),minY=Math.min(...g.nodes.map(n=>n.y));
+  const maxX=Math.max(...g.nodes.map(n=>n.x+(sizes.get(n.id)?.[0]??190))),maxY=Math.max(...g.nodes.map(n=>n.y+(sizes.get(n.id)?.[1]??230)));
+  const w=maxX-minX,h=maxY-minY;
+  view.zoom=Math.min(1,Math.max(1,vp.clientWidth-36)/w,Math.max(1,vp.clientHeight-36)/h);
+  view.x=(vp.clientWidth-w*view.zoom)/2-minX*view.zoom;view.y=(vp.clientHeight-h*view.zoom)/2-minY*view.zoom;applyView();requestAnimationFrame(renderWires);
 }
 
-// Fit also tidies a messy graph (overlapping nodes, or wires running backwards) into left-to-right columns:
-// each node one column after its furthest input, Output last, inputs-free helpers (LFOs…) just before what they drive.
-function nodeSize(id){const b=$('nodes').querySelector(`.node[data-id="${CSS.escape(id)}"]`);return [b?.offsetWidth||190,b?.offsetHeight||230];}
-function graphMessy(g){
-  const box=new Map(g.nodes.map(n=>{const [w,h]=nodeSize(n.id);return [n.id,{x:n.x,y:n.y,w,h}];}));
-  const bs=[...box.values()];
-  for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++){const a=bs[i],b=bs[j];if(a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h)return true;}
-  return g.edges.some(e=>{const a=box.get(e.from),b=box.get(e.to);return a&&b&&a.x+a.w>b.x+10;});
-}
-function arrangeGraph(g){
+function nodeSizes(){return new Map([...$('nodes').querySelectorAll('.node')].map(b=>[b.dataset.id,[b.offsetWidth||190,b.offsetHeight||230]]));}
+function arrangeGraph(g,sizes){
   const ids=g.nodes.map(n=>n.id),ins=new Map(ids.map(i=>[i,[]])),outs=new Map(ids.map(i=>[i,[]]));
   for(const e of g.edges)if(ins.has(e.to)&&outs.has(e.from)&&e.from!==e.to){ins.get(e.to).push(e.from);outs.get(e.from).push(e.to);}
   const depth=new Map(ids.map(i=>[i,0]));
-  for(let k=0;k<ids.length;k++){let moved=false;for(const i of ids)for(const f of ins.get(i))if(depth.get(f)+1>depth.get(i)){depth.set(i,depth.get(f)+1);moved=true;}if(!moved)break;}
+  for(const {id} of order(g))for(const f of ins.get(id))depth.set(id,Math.max(depth.get(id),depth.get(f)+1));
   for(const i of ids)if(!ins.get(i).length&&outs.get(i).length)depth.set(i,Math.max(0,Math.min(...outs.get(i).map(o=>depth.get(o)))-1));
   const last=Math.max(0,...depth.values());for(const n of g.nodes)if(n.type==='output')depth.set(n.id,last);
-  const cols=[];for(const n of g.nodes)(cols[depth.get(n.id)]||(cols[depth.get(n.id)]=[])).push(n);
-  const pos=new Map(),GAP_X=60,GAP_Y=28;let x=40;const heights=[];
+  const cols=[],loose=[];
+  for(const n of g.nodes){
+    if(!ins.get(n.id).length&&!outs.get(n.id).length)loose.push(n);
+    else (cols[depth.get(n.id)]||=[]).push(n);
+  }
+  const pos=new Map(),rank=new Map(ids.map((id,i)=>[id,i])),GAP_X=52,GAP_Y=24;let x=40;const heights=[];
+  const size=n=>sizes.get(n.id)??[190,230];
   cols.forEach((col,d)=>{if(!col)return;
-    const key=n=>{const p=ins.get(n.id).filter(f=>pos.has(f));return p.length?p.reduce((a,f)=>a+pos.get(f).cy,0)/p.length:n.y;};
-    col.sort((a,b)=>key(a)-key(b)||a.y-b.y);
-    let y=0,w=0;for(const n of col){const [nw,nh]=nodeSize(n.id);pos.set(n.id,{x,y,h:nh,cy:y+nh/2});y+=nh+GAP_Y;w=Math.max(w,nw);}
+    const key=n=>{const p=ins.get(n.id).filter(f=>pos.has(f));return p.length?p.reduce((a,f)=>a+pos.get(f).cy,0)/p.length:Infinity;};
+    col.sort((a,b)=>key(a)-key(b)||rank.get(a.id)-rank.get(b.id));
+    let y=0,w=0;for(const n of col){const [nw,nh]=size(n);pos.set(n.id,{x,y,cy:y+nh/2});y+=nh+GAP_Y;w=Math.max(w,nw);}
     heights[d]=y-GAP_Y;x+=w+GAP_X;});
-  const tall=Math.max(...heights.filter(h=>h!=null));
+  const tall=Math.max(0,...heights.filter(h=>h!=null));
   cols.forEach((col,d)=>{if(col)for(const n of col){const p=pos.get(n.id);n.x=Math.round(p.x);n.y=Math.round(40+(tall-heights[d])/2+p.y);}});
+  const limit=Math.max(x-GAP_X,40+Math.ceil(Math.sqrt(loose.length))*210);
+  let left=40,top=40+tall+(tall?GAP_Y*2:0),row=0;
+  for(const n of loose){
+    const [w,h]=size(n);
+    if(left>40&&left+w>limit){left=40;top+=row+GAP_Y;row=0;}
+    n.x=left;n.y=top;left+=w+GAP_Y;row=Math.max(row,h);
+  }
+  const dx=Math.max(0,...g.nodes.map(n=>n.x-9950)),dy=Math.max(0,...g.nodes.map(n=>n.y-9950));
+  if(dx||dy)for(const n of g.nodes){n.x-=dx;n.y-=dy;}
 }
 function fitButton(){
-  const g=graph();
-  if(g.nodes.length>1&&graphMessy(g)){edit((p,l)=>arrangeGraph(l),'Arranged graph');requestAnimationFrame(fit);message('Arranged the graph · Undo puts it back');return;}
-  fit();
+  if(graph().nodes.length>1){const sizes=nodeSizes();edit((p,g)=>arrangeGraph(g,sizes),'Arranged graph');}
+  requestAnimationFrame(fit);
 }
 
 // ---------- inspector ----------
@@ -2318,6 +2355,18 @@ function renderEmitter(root,n){
     sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);setMode(g,x,sel.value);},`${T.label}: ${emitterNames[sel.value]}`);
     s.append(ui.field(T.props.mode.label,sel));
   }
+  if(n.type==='gpuParticles'&&n.props.mode==='simfluid3d'){
+    renderProps(fold(root,'Emission'),n,['fluidDomain','fluidRate','fluidSpeed','fluidLift','fluidSwirl','fluidFade','fluidPressure'],true);
+    renderProps(fold(root,'Look'),n,['fluidColor','fluidOpacity'],true);
+    renderProps(fold(root,'Sound'),n,['intensity','punch'],true);
+    if(graph().edges.some(e=>e.to===n.id&&e.input==='mask'))renderProps(fold(root,'Mask'),n,MASK_KEYS,true);
+    renderProps(fold(root,'Compositing'),n,COMP_KEYS,true);
+    s.append(el('p','insp-note','Wire a 3D object into Emit to release fluid from its surface. Turn on Collide on any 3D object to make it block the flow.'));
+    if(paused)Promise.all([engineFor(n.id).ready,prepareFluid3D()]).then(()=>{
+      if(paused&&selected===n.id&&s.isConnected)draw(elapsed);
+    }).catch(error=>message(error.message,true,'render'));
+    return;
+  }
   if(T.props.render)s.append(ui.field(T.props.render.label,ui.chips({options:T.props.render.labels.filter(l=>!(n.type==='waveform3d'&&l[0]==='points'&&n.props.mode!=='model')),value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)})));
   if(n.type==='waveform3d')s.append(propControl(n,'collide',T.props.collide));
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
@@ -2389,7 +2438,7 @@ function renderEmitter(root,n){
     opts.replaceChildren();top.replaceChildren();
     const sourceKey=n.type==='gpuParticles'&&SIM_SOURCE[n.props.mode],sourceChip=c=>sourceKey&&c.type==='chips'&&c.onclick.startsWith(`setSimOpt('${sourceKey}'`);
     const source=!emissionWire&&sourceKey&&e.simSource(jobOf(n),sourceKey),flat=source==='image'||source==='camera';
-    const spatial=particleMode&&(mesh||!emissionWire&&!flat);
+    const spatial=particleMode&&(mesh||!emissionWire&&!flat),simControls=n.type==='gpuParticles';
     const sourceColors=c=>c.type==='chips'&&c.onclick.startsWith("setSimOpt('emitColor'");
     if(emissionWire)controls=controls.filter(c=>!sourceChip(c)&&!sourceColors(c));
     // Choice chips (Type, Direction…) sit at the top; line-look chips join Look. Few knobs share one section named after the node.
@@ -2397,6 +2446,8 @@ function renderEmitter(root,n){
     const clonerLike=n.type==='cloner'||n.type==='waveform3d'&&n.props.render==='normal';
     const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||clonerLike&&FORCE_KNOBS.simcloner||{};
     controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
+    if(flat||emissionWire&&!spatial)controls=controls.filter(c=>!['pSfJets','pSmJets'].includes(c.id));
+    if(emissionWire&&!spatial&&n.props.emitColors==='source')controls=controls.filter(c=>!/setSimOpt\('pColor'/.test(c.onclick||''));
     if(spatial)controls=controls.filter(c=>c.type!=='chips'||!/setSimOpt\('pBounds'/.test(c.onclick));
     if(hasFlow)controls=controls.filter(c=>!['pSpSpeed','pEmitScale'].includes(c.id));
     if(camModel)controls=controls.filter(c=>c.type!=='range'||!CAM_VIEW_KNOBS.has(c.id));
@@ -2406,16 +2457,17 @@ function renderEmitter(root,n){
     const ranges=controls.filter(c=>c.type==='range'),few=ranges.length<=9,main='Form',KEEP=['Sound','Look','Quality'];
     const lineChip=c=>/line|stroke|style/i.test(c.label),first=controls.find(c=>c.type!=='range'&&!c.action&&!lineChip(c));
     const groupOf=c=>{
+      if(simControls){
+        if(c.type==='range')return SIM_LOOK.has(c.id)?'Look':SIM_SOUND.has(c.id)?'Sound':'Emission';
+        return sourceColors(c)||/setSimOpt\('[a-zA-Z]+Color'/.test(c.onclick)?'Look':'Emission';
+      }
       const g=optGroup(c.label);
-      if(['pEmitScale','pEmitRZ','pEmitPoints'].includes(c.id)||sourceColors(c))return 'Emission';
-      if(n.type==='gpuParticles'&&(g==='Quality'||c.id==='pSpTrail'))return 'Look';
-      if(sourceChip(c)||particleMode&&g==='Emission')return 'Emission';
       if(c.type!=='range')return c===first||g==='Setup'?null:lineChip(c)||/blend/i.test(c.label)?'Look':['Quality','Camera','Look'].includes(g)?g:main;
       return few?(KEEP.includes(g)?g:main):g;
     };
-    const order=[...new Set([main,...OPT_GROUPS.map(([g])=>g)])],bins=new Map(order.map(g=>[g,[]]));
+    const order=simControls?['Emission','Look','Sound']:[...new Set([main,...OPT_GROUPS.map(([g])=>g)])],bins=new Map(order.map(g=>[g,[]]));
     for(const c of controls){const gr=groupOf(c);if(gr)bins.get(gr).push(c);}
-    for(const [gr,list] of bins)if(gr!==main&&gr!=='Sound'&&!(n.type==='gpuParticles'&&(gr==='Look'||gr==='Emission'))&&!list.some(c=>c.id==='pEmitScale')&&list.length&&list.length<(KEEP.includes(gr)?2:3)){bins.get(main).push(...list);list.length=0;}
+    if(!simControls)for(const [gr,list] of bins)if(gr!==main&&gr!=='Sound'&&list.length&&list.length<(KEEP.includes(gr)?2:3)){bins.get(main).push(...list);list.length=0;}
     const chip=c=>{
       const wrap=el('div','opt-chips');if(c.label)wrap.append(el('div','insp-sublabel',c.label));
       const current=c.options.find(o=>o.on)?.label;
@@ -2435,19 +2487,18 @@ function renderEmitter(root,n){
       // The node's Sound section (with its note) moves into place and takes the simulation's sound knobs.
       const box=gr==='Sound'?(opts.append(d.parentElement),d):fold(opts,gr);boxes.set(gr,box);let grid=null;
       for(const c of [...list.filter(c=>c.type!=='range'),...list.filter(c=>c.type==='range')]){
-        if(c.type!=='range'){box.append(chip(c));continue;}
+        if(c.type!=='range'){box.append(chip(c));if(flat&&sourceChip(c))renderSimulationMedia(box,n,e,source);continue;}
         if(!grid){grid=el('div','knob-grid');box.append(grid);}
         const cur=n.props.opts[c.id]??c.value;
-        grid.append(ui.knob({label:OPT_SHORT[c.label]||c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),...autoOpts(n,'opt:'+c.id),
+        grid.append(ui.knob({label:SIM_CTRL_LABELS[c.id]||OPT_SHORT[c.label]||c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),...autoOpts(n,'opt:'+c.id),
           onInput:v=>live(()=>{const x=findNode(n.id);if(x)x.props.opts={...x.props.opts,[c.id]:v};}),onChange:()=>liveCommit('Emitter: '+c.label)}));
       }
       if(gr==='Emission'){
-        if(flat)renderSimulationMedia(box,n,e,source);
         if(spatial)renderProps(box,n,['particleDepth',...(mesh?[...(!hasFlow?['particleSpread','particleResponse']:[]),'particleSurfaceFlow']:[])],true);
-        if(emissionWire&&!(particleMode&&mesh))renderProps(box,n,['emitColors'],true);
         if(spatial)renderProps(fold(opts,'Floor'),n,['particleFloor',...(n.props.particleFloor?['particleFloorSize']:[])],true);
         if(emissionWire&&n.props.mode==='simfluid'&&meshEmitter(graph(),emissionWire))box.append(el('p','insp-note','Fluid emits from the object’s rendered silhouette in 2D. It does not collide with the mesh.'));
       }
+      if(gr==='Look'&&emissionWire&&!(particleMode&&mesh))renderProps(box,n,['emitColors'],true);
     }
     if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer or Color nodes after it.'));
     const forces=[...new Set(Object.values(moved).map(([t])=>t))];
@@ -2788,6 +2839,7 @@ async function exportVideo(cfg,{file=null,onProgress=()=>{}}={}){
     paused=false;vclock=realNow();const c0=vclock;patchClock(true);
     // Let engines that resized (or are still starting) come up before frame 0.
     for(let i=0;i<120&&[...engines.values()].some(e=>e.status==='starting');i++)await new Promise(r=>setTimeout(r,250));
+    if(state.layers.some(g=>g.visible&&g.nodes.some(n=>!n.bypass&&n.props.mode==='simfluid3d')))await prepareFluid3D();
     const bitrate=Math.round(WIDTH*HEIGHT*cfg.fps*(EXPORT_BPP[cfg.quality]||EXPORT_BPP.high));
     const blob=await renderVideo({buffer:snd.buffer,start,length,fps:cfg.fps,bitrate,canvas:preview,file,signal:ac.signal,
       analyser:{fftSize:BINS*2,smoothing:.5,minDb:-100,maxDb:-30},onProgress,
@@ -3186,7 +3238,7 @@ $('helpBody').innerHTML=`
 <li><b>Tab</b> over the graph searches every node and drops it at the cursor; over (or near) a wire it is inserted into the wire.</li>
 <li>Drag an unconnected node so its body covers a wire and the wire lights up; let go to wedge it in. Library items work the same way.</li>
 <li>Drop a library item onto a node, or drag a node onto another, to replace it: the node is outlined when it fits and the newcomer keeps its wires.</li>
-<li>Drag empty space to pan, wheel or pinch to zoom, <b>Fit</b> frames everything (and tidies a messy graph).</li>
+<li>Drag empty space to pan or use the wheel to zoom. <b>Fit</b> arranges the graph left to right and frames every node.</li>
 <li><b>Delete</b> removes the selected node and heals the chain. Press and hold a node's title (or Alt-drag) to pull it out of its chain.</li>
 <li><b>Bypass</b> (⏻ on a node, or <b>B</b>) switches it off: its input passes straight through, so you can compare with and without. Bypassed nodes look dashed and dim.</li>
 <li><b>Preview</b> (◉, or <b>V</b>) shows just that node's picture in the viewport, even on a hidden layer; the yellow badge, V, Esc or <b>Show output</b> returns to the full result.</li>
@@ -3300,7 +3352,7 @@ function marquee(event){
     const [x1,y1]=loc(e);setSelection(moved?[...keep,...hits(x1,y1)]:keep);};
   viewport.addEventListener('pointermove',move);viewport.addEventListener('pointerup',end);viewport.addEventListener('pointercancel',end);
 }
-function zoom(factor,cx=viewport.clientWidth/2,cy=viewport.clientHeight/2){const next=Math.max(.3,Math.min(1.8,view.zoom*factor)),ratio=next/view.zoom;view.x=cx-(cx-view.x)*ratio;view.y=cy-(cy-view.y)*ratio;view.zoom=next;applyView();}
+function zoom(factor,cx=viewport.clientWidth/2,cy=viewport.clientHeight/2){const next=Math.max(Math.min(.08,view.zoom),Math.min(1.8,view.zoom*factor)),ratio=next/view.zoom;view.x=cx-(cx-view.x)*ratio;view.y=cy-(cy-view.y)*ratio;view.zoom=next;applyView();}
 // Trackpads (pixel deltas, no 120-step notches) pan with two fingers in any direction; pinch or ⌘-scroll zooms.
 // A notched mouse wheel zooms, Shift + wheel pans sideways.
 const isTrackpad=e=>e.deltaMode===0&&(e.deltaX!==0||!(e.wheelDeltaY&&e.wheelDeltaY%120===0));

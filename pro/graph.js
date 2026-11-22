@@ -10,7 +10,7 @@ import {withMaterials} from './model-materials.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['water','Water'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
   waveform3d: [['sphere','Sphere'],['cube','Cube'],['torus','Torus'],['cylinder','Cylinder'],['cone','Cone'],['ico','Icosphere'],['pyramid','Pyramid'],['frame','Frame'],['knot','Knot'],['tetrahedron','Tetrahedron'],['dna','DNA'],['terrain','Terrain'],['text3d','3D text'],['model','3D model']],
-  gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand']]
+  gpuParticles: [['simparticles','Particles'],['simfluid','Fluid'],['simfluid3d','3D Fluid'],['simsmoke','Smoke'],['simsand','Granular Sand']]
 };
 // Retired modes: still load and render in old scenes, but are no longer offered.
 // Library groups for each waveform mode (Waveforms lists every mode as its own entry).
@@ -277,6 +277,15 @@ export const TYPES = {
     particleSurfaceFlow:bool('Surface flow',false,{sims:['simparticles']}),
     particleFloor:bool('Enabled',true,{sims:['simparticles']}),
     particleFloorSize:n('Size',100,10,800,5,{unit:'%',noPort:true,sims:['simparticles']}),
+    fluidDomain:n('Volume size',220,100,800,5,{unit:'%',noPort:true,sims:['simfluid3d']}),
+    fluidRate:n('Amount',180,0,500,5,{unit:'%',sims:['simfluid3d']}),
+    fluidSpeed:n('Time scale',100,25,200,5,{unit:'%',sims:['simfluid3d']}),
+    fluidLift:n('Buoyancy',85,-200,200,5,{unit:'%',sims:['simfluid3d']}),
+    fluidSwirl:n('Turbulence',80,0,300,5,{unit:'%',sims:['simfluid3d']}),
+    fluidFade:n('Dissipation',72,0,400,5,{unit:'%',sims:['simfluid3d']}),
+    fluidPressure:n('Pressure iterations',10,4,24,2,{noPort:true,sims:['simfluid3d']}),
+    fluidOpacity:n('Opacity',100,0,250,5,{unit:'%',sims:['simfluid3d']}),
+    fluidColor:{...color('Color','#6bd2ff'),sims:['simfluid3d']},
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU emitters')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
@@ -317,7 +326,7 @@ export const TYPES = {
     floor:G('Floor',C3('Floor',0,0,100,'pG3Floor',5)),floorHeight:G('Floor',C3('Height',0,-100,100,'pG3FloorY',5)),floorTint:G('Floor',C3('Tint',30,0,100,'pG3FloorTint',5))}),
   camera3d:C3D('Look','3D camera','Rotate, orbit (on its own or with the music), tilt and zoom, lens focal length (14–200 mm), depth of field (every 3D Object render, Waveform included) and motion blur. Drag in the preview to look around.',{
     turn:C3('Rotate',0,-180,180,'pG3Yaw'),orbit:C3('Orbit',0,-100,100,'pG3Orbit'),orbitSound:C3('Orbit with sound',0,0,100,'pG3OrbitSnd',5),tilt:C3('Tilt',18,-180,180,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
-    focal:G('Lens',pick('Focal length','28',['14','18','24','28','35','50','85','135','200'],{key:'pG3Focal',sims:['simcloner','simparticles'],labels:[['14','14 mm ultra wide'],['18','18 mm'],['24','24 mm wide'],['28','28 mm'],['35','35 mm'],['50','50 mm normal'],['85','85 mm portrait'],['135','135 mm tele'],['200','200 mm long tele']]})),dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
+    focal:G('Lens',pick('Focal length','28',['14','18','24','28','35','50','85','135','200'],{key:'pG3Focal',sims:['simcloner','simparticles','simfluid3d'],labels:[['14','14 mm ultra wide'],['18','18 mm'],['24','24 mm wide'],['28','28 mm'],['35','35 mm'],['50','50 mm normal'],['85','85 mm portrait'],['135','135 mm tele'],['200','200 mm long tele']]})),dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
   // Deformers
   symmetry:{category:'deformers',group:'Symmetry',label:'Symmetry',description:'Repeat the shape: mirror across X / Y or turn it into 3- to 8-fold rotations.',...SHAPE_IO,props:{
     mode:pick('Symmetry','r6',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'}),gap:n('Gap',0,0,100,1,{key:'_symGap'})}},

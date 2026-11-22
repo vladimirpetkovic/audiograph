@@ -50,7 +50,7 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     const emission=inspector.locator('[data-group="Emission"]'),look=inspector.locator('[data-group="Look"]');
     for(const key of ['opt:pSpSpeed','opt:pEmitScale','particleDepth','particleSpread','particleResponse','particleSurfaceFlow'])await emission.locator(`[data-property="${key}"]`).first().waitFor({state:'attached'});
     await look.locator('[data-property="opt:pSpTrail"]').first().waitFor({state:'attached'});
-    await look.getByRole('button',{name:'Ultra',exact:true,includeHidden:true}).waitFor({state:'attached'});
+    await emission.getByRole('button',{name:'Ultra',exact:true,includeHidden:true}).waitFor({state:'attached'});
     const floorSection=inspector.locator('[data-group="Floor"]');
     await floorSection.locator('[data-property="particleFloorSize"]').first().waitFor({state:'attached'});
     assert.equal(await floorSection.locator('[data-property="particleFloor"]').count(),1);
