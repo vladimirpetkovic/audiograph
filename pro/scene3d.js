@@ -156,6 +156,10 @@ export function patchScene(patch){
   patch('render(st,k);ctx.drawImage(st.cv,0,0,W,H);','render(st,k);ctx.drawImage(st.cv,0,0,W,H);window.__agScene.place(ctx,W,H);');
   patch('render(st,k);ctx.drawImage(ecv,0,0,W,H);','render(st,k);ctx.drawImage(ecv,0,0,W,H);window.__agScene.place(ctx,W,H);');
   patch('ensureOut(st,W,H);','ensureOut(st,W,H);window.__agScene.beforePaint(ctx,W,H);');
+  patch('var lPlayModeL2=',`var _agLayerRotation=!_agIsSim(layoutMode)||window.__agObjectComposite;
+      window.__agScene.layerPlacement(lCtx,sz,offCv,drawW,drawH,zoom,layer.params,_agLayerRotation,_rp.k);
+      var lPlayModeL2=`);
+  patch('if(lRot&&!_agIsSim(layoutMode))','if(lRot&&_agLayerRotation)');
   patch('api.splat=function(){',`api.sceneRerender=function(occluders){
     var st=ST[simUid];if(!st||!st.space3)return null;
     window.__agParticles3d.occluders=occluders;st.dirty=true;render(st,knobs());return st.cv;
@@ -169,6 +173,7 @@ function unproject(x,y,z,c){
 }
 export function installScene(w){
   let dev=null,targets=null,placement=null,enabled=false,wantSource=false,sourceFlow=null,sourceState=null,polyTargets=null,polyVertices=[],surfaceVerts=[],surfaceFaces=[];
+  let modelStretch=null,collisionMesh=null,wantCollision=false,layer=null;
   const canvas=()=>{const c=w.document.createElement('canvas');return c;};
   const depth=canvas(),opaque=canvas(),depthOut=canvas(),opaqueOut=canvas();
   const source=canvas();
@@ -207,7 +212,21 @@ export function installScene(w){
     depthStencilAttachment:{view:targets.z.createView(),depthLoadOp:'clear',depthStoreOp:'discard',depthClearValue:1}});
   const api=w.__agScene={
     depth:depthOut,opaque:opaqueOut,source,sourceValid:false,sourceSerial:0,sourceEpoch:0,valid:false,
-    start(on,emit=false,flow=null){enabled=on;wantSource=emit;sourceFlow=flow;api.valid=false;api.sourceValid=false;placement=null;polyVertices=[];surfaceVerts=[];surfaceFaces=[];api.surfaceMesh=null;api.matrix=null;},
+    start(on,emit=false,flow=null,collide=false){enabled=on;wantSource=emit;wantCollision=collide;sourceFlow=flow;api.valid=false;api.sourceValid=false;layer=null;placement=null;polyVertices=[];surfaceVerts=[];surfaceFaces=[];api.surfaceMesh=null;api.matrix=null;},
+    layerPlacement(ctx,sz,off,drawW,drawH,zoom,params,rotate,cover){
+      if(!(enabled||wantSource||wantCollision))return;
+      const {width,height}=w.frameCv,dpr=sz.dpr,c=ctx.canvas;
+      let sx=Math.max(0,Math.round((drawW-sz.W)/2*dpr)),sy=Math.max(0,Math.round((drawH-sz.H)/2*dpr));
+      let sw=Math.min(off.width-sx,Math.round(sz.W*dpr)),sh=Math.min(off.height-sy,Math.round(sz.H*dpr));
+      let dx=0,dy=0,dw=Math.round(sz.W*dpr),dh=Math.round(sz.H*dpr);
+      if(zoom<1){dw=sw;dh=sh;dx=Math.round((sz.W*dpr-dw)/2);dy=Math.round((sz.H*dpr-dh)/2);sx=0;sy=0;sw=off.width;sh=off.height;}
+      const x=(params?._offX||0)/100*sz.W*dpr,y=(params?._offY||0)/100*sz.H*dpr,rot=params?._rotation||0;
+      const m=new w.DOMMatrix().translateSelf(dx,dy).scaleSelf(dw/sw,dh/sh).translateSelf(-sx,-sy);
+      if(rot&&rotate)m.translateSelf(off.width/2+x,off.height/2+y).rotateSelf(rot).scaleSelf(Math.max(1,cover),Math.max(1,cover)).translateSelf(-off.width/2-x,-off.height/2-y);
+      m.translateSelf(Math.round((off.width-c.width)/2+x),Math.round((off.height-c.height)/2+y));
+      if(params?._flipH||params?._flipV)m.translateSelf(params._flipH?c.width:0,params._flipV?c.height:0).scaleSelf(params._flipH?-1:1,params._flipV?-1:1);
+      layer={m,width,height};
+    },
     async build(device,P,shader,vb){
       if(dev!==device){destroyTargets();destroySource();}dev=device;
       const module=dev.createShaderModule({label:'Shared 3D depth',code:shader+NATIVE_DEPTH});
@@ -236,9 +255,48 @@ export function installScene(w){
       }
       api.valid=true;
     },
+    stretchModel(model){
+      const s=w.__agCam?.stretch;
+      if(!s||s.every(v=>v===1))return model;
+      const key=s.join(',')+':'+(w.__agG3MeshVer||0);
+      if(modelStretch?.model!==model||modelStretch.key!==key){
+        const verts=model.verts.map(v=>v.map((x,i)=>x*s[i]));
+        const normals=model.normals.map(v=>{const n=v.map((x,i)=>x/s[i]),len=Math.hypot(...n)||1;return n.map(x=>x/len);});
+        modelStretch={model,key,scaled:{...model,verts,normals}};
+      }
+      return modelStretch.scaled;
+    },
+    classicSurface(ctx,vertices,model,wire,persp){
+      if(!(wantSource||wantCollision)||!w.__agCam)return;
+      const faces=wire.map?w._objPolys(model,wire):model.faces;
+      const {m,width,height}=placement,w2=2/width,h2=2/height;
+      const verts=vertices.map(p=>{
+        const [x,y,z]=Array.isArray(p)?p:[p.sx,p.sy,p.depth];
+        return api.worldPoint((m.a*x+m.c*y+m.e)*w2-1,1-(m.b*x+m.d*y+m.f)*h2,-z/persp);
+      });
+      api.surfaceMesh={verts,faces,world:true,orientation:m.a*m.d-m.b*m.c<0?-1:1};
+    },
+    projectedMesh(matrix,distance){
+      if(!(wantSource||wantCollision)||!w.__agSceneCam)return;
+      api.matrix=Array.from(matrix.slice(0,16));api.distance=distance;
+    },
+    colliderMesh(object){
+      if(api.surfaceMesh)return api.surfaceMesh;
+      const map=api.mapper();if(!map||!object)return null;
+      const native=object.prim&&object.shape!=='knot';
+      const mesh=native?w.agSim.particleMesh(object.shape,object.detail??4):
+        object.mesh&&object.mesh!=='knot'?object.mesh:(w._objDefault||=w._objDefaultModel());
+      const s=['stretchX','stretchY','stretchZ'].map(k=>(object[k]??100)/100*(object.size??60)/100*(native?1:.7));
+      const key=[map.key,...s,w.__agG3MeshVer||0].join(':');
+      if(collisionMesh?.mesh!==mesh||collisionMesh.key!==key){
+        const verts=mesh.verts.map(v=>map([v[0]*s[0],v[1]*s[1]*(native?1:-1),v[2]*s[2]]));
+        collisionMesh={mesh,key,result:{verts,faces:mesh.faces}};
+      }
+      return collisionMesh.result;
+    },
     polygon(ctx,pts,zs,ds,persp){
       if(!enabled||!w.__agCam)return;
-      const m=ctx.getTransform(),width=ctx.canvas.width,height=ctx.canvas.height,points=[];
+      const {m,width,height}=placement,points=[];
       for(let i=0;i<zs.length;i++){
         const x=pts[i*2],y=pts[i*2+1],nx=(m.a*x+m.c*y+m.e)/width*2-1,ny=1-(m.b*x+m.d*y+m.f)/height*2,
           z=-zs[i]/persp,d=ds[i]/persp;
@@ -286,14 +344,17 @@ export function installScene(w){
     },
     particles(st,enc,P,group){
       if(!enabled)return;ensure(st);
-      const pass=begin(enc,0);pass.setPipeline(P.pDepth3);pass.setBindGroup(0,group);pass.setBindGroup(1,w.__agP3.bind(dev,P,st));pass.draw(6,st.pn);pass.end();begin(enc,1).end();api.valid=true;
+      const pass=begin(enc,0);pass.setPipeline(P.pDepth3);pass.setBindGroup(0,group);pass.setBindGroup(1,w.__agP3.bind(dev,P,st));pass.draw(st.trailVerts||6,st.pn);pass.end();begin(enc,1).end();api.valid=true;
     },
-    beforePaint(ctx,W,H){placement={m:ctx.getTransform(),W,H,width:ctx.canvas.width,height:ctx.canvas.height};},
+    beforePaint(ctx,W,H){
+      const local=ctx.getTransform();
+      placement=layer?{...layer,m:layer.m.multiply(local),W,H}:{m:local,W,H,width:ctx.canvas.width,height:ctx.canvas.height};
+    },
     place(ctx,W,H){
       api.beforePaint(ctx,W,H);
       if(!enabled||!api.valid)return;
       for(const [out,input] of [[depthOut,depth],[opaqueOut,opaque]]){
-        out.width=ctx.canvas.width;out.height=ctx.canvas.height;const c=out.getContext('2d');
+        out.width=placement.width;out.height=placement.height;const c=out.getContext('2d');
         c.setTransform(placement.m);c.imageSmoothingEnabled=false;c.drawImage(input,0,0,W,H);
       }
     },

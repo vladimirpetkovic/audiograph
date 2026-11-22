@@ -53,7 +53,7 @@ const VISUALS=[
   [/smoke|smoky|\bfog|mist|steam|incense|vapou?r|haze|\bclouds?\b|plume|wisp/,'simfluid'],
   [/firework|embers?|sparks? fountain|stardust|confetti|fountain|particle (field|system|storm)|particles?\b(?! overlay)/,'simparticles'],
   [/flock|boids?|swarm|murmuration|\bbirds?\b|school of fish|\bfish\b|insects|fireflies/,'simparticles'],
-  [/\bsand\b|granular|hourglass|\bdust\b|powder/,'simsand'],
+  [/\bsand\b|granular|hourglass|\bdust\b|powder/,'simparticles'],
   [/ferro|liquid metal|mercury|magnetic (fluid|liquid)|chrome blob|oil slick|metallic blob/,'simfluid'],
   [/clon(e|er)|\bcubes\b|blocks|voxels?|array of|grid of (cubes|boxes|spheres)|instances/,'simcloner'],
   [/terrain|landscape|mountains?|hills|valley|\bfloor\b|\bground\b/,'terrain'],
@@ -77,7 +77,7 @@ const VISUALS=[
   [/\bbars\b|equali[sz]er|spectrum|meters?|audio bars|linear|straight lines?|scan ?lines? of sound/,'linear']
 ];
 // Prefer a simulation when one of these words describes the main visual.
-const SIM_MODES=['simparticles','simfluid','simsmoke','simsand','simcloner'];
+const SIM_MODES=['simparticles','simfluid','simsmoke','simcloner'];
 const MOOD=[
   [/calm|chill|ambient|gentle|soft|serene|peaceful|dreamy|meditat|lazy|relax|zen|floating|tranquil|quiet|lullaby|sleepy|smooth/,25,.6],
   [/groov|funky|bouncy|playful|happy|upbeat|dance/,60,1.05],

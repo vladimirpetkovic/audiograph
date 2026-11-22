@@ -15,7 +15,7 @@ export const MODES = {
 // Retired modes: still load and render in old scenes, but are no longer offered.
 // Library groups for each waveform mode (Waveforms lists every mode as its own entry).
 export const MODE_GROUPS={waveform2d:{linear:'Classic',circle:'Classic',concentric:'Classic',spiral:'Classic',sine:'Classic',phyllotaxis:'Organic',growth:'Organic',water:'Organic',scatter:'Organic',fractal:'Math',sacred:'Math',lissajous:'Math',custom:'Math',graph:'Tech'}};
-export const HIDDEN_MODES=new Set(['lissajous']);
+export const HIDDEN_MODES=new Set(['lissajous','simsand']);
 export const emitterNames = {...Object.fromEntries(Object.values(MODES).flat()),simcloner:'Cloner'};
 
 export const CATEGORIES = [
@@ -265,20 +265,19 @@ export const TYPES = {
     lineStyle:LINE_STYLE(),cellShape:CELL_SHAPE('Returns as'),labels:G('Look',bool('Labels',true)),hud:G('Look',bool('HUD',true)),color:G('Look',color('Color','#ffffff')),...COMP_PROPS}},
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
-  waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads OBJ, FBX, USD, GLB or glTF; GLB/USD materials render as imported PBR in Normal. Animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('Rendering','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
-    render:pick('Render','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...PRIM_PROPS,...STYLE_PROPS,
+  waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads OBJ, FBX, USD, GLB or glTF; GLB/USD materials render as imported PBR in Normal. Animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('3D Object','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
+    render:pick('Rendering','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),collide:bool('Collide',false),...PRIM_PROPS,...STYLE_PROPS,
     modelMaterials:pick('Materials','imported',['imported','palette'],{labels:[['imported','Imported PBR'],['palette','Palette']]}),
     words:text('Text','SOUND'),font3d:pick('Font','Impact',TEXT_FONTS),depth:n('Depth',30,5,150,5,{noPort:true}),
     animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
-  gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','Native WebGPU simulations: particles, fluid, smoke and sand. Particles can simulate in 2D or true 3D. In 3D, a 3D Object wired into “emit” emits from its mesh surface; images emit from a plane. Add a 3D camera after particles to orbit the cloud. In 2D, visuals emit from their bright parts.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
-    space:pick('Space','2d',['2d','3d'],{sim:'pSpace',sims:['simparticles'],labels:[['2d','2D'],['3d','3D']]}),
+  gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','GPU-powered particles, fluid and smoke. Particles emit from a 3D Object or Cloner’s surface, or follow the bright parts of a flat picture.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
     particleDepth:n('Depth',2,.2,8,.1,{sims:['simparticles']}),
     particleSpread:n('Surface spread',15,0,100,5,{sims:['simparticles']}),
-    particleInitialSpeed:n('Initial speed',100,0,200,5,{sims:['simparticles']}),
-    particleTrails:bool('Motion trails',true,{sims:['simparticles']}),
     particleResponse:pick('Release on','sound',['sound','motion','both'],{labels:[['sound','Sound'],['motion','Object motion'],['both','Sound + object motion']],sims:['simparticles']}),
     particleSurfaceFlow:bool('Surface flow',false,{sims:['simparticles']}),
-    emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU particles')),
+    particleFloor:bool('Enabled',true,{sims:['simparticles']}),
+    particleFloorSize:n('Size',100,10,800,5,{unit:'%',noPort:true,sims:['simparticles']}),
+    emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU emitters')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
     layout:pick('Layout','grid',CLONER_LAYOUTS.map(c=>c[0]),{labels:CLONER_LAYOUTS,sim:'g3Mode'}),
@@ -317,7 +316,7 @@ export const TYPES = {
     ao:G('Shadows',C3('Occlusion',50,0,100,'pG3Ao',5)),aoRadius:G('Shadows',C3('Radius',60,10,300,'pG3AoRad',5)),bounce:G('Shadows',C3('Bounce light',40,0,100,'pG3Bounce',5)),
     floor:G('Floor',C3('Floor',0,0,100,'pG3Floor',5)),floorHeight:G('Floor',C3('Height',0,-100,100,'pG3FloorY',5)),floorTint:G('Floor',C3('Tint',30,0,100,'pG3FloorTint',5))}),
   camera3d:C3D('Look','3D camera','Rotate, orbit (on its own or with the music), tilt and zoom, lens focal length (14–200 mm), depth of field (every 3D Object render, Waveform included) and motion blur. Drag in the preview to look around.',{
-    turn:C3('Rotate',0,-180,180,'pG3Yaw'),orbit:C3('Orbit',0,-100,100,'pG3Orbit'),orbitSound:C3('Orbit with sound',0,0,100,'pG3OrbitSnd',5),tilt:C3('Tilt',18,-80,80,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
+    turn:C3('Rotate',0,-180,180,'pG3Yaw'),orbit:C3('Orbit',0,-100,100,'pG3Orbit'),orbitSound:C3('Orbit with sound',0,0,100,'pG3OrbitSnd',5),tilt:C3('Tilt',18,-180,180,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
     focal:G('Lens',pick('Focal length','28',['14','18','24','28','35','50','85','135','200'],{key:'pG3Focal',sims:['simcloner','simparticles'],labels:[['14','14 mm ultra wide'],['18','18 mm'],['24','24 mm wide'],['28','28 mm'],['35','35 mm'],['50','50 mm normal'],['85','85 mm portrait'],['135','135 mm tele'],['200','200 mm long tele']]})),dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
   // Deformers
   symmetry:{category:'deformers',group:'Symmetry',label:'Symmetry',description:'Repeat the shape: mirror across X / Y or turn it into 3- to 8-fold rotations.',...SHAPE_IO,props:{
@@ -361,7 +360,7 @@ export const TYPES = {
   hue:{category:'color',label:'Hue shift',description:'Rotate hues of a shape or any image, optionally cycling over time.',inputs:{shape:'visual'},outputs:{shape:'shape'},props:{hue:n('Hue',60,-180,180,1),cycle:n('Cycle (°/s)',0,-120,120,1)}},
   // Style
   // Particles
-  particles:{category:'emitters',group:'Particles',label:'Particles',description:'Particles spawned from the shape, driven by loudness.',...SHAPE_IO,props:{
+  particles:{category:'emitters',group:'Simple emitters',label:'Simple particles',description:'Particles spawned from the shape, driven by loudness.',...SHAPE_IO,props:{
     shape:pick('Shape','circle',PART_SHAPES.map(s=>s[0]),{labels:PART_SHAPES,key:'_particleShape'}),density:n('Density',20,1,50,1,{key:'pPartDensity'}),energy:n('Energy',1,.1,5,.1,{key:'pPartEnergy'}),
     speed:n('Speed',3,0,10,.1,{key:'pPartSpeed'}),life:n('Life',120,10,300,10,{key:'pPartLife'}),size:n('Size',12,1,40,.5,{key:'pPartSize'}),spread:n('Spread',50,0,100,5,{key:'pPartSpread'}),
     gravity:n('Gravity',0,-5,5,.1,{key:'pPartGravity'}),damping:n('Damping',97,80,100,.5,{key:'pPartDamping'}),trail:n('Trail',0,0,60,1,{key:'pPartTrail'})}},
@@ -530,18 +529,15 @@ function withNormals(m){
   return {...m,normals:nm.map(v=>{const l=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/l,v[1]/l,v[2]/l];})};
 }
 export const shapeMesh=name=>SHAPE_MESHES[name]?(meshCache[name]||=withNormals(SHAPE_MESHES[name]())):null;
-// Polygons render: every shape as a mesh the original's 3D Object draws face by face (Sphere gets a proper UV sphere).
-const POLY_SPHERE=()=>gridMesh(28,15,(u,v)=>{const a=u*TAU,b=v*Math.PI;return [Math.sin(b)*Math.cos(a),Math.cos(b),Math.sin(b)*Math.sin(a)];},true);
-export const polyMesh=name=>name==='sphere'?(meshCache._polySphere||=withNormals(POLY_SPHERE())):shapeMesh(name);
 // What a 3D Object hands a Cloner: a clone shape the original knows, else a mesh.
 const CLONE_SHAPES=new Set(PRIMITIVES.map(p=>p[0]));
 // 3D text: the page builds the extruded letters (it needs a canvas); meshes are cached per text, font and depth.
 let textMesher=null;export const setTextMesher=fn=>{textMesher=fn;};
 export const textMesh=p=>textMesher?.(p.words??'SOUND',p.font3d??'Impact',p.depth??30)||null;
 export function objectOf(p,modelMesh){
-  if(p.mode==='model')return {mesh:withMaterials(modelMesh,p.modelMaterials!=='palette')||'knot'};
-  if(p.mode==='text3d'){const m=textMesh(p);return m?{shape:'text3d',size:p.size,prim:false,mesh:m.norm}:{mesh:'knot'};}
   const prim={shape:p.mode,size:p.size,detail:p.detail,stretchX:p.stretchX,stretchY:p.stretchY,stretchZ:p.stretchZ,prim:true};
+  if(p.mode==='model')return {...prim,prim:false,mesh:withMaterials(modelMesh,p.modelMaterials!=='palette')||'knot'};
+  if(p.mode==='text3d')return {...prim,prim:false,mesh:textMesh(p)?.norm||'knot'};
   if(CLONE_SHAPES.has(p.mode))return prim;
   return {...prim,prim:false,mesh:shapeMesh(p.mode)};
 }
@@ -554,10 +550,8 @@ export function engineSpec(n){
     case 'videoEQ':return {mode:'video',need:'video'};
     case 'waveform3d':
       if(p.render==='normal')return {mode:'simcloner',single:true};
-      if(p.mode==='text3d')return {mode:'text3d',poly:p.render==='polygons',solidMesh:textMesh(p)?.raw||null};
-      if(p.render==='polygons')return p.mode==='model'?{mode:'object',poly:true}:{mode:p.mode,poly:true,solidMesh:polyMesh(p.mode)};
-      if(p.mode==='model')return p.render==='points'?{mode:'simsplat',mesh:true}:{mode:'object'};
-      return SHAPE_MESHES[p.mode]&&!['tetrahedron','dna','terrain'].includes(p.mode)?{mode:p.mode,solidMesh:shapeMesh(p.mode)}:{mode:p.mode};
+      if(p.render==='points'&&p.mode==='model')return {mode:'simsplat',mesh:true};
+      return {mode:p.mode,classicObject:true,poly:p.render==='polygons',sceneObject:objectOf(p),objectKey:p.mode==='text3d'?JSON.stringify([p.words,p.font3d,p.depth]):''};
     case 'splat':return {mode:'simsplat',splat:true};
     case 'cloner':return {mode:'simcloner'};
     default:return {mode:p.mode};
@@ -650,6 +644,17 @@ function cleanProp(s,v,label){
   }
   if(s.kind==='look')return cleanLook(v);
   if(typeof v!=='string'||v.length>s.max)throw Error(`Invalid ${label}`);return v;
+}
+function legacyParticleOptions(p){
+  if(p.mode!=='simparticles'||p.space!=='3d')return p;
+  if(p.opts!==undefined&&(!p.opts||typeof p.opts!=='object'||Array.isArray(p.opts)))return p;
+  const opts={...p.opts};
+  if(typeof p.particleInitialSpeed==='number'&&Number.isFinite(p.particleInitialSpeed)&&p.particleInitialSpeed!==100){
+    const speed=opts.pSpSpeed??p.look?.pSpSpeed??10;
+    if(typeof speed==='number'&&Number.isFinite(speed))opts.pSpSpeed=Math.max(0,Math.min(400,speed*p.particleInitialSpeed/100));
+  }
+  if(p.particleTrails===false)opts.pSpTrail=0;
+  return {...p,opts};
 }
 // A template look is a set of original layer parameters. Values are plain numbers, booleans, short tokens,
 // colour lists and two small option objects. Math expressions are code in the original renderer, so only
@@ -871,7 +876,7 @@ function foldGeometry(g){
   }
 }
 // The layer's viewport camera, moved with the mouse in the preview: orbit (degrees), pan (half-frames) and zoom.
-export const VIEW_LIMITS={yaw:[-3600,3600],pit:[-85,85],px:[-4,4],py:[-4,4],zm:[.2,6]};
+export const VIEW_LIMITS={yaw:[-3600,3600],pit:[-180,180],px:[-4,4],py:[-4,4],zm:[.2,6]};
 export function cleanView(v){
   if(!v||typeof v!=='object')return null;
   const o={yaw:0,pit:0,px:0,py:0,zm:1};
@@ -896,7 +901,7 @@ export function validate(input) {
       if(!nd||!Object.hasOwn(TYPES,nd.type))throw Error('Unknown node type');
       if(isEngine(nd.type))emitters++;
       if(!nd.props||typeof nd.props!=='object'||Array.isArray(nd.props))throw Error('Node properties are missing');
-      const props={},src=nd.type==='palette'?legacyPalette(nd.props):nd.props;
+      const props={},src=nd.type==='palette'?legacyPalette(nd.props):nd.type==='gpuParticles'?legacyParticleOptions(nd.props):nd.props;
       for(const [key,s] of Object.entries(TYPES[nd.type].props))props[key]=cleanProp(s,src[key],s.label);
       const out={id:unique(nd.id),type:nd.type,x:finite(nd.x,-10000,10000,'Node X'),y:finite(nd.y,-10000,10000,'Node Y'),props};
       if(nd.auto!==undefined){

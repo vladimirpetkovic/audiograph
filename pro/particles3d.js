@@ -1,12 +1,16 @@
 import {DEPTH_WGSL,flowPhase,routeSample,surfaceRoutes} from './scene3d.js';
+import {COLLISION_WGSL} from './colliders.js';
 export const SCENE_DISTANCE=.78/Math.sin(.4)*.92;
+const TRAIL_POINTS=4;
+const PARTICLE_BYTES=64+TRAIL_POINTS*16;
 const CONTROLS=`
-struct ParticleControls{launch:vec4f,lens:vec4f,screen0:vec4f,screen1:vec4f};
+struct ParticleControls{launch:vec4f,lens:vec4f,screen0:vec4f,screen1:vec4f,floor:vec4f};
 @group(1) @binding(0) var<uniform> controls:ParticleControls;
 `;
 const STRUCT=`
 // data: remaining lifetime, initial lifetime, random seed, palette position.
-struct Part3{pos:vec4f,vel:vec4f,data:vec4f,color:vec4f};
+// pos.w times the next history sample; history.w marks valid points.
+struct Part3{pos:vec4f,vel:vec4f,data:vec4f,color:vec4f,history:array<vec4f,${TRAIL_POINTS}>};
 struct Source3{pos:vec4f,color:vec4f,normal:vec4f};
 `;
 const STEP=STRUCT+CONTROLS+DEPTH_WGSL+`
@@ -14,6 +18,7 @@ const STEP=STRUCT+CONTROLS+DEPTH_WGSL+`
 @group(0) @binding(3) var<storage,read> sources:array<Source3>;
 @group(1) @binding(9) var currentSurface:texture_2d<f32>;
 @group(1) @binding(10) var previousSurface:texture_2d<f32>;
+${COLLISION_WGSL}
 fn surfacePosition(t:texture_2d<f32>,i:u32)->vec3f{
   return vec3f(decodeSceneDepth(textureLoad(t,vec2i(i32(i),0),0)),decodeSceneDepth(textureLoad(t,vec2i(i32(i),1),0)),decodeSceneDepth(textureLoad(t,vec2i(i32(i),2),0)));
 }
@@ -38,6 +43,7 @@ fn emitterVector(v:vec3f)->vec3f{
   return vec3f(q.x*ca-q.y*sa,q.x*sa+q.y*ca,q.z);
 }
 fn releaseSound()->f32{return (u.level+u.onset)*controls.launch.z;}
+fn releaseSpeed()->f32{return max(u.jet,0.075);}
 fn noise3(p:vec3f)->vec3f{
   return vec3f(curlN(p.yz).x,curlN(p.zx+vec2f(13.1,7.3)).x,curlN(p.xy+vec2f(5.7,19.4)).x);
 }
@@ -61,24 +67,24 @@ fn birth(i:u32)->Part3{
   let ca=cos(u.emitAngle+u.erot);let sa=sin(u.emitAngle+u.erot);
   pos=vec3f(pos.x*ca-pos.y*sa,pos.x*sa+pos.y*ca,pos.z);
   normal=vec3f(normal.x*ca-normal.y*sa,normal.x*sa+normal.y*ca,normal.z);
-  let speed=u.jet*(0.25+(1.6*specAt(a)+0.5*u.onset)*controls.launch.z)*(0.6+0.8*d)*controls.launch.x;
+  let speed=u.jet*(0.25+(1.6*specAt(a)+0.5*u.onset)*controls.launch.z)*(0.6+0.8*d);
   var velocity=(normal+dir*u.x10)*speed+cross(normal,vec3f(0.0,1.0,0.0))*speed*u.swirl;
   var held=0.0;
   if(u.x8>0.5){
     let ix=min(u32(a*u.sourceN),u32(u.sourceN)-1u);
     if(controls.screen0.w>0.5){
       let life=u.plife*(0.55+0.9*b);
-      p.pos=vec4f(sourceAt(ix).pos.xyz,1.0);p.vel=vec4f(0.0,0.0,0.0,f32(ix)+1.0);p.data=vec4f(life,life,d,a);return p;
+      p.pos=vec4f(sourceAt(ix).pos.xyz,0.0);p.vel=vec4f(0.0,0.0,0.0,f32(ix)+1.0);p.data=vec4f(life,life,d,a);return p;
     }
     velocity=velocity+emitterVector(sourceAt(ix).color.xyz)*controls.launch.w;
-    if(controls.launch.x<0.00001){
+    if(controls.launch.x>0.5){
       let sound=releaseSound();
-      if(sound>0.01){velocity=velocity+normal*u.jet*sound;}
+      if(sound>0.01){velocity=velocity+normal*releaseSpeed()*sound;}
       else if(length(velocity)<0.01){held=f32(ix)+1.0;velocity=vec3f(0.0);}
     }
   }
   let life=u.plife*(0.55+0.9*b);
-  p.pos=vec4f(pos,1.0);p.vel=vec4f(velocity,held);p.data=vec4f(life,life,d,a);
+  p.pos=vec4f(pos,0.0);p.vel=vec4f(velocity,held);p.data=vec4f(life,life,d,a);
   return p;
 }
 @compute @workgroup_size(64) fn pStep3(@builtin(global_invocation_id) g:vec3u){
@@ -95,7 +101,7 @@ fn birth(i:u32)->Part3{
       let sound=releaseSound();
       let motion=emitterVector(src.color.xyz)*controls.launch.w;
       if(sound>0.01||length(motion)>0.01){
-        v=v+emitterVector(src.normal.xyz)*u.jet*sound+motion;p.vel.w=0.0;
+        v=v+emitterVector(src.normal.xyz)*releaseSpeed()*sound+motion;p.vel.w=0.0;
       }else{
         var pos=turn(src.pos.xyz*u.emitScale,u.x9);
         let ca=cos(u.emitAngle+u.erot);let sa=sin(u.emitAngle+u.erot);
@@ -103,19 +109,20 @@ fn birth(i:u32)->Part3{
       }
     }
     if(!attached){
-    var acc=vec3f(0.0,u.pgrav,0.0)-rd*u.pattract*(1.0+u.bass*1.5)*r/(0.15+r*r);
+    var acc=vec3f(0.0,-u.pgrav,0.0)-rd*u.pattract*(1.0+u.bass*1.5)*r/(0.15+r*r);
     acc=acc+cross(vec3f(0.0,1.0,0.0),rd)*(u.pvort+u.torque*0.3)*r/(0.2+r*r);
     acc=acc+noise3(x*u.pcscale+vec3f(u.time*0.15,-u.time*0.11,u.time*0.09))*u.pcurl*(1.0+u.mid*1.5+u.treb);
-    acc=acc+noise3(x*1.7+vec3f(u.time*0.3))*(select(0.0,0.5,controls.launch.x>0.00001)+5.0*u.level+3.0*u.mid)*u.response*u.sstr;
+    acc=acc+noise3(x*1.7+vec3f(u.time*0.3))*(select(0.5,0.0,controls.launch.x>0.5)+5.0*u.level+3.0*u.mid)*u.response*u.sstr;
     acc=acc+rd*u.bass*u.bpun*u.response*(7.0*sin(r*7.0-u.time*6.0)+9.0*u.onset)*exp(-r*0.6);
-    v=(v+acc*u.dt)*exp(-u.pdrag*u.dt);v=v*min(1.0,7.0/max(length(v),0.00001));x=x+v*u.dt;
-    let bounds=vec3f(u.asp,1.0,max(0.1,u.x5*0.5));
-    if(u.pbounds<0.5){x=fract((x+bounds)/(2.0*bounds))*2.0*bounds-bounds;}
-    else if(u.pbounds<1.5){
-      for(var k=0u;k<3u;k++){if(abs(x[k])>bounds[k]){x[k]=clamp(x[k],-bounds[k],bounds[k]);v[k]=-v[k]*0.7;}}
-    }else if(any(abs(x)>bounds*1.2)){p.data.x=0.0;}
+    v=(v+acc*u.dt)*exp(-u.pdrag*u.dt);v=v*min(1.0,7.0/max(length(v),0.00001));
+    if(controls.launch.y>0.0||controls.floor.x>0.0){let contact=bounceScene(x,v,u.dt);x=contact.p;v=contact.v;}else{x+=v*u.dt;}
     }
-    p.pos=vec4f(x,1.0);p.vel=vec4f(v,p.vel.w);p.data.x=max(0.0,p.data.x-u.dt);
+    var elapsed=p.pos.w+u.dt;
+    if(elapsed>=1.0/30.0||p.history[0].w==0.0){
+      for(var j=${TRAIL_POINTS-1};j>0;j--){p.history[j]=p.history[j-1];}
+      p.history[0]=vec4f(p.pos.xyz,1.0);elapsed=max(0.0,elapsed-1.0/30.0);
+    }
+    p.pos=vec4f(x,elapsed);p.vel=vec4f(v,p.vel.w);p.data.x=max(0.0,p.data.x-u.dt);
   }
   parts[i]=p;
 }
@@ -124,7 +131,7 @@ const DRAW=STRUCT+CONTROLS+DEPTH_WGSL+`
 @group(0) @binding(2) var<storage,read> parts:array<Part3>;
 @group(0) @binding(3) var rampT:texture_2d<f32>;
 ${Array.from({length:8},(_,i)=>`@group(1) @binding(${i+1}) var occluder${i}:texture_2d<f32>;`).join('\n')}
-struct VO3{@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) col:vec3f,@location(2) seg:f32,@location(3) depth:f32};
+struct VO3{@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) col:vec3f,@location(2) seg:f32,@location(3) depth:f32,@location(4) alpha:f32};
 var<private> corners3:array<vec2f,6>=array<vec2f,6>(vec2f(-1.0,-1.0),vec2f(1.0,-1.0),vec2f(-1.0,1.0),vec2f(-1.0,1.0),vec2f(1.0,-1.0),vec2f(1.0,1.0));
 fn camera3(x:vec3f)->vec3f{
   let cy=cos(u.x1);let sy=sin(u.x1);let ct=cos(u.x2);let st=sin(u.x2);
@@ -137,9 +144,12 @@ fn project3(x:vec3f)->vec3f{
   return vec3f(v.x*scale/u.asp+u.x6,v.y*scale+u.x7,z);
 }
 fn particleVertex(vi:u32,ii:u32)->VO3{
-  var o:VO3;o.pos=vec4f(2.0,2.0,0.0,1.0);o.uv=vec2f(0.0);o.col=vec3f(0.0);o.seg=0.0;o.depth=256.0;
+  var o:VO3;o.pos=vec4f(2.0,2.0,0.0,1.0);o.uv=vec2f(0.0);o.col=vec3f(0.0);o.seg=0.0;o.depth=256.0;o.alpha=1.0;
   let p=parts[ii];if(p.data.x<=0.0){return o;}
-  let q=project3(p.pos.xyz);if(q.z<=0.05){return o;}
+  let segment=vi/6u;
+  var head=p.pos.xyz;
+  if(segment>1u){head=p.history[segment-2u].xyz;}
+  let q=project3(head);if(q.z<=0.05){return o;}
   let age=1.0-p.data.x/max(p.data.y,0.001);let fade=smoothstep(0.0,0.06,age)*(1.0-smoothstep(0.55,1.0,age));
   let speed=length(p.vel.xyz);var t=p.data.w;
   if(u.colorBy>0.5&&u.colorBy<1.5){t=age;}else if(u.colorBy>1.5){t=clamp(speed*0.45,0.0,1.0);}
@@ -149,18 +159,23 @@ fn particleVertex(vi:u32,ii:u32)->VO3{
   let sharp=max(0.2,u.psize*(0.55+0.65*fade)*(0.7+0.6*p.data.z)*dist/max(q.z,0.1));
   let blur=controls.lens.y*abs(o.depth-controls.lens.z)/max(q.z,0.1);
   let size=sqrt(sharp*sharp+blur*blur);
-  let cr=corners3[vi];var offset=cr;var dim=sharp*sharp/(size*size);o.uv=cr;
-  let prev=project3(p.pos.xyz-p.vel.xyz*u.dt*(1.0+u.x12*8.0));
-  if(prev.z>0.05&&controls.launch.y>0.5){
+  let cr=corners3[vi%6u];var offset=cr;let dim=sharp*sharp/(size*size);o.uv=cr;
+  if(segment>0u){
+    let point=p.history[segment-1u];
+    let fraction=clamp(u.x12*f32(${TRAIL_POINTS})-f32(segment-1u),0.0,1.0);
+    if(point.w==0.0||fraction<=0.0){o.pos=vec4f(2.0,2.0,0.0,1.0);return o;}
+    let prev=project3(mix(head,point.xyz,fraction));
+    if(prev.z<=0.05){o.pos=vec4f(2.0,2.0,0.0,1.0);return o;}
     let delta=(q.xy-prev.xy)*vec2f(u.ow,u.oh)*0.5;let len=length(delta);
-    if(len>size*0.3){
-      let dir=delta/max(len,0.00001);let seg=min(80.0,len/size);
-      let along=mix(-seg-1.0,1.0,(cr.x+1.0)*0.5);
-      offset=dir*along+vec2f(-dir.y,dir.x)*cr.y;o.uv=vec2f(along,cr.y);o.seg=seg;dim=dim/(1.0+0.12*seg);
-    }else{o.uv=cr;}
-  }else{o.uv=cr;}
+    if(len<0.25){o.pos=vec4f(2.0,2.0,0.0,1.0);return o;}
+    let dir=delta/len;let seg=len/size;
+    let along=mix(-seg,0.0,(cr.x+1.0)*0.5);
+    offset=dir*along+vec2f(-dir.y,dir.x)*cr.y;o.uv=vec2f(along,cr.y);o.seg=seg;
+    o.depth=mix(prev.z,q.z,(cr.x+1.0)*0.5)-dist;
+    o.alpha=u.x12*(1.0-(f32(segment)-1.0)/f32(${TRAIL_POINTS}))*0.7*min(1.0,len/size);
+  }
   o.pos=vec4f(q.xy+offset*size*2.0/vec2f(u.ow,u.oh),0.0,1.0);
-  o.col=color*u.pglow*fade*dim*(0.45+0.55*clamp(speed,0.0,2.0))*(1.0+0.9*u.bass*u.bpun*u.response);
+  o.col=color*u.pglow*fade*dim*o.alpha*(0.45+0.55*clamp(speed,0.0,2.0))*(1.0+0.9*u.bass*u.bpun*u.response);
   return o;
 }
 @vertex fn pVS3(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->VO3{return particleVertex(vi,ii);}
@@ -182,7 +197,7 @@ fn hidden(i:VO3)->bool{
 @fragment fn pFS3(i:VO3)->@location(0) vec4f{
   let x=i.uv.x-clamp(i.uv.x,-i.seg,0.0);let d=x*x+i.uv.y*i.uv.y;if(d>1.0){discard;}
   if(hidden(i)){discard;}
-  let k=exp(-d*4.5)+0.12*(1.0-d);return vec4f(i.col*k,k);
+  let k=exp(-d*4.5)+0.12*(1.0-d);return vec4f(i.col*k,k*i.alpha);
 }
 @fragment fn pDepthFS3(i:VO3)->@location(0) vec4f{
   let x=i.uv.x-clamp(i.uv.x,-i.seg,0.0);if(x*x+i.uv.y*i.uv.y>1.0||hidden(i)){discard;}
@@ -194,7 +209,7 @@ export function patchParticles3d(patch){
   patch('var AG_SIM_BOIDS=AG_SIM_HEAD',`var AG_SIM_PART3D=AG_SIM_HEAD+${JSON.stringify(STEP)};\nvar AG_SIM_PREND3D=AG_SIM_HEAD+${JSON.stringify(DRAW)};\nvar AG_SIM_BOIDS=AG_SIM_HEAD`);
   patch("P.pStep=dev.createComputePipeline({layout:PL(L.part),compute:{module:mp,entryPoint:'pStep'}});",
     `P.pStep=dev.createComputePipeline({layout:PL(L.part),compute:{module:mp,entryPoint:'pStep'}});
-    P.p3Extra=dev.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.COMPUTE|GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:'uniform'}},...Array.from({length:8},(_,i)=>({binding:i+1,visibility:GPUShaderStage.FRAGMENT,texture:{sampleType:'float'}})),...Array.from({length:2},(_,i)=>({binding:i+9,visibility:GPUShaderStage.COMPUTE,texture:{sampleType:'float'}}))]});
+    P.p3Extra=dev.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.COMPUTE|GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:'uniform'}},...Array.from({length:8},(_,i)=>({binding:i+1,visibility:GPUShaderStage.FRAGMENT,texture:{sampleType:'float'}})),...Array.from({length:2},(_,i)=>({binding:i+9,visibility:GPUShaderStage.COMPUTE,texture:{sampleType:'float'}})),{binding:11,visibility:GPUShaderStage.COMPUTE,buffer:{type:'read-only-storage'}}]});
     var mp3=await mod(dev,'particles3d',AG_SIM_PART3D),mr3=await mod(dev,'particles3d render',AG_SIM_PREND3D);
     P.pStep3=dev.createComputePipeline({layout:dev.createPipelineLayout({bindGroupLayouts:[L.part,P.p3Extra]}),compute:{module:mp3,entryPoint:'pStep3'}});`);
   patch("P.pFade=dev.createRenderPipeline", `var pr3=dev.createPipelineLayout({bindGroupLayouts:[L.rend,P.p3Extra]});
@@ -202,12 +217,13 @@ export function patchParticles3d(patch){
     P.pDepth3=dev.createRenderPipeline({layout:pr3,vertex:{module:mr3,entryPoint:'pDepthVS3'},fragment:{module:mr3,entryPoint:'pDepthFS3',targets:[{format:'rgba8unorm'}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'}});
     P.pFade=dev.createRenderPipeline`);
   patch('st.pn=tr.p;st.pbuf=dev.createBuffer({size:st.pn*48,usage:GPUBufferUsage.STORAGE});',
-    "st.space3=simOpt.pSpace==='3d';st.pn=tr.p;st.pbuf=dev.createBuffer({size:st.pn*(st.space3?64:48),usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST});");
+    `st.space3=simOpt.pSpace==='3d';st.pn=tr.p;st.pbuf=dev.createBuffer({size:st.pn*(st.space3?${PARTICLE_BYTES}:48),usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST});`);
   patch('st.emitterBuf=dev.createBuffer({size:32,',
     "st.emitterBuf=dev.createBuffer({size:kind==='particles'&&simOpt.pSpace==='3d'?48:32,");
   patch("return kind==='boids'?K('pBdAmount',80)", "return kind==='particles'?(simOpt.pSpace==='3d'?3:2):kind==='boids'?K('pBdAmount',80)");
   patch("var key=_simEmitterKey('sim'+st.kind)",`if(st.space3){
       var cfg=window.__agParticles3d||{},data=cfg.source,gpu=cfg.gpuSource;
+      st.zeroLaunch=o.jet===0;
       if(cfg.response==='motion'){o.response=0;o.bass=0;o.mid=0;o.treb=0;o.onset=0;o.level=0;}
       o.pglow*=10.0;
       Object.assign(o,{x1:cfg.yaw||0,x2:cfg.tilt||0,x3:cfg.zoom||1,x4:cfg.focal||1,x5:cfg.depth||2,x6:cfg.panX||0,x7:cfg.panY||0,x8:gpu?2:data?1:0,x9:cfg.sourceAngle||0,x10:cfg.spread||0,x11:cfg.sourceTilt||0,x12:K('pSpTrail',55)/100});
@@ -220,6 +236,7 @@ export function patchParticles3d(patch){
         o.sourceN=data.length/12;o.emitScale=K('pEmitScale',65)/65;o.emitAngle=K('pEmitRZ',0)*Math.PI/180;o.emitColor=0;o.emitType=4;st.sourceCount=o.sourceN;st.emitType=4;return;
       }
     }
+    if(st.kind==='particles'&&!st.space3)o.x12=-K('pSpTrail',55)/100;
     var key=_simEmitterKey('sim'+st.kind)`);
   // 3D's source buffer includes a normal; image sources are expanded from the existing validated asset.
   patch('var n=pts.length/5,d=new Float32Array(n*8);',
@@ -229,20 +246,23 @@ export function patchParticles3d(patch){
     'for(var i=0;i<n;i++){d.set(pts.slice(i*5,i*5+2),i*stride);d[i*stride+3]=1;d.set(pts.slice(i*5+2,i*5+5),i*stride+4);d[i*stride+7]=1}');
   patch('p.setPipeline(P.pStep);','p.setPipeline(st.space3?P.pStep3:P.pStep);if(st.space3)p.setBindGroup(1,window.__agP3.bind(G.dev,G.P,st,true));');
   patch('rp.setPipeline(P.pDraw);','rp.setPipeline(st.space3?P.pDraw3:P.pDraw);if(st.space3)rp.setBindGroup(1,window.__agP3.bind(G.dev,G.P,st));');
+  patch('rp.draw(6,st.pn);S.dispatches+=2}',`st.trailVerts=st.space3?6*(1+Math.ceil(o.x12*${TRAIL_POINTS})):6;rp.draw(st.trailVerts,st.pn);S.dispatches+=2}`);
   patch('rp.end();\n    }else if(XK[kd])','rp.end();if(st.space3)window.__agScene.particles(st,enc,P,bgR);\n    }else if(XK[kd])');
   patch('function disposeState(st,lost){','function disposeState(st,lost){window.__agP3.destroy(st);');
   patch('Math.min(1.2,levelDrive*1.05)*gov;',
-    "Math.min(1.2,st.space3&&o.x8>0.5&&(window.__agParticles3d.surfaceFlow||(window.__agParticles3d.initialSpeed??100)===0)?1:levelDrive*1.05)*gov;");
+    "Math.min(1.2,st.space3&&o.x8>0.5&&(window.__agParticles3d.surfaceFlow||st.zeroLaunch)?1:levelDrive*1.05)*gov;");
   patch('if(o.emitType>=4&&!o.sourceN)st.carry=0;',
-    "var hold=st.space3&&o.x8>0.5&&o.sourceN>0&&(window.__agParticles3d.surfaceFlow||(window.__agParticles3d.initialSpeed??100)===0);if(hold&&!st.surfaceHold)st.carry+=Math.min(st.pn,2048);st.surfaceHold=hold;\n    if(o.emitType>=4&&!o.sourceN)st.carry=0;");
+    "var hold=st.space3&&o.x8>0.5&&o.sourceN>0&&(window.__agParticles3d.surfaceFlow||st.zeroLaunch);if(hold&&!st.surfaceHold)st.carry+=Math.min(st.pn,2048);st.surfaceHold=hold;\n    if(o.emitType>=4&&!o.sourceN)st.carry=0;");
   patch("var fadeK=0,tr=K(kd==='boids'?", "var fadeK=0,tr=st.space3?0:K(kd==='boids'?");
   patch("if((st.kind==='particles'||st.kind==='boids')&&sv.hdr&&!sv.ac){",
     "if((st.kind==='particles'||st.kind==='boids')&&!st.space3&&sv.hdr&&!sv.ac){");
   patch('kind:s.kind,q:s.q,grid:', 'kind:s.kind,dimensions:s.space3?3:2,sourcePoints:s.sourceCount||0,q:s.q,grid:');
   patch('api.splat=function(){',`api.particleState=async function(){
     var st=ST[simUid];if(!st||st.kind!=='particles')return null;
-    var size=Math.min(st.pn,4096)*(st.space3?64:48),dev=G.dev,b=dev.createBuffer({size:size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
-    try{var enc=dev.createCommandEncoder();enc.copyBufferToBuffer(st.pbuf,0,b,0,size);dev.queue.submit([enc.finish()]);await b.mapAsync(GPUMapMode.READ);return Array.from(new Float32Array(b.getMappedRange()).slice());}
+    var count=Math.min(st.pn,4096),stride=st.space3?${PARTICLE_BYTES}:48,size=count*stride,dev=G.dev,b=dev.createBuffer({size:size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
+    try{var enc=dev.createCommandEncoder();enc.copyBufferToBuffer(st.pbuf,0,b,0,size);dev.queue.submit([enc.finish()]);await b.mapAsync(GPUMapMode.READ);
+      var data=new Float32Array(b.getMappedRange());if(!st.space3)return Array.from(data);
+      var out=[];for(var i=0;i<count;i++)out.push(...data.subarray(i*stride/4,i*stride/4+16));return out;}
     finally{b.destroy();}
   };
   api.particleMesh=function(shape,detail){
@@ -275,9 +295,16 @@ export function installParticleControls(w){
   w.__agP3={
     bind(dev,P,st,compute=false){
       const cfg=w.__agParticles3d||{};
-      if(!st.extra3)st.extra3={buffer:dev.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}),textures:[],sources:[]};
+      if(!st.extra3)st.extra3={buffer:dev.createBuffer({size:80,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}),textures:[],sources:[]};
       const extra=st.extra3,occluders=cfg.occluders||[];if(occluders.length>8)throw Error('A shared 3D scene supports at most eight opaque renderers');
       let changed=!extra.group;
+      const field=cfg.collisions,bytes=field?.data.byteLength||16;
+      if(!extra.collision||extra.collision.size<bytes||bytes*4<extra.collision.size){
+        extra.collision?.destroy();
+        extra.collision=dev.createBuffer({size:bytes,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+        extra.field=null;changed=true;
+      }
+      if(compute&&field&&extra.field!==field){dev.queue.writeBuffer(extra.collision,0,field.data);extra.field=field;}
       const copy=extra.cfg!==cfg||extra.occluders!==occluders;
       for(let i=0;i<8;i++){
         const source=occluders[i],width=source?.width||1,height=source?.height||1;
@@ -301,19 +328,19 @@ export function installParticleControls(w){
         extra.sourceDt=Math.max(1/240,Math.min(.1,(gpu.time??0)-(extra.sourceTime??gpu.time??0)));
         extra.sourceImage=gpu.image;extra.sourceKey=gpu.key;extra.sourceToken=gpu.token;extra.sourcePending=true;
       }
-      if(compute&&extra.sourcePending){extra.sourcePending=false;extra.sourceTime=gpu.time;}
-      if(changed)extra.group=dev.createBindGroup({layout:P.p3Extra,entries:[{binding:0,resource:{buffer:extra.buffer}},...extra.textures.map((t,i)=>({binding:i+1,resource:t.createView()})),...extra.sources.map((t,i)=>({binding:i+9,resource:t.createView()}))]});
+      if(compute&&extra.sourcePending&&gpu){extra.sourcePending=false;extra.sourceTime=gpu.time;}
+      if(changed)extra.group=dev.createBindGroup({layout:P.p3Extra,entries:[{binding:0,resource:{buffer:extra.buffer}},...extra.textures.map((t,i)=>({binding:i+1,resource:t.createView()})),...extra.sources.map((t,i)=>({binding:i+9,resource:t.createView()})),{binding:11,resource:{buffer:extra.collision}}]});
       const p=w.__agScene.placement(),m=p?.m,fw=w.frameCv.width,fh=w.frameCv.height;
       const row0=m?[m.a*p.W/st.ow/fw,m.c*p.H/st.oh/fw,m.e/fw,0]:[1/st.ow,0,0,0],
         row1=m?[m.b*p.W/st.ow/fh,m.d*p.H/st.oh/fh,m.f/fh,0]:[0,1/st.oh,0,0];
       row0[3]=cfg.surfaceFlow?1:0;
       dev.queue.writeBuffer(extra.buffer,0,new Float32Array([
-        (cfg.initialSpeed??100)/100,cfg.trails===false||cfg.surfaceFlow?0:1,cfg.response==='motion'?0:1,cfg.response==='sound'||!cfg.response?0:1,
+        st.zeroLaunch?1:0,field?.end||0,cfg.response==='motion'?0:1,cfg.response==='sound'||!cfg.response?0:1,
         cfg.shared?SCENE_DISTANCE*(cfg.focal||1)/Math.max(.3,cfg.zoom||1):0,(cfg.dof||0)/100*st.oh*.05,((cfg.focus??50)-50)/50*2,extra.sourceDt||1/60,
-        ...row0,...row1]));
+        ...row0,...row1,cfg.floorHalf||0,0,0,0]));
       return extra.group;
     },
-    destroy(st){if(st.extra3){st.extra3.buffer.destroy();for(const t of [...st.extra3.textures,...st.extra3.sources])t.destroy();st.extra3=null;}}
+    destroy(st){if(st.extra3){st.extra3.buffer.destroy();st.extra3.collision?.destroy();for(const t of [...st.extra3.textures,...st.extra3.sources])t.destroy();st.extra3=null;}}
   };
 }
 

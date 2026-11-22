@@ -7,7 +7,7 @@
 import {FORCE_KNOBS} from './graph.js';
 
 const L=(r,a,b)=>a+(b-a)*r(),I=(r,a,b)=>Math.round(L(r,a,b)),sg=r=>r()<.5?-1:1,one=(r,a)=>a[Math.floor(r()*a.length)%a.length];
-const SIMS=['simparticles','simfluid','simsmoke','simsand'];
+const SIMS=['simparticles','simfluid','simsmoke'];
 
 // Each entry: role · w (visual weight against the section's budget) · E (energies it suits) · sim (true: also on simulations,
 // 'only': simulations only) · props(r,e,ctx) · drive(r,e,ctx) → [[source,key,low,high,smoothMs]] (sources: see enhance's source()).

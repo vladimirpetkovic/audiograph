@@ -147,10 +147,11 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     await lit(1);
     const pixels=()=>page.evaluate(()=>Array.from(document.getElementById('preview').getContext('2d').getImageData(0,0,960,540).data).filter((_,i)=>i%4!==3));
     const a=await pixels();await page.waitForTimeout(400);assert.ok(difference(a,await pixels())>.05,'Preview animates');
-    assert.equal(await page.locator('.library-node[data-mode]').count(),31,'Every waveform, 3D Object shape and WebGPU simulation is in the library');
+    assert.equal(await page.locator('.library-node[data-mode]').count(),30,'Every current waveform, 3D Object shape and WebGPU simulation is in the library');
     assert.deepEqual(await page.locator('#library .panel-title').allTextContents().then(t=>t.map(x=>x.replace(/\d+$/,'').trim())),['Inputs','Waveforms','Emitters','3D','Forces','Deformers','Color','Post FX','Controls','Audio analysis','Composite','AI'],'Library categories, Inputs first');
     assert.deepEqual(await page.locator('#library .panel').first().locator('.library-node').allTextContents(),['Audio','Image','Video','Camera','Text','Gaussian Splat','Computer','Clock','Mouse & keys','Live data','MIDI'],'Inputs');
-    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','Classic','Organic','Math','Tech','Media','Particles','WebGPU particles','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
+    assert.deepEqual(await page.locator('#library .lib-sub').allTextContents(),['Media','Data','Classic','Organic','Math','Tech','Media','Simple emitters','WebGPU emitters','Objects','Cloner','Effectors','Look','Bend','Symmetry','Noise'],'Input, Waveform, Emitter, 3D and Deformer groups');
+    assert.equal(await page.locator('.library-node[data-type="particles"]').textContent(),'Simple particles');
     assert.ok((await layer0()).edges.some(e=>e.from===ids.audio&&e.out==='audio'&&e.to===ids.emitter&&e.input==='audio'),'Audio node feeds the emitter');
 
     // 2. Emitter inspector exposes the original's own options; a preset chip changes knobs and survives undo/redo.
@@ -831,12 +832,15 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.deepEqual(v9.layers[0].nodes.map(n=>[n.type,n.props.mode,n.props.render]),[['waveform3d','cone','normal'],['waveform3d','model','points'],['waveform3d','dna','waveform'],['palette','toneramp',undefined]],'v9 objects become 3D Objects');
     assert.deepEqual(v9.layers[0].nodes[3].props.stops.map(s=>s.c),['#000000','#ff0000','#00ff00','#0000ff'],'Old palette colours become ramp stops');
     // Any visual feeds WebGPU particles' emit; a 3D Object emits from its live pose.
-    const emitFrom=async tilt=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'cone',render:'normal',tilt}},{id:'e',type:'gpuParticles',x:200,y:0,props:{mode:'simparticles'}}],
+    const emitFrom=async tilt=>{await page.evaluate(p=>pro.importProject(p),L([{id:'o',type:'waveform3d',x:0,y:200,props:{mode:'cone',render:'normal',tilt,stretchY:250}},{id:'e',type:'gpuParticles',x:200,y:0,props:{mode:'simparticles',particleResponse:'motion',opts:{pSpSpeed:0}}}],
       [{from:'a',out:'audio',to:'e',input:'audio'},{from:'o',out:'object',to:'e',input:'emit'},{from:'e',out:'shape',to:'out',input:'image'}]));
-      await page.waitForFunction(()=>pro.emitPoints('e')?.length>1000,null,{timeout:15000});await page.waitForTimeout(1500);const pts=await page.evaluate(()=>pro.emitPoints('e'));
-      let y=0;for(let i=1;i<pts.length;i+=5)y+=pts[i];return y/(pts.length/5);};
+      await page.waitForFunction(tilt=>pro.engine('o')?.w?.simOpt.vPit===tilt&&pro.engine('e')?.w?.__agParticles3d?.gpuSource,tilt,{timeout:15000});
+      await page.evaluate(()=>pro.engine('e').w.agSim.reset());
+      await page.waitForFunction(()=>Object.values(pro.engine('e').w.agSim.stats().layers).some(l=>l.emitted>200));
+      return page.evaluate(async()=>{const pts=await pro.engine('e').w.agSim.particleState();let lo=Infinity,hi=-Infinity;
+        for(let i=0;i<pts.length;i+=16)if(pts[i+8]>0){lo=Math.min(lo,pts[i+1]);hi=Math.max(hi,pts[i+1]);}return hi-lo;});};
     const up=await emitFrom(0),side=await emitFrom(90);
-    assert.ok(Math.abs(up-side)>.02,`A 3D Object wired into emit spawns from its current pose (${up.toFixed(3)} vs ${side.toFixed(3)})`);
+    assert.ok(up>side*1.4,`A 3D Object wired into emit spawns from its current pose (${up.toFixed(3)} vs ${side.toFixed(3)})`);
     // A Palette after particles emitted from a waveform recolours them (the waveform's own colours no longer win).
     {await page.evaluate(p=>pro.importProject(p),L([{id:'w',type:'waveform2d',x:0,y:200,props:{mode:'circle'}},{id:'e',type:'gpuParticles',x:200,y:0,props:{mode:'simparticles'}},{id:'q',type:'palette',x:400,y:0,props:{mode:'solid',solid:'#ff0000'}}],
       [{from:'a',out:'audio',to:'w',input:'audio'},{from:'a',out:'audio',to:'e',input:'audio'},{from:'w',out:'shape',to:'e',input:'emit'},{from:'e',out:'shape',to:'q',input:'shape'},{from:'q',out:'shape',to:'out',input:'image'}]));
@@ -1593,7 +1597,7 @@ def Camera "Camera" {
     // Curator: across many plans every node in the vocabulary gets used, a look never exceeds its section's budget, flashes and glitches
     // only punctuate builds and drops, supporting layers stay light, cuts draw no outlines and nothing shears; live, every layer is curated.
     {const r=await page.evaluate(async()=>{const C=await import('./curator.js');C.resetUsage();const B={calm:2.2,groove:3,build:3.4,drop:4.2},secs=Object.keys(B),bad=[];let punctCalm=0,support=0,lines=0;
-      const modes=['circle','spiral','knot','simparticles','simsmoke','simfluid','simsand','sphere','simcloner'];
+      const modes=['circle','spiral','knot','simparticles','simsmoke','simfluid','sphere','simcloner'];
       for(let i=0;i<1200;i++){const section=secs[i%4],mode=modes[i%modes.length],role=i%5===4?1:0,ps=C.plan({seed:i+1,section,energy:{calm:20,groove:50,build:72,drop:90}[section],mode,role}),w=ps.reduce((a,p)=>a+C.VOCAB[p.type].w,0);
         if(w>B[section]*(role?.35:1)+.06)bad.push(section+':'+w.toFixed(2));if(/calm|groove/.test(section)&&ps.some(p=>p.role==='punct'))punctCalm++;if(role&&ps.length>2)support++;
         for(const p of ps)if(p.type==='cutter'&&p.props.lines>0)lines++;}

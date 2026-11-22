@@ -22,19 +22,22 @@ each with its own opacity and blend mode (up to four).
     (coloured by the picture or the palette), into a Palette's colors, or into any
     image input. Projects from v10 and earlier convert automatically.
 - **WebGPU particles → emit** takes anything visual: a picture, a waveform or
-    emitter shape, or a **3D Object**. Existing 2D simulations sample the object's
-    live render. Set **Simulation: Particles → Space: 3D** for true X/Y/Z particles:
-    the object's **object → emit** wire samples its actual mesh surface, including
+    emitter shape, or a **3D Object**. Particles move in 3D by default. Connecting
+    a flat source, such as a waveform or image, keeps them in 2D. A 3D Object or
+    Cloner wire samples the actual mesh surface, including
     animated poses, and launches along surface normals. **Surface spread** scatters
-    launch directions; **Depth** sets the Z extent of the simulation bounds.
-    Images and waveforms emit from a plane, then particles move freely in 3D.
+    launch directions; **Depth** sets the front-to-back spread of Fountain emission.
     Add a **3D camera** after particles for Rotate, Orbit, Tilt, Zoom and Focal length;
     dragging the preview also orbits the cloud. Gravity, Drag, Swirl, Attract and
-    Turbulence work in 3D. Trails become world-space velocity streaks rather than
-    screen-space accumulation, so turning the camera does not leave ghost images.
+    Turbulence work in 3D. **Floor** is an invisible square that catches falling
+    3D particles. **Size** sets both sides; switch **Enabled** off to let particles
+    fall through. Flat (2D) emitters keep their frame bounds.
+    **Look → Trails** follows the particles' recent path
+    in 3D, so turning the camera does not leave ghost images. Set it to **0%**
+    to draw particles without trails in either 2D or 3D.
     Mesh emission uses the particle palette; image emission can keep picture colours.
-    **Initial speed** defaults to 100% (the previous launch behavior). Set it to
-    **0%**, turn **Motion trails** off, and choose **Release on: Sound**, **Object
+    Set **Emission → Launch speed** to **0%** with a mesh source and choose
+    **Release on: Sound**, **Object
     motion**, or **Sound + object motion** for a clear surface cloud: particles
     spawn even in silence, remain attached, then leave along the surface normal
     or inherit its movement. Samples stay attached to the same face/barycentric
@@ -42,11 +45,14 @@ each with its own opacity and blend mode (up to four).
     instances, including sound/random effectors; Polygons uses the actual
     displaced/shrunk faces. A Camera/Material/Palette **shape → emit** branch keeps
     mesh emission and its camera instead of flattening it into a picture.
-    Turn on **Surface flow** under **Particles → Simulation → Space: 3D** to
-    move particles along the connected surface without launching or drawing trails.
+    Turn on **Emission → Surface flow** to move particles along the connected
+    surface without launching.
     Flow follows animation and does not cross gaps between disconnected faces.
-    Existing projects keep their speed/trails and stay in 2D.
 - **3D Object → Choose model** loads OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF.
+  **3D Object** selects the mesh; **Rendering** changes how it is drawn without
+  moving it. Turn on **Collide** on any 3D Object to bounce free 3D particles off
+  its surface. Multiple colliders can be active at once. Positive **Gravity**
+  pulls down; drag the 3D view to orbit in any direction.
     Polygons of any size are triangulated (concave ones too). USD reads the root layer's
     meshes, xform stacks, UVs, stage units and up axis; flatten files that reference
     others. Still models keep up to 500,000
@@ -187,8 +193,8 @@ each with its own opacity and blend mode (up to four).
   layer; the wheel, a trackpad pinch (Chrome, Edge, Safari) or a two-finger touch pinch zooms, and a double-click resets.
   Classic 3D renders (Waveform, Polygons) zoom natively, so lines stay sharp. It applies to the active layer and is saved with it.
   Nothing rotates by default: Cloner Spin and 3D camera Orbit / Orbit with sound start at 0 (presets set their own).
-- **Emitters** (particles): **Particles** (classic) and **WebGPU
-  particles** (Particles, Fluid, Smoke, Granular sand). WebGPU uses its own
+- **Emitters**: **Simple emitters** includes **Simple particles**;
+  **WebGPU emitters** includes Particles, Fluid and Smoke. WebGPU uses its own
   band envelopes and onset detector. Lower **Bass reaction** or **Audio contrast**
   to calm sustained motion; **Beat burst** controls emphasis on new hits separately.
   Presets and explicit knob settings override the per-simulation defaults.

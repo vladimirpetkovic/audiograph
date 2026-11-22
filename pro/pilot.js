@@ -3,7 +3,7 @@
 // (agAI.toLayer, running inside an engine frame). Studio crossfades the stack; nothing here touches the DOM.
 export const ROLE_OP=[100,70,55];
 export const MIN_GAP=8;
-export const SIMS=['simparticles','simfluid','simsmoke','simsand'];
+export const SIMS=['simparticles','simfluid','simsmoke'];
 export const isSim=n=>SIMS.includes(n);
 // Simulations and the Cloner run on WebGPU (one per stack, so the frame rate holds).
 const gpu=n=>isSim(n)||n==='simcloner';
@@ -102,7 +102,7 @@ export const durFor=(kind,every)=>kind==='drop'?2.5:kind==='build'?clamp(every*.
 // ---------- the description ----------
 // Autopilot doesn't use smoke: smoky words read as fluid.
 const SIM_W=[['simfluid',/\b(fluid|liquid|navier|dye|ink in water|paint swirl|marbl|smoke|smoky|fog|mist|steam|incense|cloud|plume)/],
-  ['simparticles',/\b(particles?|particle field|firework|embers?|sparks?|stardust|confetti|fountain)/],['simsand',/\b(sand|granular|dunes?|hourglass)/],['simcloner',/\b(cubes|blocks|clones?|cloner|voxels?|array of)\b/]];
+  ['simparticles',/\b(particles?|particle field|firework|embers?|sparks?|stardust|confetti|fountain|sand|granular|dunes?|hourglass)/],['simcloner',/\b(cubes|blocks|clones?|cloner|voxels?|array of)\b/]];
 const LAYOUT_NAMES=['spiral','phyllotaxis','concentric','sphere','growth','circle','tetrahedron','dna','scatter','sacred','graph','fractal'];
 const SOLID_W=[['knot',/\b(knot|tangle)/],['torus',/\b(torus|donut|doughnut)/],['cube',/\b(cube|box)/],['ico',/\b(icosphere|gem|crystal)/],['pyramid',/\bpyramid/],['frame',/\b(frame|portal)/],['cone',/\bcone/],['cylinder',/\b(cylinder|column|pillar)/]];
 // The original's reading of a description: tempo, energy, palette, layouts and styles (steers; the music decides when).
@@ -126,7 +126,7 @@ export function readVibe(w,text){
   v.dark=/\b(dark|moody|night|noir|gloom|shadow)/.test(t);
   return v;
 }
-const NAMES={simcloner:'cloner',simparticles:'particles',simfluid:'fluid',simsmoke:'smoke',simsand:'sand',lissajous:'harmonic',inkwater:'ink in water'};
+const NAMES={simcloner:'cloner',simparticles:'particles',simfluid:'fluid',simsmoke:'smoke',lissajous:'harmonic',inkwater:'ink in water'};
 export const nameOf=n=>NAMES[n]||n;
 export function vibeText(v){
   if(!v)return '';const o=[];
@@ -157,7 +157,6 @@ export const SCENES=[
   {id:'mirror',label:'Mirror garden',E:[15,75],base:['phyllotaxis','spiral','sacred'],accent:['circle'],shapes:['tapered','rounded'],harmony:'analogous',fx:{pfxReflect:40,pfxBloom:30,pfxVignette:25}},
   {id:'tide',label:'Tide',E:[0,60],base:['water','sine'],accent:['scatter','phyllotaxis'],shapes:['straight','rounded','dotted'],harmony:'analogous',fx:{pfxBloom:30,pfxVignette:40,pfxBlurRadial:28,pfxFocal:60}},
   {id:'harmono',label:'Harmonograph',E:[20,80],base:['lissajous'],accent:['circle','phyllotaxis'],shapes:['tapered','needles','straight'],harmony:'triad',fx:{pfxBloom:35,pfxTrails:40,pfxVignette:30}},
-  {id:'dunes',label:'Dunes',E:[25,85],sim:true,base:['simsand'],accent:['sine','linear'],shapes:['straight','dotted'],harmony:'analogous',fx:{pfxVignette:35}},
   {id:'skyline',label:'Skyline',E:[50,100],base:['linear','graph'],accent:['scatter','sine'],shapes:['caps','pins','straight'],harmony:'split',fx:{pfxBloom:40,pfxReflect:35,pfxVignette:30}},
   {id:'crystal',label:'Crystal',E:[35,95],base:['ico','pyramid','frame','cone','cylinder'],accent:['circle','concentric','scatter'],shapes:['straight','pins'],harmony:'complement',fx:{pfxBloom:40,pfxEdgeGlow:18,pfxVignette:35}},
   {id:'array',label:'Array',E:[20,95],sim:true,base:['simcloner'],accent:['circle','concentric','phyllotaxis','scatter'],shapes:['straight','dotted'],harmony:'triad',fx:{pfxVignette:30}},

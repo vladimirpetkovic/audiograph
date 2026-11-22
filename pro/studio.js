@@ -5,6 +5,7 @@ import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
 import {MASK_KEYS,setTextMesher,HIDDEN_MODES,FORCE_KNOBS,TYPES,defaults,CATEGORIES,MODES,emitterNames,isEngine,engineSpec,nodeTitle,MEDIA_KIND,mediaKind,objectOf,VERSION,PALETTES,PORT_COLORS,EQ_KEYS,EQ_HZ,LIMITS,LAYER_BLENDS,SOLID_PRESETS,paletteStops,stopAlpha,aiStyled,paletteAuto,MAX_STOPS,inputsOf,portType,OPT_PORT,autoDrift,motionFromLook,GEO_PROPS,STYLE_PROPS,geoMods,geoFromLook,compatible,resolveOut,clone,node,layer,project,validate,order,connect,filterFor,modulate,applyShapeNode,fxSettings} from './graph.js';
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import {sceneOf,setScene,composeScene,occludeScene,pruneScenes} from './scene3d.js';
+import {collisionField} from './colliders.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
@@ -38,6 +39,16 @@ function upstreamSim(g,n){
     const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}
   return null;
 }
+function meshEmitter(g,edge){
+  while(edge&&(edge.out==='shape'||edge.out==='object')){
+    const source=g.nodes.find(n=>n.id===edge.from);
+    if(!source)return false;
+    if(!source.bypass&&(source.type==='waveform3d'||source.type==='cloner'))return true;
+    if(isEngine(source.type))return false;
+    edge=g.edges.find(e=>e.to===source.id&&e.input==='shape');
+  }
+  return false;
+}
 // Cloner: the wired objects become the original cloner's shape list; primitives by name, OBJ / knot as meshes.
 const PRIM_DEFAULT={shape:'sphere',size:60,detail:4,stretchX:100,stretchY:100,stretchZ:100,prim:true};
 const CLONER_KEYS=Object.keys(TYPES.cloner.props).filter(k=>k==='layout'||TYPES.cloner.props[k].group==='Scale'||TYPES.cloner.props[k].key?.startsWith('pG3'));
@@ -47,7 +58,7 @@ function cloneObjects(objs,p,shape){
   if(!objs.length)objs.push(PRIM_DEFAULT);
   const names=[],meshes=[];
   for(const o of objs){if(o.prim&&o.shape!=='knot')names.push(o.shape);else{names.push('mesh'+meshes.length);meshes.push(o.prim?'knot':o.mesh);}}
-  const first=objs.find(o=>o.prim)||PRIM_DEFAULT,mods=shape.mods;
+  const first=(p===SINGLE?objs[0]:objs.find(o=>o.prim))||PRIM_DEFAULT,mods=shape.mods;
   // Cloner Scale multiplies the object's own size and stretch: uniform, then per axis.
   const k=(p.scale??100)/100;
   Object.assign(mods,{pG3Size:first.size*k,pG3Detail:first.detail,pG3ObjX:first.stretchX*(p.scaleX??100)/100,pG3ObjY:first.stretchY*(p.scaleY??100)/100,pG3ObjZ:first.stretchZ*(p.scaleZ??100)/100});
@@ -61,7 +72,7 @@ function simKeys(g,n){
   const t=TYPES[n.type],keys=Object.keys(t.props);
   if(n.type==='gpuParticles'){
     return keys.filter(k=>(!t.props[k].sims||t.props[k].sims.includes(n.props.mode))&&
-      (!k.startsWith('particle')||n.props.space==='3d'));
+      (!k.startsWith('particle')||n.props.mode==='simparticles'));
   }
   if(n.type==='camera3d'&&upstreamSim(g,n)==='simparticles')return keys.filter(k=>k!=='blur');
   if(n.type==='liveData')return keys.filter(k=>k!=='place'||['ocean','weather'].includes(n.props.source));
@@ -79,6 +90,8 @@ const DATA_INPUTS=new Set(['computer','clock','pointer','midi','liveData']),last
 const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new Map(),view={x:20,y:20,zoom:.9},nodeState=new Map(),fxSlots=new Map(),thumbs=new Map();
 const shaderErrors=new Map(),SHADER_NODES=new Set(['melt','tunnel','warpTunnel','shader']);
 let plans=new Map(),frame=0,lastTime=0,elapsed=0,renderErrors=[],nodeErrors=new Set(),statusSource='action',liveBefore=null;
+let collisionMeshes=new Map();
+const collisionCache={};
 const preview=$('preview'),previewCtx=preview.getContext('2d');
 const graph=()=>state.layers.find(g=>g.id===active)||state.layers[0];
 const findNode=id=>{for(const g of state.layers){const n=g.nodes.find(n=>n.id===id);if(n)return n;}};
@@ -127,7 +140,7 @@ function restoreSnapshot(snapshot){tm.playing=false;state=validate(snapshot);pen
 function undo(){if(history.length){future.push(clone(state));restoreSnapshot(history.pop());message('Undone');}}
 function redo(){if(future.length){history.push(clone(state));restoreSnapshot(future.pop());message('Redone');}}
 function importProject(raw,label='Imported project. Reload media files in the Input nodes.'){
-  const clean=validate(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
+  const clean=validate(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;collisionMeshes.clear();commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
 }
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
 const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);if(!o.length)return false;
@@ -799,8 +812,7 @@ setTextMesher((words,font,depth)=>{
   const sc=Math.max(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2])||1,nv=verts.map(v=>[(v[0]-(mn[0]+mx[0])/2)/sc*2,-(v[1]-(mn[1]+mx[1])/2)/sc*2,-(v[2]-(mn[2]+mx[2])/2)/sc*2]);
   const nm=nv.map(()=>[0,0,0]);for(const t of faces){const [a,b,c]=t.map(i=>nv[i]),e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
     const n=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];for(const i of t)for(let k=0;k<3;k++)nm[i][k]+=n[k];}
-  // The renderers are y down: both meshes are turned 180° about x (a rotation, so faces keep facing out); the original flips raw's y itself.
-  const m={raw:{verts:verts.map(v=>[v[0],v[1],-v[2]]),faces,edges,id:'text3d:'+key},norm:{verts:nv,faces,normals:nm.map(v=>{const l=Math.hypot(...v)||1;return v.map(x=>x/l);})}};
+  const m={norm:{verts:nv,faces,edges,normals:nm.map(v=>{const l=Math.hypot(...v)||1;return v.map(x=>x/l);})}};
   if(textMeshes.size>24)textMeshes.delete(textMeshes.keys().next().value);
   textMeshes.set(key,m);return m;
 });
@@ -897,7 +909,7 @@ function previewExtra(g,plan){
   for(let i=0;i<queue.length;i++)for(const e of g.edges)if(e.to===queue[i]&&!have.has(e.from)&&!extra.has(e.from)){extra.add(e.from);queue.push(e.from);}
   return extra;
 }
-function execute(g,time,dt){
+function execute(g,time,dt,collisions,colliderIds,nextColliders){
   layerView.delete(g.id);layerZoom.delete(g.id);layerBlend.delete(g.id);
   // blendOf: a visual source's Compositing blend, carried with its picture to the Merge or layer stack that lays it over others.
   const outputs=new Map(),byInput=new Map(g.edges.map(e=>[e.to+':'+e.input,e])),rendered=new Map(),sourceSnapshots=new Map(),blendOf=new Map();let image=null;
@@ -913,18 +925,24 @@ function execute(g,time,dt){
   const asImage=(v,consumer)=>{
     if(!v||v instanceof HTMLCanvasElement)return v;
     const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+'|'+(v.comp?.o??100)+'|'+!!v.job.sharedScene+'|'+!!v.job.wantSource+'|'+(v.job.surfaceFlowTime!=null);
-    if(rendered.has(key)){v.gpuSurface=sourceSnapshots.get(key);return rendered.get(key);}
-    const e=engineFor(v.emitter.id),job={...v.job,mods:v.mods,hue:v.hue,view:g.view,wantDepth:!!v.job.sceneObject||v.job.mode==='simcloner'&&v.mods?._sceneYaw!=null||v.job.sharedScene},
+    const wantCollision=colliderIds.has(v.emitter.id);
+    if(rendered.has(key)){const poses=sourceSnapshots.get(key);Object.assign(v,poses);if(poses.collider)nextColliders.set(v.emitter.id,poses.collider);return rendered.get(key);}
+    const e=engineFor(v.emitter.id),job={...v.job,mods:v.mods,hue:v.hue,view:g.view,wantCollision,wantDepth:!!v.job.sceneObject||v.job.mode==='simcloner'&&v.mods?._sceneYaw!=null||v.job.sharedScene},
       out=e.draw(job);
     if(e.viewMode)layerView.set(g.id,e.viewMode);
     if(e.viewZoom&&e.viewZoom!==1)layerZoom.set(g.id,e.viewZoom);
     if(!out)return null;
     const sourceApi=e.w.__agScene;
+    v.gpuSurface=null;
     if(sourceApi.sourceValid){
       const c=surface(consumer+':surface').canvas;c.width=sourceApi.source.width;c.height=sourceApi.source.height;
       c.getContext('2d').imageSmoothingEnabled=false;c.getContext('2d').drawImage(sourceApi.source,0,0);
-      v.gpuSurface={image:c,key:v.emitter.id+':'+sourceApi.sourceEpoch,token:sourceApi.sourceSerial,time};sourceSnapshots.set(key,v.gpuSurface);
+      v.gpuSurface={image:c,key:v.emitter.id+':'+sourceApi.sourceEpoch,token:sourceApi.sourceSerial,time};
     }
+    v.meshSurface=job.wantSource?sourceApi.surfaceMesh:null;v.surfaceMapper=job.wantSource?sourceApi.mapper():null;
+    const collider=wantCollision?sourceApi.colliderMesh(job.sceneObject):null;
+    if(collider)nextColliders.set(v.emitter.id,collider);
+    sourceSnapshots.set(key,{gpuSurface:v.gpuSurface,meshSurface:v.meshSurface,surfaceMapper:v.surfaceMapper,collider});
     const {canvas,ctx}=surface(consumer+':r');
     let root=null;
     const capture=out=>{
@@ -971,15 +989,17 @@ function execute(g,time,dt){
       }
       r.shape={emitter:n,comp:{o:p.compOpacity??100,b:p.compBlend??'source-over'},mods:{...geoMods(p),...(p.look?._colorMode||p.look?._toneStops?{}:MEDIA_KIND[n.type]==='image'||MEDIA_KIND[n.type]==='video'?GRAY_MEDIA:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,song:driven?null:sig.song||null,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
-      if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);r.shape.mods.pG3Zoom=55;}}
+      if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);Object.assign(r.shape.mods,{pG3Zoom:55,pG3ScX:0,pG3ScY:0,pG3ScZ:0});}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
-      if(n.type==='gpuParticles'&&byInput.has(n.id+':emit')){
+      const emit=n.type==='gpuParticles'&&byInput.get(n.id+':emit'),mesh=emit&&meshEmitter(g,emit);
+      const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(!emit||mesh);
+      if(emit){
         // 3D particles take mesh geometry; other simulations sample the source's live render.
-        const key={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'}[p.mode],src=byInput.get(n.id+':emit'),v=input(n,'emit'),source=findNode(src.from);
-        let shape=v?.object?v:outputs.get(src.from)?.shape;
+        const key={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'}[p.mode],src=emit,v=input(n,'emit');
+        let shape=src.out==='object'?outputs.get(src.from)?.shape:v;
         const object=src.out==='object'?v:shape?.object;
-        if(p.mode==='simparticles'&&p.space==='3d'&&(object||shape?.job.mode==='simcloner')){
-          if(!v)throw Error('The 3D emitter object is not ready');
+        if(particles3d){
+          if(!v||(!object&&shape?.job?.mode!=='simcloner'))throw Error('The 3D emitter object is not ready');
           if(shape?.emitter){
             const flow=p.particleSurfaceFlow?time:null;
             if(shape.job.wantSource&&(shape.job.surfaceFlowTime!=null)!==(flow!=null))shape={...shape,job:{...shape.job}};
@@ -988,23 +1008,22 @@ function execute(g,time,dt){
           }
           for(const k of ['pG3Yaw','pG3Tilt','pG3Zoom','pG3Focal','pG3Orbit','pG3OrbitSnd','pG3Dof','pG3Focus','_sceneYaw'])if(shape?.mods?.[k]!=null)r.shape.mods[k]=shape.mods[k];
           if(r.shape.mods.pG3Zoom==null)r.shape.mods.pG3Zoom=object?55:100;
-          if(object)r.shape.job.emitObject={object,turn:source?.props.turn||0,tilt:source?.props.tilt||0,spin:source?.props.look?._spin||0};
           r.shape.job.emitSurface=shape?.gpuSurface;
-          const sourceEngine=shape?.emitter&&engines.get(shape.emitter.id),surfaceMesh=sourceEngine?.w?.__agScene.surfaceMesh;
-          if(r.shape.job.emitObject){
-            if(surfaceMesh)r.shape.job.emitObject.object={mesh:surfaceMesh};
-            else r.shape.job.emitObject.mapper=sourceEngine?.w?.__agScene.mapper();
-            r.shape.job.emitObject.turn=shape?.emitter?.props.turn||0;r.shape.job.emitObject.tilt=shape?.emitter?.props.tilt||0;
-          }
+          if(shape?.meshSurface)r.shape.job.emitObject={object:{mesh:shape.meshSurface}};
+          else if(object&&shape?.surfaceMapper&&!shape.gpuSurface)r.shape.job.emitObject={object,mapper:shape.surfaceMapper};
+          if(!r.shape.job.emitSurface&&!r.shape.job.emitObject)r.shape.mods._sim={...r.shape.mods._sim,pEmit:'image'};
         }else{
-          const img=key&&asImage(v&&!v.emitter&&!(v instanceof HTMLCanvasElement)?outputs.get(src.from)?.shape:v,n.id+'e');
+          const img=key&&asImage(src.out==='object'?outputs.get(src.from)?.shape:v,n.id+'e');
           const a=img&&emitterAsset(nstate(n.id+':emit',()=>({name:'Picture'})),img,time);
-          if(a){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a;}
+          if(key){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a;}
         }
       }
-      if(n.type==='gpuParticles'){r.shape.mods._sim={...r.shape.mods._sim,pSpace:p.space||'2d'};r.shape.job.particleDepth=p.particleDepth;r.shape.job.particleSpread=p.particleSpread;r.shape.job.particleTime=time;
-        if(p.mode==='simparticles'&&p.space==='3d'&&state.layers.some(l=>l.visible&&l.nodes.some(n=>n.type==='waveform3d'||n.type==='cloner')))r.shape.job.sharedScene=true;
-        r.shape.job.particleInitialSpeed=p.particleInitialSpeed;r.shape.job.particleTrails=p.particleTrails;r.shape.job.particleResponse=p.particleResponse;r.shape.job.particleSurfaceFlow=p.particleSurfaceFlow;}
+      if(particles3d){r.shape.mods._sim={...r.shape.mods._sim,pSpace:'3d'};r.shape.job.particleDepth=p.particleDepth;r.shape.job.particleSpread=mesh?p.particleSpread:0;r.shape.job.particleTime=time;
+        r.shape.job.particleFloorSize=p.particleFloor?p.particleFloorSize:0;
+        if(state.layers.some(l=>l.visible&&l.nodes.some(n=>n.type==='waveform3d'||n.type==='cloner')))r.shape.job.sharedScene=true;
+        r.shape.job.collisions=collisions;
+        r.shape.job.particleResponse=mesh?p.particleResponse:'sound';r.shape.job.particleSurfaceFlow=!!mesh&&p.particleSurfaceFlow;}
+      else if(n.type==='gpuParticles'&&p.mode==='simparticles')r.shape.mods._sim={...r.shape.mods._sim,pSpace:'2d'};
     }else switch(n.type){
       case 'image':case 'video':case 'camera':{
         const m=mediaOf(n),{canvas,ctx}=surface(n.id);
@@ -1362,13 +1381,19 @@ function draw(time,dt=1/30){
   const mapped=mapActive(),out=mapped?programCtx:previewCtx;previewImg=null;
   const previewLayer=previewId?state.layers.find(g=>g.nodes.some(n=>n.id===previewId)):null;if(previewId&&!previewLayer)setPreview(null);
   out.globalAlpha=1;out.filter='none';out.globalCompositeOperation='source-over';out.fillStyle='#000';out.fillRect(0,0,WIDTH,HEIGHT);
-  const pictures=[];
+  const pictures=[],nextColliders=new Map();
+  const colliderIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0)
+    .flatMap(g=>g.nodes.filter(n=>n.type==='waveform3d'&&!n.bypass&&n.props.collide).map(n=>n.id)));
+  let collisions;
+  try{if(colliderIds.size||collisionCache.field?.end)collisions=collisionField([...colliderIds].map(id=>collisionMeshes.get(id)).filter(Boolean),collisionCache);}
+  catch(error){renderErrors.push(error.message);}
   for(const g of state.layers){
     // A hidden layer still renders when a mapping surface shows it on its own.
     const shown=g.visible&&g.opacity>0,forMap=mapped&&mapLayers.has(g.id);if(!shown&&!forMap&&previewLayer!==g)continue;
-    try{const image=execute(g,time,dt);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);pictures.push({g,image,shown,forMap});}}
+    try{const image=execute(g,time,dt,collisions,colliderIds,nextColliders);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);pictures.push({g,image,shown,forMap});}}
     catch(error){renderErrors.push(error.message);}
   }
+  collisionMeshes=nextColliders;
   try{
     const shown=pictures.filter(p=>p.shown),excluded=new Set(shown.filter(({g})=>g.opacity<1).flatMap(({image})=>sceneOf(image)?.roots.filter(r=>r.kind==='geometry')||[]));
     occludeScene(shown.map(p=>p.image),excluded);
@@ -1510,7 +1535,7 @@ function renderLibrary(){
 }
 const CUSTOM_COLOR='#e5e7eb';
 // Waveforms and Emitters are listed per mode: each waveform / simulation is its own library entry.
-const GROUPS={inputs:['Media','Data'],waveforms:['Classic','Organic','Math','Tech','Media'],emitters:['Particles','WebGPU particles'],'3d':['Objects','Cloner','Effectors','Look'],deformers:['Bend','Symmetry','Noise']};
+const GROUPS={inputs:['Media','Data'],waveforms:['Classic','Organic','Math','Tech','Media'],emitters:['Simple emitters','WebGPU emitters'],'3d':['Objects','Cloner','Effectors','Look'],deformers:['Bend','Symmetry','Noise']};
 function groupedItems(cat){
   const items=[];
   for(const t of Object.keys(TYPES).filter(t=>TYPES[t].category===cat&&!TYPES[t].retired)){
@@ -1565,7 +1590,7 @@ function visiblePorts(g,n){
   if(isEngine(n.type))for(const e of g.edges)if(e.to===n.id&&OPT_PORT.test(e.input))ins.push([e.input,'number']);
   return {ins,outs:Object.entries(t.outputs)};
 }
-const jobOf=n=>({...engineSpec(n),chips:n.props.chips,look:n.props.look});
+const jobOf=n=>({...engineSpec(n),chips:n.props.chips,look:n.props.look,wiredEmit:n.type==='gpuParticles'&&state.layers.some(g=>g.edges.some(e=>e.to===n.id&&e.input==='emit'))});
 // Engine knob labels that don't fit under a knob.
 const OPT_SHORT={'Pressure iterations':'Pressure','Emitter spin':'Spin','Temperature':'Temp.'};
 function optLabel(n,key){const r=engines.get(n.id)?.optRange(jobOf(n),key.slice(4));return r?.label||key.slice(4);}
@@ -2196,27 +2221,22 @@ function renderMediaPicker(root,n){
   box.append(f);
 }
 function renderEmitter(root,n){
-  const T=TYPES[n.type],s=section(root,MODES[n.type]?T.label:'Source');
+  const T=TYPES[n.type],s=section(root,n.type==='waveform3d'?null:MODES[n.type]?T.label:'Source');
   if(MODES[n.type]){
     const sel=el('select');sel.dataset.property='mode';sel.setAttribute('aria-label',T.props.mode.label);
     for(const [id,label] of MODES[n.type]){if(HIDDEN_MODES.has(id)&&id!==n.props.mode)continue;const o=el('option','',label);o.value=id;sel.append(o);}
     sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);setMode(g,x,sel.value);},`${T.label}: ${emitterNames[sel.value]}`);
     s.append(ui.field(T.props.mode.label,sel));
   }
-  if(T.props.render)s.append(ui.chips({options:T.props.render.labels.filter(l=>!(n.type==='waveform3d'&&l[0]==='points'&&n.props.mode!=='model')),value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)}));
+  if(T.props.render)s.append(ui.field(T.props.render.label,ui.chips({options:T.props.render.labels.filter(l=>!(n.type==='waveform3d'&&l[0]==='points'&&n.props.mode!=='model')),value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)})));
+  if(n.type==='waveform3d')s.append(propControl(n,'collide',T.props.collide));
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k)));
-  if(n.type==='gpuParticles'&&n.props.mode==='simparticles'){
-    const hasFlow=n.props.space==='3d'&&n.props.particleSurfaceFlow;
-    const keys=simKeys(graph(),n).filter(k=>(k==='space'||k.startsWith('particle'))&&
-      (!hasFlow||!['particleInitialSpeed','particleSpread','particleTrails','particleResponse'].includes(k)));
-    renderProps(s,n,keys);
-    if(hasFlow)s.append(el('p','insp-note','Wire a 3D Object or Cloner into emit. Particles stay on the mesh instead of launching or leaving trails.'));
-  }
-  if(n.type==='gpuParticles'&&graph().edges.some(e=>e.to===n.id&&e.input==='emit'))renderProps(root,n,['emitColors']);
+  const emissionWire=n.type==='gpuParticles'&&graph().edges.find(e=>e.to===n.id&&e.input==='emit');
+  const particleMode=n.type==='gpuParticles'&&n.props.mode==='simparticles',mesh=emissionWire&&meshEmitter(graph(),emissionWire),hasFlow=particleMode&&mesh&&n.props.particleSurfaceFlow;
   if(n.type==='waveform3d'&&n.props.mode==='text3d')renderProps(root,n,['words','font3d','depth']);
-  if(n.type==='waveform3d'&&n.props.render==='normal'&&n.props.mode!=='model')renderProps(root,n,Object.keys(PRIM_DEFAULT).filter(k=>k!=='shape'&&k!=='prim'));
+  if(n.type==='waveform3d')renderProps(root,n,['size',...(objectOf(n.props).prim&&n.props.mode!=='knot'?['detail']:[]),'stretchX','stretchY','stretchZ']);
   if(n.type==='waveform3d'&&n.props.mode==='model'&&n.props.render==='normal')renderProps(root,n,['modelMaterials']);
   const kind=mediaKind(n);
   if(kind){
@@ -2282,16 +2302,25 @@ function renderEmitter(root,n){
     const clonerLike=n.type==='cloner'||n.type==='waveform3d'&&n.props.render==='normal';
     const moved=n.type==='gpuParticles'&&FORCE_KNOBS[n.props.mode]||clonerLike&&FORCE_KNOBS.simcloner||{};
     controls=controls.filter(c=>c.type!=='range'||!moved[c.id]);
+    if(particleMode&&(!emissionWire||mesh))controls=controls.filter(c=>c.type!=='chips'||!/setSimOpt\('pBounds'/.test(c.onclick));
+    if(hasFlow)controls=controls.filter(c=>!['pSpSpeed','pEmitScale'].includes(c.id));
     if(camModel)controls=controls.filter(c=>c.type!=='range'||!CAM_VIEW_KNOBS.has(c.id));
     // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
     if(clonerLike)controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3')&&(optGroup(c.label)!=='Look'||n.props.opts?.[c.id]!==undefined&&n.props.opts[c.id]!==c.def):!/\('g3|simApplyPreset/.test(c.onclick));
     // Leftover knobs share one "Form" section; sound, look and quality always keep their own.
     const ranges=controls.filter(c=>c.type==='range'),few=ranges.length<=9,main='Form',KEEP=['Sound','Look','Quality'];
     const lineChip=c=>/line|stroke|style/i.test(c.label),first=controls.find(c=>c.type!=='range'&&!c.action&&!lineChip(c));
-    const groupOf=c=>{const g=optGroup(c.label);if(c.type!=='range')return c===first||g==='Setup'?null:lineChip(c)||/blend/i.test(c.label)?'Look':['Quality','Camera','Look'].includes(g)?g:main;return few?(KEEP.includes(g)?g:main):g;};
+    const groupOf=c=>{
+      const g=optGroup(c.label);
+      if(c.id==='pEmitScale')return 'Emission';
+      if(n.type==='gpuParticles'&&(g==='Quality'||c.id==='pSpTrail'))return 'Look';
+      if(particleMode&&(g==='Emission'||c.type==='chips'&&/setSimOpt\('pEmit'/.test(c.onclick)))return 'Emission';
+      if(c.type!=='range')return c===first||g==='Setup'?null:lineChip(c)||/blend/i.test(c.label)?'Look':['Quality','Camera','Look'].includes(g)?g:main;
+      return few?(KEEP.includes(g)?g:main):g;
+    };
     const order=[...new Set([main,...OPT_GROUPS.map(([g])=>g)])],bins=new Map(order.map(g=>[g,[]]));
     for(const c of controls){const gr=groupOf(c);if(gr)bins.get(gr).push(c);}
-    for(const [gr,list] of bins)if(gr!==main&&gr!=='Sound'&&list.length&&list.length<(KEEP.includes(gr)?2:3)){bins.get(main).push(...list);list.length=0;}
+    for(const [gr,list] of bins)if(gr!==main&&gr!=='Sound'&&!(n.type==='gpuParticles'&&gr==='Look'||particleMode&&gr==='Emission')&&!list.some(c=>c.id==='pEmitScale')&&list.length&&list.length<(KEEP.includes(gr)?2:3)){bins.get(main).push(...list);list.length=0;}
     const chip=c=>{
       const wrap=el('div','opt-chips');if(c.label)wrap.append(el('div','insp-sublabel',c.label));
       const current=c.options.find(o=>o.on)?.label;
@@ -2307,7 +2336,7 @@ function renderEmitter(root,n){
     for(const c of controls)if(!groupOf(c))top.append(chip(c));
     const boxes=new Map();
     for(const [gr,list] of bins){
-      if(!list.length)continue;
+      if(!list.length&&!(gr==='Emission'&&(particleMode||emissionWire)))continue;
       // The node's Sound section (with its note) moves into place and takes the simulation's sound knobs.
       const box=gr==='Sound'?(opts.append(d.parentElement),d):fold(opts,gr);boxes.set(gr,box);let grid=null;
       for(const c of [...list.filter(c=>c.type!=='range'),...list.filter(c=>c.type==='range')]){
@@ -2316,6 +2345,11 @@ function renderEmitter(root,n){
         const cur=n.props.opts[c.id]??c.value;
         grid.append(ui.knob({label:OPT_SHORT[c.label]||c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),...autoOpts(n,'opt:'+c.id),
           onInput:v=>live(()=>{const x=findNode(n.id);if(x)x.props.opts={...x.props.opts,[c.id]:v};}),onChange:()=>liveCommit('Emitter: '+c.label)}));
+      }
+      if(gr==='Emission'){
+        if(particleMode&&(!emissionWire||mesh))renderProps(box,n,['particleDepth',...(mesh?[...(!hasFlow?['particleSpread','particleResponse']:[]),'particleSurfaceFlow']:[])],true);
+        if(emissionWire&&!(particleMode&&mesh))renderProps(box,n,['emitColors'],true);
+        if(particleMode&&(!emissionWire||mesh))renderProps(fold(opts,'Floor'),n,['particleFloor',...(n.props.particleFloor?['particleFloorSize']:[])],true);
       }
     }
     if(!controls.length)opts.append(el('p','insp-note','This renderer has no extra options. Add Deformer or Color nodes after it.'));
@@ -2785,6 +2819,7 @@ const endPin=()=>{if(pinDrag){pinDrag=null;liveCommit('Moved corner');}};
 preview.addEventListener('pointerup',endPin);preview.addEventListener('pointercancel',endPin);
 // Viewport camera for the active layer. 3D: drag orbits, right / Shift-drag pans. 2D: drag pans. Wheel zooms, double-click resets.
 const VIEW0={yaw:0,pit:0,px:0,py:0,zm:1};
+const wrapAngle=degrees=>((degrees%360)+540)%360-180;
 const viewOff=()=>!!pinNode()||!!pinDrag||mapActive();
 let viewDrag=null,wheelTimer=0;
 // The layer's 3D camera (the selected one first): with one, the viewport drives its Rotate, Tilt and Zoom.
@@ -2800,8 +2835,8 @@ preview.addEventListener('pointerdown',ev=>{
 preview.addEventListener('pointermove',ev=>{
   const d=viewDrag;if(!d)return;const r=preview.getBoundingClientRect(),dx=ev.clientX-d.x,dy=ev.clientY-d.y;
   if(!d.moved&&Math.hypot(dx,dy)<2)return;d.moved=true;
-  if(d.cam&&!d.pan){setCam(d.cam.id,c=>{c.turn=Math.round(((d.cam.turn-dx*.4)%360+540)%360-180);c.tilt=Math.round(Math.max(-80,Math.min(80,d.cam.tilt+dy*.4)));});return;}
-  setView(v=>{if(d.pan){v.px=d.v.px+dx/r.width*2;v.py=d.v.py-dy/r.height*2;}else{v.yaw=d.v.yaw-dx*.4;v.pit=Math.max(-85,Math.min(85,d.v.pit+dy*.4));}});
+  if(d.cam&&!d.pan){setCam(d.cam.id,c=>{c.turn=Math.round(wrapAngle(d.cam.turn-dx*.4));c.tilt=Math.round(wrapAngle(d.cam.tilt+dy*.4));});return;}
+  setView(v=>{if(d.pan){v.px=d.v.px+dx/r.width*2;v.py=d.v.py-dy/r.height*2;}else{v.yaw=wrapAngle(d.v.yaw-dx*.4);v.pit=wrapAngle(d.v.pit+dy*.4);}});
 });
 const endView=()=>{const d=viewDrag;if(!d)return;viewDrag=null;$('previewWrap').classList.remove('view-pan','view-orbit');if(d.moved)liveCommit(d.pan?'Moved view':d.cam?'3D camera: rotate / tilt':'Orbited view');};
 preview.addEventListener('pointerup',endView);preview.addEventListener('pointercancel',endView);
@@ -2981,7 +3016,7 @@ $('helpBody').innerHTML=`
 <li><b>Strange Attractor</b> flows thousands of glowing points through a chaotic system (Lorenz, Aizawa, Thomas, Halvorsen, Dadras, Rössler); a band morphs the equations, loudness speeds the flow and spin, beats kick the points out and <b>Vibrate</b> shakes them off their route. <b>Resolution</b> smooths the trails.</li>
 <li><b>Fourier Epicycles</b> (spinning circles tracing a shape or the spectrum), <b>Polar Plot</b> (roses, superformula, butterfly…), <b>Cellular Automaton</b> (Life, Brian's Brain, HighLife, 1D rules), <b>Oscilloscope</b> (XY, Time, Lissajous) and <b>Radar Sweep</b> (spectrum returns and contacts) all react to the sound and print live numbers.</li>
 <li>These draw in greys, so a <b>Palette</b> after them spreads its whole ramp. <b>Line style</b> makes their lines Solid, Dashed, Long dash, Dotted or Dash-dot; <b>Cell shape</b> draws cells as squares, dots, rings or crosses.</li></ul></li>
-<li><b>Emitters</b>: classic Particles and native WebGPU simulations (Particles, Fluid, Smoke, Granular sand).</li>
+<li><b>Emitters</b>: Simple particles and WebGPU emitters (Particles, Fluid, Smoke).</li>
 <li><b>Compositing</b>: the last section of every waveform and emitter sets its <b>Opacity</b> and <b>Blend</b> mode (Screen, Add, Multiply, Difference…) against the layers below, even through a Palette.</li>
 <li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, USD, GLB or glTF), drawn <b>Normal</b> (solid), as a <b>Waveform</b> (lines) or as <b>Polygons</b> (filled faces that light up and move with the sound); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
@@ -3003,10 +3038,10 @@ $('helpBody').innerHTML=`
 <ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (audio-reactive lines), Polygons (faces that flash and push out with their band; Gap separates them, Edges outlines them) or Point cloud (3D model). A <b>3D model</b> comes with a <b>3D camera</b> after it that holds the view (Rotate, Orbit, Tilt, Zoom, Focal length): drag the preview to rotate and tilt it, scroll to zoom, double-click to reset. Colours come from the layer's <b>Palette</b>: loud lines and faces take the top of the ramp (Sound › Sensitivity / Contrast set how much); a Point cloud picks Look › Colour (Palette · sound) and Sound glow.</li>
 <li><b>3D model</b> loads <b>OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers; USD must be flattened, since referenced files are not loaded). Polygons of any size are triangulated. Still models keep up to 500,000 triangles in 3D Object (Normal and Point cloud render them on the GPU; Waveform and Polygons simplify to Max faces) and 1,000,000 in Mapping; animated models are thinned to 40,000 faces, since they are re-posed every frame. Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. If imported materials are unreadable or unsupported (for example, specular/glossiness), the mesh still loads with <b>Palette</b> shading. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
-<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound pushes clones with the music, Field, Random, Links draws lines between them) and <b>Look</b> nodes (Material, Light, 3D camera with lens Focal length, 14 mm wide to 200 mm telephoto, and Depth of field) after it.</li>
-<li>A 3D Object or Cloner can also feed an emitter's <b>emit</b> input. Set <b>WebGPU particles → Simulation: Particles → Space: 3D</b> to emit from its actual mesh surface, including animated models. Turn on <b>Surface flow</b> to move over the mesh without lifting off or leaving trails. With flow off, <b>Depth</b> sets the simulation's Z extent and <b>Surface spread</b> scatters launch directions away from the surface normal. Add a <b>3D camera</b> after the particles to rotate, orbit, tilt, zoom and change focal length. Existing 2D particles, fluid, smoke and sand sample the object's rendered picture instead.</li></ul>
+<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound pushes clones with the music, Field, Random, Links draws lines between them) and <b>Look</b> nodes (Material, Light, 3D camera with lens Focal length, 14 mm wide to 200 mm telephoto, and Depth of field) after it. Turn on <b>Collide</b> on a 3D Object to bounce free 3D particles off its surface.</li>
+<li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Floor</b> catches falling 3D particles on an invisible square; adjust <b>Size</b> or switch it off. Set <b>Look → Trails</b> to 0 to draw particles without trails. Add a <b>3D camera</b> to orbit the cloud.</li></ul>
 <h3 id="h-sims">Simulations</h3>
-<p>The WebGPU emitters (Particles, Fluid, Smoke, Granular sand) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
+<p>WebGPU emitters (Particles, Fluid, Smoke) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
 <h3 id="h-fx">Post FX</h3>
 <ul><li><b>Bloom</b> glow, <b>Blur</b> (directional, radial, focal), <b>Lens</b> (chromatic aberration, vignette, grain, scanlines), <b>Kaleido</b>, <b>Trails</b> (echoes with zoom feedback).</li>
 <li><b>Motion blur</b> smears movement: <b>Shutter</b> averages the last frames, <b>Smear</b> leaves a fading tail behind a sharp picture, <b>Directional</b>, <b>Zoom</b> and <b>Spin</b> streak it. The sound can lengthen the blur.</li>

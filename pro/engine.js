@@ -22,25 +22,36 @@ function patch3dLighting(patch){
   // Focal length (full-frame mm; 28 mm = the original 0.8 rad view). The distance follows so the array stays framed:
   // short lenses exaggerate depth, long ones flatten it. Classic 3D modes scale their Perspective by the same ratio.
   patch("['pG3Zoom','Zoom',30,300,100,5,'%','100% frames the whole array.'],","['pG3Zoom','Zoom',30,300,100,5,'%','100% frames the whole array.'],['pG3Focal','Focal length',10,200,28,1,'mm','Lens: short is wide with strong perspective, long is telephoto and flat. The array stays framed.'],");
+  patch("['pG3Tilt','Camera tilt',-80,80,", "['pG3Tilt','Camera tilt',-180,180,");
   patch("var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=0.8,","var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=2*Math.atan(Math.tan(0.4)*28/Math.max(8,K('pG3Focal',28))),");
   for(const id of ['pTerrainPersp','pSpherePersp','pObjPersp','pDnaPersp'])patch(`var persp=+document.getElementById('${id}').value||`,`var persp=(window.__agFocal||1)*(+document.getElementById('${id}').value)||(window.__agFocal||1)*`);
   patch("var persp=+document.getElementById(prefix+'Persp').value||","var persp=(window.__agFocal||1)*(+document.getElementById(prefix+'Persp').value)||(window.__agFocal||1)*");
   patch("persp=g('pTerrainPersp',200),","persp=g('pTerrainPersp',200)*(window.__agFocal||1),");
   // A 3D camera wired after a 3D Model frames it like a lens: the camera's Rotate / Orbit / Tilt / Zoom / Focal length replace the
   // object's own Perspective, Tilt and Rotate, and the model keeps the same size at any resolution and in every render.
-  patch("var rotAngle=_objSpinRot*_rotMul+dragRotY;","var rotAngle=window.__agCam?dragRotY-window.__agCam.yaw:_objSpinRot*_rotMul+dragRotY;if(window.__agCam){var _k=window.__agCam,_P=0.5*Math.min(W,H)*_k.f/Math.tan(0.4);persp=_P;baseR=_P*_k.scale;maxBump=baseR*0.15*elevScale*p.height;tiltRad=-_k.tilt-2*dragRotX;}else if(window.__agVZ){persp*=window.__agVZ;baseR*=window.__agVZ;maxBump*=window.__agVZ;}");
-  patch("var d=tz+persp+baseR;if(d<persp*.55)d=persp*.55;","var d=window.__agCam?window.__agCam.distance*persp-tz:tz+persp+baseR;if(d<persp*.02)d=persp*.02;");
+  patch("var rotAngle=_objSpinRot*_rotMul+dragRotY;","var rotAngle=window.__agCam?dragRotY-window.__agCam.yaw:_objSpinRot*_rotMul+dragRotY;if(window.__agCam){var _k=window.__agCam,_P=0.5*H*_k.f/Math.tan(0.4);persp=_P;baseR=_P*_k.scale;maxBump=baseR*0.15*elevScale*p.height;tiltRad=-_k.tilt-2*dragRotX;}else if(window.__agVZ){persp*=window.__agVZ;baseR*=window.__agVZ;maxBump*=window.__agVZ;}");
+  const objProjection="var d=tz+persp+baseR;if(d<persp*.55)d=persp*.55;\n    var sx=centerX+rx*persp/d;\n    var sy=centerY+ty*persp/d;\n    if(_d3any)";
+  patch(objProjection,objProjection.replace("var d=tz+persp+baseR;if(d<persp*.55)d=persp*.55;",
+    "var d=window.__agCam?Math.max(persp*.02,window.__agCam.distance*persp-tz):Math.max(persp*.55,tz+persp+baseR);"));
   patch("var d=tz+o.persp+o.baseR;if(d<o.persp*.55)d=o.persp*.55;","var d=window.__agCam?window.__agCam.distance*o.persp-tz:tz+o.persp+o.baseR;if(d<o.persp*.02)d=o.persp*.02;");
+  patch("    projected[vi]={sx:sx,sy:sy,h:Math.max(0,h/Math.max(1,maxBump))", "    if(window.__agCam){sx+=window.__agCam.panX*W*.5*window.__agCam.distance*persp/d;sy-=window.__agCam.panY*H*.5*window.__agCam.distance*persp/d;}\n    projected[vi]={sx:sx,sy:sy,h:Math.max(0,h/Math.max(1,maxBump))");
+  patch("var sx=o.cx+rx*o.persp/d,sy=o.cy+ty*o.persp/d;","var sx=o.cx+rx*o.persp/d,sy=o.cy+ty*o.persp/d;if(window.__agCam){sx+=window.__agCam.panX*W*.5*window.__agCam.distance*o.persp/d;sy-=window.__agCam.panY*H*.5*window.__agCam.distance*o.persp/d;}");
+  patch("var c=cam(v),d=Math.max(10,c[2]+o.persp+dOff),sx=o.cx+c[0]*o.persp/d,sy=o.cy+c[1]*o.persp/d;", "var c=cam(v),k=window.__agCam,d=Math.max(o.persp*.02,k?k.distance*o.persp-c[2]:c[2]+o.persp+dOff),sx=o.cx+c[0]*o.persp/d,sy=o.cy+c[1]*o.persp/d;if(k){sx+=k.panX*W*.5*k.distance*o.persp/d;sy-=k.panY*H*.5*k.distance*o.persp/d;}");
   patch("faces.sort(function(x,y){return y.depth-x.depth});","faces.sort(function(x,y){return window.__agCam?x.depth-y.depth:y.depth-x.depth});");
   patch("var dist=bnd/Math.sin(half)/Math.max(0.3,K('pG3Zoom',100)/100)*0.92/(simOpt.vZm||1);","var dist=window.__agSceneCam?window.__agSceneCam.distance/(simOpt.vZm||1):bnd/Math.sin(half)/Math.max(0.3,K('pG3Zoom',100)/100)*0.92/(simOpt.vZm||1);");
   patch("yaw=st.g3yaw+(simOpt.vYaw||0)*dg,","yaw=(window.__agSceneCam?0:st.g3yaw)+(simOpt.vYaw||0)*dg,");
   patch("yaw=st.spyaw+(simOpt.vYaw||0)*dg,","yaw=(window.__agSceneCam?0:st.spyaw)+(simOpt.vYaw||0)*dg,");
+  patch("Math.max(-1.5,Math.min(1.5,K('pG3Tilt',18)*dg+(simOpt.vPit||0)*dg))","(K('pG3Tilt',18)+(simOpt.vPit||0))*dg");
+  patch("Math.max(-1.5,Math.min(1.5,K('pGsTilt',12)*dg+(simOpt.vPit||0)*dg))","(window.__agSceneCam?.tilt??K('pGsTilt',12)*dg)+(simOpt.vPit||0)*dg");
+  patch("xA=nrm3([zA[2],0,-zA[0]])","xA=[Math.cos(yaw),0,-Math.sin(yaw)]");
+  patch("var xA=nrm([zA[2],0,-zA[0]])","var xA=walk?nrm([zA[2],0,-zA[0]]):[Math.cos(yaw),0,-Math.sin(yaw)]");
   patch("dist+(K('pG3Focus',50)-50)/50*bnd","dist+(K('pG3Focus',50)-50)/50*(window.__agSceneCam?2:bnd)");
-  patch("var p=sample(r(),r(),r()).pos,o=i*8,x=p[0],y=-p[1],z=p[2];","var p=sample(r(),r(),r()).pos,o=i*8,_s=window.__agSceneCam?window.__agSceneCam.scale:1,x=p[0]*_s,y=-p[1]*_s,z=p[2]*_s;");
+  patch("var p=sample(r(),r(),r()).pos,o=i*8,x=p[0],y=-p[1],z=p[2];","var p=sample(r(),r(),r()).pos,o=i*8,_s=window.__agSceneCam?.scale||1,_a=window.__agSceneCam?.stretch||[1,1,1],x=p[0]*_s*_a[0],y=-p[1]*_s*_a[1],z=p[2]*_s*_a[2];");
   // Point clouds take the same lens; a model turned into points is framed like the model drawn as lines or polygons.
   patch("asp=st.ow/st.oh,fovY=0.8,half=","asp=st.ow/st.oh,fovY=2*Math.atan(Math.tan(0.4)/(window.__agFov||1)),half=");
   patch("var bnd=1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom'","var bnd=window.__agSplBnd||1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom'");
   patch("var bnd=window.__agSplBnd||1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom',100)/100)*0.92/(simOpt.vZm||1),","var bnd=window.__agSplBnd||1.6,dist=window.__agSceneCam?window.__agSceneCam.distance/(simOpt.vZm||1):bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom',100)/100)*0.92/(simOpt.vZm||1),");
+  patch("U.set(g3Mul(pr,view),0);\n    var set=", "U.set(g3Mul(pr,view),0);\n    window.__agScene.projectedMesh(U,dist);\n    var set=");
   patch('set(48,m00,m01,m02,0);set(52,m10,m11,m12,0);',
     "set(48,m00,m01,m02,window.__agSplDof||0);set(52,m10,m11,m12,dist+(K('pG3Focus',50)-50)/50*2);");
   patch("set(60,14/Math.max(0.3,spd),spd,K('pGsSzSnd',60)/100,0);",
@@ -141,7 +152,9 @@ async function engineSource() {
     html=html.replace(/@import\s+url\((['"]?)[^'")]*\1\)\s*;?/g,'');
     // Cloner: shapes "mesh0".."mesh2" are the 3D objects wired into the Cloner node (an OBJ or the knot).
     const patch=(from,to)=>{if(!html.includes(from))throw Error('Audiograph engine patch target missing');html=html.replace(from,to);};
+    patch("['pSpSpeed','Launch speed',10,200,10,5,", "['pSpSpeed','Launch speed',0,400,10,1,");
     patch("(+document.getElementById('pObjNoise').value||50)/100","+document.getElementById('pObjNoise').value/100");
+    patch("(+document.getElementById('pObjElev').value||60)/100","+document.getElementById('pObjElev').value/100");
     patch("if(shape==='sphere'){","if(/^mesh\\d$/.test(shape)){var om=(window.__agG3Meshes||[])[+shape[4]];if(om&&om.verts){var ov=om.verts,on=om.normals;for(var fi=0;fi<om.faces.length&&fi<500000;fi++){pbrMaterial=om.materials&&om.materials[om.faceMaterials&&om.faceMaterials[fi]];poly(om.faces[fi].map(function(ix){var authored=pbrMaterial&&om.pbrNormals,q=authored?authored[ix]:on[ix],sg=pbrMaterial&&!authored?-1:1,uv=om.uvs,uv1=om.uvs1,vc=om.vertexColors;return V([ov[ix][0]*.7,-ov[ix][1]*.7,ov[ix][2]*.7],q&&[q[0]*sg,-q[1]*sg,q[2]*sg],[uv&&Number.isFinite(uv[ix*2])?uv[ix*2]:0,uv&&Number.isFinite(uv[ix*2+1])?uv[ix*2+1]:0,uv1&&Number.isFinite(uv1[ix*2])?uv1[ix*2]:0,uv1&&Number.isFinite(uv1[ix*2+1])?uv1[ix*2+1]:0],vc&&[vc[ix*4],vc[ix*4+1],vc[ix*4+2],vc[ix*4+3]])}))}}}else if(shape==='sphere'){");
     // Animated models: a new pose keeps the faces, so the wireframe edges are reused and only the positions change.
     patch("var c=_objWireCache;if(c&&c.model===model&&c.maxFaces===maxFaces)return c.wire;","var c=_objWireCache;if(c&&c.model===model&&c.maxFaces===maxFaces)return c.wire;if(c&&c.model.faces===model.faces&&c.maxFaces===maxFaces&&model.faces.length<=maxFaces){c.model=model;c.wire={verts:model.verts,normals:model.normals,edges:c.wire.edges};return c.wire;}");
@@ -158,7 +171,7 @@ async function engineSource() {
     patch("var o:VO;o.uv=vec2f(0.0);o.col=vec3f(0.0);o.pos=vec4f(2.0,2.0,0.0,1.0);","var o:VO;o.uv=vec2f(0.0);o.col=vec3f(0.0);o.seg=0.0;o.pos=vec4f(2.0,2.0,0.0,1.0);");
     patch("let cl=vec2f(p.pos.x/u.asp,-p.pos.y)+corner*szp*2.0/vec2f(u.ow,u.oh);",
       "var cl=vec2f(p.pos.x/u.asp,-p.pos.y)+corner*szp*2.0/vec2f(u.ow,u.oh);var uvv=cr;var dim=1.0;"+
-      "if(u.x12<0.5){let dpx=vec2f(p.vel.x/u.asp,-p.vel.y)*u.dt*0.5*vec2f(u.ow,u.oh);let dl=length(dpx);let L=min(dl,szp*28.0);"+
+      "if(u.x12<0.0){let dpx=vec2f(p.vel.x/u.asp,-p.vel.y)*u.dt*(-0.5*u.x12)*vec2f(u.ow,u.oh);let dl=length(dpx);let L=min(dl,szp*28.0);"+
       "if(L>szp*0.3){let dir=dpx/max(dl,1e-5);let nrm=vec2f(-dir.y,dir.x);let sg=L/szp;let along=mix(-sg-1.0,1.0,(cr.x+1.0)*0.5);"+
       "cl=vec2f(p.pos.x/u.asp,-p.pos.y)+(dir*along+nrm*cr.y)*szp*2.0/vec2f(u.ow,u.oh);uvv=vec2f(along,cr.y);o.seg=sg;dim=1.0/(1.0+0.12*sg);}}");
     patch("o.pos=vec4f(cl,0.0,1.0);o.uv=cr;o.col=c*u.pglow","o.pos=vec4f(cl,0.0,1.0);o.uv=uvv;o.col=dim*c*u.pglow");
@@ -170,6 +183,10 @@ async function engineSource() {
     patchParticles3d(patch);
     patchPbr(patch);
     patchScene(patch);
+    patch("var _model=_objActiveModel();","window.__agScene.beforePaint(ctx,W,H);var _model=window.__agScene.stretchModel(_objActiveModel());");
+    patch("var edges=_wire.edges.slice();","window.__agScene.classicSurface(ctx,projected,_model,_wire,persp);var edges=_wire.edges.slice();");
+    patch("var PV=V.map(proj);","var PV=V.map(proj);if(o.model)window.__agScene.classicSurface(ctx,PV,o.model,wire,o.persp);");
+    patch("d3:_d3any?_d3:null,time:time});\n  if(objSignal==='poly')","d3:_d3any?_d3:null,time:time,model:_model});\n  if(objSignal==='poly')");
     // Depth of field for the classic 3D line drawers: every projected vertex reports its screen position and depth.
     const DZ='window.__agDz&&window.__agDz';
     patch("rowPts.push({sx:sx,sy:sy,h:hVal/Math.max(1,maxH)});",DZ+"(sx,sy,d);rowPts.push({sx:sx,sy:sy,h:hVal/Math.max(1,maxH)});");
@@ -212,7 +229,7 @@ const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const HIDDEN=/setVidSource|setPixelWarpSource|objToPointCloud|setObjModel|setObjLayout/;
 const strCache=new WeakMap();
 const str=o=>{if(!o||typeof o!=='object')return JSON.stringify(o??{});let v=strCache.get(o);if(v===undefined){v=JSON.stringify(o);strCache.set(o,v);}return v;};
-const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',job.poly?'poly':'',job.solidMesh?.id||'',job.sceneObject?.detail??'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|');
+const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',job.poly?'poly':'',job.classicObject?'object':'',job.objectKey||'',job.sceneObject?.detail??'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|')
 // Same parameters as last frame? (objects compare by content; they are small)
 // The original's underscore keys that only move one slider (setLayoutParams does nothing else with them).
 const QUICK={_contrast:'pContrast',_sensitivity:'pSensitivity',_height:'pHeight',_thick:'pThick',_zoom:'pZoom',_offX:'pOffX',_offY:'pOffY',_rotation:'pRotation',
@@ -318,7 +335,7 @@ export class EmitterEngine {
   container(mode=this.mode){return this.w?.document.getElementById('layoutOpts_'+mode);}
   // Switch the trusted app to a layout, replay chip choices, snapshot the resulting parameters.
   prepare(job) {
-    const w=this.w,solid=SOLIDS.includes(job.mode)||!!(job.poly&&job.solidMesh),mode=solid?'object':job.mode;
+    const w=this.w,solid=job.classicObject||SOLIDS.includes(job.mode),mode=solid?'object':job.mode;
     const key=jobKey(job);
     if(key===this.baseKey)return mode;
     this.applied=null;
@@ -329,13 +346,13 @@ export class EmitterEngine {
     }
     w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(this.withLook(job.look));
     // Shapes the original has no built-in model for arrive as a mesh from the 3D Object node.
-    if(solid&&job.solidMesh&&(w._objBuiltinCache[job.mode]?.src!==job.solidMesh||w._objBuiltinCache[job.mode]?.detail!==job.sceneObject?.detail)){
-      const native=job.sceneObject?.prim&&job.mode!=='knot'?w.agSim.particleMesh(job.mode,job.sceneObject.detail??4):null;
-      const m=native?{verts:native.verts.map(v=>[v[0],-v[1],v[2]]),normals:native.normals.map(v=>[v[0],-v[1],v[2]]),faces:native.polygons,isNative:true}:
-        w._objNormalizeModel(job.solidMesh.verts.map(v=>v.slice()),job.solidMesh.faces.map(f=>f.slice()));
-      m.isDefault=true;m.src=job.solidMesh;m.detail=job.sceneObject?.detail;if(job.solidMesh.edges)m.edges=job.solidMesh.edges;w._objBuiltinCache[job.mode]=m;
+    const obj=job.sceneObject;
+    if(job.classicObject&&job.mode!=='model'&&job.mode!=='knot'){
+      const native=obj.prim?w.agSim.particleMesh(obj.shape,obj.detail??4):null;
+      if(native)w._objBuiltinCache[job.mode]={verts:native.verts.map(v=>[v[0],-v[1],v[2]]),normals:native.normals.map(v=>[v[0],-v[1],v[2]]),faces:native.polygons,isNative:true,isDefault:true};
+      else w._objBuiltinCache[job.mode]=obj.mesh==='knot'?(w._objDefault||=w._objDefaultModel()):{...obj.mesh,isDefault:true};
     }
-    if(mode==='object'){w.objBuiltin=solid?job.mode:(this.mediaKind==='object'?'file':'knot');}
+    if(mode==='object'){w.objBuiltin=solid&&job.mode!=='model'?job.mode:'file';}
     try{if(mode==='object')w.setObjLayout(w.objBuiltin,null);else w.setLayout(mode,null);}catch(e){console.warn(e);}
     if(job.source){const b=[...(this.container()?.querySelectorAll('.mode-btns button')||[])].find(b=>(b.getAttribute('onclick')||'').includes(job.source));if(b&&!b.classList.contains('on'))try{b.click();}catch(e){console.warn(e);}}
     if(job.mesh){w.simOpt.spSrc='mesh';w.simOpt.spMesh=this.mediaKind==='object'?'obj':'knot';try{w.syncSimUI();}catch{}w.agSim.reset();}
@@ -375,10 +392,10 @@ export class EmitterEngine {
     const label=e=>{const row=e.closest('.prow,.sim-row,.ag-row')||e.parentElement;const l=row?.querySelector('.prow-label,.sublabel,label,span');return (l&&!l.contains(e)?l.textContent:'').trim().replace(/\s+/g,' ').slice(0,40);};
     const out=[],groups=this.chipGroups();
     for(const e of box.querySelectorAll('input[type=range],.mode-btns')){
-      if(!shown(e))continue;
+      if(!shown(e)&&!(job.wiredEmit&&e.id==='pEmitScale'))continue;
       if(e.classList.contains('mode-btns')){
         const hide=job.mesh?/setSimOpt\('sp(Src|Mesh)'/:job.splat?/setSimOpt\('(spSrc','mesh|spMesh)'/:null;
-        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>{const on=b.getAttribute('onclick')||'';return b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(on)&&!HIDDEN.test(on)&&!hide?.test(on);});
+        const idx=groups.findIndex(g=>g.el===e),buttons=groups[idx].buttons.filter(b=>{const on=b.getAttribute('onclick')||'';return b.style.display!=='none'&&!/getElementById\([^)]*\)\.click\(\)/.test(on)&&!HIDDEN.test(on)&&!hide?.test(on)&&!(this.mode==='simparticles'&&/simApplyPreset/.test(on));});
         if(!buttons.length)continue;
         const action=buttons.every(b=>/simRestart|simReset|simReinit|Preset|Shuffle|objToPointCloud|click\(\)/i.test(b.getAttribute('onclick')||''));
         out.push({type:'chips',key:String(idx),label:label(e),action,onclick:buttons[0].getAttribute('onclick')||'',options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
@@ -389,7 +406,7 @@ export class EmitterEngine {
   // Range of one emitter option knob (for driven option ports), cached per layout + chip state.
   optRange(job,id) {
     if(this.status!=='ready')return null;
-    const key=jobKey(job);
+    const key=jobKey(job)+'|'+!!job.wiredEmit;
     if(this.rangeKey!==key){this.ranges=new Map((this.controls(job)||[]).filter(c=>c.type==='range').map(c=>[c.id,c]));this.rangeKey=key;}
     return this.ranges.get(id)||null;
   }
@@ -410,7 +427,8 @@ export class EmitterEngine {
     if(this.status!=='ready')return null;
     if(job.templateMorph)return this.drawTemplateMorph(job);
     const w=this.w,mode=this.prepare(job);
-    w.__agScene.start(!!job.wantDepth,!!job.wantSource,job.surfaceFlowTime==null?null:flowPhase(job.surfaceFlowTime));
+    w.__agObjectComposite=!!job.sceneObject;
+    w.__agScene.start(!!job.wantDepth,!!job.wantSource,job.surfaceFlowTime==null?null:flowPhase(job.surfaceFlowTime),!!job.wantCollision);
     if(job.need&&this.mediaKind!==job.need)throw Error(`${job.label||job.mode}: load ${job.need==='image'?'an image':'a video'} in its properties`);
     const p={...this.base};
     for(const [k,v] of Object.entries(job.opts||{}))if(OPT_ID.test(k))p[k]=v;
@@ -431,10 +449,11 @@ export class EmitterEngine {
     // Viewport camera: the 3D cloner and splats orbit, pan and zoom natively; classic 3D modes take the orbit.
     const v=job.view||{},dg=Math.PI/180;
     const particles3d=mode==='simparticles'&&p._sim?.pSpace==='3d';
-    this.viewMode=mode==='simcloner'||mode==='simsplat'||particles3d?'sim':VIEW3D.includes(mode)?'classic':null;
-    if(this.viewMode==='classic'){p._dragRotX=(p._dragRotX||0)+(v.pit||0)*dg;p._dragRotY=(p._dragRotY||0)-(v.yaw||0)*dg;}
+    const classicModel=mode==='object'&&job.sceneObject;
+    this.viewMode=mode==='simcloner'||mode==='simsplat'||particles3d||classicModel?'sim':VIEW3D.includes(mode)?'classic':null;
     // Classic 3D renders the viewport zoom itself (sharp lines, up to 3x); the studio scales only what is left as a picture.
     // 3D Object scales its own projection (any zoom, no cost); the other classic 3D layouts render a larger frame (up to 3x).
+    if(classicModel||this.viewMode==='classic'){p._dragRotX=(p._dragRotX||0)+(v.pit||0)*dg;p._dragRotY=(p._dragRotY||0)-(v.yaw||0)*dg;}
     const vz=this.viewMode==='classic'&&v.zm&&v.zm!==1?v.zm:1;
     w.__agVZ=mode==='object'&&vz!==1?vz:0;
     this.viewZoom=w.__agVZ||(vz>1?Math.min(vz,3):1);
@@ -449,7 +468,12 @@ export class EmitterEngine {
     const camYaw=(cm.pG3Yaw||0)+(cm._sceneYaw??(camOn?this.camYaw:0)),sceneZoom=cm.pG3Zoom??(job.sceneObject?55:100);
     const sceneCam={f:(+cm.pG3Focal||28)/28,zoom:sceneZoom/100,tilt:(cm.pG3Tilt??18)*dg,yaw:camYaw*dg,
       distance:SCENE_DISTANCE*((+cm.pG3Focal||28)/28)/Math.max(.3,sceneZoom/100),
-      scale:(job.sceneObject?.size??60)/100*(job.sceneObject?.prim&&job.sceneObject.shape!=='knot'?1:.7)};
+      scale:(job.sceneObject?.size??60)/100*(job.sceneObject?.prim&&job.sceneObject.shape!=='knot'?1:.7),
+      stretch:['stretchX','stretchY','stretchZ'].map(k=>(job.sceneObject?.[k]??100)/100),panX:v.px||0,panY:v.py||0};
+    if(mode==='simsplat'&&job.sceneObject){
+      const key=[sceneCam.scale,...sceneCam.stretch].join(',');
+      if(this.pointScale!==key){this.pointScale=key;w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;}
+    }
     w.__agSceneCam=job.sceneObject||mode==='simcloner'&&cm._sceneYaw!=null?sceneCam:null;
     w.__agCam=job.sceneObject&&mode==='object'?{...sceneCam,distance:sceneCam.distance/(v.zm||1)}:null;
     w.__agScene.camera={distance:sceneCam.distance/(v.zm||1),f:sceneCam.f,tilt:sceneCam.tilt+(v.pit||0)*dg,yaw:sceneCam.yaw+(v.yaw||0)*dg,panX:v.px||0,panY:v.py||0,aspect:WIDTH/HEIGHT};
@@ -471,12 +495,12 @@ export class EmitterEngine {
         yaw:((v.yaw||0)-(p._dragRotY||0)/dg+camYaw)*dg,
         tilt:((v.pit||0)+(p._dragRotX||0)/dg+(cm.pG3Tilt??18))*dg,
         zoom:(v.zm||1)*(cm.pG3Zoom??(src||job.sharedScene?55:100))/100,focal:(+cm.pG3Focal||28)/28,
-        panX:v.px||0,panY:v.py||0,depth:job.particleDepth??2,spread:(job.particleSpread??15)/100,
-        shared:!!src||!!job.emitSurface||!!job.sharedScene,initialSpeed:job.particleInitialSpeed??100,trails:job.particleTrails!==false,response:job.particleResponse||'sound',
-        dof:cm.pG3Dof||0,focus:cm.pG3Focus??50,occluders:job.occluders||[]
+        panX:v.px||0,panY:v.py||0,depth:job.particleDepth??2,spread:(job.particleSpread??15)/100,floorHalf:(job.particleFloorSize??0)/50,
+        shared:!!src||!!job.emitSurface||!!job.sharedScene,response:job.particleResponse||'sound',
+        dof:cm.pG3Dof||0,focus:cm.pG3Focus??50,occluders:job.occluders||[],collisions:job.collisions
       };
     }else w.__agParticles3d=null;
-    if(mode==='object')w.objBuiltin=SOLIDS.includes(job.mode)||job.poly&&job.solidMesh?job.mode:'file';
+    if(mode==='object')w.objBuiltin=job.classicObject&&job.mode!=='model'?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}
     if(mode==='video'||(mode==='pixelwarp'&&(this.mediaKind==='video'||w.vidCamStream)))w.sampleVideoFrame?.();
     const r=job.response;

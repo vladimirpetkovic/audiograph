@@ -12,7 +12,7 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
   {id:'s',type:'waveform3d',x:0,y:160,props:{mode:'model',render:'normal'}},
   {id:'d',type:'value',x:0,y:320,props:{value:0}},{id:'ds',type:'value',x:0,y:400,props:{value:0}},
   ...['co','cs'].map((id,i)=>({id,type:'camera3d',x:200,y:i*160,props:{orbit:0,turn:0,tilt:0,zoom:100,dof:0}})),
-  {id:'e',type:'gpuParticles',x:400,y:160,props:{mode:'simparticles',space:'3d',particleInitialSpeed:0,particleTrails:false,particleSpread:0,opts:{pSpTrail:0}}},
+  {id:'e',type:'gpuParticles',x:400,y:160,props:{mode:'simparticles',particleSpread:0,opts:{pSpSpeed:0,pSpTrail:0}}},
   {id:'m',type:'merge',x:620,y:0,props:{}},{id:'out',type:'output',x:800,y:0,props:{}}],edges:[
   ...['o','s'].map(to=>({from:'ds',out:'value',to,input:'drive'})),{from:'d',out:'value',to:'e',input:'drive'},
   {from:'o',out:'shape',to:'co',input:'shape'},{from:'s',out:'shape',to:'cs',input:'shape'},
@@ -70,7 +70,7 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
       assert.ok(s.alive>100&&s.held===s.alive&&s.moving===0&&changedPositions(a,b)>100,'Particles travel while attached: '+JSON.stringify(s));
       return s;
     };
-    await page.evaluate(()=>{pro.select('e');pro.setProperty('e','particleInitialSpeed',100);});
+    await page.evaluate(()=>{pro.select('e');pro.setProperty('e','opts',{pSpSpeed:10,pSpTrail:0});});
     const inspector=page.getByRole('complementary',{name:'Properties'});
     assert.equal(await inspector.getByText('Surface flow',{exact:true}).count(),1);
     await inspector.locator('[data-property="particleSurfaceFlow"]').getByRole('button',{name:'On',exact:true}).click();
@@ -83,7 +83,13 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
       await page.evaluate(z=>{
         const e=pro.engine('s'),mesh=e.w.objModelData;
         for(const p of mesh.verts)p[2]=z;e.w.__agG3MeshVer=(e.w.__agG3MeshVer||0)+1;e.surfaceCache={};
-      },z);await wait(500);
+      },z);
+      await page.waitForFunction(async sign=>{
+        const data=await pro.engine('e').w.agSim.particleState();
+        let count=0;for(let i=0;i<(data?.length||0);i+=16)if(data[i+8]>0){if(data[i+2]*sign<.3)return false;count++;}
+        return count>100;
+      },Math.sign(z),{timeout:15000});
+      await wait();
     };
     await shift(-.8);const far=await pixels('e'),farState=await state();console.log('Behind opaque object',far.energy,farState);
     assert.ok(farState.maxZ<-.3&&far.energy===0,'Particles behind a solid disappear per fragment');
@@ -104,11 +110,11 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
     await page.evaluate(()=>{pro.setProperty('d','value',0);pro.setProperty('s','turn',30);});await wait(100);
     const rotated=await state();console.log('Rotation release',rotated);
     assert.ok(rotated.moving>100,'Rendered object rotation releases particles with inherited surface velocity');
-    await page.evaluate(()=>{pro.pause(true);pro.engine('e').w.agSim.expMode(true);pro.setProperty('e','particleTrails',true);});await wait(100);
+    await page.evaluate(()=>{pro.pause(true);pro.engine('e').w.agSim.expMode(true);pro.setProperty('e','opts',{pSpSpeed:0,pSpTrail:100});});await wait(100);
     const streak=await pixels('e'),frozen=await state();
-    await page.evaluate(()=>pro.setProperty('e','particleTrails',false));await wait(100);
+    await page.evaluate(()=>pro.setProperty('e','opts',{pSpSpeed:0,pSpTrail:0}));await wait(100);
     const round=await pixels('e');
-    assert.ok(streak.signature.filter((v,i)=>Math.abs(v-round.signature[i])>8).length>50,'Trails-off removes even the one-step velocity stretch');
+    assert.ok(streak.signature.filter((v,i)=>Math.abs(v-round.signature[i])>8).length>50,'Trails draw visible paths and disappear at zero');
     assert.deepEqual(await state(),frozen,'Occlusion replay and rendering-only changes do not advance particle state');
     await page.evaluate(()=>{pro.setProperty('cs','dof',100);pro.setProperty('cs','focus',0);});await wait(100);
     const blur=await pixels('e');
