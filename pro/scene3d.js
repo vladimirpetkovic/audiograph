@@ -17,8 +17,51 @@ const NATIVE_DEPTH=DEPTH_WGSL+`
 }
 `;
 const SOURCE_COUNT=2048;
+const FLOW_STEPS=8;
+const FLOW_RATE=4;
+export function surfaceRoutes(faces,samples){
+  // Each segment lives in one triangle. Both sides of an edge use the same world point.
+  const edges=new Map(),links=new Int32Array(faces.length*3).fill(-1);
+  for(let face=0;face<faces.length;face++){
+    const ids=faces[face];if(!ids||new Set(ids).size!==3)continue;
+    for(let side=0;side<3;side++){
+      const a=ids[(side+1)%3],b=ids[(side+2)%3],key=a<b?`${a}:${b}`:`${b}:${a}`,slot=face*3+side;
+      if(edges.has(key)){
+        const other=edges.get(key);if(other<0)continue;
+        if(links[other]>=0){links[links[other]]=-1;links[other]=-1;edges.set(key,-1);}
+        else{links[other]=slot;links[slot]=other;}
+      }else edges.set(key,slot);
+    }
+  }
+  const data=new Float32Array(samples.length*FLOW_STEPS*8);
+  for(const [i,sample] of samples.entries()){
+    let face=sample.triangle,start=sample.weights,entry=-1;
+    for(let step=0;step<FLOW_STEPS;step++){
+      const choices=[0,1,2].filter(s=>s!==entry&&links[face*3+s]>=0);
+      const index=Math.floor((((i+1)*.61803398875+step*.41421356237)%1)*choices.length);
+      const side=choices[index]??-1,end=[0,0,0];
+      const next=side<0?-1:links[face*3+side];
+      if(next>=0){
+        end[(side+1)%3]=.15+.7*(((i+step+1)*.569840296)%1);
+        end[(side+2)%3]=1-end[(side+1)%3];
+      }
+      else{const w=((i+step+1)*.61803398875)%1,v=((i+step+1)*.41421356237)%1;end[0]=1-Math.sqrt(w);end[1]=Math.sqrt(w)*(1-v);end[2]=Math.sqrt(w)*v;}
+      data.set([face,...start,0,...end],(i*FLOW_STEPS+step)*8);
+      if(next>=0){
+        const prev=face;face=Math.floor(next/3);entry=next%3;
+        start=faces[face].map((id,j)=>j===entry?0:end[faces[prev].indexOf(id)]);
+      }else{start=end;entry=-1;}
+    }
+  }
+  return data;
+}
+export function flowPhase(time){return ((time*FLOW_RATE)%(FLOW_STEPS*2)+FLOW_STEPS*2)%(FLOW_STEPS*2);}
+export function routeSample(routes,i,phase){
+  const t=FLOW_STEPS-Math.abs((phase+i*.754877666)% (FLOW_STEPS*2)-FLOW_STEPS),step=Math.min(FLOW_STEPS-1,Math.floor(t)),o=(i*FLOW_STEPS+step)*8,f=t-step;
+  return {triangle:routes[o],weights:[1,2,3].map(j=>routes[o+j]+(routes[o+j+4]-routes[o+j])*f)};
+}
 const NATIVE_SOURCE=DEPTH_WGSL+`
-struct SurfaceCamera{row0:vec4f,row1:vec4f,lens:vec4f,eye:vec4f,info:vec4f};
+struct SurfaceCamera{row0:vec4f,row1:vec4f,lens:vec4f,eye:vec4f,info:vec4f,flow:vec4f};
 @group(1) @binding(0) var<storage,read> surfaceSamples:array<vec4f>;
 @group(1) @binding(1) var<storage,read> surfaceVertices:array<f32>;
 @group(1) @binding(2) var<uniform> surfaceCamera:SurfaceCamera;
@@ -42,7 +85,15 @@ fn surfacePoint(o:u32,ii:u32)->vec3f{
 @fragment fn surfaceFS(@builtin(position) p:vec4f)->@location(0) vec4f{
   let i=u32(p.x);let ii=min(u32(f32(i)*surfaceCamera.info.y/surfaceCamera.info.x),u32(surfaceCamera.info.y)-1u);
   let sid=min(u32(inst[ii].dat.y),u32(surfaceCamera.info.z)-1u);
-  let sample=surfaceSamples[sid*u32(surfaceCamera.info.x)+i];let o=u32(sample.x)*48u;
+  let ix=sid*u32(surfaceCamera.info.x)+i;
+  var sample=surfaceSamples[ix];
+  if(surfaceCamera.flow.x>=0.0){
+    let span=f32(${FLOW_STEPS});let phase=surfaceCamera.flow.x+f32(i)*0.754877666;
+    let t=span-abs(phase-floor(phase/(span*2.0))*(span*2.0)-span);let step=min(u32(t),${FLOW_STEPS-1}u);
+    let j=u32(surfaceCamera.info.x*surfaceCamera.info.z)+(ix*${FLOW_STEPS}u+step)*2u;
+    let start=surfaceSamples[j];sample=vec4f(start.x,mix(start.yzw,surfaceSamples[j+1u].yzw,t-f32(step)));
+  }
+  let o=u32(sample.x)*48u;
   let a=surfacePoint(o,ii);let b=surfacePoint(o+16u,ii);let d=surfacePoint(o+32u,ii);
   let position=a*sample.y+b*sample.z+d*sample.w;
   let crossNormal=cross(b-a,d-a);let len=length(crossNormal);
@@ -51,16 +102,24 @@ fn surfacePoint(o:u32,ii:u32)->vec3f{
   return encodeSceneDepth(select(position[row%3u],normal[row%3u],row>=3u));
 }
 `;
-function nativeSamples(arr,count){
+function nativeSamples(arr,count,flow){
   const groups=Array.from({length:count},()=>({triangles:[],cumulative:[],area:0}));
+  const faces=[],vertexIDs=flow?new Map():null;
   for(let o=0;o+47<arr.length;o+=48){
     const group=groups[Math.floor(arr[o+15]+.001)];if(!group)continue;
     const ux=arr[o+16]-arr[o],uy=arr[o+17]-arr[o+1],uz=arr[o+18]-arr[o+2],
       vx=arr[o+32]-arr[o],vy=arr[o+33]-arr[o+1],vz=arr[o+34]-arr[o+2],
       area=Math.hypot(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx);
-    if(area>1e-12){group.triangles.push(o/48);group.area+=area;group.cumulative.push(group.area);}
+    if(area>1e-12){
+      group.triangles.push(o/48);group.area+=area;group.cumulative.push(group.area);
+      if(vertexIDs)faces[o/48]=[0,16,32].map(k=>{
+        const key=[Math.floor(arr[o+15]+.001),...Array.from(arr.subarray(o+k,o+k+3),v=>Math.round(v*1e6))].join(',');
+        if(!vertexIDs.has(key))vertexIDs.set(key,vertexIDs.size);
+        return vertexIDs.get(key);
+      });
+    }
   }
-  const data=new Float32Array(count*SOURCE_COUNT*4);
+  const base=count*SOURCE_COUNT*4,data=new Float32Array(base*(flow?1+FLOW_STEPS*2:1)),samples=[];
   for(const [sid,g] of groups.entries()){
     if(!g.area)throw Error('The native emitter has no nondegenerate surface');
     for(let i=0;i<SOURCE_COUNT;i++){
@@ -68,8 +127,10 @@ function nativeSamples(arr,count){
       while(lo<hi){const mid=(lo+hi)>>1;if(g.cumulative[mid]<t)lo=mid+1;else hi=mid;}
       let u=((i+1)*.61803398875)%1,v=((i+1)*.41421356237)%1;if(u+v>1){u=1-u;v=1-v;}
       data.set([g.triangles[lo],1-u-v,u,v],(sid*SOURCE_COUNT+i)*4);
+      if(flow)samples.push({triangle:g.triangles[lo],weights:[1-u-v,u,v]});
     }
   }
+  if(flow)data.set(surfaceRoutes(faces,samples),base);
   return data;
 }
 export const MATERIAL_DEPTH=DEPTH_WGSL+`
@@ -107,19 +168,19 @@ function unproject(x,y,z,c){
   return [vx*cy+qz*sy,qy,-vx*sy+qz*cy];
 }
 export function installScene(w){
-  let dev=null,targets=null,placement=null,enabled=false,wantSource=false,sourceState=null,polyTargets=null,polyVertices=[],surfaceVerts=[],surfaceFaces=[];
+  let dev=null,targets=null,placement=null,enabled=false,wantSource=false,sourceFlow=null,sourceState=null,polyTargets=null,polyVertices=[],surfaceVerts=[],surfaceFaces=[];
   const canvas=()=>{const c=w.document.createElement('canvas');return c;};
   const depth=canvas(),opaque=canvas(),depthOut=canvas(),opaqueOut=canvas();
   const source=canvas();
   const destroySource=()=>{if(sourceState){sourceState.buffer.destroy();sourceState.uniform.destroy();sourceState=null;}source.getContext('webgpu')?.unconfigure();};
   const drawSource=(st,enc,mesh,n,P)=>{
-    if(!wantSource||!placement||!n)return;
-    const count=Math.max(1,Math.round(st.cu[202])),key=[st.g3shape,mesh.tris,count,n].join('|'),
+    if(!wantSource||!placement||!n||!mesh.tris)return;
+    const count=Math.max(1,Math.round(st.cu[202])),key=[st.g3shape,mesh.tris,count,n,sourceFlow!=null].join('|'),
       faces=w.__agG3Meshes?.map(m=>m?.faces);
     if(!sourceState||sourceState.key!==key||faces?.some((f,i)=>f!==sourceState.faces?.[i])){
-      destroySource();const data=nativeSamples(mesh.arr,count);
+      destroySource();const data=nativeSamples(mesh.arr,count,sourceFlow!=null);
       const buffer=dev.createBuffer({size:data.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST}),
-        uniform=dev.createBuffer({size:80,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+        uniform=dev.createBuffer({size:96,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
       dev.queue.writeBuffer(buffer,0,data);source.width=SOURCE_COUNT;source.height=6;
       source.getContext('webgpu').configure({device:dev,format:'rgba8unorm',alphaMode:'premultiplied'});
       sourceState={key,faces,buffer,uniform};api.sourceEpoch++;
@@ -128,7 +189,7 @@ export function installScene(w){
     dev.queue.writeBuffer(sourceState.uniform,0,new Float32Array([
       m.a*p.W/p.width,-m.c*p.H/p.width,(m.a*p.W+m.c*p.H+2*m.e)/p.width-1,0,
       -m.b*p.W/p.height,m.d*p.H/p.height,1-(m.b*p.W+m.d*p.H+2*m.f)/p.height,0,
-      c.distance,c.f,c.aspect,0,c.yaw,c.tilt,c.panX,c.panY,SOURCE_COUNT,n,count,m.a*m.d-m.b*m.c<0?-1:1]));
+      c.distance,c.f,c.aspect,0,c.yaw,c.tilt,c.panX,c.panY,SOURCE_COUNT,n,count,m.a*m.d-m.b*m.c<0?-1:1,sourceFlow??-1,0,0,0]));
     const group=dev.createBindGroup({layout:P.surfaceLayout,entries:[
       {binding:0,resource:{buffer:sourceState.buffer}},{binding:1,resource:{buffer:mesh.buf}},{binding:2,resource:{buffer:sourceState.uniform}}]});
     const pass=enc.beginRenderPass({colorAttachments:[{view:source.getContext('webgpu').getCurrentTexture().createView(),loadOp:'clear',storeOp:'store',clearValue:{r:0,g:0,b:0,a:0}}]});
@@ -146,7 +207,7 @@ export function installScene(w){
     depthStencilAttachment:{view:targets.z.createView(),depthLoadOp:'clear',depthStoreOp:'discard',depthClearValue:1}});
   const api=w.__agScene={
     depth:depthOut,opaque:opaqueOut,source,sourceValid:false,sourceSerial:0,sourceEpoch:0,valid:false,
-    start(on,emit=false){enabled=on;wantSource=emit;api.valid=false;api.sourceValid=false;placement=null;polyVertices=[];surfaceVerts=[];surfaceFaces=[];api.surfaceMesh=null;api.matrix=null;},
+    start(on,emit=false,flow=null){enabled=on;wantSource=emit;sourceFlow=flow;api.valid=false;api.sourceValid=false;placement=null;polyVertices=[];surfaceVerts=[];surfaceFaces=[];api.surfaceMesh=null;api.matrix=null;},
     async build(device,P,shader,vb){
       if(dev!==device){destroyTargets();destroySource();}dev=device;
       const module=dev.createShaderModule({label:'Shared 3D depth',code:shader+NATIVE_DEPTH});

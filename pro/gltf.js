@@ -75,7 +75,7 @@ function slerp(a,b,u){
   const o=[a[0]*k0+b[0]*k1,a[1]*k0+b[1]*k1,a[2]*k0+b[2]*k1,a[3]*k0+b[3]*k1],l=Math.hypot(...o)||1;return o.map(v=>v/l);
 }
 
-export function parseGLTF(buf,name='',cameraOnly=false,readMaterials=true){
+export function parseGLTF(buf,name='',cameraOnly=false,readMaterials=true,readUV0=true){
   let g,bin=null;
   const glb=buf.byteLength>=12&&readGLB(buf);
   if(glb){g=glb.json;bin=glb.bin;}else g=JSON.parse(new TextDecoder().decode(buf));
@@ -88,15 +88,17 @@ export function parseGLTF(buf,name='',cameraOnly=false,readMaterials=true){
   // Every node reachable from the scene, parents before children.
   const order=[],seen=new Set(),walk=i=>{if(seen.has(i)||!nodes[i])return;seen.add(i);order.push(i);nodes[i].children.forEach(walk);};roots.forEach(walk);
   const meshes=(g.meshes||[]).map(m=>({weights:m.weights||[],prims:m.primitives.filter(p=>(p.mode??4)>=4&&p.attributes?.POSITION!==undefined).map(p=>{
-    const pos=accessor(g,buffers,p.attributes.POSITION),n=pos.length/3;
+    const position=p.attributes.POSITION,pos=accessor(g,buffers,position),n=pos.length/3;
+    if(g.accessors[position].type!=='VEC3'||!pos.every(Number.isFinite))throw Error('Invalid glTF vertex positions');
     let idx=p.indices!==undefined?accessor(g,buffers,p.indices,false):Uint32Array.from({length:n},(_,i)=>i);
     const mode=p.mode??4;
     if(mode===5){const t=[];for(let i=2;i<idx.length;i++)i%2?t.push(idx[i-1],idx[i-2],idx[i]):t.push(idx[i-2],idx[i-1],idx[i]);idx=Uint32Array.from(t);}
     else if(mode===6){const t=[];for(let i=2;i<idx.length;i++)t.push(idx[0],idx[i-1],idx[i]);idx=Uint32Array.from(t);}
+    if(idx.length%3!==0)throw Error('Incomplete glTF triangle');
     for(const i of idx)if(i>=n)throw Error('A face references a missing vertex');
     return {pos,idx,material:p.material??null,normals:readMaterials&&p.attributes.NORMAL!==undefined?accessor(g,buffers,p.attributes.NORMAL):null,
       colors:readMaterials&&p.attributes.COLOR_0!==undefined?accessor(g,buffers,p.attributes.COLOR_0):null,
-      uv:p.attributes.TEXCOORD_0!==undefined?accessor(g,buffers,p.attributes.TEXCOORD_0):null,
+      uv:readUV0&&p.attributes.TEXCOORD_0!==undefined?accessor(g,buffers,p.attributes.TEXCOORD_0):null,
       uv1:readMaterials&&p.attributes.TEXCOORD_1!==undefined?accessor(g,buffers,p.attributes.TEXCOORD_1):null,joints:p.attributes.JOINTS_0!==undefined?accessor(g,buffers,p.attributes.JOINTS_0,false):null,
       weights:p.attributes.WEIGHTS_0!==undefined?accessor(g,buffers,p.attributes.WEIGHTS_0):null,
       targets:(p.targets||[]).map(t=>t.POSITION!==undefined?accessor(g,buffers,t.POSITION):null),

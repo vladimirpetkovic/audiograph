@@ -1,4 +1,4 @@
-import {DEPTH_WGSL} from './scene3d.js';
+import {DEPTH_WGSL,flowPhase,routeSample,surfaceRoutes} from './scene3d.js';
 export const SCENE_DISTANCE=.78/Math.sin(.4)*.92;
 const CONTROLS=`
 struct ParticleControls{launch:vec4f,lens:vec4f,screen0:vec4f,screen1:vec4f};
@@ -66,6 +66,10 @@ fn birth(i:u32)->Part3{
   var held=0.0;
   if(u.x8>0.5){
     let ix=min(u32(a*u.sourceN),u32(u.sourceN)-1u);
+    if(controls.screen0.w>0.5){
+      let life=u.plife*(0.55+0.9*b);
+      p.pos=vec4f(sourceAt(ix).pos.xyz,1.0);p.vel=vec4f(0.0,0.0,0.0,f32(ix)+1.0);p.data=vec4f(life,life,d,a);return p;
+    }
     velocity=velocity+emitterVector(sourceAt(ix).color.xyz)*controls.launch.w;
     if(controls.launch.x<0.00001){
       let sound=releaseSound();
@@ -84,7 +88,9 @@ fn birth(i:u32)->Part3{
   else if(p.data.x>0.0){
     var x=p.pos.xyz;var v=p.vel.xyz;let r=length(x)+0.001;let rd=x/r;
     var attached=false;
-    if(p.vel.w>0.0&&u.sourceN>0.0){
+    if(controls.screen0.w>0.5&&u.sourceN>0.0){
+      let ix=min(u32(p.data.w*u.sourceN),u32(u.sourceN)-1u);x=sourceAt(ix).pos.xyz;v=vec3f(0.0);p.vel.w=f32(ix)+1.0;attached=true;
+    }else if(p.vel.w>0.0&&u.sourceN>0.0){
       let src=sourceAt(min(u32(p.vel.w-1.0),u32(u.sourceN)-1u));
       let sound=releaseSound();
       let motion=emitterVector(src.color.xyz)*controls.launch.w;
@@ -226,9 +232,9 @@ export function patchParticles3d(patch){
   patch('rp.end();\n    }else if(XK[kd])','rp.end();if(st.space3)window.__agScene.particles(st,enc,P,bgR);\n    }else if(XK[kd])');
   patch('function disposeState(st,lost){','function disposeState(st,lost){window.__agP3.destroy(st);');
   patch('Math.min(1.2,levelDrive*1.05)*gov;',
-    "Math.min(1.2,st.space3&&o.x8>0.5&&(window.__agParticles3d.initialSpeed??100)===0?1:levelDrive*1.05)*gov;");
+    "Math.min(1.2,st.space3&&o.x8>0.5&&(window.__agParticles3d.surfaceFlow||(window.__agParticles3d.initialSpeed??100)===0)?1:levelDrive*1.05)*gov;");
   patch('if(o.emitType>=4&&!o.sourceN)st.carry=0;',
-    "var hold=st.space3&&o.x8>0.5&&o.sourceN>0&&(window.__agParticles3d.initialSpeed??100)===0;if(hold&&!st.surfaceHold)st.carry+=Math.min(st.pn,2048);st.surfaceHold=hold;\n    if(o.emitType>=4&&!o.sourceN)st.carry=0;");
+    "var hold=st.space3&&o.x8>0.5&&o.sourceN>0&&(window.__agParticles3d.surfaceFlow||(window.__agParticles3d.initialSpeed??100)===0);if(hold&&!st.surfaceHold)st.carry+=Math.min(st.pn,2048);st.surfaceHold=hold;\n    if(o.emitType>=4&&!o.sourceN)st.carry=0;");
   patch("var fadeK=0,tr=K(kd==='boids'?", "var fadeK=0,tr=st.space3?0:K(kd==='boids'?");
   patch("if((st.kind==='particles'||st.kind==='boids')&&sv.hdr&&!sv.ac){",
     "if((st.kind==='particles'||st.kind==='boids')&&!st.space3&&sv.hdr&&!sv.ac){");
@@ -300,8 +306,9 @@ export function installParticleControls(w){
       const p=w.__agScene.placement(),m=p?.m,fw=w.frameCv.width,fh=w.frameCv.height;
       const row0=m?[m.a*p.W/st.ow/fw,m.c*p.H/st.oh/fw,m.e/fw,0]:[1/st.ow,0,0,0],
         row1=m?[m.b*p.W/st.ow/fh,m.d*p.H/st.oh/fh,m.f/fh,0]:[0,1/st.oh,0,0];
+      row0[3]=cfg.surfaceFlow?1:0;
       dev.queue.writeBuffer(extra.buffer,0,new Float32Array([
-        (cfg.initialSpeed??100)/100,cfg.trails===false?0:1,cfg.response==='motion'?0:1,cfg.response==='sound'||!cfg.response?0:1,
+        (cfg.initialSpeed??100)/100,cfg.trails===false||cfg.surfaceFlow?0:1,cfg.response==='motion'?0:1,cfg.response==='sound'||!cfg.response?0:1,
         cfg.shared?SCENE_DISTANCE*(cfg.focal||1)/Math.max(.3,cfg.zoom||1):0,(cfg.dof||0)/100*st.oh*.05,((cfg.focus??50)-50)/50*2,extra.sourceDt||1/60,
         ...row0,...row1]));
       return extra.group;
@@ -315,8 +322,8 @@ export function surfaceSource(w,object,cache,frame={}){
     object.prim&&object.shape!=='knot'?w.agSim.particleMesh(object.shape,object.detail??4):
     object.shape==='knot'||object.mesh==='knot'?((cache.builtins||={}).knot||=w._objDefaultModel()):null;
   if(!mesh)throw Error('This object has no mesh surface for 3D emission');
-  const key=[object.size,object.stretchX,object.stretchY,object.stretchZ,frame.turn,frame.tilt,frame.mapper?.key].join(',');
-  if(cache.mesh===mesh&&cache.key===key){
+  const key=[object.size,object.stretchX,object.stretchY,object.stretchZ,frame.turn,frame.tilt,frame.mapper?.key,!!frame.flow].join(',');
+  if(cache.mesh===mesh&&cache.key===key&&(!frame.flow||cache.time===frame.time)){
     if(cache.time===frame.time)return cache.data;
     cache.time=frame.time;
     if(cache.motion){cache.data=cache.data.slice();for(let i=0;i<cache.data.length;i+=12)cache.data.fill(0,i+4,i+7);cache.previous=cache.data;cache.motion=false;}
@@ -334,18 +341,19 @@ export function surfaceSource(w,object,cache,frame={}){
     const transformed={verts:mesh.verts.map(transform),faces:cache.triangles};
     const sample=w.agSurfaceSampler(transformed);
     cache.samples=Array.from({length:2048},(_,i)=>sample((i+.5)/2048,((i+1)*.61803398875)%1,((i+1)*.41421356237)%1));
-    cache.faces=mesh.faces;cache.previous=null;
+    cache.faces=mesh.faces;cache.previous=null;cache.routes=null;
   }
-  const data=new Float32Array(2048*12),previous=cache.previous,dt=Math.max(1/240,Math.min(.1,(frame.time??0)-(cache.time??0))),orientation=mesh.orientation||frame.mapper?.orientation||1;
+  if(frame.flow&&!cache.routes)cache.routes=surfaceRoutes(cache.triangles,cache.samples);
+  const data=new Float32Array(2048*12),previous=cache.flow===frame.flow?cache.previous:null,dt=Math.max(1/240,Math.min(.1,(frame.time??0)-(cache.time??0))),orientation=mesh.orientation||frame.mapper?.orientation||1,phase=flowPhase(frame.time??0);
   const verts=new Map(),vertex=i=>{if(!verts.has(i))verts.set(i,transform(mesh.verts[i]));return verts.get(i);};
   cache.motion=false;
   for(let i=0;i<2048;i++){
-    const sample=cache.samples[i],[a,b,c]=cache.triangles[sample.triangle].map(vertex),w=sample.weights,o=i*12,
+    const sample=frame.flow?routeSample(cache.routes,i,phase):cache.samples[i],[a,b,c]=cache.triangles[sample.triangle].map(vertex),w=sample.weights,o=i*12,
       pos=a.map((v,j)=>v*w[0]+b[j]*w[1]+c[j]*w[2]),u=b.map((v,j)=>v-a[j]),v=c.map((x,j)=>x-a[j]),
       n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],len=Math.hypot(...n);
     const velocity=pos.map((x,j)=>previous?(x-previous[o+j])/dt:0);
     if(velocity.some(v=>Math.abs(v)>.00001))cache.motion=true;
     data.set([...pos,1,...velocity,1,...n.map(x=>len>1e-12?x/len*orientation:0),0],o);
   }
-  cache.mesh=mesh;cache.key=key;cache.data=data;cache.previous=data;cache.time=frame.time;return data;
+  cache.mesh=mesh;cache.key=key;cache.data=data;cache.previous=data;cache.time=frame.time;cache.flow=frame.flow;return data;
 }

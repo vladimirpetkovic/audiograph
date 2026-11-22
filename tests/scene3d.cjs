@@ -19,6 +19,17 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
   {from:'co',out:'shape',to:'e',input:'emit'},{from:'co',out:'shape',to:'m',input:'a'},
   {from:'e',out:'shape',to:'m',input:'b'},{from:'m',out:'image',to:'out',input:'image'}]}]};
 (async()=>{
+  const {surfaceRoutes,routeSample}=await import('../pro/scene3d.js');
+  const routes=surfaceRoutes([[0,1,2],[1,0,3],[4,5,6]],[{triangle:0,weights:[.2,.3,.5]},{triangle:2,weights:[.3,.3,.4]}]);
+  assert.equal(routeSample(routes,0,.5).triangle,0);
+  assert.equal(routeSample(routes,0,1.5).triangle,1,'Route crosses a shared edge');
+  const before=routeSample(routes,0,1-1e-5).weights,after=routeSample(routes,0,1).weights;
+  assert.ok(Math.abs(before[0]-after[1])<1e-5&&Math.abs(before[1]-after[0])<1e-5,'Edge crossing preserves the actual world point');
+  for(let t=0;t<16;t+=.1){
+    const {triangle,weights}=routeSample(routes,1,t);
+    assert.equal(triangle,2,'Route does not jump to disconnected triangles');
+    assert.ok(weights.every(w=>w>=0)&&Math.abs(weights.reduce((a,b)=>a+b)-1)<1e-6);
+  }
   let browser;await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   try{
     browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -52,6 +63,21 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
     const held=await state();console.log('Surface hold',held);
     assert.ok(held.alive>100&&held.held===held.alive&&held.maxSpeed<.0001&&Math.abs(held.maxZ)<.0001,'Zero launch follows the actual camera.shape mesh and stays still in silence');
     assert.equal(await page.evaluate(()=>pro.engine('e').w.__agParticles3d.gpuSource.image.width),2048,'Native mesh emission is a GPU surface source, not an image plane');
+    const positions=()=>page.evaluate(async()=>Array.from(await pro.engine('e').w.agSim.particleState()));
+    const changedPositions=(a,b)=>{let moved=0;for(let i=0;i<a.length;i+=16)if(a[i+8]>0&&b[i+8]>0&&a[i+11]===b[i+11]&&Math.hypot(a[i]-b[i],a[i+1]-b[i+1],a[i+2]-b[i+2])>.003)moved++;return moved;};
+    const flow=async()=>{
+      const a=await positions();await wait(220);const b=await positions(),s=await state();
+      assert.ok(s.alive>100&&s.held===s.alive&&s.moving===0&&changedPositions(a,b)>100,'Particles travel while attached: '+JSON.stringify(s));
+      return s;
+    };
+    await page.evaluate(()=>{pro.select('e');pro.setProperty('e','particleInitialSpeed',100);});
+    const inspector=page.getByRole('complementary',{name:'Properties'});
+    assert.equal(await inspector.getByText('Surface flow',{exact:true}).count(),1);
+    await inspector.locator('[data-property="particleSurfaceFlow"]').getByRole('button',{name:'On',exact:true}).click();
+    await wait();
+    const planar=await flow();
+    assert.ok(Math.abs(planar.minZ)<.0001&&Math.abs(planar.maxZ)<.0001,'Flow cannot leave the source plane');
+    await page.evaluate(()=>pro.engine('e').w.agSim.reset());
     await page.evaluate(scene=>{scene.layers[0].edges.find(e=>e.to==='e'&&e.input==='emit').from='cs';pro.importProject(scene);},scene);
     const shift=async z=>{
       await page.evaluate(z=>{
@@ -99,6 +125,8 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
     assert.ok((await state()).held>100,'Zero-speed particles also stay on Polygon surfaces');
     await page.evaluate(()=>pro.setProperty('s','turn',20));await wait(100);
     assert.ok((await state()).moving>100,'Polygon motion releases attached particles');
+    await page.evaluate(()=>pro.setProperty('e','particleSurfaceFlow',true));await wait();
+    await flow();
     const nested=JSON.parse(JSON.stringify(scene)),g=nested.layers[0];
     g.edges.find(e=>e.to==='e'&&e.input==='emit').from='cs';
     g.nodes.find(n=>n.id==='m').props.mode='screen';
@@ -137,6 +165,8 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
     await page.waitForFunction(()=>pro.engine('e')?.w?.__agParticles3d?.gpuSource?.key.startsWith('cl:'),null,{timeout:45000});
     await page.evaluate(()=>pro.engine('e').w.agSim.reset());await wait(500);
     const cloned=await state();assert.ok(cloned.held>100&&cloned.maxZ-cloned.minZ>.25,'Cloner emits from actual transformed instances at different Z positions');
+    await page.evaluate(()=>pro.setProperty('e','particleSurfaceFlow',true));await wait();
+    assert.ok((await flow()).maxZ-(await state()).minZ>.25,'Surface flow follows separate transformed clone instances');
     assert.deepEqual(errors,[]);
     for(const id of ['cl','e'])assert.deepEqual(await page.evaluate(id=>pro.engine(id).w.agSim.stats().errors,id),[]);
     console.log('Shared 3D depth, native/Polygon surface motion, launch controls, trails and particle DOF passed');

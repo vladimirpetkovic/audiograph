@@ -10,7 +10,7 @@ import {firstFrame} from './media.js';
 import {patchParticles3d,surfaceSource,SCENE_DISTANCE,installParticleControls} from './particles3d.js';
 import {patchPbr,installPbr} from './pbr.js';
 import {decodeMaterials,releaseMaterials} from './model-materials.js';
-import {patchScene,installScene} from './scene3d.js';
+import {patchScene,installScene,flowPhase} from './scene3d.js';
 // The 3D lighting after the WebGPU Cornell box sample (soft cast shadows, light size, bounce light, floor), smooth
 // cube normals and the link width / glow / pulse knobs are built into the classic engine; Pro keeps only its own defaults.
 function patch3dLighting(patch){
@@ -413,7 +413,7 @@ export class EmitterEngine {
     if(this.status!=='ready')return null;
     if(job.templateMorph)return this.drawTemplateMorph(job);
     const w=this.w,mode=this.prepare(job);
-    w.__agScene.start(!!job.wantDepth,!!job.wantSource);
+    w.__agScene.start(!!job.wantDepth,!!job.wantSource,job.surfaceFlowTime==null?null:flowPhase(job.surfaceFlowTime));
     if(job.need&&this.mediaKind!==job.need)throw Error(`${job.label||job.mode}: load ${job.need==='image'?'an image':'a video'} in its properties`);
     const p={...this.base};
     for(const [k,v] of Object.entries(job.opts||{}))if(OPT_ID.test(k))p[k]=v;
@@ -467,8 +467,9 @@ export class EmitterEngine {
     if(particles3d){
       const src=job.emitObject,cache=this.surfaceCache||={};
       w.__agParticles3d={
-        source:!job.emitSurface&&src?surfaceSource(w,src.object,cache,{time:job.particleTime||0,mapper:src.mapper,turn:(src.turn||0)*dg,tilt:-(src.tilt||0)*dg}):null,
+        source:!job.emitSurface&&src?surfaceSource(w,src.object,cache,{time:job.particleTime||0,flow:job.particleSurfaceFlow,mapper:src.mapper,turn:(src.turn||0)*dg,tilt:-(src.tilt||0)*dg}):null,
         gpuSource:job.emitSurface,
+        surfaceFlow:!!job.particleSurfaceFlow&&!!(src||job.emitSurface),
         sourceAngle:0,sourceTilt:0,
         yaw:((v.yaw||0)-(p._dragRotY||0)/dg+camYaw)*dg,
         tilt:((v.pit||0)+(p._dragRotX||0)/dg+(cm.pG3Tilt??18))*dg,
@@ -567,6 +568,7 @@ export class EmitterEngine {
     if(file.size>80*1024*1024)throw Error('Media limit is 80 MB per file');
     await this.ready;if(!this.w||this.disposed)throw Error('Emitter engine is not ready');
     const w=this.w,request=kind==='object'?(this.modelRequest=(this.modelRequest||0)+1):null;
+    let materialWarning='';
     if(kind!=='object'){this.mediaKind='';this.mediaName='';this.mediaThumb='';}this.baseKey='';this.applied=null;
     if(kind==='image') {
       if(!['image/png','image/jpeg','image/webp','image/gif','image/avif'].includes(file.type))throw Error('Use a raster PNG, JPEG, WebP, GIF or AVIF image');
@@ -601,16 +603,30 @@ export class EmitterEngine {
       const lower=file.name.toLowerCase();
       if(/\.(glb|gltf|fbx|usd|usda|usdc|usdz)$/.test(lower)){
         // glTF / GLB / FBX / USD: kept as a rig so animated models can be posed every frame (animate()).
-        const buf=await file.arrayBuffer(),m=lower.endsWith('.fbx')?await parseFBXModel(buf,file.name):/\.usd[acz]?$/.test(lower)?await parseUSDModel(buf,file.name):parseGLTF(buf,file.name);
+        const buf=await file.arrayBuffer(),parse=readMaterials=>/\.usd[acz]?$/.test(lower)?parseUSDModel(buf,file.name,readMaterials):parseGLTF(buf,file.name,false,readMaterials,readMaterials);
+        let m;
+        if(lower.endsWith('.fbx'))m=await parseFBXModel(buf,file.name);
+        else{
+          try{m=await parse(true);}
+          catch(error){
+            // A valid geometry-only parse is required before treating the failure as material-specific.
+            m=await parse(false);materialWarning=error.message;
+          }
+        }
+        if(!materialWarning){
+          try{await decodeMaterials(m);}
+          catch(error){materialWarning=error.message;m.materials=[];}
+        }
         if(!m.clips.length)staticDetail(m);
-        const mesh=pose(m,m.clips.length?0:-1,0);await decodeMaterials(m);
         if(this.disposed||request!==this.modelRequest){releaseMaterials(m);throw Error('Model load was cancelled');}
+        const mesh=pose(m,m.clips.length?0:-1,0);
         releaseMaterials(this.anim);this.anim=m;this.animT=null;w.objModelData=mesh;
       }else if(lower.endsWith('.obj')){const mesh=w.agParseObj(await file.text());if(this.disposed||request!==this.modelRequest)throw Error('Model load was cancelled');releaseMaterials(this.anim);this.anim=null;w.objModelData=mesh;}
       else throw Error('Choose an OBJ, FBX, USD, GLB or glTF model');
       w.objBuiltin='file';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;
     }
-    this.mediaKind=kind;this.mediaName=file.name;
+    this.mediaKind=kind;this.mediaName=file.name;this.materialWarning=materialWarning;
+    return {materialWarning};
   }
   // Animated model: pose the clip at time t (seconds × speed), at most ~30 times a second. The posed mesh is a new object,
   // so Cloners and point clouds see it change; returns true when the pose moved.
@@ -628,7 +644,7 @@ export class EmitterEngine {
     if(this.mediaKind==='video'&&this.video){this.video.pause();this.video.removeAttribute('src');if(this.videoURL)URL.revokeObjectURL(this.videoURL);this.video=null;this.videoURL='';w.vidEl=null;}
     if(this.mediaKind==='object'){releaseMaterials(this.anim);this.anim=null;w.objModelData=null;w.objBuiltin='knot';w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;}
     if(this.mediaKind==='splat'){Object.assign(w.AG_SPLAT,{file:null,n:0,name:''});w.AG_SPLAT.ver++;}
-    this.mediaKind='';this.mediaName='';this.mediaThumb='';this.baseKey='';this.applied=null;
+    this.mediaKind='';this.mediaName='';this.mediaThumb='';this.materialWarning='';this.baseKey='';this.applied=null;
   }
   stats() {return this.w?{status:this.status,mode:this.mode,generation:this.generation,frames:this.frames,song:!!this.w.audioBuffer,sim:this.w.agSim.stats(),renderer:this.w.agGpu.stats()}: {status:this.status};}
   dispose() {

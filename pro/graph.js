@@ -277,6 +277,7 @@ export const TYPES = {
     particleInitialSpeed:n('Initial speed',100,0,200,5,{sims:['simparticles']}),
     particleTrails:bool('Motion trails',true,{sims:['simparticles']}),
     particleResponse:pick('Release on','sound',['sound','motion','both'],{labels:[['sound','Sound'],['motion','Object motion'],['both','Sound + object motion']],sims:['simparticles']}),
+    particleSurfaceFlow:bool('Surface flow',false,{sims:['simparticles']}),
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU particles')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{

@@ -42,6 +42,9 @@ each with its own opacity and blend mode (up to four).
     instances, including sound/random effectors; Polygons uses the actual
     displaced/shrunk faces. A Camera/Material/Palette **shape → emit** branch keeps
     mesh emission and its camera instead of flattening it into a picture.
+    Turn on **Surface flow** under **Particles → Simulation → Space: 3D** to
+    move particles along the connected surface without launching or drawing trails.
+    Flow follows animation and does not cross gaps between disconnected faces.
     Existing projects keep their speed/trails and stay in 2D.
 - **3D Object → Choose model** loads OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF.
     Polygons of any size are triangulated (concave ones too). USD reads the root layer's
@@ -62,8 +65,9 @@ each with its own opacity and blend mode (up to four).
     **UsdPreviewSurface**, **UsdUVTexture** and `primvars:st`, including inherited bindings,
     face subsets and UV transforms; package textures in **USDZ**. Standalone USDA/USDC
     supports material factors, but external images, composed layers, MaterialX,
-    specular/glossiness and compressed GPU textures are not loaded. Unsupported required
-    texture networks/assets report an error. Textures are mipmapped and capped at 4096 px.
+    specular/glossiness and compressed GPU textures are not loaded. If PBR materials
+    cannot be read, the object still loads with Palette shading and the inspector
+    explains why. Textures are mipmapped and capped at 4096 px.
     Lights, shadows, camera, depth of field and motion blur still apply.
 - **3D camera → Depth of field / Focus** works on every 3D Object render, the
   Waveform (line) render included, and on 3D particles. Normal/Polygons/model

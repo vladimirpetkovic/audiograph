@@ -61,7 +61,7 @@ function simKeys(g,n){
   const t=TYPES[n.type],keys=Object.keys(t.props);
   if(n.type==='gpuParticles'){
     return keys.filter(k=>(!t.props[k].sims||t.props[k].sims.includes(n.props.mode))&&
-      (!['particleDepth','particleSpread','particleInitialSpeed','particleTrails','particleResponse'].includes(k)||n.props.space==='3d'));
+      (!k.startsWith('particle')||n.props.space==='3d'));
   }
   if(n.type==='camera3d'&&upstreamSim(g,n)==='simparticles')return keys.filter(k=>k!=='blur');
   if(n.type==='liveData')return keys.filter(k=>k!=='place'||['ocean','weather'].includes(n.props.source));
@@ -912,7 +912,7 @@ function execute(g,time,dt){
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
   const asImage=(v,consumer)=>{
     if(!v||v instanceof HTMLCanvasElement)return v;
-    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+'|'+(v.comp?.o??100)+'|'+!!v.job.sharedScene+'|'+!!v.job.wantSource;
+    const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+'|'+(v.comp?.o??100)+'|'+!!v.job.sharedScene+'|'+!!v.job.wantSource+'|'+(v.job.surfaceFlowTime!=null);
     if(rendered.has(key)){v.gpuSurface=sourceSnapshots.get(key);return rendered.get(key);}
     const e=engineFor(v.emitter.id),job={...v.job,mods:v.mods,hue:v.hue,view:g.view,wantDepth:!!v.job.sceneObject||v.job.mode==='simcloner'&&v.mods?._sceneYaw!=null||v.job.sharedScene},
       out=e.draw(job);
@@ -976,10 +976,16 @@ function execute(g,time,dt){
       if(n.type==='gpuParticles'&&byInput.has(n.id+':emit')){
         // 3D particles take mesh geometry; other simulations sample the source's live render.
         const key={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'}[p.mode],src=byInput.get(n.id+':emit'),v=input(n,'emit'),source=findNode(src.from);
-        const shape=v?.object?v:outputs.get(src.from)?.shape,object=src.out==='object'?v:shape?.object;
+        let shape=v?.object?v:outputs.get(src.from)?.shape;
+        const object=src.out==='object'?v:shape?.object;
         if(p.mode==='simparticles'&&p.space==='3d'&&(object||shape?.job.mode==='simcloner')){
           if(!v)throw Error('The 3D emitter object is not ready');
-          if(shape?.emitter){shape.job.wantSource=true;asImage(shape,n.id+'e');}
+          if(shape?.emitter){
+            const flow=p.particleSurfaceFlow?time:null;
+            if(shape.job.wantSource&&(shape.job.surfaceFlowTime!=null)!==(flow!=null))shape={...shape,job:{...shape.job}};
+            Object.assign(shape.job,{wantSource:true,surfaceFlowTime:flow});
+            asImage(shape,n.id+'e');
+          }
           for(const k of ['pG3Yaw','pG3Tilt','pG3Zoom','pG3Focal','pG3Orbit','pG3OrbitSnd','pG3Dof','pG3Focus','_sceneYaw'])if(shape?.mods?.[k]!=null)r.shape.mods[k]=shape.mods[k];
           if(r.shape.mods.pG3Zoom==null)r.shape.mods.pG3Zoom=object?55:100;
           if(object)r.shape.job.emitObject={object,turn:source?.props.turn||0,tilt:source?.props.tilt||0,spin:source?.props.look?._spin||0};
@@ -998,7 +1004,7 @@ function execute(g,time,dt){
       }
       if(n.type==='gpuParticles'){r.shape.mods._sim={...r.shape.mods._sim,pSpace:p.space||'2d'};r.shape.job.particleDepth=p.particleDepth;r.shape.job.particleSpread=p.particleSpread;r.shape.job.particleTime=time;
         if(p.mode==='simparticles'&&p.space==='3d'&&state.layers.some(l=>l.visible&&l.nodes.some(n=>n.type==='waveform3d'||n.type==='cloner')))r.shape.job.sharedScene=true;
-        r.shape.job.particleInitialSpeed=p.particleInitialSpeed;r.shape.job.particleTrails=p.particleTrails;r.shape.job.particleResponse=p.particleResponse;}
+        r.shape.job.particleInitialSpeed=p.particleInitialSpeed;r.shape.job.particleTrails=p.particleTrails;r.shape.job.particleResponse=p.particleResponse;r.shape.job.particleSurfaceFlow=p.particleSurfaceFlow;}
     }else switch(n.type){
       case 'image':case 'video':case 'camera':{
         const m=mediaOf(n),{canvas,ctx}=surface(n.id);
@@ -2202,8 +2208,11 @@ function renderEmitter(root,n){
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k)));
   if(n.type==='gpuParticles'&&n.props.mode==='simparticles'){
-    const keys=simKeys(graph(),n).filter(k=>k==='space'||k.startsWith('particle'));
+    const hasFlow=n.props.space==='3d'&&n.props.particleSurfaceFlow;
+    const keys=simKeys(graph(),n).filter(k=>(k==='space'||k.startsWith('particle'))&&
+      (!hasFlow||!['particleInitialSpeed','particleSpread','particleTrails','particleResponse'].includes(k)));
     renderProps(s,n,keys);
+    if(hasFlow)s.append(el('p','insp-note','Wire a 3D Object or Cloner into emit. Particles stay on the mesh instead of launching or leaving trails.'));
   }
   if(n.type==='gpuParticles'&&graph().edges.some(e=>e.to===n.id&&e.input==='emit'))renderProps(root,n,['emitColors']);
   if(n.type==='waveform3d'&&n.props.mode==='text3d')renderProps(root,n,['words','font3d','depth']);
@@ -2212,7 +2221,7 @@ function renderEmitter(root,n){
   const kind=mediaKind(n);
   if(kind){
     const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj,.fbx,.usd,.usda,.usdc,.usdz,.glb,.gltf';
-    f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);const nc=kind==='object'?e.anim?.clips?.length||0:-1;message('Loaded '+f.files[0].name+(nc>0?` · playing ${nc>1?nc+' animation clips (pick one with Clip)':'its animation'}`:nc===0?' · no animation in this file (export FBX or GLB with the animation included, e.g. Mixamo “With Skin”)':''));renderUI();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
+    f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);const nc=kind==='object'?e.anim?.clips?.length||0:-1;message('Loaded '+e.mediaName+(res?.materialWarning?' · using Palette shading':nc>0?` · playing ${nc>1?nc+' animation clips (pick one with Clip)':'its animation'}`:nc===0?' · no animation in this file (export FBX or GLB with the animation included, e.g. Mixamo “With Skin”)':''));renderUI();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
     // One button; once loaded, a thumbnail (or the file name) with × to remove it.
     const eng=engines.get(n.id),name=eng?.mediaName,box=el('div','media-pick');f.hidden=true;
     if(name){
@@ -2225,6 +2234,7 @@ function renderEmitter(root,n){
       const b=el('button','mbtn media-choose',`Choose ${kind==='object'?'model':kind==='splat'?'splat':kind}`);b.type='button';b.onclick=()=>f.click();box.append(b);
     }
     box.append(f);s.append(box);
+    if(kind==='object'&&eng?.materialWarning)s.append(el('p','insp-note','Geometry loaded with Palette shading. Imported materials skipped: '+eng.materialWarning));
   }
   // Animated model: speed (wireable, so the sound can drive it) and, with several clips, which one plays.
   const clips=n.type==='waveform3d'&&n.props.mode==='model'&&engines.get(n.id)?.anim?.clips;
@@ -2992,9 +3002,9 @@ $('helpBody').innerHTML=`
 <h3 id="h-3d">3D &amp; models</h3>
 <ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (audio-reactive lines), Polygons (faces that flash and push out with their band; Gap separates them, Edges outlines them) or Point cloud (3D model). A <b>3D model</b> comes with a <b>3D camera</b> after it that holds the view (Rotate, Orbit, Tilt, Zoom, Focal length): drag the preview to rotate and tilt it, scroll to zoom, double-click to reset. Colours come from the layer's <b>Palette</b>: loud lines and faces take the top of the ramp (Sound › Sensitivity / Contrast set how much); a Point cloud picks Look › Colour (Palette · sound) and Sound glow.</li>
 <li><b>3D model</b> loads <b>OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers; USD must be flattened, since referenced files are not loaded). Polygons of any size are triangulated. Still models keep up to 500,000 triangles in 3D Object (Normal and Point cloud render them on the GPU; Waveform and Polygons simplify to Max faces) and 1,000,000 in Mapping; animated models are thinned to 40,000 faces, since they are re-posed every frame. Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
-<li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Choose <b>Palette</b> for Audiograph's stylized shading. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. Loose external images, MaterialX, specular/glossiness and compressed GPU textures are not loaded. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
+<li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. If imported materials are unreadable or unsupported (for example, specular/glossiness), the mesh still loads with <b>Palette</b> shading. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
 <li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound pushes clones with the music, Field, Random, Links draws lines between them) and <b>Look</b> nodes (Material, Light, 3D camera with lens Focal length, 14 mm wide to 200 mm telephoto, and Depth of field) after it.</li>
-<li>A 3D Object can also feed an emitter's <b>emit</b> input. Set <b>WebGPU particles → Simulation: Particles → Space: 3D</b> to emit from its actual mesh surface, including animated models. Particles move in X/Y/Z; add a <b>3D camera</b> after them to rotate, orbit, tilt, zoom and change focal length. <b>Depth</b> sets the simulation's Z extent; <b>Surface spread</b> scatters launch directions away from the surface normal. Existing 2D particles, fluid, smoke and sand sample the object's rendered picture instead.</li></ul>
+<li>A 3D Object or Cloner can also feed an emitter's <b>emit</b> input. Set <b>WebGPU particles → Simulation: Particles → Space: 3D</b> to emit from its actual mesh surface, including animated models. Turn on <b>Surface flow</b> to move over the mesh without lifting off or leaving trails. With flow off, <b>Depth</b> sets the simulation's Z extent and <b>Surface spread</b> scatters launch directions away from the surface normal. Add a <b>3D camera</b> after the particles to rotate, orbit, tilt, zoom and change focal length. Existing 2D particles, fluid, smoke and sand sample the object's rendered picture instead.</li></ul>
 <h3 id="h-sims">Simulations</h3>
 <p>The WebGPU emitters (Particles, Fluid, Smoke, Granular sand) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
 <h3 id="h-fx">Post FX</h3>

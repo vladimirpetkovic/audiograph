@@ -96,13 +96,13 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Imported P
     assert.ok(changed(polySharp,polyBlur)>100&&polyBlur.edge<polySharp.edge*.85,'Polygon depth of field covers face interiors and blurs silhouette edges');
     await page.evaluate(()=>{pro.setProperty('o','render','normal');pro.setProperty('c','turn',0);pro.setProperty('c','tilt',0);pro.setProperty('c','dof',0);});
     await page.waitForTimeout(450);
-    const bad=JSON.parse(fixture.gltf().buffer);bad.images[0].uri='data:image/png;base64,'+Buffer.from('not a PNG').toString('base64');
+    const bad=JSON.parse(fixture.gltf().buffer);bad.meshes[0].primitives[0].attributes.POSITION=999;
     const rollback=await page.evaluate(async text=>{
       const e=pro.engine('o'),old=e.anim,name=e.mediaName,kind=e.mediaKind;let error='';
-      try{await e.media(new File([text],'bad-texture.gltf'),'object');}catch(e){error=e.message;}
+      try{await e.media(new File([text],'bad-geometry.gltf'),'object');}catch(e){error=e.message;}
       return {error,kept:e.anim===old&&e.mediaName===name&&e.mediaKind===kind,bitmapOpen:old.materials[0].maps[0].image.bitmap.width>0};
     },JSON.stringify(bad));
-    assert.match(rollback.error,/Model texture:/);assert.ok(rollback.kept&&rollback.bitmapOpen,'Failed texture decoding retains the previously loaded model and its images');
+    assert.ok(rollback.error&&rollback.kept&&rollback.bitmapOpen,'Invalid geometry retains the previously loaded model and its images');
     await page.evaluate(()=>pro.setProperty('o','modelMaterials','palette'));await page.waitForTimeout(600);
     const palette=await image();assert.ok(changed(original,palette)>500,'Palette opt-out changes the model');
     await page.evaluate(()=>pro.setProperty('o','modelMaterials','imported'));await page.waitForTimeout(600);
@@ -180,6 +180,20 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Imported P
     };
     const ph=await drivenBounds('polygons'),ch=await drivenBounds('points');
     assert.ok(ph>.25&&ch>ph*.7&&ch<ph*1.4,'Audio-driven model point clouds stay framed like Polygons: '+[ph,ch]);
+    await page.evaluate(()=>{pro.select('o');pro.setProperty('o','render','normal');});
+    const texture=JSON.parse(fixture.gltf().buffer);texture.images[0].uri='data:image/png;base64,'+Buffer.from('not a PNG').toString('base64');
+    const specular=JSON.parse(fixture.gltf().buffer);
+    specular.materials[0].extensions={KHR_materials_pbrSpecularGlossiness:{}};
+    for(const [name,buffer,reason] of [
+      ['bad-texture.gltf',Buffer.from(JSON.stringify(texture)),/Model texture:/],
+      ['specular.gltf',Buffer.from(JSON.stringify(specular)),/specular\/glossiness/],
+      ['loose.usda',Buffer.from(fixture.usd()),/Missing USD texture/],
+    ]){
+      await load({name,buffer,mimeType:'application/octet-stream'});
+      assert.equal(await page.evaluate(()=>pro.engine('o').anim.materials.length),0);
+      assert.match(await page.locator('.insp-note').filter({hasText:'Geometry loaded with Palette shading'}).innerText(),reason);
+      assert.ok((await image()).filled>100,'Geometry renders after material fallback: '+name);
+    }
     assert.deepEqual(errors,[]);
     console.log('Imported GLB/USD PBR acceptance passed');
   }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
