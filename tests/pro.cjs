@@ -563,8 +563,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     assert.ok(!r.cl.groups.some(g=>['Sound response','Cloner','3D nodes','Look','Objects'].includes(g)),'No duplicate or node-named sections: '+r.cl.groups);
     assert.ok(r.cl.props.includes('opt:pSimSens')&&!r.cl.props.includes('intensity')&&!r.cl.props.includes('tilt'),'Sim sound knobs only; no dead 3D tilt');
     assert.ok(r.old.props.includes('intensity'),'A changed generic sound knob stays visible');
-    assert.ok(['sensitivity','contrast','fade'].every(k=>r.wf.sound.includes(k)),'Waveform Sound has Sensitivity, Contrast, Fade edges: '+r.wf.sound);
-    assert.ok(r.wf.props.includes('sensitivity')&&!r.wf.props.includes('intensity')&&!r.wf.props.includes('tilt'),'Waveform: Sensitivity is the gain; no 3D tilt on 2D');
+    assert.ok(['sensitivity','contrast','fade','intensity'].every(k=>r.wf.sound.includes(k)),'Waveform Sound exposes line shaping and overall Intensity: '+r.wf.sound);
+    assert.ok(!r.wf.props.includes('tilt'),'No 3D tilt on a 2D waveform');
     assert.ok(r.w3.props.includes('tilt'),'Classic 3D keeps 3D tilt');
     assert.ok(Math.abs(r.rot-Math.PI/6)<1e-6,'3D tilt still reaches the engine with the viewport orbit: '+r.rot);}
     // The old Amplify deformer becomes the pass-through Amplify node.
