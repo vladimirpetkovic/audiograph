@@ -1,5 +1,6 @@
 // glTF 2.0 / GLB models for the 3D Object node: meshes, node hierarchy, skinning, morph targets and animation clips.
-// parseGLTF reads the file once; pose(model,clip,t) returns the mesh the original renderers draw ({verts,faces,normals})
+// parseGLTF reads the file once; pose(model,clip,t) returns the mesh the original renderers draw ({verts,faces,normals}).
+// UVs are flat pairs per vertex (NaN for an unmapped primitive); faceMaterials parallels faces when present.
 // at time t, always in the same normalized frame so an animated model moves instead of being re-fitted every frame.
 const COMP={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
 const SIZE={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
@@ -85,7 +86,7 @@ export function parseGLTF(buf,name='',cameraOnly=false){
     if(mode===5){const t=[];for(let i=2;i<idx.length;i++)i%2?t.push(idx[i-1],idx[i-2],idx[i]):t.push(idx[i-2],idx[i-1],idx[i]);idx=Uint32Array.from(t);}
     else if(mode===6){const t=[];for(let i=2;i<idx.length;i++)t.push(idx[0],idx[i-1],idx[i]);idx=Uint32Array.from(t);}
     for(const i of idx)if(i>=n)throw Error('A face references a missing vertex');
-    return {pos,idx,uv:p.attributes.TEXCOORD_0!==undefined?accessor(g,buffers,p.attributes.TEXCOORD_0):null,joints:p.attributes.JOINTS_0!==undefined?accessor(g,buffers,p.attributes.JOINTS_0,false):null,
+    return {pos,idx,material:p.material??null,uv:p.attributes.TEXCOORD_0!==undefined?accessor(g,buffers,p.attributes.TEXCOORD_0):null,joints:p.attributes.JOINTS_0!==undefined?accessor(g,buffers,p.attributes.JOINTS_0,false):null,
       weights:p.attributes.WEIGHTS_0!==undefined?accessor(g,buffers,p.attributes.WEIGHTS_0):null,
       targets:(p.targets||[]).map(t=>t.POSITION!==undefined?accessor(g,buffers,t.POSITION):null)};
   })}));
@@ -132,12 +133,15 @@ export function rawPose(m,clip,t){
   const world=new Array(m.nodes.length);
   for(const i of m.order){const n=m.nodes[i],l=n.matrix&&!(c&&c.channels.some(ch=>ch.node===i&&ch.path!=='weights'))?n.matrix:trs(loc[i].t,loc[i].r,loc[i].s),p=m.parent[i];world[i]=p>=0&&world[p]?mul(world[p],l):l;}
   // Topology never changes between poses: faces are built once and shared (renderers reuse their edges).
-  const pos=[],faces=m.faces?null:[];let base=0;
+  const pos=[],faces=m.faces?null:[],prims=faces?m.order.flatMap(i=>m.meshes[m.nodes[i].mesh]?.prims||[]):[],
+    uvs=prims.some(p=>p.uv)?new Float32Array(prims.reduce((n,p)=>n+p.pos.length/3,0)*2).fill(NaN):null,
+    faceMaterials=prims.some(p=>p.material!=null)?[]:null;let base=0;
   for(const i of m.order){
     const n=m.nodes[i],mesh=m.meshes[n.mesh];if(!mesh)continue;
     const mw=loc[i].w||mesh.weights,skin=n.skin!==undefined&&m.skins[n.skin],jm=skin&&skin.joints.map((j,k)=>world[j]?mul(world[j],skin.ibm?skin.ibm.subarray(k*16,k*16+16):I4()):I4());
     for(const p of mesh.prims){
       const N=p.pos.length/3;
+      if(uvs&&p.uv)uvs.set(p.uv.subarray(0,N*2),base*2);
       for(let v=0;v<N;v++){
         let x=p.pos[v*3],y=p.pos[v*3+1],z=p.pos[v*3+2];
         for(let k=0;k<p.targets.length;k++){const d=p.targets[k],w=mw?.[k]||0;if(d&&w){x+=d[v*3]*w;y+=d[v*3+1]*w;z+=d[v*3+2]*w;}}
@@ -150,21 +154,24 @@ export function rawPose(m,clip,t){
         }
         pos.push(M[0]*x+M[4]*y+M[8]*z+M[12],M[1]*x+M[5]*y+M[9]*z+M[13],M[2]*x+M[6]*y+M[10]*z+M[14]);
       }
-      if(faces)for(let f=0;f+2<p.idx.length;f+=3*m.faceStep)faces.push([base+p.idx[f],base+p.idx[f+1],base+p.idx[f+2]]);
+      if(faces)for(let f=0;f+2<p.idx.length;f+=3*m.faceStep){
+        faces.push([base+p.idx[f],base+p.idx[f+1],base+p.idx[f+2]]);
+        if(faceMaterials)faceMaterials.push(p.material??null);
+      }
       base+=N;
     }
   }
-  if(faces)m.faces=faces;
-  return {pos,faces:m.faces};
+  if(faces){m.faces=faces;m.uvs=uvs;m.faceMaterials=faceMaterials;}
+  return {pos,faces:m.faces,uvs:m.uvs,faceMaterials:m.faceMaterials};
 }
 // The mesh the original draws: centred, fitted to -1…1 with Y flipped (like its OBJ loader), with smooth normals.
 export function pose(m,clip,t){
-  const {pos,faces}=rawPose(m,clip,t),[cx,cy,cz]=m.center,s=2/m.scale,verts=new Array(pos.length/3),normals=new Array(pos.length/3);
+  const {pos,faces,uvs,faceMaterials}=rawPose(m,clip,t),[cx,cy,cz]=m.center,s=2/m.scale,verts=new Array(pos.length/3),normals=new Array(pos.length/3);
   for(let i=0;i<verts.length;i++){verts[i]=[(pos[i*3]-cx)*s,-(pos[i*3+1]-cy)*s,(pos[i*3+2]-cz)*s];normals[i]=[0,0,0];}
   for(const f of faces){const a=verts[f[0]],b=verts[f[1]],c=verts[f[2]],e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]],
     nx=e1[1]*e2[2]-e1[2]*e2[1],ny=e1[2]*e2[0]-e1[0]*e2[2],nz=e1[0]*e2[1]-e1[1]*e2[0];for(const j of f){normals[j][0]+=nx;normals[j][1]+=ny;normals[j][2]+=nz;}}
   for(const v of normals){const l=Math.hypot(v[0],v[1],v[2])||1;v[0]/=l;v[1]/=l;v[2]/=l;}
-  return {verts,faces,normals};
+  return {verts,faces,normals,uvs,faceMaterials};
 }
 
 export {I4,mul,trs,slerp,sample};
