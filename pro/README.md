@@ -415,6 +415,13 @@ process the finished image.
   (file, mic or system audio) keeps playing and the Audio nodes keep their settings. On screens
   1440px and wider the whole UI is drawn 20% larger. **Templates**, **Random** and
   **Reset** sit on the graph bar; zoom (−, +, Fit) sits in the graph's bottom-right corner.
+  **Random** cycles through scene families before repeating: mesh particles, lit cloners, attractors,
+  oscilloscope cuts, resonant contours, fluid or smoke, and kinetic typography. Each roll varies the
+  look, keeps the audio playing, and leaves an editable graph. Undo restores the previous scene.
+  The **Scene settings** gear next to Reset sets output and export defaults, the canvas background,
+  and the shared 3D camera. Older scenes keep their wired cameras unless you switch modes.
+  **Performance** can cap live FPS, override WebGPU simulation quality, or skip 3D lens effects
+  without changing individual nodes. The FPS cap does not affect offline exports.
   **Fit** frames the graph; if nodes overlap or wires run backwards it first arranges it into
   left-to-right columns (one undo step).
   The transport has icon buttons: **Play/Pause** (Space; Home rewinds), **Rec** (records the

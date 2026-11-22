@@ -1719,7 +1719,9 @@ def Camera "Camera" {
       await page.selectOption('#resolution',String(height));
       await page.waitForFunction(h=>{const c=document.querySelector('#preview'),e=pro.engine('r');return c.width===h*16/9&&c.height===h&&e.canvas.width===c.width&&e.w.frameCv.width===c.width&&e.w.frameCv.height===h;},height);
       await lit(.02,25000);
-      assert.deepEqual(await project(),resolutionProject,'Resolution preserves the graph');
+      const {settings,...graph}=await project();
+      assert.deepEqual(graph,resolutionProject,'Resolution preserves the graph');
+      assert.equal(settings.resolution,height,'Resolution is saved with the scene');
       assert.equal(await page.evaluate(()=>pro.engine('r').generation),generation,'Resolution reuses the engine');
     }
     await page.evaluate(()=>pro.pause(true));await page.selectOption('#resolution','720');

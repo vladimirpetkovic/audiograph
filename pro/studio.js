@@ -1,4 +1,6 @@
 import * as sensors from './sensors.js';import * as lights from './lights.js';
+import {OUTPUT_SIZES,VIDEO_QUALITIES,LIVE_FRAME_RATES,SIM_QUALITIES,SCENE_PERFORMANCE,SCENE_CAMERA,SCENE_DEFAULTS} from './graph.js';
+import {directScene,SCENE_RECIPES,SCENE_PALETTES} from './director.js';
 import {renderVideo,exportSupported} from './export.js';
 import {liveData,liveStatus} from './livedata.js';
 import {aiRender,aiStatus,aiClient,AI_DEFAULT_URL} from './ai.js';
@@ -81,7 +83,7 @@ function simKeys(g,n){
   const own=keys.filter(k=>!t.props[k].sims||t.props[k].sims.includes(mode));return own.length?own:keys;
 }
 // The studio opens with the scene the First Mile tutorial builds.
-let state=validate({format:'audiograph-pro',version:VERSION,layers:startScene()}),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
+let state=validate({format:'audiograph-pro',version:VERSION,layers:startScene(),settings:SCENE_DEFAULTS}),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
 // Several nodes selected (marquee or Shift-click): `multi` holds them and `selected` is null.
 let multi=new Set();
 // The UI is drawn with CSS zoom: pointer and rect values are screen pixels, CSS lengths are divided by it.
@@ -100,6 +102,7 @@ function attempt(fn){try{return fn();}catch(error){message(error.message,true);r
 
 // ---------- project state ----------
 function reconcile(){
+  syncSceneResolution();
   const emitterIDs=new Set(state.layers.flatMap(g=>g.nodes.filter(n=>isEngine(n.type)).map(n=>n.id)));
   const anyFx=state.layers.some(g=>g.nodes.some(n=>TYPES[n.type].fx));
   for(const [id,engine] of engines)if(id==='__fx'?(!anyFx||emitterIDs.size>0):!emitterIDs.has(id)){engine.dispose();engines.delete(id);}
@@ -147,7 +150,7 @@ const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.valu
   if(i.includes('audio')&&o.every(x=>x==='audio'))return true;if(i.includes('any'))return true;return (i.includes('shape')||i.includes('image')||i.includes('visual'))&&o.every(x=>x==='shape'||x==='image');};
 // A 3D Model always comes with a 3D camera right after it: the camera holds the view (rotate, orbit, tilt, zoom, lens).
 function attachCamera(g,n){
-  if(n.type!=='waveform3d'||n.props.mode!=='model'||modelCamera(g,n))return;
+  if(state.settings?.camera||n.type!=='waveform3d'||n.props.mode!=='model'||modelCamera(g,n))return;
   if(g.edges.some(e=>e.from===n.id&&e.out==='object'))return;
   const c=node('camera3d',n.x+210,n.y,{});
   for(const m of g.nodes)if(m.x>n.x+20&&Math.abs(m.y-n.y)<120)m.x+=210;
@@ -909,8 +912,9 @@ function previewExtra(g,plan){
   for(let i=0;i<queue.length;i++)for(const e of g.edges)if(e.to===queue[i]&&!have.has(e.from)&&!extra.has(e.from)){extra.add(e.from);queue.push(e.from);}
   return extra;
 }
-function execute(g,time,dt,collisions,colliderIds,nextColliders){
+function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
   layerView.delete(g.id);layerZoom.delete(g.id);layerBlend.delete(g.id);
+  const performanceSettings=state.settings?.performance;
   // blendOf: a visual source's Compositing blend, carried with its picture to the Merge or layer stack that lays it over others.
   const outputs=new Map(),byInput=new Map(g.edges.map(e=>[e.to+':'+e.input,e])),rendered=new Map(),sourceSnapshots=new Map(),blendOf=new Map();let image=null;
   const input=(n,key)=>{const e=byInput.get(n.id+':'+key);return e?outputs.get(e.from)?.[e.out]:undefined;};
@@ -924,11 +928,15 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders){
   // A shape becomes an image by rendering its emitter with the accumulated overrides.
   const asImage=(v,consumer)=>{
     if(!v||v instanceof HTMLCanvasElement)return v;
+    const shared=!!sceneCamera&&(v.job.sceneObject||v.job.mode==='simcloner'||v.job.mode==='simsplat'||v.job.mode==='simparticles'&&v.mods?._sim?.pSpace==='3d');
+    if(shared)sharedViewLayers.add(g.id);
+    const mods=shared?{...applyShapeNode('camera3d',sceneCamera,v.mods),_sceneYaw:sceneCamera.yaw}:v.mods;
+    const view=shared?{...VIEW0,px:sceneCamera.px||0,py:sceneCamera.py||0}:g.view;
     const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+'|'+(v.comp?.o??100)+'|'+!!v.job.sharedScene+'|'+!!v.job.wantSource+'|'+(v.job.surfaceFlowTime!=null);
     const wantCollision=colliderIds.has(v.emitter.id);
     if(rendered.has(key)){const poses=sourceSnapshots.get(key);Object.assign(v,poses);if(poses.collider)nextColliders.set(v.emitter.id,poses.collider);return rendered.get(key);}
-    const e=engineFor(v.emitter.id),job={...v.job,mods:v.mods,hue:v.hue,view:g.view,wantCollision,wantDepth:!!v.job.sceneObject||v.job.mode==='simcloner'&&v.mods?._sceneYaw!=null||v.job.sharedScene},
-      out=e.draw(job);
+    const e=engineFor(v.emitter.id),job={...v.job,mods,hue:v.hue,view,wantCollision,sharedCamera:!!shared,wantDepth:!!v.job.sceneObject||v.job.mode==='simcloner'&&mods?._sceneYaw!=null||v.job.sharedScene||!!shared&&v.job.mode==='simparticles'},
+      out=e.draw(job,performanceSettings);
     if(e.viewMode)layerView.set(g.id,e.viewMode);
     if(e.viewZoom&&e.viewZoom!==1)layerZoom.set(g.id,e.viewZoom);
     if(!out)return null;
@@ -961,10 +969,10 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders){
         if(v.mask)maskInto(c,v.mask);
         if(sym&&sym!=='none'&&e.w.applySymmetry){const sc=e.w.applySymmetry(c,sym,v.mods._symGap||0,'proDepth'+(c===opaque?'o':'d'));const x=c.getContext('2d');x.clearRect(0,0,WIDTH,HEIGHT);x.drawImage(sc,0,0);}
       }
-      const common=job.sceneObject||job.sharedScene||job.emitObject,cm=v.mods||{},camera=JSON.stringify([(cm.pG3Yaw||0)+(cm._sceneYaw??0),cm.pG3Tilt??18,cm.pG3Zoom??(common?55:100),cm.pG3Focal??28,cm.pG3Orbit||0,cm.pG3OrbitSnd||0,g.view||{}]);
+      const common=job.sceneObject||job.sharedScene||job.emitObject,cm=mods||{},camera=JSON.stringify([(cm.pG3Yaw||0)+(cm._sceneYaw??0),cm.pG3Tilt??18,cm.pG3Zoom??(common?55:100),cm.pG3Focal??28,cm.pG3Orbit||0,cm.pG3OrbitSnd||0,view||{}]);
       const particles=e.mode==='simparticles';
       if(!root)root={id:consumer,camera,kind:particles?'particles':'geometry',depth,opaque:particles||(v.comp?.o??100)<100?null:opaque,occlusion:'',
-        refresh:maps=>{const out=e.draw({...job,renderOnly:true,occluders:maps});if(out)capture(out);}};
+        refresh:maps=>{const out=e.draw({...job,renderOnly:true,occluders:maps},performanceSettings);if(out)capture(out);}};
       setScene(canvas,{camera,depth,opaque:root.opaque,roots:[root]});
     }
     };
@@ -1266,10 +1274,10 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders){
         }else if(t.outputs.shape){
           const s=need(n,'shape','a shape');
           if(s===blank())r.shape=s;else if(s instanceof HTMLCanvasElement)throw Error(`${g.name}: ${t.label} needs a shape from an Emitter, not an image`);
-          const mods=applyShapeNode(n.type,p,s.mods);let hue=s.hue;
+          const mods=n.type==='camera3d'&&sceneCamera?s.mods:applyShapeNode(n.type,p,s.mods);let hue=s.hue;
           if(n.type==='hue')hue+=p.hue+p.cycle*time;
           r.shape={...s,mods,hue:((hue%360)+360)%360};
-          if(n.type==='camera3d'){
+          if(n.type==='camera3d'&&!sceneCamera){
             const camera=nstate(n.id+':camera',()=>({yaw:0,time})),dt=Math.max(0,Math.min(.1,time-camera.time)),f=s.job.audio?.freq;
             const level=f?.length?f.slice(0,64).reduce((a,b)=>a+b,0)/64/255:0;
             camera.yaw=(camera.yaw+dt*((p.orbit||0)/100*69+(p.orbitSound||0)/100*level*90))%360;camera.time=time;
@@ -1366,12 +1374,14 @@ function dissolveDraw(dt){
 }
 // Layers the engine cannot frame itself (2D, and pan/zoom of classic 3D) are moved and scaled as a picture.
 const layerView=new Map(),layerZoom=new Map(),layerBlend=new Map();
+const sharedViewLayers=new Set();
 function drawLayer(out,g,image){
   const v=g.view,zm=v?v.zm/(layerZoom.get(g.id)||1):1;if(!v||layerView.get(g.id)==='sim'||(zm===1&&!v.px&&!v.py)){out.drawImage(image,0,0);return;}
   out.setTransform(zm,0,0,zm,WIDTH/2*(1-zm)+v.px*WIDTH/2,HEIGHT/2*(1-zm)-v.py*HEIGHT/2);out.drawImage(image,0,0);out.setTransform(1,0,0,1,0,0);
 }
 // Blackout (a MIDI action): the whole output fades to black and back.
 const blackout={on:false,level:0};
+const sceneMotion={yaw:0};
 function draw(time,dt=1/30){
   if(pageHidden&&!exporting)return;
   drawSeq++;
@@ -1380,7 +1390,12 @@ function draw(time,dt=1/30){
   readAudio(time);if(!paused)autopilotStep(dt);renderErrors=[];const prevErrors=nodeErrors;nodeErrors=new Set();
   const mapped=mapActive(),out=mapped?programCtx:previewCtx;previewImg=null;
   const previewLayer=previewId?state.layers.find(g=>g.nodes.some(n=>n.id===previewId)):null;if(previewId&&!previewLayer)setPreview(null);
-  out.globalAlpha=1;out.filter='none';out.globalCompositeOperation='source-over';out.fillStyle='#000';out.fillRect(0,0,WIDTH,HEIGHT);
+  out.globalAlpha=1;out.filter='none';out.globalCompositeOperation='source-over';out.fillStyle=state.settings?.background??SCENE_DEFAULTS.background;out.fillRect(0,0,WIDTH,HEIGHT);
+  const camera=state.settings?.camera;
+  if(!camera||!camera.orbit&&!camera.orbitSound)sceneMotion.yaw=0;
+  else if(!paused)sceneMotion.yaw=(sceneMotion.yaw+dt*(camera.orbit*.69+camera.orbitSound*A.bands.bass*.9))%360;
+  const sceneCamera=camera&&{...camera,yaw:sceneMotion.yaw};
+  sharedViewLayers.clear();
   const pictures=[],nextColliders=new Map();
   const colliderIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0)
     .flatMap(g=>g.nodes.filter(n=>n.type==='waveform3d'&&!n.bypass&&n.props.collide).map(n=>n.id)));
@@ -1390,7 +1405,7 @@ function draw(time,dt=1/30){
   for(const g of state.layers){
     // A hidden layer still renders when a mapping surface shows it on its own.
     const shown=g.visible&&g.opacity>0,forMap=mapped&&mapLayers.has(g.id);if(!shown&&!forMap&&previewLayer!==g)continue;
-    try{const image=execute(g,time,dt,collisions,colliderIds,nextColliders);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);pictures.push({g,image,shown,forMap});}}
+    try{const image=execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);pictures.push({g,image,shown,forMap});}}
     catch(error){renderErrors.push(error.message);}
   }
   collisionMeshes=nextColliders;
@@ -1496,11 +1511,20 @@ function mapLoadStep(gap){
   else if(mapLoad.ema<1.04&&mapLoad.res<1&&mapLoad.t>6){mapLoad.res=Math.min(1,+(mapLoad.res+.15).toFixed(2));mapLoad.t=0;}
 }
 let drawSeq=0,mainRaf=0;
+let nextDrawAt=0,lastFrameCap;
+function frameCap(){return state.settings?.performance?.fps??SCENE_PERFORMANCE.fps;}
 function loop(now,fromOutput){
   if(!fromOutput)mainRaf=performance.now();
   mapTick(now);
   if(frame%60===59)releaseCameraIfUnused();
-  if(!pageHidden&&!paused&&!exporting&&!document.body.classList.contains('splash-on')&&now-lastTime>1000/31){const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/30;if(lastTime)mapLoadStep((now-lastTime)/1000);elapsed+=dt;lastTime=now;const t0=performance.now();try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}sensors.frameTiming(performance.now()-t0,dt);}
+  const fps=frameCap(),period=1000/fps;
+  if(!lastTime||fps!==lastFrameCap){nextDrawAt=lastTime?Math.max(lastTime+period,now):now;lastFrameCap=fps;}
+  if(!pageHidden&&!paused&&!exporting&&!document.body.classList.contains('splash-on')&&now>=nextDrawAt-1){
+    const dt=lastTime?Math.min(.1,(now-lastTime)/1000):1/fps;
+    if(lastTime)mapLoadStep((now-lastTime)/1000);elapsed+=dt;lastTime=now;
+    nextDrawAt=Math.max(nextDrawAt+period,now+period/2);
+    const t0=performance.now();try{draw(elapsed,dt);}catch(e){message(e.message,true,'render');}sensors.frameTiming(performance.now()-t0,dt);
+  }
   if(!fromOutput)requestAnimationFrame(loop);
 }
 
@@ -1999,6 +2023,7 @@ function renderProperties(){
   const t=TYPES[n.type],cat=catOf(n.type),head=el('div','insp-head'),h=el('h3');
   h.style.color=cat.color;h.append(document.createTextNode(nodeTitle(n)));
   head.append(h,el('div','insp-desc',t.description));root.append(head);
+  if(n.type==='camera3d'&&state.settings?.camera)root.append(el('p','insp-note','The shared camera in Scene settings overrides this camera.'));
   if(n.type==='templateMorph'){
     for(const key of ['from','to']){const sel=el('select');sel.dataset.property=key;for(const name of TEMPLATE_NAMES)sel.append(new Option(name,name));sel.value=n.props[key];
       sel.onchange=()=>{tm.playing=false;edit((p,g)=>{g.nodes.find(m=>m.id===n.id).props[key]=sel.value;},'Morph template');};root.append(ui.field(TYPES[n.type].props[key].label,sel));}
@@ -2700,6 +2725,7 @@ async function exportVideo(cfg,{file=null,onProgress=()=>{}}={}){
     patchClock(false);exporting=null;elapsed=vt0+frames/cfg.fps;paused=wasPaused;lastTime=0;$('resolution').disabled=false;
     for(const m of mediaEls.values())if(m.kind==='video')m.el?.play?.().catch(()=>{});
     if(HEIGHT!==prevH)attempt(()=>changeResolution(prevH));
+    syncSceneResolution();
     if(wasPlaying&&!audio.live)play().catch(()=>{});
   }
 }
@@ -2707,7 +2733,7 @@ async function openExport(){
   const d=$('exportDialog'),body=$('exportBody');body.replaceChildren();d.showModal();
   if(!exportSupported()){body.append(el('p','insp-note insp-err','Video export needs WebCodecs: use Chrome, Edge or Safari 17+. Record (●) works everywhere.'));return;}
   let snd;try{snd=await exportSound();}catch(error){body.append(el('p','insp-note insp-err',error.message));return;}
-  const dur=snd.buffer.duration,cfg={...exportPrefs,start:0,length:dur};
+  const dur=snd.buffer.duration,cfg={...exportPrefs,...state.settings?.video,start:0,length:dur};
   
   const range=section(body,'Range'),st=el('input'),ln=el('input');
   for(const [i,v] of [[st,0],[ln,dur]]){i.type='number';i.min=0;i.max=dur.toFixed(1);i.step=.1;i.value=v.toFixed(1);i.className='export-num';}
@@ -2749,6 +2775,11 @@ $('exportDialog').addEventListener('cancel',e=>{if(exporting)e.preventDefault();
 
 // ---------- record / fullscreen ----------
 let recorder=null,chunks=[],recordStarting=false;
+let preferredResolution=540;
+function syncSceneResolution(){
+  const height=state.settings?.resolution??preferredResolution;
+  if(!recorder&&!recordStarting&&!exporting&&height!==HEIGHT)changeResolution(height);
+}
 function changeResolution(height){
   if(recorder)throw Error('Stop recording before changing resolution');
   setRenderResolution(height);
@@ -2763,22 +2794,96 @@ function changeResolution(height){
   for(const e of engines.values())e.resize();
   $('engines').style.width=WIDTH+'px';$('engines').style.height=HEIGHT+'px';
   $('resolution').value=String(HEIGHT);overlayBox();renderOverlay();
-  try{localStorage.setItem('agpro.resolution',String(HEIGHT));}catch(error){message('Resolution changed, but could not be saved: '+error.message,true);return;}
-  message(`Output: ${WIDTH} × ${HEIGHT}`);
 }
-$('resolution').onchange=()=>{if(!attempt(()=>changeResolution(+$('resolution').value)))$('resolution').value=String(HEIGHT);};
+function editScene(key,value,label){
+  return edit(s=>{s.settings={...s.settings,[key]:value};},label);
+}
+function setSceneResolution(height){
+  if(recorder||recordStarting||exporting)throw Error('Stop recording or exporting before changing resolution');
+  return editScene('resolution',height,`Output: ${height*16/9} × ${height}`);
+}
+$('resolution').onchange=()=>{
+  const height=+$('resolution').value;
+  if(!attempt(()=>setSceneResolution(height))){$('resolution').value=String(HEIGHT);return;}
+  try{localStorage.setItem('agpro.resolution',String(height));}
+  catch(error){message('Could not save the browser default resolution: '+error.message,true);}
+};
+function renderSceneSettings(){
+  const root=$('sceneBody'),settings=state.settings??{};
+  root.replaceChildren();
+  const group=label=>{const f=el('fieldset');f.append(el('legend','',label));root.append(f);return f;};
+  const field=(box,label,value,options,onChange)=>{
+    const c=el(Array.isArray(options)?'select':'input');
+    c.setAttribute('aria-label',label);
+    if(Array.isArray(options)){
+      for(const [id,text] of options){const o=el('option','',text);o.value=id;c.append(o);}
+    }else if(options==='color')c.type='color';
+    else{c.type='number';c.min=options.min;c.max=options.max;c.step=options.step||1;}
+    c.value=value;
+    let current=value;
+    c.onchange=()=>{
+      const v=c.type==='number'?c.valueAsNumber:typeof value==='number'?+c.value:c.value;
+      if(!c.reportValidity()||!attempt(()=>onChange(v)))c.value=current;
+      else current=v;
+    };
+    const row=el('label','prop-row');row.append(el('span','prop-label',label),c);box.append(row);
+    return c;
+  };
+  const output=group('Output'),sizes=OUTPUT_SIZES.map(h=>[h,h===2160?'4K':`${h}p`]),video={...exportPrefs,...settings.video};
+  field(output,'Live resolution',settings.resolution??preferredResolution,sizes,setSceneResolution).disabled=!!(recorder||recordStarting||exporting);
+  output.append(el('p','insp-note','Sets the size of the preview, snapshots, recordings and detached output.'));
+  const videoField=(label,key,choices)=>field(output,label,video[key],choices,v=>{
+    const next={...video,[key]:v};
+    if(!editScene('video',next,'Updated video export defaults'))return false;
+    Object.assign(video,next);return true;
+  });
+  videoField('Video export size','height',sizes.slice(1));
+  videoField('Video frame rate','fps',[[30,'30 fps'],[60,'60 fps']]);
+  videoField('Video quality','quality',VIDEO_QUALITIES.map(k=>[k,k[0].toUpperCase()+k.slice(1)]));
+  const perf=group('Performance'),performance={...SCENE_PERFORMANCE,...settings.performance};
+  const tuning=(label,key,value,choices,parse=v=>v)=>field(perf,label,value,choices,v=>{
+    const next={...state.settings?.performance,[key]:parse(v)};
+    return editScene('performance',next,`Scene performance: ${label}`);
+  });
+  tuning('Live frame-rate cap','fps',performance.fps,LIVE_FRAME_RATES.map(fps=>[fps,`${fps} fps`]));
+  tuning('WebGPU simulation quality','simulation',performance.simulation,SIM_QUALITIES);
+  tuning('3D lens effects','lensEffects',String(performance.lensEffects),[['true','Use camera settings'],['false','Skip depth of field and motion blur']],v=>v==='true');
+  perf.append(el('p','insp-note','Lower simulation quality to reduce GPU work across emitters. Quality and lens overrides also apply to video exports; the live frame-rate cap does not.'));
+  const composition=group('2D composition');
+  field(composition,'Canvas background',settings.background??SCENE_DEFAULTS.background,'color',v=>editScene('background',v,'Changed canvas background'));
+  composition.append(el('p','insp-note','Behind every layer. Flat layers keep their blend modes and are not affected by the 3D lens.'));
+  const camera=group('3D camera'),legacy=state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='camera3d'&&!n.bypass).map(n=>({n,g})));
+  field(camera,'Camera mode',settings.camera?'shared':'legacy',[['shared','Shared scene camera'],['legacy','Wired cameras']],v=>{
+    const next=v==='shared'?{...(legacy.length===1?legacy[0].n.props:SCENE_CAMERA)}:null;
+    if(!editScene('camera',next,'Changed scene camera mode'))return false;
+    renderSceneSettings();root.querySelector('[aria-label="Camera mode"]').focus();return true;
+  });
+  if(settings.camera){
+    camera.append(el('p','insp-note','One lens for all 3D layers. Wired camera nodes are inactive in this mode.'));
+    if(legacy.length>1)field(camera,'Copy wired camera','',[['','Choose a camera'],...legacy.map(({g,n},i)=>[n.id,`${g.name} · Camera ${i+1}`])],id=>{
+      const source=legacy.find(({n})=>n.id===id);
+      if(!source||!editScene('camera',{...source.n.props},'Copied wired camera settings'))return false;
+      renderSceneSettings();root.querySelector('[aria-label="Copy wired camera"]').focus();return true;
+    });
+    for(const k of ['focal','focus','dof','turn','tilt','zoom','orbit','orbitSound','blur']){
+      const s=TYPES.camera3d.props[k];
+      field(camera,s.label,settings.camera[k],s.kind==='select'?s.labels:s,v=>editScene('camera',{...state.settings.camera,[k]:v},`Scene camera: ${s.label}`));
+    }
+  }else camera.append(el('p','insp-note','Switch to a shared camera to use one lens and orbit across all 3D layers.'));
+}
+$('sceneSettings').onclick=()=>{renderSceneSettings();$('sceneDialog').showModal();};
 async function toggleRecord(){
   if(recorder){recorder.stop();return;}
   if(recordStarting)return;
   recordStarting=true;
   try{if(audio.context?.state==='suspended')await audio.context.resume();}finally{recordStarting=false;}
-  const stream=preview.captureStream(30);
+  const stream=preview.captureStream(frameCap());
   // An idle audio destination produces no samples, which can stall Chromium's entire video encoder.
   if(audio.dest&&(audio.source||audio.live))for(const t of audio.dest.stream.getAudioTracks())stream.addTrack(t);
   const type=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t));
   recorder=new MediaRecorder(stream,{mimeType:type,videoBitsPerSecond:12e6});chunks=[];
   recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-  recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.${type.includes('mp4')?'mp4':'webm'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);recorder=null;$('resolution').disabled=false;clearInterval(recClock);$('record').classList.remove('on');$('record').setAttribute('aria-label','Record');message('Recording saved');};
+  recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=`audiograph-pro-${Date.now()}.${type.includes('mp4')?'mp4':'webm'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);recorder=null;syncSceneResolution();$('resolution').disabled=false;clearInterval(recClock);$('record').classList.remove('on');$('record').setAttribute('aria-label','Record');message('Recording saved');};
   recorder.start(500);$('resolution').disabled=true;$('record').classList.add('on');$('record').setAttribute('aria-label','Stop recording');{const t0=performance.now(),tm=$('record').querySelector('.rec-time'),tick=()=>{const s=Math.floor((performance.now()-t0)/1000);tm.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};tick();clearInterval(recClock);recClock=setInterval(tick,500);}message('Recording… press Rec again to save');
 }
 function toggleFullscreen(){if(document.fullscreenElement)document.exitFullscreen();else $('previewWrap').requestFullscreen?.().catch(e=>message(e.message,true));}
@@ -2823,19 +2928,23 @@ const wrapAngle=degrees=>((degrees%360)+540)%360-180;
 const viewOff=()=>!!pinNode()||!!pinDrag||mapActive();
 let viewDrag=null,wheelTimer=0;
 // The layer's 3D camera (the selected one first): with one, the viewport drives its Rotate, Tilt and Zoom.
-function viewCam(g){const sel=g.nodes.find(n=>n.id===selected);return sel?.type==='camera3d'?sel:g.nodes.find(n=>n.type==='camera3d');}
-function setCam(id,fn){live(()=>{const c=findNode(id);if(c)fn(c.props);});}
+function viewCam(g){
+  if(state.settings?.camera)return sharedViewLayers.has(g.id)?{id:null,props:state.settings.camera}:null;
+  const sel=g.nodes.find(n=>n.id===selected);return sel?.type==='camera3d'?sel:g.nodes.find(n=>n.type==='camera3d');
+}
+function setCam(id,fn){live(st=>{const p=id===null?st.settings?.camera:findNode(id)?.props;if(p)fn(p);});}
 function setView(fn){live(st=>{const g=st.layers.find(l=>l.id===graph().id);if(!g)return;const v={...VIEW0,...g.view};fn(v);const c=cleanView(v);if(c)g.view=c;else delete g.view;});}
 preview.addEventListener('pointerdown',ev=>{
   if(viewOff()||ev.defaultPrevented)return;
   const g=graph(),cam=viewCam(g),three=!!cam||layerView.has(g.id);
-  viewDrag={x:ev.clientX,y:ev.clientY,v:{...VIEW0,...g.view},cam:cam&&{id:cam.id,turn:cam.props.turn??0,tilt:cam.props.tilt??18},pan:!three||ev.button!==0||ev.shiftKey,moved:false};
+  viewDrag={x:ev.clientX,y:ev.clientY,v:{...VIEW0,...g.view},cam:cam&&{id:cam.id,turn:cam.props.turn??0,tilt:cam.props.tilt??18,px:cam.props.px||0,py:cam.props.py||0},pan:!three||ev.button!==0||ev.shiftKey,moved:false};
   preview.setPointerCapture(ev.pointerId);$('previewWrap').classList.add(viewDrag.pan?'view-pan':'view-orbit');ev.preventDefault();
 });
 preview.addEventListener('pointermove',ev=>{
   const d=viewDrag;if(!d)return;const r=preview.getBoundingClientRect(),dx=ev.clientX-d.x,dy=ev.clientY-d.y;
   if(!d.moved&&Math.hypot(dx,dy)<2)return;d.moved=true;
   if(d.cam&&!d.pan){setCam(d.cam.id,c=>{c.turn=Math.round(wrapAngle(d.cam.turn-dx*.4));c.tilt=Math.round(wrapAngle(d.cam.tilt+dy*.4));});return;}
+  if(d.cam?.id===null){setCam(null,c=>{c.px=Math.max(-4,Math.min(4,d.cam.px+dx/r.width*2));c.py=Math.max(-4,Math.min(4,d.cam.py-dy/r.height*2));});return;}
   setView(v=>{if(d.pan){v.px=d.v.px+dx/r.width*2;v.py=d.v.py-dy/r.height*2;}else{v.yaw=wrapAngle(d.v.yaw-dx*.4);v.pit=wrapAngle(d.v.pit+dy*.4);}});
 });
 const endView=()=>{const d=viewDrag;if(!d)return;viewDrag=null;$('previewWrap').classList.remove('view-pan','view-orbit');if(d.moved)liveCommit(d.pan?'Moved view':d.cam?'3D camera: rotate / tilt':'Orbited view');};
@@ -2870,6 +2979,7 @@ preview.addEventListener('pointermove',ev=>{if(!touches.has(ev.pointerId))return
 const dropTouch=ev=>{touches.delete(ev.pointerId);if(touches.size<2)pinch=null;};
 preview.addEventListener('pointerup',dropTouch,true);preview.addEventListener('pointercancel',dropTouch,true);
 preview.addEventListener('dblclick',()=>{if(viewOff())return;const cam=viewCam(graph()),T=TYPES.camera3d.props;if(!cam&&!graph().view)return;
+  if(cam?.id===null){setCam(null,c=>{for(const k of ['turn','tilt','zoom'])c[k]=SCENE_CAMERA[k];c.px=c.py=0;});liveCommit('Reset scene view');return;}
   if(cam)setCam(cam.id,c=>{c.turn=T.turn.value;c.tilt=T.tilt.value;c.zoom=T.zoom.value;});setView(v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
 
 // Output window for a projector / second display. Each window's canvas is painted straight from the preview (a GPU copy,
@@ -2963,7 +3073,7 @@ $('reset').onclick=()=>attempt(()=>{
   // The sound stays: the playing file, mic or system audio is untouched, and the Audio nodes keep their settings.
   const audioProps=state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='audioIn').map(n=>n.props)),layers=startScene();
   let i=0;for(const g of layers)for(const n of g.nodes)if(n.type==='audioIn'&&audioProps.length)n.props=clone(audioProps[Math.min(i++,audioProps.length-1)]);
-  importProject({format:'audiograph-pro',version:VERSION,layers},'Reset to the starting scene');message('Reset to the starting scene. Undo (⌘Z) brings your scene back.');});
+  importProject({format:'audiograph-pro',version:VERSION,layers,settings:SCENE_DEFAULTS},'Reset to the starting scene');message('Reset to the starting scene. Undo (⌘Z) brings your scene back.');});
 // Scenes save as .ag files (the project JSON); every save asks where.
 async function saveScene(){
   try{const text=JSON.stringify(validate(state),null,2),name=(state.layers[0]?.name||'scene').replace(/[^\w -]+/g,'').trim()||'scene';
@@ -3126,6 +3236,7 @@ viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBou
 $('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit').onclick=fitButton;
 $('previewExit').onclick=()=>{if(previewId)setPreview(previewId);};
 document.addEventListener('keydown',e=>{
+  if($('sceneDialog').open)return;
   if((e.metaKey||e.ctrlKey)&&!e.altKey&&/^[so]$/i.test(e.key)){e.preventDefault();if(e.key.toLowerCase()==='s')(e.shiftKey?saveTemplate:saveScene)();else $('import').click();return;}
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
   const k=e.key.toLowerCase();
@@ -4017,14 +4128,17 @@ function apStart(){
   if(ap.changes==='everything'&&!apActive().length)apCreate(ap.prompt);
 }
 function apStop(){ap.live=false;ap.hold=false;apPending=null;}
+let randomBag=[],lastRecipe;
 function randomGraph(){
   return attempt(()=>{
-    const seed=(Math.random()*1e9)|0,energy=35+Math.random()*50;
-    const text=autopilot.write({seed,energy});
-    const next=validate({...clone(state),layers:autopilot.build(autopilot.parse(text),{seed,energy,match:50})});
+    if(!randomBag.length)randomBag=Object.keys(SCENE_RECIPES).filter(id=>navigator.gpu||!SCENE_RECIPES[id].webgpu);
+    const choices=randomBag.length>1?randomBag.filter(id=>id!==lastRecipe):randomBag;
+    const recipe=choices[Math.floor(Math.random()*choices.length)],seed=crypto.getRandomValues(new Uint32Array(1))[0];
+    const next=directScene(state,{recipe,seed,energy:30+Math.floor(Math.random()*51)});
     apStop();apWant=null;apTrans=null;apTweens.clear();
     for(const s of apSlots)Object.assign(s,{role:-1,layer:null,f0:0});
-    nextFade=2.5;importProject(next,'Random graph: '+text);apStatus(true);
+    nextFade=2.5;importProject(next.project,'Random: '+next.name);apStatus(true);
+    lastRecipe=recipe;randomBag=randomBag.filter(id=>id!==recipe);
     return true;
   });
 }
@@ -4115,6 +4229,7 @@ $('tourButton').onclick=()=>mapMenu($('tourButton'),'Tutorials',[
   ...SPLASH_ITEMS.filter(([id])=>SPLASH_GUIDES[id]).map(([id])=>({label:SPLASH_GUIDES[id].title,property:GUIDE_PROPS[id]||'tour'+id[0].toUpperCase()+id.slice(1),run:()=>openGuide(id)}))]);
 window.pro={
   randomGraph,
+  director:{recipes:()=>clone(SCENE_RECIPES),palettes:()=>[...SCENE_PALETTES],build:brief=>directScene(state,brief)},
   tour:{start:()=>tour.start(),guide:id=>openGuide(id),guides:()=>Object.fromEntries(Object.entries(SPLASH_GUIDES).map(([k,g])=>[k,g.steps.map(s=>s.t)])),stop:()=>tour.stop(),go:i=>tour.go(i),next:()=>tour.next(),invite:()=>tour.invite(),steps:tour.steps.map(s=>s.t),status:()=>({index:tour.index,live:tour.live,ids:tour.ids})},
   morph:{settings:o=>{if(o){tm.configure(o);tmSave();if(workspace==='auto')renderAutoPanel();}return tm.settings();},
     start:tmStart,stop:()=>{tm.playing=false;tmStatus();},scrub:v=>{tm.playing=false;tm.scrub(v);return tmSetPair();},apply:()=>attempt(tmApply),
@@ -4136,7 +4251,7 @@ window.pro={
   share:{link:()=>shareLink(),open:link=>openShared(new URL(link).hash.replace(/^#scene=/,''))},
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),emitPoints:id=>nodeState.get(id+':emit')?.asset?.points,view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
-attempt(()=>{const h=localStorage.getItem('agpro.resolution');if(h!==null)changeResolution(+h);});
+attempt(()=>{const h=+localStorage.getItem('agpro.resolution');if(OUTPUT_SIZES.includes(h))preferredResolution=h;});
 sensors.autoMidi();reconcile();renderLibrary();renderUI();openShared();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
 requestAnimationFrame(loop);
 // ---------- splash ----------

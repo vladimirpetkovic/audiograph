@@ -424,12 +424,13 @@ export class EmitterEngine {
     return {ranges,on:b.classList.contains('on')};
   }
   // Render one frame of the emitter with parameter overrides. Returns the engine canvas.
-  draw(job) {
+  draw(job, performanceSettings) {
     if(this.status==='error')throw Error(this.error);
     this.drawnAt=performance.now();
     if(this.status!=='ready')return null;
-    if(job.templateMorph)return this.drawTemplateMorph(job);
+    if(job.templateMorph)return this.drawTemplateMorph(job,performanceSettings);
     const w=this.w,mode=this.prepare(job);
+    if(performanceSettings?.lensEffects===false)job={...job,mods:{...job.mods,pG3Dof:0,pG3Mb:0}};
     w.__agObjectComposite=!!job.sceneObject;
     w.__agScene.start(!!job.wantDepth,!!job.wantSource,job.surfaceFlowTime==null?null:flowPhase(job.surfaceFlowTime),!!job.wantCollision);
     if(job.need&&this.mediaKind!==job.need)throw Error(`${job.label||job.mode}: load ${job.need==='image'?'an image':'a video'} in its properties`);
@@ -438,6 +439,9 @@ export class EmitterEngine {
     const cam=job.mods?._cam;
     Object.assign(p,job.mods||{});delete p._cam;
     if(job.mods?._sim)p._sim={...this.base._sim,...job.mods._sim};
+    if(mode.startsWith('sim')&&performanceSettings?.simulation&&performanceSettings.simulation!=='node'){
+      p._sim={...p._sim,q:performanceSettings.simulation};
+    }
     if(job.emitAsset)p._simEmitter=job.emitAsset;
     if(job.meshes&&!(this.meshes&&this.meshes.length===job.meshes.length&&this.meshes.every((m,i)=>m===job.meshes[i]))){
       this.meshes=job.meshes;
@@ -477,11 +481,11 @@ export class EmitterEngine {
       const key=[sceneCam.scale,...sceneCam.stretch].join(',');
       if(this.pointScale!==key){this.pointScale=key;w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;}
     }
-    w.__agSceneCam=job.sceneObject||mode==='simcloner'&&cm._sceneYaw!=null?sceneCam:null;
+    w.__agSceneCam=job.sceneObject||mode==='simcloner'&&cm._sceneYaw!=null||job.sharedCamera&&mode==='simsplat'?sceneCam:null;
     w.__agCam=job.sceneObject&&mode==='object'?{...sceneCam,distance:sceneCam.distance/(v.zm||1)}:null;
     w.__agScene.camera={distance:sceneCam.distance/(v.zm||1),f:sceneCam.f,tilt:sceneCam.tilt+(v.pit||0)*dg,yaw:sceneCam.yaw+(v.yaw||0)*dg,panX:v.px||0,panY:v.py||0,aspect:WIDTH/HEIGHT};
     w.__agFov=camOn&&mode==='simsplat'?(+cm.pG3Focal||28)/28:1;
-    w.__agSplDof=mode==='simsplat'&&job.sceneObject?(cm.pG3Dof||0)/100:0;
+    w.__agSplDof=mode==='simsplat'&&(job.sceneObject||job.sharedCamera)?(cm.pG3Dof||0)/100:0;
     w.__agSplBnd=job.mesh?3.3:null;
     if(mode==='simsplat'&&(camOn||job.sceneObject)){p.pGsTilt=cm.pG3Tilt??18;p.pGsZoom=sceneZoom;p.pGsOrbit=0;p.pG3Focus=cm.pG3Focus??50;}
     // Driven knobs change every frame; when only plain sliders moved, set just those (the full apply rewrites the whole panel).
@@ -499,7 +503,7 @@ export class EmitterEngine {
         tilt:((v.pit||0)+(p._dragRotX||0)/dg+(cm.pG3Tilt??18))*dg,
         zoom:(v.zm||1)*(cm.pG3Zoom??(src||job.sharedScene?55:100))/100,focal:(+cm.pG3Focal||28)/28,
         panX:v.px||0,panY:v.py||0,depth:job.particleDepth??2,spread:(job.particleSpread??15)/100,floorHalf:(job.particleFloorSize??0)/50,
-        shared:!!src||!!job.emitSurface||!!job.sharedScene,response:job.particleResponse||'sound',
+        shared:!!src||!!job.emitSurface||!!job.sharedScene||job.sharedCamera,response:job.particleResponse||'sound',
         dof:cm.pG3Dof||0,focus:cm.pG3Focus??50,occluders:job.occluders||[],collisions:job.collisions
       };
     }else w.__agParticles3d=null;
@@ -557,8 +561,14 @@ export class EmitterEngine {
     w.audio=a;w.playing=true;w.liveMode=false;
     try{w.animLoop();}finally{w.playing=false;w.liveMode=true;}
   }
-  drawTemplateMorph(job){
+  drawTemplateMorph(job,performanceSettings){
     const w=this.w,{from,to,mix}=job.templateMorph,blend=this.templateBlend(from,to,mix/100);
+    for(const l of blend.layers){
+      if(w._agIsSim(l.layout)&&performanceSettings?.simulation&&performanceSettings.simulation!=='node'){
+        l.params._sim={...l.params._sim,q:performanceSettings.simulation};
+      }
+      if(performanceSettings?.lensEffects===false){l.params.pG3Dof=0;l.params.pG3Mb=0;}
+    }
     this.mode='templateMorph';w.pmActive=true;w.pmSpinLive=true;w.stackMode=true;
     w.stackLayouts=blend.layers;w.activeLayerIdx=0;w.layoutMode=blend.layers[0].layout;w.canvasBg='#000000';
     w.compFx=w.pfxNorm(blend.postFx);w.postFxEnabled=true;

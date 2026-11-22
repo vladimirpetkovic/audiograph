@@ -883,6 +883,44 @@ export function cleanView(v){
   for(const [k,[lo,hi]] of Object.entries(VIEW_LIMITS))if(Number.isFinite(v[k]))o[k]=Math.max(lo,Math.min(hi,v[k]));
   return o.yaw||o.pit||o.px||o.py||o.zm!==1?o:null;
 }
+export const OUTPUT_SIZES=[540,720,1080,1440,2160];
+export const VIDEO_QUALITIES=['standard','high','max'];
+export const LIVE_FRAME_RATES=[15,24,30];
+export const SIM_QUALITIES=[['node','Use node settings'],['low','Low'],['med','Medium'],['high','High'],['ultra','Ultra']];
+export const SCENE_PERFORMANCE={fps:30,simulation:'node',lensEffects:true};
+export const SCENE_CAMERA={...defaults('camera3d'),zoom:55};
+export const SCENE_DEFAULTS={background:'#000000',camera:SCENE_CAMERA};
+function cleanSceneSettings(s){
+  if(s===undefined)return null;
+  if(!s||typeof s!=='object'||Array.isArray(s))throw Error('Invalid scene settings');
+  const out={};
+  if(s.resolution!==undefined){
+    if(!OUTPUT_SIZES.includes(s.resolution))throw Error('Unsupported output resolution');
+    out.resolution=s.resolution;
+  }
+  if(s.background!==undefined)out.background=cleanProp(color('Background','#000000'),s.background,'Background');
+  if(s.video!==undefined){
+    const v=s.video;
+    if(!v||![720,1080,1440,2160].includes(v.height)||![30,60].includes(v.fps)||!VIDEO_QUALITIES.includes(v.quality))throw Error('Invalid video export defaults');
+    out.video={height:v.height,fps:v.fps,quality:v.quality};
+  }
+  if(s.performance!==undefined){
+    const p=s.performance;
+    if(!p||typeof p!=='object'||Array.isArray(p))throw Error('Invalid scene performance settings');
+    const {fps,simulation,lensEffects}={...SCENE_PERFORMANCE,...p};
+    if(!LIVE_FRAME_RATES.includes(fps)||!SIM_QUALITIES.some(([key])=>key===simulation)||typeof lensEffects!=='boolean')throw Error('Invalid scene performance settings');
+    out.performance={fps,simulation,lensEffects};
+  }
+  if(s.camera!==undefined){
+    if(s.camera===null)out.camera=null;
+    else{
+      if(!s.camera||typeof s.camera!=='object'||Array.isArray(s.camera))throw Error('Invalid scene camera');
+      out.camera=Object.fromEntries(Object.entries(TYPES.camera3d.props).map(([k,spec])=>[k,cleanProp(spec,s.camera[k]??SCENE_CAMERA[k],spec.label)]));
+      for(const k of ['px','py'])if(s.camera[k]!==undefined)out.camera[k]=finite(s.camera[k],-4,4,'Camera pan');
+    }
+  }
+  return out;
+}
 export function validate(input) {
   if(!input||input.format!=='audiograph-pro'||!(Number.isInteger(input.version)&&input.version>=1&&input.version<=VERSION))throw Error('Expected an Audiograph Pro project');
   const raw=migrate(input);
@@ -918,7 +956,8 @@ export function validate(input) {
   });
   if(emitters>LIMITS.emitters)throw Error(`Limit: ${LIMITS.emitters} renderer nodes per project (each is an isolated GPU engine)`);
   const mapping=cleanMapping(raw.mapping);
-  return mapping?{format:'audiograph-pro',version:VERSION,layers,mapping}:{format:'audiograph-pro',version:VERSION,layers};
+  const settings=cleanSceneSettings(raw.settings);
+  return {format:'audiograph-pro',version:VERSION,layers,...(mapping&&{mapping}),...(settings&&{settings})};
 }
 // MIDI mappings: {knob key: 'cc:<channel>:<number>' | 'note:<channel>:<number>'} on nodes (and layers: opacity, visible).
 export const MIDI_BINDING=/^(cc|note):(1[0-6]|[1-9]):(\d{1,3})$/;
