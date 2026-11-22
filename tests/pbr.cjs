@@ -168,6 +168,18 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Imported P
     assert.ok(await page.evaluate(()=>pro.pixels())>.01,'Mixed-material Cloner renders');
     await load(fixture.glb({mask:true}),'masked-shadow.glb');await page.waitForTimeout(500);
     assert.deepEqual(await page.evaluate(()=>pro.engine('cl').w.agSim.stats().errors),[],'Alpha-aware PBR shadows render without GPU errors');
+    await page.evaluate(p=>{pro.engine('o').clearMedia();pro.importProject(p);pro.setProperty('c','tilt',0);pro.setProperty('c','dof',30);pro.setProperty('d','value',.85);},scene);
+    const drivenBounds=async rendering=>{
+      await page.evaluate(rendering=>pro.setProperty('o','render',rendering),rendering);
+      if(rendering==='points')await page.waitForFunction(()=>pro.engine('o')?.w?.agSim.status()==='ready');
+      await page.waitForTimeout(900);return page.evaluate(()=>{
+        const c=document.getElementById('preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let y0=c.height,y1=0;
+        for(let y=0;y<c.height;y+=2)for(let x=0;x<c.width;x+=2){const i=(y*c.width+x)*4;if(d[i]+d[i+1]+d[i+2]>120){y0=Math.min(y0,y);y1=Math.max(y1,y);}}
+        return (y1-y0)/c.height;
+      });
+    };
+    const ph=await drivenBounds('polygons'),ch=await drivenBounds('points');
+    assert.ok(ph>.25&&ch>ph*.7&&ch<ph*1.4,'Audio-driven model point clouds stay framed like Polygons: '+[ph,ch]);
     assert.deepEqual(errors,[]);
     console.log('Imported GLB/USD PBR acceptance passed');
   }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}

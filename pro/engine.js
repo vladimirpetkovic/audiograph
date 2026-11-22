@@ -43,6 +43,9 @@ function patch3dLighting(patch){
   patch("var bnd=window.__agSplBnd||1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom',100)/100)*0.92/(simOpt.vZm||1),","var bnd=window.__agSplBnd||1.6,dist=window.__agSceneCam?window.__agSceneCam.distance/(simOpt.vZm||1):bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom',100)/100)*0.92/(simOpt.vZm||1),");
   patch('set(48,m00,m01,m02,0);set(52,m10,m11,m12,0);',
     "set(48,m00,m01,m02,window.__agSplDof||0);set(52,m10,m11,m12,dist+(K('pG3Focus',50)-50)/50*2);");
+  patch("set(60,14/Math.max(0.3,spd),spd,K('pGsSzSnd',60)/100,0);",
+    "set(60,14/Math.max(0.3,spd),spd,K('pGsSzSnd',60)/100,window.__agSceneCam?window.__agSceneCam.scale*0.3:1);");
+  patch('var clip=u.vp*vec4f(p+off,1.0);','var clip=u.vp*vec4f(p+off*u.e.w,1.0);');
   patch('let nd=cr*max(vec2f(rad*u.pf.x,rad*u.pf.y)/w,u.pf.zw);',
     'let sharp=max(vec2f(rad*u.pf.x,rad*u.pf.y)/w,u.pf.zw);let blur=u.m0.w*0.1*abs(w-u.m1.w)/w;let b=vec2f(blur/u.a.x,blur);let spread=sqrt(sharp*sharp+b*b);let nd=cr*spread;al*=sharp.y*sharp.y/(spread.y*spread.y);');
   // Random effector on each axis: rotation X / Y / Z and scale X / Z next to the original's Y stretch.
