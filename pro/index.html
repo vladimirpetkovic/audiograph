@@ -123,6 +123,21 @@
     </div>
   </div>
   <div id="engines" aria-hidden="true"></div>
-  <script type="module" src="./studio.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "./engine.js": "./engine.js?v=3d-particles",
+        "./gltf.js": "./gltf.js?v=3d-particles",
+        "./graph.js": "./graph.js?v=3d-particles",
+        "./map3d.js": "./map3d.js?v=3d-particles",
+        "./model-materials.js": "./model-materials.js?v=3d-particles",
+        "./particles3d.js": "./particles3d.js?v=3d-particles",
+        "./pbr.js": "./pbr.js?v=3d-particles",
+        "./scene3d.js": "./scene3d.js?v=3d-particles",
+        "./usd-model.js": "./usd-model.js?v=3d-particles"
+      }
+    }
+  </script>
+  <script type="module" src="./studio.js?v=3d-particles"></script>
 </body>
 </html>
