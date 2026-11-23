@@ -560,7 +560,7 @@ export class EmitterEngine {
       cm._colorMode==='simpleramp'?cm._simpleStops:cm._toneStops;
     const selected=performanceSettings?.simulation;
     const out=volume.draw({camera,width:WIDTH,height:HEIGHT,quality:selected&&selected!=='node'?selected:'med',
-      dt:job.dt,time:job.time,frame:job.frame,level:job.audio.drive.bass*p.intensity/100,beat:job.audio.drive.beat*p.punch/100,
+      dt:job.dt,time:job.time,frame:job.frame,level:job.audio.drive.fluid,beat:job.audio.drive.beat*p.punch/100,
       props:p,palette,gravity:cm._fluidGravity,source,flat:job.flatFluid,collisions:job.collisions,
       occluders:job.occluders,renderOnly:job.renderOnly});
     if(out){

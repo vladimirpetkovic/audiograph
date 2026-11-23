@@ -48,6 +48,11 @@ each with its own opacity and blend mode (up to four).
     Resolution to lighten the simulation, or lower Scene **Simulation quality**
     to render the preview at a lower pixel resolution. Wire a **Palette** after
     3D Fluid to color it by density. The 3D camera controls the view.
+    In **Sound**, choose Bass, Mids, Highs, or Full range. **Intensity** controls
+    how much the selected band drives emission; **Bass punch** adds beat accents.
+    **Attack** and **Release** smooth the band response, and **Sound turbulence**
+    and **Sound speed** add motion without changing the base Emission settings.
+    A wired **Drive** input replaces the audio signal.
     **Look → Trails** follows the particles' recent path
     in 3D, so turning the camera does not leave ghost images. Set it to **0%**
     to disable trails, or raise it up to **1000%** for longer trails in 2D or 3D.

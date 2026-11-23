@@ -48,6 +48,7 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     console.log('ok Fit compacts spaced graphs, frames all nodes, and supports undo');
     await page.evaluate(()=>pro.select('fluid'));
     const emission=page.locator('#properties [data-group="Emission"]');
+    assert.equal(await page.locator('#properties [data-property="fluidBand"]').count(),0,'A wired Drive replaces the band picker');
     for(const key of ['fluidResolution','fluidDomain','fluidSpeed','fluidPressure'])await emission.locator(`[data-property="${key}"]`).first().waitFor({state:'attached'});
     assert.equal(await page.locator('#properties [data-property="fluidLift"]').count(),0);
     await page.locator('#properties [data-group="Floor"] [data-property="fluidFloor"]').first().waitFor({state:'attached'});
@@ -204,6 +205,52 @@ const edge=(from,out,to,input)=>({from,out,to,input});
       'Older scenes preserve explicit values and their original defaults');
     await page.locator('#resetNode').click();
     assert.deepEqual(await values(),expected,'Reset restores the new defaults and keeps 3D Fluid selected');
+    await load(scene([
+      n('audio','audioIn',40,50),n('bass','audio',40,150,{band:'bass'}),n('high','audio',40,250,{band:'high'}),
+      n('fluid','gpuParticles',280,100,{mode:'simfluid3d',fluidResolution:24}),n('out','output',550,100)
+    ],[edge('audio','audio','fluid','audio'),edge('audio','audio','bass','audio'),edge('audio','audio','high','audio'),
+      edge('bass','value','fluid','fluidSpeed'),edge('high','value','fluid','fluidSwirl'),edge('fluid','shape','out','image')]));
+    await page.waitForFunction(()=>pro.engine('fluid')?.fluid?.steps>1&&Math.abs(pro.value('bass')-pro.value('high'))>.05);
+    await page.evaluate(()=>{pro.pause(true);pro.select('fluid');});
+    const sound=page.locator('#properties [data-group="Sound"]');
+    await sound.getByRole('button',{name:'Sound',exact:true}).click();
+    const bandButton=label=>sound.getByRole('button',{name:label,exact:true});
+    await bandButton('Highs').click();
+    await page.evaluate(()=>pro.draw());
+    assert.ok(await page.evaluate(()=>Math.abs(pro.engine('fluid').fluid.audioLevel-pro.value('high'))<.0001));
+    await bandButton('Bass').click();
+    await page.evaluate(()=>pro.draw());
+    assert.ok(await page.evaluate(()=>Math.abs(pro.engine('fluid').fluid.audioLevel-pro.value('bass'))<.0001));
+    for(const label of ['Mids','Full range'])assert.ok(await bandButton(label).isVisible());
+    for(const label of ['Attack (ms)','Release (ms)','Sound turbulence','Sound speed'])await sound.getByRole('slider',{name:label}).waitFor({state:'attached'});
+    const response=await page.evaluate(async()=>{
+      const {Fluid3D,prepareFluid3D}=await import('/pro/fluid3d.js'),{defaults}=await import('/pro/graph.js');
+      await prepareFluid3D();
+      const f=new Fluid3D(),camera={yaw:0,tilt:0,f:1,distance:2.5,panX:0,panY:0};
+      const props={...defaults('gpuParticles'),fluidResolution:24,fluidSpeed:100,fluidSwirl:0,punch:0};
+      const draw=(frame,level,renderOnly=false)=>f.draw({frame,level,beat:0,camera,props,renderOnly,width:160,height:90,dt:.04,time:frame*.04});
+      draw(0,0);
+      const q=f.device.queue,write=q.writeBuffer;
+      let values;
+      q.writeBuffer=function(buffer,...args){if(buffer===f.uniform)values=args[1];return write.call(this,buffer,...args);};
+      const sample=()=>[f.audioLevel,values[2],values[4],values[7]];
+      try{
+        draw(1,1);const original=sample();
+        draw(2,0);
+        Object.assign(props,{fluidAttack:200,fluidRelease:500,fluidSoundSpeed:100,fluidSoundSwirl:200,intensity:0});
+        draw(3,1);const attack=sample();
+        draw(3,1,true);const redraw=sample();
+        draw(4,0);const release=sample();
+        return {original,attack,redraw,release};
+      }finally{q.writeBuffer=write;f.dispose();}
+    });
+    assert.ok(response.original[0]===1&&Math.abs(response.original[1]-.04)<1e-6&&Math.abs(response.original[2]-8.75)<1e-6&&response.original[3]===0,
+      'Neutral controls preserve the existing response');
+    assert.ok(response.attack[0]>0&&response.attack[0]<1&&response.attack[1]>.04&&response.attack[3]>0,
+      'Attack smooths the response and sound can drive speed and turbulence');
+    assert.equal(response.attack[2],2.25,'Intensity can mute audio-driven emission without muting motion');
+    assert.deepEqual(response.redraw,response.attack,'A depth-only redraw does not advance the audio envelope');
+    assert.ok(response.release[0]>0&&response.release[0]<response.attack[0],'Release lets the response decay');
     assert.deepEqual(errors,[]);
     assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[]);
   }finally{await browser?.close();server.close();}

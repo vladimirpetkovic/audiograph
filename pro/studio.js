@@ -1126,7 +1126,10 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
           if(key){r.shape.mods._sim={...r.shape.mods._sim,[key]:'image',emitColor:p.emitColors==='palette'?'palette':'source'};r.shape.job.emitAsset=a??null;}
         }
       }
-      if(fluid3d)Object.assign(r.shape.job,{fluid:p,dt,time,frame:drawSeq,collisions,sharedScene:!!(sceneCamera||mesh||colliderIds.size)});
+      if(fluid3d){
+        r.shape.job.audio.drive.fluid=driven?lvl:sig.bands[p.fluidBand];
+        Object.assign(r.shape.job,{fluid:p,dt,time,frame:drawSeq,collisions,sharedScene:!!(sceneCamera||mesh||colliderIds.size)});
+      }
       if(particles3d){r.shape.mods._sim={...r.shape.mods._sim,pSpace:'3d'};r.shape.job.particleDepth=p.particleDepth;r.shape.job.particleSpread=mesh?p.particleSpread:0;r.shape.job.particleTime=time;
         r.shape.job.particleFloorSize=p.particleFloor?p.particleFloorSize:0;
         if(state.layers.some(l=>l.visible&&l.nodes.some(n=>n.type==='waveform3d'||n.type==='cloner')))r.shape.job.sharedScene=true;
@@ -1174,7 +1177,9 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
         if(typeof v==='number')r.out=v*g2;
         else if(v instanceof HTMLCanvasElement){const {canvas,ctx}=surface(n.id);ctx.filter=`brightness(${g2})`;ctx.drawImage(v,0,0);ctx.filter='none';r.out=canvas;}
         else if(v.emitter){const a=v.job.audio,d=a.drive;
-          r.out={...v,amp:(v.amp??1)*g2,job:{...v.job,audio:{...a,...ampSignal({freq:a.freq,wave:a.wave},g2),drive:{bass:Math.min(1,d.bass*g2),beat:Math.min(1,d.beat*g2)}}}};}
+          const drive={bass:Math.min(1,d.bass*g2),beat:Math.min(1,d.beat*g2)};
+          if(d.fluid!==undefined)drive.fluid=Math.min(1,d.fluid*g2);
+          r.out={...v,amp:(v.amp??1)*g2,job:{...v.job,audio:{...a,...ampSignal({freq:a.freq,wave:a.wave},g2),drive}}};}
         else if(v.freq)r.out=ampSignal(v,g2);
         else r.out=v;
         break;}
@@ -2425,7 +2430,9 @@ function renderEmitter(root,n){
     const look=fold(root,'Look');
     renderProps(look,n,['fluidColor','fluidOpacity'],true);
     look.append(el('p','insp-note','Wire a Palette after 3D Fluid to color the flow by density.'));
-    renderProps(fold(root,'Sound'),n,['intensity','punch'],true);
+    const sound=fold(root,'Sound'),driven=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
+    renderProps(sound,n,[...(driven?[]:['fluidBand']),'intensity','punch','fluidAttack','fluidRelease','fluidSoundSwirl','fluidSoundSpeed'],true);
+    sound.append(el('p','insp-note',`${driven?'Drive replaces the audio signal. ':'Intensity follows the selected band; Bass punch adds beat accents. '}Attack and Release smooth the selected signal. Sound turbulence and Sound speed add movement without changing the Emission knobs.`));
     if(graph().edges.some(e=>e.to===n.id&&e.input==='mask'))renderProps(fold(root,'Mask'),n,MASK_KEYS,true);
     renderProps(fold(root,'Compositing'),n,COMP_KEYS,true);
     s.append(el('p','insp-note','Fluid spreads in all directions. Wire a Gravity node after it to pull it down, or a 3D object into Emit to release fluid from its surface.'));

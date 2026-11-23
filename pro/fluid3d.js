@@ -230,7 +230,7 @@ export class Fluid3D{
     this.canvas=document.createElement('canvas');this.ctx=this.canvas.getContext('webgpu');
     this.depthCanvas=document.createElement('canvas');this.depthCtx=this.depthCanvas.getContext('webgpu');
     if(!this.ctx||!this.depthCtx)throw Error('3D Fluid requires a WebGPU canvas');
-    this.frames=0;this.steps=0;
+    this.frames=0;this.steps=0;this.audioLevel=0;
   }
   stats(){return {grid:this.n,steps:this.steps,frames:this.frames,sourceCells:this.sourceCells??0};}
   dispose(){
@@ -340,9 +340,15 @@ export class Fluid3D{
       }
     }
     const rgba=palette.flatMap(hex=>[1,3,5,7].map(i=>i>=hex.length?1:parseInt(hex.slice(i,i+2),16)/255));
-    device.queue.writeBuffer(this.uniform,0,new Float32Array([n,half,Math.min(1/16,dt)*props.fluidSpeed/100,collisions?.end||0,
-      props.fluidRate/100*(0.45+Math.min(2,level)*1.3+Math.min(2,beat)*0.7),props.fluidFade/100,
-      gravity/17,props.fluidSwirl/100,camera.yaw,camera.tilt,camera.f/Math.tan(.4),camera.distance,
+    if(advance){
+      const smooth=level>this.audioLevel?props.fluidAttack:props.fluidRelease;
+      this.audioLevel=smooth>0?level+(this.audioLevel-level)*Math.exp(-dt*1000/smooth):level;
+    }
+    const sound=Math.min(1,this.audioLevel),motion=1+sound*props.fluidSoundSpeed/100;
+    const swirl=props.fluidSwirl+sound*props.fluidSoundSwirl,emission=Math.min(2,this.audioLevel*props.intensity/100);
+    device.queue.writeBuffer(this.uniform,0,new Float32Array([n,half,Math.min(1/16,dt)*props.fluidSpeed/100*motion,collisions?.end||0,
+      props.fluidRate/100*(0.45+emission*1.3+Math.min(2,beat)*0.7),props.fluidFade/100,
+      gravity/17,swirl/100,camera.yaw,camera.tilt,camera.f/Math.tan(.4),camera.distance,
       camera.panX,camera.panY,width/height,occluders.length,props.fluidOpacity/20,palette.length,this.sourceCells,flatLayers,
       Math.ceil(n*1.8),floor,source||flat?0:1,time,...rgba]));
     if(advance){
