@@ -3149,17 +3149,29 @@ const VIEW0={yaw:0,pit:0,px:0,py:0,zm:1};
 const wrapAngle=degrees=>((degrees%360)+540)%360-180;
 const viewOff=()=>!!pinNode()||!!pinDrag||mapActive();
 let viewDrag=null,wheelTimer=0;
-// The layer's 3D camera (the selected one first): with one, the viewport drives its Rotate, Tilt and Zoom.
+const viewLayer=()=>state.layers.find(g=>previewId&&g.nodes.some(n=>n.id===previewId))||graph();
 function viewCam(g){
   if(state.settings?.camera)return sharedViewLayers.has(g.id)?{id:null,props:state.settings.camera}:null;
-  const sel=g.nodes.find(n=>n.id===selected);return sel?.type==='camera3d'?sel:g.nodes.find(n=>n.type==='camera3d');
+  const nodes=new Map(g.nodes.map(n=>[n.id,n]));
+  const targets=nodes.has(previewId)?[previewId]:g.nodes.filter(n=>n.type==='output').map(n=>n.id);
+  const seen=new Set(targets),cameras=[];
+  // Follow the picture, not camera nodes on unused branches or beyond the solo preview.
+  for(let i=0;i<targets.length;i++){
+    const n=nodes.get(targets[i]),inputs=inputsOf(n.type);
+    const sources=g.edges.filter(e=>e.to===n.id&&e.input!=='mask'&&
+      (VISUAL.has(inputs[e.input])||inputs[e.input]==='any'&&VISUAL.has(resolveOut(g,nodes.get(e.from),e.out))));
+    if(n.type==='camera3d'&&!n.bypass&&sources.some(e=>e.input==='shape'))cameras.push(n);
+    for(const e of sources)if(!seen.has(e.from)){seen.add(e.from);targets.push(e.from);}
+  }
+  const sel=nodes.get(selected),preferred=sceneInspector?sceneWiredCamera:sel&&modelCamera(g,sel)?.id;
+  return cameras.find(n=>n.id===preferred)||cameras[0]||null;
 }
 function setCam(id,fn){live(st=>{const p=id===null?st.settings?.camera:findNode(id)?.props;if(p)fn(p);});}
-function setView(fn){live(st=>{const g=st.layers.find(l=>l.id===graph().id);if(!g)return;const v={...VIEW0,...g.view};fn(v);const c=cleanView(v);if(c)g.view=c;else delete g.view;});}
+function setView(id,fn){live(st=>{const g=st.layers.find(l=>l.id===id);if(!g)return;const v={...VIEW0,...g.view};fn(v);const c=cleanView(v);if(c)g.view=c;else delete g.view;});}
 preview.addEventListener('pointerdown',ev=>{
   if(viewOff()||ev.defaultPrevented)return;
-  const g=graph(),cam=viewCam(g),three=!!cam||layerView.has(g.id);
-  viewDrag={x:ev.clientX,y:ev.clientY,v:{...VIEW0,...g.view},cam:cam&&{id:cam.id,turn:cam.props.turn??0,tilt:cam.props.tilt??18,px:cam.props.px||0,py:cam.props.py||0},pan:!three||ev.button!==0||ev.shiftKey,moved:false};
+  const g=viewLayer(),cam=viewCam(g),three=!!cam||layerView.has(g.id);
+  viewDrag={layer:g.id,x:ev.clientX,y:ev.clientY,v:{...VIEW0,...g.view},cam:cam&&{id:cam.id,turn:cam.props.turn??0,tilt:cam.props.tilt??18,px:cam.props.px||0,py:cam.props.py||0},pan:!three||ev.button!==0||ev.shiftKey,moved:false};
   preview.setPointerCapture(ev.pointerId);$('previewWrap').classList.add(viewDrag.pan?'view-pan':'view-orbit');ev.preventDefault();
 });
 preview.addEventListener('pointermove',ev=>{
@@ -3167,17 +3179,17 @@ preview.addEventListener('pointermove',ev=>{
   if(!d.moved&&Math.hypot(dx,dy)<2)return;d.moved=true;
   if(d.cam&&!d.pan){setCam(d.cam.id,c=>{c.turn=Math.round(wrapAngle(d.cam.turn-dx*.4));c.tilt=Math.round(wrapAngle(d.cam.tilt+dy*.4));});return;}
   if(d.cam?.id===null){setCam(null,c=>{c.px=Math.max(-4,Math.min(4,d.cam.px+dx/r.width*2));c.py=Math.max(-4,Math.min(4,d.cam.py-dy/r.height*2));});return;}
-  setView(v=>{if(d.pan){v.px=d.v.px+dx/r.width*2;v.py=d.v.py-dy/r.height*2;}else{v.yaw=wrapAngle(d.v.yaw-dx*.4);v.pit=wrapAngle(d.v.pit+dy*.4);}});
+  setView(d.layer,v=>{if(d.pan){v.px=d.v.px+dx/r.width*2;v.py=d.v.py-dy/r.height*2;}else{v.yaw=wrapAngle(d.v.yaw-dx*.4);v.pit=wrapAngle(d.v.pit+dy*.4);}});
 });
 const endView=()=>{const d=viewDrag;if(!d)return;viewDrag=null;$('previewWrap').classList.remove('view-pan','view-orbit');if(d.moved)liveCommit(d.pan?'Moved view':d.cam?'3D camera: rotate / tilt':'Orbited view');};
 preview.addEventListener('pointerup',endView);preview.addEventListener('pointercancel',endView);
 preview.addEventListener('contextmenu',ev=>{if(!viewOff())ev.preventDefault();});
 // Zoom the active layer by k around a screen point: its 3D camera if it has one, else the viewport.
 function zoomView(k,cx,cy,label='Zoomed view'){
-  const cam=viewCam(graph());
+  const g=viewLayer(),cam=viewCam(g);
   if(cam){setCam(cam.id,c=>{c.zoom=Math.round(Math.max(30,Math.min(300,(c.zoom??100)*k)));});clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit('3D camera: zoom'),350);return;}
-  const r=preview.getBoundingClientRect(),u=(cx-r.left)/r.width*2-1,w=(cy-r.top)/r.height*2-1,flat=layerView.get(graph().id)!=='sim';
-  setView(v=>{const z=Math.max(.2,Math.min(6,v.zm*k));
+  const r=preview.getBoundingClientRect(),u=(cx-r.left)/r.width*2-1,w=(cy-r.top)/r.height*2-1,flat=layerView.get(g.id)!=='sim';
+  setView(g.id,v=>{const z=Math.max(.2,Math.min(6,v.zm*k));
     // 2D zooms toward the pointer; 3D dollies the camera.
     if(flat){v.px=u-z*(u-v.px)/v.zm;v.py=z*(w+v.py)/v.zm-w;}v.zm=z;});
   clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit(label),350);
@@ -3200,9 +3212,9 @@ preview.addEventListener('pointermove',ev=>{if(!touches.has(ev.pointerId))return
   if(pinch&&touches.size===2){const [a,b]=[...touches.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1])||1;zoomView(d/pinch.d,(a[0]+b[0])/2,(a[1]+b[1])/2,'Pinch zoom');pinch.d=d;ev.stopImmediatePropagation();}},true);
 const dropTouch=ev=>{touches.delete(ev.pointerId);if(touches.size<2)pinch=null;};
 preview.addEventListener('pointerup',dropTouch,true);preview.addEventListener('pointercancel',dropTouch,true);
-preview.addEventListener('dblclick',()=>{if(viewOff())return;const cam=viewCam(graph()),T=TYPES.camera3d.props;if(!cam&&!graph().view)return;
+preview.addEventListener('dblclick',()=>{if(viewOff())return;const g=viewLayer(),cam=viewCam(g),T=TYPES.camera3d.props;if(!cam&&!g.view)return;
   if(cam?.id===null){setCam(null,c=>{for(const k of ['turn','tilt','zoom'])c[k]=SCENE_CAMERA[k];c.px=c.py=0;});liveCommit('Reset scene view');return;}
-  if(cam)setCam(cam.id,c=>{c.turn=T.turn.value;c.tilt=T.tilt.value;c.zoom=T.zoom.value;});setView(v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
+  if(cam)setCam(cam.id,c=>{c.turn=T.turn.value;c.tilt=T.tilt.value;c.zoom=T.zoom.value;});setView(g.id,v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
 
 // Output window for a projector / second display. Each window's canvas is painted straight from the preview (a GPU copy,
 // no video stream in between, so no added lag or dropped frames). With Projectors set to 2–4 there is one window per

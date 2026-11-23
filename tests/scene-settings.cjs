@@ -133,6 +133,45 @@ const scene={format:'audiograph-pro',version:10,layers:[
     });
     assert.ok(frames>=12&&frames<=21,`Expected about 18 live frames at 15 fps; got ${frames}`);
     assert.deepEqual(await page.locator('#preview').evaluate(c=>[...c.getContext('2d').getImageData(0,0,1,1).data]),[16,32,48,255]);
+    const dragPreview=async()=>{
+      const box=await page.locator('#preview').boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
+      await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+40,y+25);await page.mouse.up();
+    };
+    await page.setViewportSize({width:1440,height:900});
+    await page.evaluate(scene=>{
+      scene.layers=[scene.layers[0]];
+      const g=scene.layers[0];
+      g.nodes.unshift({id:'unused',type:'camera3d',x:50,y:150,props:{turn:12}});
+      g.nodes.push({id:'boost',type:'amplify',x:300,y:50,props:{gain:1}});
+      g.edges.find(e=>e.to==='MeshOut').from='boost';
+      g.edges.find(e=>e.to==='MeshOut').out='out';
+      g.edges.push({from:'camera',out:'shape',to:'boost',input:'in'});
+      pro.importProject(scene);
+    },scene);
+    await page.waitForFunction(()=>pro.engine('mesh')?.w?.__agScene.camera);
+    await page.evaluate(()=>pro.pause(true));
+    await dragPreview();
+    const angles=async()=> (await project()).layers[0].nodes.filter(n=>n.type==='camera3d').map(n=>n.props.turn);
+    assert.deepEqual(await angles(),[12,19],'Dragging rotates the wired camera, not the first disconnected camera node');
+    await page.evaluate(()=>pro.undo());
+    await page.evaluate(()=>{pro.select('mesh');pro.draw();});
+    await page.keyboard.press('v');
+    await page.evaluate(()=>pro.draw());
+    const thumb=()=>page.locator('#preview').evaluate(src=>{
+      const c=document.createElement('canvas');c.width=160;c.height=90;
+      const ctx=c.getContext('2d');ctx.drawImage(src,0,0,c.width,c.height);
+      return [...ctx.getImageData(0,0,c.width,c.height).data];
+    });
+    const beforeOrbit=await thumb();
+    await dragPreview();
+    assert.deepEqual(await angles(),[12,35],'Solo preview does not edit a downstream camera that is not visible');
+    assert.equal((await project()).layers[0].view.yaw,-16,'Solo preview orbits the layer view');
+    assert.ok((await thumb()).filter((v,i)=>Math.abs(v-beforeOrbit[i])>12).length>100,'The solo object visibly rotates');
+    await page.keyboard.press('Escape');
+    await page.evaluate(()=>{pro.undo();const p=pro.getProject();p.layers[0].nodes.find(n=>n.id==='camera').bypass=true;pro.importProject(p);});
+    await dragPreview();
+    assert.deepEqual(await angles(),[12,35],'Bypassed cameras do not intercept rotation');
+    assert.equal((await project()).layers[0].view.yaw,-16);
     assert.equal(await page.evaluate(()=>pro.stats().errors.length),0);
     assert.deepEqual(errors,[]);
     console.log('ok - Scene settings inspector, live wired and shared cameras, performance, undo, persistence, and mobile');
