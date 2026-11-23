@@ -9579,7 +9579,7 @@ function drawDensity(ctx,W,H,values,p,forExport){
   if(_agIsSim(layoutMode))return agSim.draw(ctx,W,H,values,p,forExport);
   if(layoutMode==='lissajous'||layoutMode==='rose'||layoutMode==='spiro')return agCurves.draw(layoutMode,ctx,W,H,values,p,forExport);
   var spacings=[],total=0;for(var i=0;i<n;i++){var d=1+values[i]*p.contrast*6,sp=1/Math.max(d,.05);sp*=(1+getRand(i,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);total+=sp}
-  var scale=W/total,mLH=H*p.height,lines=[],x=0;
+  var scale=W/total,mLH=H*p.height,lines=[],x=0,dist=getDistortions();
   for(var i=0;i<n;i++){x+=spacings[i]*scale;var v=values[i];
     var hRand=1+getRand(i+500,'rAppear')*.7;
     var lh;
@@ -9595,14 +9595,13 @@ function drawDensity(ctx,W,H,values,p,forExport){
     tw*=(1+getRand(i+1000,'rAppear')*.5);tw=Math.max(.25,tw);
     var lx=x+dx,lly=ly+dy;
     // Apply distortions
-    var dist=getDistortions();
     if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth||dist.ripple||dist.water||dist.jitter){
       var dTop=distortLinear(lx,lly,W,H,dist);var dBot=distortLinear(lx,lly+lh,W,H,dist);
       lx=(dTop.x+dBot.x)/2;lly=dTop.y;lh=Math.max(1,Math.abs(dBot.y-dTop.y));
     }
     lines.push({x:lx,ly:lly,lh:lh,v:v,tw:tw,pos:n>1?i/(n-1):0})}
   lastFrameLines={lines:lines,W:W,H:H,p:p};
-  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.strokeStyle=col;ctx.fillStyle=col;var _da=getDistortions().depth;if(_da>0){var _dx=(l.x-W/2)/(W/2),_dy=(l.ly+l.lh/2-H/2)/(H/2),_dr=Math.sqrt(_dx*_dx+_dy*_dy),_ds=1-_da*.6*(1-Math.exp(-_dr*1.5));ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=l.tw*Math.max(.2,_ds)}else{ctx.globalAlpha=1;ctx.lineWidth=l.tw}drawShapedLine(ctx,l.x,l.ly,l.lh,ctx.lineWidth,l.v)}
+  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.strokeStyle=col;ctx.fillStyle=col;var _da=dist.depth;if(_da>0){var _dx=(l.x-W/2)/(W/2),_dy=(l.ly+l.lh/2-H/2)/(H/2),_dr=Math.sqrt(_dx*_dx+_dy*_dy),_ds=1-_da*.6*(1-Math.exp(-_dr*1.5));ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=l.tw*Math.max(.2,_ds)}else{ctx.globalAlpha=1;ctx.lineWidth=l.tw}drawShapedLine(ctx,l.x,l.ly,l.lh,ctx.lineWidth,l.v)}
   if(showOutline&&lines.length>2)drawLinearOutline(ctx,lines,forExport);
   ctx.globalAlpha=1;return lines}
 
@@ -9614,7 +9613,7 @@ function drawCircle(ctx,W,H,values,p,forExport){
   // Compute angular spacings based on contrast (same logic as linear)
   var spacings=[],totalSp=0;
   for(var i=0;i<n;i++){var d=1+values[i]*p.contrast*6,sp=1/Math.max(d,.05);sp*=(1+getRand(i,'rDist')*.5);sp=Math.max(0.01,sp);spacings.push(sp);totalSp+=sp}
-  var angleScale=Math.PI*2/totalSp,angle=-Math.PI/2,cumSp=0;
+  var angleScale=Math.PI*2/totalSp,angle=-Math.PI/2,cumSp=0,dist=getDistortions();
   for(var i=0;i<n;i++){cumSp+=spacings[i];angle=-Math.PI/2+cumSp*angleScale;
     var v=values[i];
     var hRand=1+getRand(i+500,'rAppear')*.7;
@@ -9631,14 +9630,13 @@ function drawCircle(ctx,W,H,values,p,forExport){
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(n>1?i/(n-1):0,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dAngle+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dAngle,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
-    var dist=getDistortions();
     if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth||dist.ripple||dist.water||dist.jitter){
       var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
       fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
     }
     lines.push({v:v,tw:tw,pos:n>1?i/(n-1):0,angle:fAngle,r1:fR1,r2:fR2,lh:Math.abs(fR2-fR1)})}
   lastFrameLines={lines:lines,W:W,H:H,p:p,circle:true,cx:cx,cy:cy};
-  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.save();ctx.translate(cx,cy);ctx.rotate(l.angle+Math.PI/2);ctx.strokeStyle=col;ctx.fillStyle=col;var _da=getDistortions().depth;if(_da>0){var _nR=l.r2/maxR,_ds=1-_da*.4*(1-_nR);ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=l.tw*Math.max(.2,_ds)}else{ctx.globalAlpha=1;ctx.lineWidth=l.tw}drawShapedLine(ctx,0,-l.r2,l.lh,ctx.lineWidth,l.v);ctx.restore()}
+  for(var j=0;j<lines.length;j++){var l=lines[j];var col=forExport?lineColHex(l.v,l.pos,j,lines.length):lineCol(l.v,l.pos,j,lines.length);ctx.save();ctx.translate(cx,cy);ctx.rotate(l.angle+Math.PI/2);ctx.strokeStyle=col;ctx.fillStyle=col;var _da=dist.depth;if(_da>0){var _nR=l.r2/maxR,_ds=1-_da*.4*(1-_nR);ctx.globalAlpha=Math.max(.1,_ds);ctx.lineWidth=l.tw*Math.max(.2,_ds)}else{ctx.globalAlpha=1;ctx.lineWidth=l.tw}drawShapedLine(ctx,0,-l.r2,l.lh,ctx.lineWidth,l.v);ctx.restore()}
   if(showOutline&&lines.length>2)drawCircleOutline(ctx,lines,cx,cy,forExport);
   ctx.globalAlpha=1;return lines}
 
@@ -9656,7 +9654,7 @@ function drawKaleidoscope(ctx,W,H,values,p,forExport){
   // Draw lines only within the first wedge (0 to wedgeAngle)
   var mLH=maxR*.7*p.height;var minR=maxR*innerPct;
   var linesPerWedge=Math.max(10,Math.round(n/segments));
-  var lines=[];
+  var lines=[],dist=getDistortions();
   for(var i=0;i<linesPerWedge;i++){
     var vi=Math.floor(i/linesPerWedge*n);if(vi>=n)vi=n-1;
     var v=values[vi];
@@ -9673,7 +9671,6 @@ function drawKaleidoscope(ctx,W,H,values,p,forExport){
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,linesPerWedge);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     r2=Math.max(1,r2+dR);angle+=dA;
     var fAngle=angle,fR1=r1,fR2=r2;
-    var dist=getDistortions();
     if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth||dist.ripple||dist.water||dist.jitter){
       var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
       fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
@@ -9733,7 +9730,7 @@ function drawSpiral(ctx,W,H,values,p,forExport){
   var turns=+document.getElementById('pSpiralTurns').value;
   var innerPct=+document.getElementById('pSpiralInner').value/100;
   var spreadPct=+document.getElementById('pSpiralSpread').value/100;
-  var lines=[];
+  var lines=[],dist=getDistortions();
   for(var i=0;i<n;i++){
     var t=i/n;
     var v=values[i];
@@ -9752,7 +9749,6 @@ function drawSpiral(ctx,W,H,values,p,forExport){
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
-    var dist=getDistortions();
     if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth||dist.ripple||dist.water||dist.jitter){
       var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
       fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
@@ -9776,7 +9772,7 @@ function drawFibonacci(ctx,W,H,values,p,forExport){
   var goldenAngle=Math.PI*(3-Math.sqrt(5));
   var densityPct=+document.getElementById('pFibDensity').value/100;
   var innerPct=+document.getElementById('pFibInner').value/100;
-  var lines=[];
+  var lines=[],dist=getDistortions();
   for(var i=0;i<n;i++){
     var v=values[i];
     var angle=i*goldenAngle;
@@ -9792,7 +9788,6 @@ function drawFibonacci(ctx,W,H,values,p,forExport){
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
-    var dist=getDistortions();
     if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth||dist.ripple||dist.water||dist.jitter){
       var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
       fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
@@ -9817,7 +9812,7 @@ function drawPhyllotaxis(ctx,W,H,values,p,forExport){
   var densityPct=+document.getElementById('pPhylDensity').value/100;
   var innerPct=+document.getElementById('pPhylInner').value/100;
   var divergence=goldenAngle*(1+divOffset);
-  var lines=[];
+  var lines=[],dist=getDistortions();
   for(var i=0;i<n;i++){
     var v=values[i];
     var angle=i*divergence;
@@ -9833,7 +9828,6 @@ function drawPhyllotaxis(ctx,W,H,values,p,forExport){
     var camD=+document.getElementById('camDisplace').value;
     if(camActive&&camD>0&&camColors){var cb=getCamBrightness(pr,i,n);dR+=(cb-0.5)*2*camD*.005*maxR;dA+=(cb-0.5)*2*camD*.003}
     var fAngle=angle+dA,fR1=Math.max(0,r1+dR),fR2=Math.max(1,r2+dR);
-    var dist=getDistortions();
     if(dist.twist||dist.bulge||dist.wave||dist.shear||dist.depth||dist.ripple||dist.water||dist.jitter){
       var d1=distortCircular(fAngle,fR1,maxR,cx,cy,dist);var d2=distortCircular(fAngle,fR2,maxR,cx,cy,dist);
       fAngle=(d1.angle+d2.angle)/2;fR1=d1.radius;fR2=d2.radius;
