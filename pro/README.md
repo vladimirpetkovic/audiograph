@@ -40,7 +40,8 @@ each with its own opacity and blend mode (up to four).
     Choose **3D Fluid** for a volumetric flow instead. Connect a **3D Object**
     or **Cloner** to emit from its surface, or connect an image, waveform,
     or Camera to inject into a flat slice of the volume. Turn on **Collide**
-    on any 3D Object to block the flow. Fluid spreads in all directions unless
+    on any 3D Object to block the flow, including the emitter itself: fluid
+    still starts at its surface. Fluid spreads in all directions unless
     you wire **Gravity** after it. The optional square **Floor** blocks the flow
     at ground level. **Container size** sets the size of the cube;
     **Resolution** sets the simulation detail (24–128 voxels per side). Lower

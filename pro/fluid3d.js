@@ -27,14 +27,16 @@ const SOLVE=COMMON+`
 @group(0) @binding(7) var<storage,read_write> nextP:array<f32>;
 @group(0) @binding(8) var<storage,read_write> divergence:array<f32>;
 @group(0) @binding(9) var densityOut:texture_storage_3d<rgba16float,write>;
-@group(0) @binding(10) var<storage,read> deposits:array<vec4f>;
+struct Deposit{ flow:vec4f, cell:vec4f };
+@group(0) @binding(10) var<storage,read> deposits:array<Deposit>;
 @group(0) @binding(11) var<storage,read_write> injection:array<vec4f>;
+fn solid(p:vec3i)->bool{if(!within(p)){return true;}return walls[idx(p)]!=0u;}
 @compute @workgroup_size(64) fn deposit(@builtin(global_invocation_id) id:vec3u){
   if(id.x>=u32(u.look.z)){return;}
-  let s=deposits[id.x];let i=u32(abs(s.w))-1u;
-  injection[i]=vec4f(s.xyz,select(3.0,2.0,s.w<0.0));
+  let s=deposits[id.x];
+  if(s.cell.y>=0.0&&(walls[u32(s.cell.y)]==0u||walls[u32(s.cell.w)]==0u)){return;}
+  injection[u32(s.cell.x)]=s.flow;
 }
-fn solid(p:vec3i)->bool{if(!within(p)){return true;}return walls[idx(p)]!=0u;}
 fn field(p:vec3i)->vec4f{if(solid(p)){return vec4f(0);}return src[idx(p)];}
 fn sample(p:vec3f)->vec4f{
   let b=vec3i(floor(p));let f=fract(p);var v=vec4f(0);var sum=0.0;
@@ -84,7 +86,7 @@ fn bounded(p:vec3i,v:vec3f)->vec3f{
   let dt=u.grid.z;let h=2.0*u.grid.y/u.grid.x;
   let v0=bounded(p,src[i].xyz);let delta=clamp(v0*dt/h,vec3f(-0.85),vec3f(0.85));
   var q=vec3f(p)-delta;if(solid(vec3i(round(q)))){q=vec3f(p);}
-  let v=sample(q);let w=world(vec3f(p));var s=inject[i];let t=u.detail.w;
+  let v=sample(q);let w=world(vec3f(p));var s=inject[i];s.w=abs(s.w);let t=u.detail.w;
   if(u.detail.z>0.5){
     let r=length(w);let dir=w/max(r,1e-5);
     let lobe=1.0+.19*sin(8.0*dir.x+t*.8)*sin(7.0*dir.y-t)*sin(6.0*dir.z+t*.65);
@@ -123,7 +125,20 @@ fn bounded(p:vec3i,v:vec3f)->vec3f{
 fn press(p:vec3i,fallback:f32)->f32{if(solid(p)){return fallback;}return pressure[idx(p)];}
 @compute @workgroup_size(64) fn project(@builtin(global_invocation_id) id:vec3u){
   let i=id.x;if(i>=arrayLength(&walls)){return;}
-  let p=cell(i);if(solid(p)){dst[i]=vec4f(0);textureStore(densityOut,p,vec4f(0));return;}
+  let p=cell(i);
+  if(solid(p)){
+    dst[i]=vec4f(0);
+    let s=inject[i];var contact=0.0;
+    // Extend visible dye to the emitting surface, without moving fluid through solid voxels.
+    if(s.w<0.0){
+      let neighbors=array<vec3i,6>(X,-X,Y,-Y,Z,-Z);
+      for(var j=0u;j<6u;j++){
+        let o=neighbors[j];
+        if(dot(s.xyz,vec3f(o))>0.0){contact=max(contact,field(p+o).w);}
+      }
+    }
+    textureStore(densityOut,p,vec4f(contact*.8,0,0,0));return;
+  }
   let a=pressure[i];let grad=0.5*vec3f(press(p+X,a)-press(p-X,a),press(p+Y,a)-press(p-Y,a),press(p+Z,a)-press(p-Z,a));
   dst[i]=vec4f(bounded(p,src[i].xyz-grad),src[i].w);
   textureStore(densityOut,p,vec4f(src[i].w,0,0,0));
@@ -238,7 +253,7 @@ export class Fluid3D{
       this.wall=buffer(total*4,diagnostic);this.pa=buffer(total*4);this.pb=buffer(total*4);this.div=buffer(total*4);
       this.mesh=buffer(16);this.buffers=[this.uniform,this.field,this.temp,this.inject,this.wall,this.pa,this.pb,this.div,this.mesh];
       this.density=device.createTexture({dimension:'3d',size:[n,n,n],format:'rgba16float',
-        usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING});
+        usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING|GPUTextureUsage.COPY_SRC});
       this.ctx.configure({device,format:'rgba8unorm',alphaMode:'premultiplied'});
       this.depthCtx.configure({device,format:'rgba8unorm',alphaMode:'premultiplied'});
       this.collisions=undefined;this.floor=undefined;this.lastSource=undefined;this.lastFlat=undefined;this.groups=null;
@@ -263,7 +278,7 @@ export class Fluid3D{
     const advance=!renderOnly&&frame!==this.lastFrame;
     const wallsChanged=this.collisions!==collisions||this.floor!==floor;
     const flatLayers=!source&&flat?Math.max(1,Math.ceil(.07*n/(2*half))):0;
-    let update=null;
+    let update=wallsChanged&&!!source;
     if(advance){
       if(this.collisions!==collisions){
         if(collisions){
@@ -279,41 +294,47 @@ export class Fluid3D{
       this.floor=floor;
       if(this.lastSource!==source||this.lastFlat!==flat){
         const cells=new Map(),scale=n/(2*half);
-        const add=(x,y,z,dx,dy,dz,mesh)=>{
+        const index=(x,y,z)=>{
           const a=Math.floor(x*scale+n/2),b=Math.floor(y*scale+n/2),c=Math.floor(z*scale+n/2);
-          if(a<0||b<0||c<0||a>=n||b>=n||c>=n)return;
-          const i=a+n*(b+n*c);if(cells.has(i))return;
-          // The signed index also distinguishes surface deposits from flat ones.
-          cells.set(i,[dx,dy,dz,mesh?i+1:-i-1]);
+          return a<0||b<0||c<0||a>=n||b>=n||c>=n?-1:a+n*(b+n*c);
+        };
+        const add=(i,dx,dy,dz,dye,behind=-1,step=0,anchor=0)=>{
+          if(i<0||cells.get(i)?.[6]<=step)return;
+          cells.set(i,[dx,dy,dz,dye,i,behind,step,anchor]);
         };
         if(source){
-          const offset=2.6*half/n,thickness=Math.max(1,Math.ceil(.06*scale));
           for(let i=0;i<source.length;i+=12){
             const x=source[i],y=source[i+1],z=source[i+2],dx=source[i+8],dy=source[i+9],dz=source[i+10];
-            for(let j=0;j<thickness;j++){
-              const d=offset+j/scale;
-              add(x+dx*d,y+dy*d,z+dz*d,3*dx,3*dy,3*dz,true);
+            const anchor=index(x,y,z);if(anchor<0)continue;
+            let previous=anchor;
+            add(anchor,3*dx,3*dy,3*dz,-3);
+            for(let step=1;step<=5;step++){
+              const d=step*.45/scale,current=index(x+dx*d,y+dy*d,z+dz*d);
+              if(current<0)break;
+              if(current===previous)continue;
+              add(current,3*dx,3*dy,3*dz,3,previous,step,anchor);
+              previous=current;
             }
           }
         }else if(flat){
           for(let i=0;i<flat.length;i+=5){
             for(let j=0;j<flatLayers;j++){
               const z=(j+.5)/scale;
-              add(flat[i],-flat[i+1],z,0,0,2.1,false);
-              add(flat[i],-flat[i+1],-z,0,0,-2.1,false);
+              add(index(flat[i],-flat[i+1],z),0,0,2.1,2);
+              add(index(flat[i],-flat[i+1],-z),0,0,-2.1,2);
             }
           }
         }
         this.sourceCells=cells.size;
-        enc.clearBuffer(this.inject);
+        update=true;
         if(cells.size){
-          update=new Float32Array(cells.size*4);let i=0;
-          for(const v of cells.values()){update.set(v,i);i+=4;}
-          if(!this.deposits||this.deposits.size<update.byteLength){
+          const data=new Float32Array(cells.size*8);let i=0;
+          for(const v of cells.values()){data.set(v,i);i+=8;}
+          if(!this.deposits||this.deposits.size<data.byteLength){
             this.deposits?.destroy();
-            this.deposits=device.createBuffer({size:2**Math.ceil(Math.log2(update.byteLength)),usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+            this.deposits=device.createBuffer({size:2**Math.ceil(Math.log2(data.byteLength)),usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
           }
-          device.queue.writeBuffer(this.deposits,0,update);
+          device.queue.writeBuffer(this.deposits,0,data);
         }
         this.lastSource=source;this.lastFlat=flat;
       }
@@ -331,13 +352,14 @@ export class Fluid3D{
         bind(2,[uniform,b(1,this.temp),wall,b(8,this.div)]),
         bind(3,[uniform,wall,b(6,this.pa),b(7,this.pb),b(8,this.div)]),
         bind(3,[uniform,wall,b(6,this.pb),b(7,this.pa),b(8,this.div)]),
-        bind(4,[uniform,b(1,this.temp),b(2,this.field),wall,b(6,this.pa),{binding:9,resource:this.density.createView()}]),
+        bind(4,[uniform,b(1,this.temp),b(2,this.field),wall,b(4,this.inject),b(6,this.pa),{binding:9,resource:this.density.createView()}]),
       ];
+      if(update)enc.clearBuffer(this.inject);
       const p=enc.beginComputePass();
       const dispatch=(i,j=i)=>{p.setPipeline(passes[i]);p.setBindGroup(0,bindings[j]);p.dispatchWorkgroups(groups);};
       if(wallsChanged)dispatch(0);
-      if(update){
-        p.setPipeline(passes[5]);p.setBindGroup(0,bind(5,[uniform,b(10,this.deposits),b(11,this.inject)]));
+      if(update&&this.sourceCells){
+        p.setPipeline(passes[5]);p.setBindGroup(0,bind(5,[uniform,wall,b(10,this.deposits),b(11,this.inject)]));
         p.dispatchWorkgroups(Math.ceil(this.sourceCells/64));
       }
       dispatch(1);dispatch(2);

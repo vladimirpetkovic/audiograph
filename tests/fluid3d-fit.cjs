@@ -62,22 +62,31 @@ const edge=(from,out,to,input)=>({from,out,to,input});
       const f=pro.engine('fluid').fluid,d=f.device;
       const buffers=[f.wall,f.field],copy=b=>d.createBuffer({size:b.size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
       const [walls,values]=buffers.map(copy),enc=d.createCommandEncoder();
+      const visible=copy({size:f.n**3*8});
       enc.copyBufferToBuffer(f.wall,0,walls,0,walls.size);
       enc.copyBufferToBuffer(f.field,0,values,0,values.size);
+      enc.copyTextureToBuffer({texture:f.density},{buffer:visible,bytesPerRow:f.n*8,rowsPerImage:f.n},[f.n,f.n,f.n]);
       d.queue.submit([enc.finish()]);
-      await Promise.all([walls.mapAsync(GPUMapMode.READ),values.mapAsync(GPUMapMode.READ)]);
+      await Promise.all([walls,values,visible].map(b=>b.mapAsync(GPUMapMode.READ)));
       try{
         const mask=new Uint32Array(walls.getMappedRange()),field=new Float32Array(values.getMappedRange());
+        const dye=new Uint16Array(visible.getMappedRange()),surface=new Set(),scale=f.n/(2*f.domain);
+        for(let i=0;i<f.lastSource.length;i+=12){
+          const [x,y,z]=f.lastSource.subarray(i,i+3).map(p=>Math.floor(p*scale+f.n/2));
+          if([x,y,z].every(p=>p>=0&&p<f.n))surface.add(x+f.n*(y+f.n*z));
+        }
         let solids=0,leaks=0,moving=0,layers=new Set(),valid=true;
         mask.forEach((solid,i)=>{
           const o=i*4,density=field[o+3];valid&&=field.subarray(o,o+4).every(Number.isFinite);
           if(solid){solids++;if(density||field[o]||field[o+1]||field[o+2])leaks++;}
           else if(density>.02){layers.add(Math.floor(i/f.n**2));if(Math.hypot(field[o],field[o+1],field[o+2])>.025)moving++;}
         });
-        return {solids,leaks,moving,depth:layers.size,valid};
-      }finally{walls.destroy();values.destroy();}
+        const onSurface=[...surface].filter(i=>mask[i]),contact=onSurface.filter(i=>dye[i*4]>0).length;
+        return {solids,leaks,moving,depth:layers.size,valid,contact,anchors:onSurface.length};
+      }finally{walls.destroy();values.destroy();visible.destroy();}
     });
     assert.ok(flow.valid&&flow.solids>100&&flow.leaks===0&&flow.moving>100&&flow.depth>4,JSON.stringify(flow));
+    assert.ok(flow.anchors>100&&flow.contact>flow.anchors*.7,'visible dye touches the colliding mesh: '+JSON.stringify(flow));
     const colliderSize=await page.evaluate(()=>pro.engine('fluid').fluid.collisions.end);
     await page.evaluate(()=>pro.setProperty('cube','collide',false));
     await page.waitForFunction(previous=>{const end=pro.engine('fluid')?.fluid?.collisions?.end;return end>0&&end<previous;},colliderSize);
@@ -124,15 +133,21 @@ const edge=(from,out,to,input)=>({from,out,to,input});
         props.fluidSwirl=0;
         const down=await run(70),up=await run(-70);
         const flat=await run(0,new Float32Array([0,0,0,0,0]));
+        fluid.dispose();
+        const source=new Float32Array([.49,0,0,1,0,0,0,1,1,0,0,0]);
+        fluid.draw({camera,width:160,height:90,quality:'low',dt:1/30,time:0,frame:0,level:.5,beat:0,props,source});
+        const [mesh]=await read(fluid.field),cells=new Float32Array(mesh),i=19+32*(16+32*16);
+        const startsAtSurface=cells[i*4+3]>.01&&cells[(i+1)*4+3]===0;
         Object.assign(props,{fluidFloor:true,fluidFloorSize:50});
         const floor=await run(70);
-        return {neutral,down,up,flat,floor};
+        return {neutral,down,up,flat,floor,startsAtSurface};
       }finally{fluid.dispose();}
     });
     assert.ok(physics.neutral.outward.every(n=>n>8)&&Math.abs(physics.neutral.centroid)<.5,JSON.stringify(physics));
     assert.ok(physics.down.centroid<-.75&&physics.up.centroid>.75,JSON.stringify(physics));
     assert.ok(physics.flat.positive>.01&&Math.abs(physics.flat.positive-physics.flat.negative)<.01,JSON.stringify(physics));
     assert.ok(physics.floor.solids>100&&physics.floor.solids<32**2&&physics.floor.leaks===0,JSON.stringify(physics));
+    assert.equal(physics.startsAtSurface,true,'a non-colliding mesh injects into its actual surface voxel on the first step');
     console.log('ok default flow spreads in all six directions, flat flow uses both sides, and ground and gravity work');
     const ramp=[{c:'#ff3300',a:0},{c:'#ff3300',a:1},{c:'#1111ff',a:1}];
     await load(scene([n('fluid','gpuParticles',40,200,{mode:'simfluid3d',fluidResolution:64,fluidRate:340}),
