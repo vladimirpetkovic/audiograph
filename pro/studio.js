@@ -91,6 +91,7 @@ function simKeys(g,n){
 }
 // The studio opens with the scene the First Mile tutorial builds.
 let state=validate({format:'audiograph-pro',version:VERSION,layers:startScene(),settings:SCENE_DEFAULTS}),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
+let sceneInspector=false,sceneWiredCamera=null;
 // Several nodes selected (marquee or Shift-click): `multi` holds them and `selected` is null.
 let multi=new Set();
 // The UI is drawn with CSS zoom: pointer and rect values are screen pixels, CSS lengths are divided by it.
@@ -152,7 +153,7 @@ function restoreSnapshot(snapshot){tm.playing=false;state=validate(snapshot);pen
 function undo(){if(history.length){future.push(clone(state));restoreSnapshot(history.pop());message('Undone');}}
 function redo(){if(future.length){history.push(clone(state));restoreSnapshot(future.pop());message('Redone');}}
 function importProject(raw,label='Imported project. Reload media files in the Input nodes.'){
-  const clean=validate(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;collisionMeshes.clear();commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
+  const clean=validate(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;sceneInspector=false;sceneWiredCamera=null;collisionMeshes.clear();commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
 }
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
 const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);if(!o.length)return false;
@@ -229,6 +230,7 @@ function duplicateSelected(){
 let clip=null;try{clip=JSON.parse(localStorage.getItem('agpro.clip')||'null');}catch{}
 const selIds=()=>multi.size?[...multi]:selected?[selected]:[];
 function setSelection(ids){
+  sceneInspector=false;
   ids=[...new Set(ids)];multi=new Set(ids.length>1?ids:[]);selected=ids.length===1?ids[0]:null;
   renderProperties();document.querySelectorAll('#nodes .node').forEach(x=>x.classList.toggle('selected',x.dataset.id===selected||multi.has(x.dataset.id)));updateHint();
 }
@@ -2123,15 +2125,28 @@ function renderProps(root,n,keys,folded){
 }
 function renderProperties(){
   $('previewWrap').classList.toggle('pinning',!!pinNode());
-  const root=$('properties');root.replaceChildren();closeMenu();
+  const root=$('properties'),focused=document.activeElement;
+  const cameraKnob=sceneInspector&&root.contains(focused)&&focused.matches('.knob-input')?focused.dataset.property:null;
+  root.replaceChildren();closeMenu();
   const g=graph(),n=g.nodes.find(n=>n.id===selected);
+  if(sceneInspector&&(n||multi.size)){sceneInspector=false;updateHint();}
+  $('sceneSettings').setAttribute('aria-pressed',String(sceneInspector));
+  if(sceneInspector){
+    renderSceneSettings(root);
+    if(cameraKnob)root.querySelector(`[data-property="${CSS.escape(cameraKnob)}"]`)?.focus({preventScroll:true});
+    return;
+  }
   if(multi.size>1){renderMulti(root);tipify();return;}
   if(!n){renderLayerInspector(root,g);tipify();return;}
   const t=TYPES[n.type],cat=catOf(n.type),head=el('div','insp-head'),h=el('h3');
   h.style.color=cat.color;h.append(document.createTextNode(nodeTitle(n)));
   head.append(h,el('div','insp-desc',t.description));root.append(head);
   const sharedCamera=n.type==='camera3d'&&state.settings?.camera;
-  if(sharedCamera)renderSceneCamera(root);
+  if(sharedCamera){
+    const s=section(root,'Shared 3D camera');
+    s.append(el('p','insp-note','One camera for all 3D layers. Wired camera nodes are inactive in this mode.'));
+    renderSceneCamera(s,null,fold);
+  }
   else if(n.type==='templateMorph'){
     for(const key of ['from','to']){const sel=el('select');sel.dataset.property=key;for(const name of TEMPLATE_NAMES)sel.append(new Option(name,name));sel.value=n.props[key];
       sel.onchange=()=>{tm.playing=false;edit((p,g)=>{g.nodes.find(m=>m.id===n.id).props[key]=sel.value;},'Morph template');};root.append(ui.field(TYPES[n.type].props[key].label,sel));}
@@ -2576,11 +2591,10 @@ function renderLayerInspector(root,g){
   const grid=el('div','knob-grid');grid.append(ui.knob({label:'Opacity',min:0,max:100,step:1,value:Math.round(g.opacity*100),def:100,unit:'%',property:'layerOpacity',
     onInput:v=>live(()=>{graph().opacity=v/100;}),onChange:()=>liveCommit('Layer opacity')}));s.append(grid);
   const b=section(root,'Blend with layers below');b.append(ui.chips({options:LAYER_BLENDS.map(m=>[m,{'source-over':'Normal',screen:'Screen',lighter:'Add',multiply:'Multiply',difference:'Difference',overlay:'Overlay'}[m]]),value:g.blend,property:'layerBlend',onChange:v=>edit((p,l)=>{l.blend=v;},'Layer blend')}));
-  if(state.settings?.camera)renderSceneCamera(root);
   section(root).append(el('p','insp-note','Tip: select a node, then click a Deformer, Color or Post FX node in the library to insert it right after.'));
   updateHint();
 }
-function updateHint(){const n=graph().nodes.find(n=>n.id===selected);$('selectionHint').textContent=n?`${TYPES[n.type].label} selected`:multi.size?`${multi.size} nodes selected`:`${graph().name}`;}
+function updateHint(){const n=graph().nodes.find(n=>n.id===selected);$('selectionHint').textContent=sceneInspector?'Scene settings':n?`${TYPES[n.type].label} selected`:multi.size?`${multi.size} nodes selected`:`${graph().name}`;}
 function renderLayers(){
   $('layers').replaceChildren();
   for(const g of state.layers){
@@ -2589,7 +2603,7 @@ function renderLayers(){
     vis.onclick=e=>e.stopPropagation();vis.onchange=()=>edit(p=>{p.layers.find(l=>l.id===g.id).visible=vis.checked;},'Layer visibility');
     const name=el('span','layer-name',g.name),x=el('button','layer-x','×');x.type='button';x.title='Delete layer';x.hidden=state.layers.length===1;
     x.onclick=e=>{e.stopPropagation();edit(p=>{p.layers=p.layers.filter(l=>l.id!==g.id);},'Deleted layer');};
-    tab.append(vis,name,x);tab.onclick=()=>{if(active!==g.id){active=g.id;selected=null;multi.clear();pending=null;renderUI();fit();}};
+    tab.append(vis,name,x);tab.onclick=()=>{if(active!==g.id){active=g.id;sceneInspector=false;selected=null;multi.clear();pending=null;renderUI();fit();}};
     $('layers').append(tab);
   }
   $('addLayer').disabled=state.layers.length>=LIMITS.layers||state.layers.flatMap(g=>g.nodes).filter(n=>isEngine(n.type)).length>=LIMITS.emitters;
@@ -2975,19 +2989,18 @@ function changeResolution(height){
 function editScene(key,value,label){
   return edit(s=>{s.settings={...s.settings,[key]:value};},label);
 }
-function renderSceneCamera(root){
-  const camera=state.settings.camera,s=section(root,'Shared 3D camera');
-  s.append(el('p','insp-note','One camera for all 3D layers. Wired camera nodes are inactive in this mode.'));
+function renderSceneCamera(root,node,group=section){
+  const camera=node?.props??state.settings.camera;
   for(const [title,keys] of [['Lens',['focal','focus','dof','blur']],['View',['turn','tilt','zoom','orbit','orbitSound']]]){
     const grid=el('div','knob-grid');
     for(const k of keys){
-      const spec=TYPES.camera3d.props[k],property='sceneCamera:'+k;
-      const set=v=>live(st=>{st.settings.camera[k]=v;}),commit=()=>liveCommit(`Scene camera: ${spec.label}`);
-      grid.append(k==='focal'?focalKnob(spec,camera[k],SCENE_CAMERA[k],property,set,commit):
-        ui.knob({label:spec.label,min:spec.min,max:spec.max,step:spec.step,value:camera[k],def:SCENE_CAMERA[k],property,
+      const spec=TYPES.camera3d.props[k],property=(node?'wiredCamera:':'sceneCamera:')+k,def=node?spec.value:SCENE_CAMERA[k];
+      const set=v=>live(st=>{(node?findNode(node.id).props:st.settings.camera)[k]=v;}),commit=()=>liveCommit(`3D camera: ${spec.label}`);
+      grid.append(k==='focal'?focalKnob(spec,camera[k],def,property,set,commit):
+        ui.knob({label:spec.label,min:spec.min,max:spec.max,step:spec.step,value:camera[k],def,property,
           unit:k==='turn'||k==='tilt'?'°':'%',onInput:set,onChange:commit}));
     }
-    fold(s,title).append(grid);
+    group(root,title).append(grid);
   }
 }
 function setSceneResolution(height){
@@ -3000,29 +3013,53 @@ $('resolution').onchange=()=>{
   try{localStorage.setItem('agpro.resolution',String(height));}
   catch(error){message('Could not save the browser default resolution: '+error.message,true);}
 };
-function renderSceneSettings(){
-  const root=$('sceneBody'),settings=state.settings??{};
-  root.replaceChildren();
-  const group=label=>{const f=el('fieldset');f.append(el('legend','',label));root.append(f);return f;};
+function renderSceneSettings(root){
+  const settings=state.settings??{},panel=el('div','scene-inspector');
+  const head=el('div','insp-head'),title=el('h3','','Scene settings'),close=el('button','btn','Done');
+  title.tabIndex=-1;close.type='button';close.onclick=closeSceneInspector;
+  head.append(title,close);panel.append(head);root.append(panel);updateHint();
+  const group=label=>{const f=el('fieldset');f.append(el('legend','',label));panel.append(f);return f;};
   const field=(box,label,value,options,onChange)=>{
     const c=el(Array.isArray(options)?'select':'input');
     c.setAttribute('aria-label',label);
     if(Array.isArray(options)){
       for(const [id,text] of options){const o=el('option','',text);o.value=id;c.append(o);}
-    }else if(options==='color')c.type='color';
-    else{c.type='number';c.min=options.min;c.max=options.max;c.step=options.step||1;}
+    }else c.type='color';
     c.value=value;
     let current=value;
     c.onchange=()=>{
-      const v=c.type==='number'?c.valueAsNumber:typeof value==='number'?+c.value:c.value;
-      if(!c.reportValidity()||!attempt(()=>onChange(v)))c.value=current;
-      else current=v;
+      const v=typeof value==='number'?+c.value:c.value;
+      const focused=document.activeElement===c;
+      if(!attempt(()=>onChange(v)))c.value=current;
+      else{
+        current=v;
+        if(focused&&!c.isConnected)root.querySelector(`[aria-label="${CSS.escape(label)}"]`)?.focus({preventScroll:true});
+      }
     };
     const row=el('label','prop-row');row.append(el('span','prop-label',label),c);box.append(row);
     return c;
   };
+  const camera=group('3D camera'),wired=state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='camera3d'&&!n.bypass).map(n=>({n,g})));
+  const cameras=wired.map(({g,n},i)=>[n.id,`${g.name} · ${n.name||`Camera ${i+1}`}`]);
+  field(camera,'Camera mode',settings.camera?'shared':'legacy',[['legacy','Wired cameras'],['shared','Shared scene camera']],v=>
+    editScene('camera',v==='shared'?{...(wired.length===1?wired[0].n.props:SCENE_CAMERA)}:null,'Changed scene camera mode'));
+  if(settings.camera){
+    if(wired.length>1)field(camera,'Copy wired camera','',[['','Choose a camera'],...cameras],id=>{
+      const source=wired.find(({n})=>n.id===id);
+      return !!source&&editScene('camera',{...source.n.props},'Copied wired camera settings');
+    });
+    renderSceneCamera(camera,null);
+  }else{
+    const source=wired.find(({n})=>n.id===sceneWiredCamera)||wired.find(({g})=>g.id===active)||wired[0];
+    if(source){
+      if(wired.length>1)field(camera,'Wired camera',source.n.id,cameras,id=>{
+        sceneWiredCamera=id;renderProperties();return true;
+      });
+      renderSceneCamera(camera,source.n);
+    }else camera.append(el('p','insp-note','Add a 3D Camera node to edit a wired camera, or choose Shared scene camera to use one camera for all 3D layers.'));
+  }
   const output=group('Output'),sizes=OUTPUT_SIZES.map(h=>[h,h===2160?'4K':`${h}p`]),video={...exportPrefs,...settings.video};
-  field(output,'Live resolution',settings.resolution??preferredResolution,sizes,setSceneResolution).disabled=!!(recorder||recordStarting||exporting);
+  field(output,'Live resolution',settings.resolution??preferredResolution,sizes,setSceneResolution);
   output.append(el('p','insp-note','Sets the size of the preview, snapshots, recordings and detached output.'));
   const videoField=(label,key,choices)=>field(output,label,video[key],choices,v=>{
     const next={...video,[key]:v};
@@ -3044,31 +3081,19 @@ function renderSceneSettings(){
   const composition=group('2D composition');
   field(composition,'Canvas background',settings.background??SCENE_DEFAULTS.background,'color',v=>editScene('background',v,'Changed canvas background'));
   composition.append(el('p','insp-note','Behind every layer. Flat layers keep their blend modes and are not affected by the 3D lens.'));
-  const camera=group('3D camera'),legacy=state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='camera3d'&&!n.bypass).map(n=>({n,g})));
-  field(camera,'Camera mode',settings.camera?'shared':'legacy',[['shared','Shared scene camera'],['legacy','Wired cameras']],v=>{
-    const next=v==='shared'?{...(legacy.length===1?legacy[0].n.props:SCENE_CAMERA)}:null;
-    if(!editScene('camera',next,'Changed scene camera mode'))return false;
-    renderSceneSettings();root.querySelector('[aria-label="Camera mode"]').focus();return true;
-  });
-  if(settings.camera){
-    camera.append(el('p','insp-note','One lens for all 3D layers. Wired camera nodes are inactive in this mode.'));
-    if(legacy.length>1)field(camera,'Copy wired camera','',[['','Choose a camera'],...legacy.map(({g,n},i)=>[n.id,`${g.name} · Camera ${i+1}`])],id=>{
-      const source=legacy.find(({n})=>n.id===id);
-      if(!source||!editScene('camera',{...source.n.props},'Copied wired camera settings'))return false;
-      renderSceneSettings();root.querySelector('[aria-label="Copy wired camera"]').focus();return true;
-    });
-    const inspect=el('button','btn','Adjust in inspector');
-    inspect.type='button';inspect.onclick=()=>{
-      $('sceneDialog').close();selected=null;multi.clear();pending=null;
-      if(layout.hidden.inspector)togglePane('inspector');
-      renderUI();
-      const knob=$('properties').querySelector('[data-property="sceneCamera:dof"]');
-      knob?.closest('.knob').scrollIntoView({block:'nearest'});knob?.focus({preventScroll:true});
-    };
-    camera.append(inspect);
-  }else camera.append(el('p','insp-note','Switch to a shared camera to use one lens and orbit across all 3D layers.'));
 }
-$('sceneSettings').onclick=()=>{renderSceneSettings();$('sceneDialog').showModal();};
+function closeSceneInspector(){
+  sceneInspector=false;renderProperties();$('sceneSettings').focus();
+}
+$('sceneSettings').onclick=()=>{
+  if(sceneInspector){closeSceneInspector();return;}
+  sceneWiredCamera=graph().nodes.find(n=>n.id===selected&&n.type==='camera3d'&&!n.bypass)?.id??null;
+  sceneInspector=true;selected=null;multi.clear();pending=null;
+  if(layout.hidden.inspector)togglePane('inspector');
+  renderUI();
+  const title=$('properties').querySelector('.scene-inspector h3');
+  title.scrollIntoView({block:'nearest'});title.focus({preventScroll:true});
+};
 async function toggleRecord(){
   if(recorder){recorder.stop();return;}
   if(recordStarting)return;
@@ -3433,7 +3458,9 @@ viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBou
 $('zoomIn').onclick=()=>zoom(1.15);$('zoomOut').onclick=()=>zoom(1/1.15);$('fit').onclick=fitButton;
 $('previewExit').onclick=()=>{if(previewId)setPreview(previewId);};
 document.addEventListener('keydown',e=>{
-  if($('sceneDialog').open)return;
+  if(e.key==='Escape'&&sceneInspector&&e.target.closest('#properties,#sceneSettings')&&!$('help').open){
+    e.preventDefault();closeSceneInspector();return;
+  }
   if((e.metaKey||e.ctrlKey)&&!e.altKey&&/^[so]$/i.test(e.key)){e.preventDefault();if(e.key.toLowerCase()==='s')(e.shiftKey?saveTemplate:saveScene)();else $('import').click();return;}
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
   const k=e.key.toLowerCase();

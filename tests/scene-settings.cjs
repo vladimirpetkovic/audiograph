@@ -30,23 +30,36 @@ const scene={format:'audiograph-pro',version:10,layers:[
     await page.evaluate(scene=>{pro.dissolve(false);pro.importProject(scene);},scene);
     await page.waitForFunction(()=>['particles','other'].every(id=>pro.engine(id)?.w?.agSim.stats().live>0));
     await page.evaluate(()=>pro.pause(true));
-    const project=()=>page.evaluate(()=>pro.getProject()),dialog=page.getByRole('dialog',{name:'Scene settings'});
-    const field=label=>dialog.getByLabel(label,{exact:true}),gear=page.getByRole('button',{name:'Scene settings'});
+    const project=()=>page.evaluate(()=>pro.getProject()),panel=page.locator('#properties .scene-inspector');
+    const field=label=>panel.getByLabel(label,{exact:true}),gear=page.getByRole('button',{name:'Scene settings'});
     assert.ok(await gear.evaluate(el=>el.previousElementSibling.id==='reset'));
     assert.equal(await page.evaluate(()=>pro.engine('mesh').w.__agDofCfg.amt),45);
     const flat=()=>page.evaluate(()=>{
       const {w}=pro.engine('flat');return [w.__agFocal,w.__agDofCfg,w.stackLayouts[0].params._dragRotX,w.stackLayouts[0].params._dragRotY];
     });
     const flatBefore=await flat();
+    const gutter=page.locator('.gutter[data-resize=inspector]');
+    await gutter.dblclick();
     await gear.focus();await page.keyboard.press('Enter');
+    assert.equal(await gear.getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('dialog[open]').count(),0,'Scene settings never opens a dialog');
+    assert.equal(await panel.getByRole('heading',{name:'Scene settings'}).evaluate(el=>document.activeElement===el),true);
+    assert.deepEqual(await panel.locator('legend').allTextContents(),['3D camera','Output','Performance','2D composition']);
     assert.equal(await field('Camera mode').inputValue(),'legacy');
-    await field('Camera mode').selectOption('shared');
-    await dialog.getByRole('button',{name:'Adjust in inspector'}).click();
-    assert.equal(await dialog.isVisible(),false);
-    const knob=k=>page.locator(`#properties input[data-property="sceneCamera:${k}"]`);
-    const setKnob=(k,value,commit)=>knob(k).evaluate((el,{value,commit})=>{
+    const knob=(k,mode='sceneCamera')=>page.locator(`#properties input[data-property="${mode}:${k}"]`);
+    const setKnob=(k,value,commit,mode)=>knob(k,mode).evaluate((el,{value,commit})=>{
       el.value=value;el.dispatchEvent(new Event(commit?'change':'input',{bubbles:true}));
     },{value,commit});
+    assert.equal(await knob('dof','wiredCamera').inputValue(),'45');
+    await setKnob('dof',60,false,'wiredCamera');
+    assert.equal(await page.evaluate(()=>pro.engine('mesh').w.__agDofCfg.amt),60,'The gear exposes live wired camera controls');
+    await setKnob('dof',60,true,'wiredCamera');
+    assert.equal((await project()).settings?.camera??null,null);
+    await page.evaluate(()=>pro.undo());
+    assert.equal(await knob('dof','wiredCamera').inputValue(),'45');
+    await field('Camera mode').focus();
+    await field('Camera mode').selectOption('shared');
+    assert.equal(await field('Camera mode').evaluate(el=>document.activeElement===el),true);
     assert.equal(await knob('turn').inputValue(),'35');
     assert.equal(await knob('dof').inputValue(),'45');
     await setKnob('dof',75,false);
@@ -61,6 +74,8 @@ const scene={format:'audiograph-pro',version:10,layers:[
     assert.equal(await page.evaluate(()=>pro.engine('particles').w.__agParticles3d.yaw),80*Math.PI/180);
     assert.deepEqual(...await page.evaluate(()=>['mesh','other'].map(id=>pro.engine(id).w.__agScene.camera)));
     await page.evaluate(()=>pro.select('camera'));
+    assert.equal(await panel.isVisible(),false,'Selecting a node returns to the node inspector');
+    assert.equal(await gear.getAttribute('aria-pressed'),'false');
     assert.equal(await knob('turn').inputValue(),'80','A selected camera shows the active shared knobs');
     await gear.click();
     await field('Live resolution').selectOption('720');
@@ -83,7 +98,8 @@ const scene={format:'audiograph-pro',version:10,layers:[
     const reduced=await tiers();
     assert.ok(reduced.every(s=>s.applied==='low'&&s.active==='low'),JSON.stringify(reduced));
     assert.equal(await page.evaluate(()=>pro.engine('mesh').w.__agDofCfg),null);
-    await page.keyboard.press('Escape');assert.equal(await dialog.isVisible(),false);
+    await field('3D lens effects').focus();
+    await page.keyboard.press('Escape');assert.equal(await panel.isVisible(),false);
     assert.equal(await gear.evaluate(el=>document.activeElement===el),true);
     const preview=await page.locator('#preview').boundingBox();
     const x=preview.x+preview.width/2,y=preview.y+preview.height/2;
@@ -96,9 +112,21 @@ const scene={format:'audiograph-pro',version:10,layers:[
     await page.evaluate(p=>pro.importProject(JSON.parse(JSON.stringify(p))),tuned);
     assert.deepEqual((await project()).settings,tuned.settings);
     await page.setViewportSize({width:390,height:740});await gear.click();
-    const box=await dialog.boundingBox();
-    assert.ok(box.x>=0&&box.x+box.width<=390&&box.y>=0&&box.y+box.height<=740);
-    await dialog.getByRole('button',{name:'Done'}).click();
+    const box=await panel.boundingBox();
+    assert.ok(box.x>=0&&box.x+box.width<=390);
+    assert.equal(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth),true,'Mobile inspector has no horizontal overflow');
+    await panel.getByRole('button',{name:'Done'}).click();
+    await page.evaluate(p=>{p.settings.camera=null;p.layers[2].nodes.push({id:'camera2',type:'camera3d',x:200,y:50,props:{dof:20}});pro.importProject(p);},tuned);
+    await gear.click();
+    assert.equal(await field('Wired camera').inputValue(),'camera');
+    await field('Wired camera').selectOption('camera2');
+    assert.equal(await knob('dof','wiredCamera').inputValue(),'20');
+    await setKnob('dof',25,false,'wiredCamera');await setKnob('dof',25,true,'wiredCamera');
+    assert.equal((await project()).layers[2].nodes.find(n=>n.id==='camera2').props.dof,25);
+    assert.equal((await project()).layers[0].nodes.find(n=>n.id==='camera').props.dof,45);
+    await field('Camera mode').selectOption('shared');
+    await field('Copy wired camera').selectOption('camera2');
+    assert.equal(await knob('dof').inputValue(),'25');
     await page.evaluate(p=>{const l=p.layers[2];l.visible=false;p.layers=[l];pro.importProject(p);pro.pause(false);},tuned);
     const frames=await page.evaluate(async()=>{
       const count=pro.stats().frame;await new Promise(r=>setTimeout(r,1200));return pro.stats().frame-count;
@@ -107,6 +135,6 @@ const scene={format:'audiograph-pro',version:10,layers:[
     assert.deepEqual(await page.locator('#preview').evaluate(c=>[...c.getContext('2d').getImageData(0,0,1,1).data]),[16,32,48,255]);
     assert.equal(await page.evaluate(()=>pro.stats().errors.length),0);
     assert.deepEqual(errors,[]);
-    console.log('ok - Scene settings, shared lens, performance overrides, undo, persistence, and mobile dialog');
+    console.log('ok - Scene settings inspector, live wired and shared cameras, performance, undo, persistence, and mobile');
   }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

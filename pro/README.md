@@ -436,10 +436,11 @@ process the finished image.
   **Random** cycles through scene families before repeating: mesh particles, lit cloners, attractors,
   oscilloscope cuts, resonant contours, fluid or smoke, and kinetic typography. Each roll varies the
   look, keeps the audio playing, and leaves an editable graph. Undo restores the previous scene.
-  The **Scene settings** gear next to Reset sets output and export defaults and the canvas background.
-  **Wired cameras** are the default; select a **3D camera** node to adjust its live knobs.
-  To use one camera across all 3D layers, switch to **Shared scene camera** and choose
-  **Adjust in inspector**. Opaque models occlude particles viewed through the same camera;
+  The **Scene settings** gear next to Reset opens the inspector with live camera knobs, output
+  and export defaults, performance settings, and the canvas background.
+  **Wired cameras** are the default; choose which wired camera to edit, or switch to
+  **Shared scene camera** to use one camera across all 3D layers.
+  Opaque models occlude particles viewed through the same camera;
   transparent surfaces and cutouts still let particles show through.
   **Performance** can cap live FPS, override WebGPU simulation quality, or skip 3D lens effects
   without changing individual nodes. The FPS cap does not affect offline exports.

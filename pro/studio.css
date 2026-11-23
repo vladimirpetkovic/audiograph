@@ -487,13 +487,16 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .ag-dialog .insp-note+.insp-note{margin-top:6px}
 .scene-settings-btn{width:26px;flex:none;padding:0}
 .scene-settings-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
-.scene-dialog header{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.scene-dialog h2{margin:0;letter-spacing:0;text-transform:none;font-size:1rem}
-.scene-dialog fieldset{min-width:0;border:0;border-top:1px solid var(--border);margin-top:16px;padding:8px 0 0}
-.scene-dialog legend{padding-right:8px;color:var(--tx);font:600 .78rem var(--sans)}
-.scene-dialog .prop-row{margin:6px 0;flex-wrap:wrap;gap:6px}
-.scene-dialog .prop-row select{max-width:100%}
-.scene-dialog input[type=number]{width:6em}
+.scene-settings-btn[aria-pressed=true]{background:var(--elevated);border-color:var(--border-h);color:var(--tx)}
+.scene-inspector .insp-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.scene-inspector fieldset{min-width:0;border:0;border-top:1px solid var(--border);margin:16px 0 0;padding:8px 0 0}
+.scene-inspector legend{padding-right:8px;color:var(--tx);font:600 .78rem var(--sans)}
+.scene-inspector .prop-row{margin:0 0 6px}
+.scene-inspector .prop-row:has(select){display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
+.scene-inspector select{width:100%;max-width:none}
+.scene-inspector .insp-section{margin-top:12px}
+.scene-inspector .knob-label{white-space:normal}
+.scene-inspector .insp-note:not(:last-child){margin-bottom:8px}
 .export-num{width:90px}
 .export-progress{margin-top:14px}.export-progress progress{width:100%;height:8px;accent-color:var(--accent2)}
 .share-link{width:100%;box-sizing:border-box;margin:10px 0 4px;font:11px ui-monospace,Menlo,monospace}
