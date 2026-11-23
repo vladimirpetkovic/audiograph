@@ -50,6 +50,7 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     const emission=inspector.locator('[data-group="Emission"]'),look=inspector.locator('[data-group="Look"]');
     for(const key of ['opt:pSpSpeed','opt:pEmitScale','particleDepth','particleSpread','particleResponse','particleSurfaceFlow'])await emission.locator(`[data-property="${key}"]`).first().waitFor({state:'attached'});
     await look.locator('[data-property="opt:pSpTrail"]').first().waitFor({state:'attached'});
+    assert.equal(await page.evaluate(()=>pro.engine('e').w.document.getElementById('pSpTrail').max),'1000');
     await emission.getByRole('button',{name:'Ultra',exact:true,includeHidden:true}).waitFor({state:'attached'});
     const floorSection=inspector.locator('[data-group="Floor"]');
     await floorSection.locator('[data-property="particleFloorSize"]').first().waitFor({state:'attached'});
@@ -72,6 +73,13 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     assert.equal(await page.evaluate(()=>Object.values(pro.engine('e').w.agSim.stats().layers)[0].dimensions),3);
     assert.equal(await page.evaluate(()=>Object.values(pro.engine('e').w.agSim.stats().layers)[0].sourcePoints),2048);
     assert.ok(await page.evaluate(()=>pro.pixels())>.02,'3D particles are rendered');
+    const setTrails=value=>page.evaluate(v=>pro.setProperty('e','opts',{pSpTrail:v}),value);
+    const trailSegments=count=>page.waitForFunction(n=>Object.values(pro.engine('e')?.w?.agSim.stats().layers||{})
+      .some(s=>s.dimensions===3&&s.trailSegments===n),count);
+    await setTrails(100);await trailSegments(4);
+    await setTrails(1000);await trailSegments(8);
+    assert.ok(await page.evaluate(()=>pro.pixels())>.02,'Maximum trails render in 3D');
+    await setTrails(0);await trailSegments(0);
     if(process.env.AUDIOGRAPH_PARTICLES3D_SCREENSHOT)await page.locator('#preview').screenshot({path:process.env.AUDIOGRAPH_PARTICLES3D_SCREENSHOT});
     await page.evaluate(()=>pro.select('c'));
     assert.ok((await page.locator('#properties').textContent()).includes('Rotate'),'Camera rotation control remains available for particles');
@@ -106,6 +114,9 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     await page.waitForFunction(()=>Object.values(pro.engine('e').w.agSim.stats().layers).some(s=>s.dimensions===2&&s.emitted>100),null,{timeout:20000});
     await page.waitForFunction(()=>pro.emitPoints('e')?.length>0,null,{timeout:15000});
     assert.ok(await page.evaluate(()=>pro.emitPoints('e')?.length>0),'2D samples the rendered waveform');
+    await setTrails(1000);
+    await page.waitForFunction(()=>pro.engine('e').w.getLayoutParams().pSpTrail===1000&&pro.pixels()>.02);
+    await setTrails(55);
     await page.evaluate(()=>pro.select('e'));
     assert.equal(await floorSection.count(),0,'Flat emitters do not show a 3D floor');
     assert.ok(await page.evaluate(()=>pro.connect('o','object','e','emit')));

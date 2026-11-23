@@ -1,16 +1,18 @@
 import {DEPTH_WGSL,flowPhase,routeSample,surfaceRoutes} from './scene3d.js';
 import {COLLISION_WGSL} from './colliders.js';
 export const SCENE_DISTANCE=.78/Math.sin(.4)*.92;
-const TRAIL_POINTS=4;
-const PARTICLE_BYTES=64+TRAIL_POINTS*16;
+const TRAIL_POINTS=8, BASE_TRAIL_POINTS=4;
+const PARTICLE_BYTES=64+TRAIL_POINTS*8;
+const trailSegments=t=>`min(${TRAIL_POINTS}.0,${t}*${BASE_TRAIL_POINTS}.0)`;
 const CONTROLS=`
 struct ParticleControls{launch:vec4f,lens:vec4f,screen0:vec4f,screen1:vec4f,floor:vec4f};
 @group(1) @binding(0) var<uniform> controls:ParticleControls;
 `;
 const STRUCT=`
 // data: remaining lifetime, initial lifetime, random seed, palette position.
-// pos.w times the next history sample; history.w marks valid points.
-struct Part3{pos:vec4f,vel:vec4f,data:vec4f,color:vec4f,history:array<vec4f,${TRAIL_POINTS}>};
+// Half-precision history fits the same particle buffer at Ultra; history.y also carries validity.
+struct Part3{pos:vec4f,vel:vec4f,data:vec4f,color:vec4f,history:array<vec2u,${TRAIL_POINTS}>};
+fn trailPoint(p:vec2u)->vec4f{return vec4f(unpack2x16float(p.x),unpack2x16float(p.y));}
 struct Source3{pos:vec4f,color:vec4f,normal:vec4f};
 `;
 const STEP=STRUCT+CONTROLS+DEPTH_WGSL+`
@@ -117,10 +119,11 @@ fn birth(i:u32)->Part3{
     v=(v+acc*u.dt)*exp(-u.pdrag*u.dt);v=v*min(1.0,7.0/max(length(v),0.00001));
     if(controls.launch.y>0.0||controls.floor.x>0.0){let contact=bounceScene(x,v,u.dt);x=contact.p;v=contact.v;}else{x+=v*u.dt;}
     }
+    let interval=max(1.0,u.x12*${BASE_TRAIL_POINTS}.0/${TRAIL_POINTS}.0)/30.0;
     var elapsed=p.pos.w+u.dt;
-    if(elapsed>=1.0/30.0||p.history[0].w==0.0){
+    if(elapsed>=interval||p.history[0].y==0u){
       for(var j=${TRAIL_POINTS-1};j>0;j--){p.history[j]=p.history[j-1];}
-      p.history[0]=vec4f(p.pos.xyz,1.0);elapsed=max(0.0,elapsed-1.0/30.0);
+      p.history[0]=vec2u(pack2x16float(p.pos.xy),pack2x16float(vec2f(p.pos.z,1.0)));elapsed=max(0.0,elapsed-interval);
     }
     p.pos=vec4f(x,elapsed);p.vel=vec4f(v,p.vel.w);p.data.x=max(0.0,p.data.x-u.dt);
   }
@@ -148,7 +151,7 @@ fn particleVertex(vi:u32,ii:u32)->VO3{
   let p=parts[ii];if(p.data.x<=0.0){return o;}
   let segment=vi/6u;
   var head=p.pos.xyz;
-  if(segment>1u){head=p.history[segment-2u].xyz;}
+  if(segment>1u){head=trailPoint(p.history[segment-2u]).xyz;}
   let q=project3(head);if(q.z<=0.05){return o;}
   let age=1.0-p.data.x/max(p.data.y,0.001);let fade=smoothstep(0.0,0.06,age)*(1.0-smoothstep(0.55,1.0,age));
   let speed=length(p.vel.xyz);var t=p.data.w;
@@ -161,8 +164,9 @@ fn particleVertex(vi:u32,ii:u32)->VO3{
   let size=sqrt(sharp*sharp+blur*blur);
   let cr=corners3[vi%6u];var offset=cr;let dim=sharp*sharp/(size*size);o.uv=cr;
   if(segment>0u){
-    let point=p.history[segment-1u];
-    let fraction=clamp(u.x12*f32(${TRAIL_POINTS})-f32(segment-1u),0.0,1.0);
+    let point=trailPoint(p.history[segment-1u]);
+    let segments=${trailSegments('u.x12')};
+    let fraction=clamp(segments-f32(segment-1u),0.0,1.0);
     if(point.w==0.0||fraction<=0.0){o.pos=vec4f(2.0,2.0,0.0,1.0);return o;}
     let prev=project3(mix(head,point.xyz,fraction));
     if(prev.z<=0.05){o.pos=vec4f(2.0,2.0,0.0,1.0);return o;}
@@ -172,7 +176,7 @@ fn particleVertex(vi:u32,ii:u32)->VO3{
     let along=mix(-seg,0.0,(cr.x+1.0)*0.5);
     offset=dir*along+vec2f(-dir.y,dir.x)*cr.y;o.uv=vec2f(along,cr.y);o.seg=seg;
     o.depth=mix(prev.z,q.z,(cr.x+1.0)*0.5)-dist;
-    o.alpha=u.x12*(1.0-(f32(segment)-1.0)/f32(${TRAIL_POINTS}))*0.7*min(1.0,len/size);
+    o.alpha=min(u.x12,1.0)*(1.0-f32(segment-1u)/max(${BASE_TRAIL_POINTS}.0,segments))*0.7*min(1.0,len/size);
   }
   o.pos=vec4f(q.xy+offset*size*2.0/vec2f(u.ow,u.oh),0.0,1.0);
   o.col=color*u.pglow*fade*dim*o.alpha*(0.45+0.55*clamp(speed,0.0,2.0))*(1.0+0.9*u.bass*u.bpun*u.response);
@@ -246,7 +250,7 @@ export function patchParticles3d(patch){
     'for(var i=0;i<n;i++){d.set(pts.slice(i*5,i*5+2),i*stride);d[i*stride+3]=1;d.set(pts.slice(i*5+2,i*5+5),i*stride+4);d[i*stride+7]=1}');
   patch('p.setPipeline(P.pStep);','p.setPipeline(st.space3?P.pStep3:P.pStep);if(st.space3)p.setBindGroup(1,window.__agP3.bind(G.dev,G.P,st,true));');
   patch('rp.setPipeline(P.pDraw);','rp.setPipeline(st.space3?P.pDraw3:P.pDraw);if(st.space3)rp.setBindGroup(1,window.__agP3.bind(G.dev,G.P,st));');
-  patch('rp.draw(6,st.pn);S.dispatches+=2}',`st.trailVerts=st.space3?6*(1+Math.ceil(o.x12*${TRAIL_POINTS})):6;rp.draw(st.trailVerts,st.pn);S.dispatches+=2}`);
+  patch('rp.draw(6,st.pn);S.dispatches+=2}',`st.trailVerts=st.space3?6*(1+Math.ceil(Math.min(${TRAIL_POINTS},o.x12*${BASE_TRAIL_POINTS}))):6;rp.draw(st.trailVerts,st.pn);S.dispatches+=2}`);
   patch('rp.end();\n    }else if(XK[kd])','rp.end();if(st.space3)window.__agScene.particles(st,enc,P,bgR);\n    }else if(XK[kd])');
   patch('function disposeState(st,lost){','function disposeState(st,lost){window.__agP3.destroy(st);');
   patch('Math.min(1.2,levelDrive*1.05)*gov;',
@@ -256,7 +260,7 @@ export function patchParticles3d(patch){
   patch("var fadeK=0,tr=K(kd==='boids'?", "var fadeK=0,tr=st.space3?0:K(kd==='boids'?");
   patch("if((st.kind==='particles'||st.kind==='boids')&&sv.hdr&&!sv.ac){",
     "if((st.kind==='particles'||st.kind==='boids')&&!st.space3&&sv.hdr&&!sv.ac){");
-  patch('kind:s.kind,q:s.q,grid:', 'kind:s.kind,dimensions:s.space3?3:2,sourcePoints:s.sourceCount||0,q:s.q,grid:');
+  patch('kind:s.kind,q:s.q,grid:', 'kind:s.kind,dimensions:s.space3?3:2,sourcePoints:s.sourceCount||0,trailSegments:s.space3?Math.max(0,(s.trailVerts||6)/6-1):0,q:s.q,grid:');
   patch('api.splat=function(){',`api.particleState=async function(){
     var st=ST[simUid];if(!st||st.kind!=='particles')return null;
     var count=Math.min(st.pn,4096),stride=st.space3?${PARTICLE_BYTES}:48,size=count*stride,dev=G.dev,b=dev.createBuffer({size:size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});

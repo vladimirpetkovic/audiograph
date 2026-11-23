@@ -50,7 +50,7 @@ each with its own opacity and blend mode (up to four).
     3D Fluid to color it by density. The 3D camera controls the view.
     **Look → Trails** follows the particles' recent path
     in 3D, so turning the camera does not leave ghost images. Set it to **0%**
-    to draw particles without trails in either 2D or 3D.
+    to disable trails, or raise it up to **1000%** for longer trails in 2D or 3D.
     Mesh emission uses the particle palette; image emission can keep picture colours.
     Set **Emission → Launch speed** to **0%** with a mesh source and choose
     **Release on: Sound**, **Object

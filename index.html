@@ -3244,7 +3244,7 @@ var AG_SIM_UI={
     ['pSpSpin','Emitter spin',-100,100,0,5,'','Continuous emitter rotation. Negative turns the other way; 0 keeps it still.'],
     ['pSpTurb','Turbulence',0,100,46,1,'%','Curl-noise force field.'],
     ['pSpTurbScale','Turbulence scale',10,100,66,1,'%','Size of the turbulent eddies.'],
-    ['pSpTrail','Trails',0,100,55,1,'%','Light persistence (0 = none).']],
+    ['pSpTrail','Trails',0,1000,55,1,'%','Trail length and persistence (0 = none).']],
   simfluid:[['pSfJets','Jets',4,24,12,1,'','Number of injectors; each follows a part of the spectrum.'],
     ['pSfForce','Jet force',0,200,100,5,'%','How hard the jets push the fluid.'],
     ['pSfDye','Dye',0,200,100,5,'%','Amount of coloured dye injected.'],
@@ -4929,7 +4929,7 @@ var agSim=(function(){
     var dev=G.dev,P=G.P,enc=dev.createCommandEncoder(),kd=st.kind;
     var o=baseUniforms(st,k,st.lastDt||1/60);setU(st,o);upload(st);
     if(kd==='particles'||kd==='boids'){
-      var fadeK=0,tr=K(kd==='boids'?'pBdTrail':'pSpTrail',kd==='boids'?0:55)/100;if(tr>0)fadeK=Math.exp(-(st.lastDt||1/60)*st.subs*(0.4+(1-tr)*(1-tr)*18));
+      var fadeK=0,tr=K(kd==='boids'?'pBdTrail':'pSpTrail',kd==='boids'?0:55)/100;if(tr>0)fadeK=Math.exp(-(st.lastDt||1/60)*st.subs*(tr>1?0.4/tr:0.4+(1-tr)*(1-tr)*18));
       var bgR=dev.createBindGroup({layout:P.L.rend,entries:[{binding:0,resource:{buffer:st.ub}},{binding:1,resource:G.smp},{binding:2,resource:{buffer:st.pbuf}},{binding:3,resource:st.rampV}]});
       var rp=enc.beginRenderPass({colorAttachments:[{view:st.hdr.v,clearValue:{r:0,g:0,b:0,a:0},loadOp:st.accumClear?'clear':'load',storeOp:'store'}]});
       st.accumClear=false;
