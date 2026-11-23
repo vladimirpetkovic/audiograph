@@ -594,7 +594,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=14;
+export const VERSION=15;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -735,6 +735,14 @@ function migrate(raw){
   // Version 14: Glitch left the deformers for Post FX; its shape wires become image wires.
   if(raw.version<14)for(const g of out.layers||[]){const ids=new Set((g?.nodes||[]).filter(nd=>nd?.type==='glitch').map(nd=>nd.id));
     for(const e of g?.edges||[]){if(!e)continue;if(ids.has(e.to)&&e.input==='shape')e.input='image';if(ids.has(e.from)&&e.out==='shape')e.out='image';}}
+  // Version 15: wired emitter size is measured against the source, with 100% at its original size.
+  if(raw.version<15)for(const g of out.layers||[]){
+    const wired=new Set((g?.edges||[]).filter(e=>e?.input==='emit').map(e=>e.to));
+    for(const nd of g?.nodes||[])if(nd?.type==='gpuParticles'&&wired.has(nd.id)){
+      for(const options of [nd.props?.look,nd.props?.opts])
+        if(Number.isFinite(options?.pEmitScale))options.pEmitScale=Math.round(options.pEmitScale*100/65);
+    }
+  }
   out.version=VERSION;return out;
 }
 // Version 12: the Random effector's single Tilt became rotation on each axis (wires and Auto go to Y).
@@ -900,7 +908,7 @@ export const LIVE_FRAME_RATES=[15,24,30];
 export const SIM_QUALITIES=[['node','Use node settings'],['low','Low'],['med','Medium'],['high','High'],['ultra','Ultra']];
 export const SCENE_PERFORMANCE={fps:30,simulation:'node',lensEffects:true};
 export const SCENE_CAMERA={...defaults('camera3d'),zoom:55};
-export const SCENE_DEFAULTS={background:'#000000',camera:SCENE_CAMERA};
+export const SCENE_DEFAULTS={background:'#000000',camera:null};
 function cleanSceneSettings(s){
   if(s===undefined)return null;
   if(!s||typeof s!=='object'||Array.isArray(s))throw Error('Invalid scene settings');

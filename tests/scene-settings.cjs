@@ -26,6 +26,7 @@ const scene={format:'audiograph-pro',version:10,layers:[
     page.on('pageerror',e=>errors.push(e.message));
     await page.goto((process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/pro/`)+'?demo');
     await page.waitForFunction(()=>window.pro);
+    assert.equal((await page.evaluate(()=>pro.getProject())).settings.camera,null,'New scenes use wired cameras by default');
     await page.evaluate(scene=>{pro.dissolve(false);pro.importProject(scene);},scene);
     await page.waitForFunction(()=>['particles','other'].every(id=>pro.engine(id)?.w?.agSim.stats().live>0));
     await page.evaluate(()=>pro.pause(true));
@@ -40,13 +41,28 @@ const scene={format:'audiograph-pro',version:10,layers:[
     await gear.focus();await page.keyboard.press('Enter');
     assert.equal(await field('Camera mode').inputValue(),'legacy');
     await field('Camera mode').selectOption('shared');
-    assert.equal(await field('Rotate').inputValue(),'35');
-    await field('Rotate').fill('80');await field('Rotate').press('Tab');
+    await dialog.getByRole('button',{name:'Adjust in inspector'}).click();
+    assert.equal(await dialog.isVisible(),false);
+    const knob=k=>page.locator(`#properties input[data-property="sceneCamera:${k}"]`);
+    const setKnob=(k,value,commit)=>knob(k).evaluate((el,{value,commit})=>{
+      el.value=value;el.dispatchEvent(new Event(commit?'change':'input',{bubbles:true}));
+    },{value,commit});
+    assert.equal(await knob('turn').inputValue(),'35');
+    assert.equal(await knob('dof').inputValue(),'45');
+    await setKnob('dof',75,false);
+    assert.equal(await page.evaluate(()=>pro.engine('mesh').w.__agDofCfg.amt),75,'Depth of field updates before the knob is released');
+    await setKnob('dof',75,true);
+    await page.evaluate(()=>pro.undo());
+    assert.equal((await project()).settings.camera.dof,45);
+    await setKnob('turn',80,false);await setKnob('turn',80,true);
     assert.equal((await project()).settings.camera.turn,80);
     assert.equal((await project()).layers[0].nodes.find(n=>n.id==='camera').props.turn,35);
     assert.deepEqual(await flat(),flatBefore,'Shared camera does not move or blur the flat renderer');
     assert.equal(await page.evaluate(()=>pro.engine('particles').w.__agParticles3d.yaw),80*Math.PI/180);
     assert.deepEqual(...await page.evaluate(()=>['mesh','other'].map(id=>pro.engine(id).w.__agScene.camera)));
+    await page.evaluate(()=>pro.select('camera'));
+    assert.equal(await knob('turn').inputValue(),'80','A selected camera shows the active shared knobs');
+    await gear.click();
     await field('Live resolution').selectOption('720');
     assert.equal(await page.locator('#resolution').inputValue(),'720');
     assert.equal(await page.locator('#preview').evaluate(el=>el.height),720);

@@ -142,6 +142,16 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
       {from:'m',out:'image',to:'m2',input:'a'},{from:'co',out:'shape',to:'m2',input:'b'},{from:'m2',out:'image',to:'out',input:'image'});
     await page.evaluate(p=>pro.importProject(p),nested);await shift(-.8);await page.evaluate(()=>pro.engine('e').w.agSim.reset());await wait(450);
     assert.equal((await pixels('e')).energy,0,'Nested Screen/Normal merges preserve particle roots through 2D inputs');
+    const blended=JSON.parse(JSON.stringify(scene)),bg=blended.layers[0];
+    bg.edges.find(e=>e.to==='e'&&e.input==='emit').from='cs';
+    Object.assign(bg.nodes.find(n=>n.id==='m'),{type:'blend',props:{mode:'screen',mix:1}});
+    await page.evaluate(p=>pro.importProject(p),blended);await wait(450);
+    assert.equal((await pixels('e')).energy,0,'An opaque model still occludes particles when combined with Blend');
+    await page.evaluate(()=>{const p=pro.getProject();for(const e of p.layers[0].edges)if(e.to==='m')e.input=e.input==='a'?'b':'a';pro.importProject(p);});
+    await wait();
+    assert.equal((await pixels('e')).energy,0,'Screen Blend does not reveal particles when its inputs are reversed');
+    await page.evaluate(()=>pro.setProperty('m','mix',.5));await wait();
+    assert.ok((await pixels('e')).energy>10000,'Blend opacity leaves particles visible behind translucent geometry');
     const layers=JSON.parse(JSON.stringify(scene)),base=layers.layers[0];
     const bodyNodes=base.nodes.filter(n=>['o','co'].includes(n.id));
     base.nodes=base.nodes.filter(n=>!['o','co','m'].includes(n.id));
@@ -159,6 +169,16 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
     await page.selectOption('#resolution','540');await wait(400);
     await page.evaluate(()=>{const p=pro.getProject();p.layers.find(l=>l.id==='B').opacity=.5;pro.importProject(p);});await wait();
     assert.ok((await pixels('e')).energy>10000,'A translucent project layer is not an opaque blocker');
+    await page.evaluate(()=>{
+      const p=pro.getProject(),body=p.layers.find(l=>l.id==='B');
+      body.opacity=1;body.blend='screen';
+      body.nodes.push({id:'grade',type:'grade',x:300,y:100,props:{hue:45}});
+      body.edges.find(e=>e.to==='ob').from='grade';
+      body.edges.find(e=>e.to==='ob').out='image';
+      body.edges.push({from:'co',out:'shape',to:'grade',input:'image'});
+      pro.importProject(p);
+    });await wait(500);
+    assert.equal((await pixels('e')).energy,0,'A color-corrected model still occludes particles across project layers');
     const clones=JSON.parse(JSON.stringify(scene)),cg=clones.layers[0];
     cg.nodes=cg.nodes.filter(n=>['d','ds','e','cs','out'].includes(n.id));
     cg.nodes.push({id:'cl',type:'cloner',x:0,y:0,props:{countX:2,countY:1,countZ:2,spacingZ:100}},

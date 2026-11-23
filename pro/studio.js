@@ -499,21 +499,26 @@ function paletteLut(p){
 }
 const mapped=new Map();
 function recolor(id,src,p){
+  const {canvas,ctx}=surface(id);if(!src)return canvas;
   if(!mapped.has(id)){const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;mapped.set(id,c);}
-  const m=mapped.get(id),mx=m.getContext('2d',{willReadFrequently:true});mx.clearRect(0,0,WIDTH,HEIGHT);if(!src)return surface(id).canvas;mx.drawImage(src,0,0,WIDTH,HEIGHT);
-  const img=mx.getImageData(0,0,WIDTH,HEIGHT),d=img.data,lut=paletteLut(p);
-  for(let i=0;i<d.length;i+=4){const a=d[i+3];if(!a)continue;const l=((d[i]*54+d[i+1]*183+d[i+2]*19)>>8)*4;
-    d[i]=lut[l];d[i+1]=lut[l+1];d[i+2]=lut[l+2];d[i+3]=a*lut[l+3]/255;}
-  mx.putImageData(img,0,0);
-  const {canvas,ctx}=surface(id);ctx.drawImage(src,0,0,WIDTH,HEIGHT);
-  ctx.globalCompositeOperation=p.blend==='normal'?'source-over':p.blend;ctx.globalAlpha=p.mix;
-  if(p.blend==='normal'&&p.mix>=1)ctx.clearRect(0,0,WIDTH,HEIGHT);
-  ctx.drawImage(m,0,0);
-  // Opacity scales the alpha of the whole result, so layers and backgrounds show through.
-  if(p.opacity<1){ctx.globalCompositeOperation='destination-in';ctx.globalAlpha=Math.max(0,p.opacity);ctx.fillRect(0,0,WIDTH,HEIGHT);}
-  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';return canvas;
+  const m=mapped.get(id),mx=m.getContext('2d',{willReadFrequently:true}),lut=paletteLut(p);
+  const replace=p.blend==='normal'&&p.mix>=1;
+  const opaque=p.opacity>=1&&(!replace||lut.every((v,i)=>i%4!==3||v===255));
+  return colorScene(src,canvas,()=>{
+    mx.clearRect(0,0,WIDTH,HEIGHT);mx.drawImage(src,0,0,WIDTH,HEIGHT);
+    const img=mx.getImageData(0,0,WIDTH,HEIGHT),d=img.data;
+    for(let i=0;i<d.length;i+=4){const a=d[i+3];if(!a)continue;const l=((d[i]*54+d[i+1]*183+d[i+2]*19)>>8)*4;
+      d[i]=lut[l];d[i+1]=lut[l+1];d[i+2]=lut[l+2];d[i+3]=a*lut[l+3]/255;}
+    mx.putImageData(img,0,0);
+    ctx.clearRect(0,0,WIDTH,HEIGHT);if(!replace)ctx.drawImage(src,0,0,WIDTH,HEIGHT);
+    ctx.globalCompositeOperation=p.blend==='normal'?'source-over':p.blend;ctx.globalAlpha=p.mix;
+    ctx.drawImage(m,0,0);
+    if(p.opacity<1){ctx.globalCompositeOperation='destination-in';ctx.globalAlpha=Math.max(0,p.opacity);ctx.fillRect(0,0,WIDTH,HEIGHT);}
+    ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+  },opaque);
 }
-function hueImage(id,src,deg){const {canvas,ctx}=surface(id);if(src){ctx.filter=`hue-rotate(${deg%360}deg)`;ctx.drawImage(src,0,0,WIDTH,HEIGHT);ctx.filter='none';}return canvas;}
+function hueImage(id,src,deg){const {canvas,ctx}=surface(id);if(!src)return canvas;
+  return colorScene(src,canvas,()=>{ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.filter=`hue-rotate(${deg%360}deg)`;ctx.drawImage(src,0,0,WIDTH,HEIGHT);ctx.filter='none';});}
 // Echo: the history drawn zoomed/rotated (one step), then — with Smooth — the new frame stamped at in-between
 // zoom/rotation steps so it bridges the gap to the previous echo instead of leaving separate rings.
 const xf=(ctx,zoom,rotate,f)=>{ctx.translate(WIDTH/2,HEIGHT/2);ctx.rotate(rotate*f*Math.PI/180);const z=Math.pow(zoom,f);ctx.scale(z,z);ctx.translate(-WIDTH/2,-HEIGHT/2);};
@@ -533,6 +538,56 @@ function surface(id){
   const canvas=surfaces.get(id),ctx=canvas.getContext('2d');ctx.resetTransform();ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.filter='none';ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
   setScene(canvas,null);
   return {canvas,ctx};
+}
+function colorScene(src,canvas,paint,opaque=true){
+  paint();
+  const meta=sceneOf(src);
+  if(meta)setScene(canvas,{...meta,...(!opaque&&{opaque:null,
+    roots:meta.roots.map(r=>r.kind==='geometry'?{...r,opaque:null}:r)}),
+    refresh:()=>{meta.refresh?.();paint();}});
+  return canvas;
+}
+function compositeInputs(id,canvas,ctx,inputs,mode,blendOf){
+  const images=inputs.filter(({img,alpha})=>img&&alpha>0);
+  if(!images.length)return;
+  const spatial=images.some(({img})=>sceneOf(img));
+  if(spatial){
+    const excluded=new Set(images.filter(({alpha})=>alpha<1)
+      .flatMap(({img})=>sceneOf(img)?.roots.filter(r=>r.kind==='geometry')||[]));
+    occludeScene(images.map(({img})=>img),excluded);
+  }
+  const normal=spatial&&mode==='source-over'&&images.every(({img,alpha})=>
+    alpha===1&&(!blendOf?.get(img)||blendOf.get(img)==='source-over'));
+  let acc;
+  if(normal){
+    acc=images[0].img;
+    for(let i=1;i<images.length;i++){
+      const next=surface(id+':scene'+i).canvas,img=images[i].img;
+      if(!composeScene(id+':scene'+i,acc,img,next)){const x=next.getContext('2d');x.drawImage(acc,0,0);x.drawImage(img,0,0);}
+      acc=next;
+    }
+  }else if(spatial){
+    const depth=images.map(({img,alpha},i)=>{
+      if(alpha===1||!sceneOf(img))return img;
+      const {canvas:c,ctx:x}=surface(id+':weight'+i);
+      return colorScene(img,c,()=>{x.clearRect(0,0,WIDTH,HEIGHT);x.drawImage(img,0,0);},false);
+    });
+    acc=depth[0];
+    for(let i=1;i<depth.length;i++){
+      const next=surface(id+':depth'+i).canvas;
+      composeScene(id+':depth'+i,acc,depth[i],next,false);acc=next;
+    }
+  }
+  colorScene(acc,canvas,()=>{
+    ctx.clearRect(0,0,WIDTH,HEIGHT);
+    if(normal)ctx.drawImage(acc,0,0);
+    else for(const [i,{img,alpha}] of images.entries()){
+      ctx.globalAlpha=alpha;
+      ctx.globalCompositeOperation=i?(blendOf?.get(img)||mode):'source-over';
+      ctx.drawImage(img,0,0);
+    }
+    ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+  });
 }
 // Text (Inputs): plain letters (font, weight, colour), scaled by the sound with Bounce. A picture, not an emitter.
 function plainText(id,p,sig){
@@ -1005,6 +1060,8 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       const sig=input(n,'audio')??(t.category==='inputs'?SILENT:projectSignal()),driven=byInput.has(n.id+':drive');let freq=sig.freq,wave=sig.wave;
       if(driven){const d=driveSpectrum(Math.max(0,input(n,'drive')??0),time);freq=d.freq;wave=d.wave;}
       const lvl=driven?Math.max(0,input(n,'drive')??0):sig.bands.bass,spec=engineSpec(n);
+      const emit=n.type==='gpuParticles'&&byInput.get(n.id+':emit'),mesh=emit&&meshEmitter(g,emit);
+      spec.wiredEmit=!!emit;
       let opts=p.opts;
       if(n.auto)for(const k of n.auto){if(!k.startsWith('opt:'))continue;const id=k.slice(4),range=engines.get(n.id)?.optRange(jobOf(n),id);
         if(range){if(opts===p.opts)opts={...opts};opts[id]=autoDrift(range,opts[id]??range.value,n.id+k,autoClock);autoValues.set(n.id+':'+k,opts[id]);}}
@@ -1016,7 +1073,6 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
       if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);Object.assign(r.shape.mods,{pG3Zoom:55,pG3ScX:0,pG3ScY:0,pG3ScZ:0});}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
-      const emit=n.type==='gpuParticles'&&byInput.get(n.id+':emit'),mesh=emit&&meshEmitter(g,emit);
       const key=n.type==='gpuParticles'&&SIM_SOURCE[p.mode],eng=key&&engines.get(n.id);
       const source=!emit&&key&&eng?.simSource(r.shape.job,key);
       const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(mesh||!emit&&source!=='image'&&source!=='camera');
@@ -1173,34 +1229,13 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
         sm.bass=ease(sm.bass,A.bands.bass);sm.beat=ease(sm.beat,A.beatPulse);sm.t=time;nodeState.set(k,sm);
         if(src&&!glassInto(ctx,src,p,time,{bass:sm.bass,beat:sm.beat}))ctx.drawImage(src,0,0);r.image=canvas;break;}
       case 'blend':{const a=asImage(need(n,'a','image A'),n.id+'a'),b=asImage(need(n,'b','image B'),n.id+'b'),{canvas,ctx}=surface(n.id);
-        if(a)ctx.drawImage(a,0,0);if(b){ctx.globalAlpha=p.mix;ctx.globalCompositeOperation=p.mode;ctx.drawImage(b,0,0);}ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';r.image=canvas;break;}
+        compositeInputs(n.id,canvas,ctx,[{img:a,alpha:1},{img:b,alpha:p.mix}],p.mode);r.image=canvas;break;}
       case 'merge':{const {canvas,ctx}=surface(n.id),images=[];
         for(const k of ['a','b','c','d']){const v=input(n,k);if(v===undefined)continue;
           if(v?.job?.mode==='simparticles'&&v.mods?._sim?.pSpace==='3d')v.job.sharedScene=true;
-          const img=asImage(v,n.id+k);if(img)images.push({k,img});}
+          const img=asImage(v,n.id+k);if(img)images.push({img,alpha:p[k]});}
         if(!images.length){nodeErrors.add(n.id);throw Error(`${g.name}: connect an image to Merge`);}
-        const excluded=new Set(images.filter(({k})=>p[k]<1).flatMap(({img})=>sceneOf(img)?.roots.filter(r=>r.kind==='geometry')||[]));
-        occludeScene(images.filter(({k})=>p[k]>0).map(v=>v.img),excluded);
-        let acc=images[0].img,normal=p.mode==='source-over'&&images.every(({k,img})=>p[k]===1&&(!blendOf.get(img)||blendOf.get(img)==='source-over'));
-        if(normal)for(let i=1;i<images.length;i++){const next=surface(n.id+':scene'+i).canvas;
-          if(!composeScene(n.id+':scene'+i,acc,images[i].img,next)){const x=next.getContext('2d');x.drawImage(acc,0,0);x.drawImage(images[i].img,0,0);}acc=next;}
-        if(normal){
-          const paint=()=>{ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.drawImage(acc,0,0);};
-          paint();const meta=sceneOf(acc);if(meta)setScene(canvas,{...meta,refresh:()=>{meta.refresh?.();paint();}});
-        }
-        else{
-          const paint=()=>{ctx.clearRect(0,0,WIDTH,HEIGHT);for(let i=0;i<images.length;i++){const {k,img}=images[i];ctx.globalAlpha=p[k];ctx.globalCompositeOperation=i?(blendOf.get(img)||p.mode):'source-over';ctx.drawImage(img,0,0);}ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';};
-          paint();
-          const visible=images.filter(({k})=>p[k]>0).map(({k,img})=>{
-            const meta=sceneOf(img);if(p[k]===1||!meta)return img;
-            const c=surface(n.id+':weight'+k).canvas;c.getContext('2d').drawImage(img,0,0);
-            setScene(c,{...meta,opaque:null,roots:meta.roots.map(r=>r.kind==='geometry'?{...r,opaque:null}:r)});return c;
-          });
-          let depth=visible[0];for(let i=1;i<visible.length;i++){const next=surface(n.id+':depth'+i).canvas;
-            composeScene(n.id+':depth'+i,depth,visible[i],next,false);depth=next;}
-          const meta=depth&&sceneOf(depth);if(meta)setScene(canvas,{...meta,refresh:()=>{meta.refresh?.();paint();}});
-        }
-        ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';r.image=canvas;break;}
+        compositeInputs(n.id,canvas,ctx,images,p.mode,blendOf);r.image=canvas;break;}
       case 'mask':{const src=asImage(need(n,'image','an image'),n.id+'i'),m=asImage(need(n,'mask','a mask image'),n.id+'m'),{canvas,ctx}=surface(n.id);
         if(src){ctx.drawImage(src,0,0);if(m){ctx.globalCompositeOperation=p.invert?'destination-out':'destination-in';if(p.feather)ctx.filter=`blur(${p.feather}px)`;ctx.drawImage(m,0,0);ctx.filter='none';ctx.globalCompositeOperation='source-over';}}
         r.image=canvas;break;}
@@ -1308,8 +1343,13 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
         if(t.fx){
           const src=asImage(need(n,'image','an image'),n.id),e=fxEngine(),{canvas,ctx}=surface(n.id);
           if(!fxSlots.has(n.id))fxSlots.set(n.id,1000+fxSlots.size);
-          if(src&&e){const out=e.fx(fxSlots.get(n.id),src,fxSettings(n.type,p),{bass:A.bands.bass,beat:A.beatPulse});if(out)ctx.drawImage(out,0,0,WIDTH,HEIGHT);}
-          else if(src)ctx.drawImage(src,0,0);
+          const paint=()=>{
+            ctx.clearRect(0,0,WIDTH,HEIGHT);
+            const out=src&&e?e.fx(fxSlots.get(n.id),src,fxSettings(n.type,p),{bass:A.bands.bass,beat:A.beatPulse}):src;
+            if(out)ctx.drawImage(out,0,0,WIDTH,HEIGHT);
+          };
+          if(n.type==='grade')colorScene(src,canvas,paint);
+          else paint();
           r.image=canvas;
         }else if(inputsOf(n.type).shape==='visual'&&(()=>{const v=need(n,'shape','a shape or an image');return v instanceof HTMLCanvasElement||(n.type==='palette'&&(p.blend!=='normal'||p.mix<1||p.opacity<1));})()){
           // Image (or a blended shape): recolor pixels and output an image.
@@ -2025,8 +2065,14 @@ function autoOpts(n,key,s){
   if(s&&(s.kind!=='number'||s.noPort))return {};
   return {auto:!!n.auto?.includes(key),onAuto:on=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id),a=new Set(x.auto||[]);on?a.add(key):a.delete(key);if(a.size)x.auto=[...a];else delete x.auto;},`${s?.label||'Knob'}: auto ${on?'on':'off'}`)};
 }
+function focalKnob(s,value,def,property,onInput,onChange){
+  return ui.knob({label:s.label,min:0,max:s.choices.length-1,step:1,value:s.choices.indexOf(value),def:s.choices.indexOf(def),
+    property,format:i=>`${s.choices[i]} mm`,onInput:i=>onInput(s.choices[i]),onChange});
+}
 function propControl(n,key,s,connected){
   const set=v=>setProp(n,key,v,s.label);
+  if(n.type==='camera3d'&&key==='focal')return focalKnob(s,n.props[key],s.value,key,
+    v=>live(()=>{findNode(n.id).props[key]=v;}),()=>liveCommit('3D camera: Focal length'));
   if(s.kind==='number')return ui.knob({label:s.label,min:s.min,max:s.max,step:s.step,value:n.props[key],def:s.value,property:key,modulated:connected,...autoOpts(n,key,s),
     onInput:v=>live(st=>{const x=findNode(n.id);if(x)x.props[key]=v;}),onChange:()=>liveCommit(`${TYPES[n.type].label}: ${s.label}`)});
   if(s.kind==='select')return ui.chips({options:s.labels||s.choices.map(c=>[c,c]),value:n.props[key],property:key,onChange:set});
@@ -2084,8 +2130,9 @@ function renderProperties(){
   const t=TYPES[n.type],cat=catOf(n.type),head=el('div','insp-head'),h=el('h3');
   h.style.color=cat.color;h.append(document.createTextNode(nodeTitle(n)));
   head.append(h,el('div','insp-desc',t.description));root.append(head);
-  if(n.type==='camera3d'&&state.settings?.camera)root.append(el('p','insp-note','The shared camera in Scene settings overrides this camera.'));
-  if(n.type==='templateMorph'){
+  const sharedCamera=n.type==='camera3d'&&state.settings?.camera;
+  if(sharedCamera)renderSceneCamera(root);
+  else if(n.type==='templateMorph'){
     for(const key of ['from','to']){const sel=el('select');sel.dataset.property=key;for(const name of TEMPLATE_NAMES)sel.append(new Option(name,name));sel.value=n.props[key];
       sel.onchange=()=>{tm.playing=false;edit((p,g)=>{g.nodes.find(m=>m.id===n.id).props[key]=sel.value;},'Morph template');};root.append(ui.field(TYPES[n.type].props[key].label,sel));}
     const knobs=el('div','knob-grid');knobs.append(ui.knob({label:'Morph',min:0,max:100,step:1,value:n.props.mix,def:0,unit:'%',property:'mix',
@@ -2111,7 +2158,9 @@ function renderProperties(){
   }
   const actions=section(root).appendChild(el('div','insp-actions'));
   const dup=el('button','btn','Duplicate');dup.id='duplicateNode';dup.onclick=duplicateSelected;
-  const rst=el('button','btn','Reset');rst.id='resetNode';rst.title='Return every setting of this node to its default (keeps its type, wires and loaded media)';rst.onclick=()=>resetNode(n.id);
+  const rst=el('button','btn','Reset');rst.id='resetNode';
+  rst.title=sharedCamera?'Reset the shared 3D camera':'Return every setting of this node to its default (keeps its type, wires and loaded media)';
+  rst.onclick=()=>sharedCamera?editScene('camera',SCENE_CAMERA,'Reset shared 3D camera'):resetNode(n.id);
   const del=el('button','btn danger','Delete');del.id='deleteNode';del.onclick=removeSelected;actions.append(dup,rst,del);
   updateHint();
   syncFolds();tipify();
@@ -2493,7 +2542,7 @@ function renderEmitter(root,n){
         if(c.type!=='range'){box.append(chip(c));if(flat&&sourceChip(c))renderSimulationMedia(box,n,e,source);continue;}
         if(!grid){grid=el('div','knob-grid');box.append(grid);}
         const cur=n.props.opts[c.id]??c.value;
-        grid.append(ui.knob({label:SIM_CTRL_LABELS[c.id]||OPT_SHORT[c.label]||c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),...autoOpts(n,'opt:'+c.id),
+        grid.append(ui.knob({label:SIM_CTRL_LABELS[c.id]||OPT_SHORT[c.label]||c.label,min:c.min,max:c.max,step:c.step,value:cur,def:c.def,unit:['pEmitScale','pSpTrail'].includes(c.id)?'%':'',property:'opt:'+c.id,modulated:graph().edges.some(e=>e.to===n.id&&e.input==='opt_'+c.id),...autoOpts(n,'opt:'+c.id),
           onInput:v=>live(()=>{const x=findNode(n.id);if(x)x.props.opts={...x.props.opts,[c.id]:v};}),onChange:()=>liveCommit('Emitter: '+c.label)}));
       }
       if(gr==='Emission'){
@@ -2527,6 +2576,7 @@ function renderLayerInspector(root,g){
   const grid=el('div','knob-grid');grid.append(ui.knob({label:'Opacity',min:0,max:100,step:1,value:Math.round(g.opacity*100),def:100,unit:'%',property:'layerOpacity',
     onInput:v=>live(()=>{graph().opacity=v/100;}),onChange:()=>liveCommit('Layer opacity')}));s.append(grid);
   const b=section(root,'Blend with layers below');b.append(ui.chips({options:LAYER_BLENDS.map(m=>[m,{'source-over':'Normal',screen:'Screen',lighter:'Add',multiply:'Multiply',difference:'Difference',overlay:'Overlay'}[m]]),value:g.blend,property:'layerBlend',onChange:v=>edit((p,l)=>{l.blend=v;},'Layer blend')}));
+  if(state.settings?.camera)renderSceneCamera(root);
   section(root).append(el('p','insp-note','Tip: select a node, then click a Deformer, Color or Post FX node in the library to insert it right after.'));
   updateHint();
 }
@@ -2925,6 +2975,21 @@ function changeResolution(height){
 function editScene(key,value,label){
   return edit(s=>{s.settings={...s.settings,[key]:value};},label);
 }
+function renderSceneCamera(root){
+  const camera=state.settings.camera,s=section(root,'Shared 3D camera');
+  s.append(el('p','insp-note','One camera for all 3D layers. Wired camera nodes are inactive in this mode.'));
+  for(const [title,keys] of [['Lens',['focal','focus','dof','blur']],['View',['turn','tilt','zoom','orbit','orbitSound']]]){
+    const grid=el('div','knob-grid');
+    for(const k of keys){
+      const spec=TYPES.camera3d.props[k],property='sceneCamera:'+k;
+      const set=v=>live(st=>{st.settings.camera[k]=v;}),commit=()=>liveCommit(`Scene camera: ${spec.label}`);
+      grid.append(k==='focal'?focalKnob(spec,camera[k],SCENE_CAMERA[k],property,set,commit):
+        ui.knob({label:spec.label,min:spec.min,max:spec.max,step:spec.step,value:camera[k],def:SCENE_CAMERA[k],property,
+          unit:k==='turn'||k==='tilt'?'°':'%',onInput:set,onChange:commit}));
+    }
+    fold(s,title).append(grid);
+  }
+}
 function setSceneResolution(height){
   if(recorder||recordStarting||exporting)throw Error('Stop recording or exporting before changing resolution');
   return editScene('resolution',height,`Output: ${height*16/9} × ${height}`);
@@ -2992,10 +3057,15 @@ function renderSceneSettings(){
       if(!source||!editScene('camera',{...source.n.props},'Copied wired camera settings'))return false;
       renderSceneSettings();root.querySelector('[aria-label="Copy wired camera"]').focus();return true;
     });
-    for(const k of ['focal','focus','dof','turn','tilt','zoom','orbit','orbitSound','blur']){
-      const s=TYPES.camera3d.props[k];
-      field(camera,s.label,settings.camera[k],s.kind==='select'?s.labels:s,v=>editScene('camera',{...state.settings.camera,[k]:v},`Scene camera: ${s.label}`));
-    }
+    const inspect=el('button','btn','Adjust in inspector');
+    inspect.type='button';inspect.onclick=()=>{
+      $('sceneDialog').close();selected=null;multi.clear();pending=null;
+      if(layout.hidden.inspector)togglePane('inspector');
+      renderUI();
+      const knob=$('properties').querySelector('[data-property="sceneCamera:dof"]');
+      knob?.closest('.knob').scrollIntoView({block:'nearest'});knob?.focus({preventScroll:true});
+    };
+    camera.append(inspect);
   }else camera.append(el('p','insp-note','Switch to a shared camera to use one lens and orbit across all 3D layers.'));
 }
 $('sceneSettings').onclick=()=>{renderSceneSettings();$('sceneDialog').showModal();};

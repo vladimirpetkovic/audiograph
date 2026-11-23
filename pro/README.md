@@ -52,6 +52,7 @@ each with its own opacity and blend mode (up to four).
     in 3D, so turning the camera does not leave ghost images. Set it to **0%**
     to disable trails, or raise it up to **1000%** for longer trails in 2D or 3D.
     Mesh emission uses the particle palette; image emission can keep picture colours.
+    For a wired source, **Emitter size** at **100%** matches the source exactly.
     Set **Emission → Launch speed** to **0%** with a mesh source and choose
     **Release on: Sound**, **Object
     motion**, or **Sound + object motion** for a clear surface cloud: particles
@@ -435,8 +436,11 @@ process the finished image.
   **Random** cycles through scene families before repeating: mesh particles, lit cloners, attractors,
   oscilloscope cuts, resonant contours, fluid or smoke, and kinetic typography. Each roll varies the
   look, keeps the audio playing, and leaves an editable graph. Undo restores the previous scene.
-  The **Scene settings** gear next to Reset sets output and export defaults, the canvas background,
-  and the shared 3D camera. Older scenes keep their wired cameras unless you switch modes.
+  The **Scene settings** gear next to Reset sets output and export defaults and the canvas background.
+  **Wired cameras** are the default; select a **3D camera** node to adjust its live knobs.
+  To use one camera across all 3D layers, switch to **Shared scene camera** and choose
+  **Adjust in inspector**. Opaque models occlude particles viewed through the same camera;
+  transparent surfaces and cutouts still let particles show through.
   **Performance** can cap live FPS, override WebGPU simulation quality, or skip 3D lens effects
   without changing individual nodes. The FPS cap does not affect offline exports.
   In **Autopilot → Describe**, try “blue Aizawa attractor with soft motion blur,” “green oscilloscope

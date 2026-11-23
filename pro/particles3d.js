@@ -231,13 +231,13 @@ export function patchParticles3d(patch){
       if(cfg.response==='motion'){o.response=0;o.bass=0;o.mid=0;o.treb=0;o.onset=0;o.level=0;}
       o.pglow*=10.0;
       Object.assign(o,{x1:cfg.yaw||0,x2:cfg.tilt||0,x3:cfg.zoom||1,x4:cfg.focal||1,x5:cfg.depth||2,x6:cfg.panX||0,x7:cfg.panY||0,x8:gpu?2:data?1:0,x9:cfg.sourceAngle||0,x10:cfg.spread||0,x11:cfg.sourceTilt||0,x12:K('pSpTrail',55)/100});
-      if(gpu){o.sourceN=gpu.image.width;o.emitScale=K('pEmitScale',65)/65;o.emitAngle=K('pEmitRZ',0)*Math.PI/180;o.emitColor=0;o.emitType=4;st.sourceCount=o.sourceN;st.emitType=4;return;}
+      if(gpu){o.sourceN=gpu.image.width;o.emitScale=K('pEmitScale',100)/100;o.emitAngle=K('pEmitRZ',0)*Math.PI/180;o.emitColor=0;o.emitType=4;st.sourceCount=o.sourceN;st.emitType=4;return;}
       if(data){
         if(st.emitterAsset!==data){
           if(data.byteLength>st.emitterBuf.size){st.emitterBuf.destroy();st.emitterBuf=G.dev.createBuffer({size:data.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});st.emitterCapacity=data.length/12;st.bgc={};}
           G.dev.queue.writeBuffer(st.emitterBuf,0,data);st.emitterAsset=data;
         }
-        o.sourceN=data.length/12;o.emitScale=K('pEmitScale',65)/65;o.emitAngle=K('pEmitRZ',0)*Math.PI/180;o.emitColor=0;o.emitType=4;st.sourceCount=o.sourceN;st.emitType=4;return;
+        o.sourceN=data.length/12;o.emitScale=K('pEmitScale',100)/100;o.emitAngle=K('pEmitRZ',0)*Math.PI/180;o.emitColor=0;o.emitType=4;st.sourceCount=o.sourceN;st.emitType=4;return;
       }
     }
     if(st.kind==='particles'&&!st.space3)o.x12=-K('pSpTrail',55)/100;

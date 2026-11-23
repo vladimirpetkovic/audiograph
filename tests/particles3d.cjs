@@ -49,6 +49,7 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     await inspector.getByRole('combobox',{name:'Simulation'}).selectOption('simparticles');
     const emission=inspector.locator('[data-group="Emission"]'),look=inspector.locator('[data-group="Look"]');
     for(const key of ['opt:pSpSpeed','opt:pEmitScale','particleDepth','particleSpread','particleResponse','particleSurfaceFlow'])await emission.locator(`[data-property="${key}"]`).first().waitFor({state:'attached'});
+    assert.equal(await emission.locator('input[data-property="opt:pEmitScale"]').inputValue(),'100','Wired emitter size defaults to a source match');
     await look.locator('[data-property="opt:pSpTrail"]').first().waitFor({state:'attached'});
     assert.equal(await page.evaluate(()=>pro.engine('e').w.document.getElementById('pSpTrail').max),'1000');
     await emission.getByRole('button',{name:'Ultra',exact:true,includeHidden:true}).waitFor({state:'attached'});
@@ -61,6 +62,8 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     assert.equal(await inspector.getByRole('combobox',{name:'Simulation'}).locator('option[value="simsand"]').count(),0);
     const legacy=scene();Object.assign(legacy.layers[0].nodes.find(n=>n.id==='e').props,{particleInitialSpeed:50,particleTrails:false,opts:{pSpSpeed:70,pSpTrail:60}});
     assert.deepEqual(await page.evaluate(p=>pro.validate(p).layers[0].nodes.find(n=>n.id==='e').props.opts,legacy),{pSpSpeed:35,pSpTrail:0});
+    legacy.layers[0].nodes.find(n=>n.id==='e').props.opts.pEmitScale=65;
+    assert.equal(await page.evaluate(p=>pro.validate(p).layers[0].nodes.find(n=>n.id==='e').props.opts.pEmitScale,legacy),100);
     const volumeScene=scene();volumeScene.layers[0].edges.splice(1,1);
     await load(volumeScene);
     assert.ok(active(await state()).some(p=>Math.abs(p[2])>.1),'Unwired procedural emitters spawn in 3D');
@@ -134,7 +137,9 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     placement.layers[0].view={yaw:12,pit:9,px:.08,py:.04,zm:1.15};
     placement.layers[0].edges.splice(2,2,{from:'e',out:'shape',to:'out',input:'image'});
     placement.layers[0].edges.push({from:'d',out:'value',to:'o',input:'drive'});
-    await page.evaluate(p=>{pro.importProject(p);pro.select('o');},placement);
+    const normalized=await page.evaluate(p=>pro.validate(p),placement);
+    normalized.layers[0].nodes.find(n=>n.id==='e').props.opts.pEmitScale=100;
+    await page.evaluate(p=>{pro.importProject(p);pro.select('o');},normalized);
     const modelMenu=inspector.getByRole('combobox',{name:'3D Object'});
     assert.equal(await modelMenu.locator('..').locator('.prop-label').textContent(),'3D Object');
     assert.equal(await inspector.locator('[data-property="render"]').first().locator('..').locator('.prop-label').textContent(),'Rendering');

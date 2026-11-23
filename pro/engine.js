@@ -145,7 +145,7 @@ function installDof(w){
 }
 let sourcePromise;
 async function engineSource() {
-  if(!sourcePromise)sourcePromise=fetch(new URL('../index.html?v=long-particle-trails',location.href)).then(async r=>{
+  if(!sourcePromise)sourcePromise=fetch(new URL('../index.html?v=scene-depth-and-camera',location.href)).then(async r=>{
     if(!r.ok)throw Error(`Cannot load Audiograph engine: HTTP ${r.status}`);
     let html=await r.text();
     if(!html.includes('function getDefaultLayerParams'))throw Error('The parent page is not an Audiograph engine');
@@ -202,9 +202,8 @@ async function engineSource() {
     patch("if(!ok)continue;\n    var rnx=","if(!ok)continue;window.__agDpoly&&window.__agDpoly(pts,zs,ds);window.__agScene.polygon(ctx,pts,zs,ds,o.persp);\n    var rnx=");
     patch("strand1.push({sx:sx1,sy:sy1,z:rz1,",DZ+"(sx1,sy1,rz1);"+DZ+"(sx2,sy2,rz2);strand1.push({sx:sx1,sy:sy1,z:rz1,");
     patch("if(o.d3){var q=distortLinear(sx,sy,W,H,o.d3);sx=q.x;sy=q.y}return[sx,sy,c[2]]}","if(o.d3){var q=distortLinear(sx,sy,W,H,o.d3);sx=q.x;sy=q.y}"+DZ+"(sx,sy,c[2]);return[sx,sy,c[2]]}");
-    // Pro's emit assets are whole frames: map the frame onto the frame so particles spawn where the driver is drawn
-    // (Emitter size stays a multiplier, its default 65 % meaning 1:1).
-    patch("o.emitScale=K('pEmitScale',65)/100;","o.emitScale=K('pEmitScale',65)/100*(asset&&asset.frame?(st.asp||1)/.65:1);");
+    // Wired emit assets are whole frames; 100% maps a source pixel back to its frame position.
+    patch("o.emitScale=K('pEmitScale',65)/100;","o.emitScale=K('pEmitScale',65)/100*(asset&&asset.frame?(st.asp||1):1);");
     const base=new URL('../',location.href).href;
     const policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:";
     // Smoke takes its palette: the original keeps a quarter of a fixed grey in its albedo, which turns coloured smoke grey.
@@ -233,7 +232,7 @@ const OPT_ID=/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const HIDDEN=/setVidSource|setPixelWarpSource|objToPointCloud|setObjModel|setObjLayout/;
 const strCache=new WeakMap();
 const str=o=>{if(!o||typeof o!=='object')return JSON.stringify(o??{});let v=strCache.get(o);if(v===undefined){v=JSON.stringify(o);strCache.set(o,v);}return v;};
-const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',job.poly?'poly':'',job.classicObject?'object':'',job.objectKey||'',job.sceneObject?.detail??'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|')
+const jobKey=job=>[job.mode,job.source||'',job.mesh?'mesh':'',job.poly?'poly':'',job.classicObject?'object':'',job.wiredEmit?'wired':'',job.objectKey||'',job.sceneObject?.detail??'',str(job.chips||{}),job.look&&Object.keys(job.look).length?str(job.look):''].join('|')
 // Same parameters as last frame? (objects compare by content; they are small)
 // The original's underscore keys that only move one slider (setLayoutParams does nothing else with them).
 const QUICK={_contrast:'pContrast',_sensitivity:'pSensitivity',_height:'pHeight',_thick:'pThick',_zoom:'pZoom',_offX:'pOffX',_offY:'pOffY',_rotation:'pRotation',
@@ -348,7 +347,10 @@ export class EmitterEngine {
       w.agSim.reset();this.mode=mode;this.generation++;this.lastText=null;
       if(mode.startsWith('sim')&&!w._agIsSim(mode))throw Error(`${job.mode} is not available in this Audiograph build`);
     }
-    w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(this.withLook(job.look));
+    const size=w.document.getElementById('pEmitScale'),look=this.withLook(job.look);
+    size.max=job.wiredEmit?250:150;
+    const params=job.wiredEmit?{...look,pEmitScale:job.look?.pEmitScale??100}:look;
+    w.stackLayouts[0].layout=mode;w.layoutMode=mode;w.setLayoutParams(params);
     // Shapes the original has no built-in model for arrive as a mesh from the 3D Object node.
     const obj=job.sceneObject;
     if(job.classicObject&&job.mode!=='model'&&job.mode!=='knot'){
@@ -372,7 +374,7 @@ export class EmitterEngine {
     }
     // Polygons: the 3D Object's faces drawn filled (after the chips, so a remembered Signal chip can't override it).
     if(mode==='object'){w.objSignal=job.poly?'poly':w.objSignal==='poly'?'shape':w.objSignal;try{w.syncObjSignalUI();}catch(e){console.warn(e);}}
-    this.base={...this.withLook(job.look),...w.getLayoutParams()};this.baseKey=key;return mode;
+    this.base={...params,...w.getLayoutParams()};this.baseKey=key;return mode;
   }
   // Template looks: original layer parameters on top of the engine defaults (simulations never auto-switch).
   withLook(look) {
@@ -407,7 +409,7 @@ export class EmitterEngine {
         if(!buttons.length)continue;
         const action=buttons.every(b=>/simRestart|simReset|simReinit|Preset|Shuffle|objToPointCloud|click\(\)/i.test(b.getAttribute('onclick')||''));
         out.push({type:'chips',key:String(idx),label:label(e),action,onclick:buttons[0].getAttribute('onclick')||'',options:buttons.map(b=>({label:b.textContent.trim(),on:b.classList.contains('on')}))});
-      }else if(OPT_ID.test(e.id))out.push({type:'range',id:e.id,label:label(e)||e.id,min:+e.min,max:+e.max,step:+e.step||1,value:+e.value,def:+(SIM_TUNE[this.mode]?.[e.id]??this.defaults[e.id]??e.defaultValue)});
+      }else if(OPT_ID.test(e.id))out.push({type:'range',id:e.id,label:label(e)||e.id,min:+e.min,max:+e.max,step:+e.step||1,value:+(e.id==='pEmitScale'&&job.wiredEmit?this.base.pEmitScale:e.value),def:job.wiredEmit&&e.id==='pEmitScale'?100:+(SIM_TUNE[this.mode]?.[e.id]??this.defaults[e.id]??e.defaultValue)});
     }
     return out;
   }
@@ -419,7 +421,7 @@ export class EmitterEngine {
   // Range of one emitter option knob (for driven option ports), cached per layout + chip state.
   optRange(job,id) {
     if(this.status!=='ready')return null;
-    const key=jobKey(job)+'|'+!!job.wiredEmit;
+    const key=jobKey(job);
     if(this.rangeKey!==key){this.ranges=new Map((this.controls(job,true)||[]).filter(c=>c.type==='range').map(c=>[c.id,c]));this.rangeKey=key;}
     return this.ranges.get(id)||null;
   }
@@ -430,7 +432,7 @@ export class EmitterEngine {
     const b=g.buttons.find(b=>b.textContent.trim()===label);if(!b)throw Error('Unknown option '+label);
     b.click();this.applied=null;this.base=this.w.getLayoutParams();
     const ranges={};
-    for(const e of this.container().querySelectorAll('input[type=range]'))if(OPT_ID.test(e.id)&&+e.value!==+(SIM_TUNE[this.mode]?.[e.id]??this.defaults[e.id]??e.defaultValue))ranges[e.id]=+e.value;
+    for(const e of this.container().querySelectorAll('input[type=range]'))if(OPT_ID.test(e.id)&&+e.value!==(job.wiredEmit&&e.id==='pEmitScale'?100:+(SIM_TUNE[this.mode]?.[e.id]??this.defaults[e.id]??e.defaultValue)))ranges[e.id]=+e.value;
     return {ranges,on:b.classList.contains('on')};
   }
   // Render one frame of the emitter with parameter overrides. Returns the engine canvas.
