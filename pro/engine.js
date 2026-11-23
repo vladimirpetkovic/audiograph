@@ -554,11 +554,12 @@ export class EmitterEngine {
     this.viewMode='sim';this.viewZoom=1;
     const volume=this.fluid||=new Fluid3D(),p=job.fluid,src=job.emitObject;
     const source=src&&surfaceSource(this.w,src.object,this.surfaceCache||={},{mapper:src.mapper,time:job.time});
-    const color=cm._colorMode==='solid'?cm._solidColor:cm._toneStops?.[1];
+    const palette=cm._colorMode==='solid'?[cm._solidColor]:
+      cm._colorMode==='simpleramp'?cm._simpleStops:cm._toneStops;
     const selected=performanceSettings?.simulation;
     const out=volume.draw({camera,width:WIDTH,height:HEIGHT,quality:selected&&selected!=='node'?selected:'med',
       dt:job.dt,time:job.time,frame:job.frame,level:job.audio.drive.bass*p.intensity/100,beat:job.audio.drive.beat*p.punch/100,
-      props:color?{...p,fluidColor:color}:p,source,flat:job.flatFluid,collisions:job.collisions,
+      props:p,palette,gravity:cm._fluidGravity,source,flat:job.flatFluid,collisions:job.collisions,
       occluders:job.occluders,renderOnly:job.renderOnly});
     if(out){
       this.ctx.resetTransform();this.ctx.clearRect(0,0,WIDTH,HEIGHT);

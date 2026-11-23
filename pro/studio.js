@@ -2356,12 +2356,15 @@ function renderEmitter(root,n){
     s.append(ui.field(T.props.mode.label,sel));
   }
   if(n.type==='gpuParticles'&&n.props.mode==='simfluid3d'){
-    renderProps(fold(root,'Emission'),n,['fluidDomain','fluidRate','fluidSpeed','fluidLift','fluidSwirl','fluidFade','fluidPressure'],true);
-    renderProps(fold(root,'Look'),n,['fluidColor','fluidOpacity'],true);
+    renderProps(fold(root,'Emission'),n,['fluidResolution','fluidDomain','fluidRate','fluidSpeed','fluidSwirl','fluidFade','fluidPressure'],true);
+    renderProps(fold(root,'Floor'),n,['fluidFloor',...(n.props.fluidFloor?['fluidFloorSize']:[])],true);
+    const look=fold(root,'Look');
+    renderProps(look,n,['fluidColor','fluidOpacity'],true);
+    look.append(el('p','insp-note','Wire a Palette after 3D Fluid to color the flow by density.'));
     renderProps(fold(root,'Sound'),n,['intensity','punch'],true);
     if(graph().edges.some(e=>e.to===n.id&&e.input==='mask'))renderProps(fold(root,'Mask'),n,MASK_KEYS,true);
     renderProps(fold(root,'Compositing'),n,COMP_KEYS,true);
-    s.append(el('p','insp-note','Wire a 3D object into Emit to release fluid from its surface. Turn on Collide on any 3D object to make it block the flow.'));
+    s.append(el('p','insp-note','Fluid spreads in all directions. Wire a Gravity node after it to pull it down, or a 3D object into Emit to release fluid from its surface.'));
     if(paused)Promise.all([engineFor(n.id).ready,prepareFluid3D()]).then(()=>{
       if(paused&&selected===n.id&&s.isConnected)draw(elapsed);
     }).catch(error=>message(error.message,true,'render'));

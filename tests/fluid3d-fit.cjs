@@ -25,7 +25,7 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     await page.waitForFunction(()=>window.pro);
     const load=project=>page.evaluate(p=>{pro.dissolve(false);pro.importProject(p);},project);
     const nodes=[n('sound','value',40,70,{value:1}),n('cube','waveform3d',40,330,{mode:'cube',render:'normal',collide:true}),
-      n('fluid','gpuParticles',1500,640,{mode:'simfluid3d'}),n('cam','camera3d',2400,640),
+      n('fluid','gpuParticles',1500,640,{mode:'simfluid3d',fluidResolution:32}),n('cam','camera3d',2400,640),
       n('ball','waveform3d',40,610,{mode:'sphere',render:'normal',collide:true,size:35,x:26}),
       n('merge','merge',3200,640),n('out','output',3900,640),...Array.from({length:12},(_,i)=>n(`loose${i}`,'value',40+i*190,-400))];
     const edges=[edge('sound','value','fluid','drive'),edge('cube','object','fluid','emit'),
@@ -48,12 +48,14 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     console.log('ok Fit compacts spaced graphs, frames all nodes, and supports undo');
     await page.evaluate(()=>pro.select('fluid'));
     const emission=page.locator('#properties [data-group="Emission"]');
-    for(const key of ['fluidDomain','fluidSpeed','fluidPressure'])await emission.locator(`[data-property="${key}"]`).first().waitFor({state:'attached'});
+    for(const key of ['fluidResolution','fluidDomain','fluidSpeed','fluidPressure'])await emission.locator(`[data-property="${key}"]`).first().waitFor({state:'attached'});
+    assert.equal(await page.locator('#properties [data-property="fluidLift"]').count(),0);
+    await page.locator('#properties [data-group="Floor"] [data-property="fluidFloor"]').first().waitFor({state:'attached'});
     try{
       await page.waitForFunction(()=>{const e=pro.engine('fluid'),s=e?.fluid?.stats();return s?.steps>=14&&s.sourceCells>80&&pro.pixels()>.25;},null,{timeout:35000});
     }catch(e){console.log(await page.evaluate(()=>pro.stats()));throw e;}
     assert.ok(await page.evaluate(()=>{const f=pro.engine('fluid').fluid;
-      return f.n===28&&f.field.size===28**3*16&&f.collisions.end>0&&f.depth.width>1;}),'XYZ grid uses the shared collider BVH and geometry depth');
+      return f.n===32&&f.field.size===32**3*16&&f.collisions.end>0&&f.depth.width>1;}),'XYZ grid uses the shared collider BVH and geometry depth');
     const before=await page.evaluate(()=>pro.engine('fluid').fluid.lastSource);
     assert.ok(Object.values(before).some((z,i)=>i%12===2&&Math.abs(z)>.25),'mesh emission samples extend through Z');
     const flow=await page.evaluate(async()=>{
@@ -85,8 +87,88 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     assert.ok(video.bytes>1000&&video.frames>=5,'3D Fluid renders through offline export');
     await page.evaluate(()=>pro.setProperty('fluid','mode','simfluid'));
     await page.waitForFunction(()=>pro.engine('fluid')?.mode==='simfluid'&&!pro.engine('fluid').fluid);
+    console.log('ok 3D Fluid emits from the cube, uses multiple colliders and shared depth, and switches back to 2D');
+    const physics=await page.evaluate(async()=>{
+      const {Fluid3D,prepareFluid3D}=await import('/pro/fluid3d.js'),{defaults}=await import('/pro/graph.js');
+      await prepareFluid3D();
+      const fluid=new Fluid3D(),props={...defaults('gpuParticles'),fluidResolution:32,fluidSwirl:0,fluidPressure:6};
+      const camera={yaw:0,tilt:.25,f:1,distance:2.5,panX:0,panY:0};
+      const read=async(...buffers)=>{
+        const d=fluid.device,enc=d.createCommandEncoder(),copies=buffers.map(b=>{
+          const dst=d.createBuffer({size:b.size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
+          enc.copyBufferToBuffer(b,0,dst,0,b.size);return dst;
+        });
+        d.queue.submit([enc.finish()]);
+        try{await Promise.all(copies.map(b=>b.mapAsync(GPUMapMode.READ)));return copies.map(b=>b.getMappedRange().slice(0));}
+        finally{copies.forEach(b=>b.destroy());}
+      };
+      const run=async(gravity,flat)=>{
+        fluid.dispose();
+        for(let frame=0;frame<36;frame++)fluid.draw({camera,width:160,height:90,quality:'low',dt:1/30,
+          time:frame/30,frame,level:.5,beat:0,props,gravity,flat});
+        const [raw,mask]=await read(fluid.field,fluid.wall),field=new Float32Array(raw),walls=new Uint32Array(mask),n=fluid.n;
+        let mass=0,fy=0,solids=0,leaks=0,positive=0,negative=0;
+        const outward=Array(6).fill(0);
+        for(let i=0;i<walls.length;i++){
+          const x=i%n+.5-n/2,y=Math.floor(i/n)%n+.5-n/2,z=Math.floor(i/n**2)+.5-n/2,o=i*4,d=field[o+3];
+          if(walls[i]){solids++;if(field.subarray(o,o+4).some(v=>v!==0))leaks++;}
+          mass+=d;fy+=y*d;
+          if(z>1)positive+=d;if(z< -1)negative+=d;
+          [x,y,z].forEach((q,j)=>{if(Math.abs(q)>1&&field[o+j]*q>.025&&d>.025)outward[j*2+(q>0?1:0)]++;});
+        }
+        return {centroid:fy/mass,outward,solids,leaks,positive,negative};
+      };
+      try{
+        props.fluidSwirl=defaults('gpuParticles').fluidSwirl;
+        const neutral=await run(0);
+        props.fluidSwirl=0;
+        const down=await run(70),up=await run(-70);
+        const flat=await run(0,new Float32Array([0,0,0,0,0]));
+        Object.assign(props,{fluidFloor:true,fluidFloorSize:50});
+        const floor=await run(70);
+        return {neutral,down,up,flat,floor};
+      }finally{fluid.dispose();}
+    });
+    assert.ok(physics.neutral.outward.every(n=>n>8)&&Math.abs(physics.neutral.centroid)<.5,JSON.stringify(physics));
+    assert.ok(physics.down.centroid<-.75&&physics.up.centroid>.75,JSON.stringify(physics));
+    assert.ok(physics.flat.positive>.01&&Math.abs(physics.flat.positive-physics.flat.negative)<.01,JSON.stringify(physics));
+    assert.ok(physics.floor.solids>100&&physics.floor.solids<32**2&&physics.floor.leaks===0,JSON.stringify(physics));
+    console.log('ok default flow spreads in all six directions, flat flow uses both sides, and ground and gravity work');
+    const ramp=[{c:'#ff3300',a:0},{c:'#ff3300',a:1},{c:'#1111ff',a:1}];
+    await load(scene([n('fluid','gpuParticles',40,200,{mode:'simfluid3d',fluidResolution:64,fluidRate:340}),
+      n('gravity','gravity',250,200,{fluidGravity:0}),n('palette','palette',460,200,{mode:'simpleramp',stops:ramp}),n('out','output',670,200)],
+    [edge('fluid','shape','gravity','shape'),edge('gravity','shape','palette','shape'),edge('palette','shape','out','image')]));
+    await page.evaluate(()=>pro.select('gravity'));
+    await page.locator('#properties [data-property="fluidGravity"]').first().waitFor({state:'attached'});
+    assert.equal(await page.locator('#properties [data-property="buoyancy"]').count(),0);
+    const colors=()=>page.evaluate(()=>{
+      const f=pro.engine('fluid')?.fluid;if(!f?.canvas)return null;
+      const c=document.createElement('canvas');c.width=f.canvas.width;c.height=f.canvas.height;
+      const ctx=c.getContext('2d');ctx.drawImage(f.canvas,0,0);const data=ctx.getImageData(0,0,c.width,c.height).data;
+      let red=0,blue=0,green=0;
+      for(let i=0;i<data.length;i+=4)if(data[i+3]>25){
+        if(data[i]>1.3*data[i+2]&&data[i]>1.3*data[i+1])red++;
+        if(data[i+2]>1.3*data[i]&&data[i+2]>1.3*data[i+1])blue++;
+        if(data[i+1]>1.3*data[i]&&data[i+1]>1.3*data[i+2])green++;
+      }
+      return {red,blue,green};
+    });
+    await page.waitForFunction(()=>pro.engine('fluid')?.fluid?.steps>=35,null,{timeout:35000});
+    const simple=await colors();
+    assert.ok(simple.red>25&&simple.blue>10,JSON.stringify(simple));
+    await page.evaluate(()=>pro.setProperty('palette','mode','toneramp'));
+    await page.waitForTimeout(200);
+    const tone=await colors();
+    assert.ok(tone.red>25&&tone.blue>10,JSON.stringify(tone));
+    if(process.env.FLUID_PREVIEW)await page.locator('#preview').screenshot({path:process.env.FLUID_PREVIEW});
+    await page.evaluate(()=>{pro.setProperty('palette','solid','#00ff44');pro.setProperty('palette','mode','solid');});
+    await page.waitForTimeout(200);
+    const solid=await colors();
+    assert.ok(solid.green>25&&solid.red===0&&solid.blue===0,JSON.stringify(solid));
+    await page.evaluate(()=>{pro.setProperty('fluid','fluidDomain',300);pro.setProperty('fluid','fluidResolution',128);});
+    await page.waitForFunction(()=>{const f=pro.engine('fluid')?.fluid;return f?.n===128&&f.domain===3&&f.steps>=2;},null,{timeout:35000});
+    console.log('ok Palette colors by density in both ramp modes, Solid overrides the dye, and resolution is independent of container size');
     assert.deepEqual(errors,[]);
     assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[]);
-    console.log('ok 3D Fluid emits from the cube, uses multiple colliders and shared depth, and switches back to 2D');
   }finally{await browser?.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

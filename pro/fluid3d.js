@@ -1,7 +1,9 @@
-const GRID={low:28,med:36,high:48,ultra:60};
+import {MAX_STOPS} from './graph.js';
+
 const COMMON=`
 struct Params {
-  grid:vec4f, flow:vec4f, camera:vec4f, screen:vec4f, color:vec4f, light:vec4f
+  grid:vec4f, flow:vec4f, camera:vec4f, screen:vec4f, look:vec4f, detail:vec4f,
+  ramp:array<vec4f,${MAX_STOPS}>
 };
 @group(0) @binding(0) var<uniform> u:Params;
 fn cell(id:u32)->vec3i{
@@ -24,14 +26,24 @@ const SOLVE=COMMON+`
 @group(0) @binding(6) var<storage,read> pressure:array<f32>;
 @group(0) @binding(7) var<storage,read_write> nextP:array<f32>;
 @group(0) @binding(8) var<storage,read_write> divergence:array<f32>;
+@group(0) @binding(9) var densityOut:texture_storage_3d<rgba16float,write>;
+@group(0) @binding(10) var<storage,read> deposits:array<vec4f>;
+@group(0) @binding(11) var<storage,read_write> injection:array<vec4f>;
+@compute @workgroup_size(64) fn deposit(@builtin(global_invocation_id) id:vec3u){
+  if(id.x>=u32(u.look.z)){return;}
+  let s=deposits[id.x];let i=u32(abs(s.w))-1u;
+  injection[i]=vec4f(s.xyz,select(3.0,2.0,s.w<0.0));
+}
 fn solid(p:vec3i)->bool{if(!within(p)){return true;}return walls[idx(p)]!=0u;}
 fn field(p:vec3i)->vec4f{if(solid(p)){return vec4f(0);}return src[idx(p)];}
 fn sample(p:vec3f)->vec4f{
-  let b=vec3i(floor(p));let f=fract(p);var v=vec4f(0);
+  let b=vec3i(floor(p));let f=fract(p);var v=vec4f(0);var sum=0.0;
   for(var z=0;z<2;z++){for(var y=0;y<2;y++){for(var x=0;x<2;x++){
-    let o=vec3i(x,y,z);let w=mix(1.0-f,f,vec3f(o));v+=field(b+o)*w.x*w.y*w.z;
+    let o=vec3i(x,y,z);
+    if(!solid(b+o)){let w=mix(1.0-f,f,vec3f(o));let weight=w.x*w.y*w.z;
+      v+=src[idx(b+o)]*weight;sum+=weight;}
   }}}
-  return v;
+  return v/max(sum,1e-6);
 }
 fn separates(axis:vec3f,a:vec3f,b:vec3f,c:vec3f,h:f32)->bool{
   let r=dot(abs(axis),vec3f(h));let x=dot(axis,a);let y=dot(axis,b);let z=dot(axis,c);
@@ -49,8 +61,10 @@ fn overlaps(p:vec3f,h:f32,i:u32)->bool{
 }
 @compute @workgroup_size(64) fn voxelize(@builtin(global_invocation_id) id:vec3u){
   let i=id.x;if(i>=arrayLength(&walls)){return;}
-  let p=world(vec3f(cell(i)));let h=u.grid.y/u.grid.x*1.04;
+  let c=cell(i);let p=world(vec3f(c));let h=u.grid.y/u.grid.x*1.04;
   var node=0u;walls[i]=0u;
+  if(u.detail.y>0.0&&c.y==i32(floor(coords(vec3f(0,-1,0)).y+.5))&&
+      all(abs(p.xz)<vec2f(u.detail.y+h))){walls[i]=1u;return;}
   while(node<u32(u.grid.w)){
     let lo=mesh[node];let hi=mesh[node+1u];
     if(any(p+h<lo.xyz)||any(p-h>hi.xyz)){node=u32(hi.w);continue;}
@@ -70,9 +84,26 @@ fn bounded(p:vec3i,v:vec3f)->vec3f{
   let dt=u.grid.z;let h=2.0*u.grid.y/u.grid.x;
   let v0=bounded(p,src[i].xyz);let delta=clamp(v0*dt/h,vec3f(-0.85),vec3f(0.85));
   var q=vec3f(p)-delta;if(solid(vec3i(round(q)))){q=vec3f(p);}
-  let v=sample(q);let w=world(vec3f(p));let s=inject[i];
-  let curl=vec3f(sin(w.y*3.1+u.light.w),sin(w.z*2.6-u.light.w),sin(w.x*2.3+u.light.w));
-  let a=s.xyz*u.flow.x+vec3f(0.0,u.flow.z*v.w,0.0)+curl*(u.flow.w*min(v.w,1.0));
+  let v=sample(q);let w=world(vec3f(p));var s=inject[i];let t=u.detail.w;
+  if(u.detail.z>0.5){
+    let r=length(w);let dir=w/max(r,1e-5);
+    let lobe=1.0+.19*sin(8.0*dir.x+t*.8)*sin(7.0*dir.y-t)*sin(6.0*dir.z+t*.65);
+    let core=1.0-smoothstep(.12,.35,r/lobe);
+    let push=core+.56*(1.0-smoothstep(.26,.75,r))*smoothstep(.08,.28,r);
+    s=vec4f(dir*(3.2*push),4.0*core);
+  }else if(u.look.w>0.0){
+    let z=i32(u.grid.x*.5);
+    let pad=i32(u.look.w);
+    let edge=clamp(p.z,z-pad,z+pad-1);
+    let distance=f32(abs(p.z-edge))*h;
+    if(distance>0.0&&distance<.4){
+      let jet=inject[idx(vec3i(p.xy,edge))].z;
+      s.z=jet*.9*(1.0-smoothstep(0.0,.4,distance));
+    }
+  }
+  let curl=sin(w.yzx*vec3f(4.3,4.9,4.6))*cos(t*vec3f(1,.81,.9)+vec3f(0,1.7,3.1))+
+    .56*sin(w.zxy*vec3f(8.4,7.8,8.1))*sin(t*vec3f(.6,.7,.8)+vec3f(1.1,2.6,4.2));
+  let a=s.xyz*u.flow.x+vec3f(0.0,-u.flow.z*min(v.w+s.w*dt,1.0),0.0)+curl*(u.flow.w*min(v.w,1.0));
   let velocity=bounded(p,clamp(v.xyz*exp(-dt*0.9)+a*dt,vec3f(-3),vec3f(3)));
   dst[i]=vec4f(velocity,min(5.0,v.w*exp(-u.flow.y*dt)+s.w*u.flow.x*dt));
 }
@@ -92,14 +123,16 @@ fn bounded(p:vec3i,v:vec3f)->vec3f{
 fn press(p:vec3i,fallback:f32)->f32{if(solid(p)){return fallback;}return pressure[idx(p)];}
 @compute @workgroup_size(64) fn project(@builtin(global_invocation_id) id:vec3u){
   let i=id.x;if(i>=arrayLength(&walls)){return;}
-  let p=cell(i);if(solid(p)){dst[i]=vec4f(0);return;}
+  let p=cell(i);if(solid(p)){dst[i]=vec4f(0);textureStore(densityOut,p,vec4f(0));return;}
   let a=pressure[i];let grad=0.5*vec3f(press(p+X,a)-press(p-X,a),press(p+Y,a)-press(p-Y,a),press(p+Z,a)-press(p-Z,a));
   dst[i]=vec4f(bounded(p,src[i].xyz-grad),src[i].w);
+  textureStore(densityOut,p,vec4f(src[i].w,0,0,0));
 }`;
 
 const RENDER=COMMON+`
-@group(0) @binding(1) var<storage,read> volume:array<vec4f>;
+@group(0) @binding(1) var volume:texture_3d<f32>;
 @group(0) @binding(2) var geometry:texture_2d_array<f32>;
+@group(0) @binding(3) var linearSampler:sampler;
 struct Vertex { @builtin(position) position:vec4f, @location(0) uv:vec2f };
 struct Result { @location(0) color:vec4f, @location(1) depth:vec4f };
 @vertex fn vertex(@builtin(vertex_index) i:u32)->Vertex{
@@ -111,13 +144,12 @@ fn inverse(v:vec3f)->vec3f{
   let y=v.y*ct+v.z*st;let z=-v.y*st+v.z*ct;
   return vec3f(v.x*cy+z*sy,y,-v.x*sy+z*cy);
 }
-fn density(p:vec3i)->f32{if(!within(p)){return 0.0;}return volume[idx(p)].w;}
 fn sample(p:vec3f)->f32{
-  let q=coords(p);let b=vec3i(floor(q));let f=fract(q);var v=0.0;
-  for(var z=0;z<2;z++){for(var y=0;y<2;y++){for(var x=0;x<2;x++){
-    let o=vec3i(x,y,z);let w=mix(1.0-f,f,vec3f(o));v+=density(b+o)*w.x*w.y*w.z;
-  }}}
-  return v;
+  let uv=p/(2.0*u.grid.y)+.5;return textureSampleLevel(volume,linearSampler,uv,0).r;
+}
+fn shade(d:f32)->vec4f{
+  let ramp=(1.0-exp(-1.15*d))*(u.look.y-1.0);let stop=u32(ramp);
+  return mix(u.ramp[stop],u.ramp[min(stop+1u,u32(u.look.y)-1u)],fract(ramp));
 }
 @fragment fn fragment(i:Vertex)->Result{
   let q=(i.uv-u.screen.xy)*vec2f(u.screen.z,1.0)/u.camera.z;
@@ -132,16 +164,18 @@ fn sample(p:vec3f)->f32{
       end=min(end,u.camera.w+f32((c.x<<16u)|(c.y<<8u)|c.z)/16777215.0*512.0-256.0);}
   }
   if(end<=start){return Result(vec4f(0),vec4f(0));}
-  let step=max((end-start)/u.light.x,1.45*u.grid.y/u.grid.x/length(dir));
+  let step=max((end-start)/u.detail.x,1.35*u.grid.y/u.grid.x/length(dir));
   start+=step*(0.15+0.7*fract(52.9829189*fract(dot(i.position.xy,vec2f(.06711056,.00583715)))));
   var c=vec4f(0);var front=end;
   for(var t=start;t<end;t+=step){
     let p=eye+dir*t;let d=sample(p);
     if(d>0.0005){
-      let shadow=sample(p+vec3f(-.06,.09,.05));
-      let lit=clamp(.62+(d-shadow)*1.6,.28,1.0);
-      let alpha=1.0-exp(-d*step*length(dir)*u.color.w);
-      let rgb=mix(u.color.rgb,u.light.yzz,clamp(d*.3,0.0,.45))*lit;
+      let shadow=sample(p+vec3f(-.055,.08,.035));
+      let edge=tanh((d-shadow)*1.9);
+      let lit=clamp(.81+edge*.49,.32,1.25);
+      let dye=shade(d);
+      let alpha=1.0-exp(-d*step*length(dir)*u.look.x*dye.a);
+      let rgb=min(dye.rgb*lit,vec3f(1));
       c+=(1.0-c.a)*alpha*vec4f(rgb,1.0);
       if(c.a>.012&&front==end){front=t;}
       if(c.a>.992){break;}
@@ -164,11 +198,11 @@ function backend(){
     device.lost.then(info=>{error=Error('3D Fluid GPU: '+info.message);});
     const compute=device.createShaderModule({label:'3D fluid solver',code:SOLVE});
     const shader=device.createShaderModule({label:'3D fluid volume',code:RENDER});
-    const passes=await Promise.all(['voxelize','advect','measure','jacobi','project'].map(entryPoint=>
+    const passes=await Promise.all(['voxelize','advect','measure','jacobi','project','deposit'].map(entryPoint=>
       device.createComputePipelineAsync({layout:'auto',compute:{module:compute,entryPoint}})));
     const render=await device.createRenderPipelineAsync({layout:'auto',vertex:{module:shader,entryPoint:'vertex'},
       fragment:{module:shader,entryPoint:'fragment',targets:[{format:'rgba8unorm'},{format:'rgba8unorm'}]}});
-    gpu={device,passes,render};
+    gpu={device,passes,render,sampler:device.createSampler({minFilter:'linear',magFilter:'linear'})};
   })().catch(e=>{error=e;});
   return gpu;
 }
@@ -186,23 +220,29 @@ export class Fluid3D{
   stats(){return {grid:this.n,steps:this.steps,frames:this.frames,sourceCells:this.sourceCells??0};}
   dispose(){
     for(const b of this.buffers||[])b.destroy();
-    this.depth?.destroy();this.ctx?.unconfigure();this.depthCtx?.unconfigure();this.buffers=null;this.depth=null;this.n=0;
+    this.depth?.destroy();this.density?.destroy();this.deposits?.destroy();
+    this.ctx?.unconfigure();this.depthCtx?.unconfigure();this.buffers=null;this.depth=null;this.deposits=null;this.n=0;
   }
-  draw({camera,width,height,quality,dt,time,frame,level,beat,props,source,flat,collisions,occluders=[],renderOnly=false}){
+  draw({camera,width,height,quality,dt,time,frame,level,beat,props,palette=[props.fluidColor],gravity=0,
+      source,flat,collisions,occluders=[],renderOnly=false}){
     const g=backend();if(!g)return null;
-    const {device,passes,render}=g,n=GRID[quality]||GRID.med,total=n**3,half=props.fluidDomain/100;
+    const {device,passes,render,sampler}=g,n=8*Math.round(props.fluidResolution/8),total=n**3,half=props.fluidDomain/100;
+    const floor=props.fluidFloor?props.fluidFloorSize/50:0;
     if(n!==this.n||this.domain!==half){
       this.dispose();this.n=n;this.steps=0;this.lastFrame=null;
       this.domain=half;this.device=device;
       const buffer=(size,flags=GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST)=>device.createBuffer({size,usage:flags});
-      this.uniform=buffer(96,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST);
+      this.uniform=buffer((6+MAX_STOPS)*16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST);
       const diagnostic=GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC;
       this.field=buffer(total*16,diagnostic);this.temp=buffer(total*16);this.inject=buffer(total*16);
       this.wall=buffer(total*4,diagnostic);this.pa=buffer(total*4);this.pb=buffer(total*4);this.div=buffer(total*4);
       this.mesh=buffer(16);this.buffers=[this.uniform,this.field,this.temp,this.inject,this.wall,this.pa,this.pb,this.div,this.mesh];
+      this.density=device.createTexture({dimension:'3d',size:[n,n,n],format:'rgba16float',
+        usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.STORAGE_BINDING});
       this.ctx.configure({device,format:'rgba8unorm',alphaMode:'premultiplied'});
       this.depthCtx.configure({device,format:'rgba8unorm',alphaMode:'premultiplied'});
-      this.collisions=undefined;this.lastSource=undefined;this.lastFlat=undefined;this.groups=null;
+      this.collisions=undefined;this.floor=undefined;this.lastSource=undefined;this.lastFlat=undefined;this.groups=null;
+      this.sourceCells=0;
     }
     const ratio=Math.min(1,({low:420,med:600,high:820,ultra:1080}[quality]||600)/height);
     const w=Math.round(width*ratio),h=Math.round(height*ratio);
@@ -220,14 +260,12 @@ export class Fluid3D{
     const groups=Math.ceil(total/64),b=(binding,buffer)=>({binding,resource:{buffer}});
     const uniform=b(0,this.uniform),wall=b(3,this.wall),enc=device.createCommandEncoder();
     const bind=(i,entries)=>device.createBindGroup({layout:passes[i].getBindGroupLayout(0),entries});
-    const color=props.fluidColor.slice(1,7).match(/[a-f\d]{2}/gi).map(v=>parseInt(v,16)/255);
-    device.queue.writeBuffer(this.uniform,0,new Float32Array([n,half,Math.min(1/16,dt)*props.fluidSpeed/100,collisions?.end||0,
-      props.fluidRate/100*(0.25+Math.min(2,level)*1.5+Math.min(2,beat)*0.8),props.fluidFade/100,
-      props.fluidLift/100,props.fluidSwirl/100,camera.yaw,camera.tilt,camera.f/Math.tan(.4),camera.distance,
-      camera.panX,camera.panY,width/height,occluders.length,...color,props.fluidOpacity/25,Math.ceil(n*1.75),.86,.94,time]));
-    if(!renderOnly&&frame!==this.lastFrame){
-      const wallsChanged=this.collisions!==collisions;
-      if(wallsChanged){
+    const advance=!renderOnly&&frame!==this.lastFrame;
+    const wallsChanged=this.collisions!==collisions||this.floor!==floor;
+    const flatLayers=!source&&flat?Math.max(1,Math.ceil(.07*n/(2*half))):0;
+    let update=null;
+    if(advance){
+      if(this.collisions!==collisions){
         if(collisions){
           if(this.mesh.size<collisions.data.byteLength){
             const i=this.buffers.indexOf(this.mesh);this.mesh.destroy();
@@ -238,43 +276,70 @@ export class Fluid3D{
         }
         this.collisions=collisions;
       }
-      if(this.lastSource!==source||this.lastFlat!==flat||!this.groups){
-        const data=new Float32Array(total*4),scale=n/(2*half);let count=0;
-        const add=(x,y,z,dx,dy,dz,value)=>{
+      this.floor=floor;
+      if(this.lastSource!==source||this.lastFlat!==flat){
+        const cells=new Map(),scale=n/(2*half);
+        const add=(x,y,z,dx,dy,dz,mesh)=>{
           const a=Math.floor(x*scale+n/2),b=Math.floor(y*scale+n/2),c=Math.floor(z*scale+n/2);
           if(a<0||b<0||c<0||a>=n||b>=n||c>=n)return;
-          const i=(a+n*(b+n*c))*4;if(!data[i+3])count++;
-          if(data[i+3]>=value)return;
-          data.set([dx*value,dy*value,dz*value,value],i);
+          const i=a+n*(b+n*c);if(cells.has(i))return;
+          // The signed index also distinguishes surface deposits from flat ones.
+          cells.set(i,[dx,dy,dz,mesh?i+1:-i-1]);
         };
         if(source){
-          const offset=2.6*half/n;
+          const offset=2.6*half/n,thickness=Math.max(1,Math.ceil(.06*scale));
           for(let i=0;i<source.length;i+=12){
             const x=source[i],y=source[i+1],z=source[i+2],dx=source[i+8],dy=source[i+9],dz=source[i+10];
-            add(x+dx*offset,y+dy*offset,z+dz*offset,dx,dy,dz,3);
+            for(let j=0;j<thickness;j++){
+              const d=offset+j/scale;
+              add(x+dx*d,y+dy*d,z+dz*d,3*dx,3*dy,3*dz,true);
+            }
           }
         }else if(flat){
-          for(let i=0;i<flat.length;i+=5)add(flat[i],-flat[i+1],0,0,.55,0,2);
-        }else{
-          for(let i=0;i<256;i++){
-            const t=i*Math.PI*2/256,r=half*.27;
-            add(r*Math.cos(t),-half*.45,r*Math.sin(t),Math.cos(t)*.45,1,Math.sin(t)*.45,4);
+          for(let i=0;i<flat.length;i+=5){
+            for(let j=0;j<flatLayers;j++){
+              const z=(j+.5)/scale;
+              add(flat[i],-flat[i+1],z,0,0,2.1,false);
+              add(flat[i],-flat[i+1],-z,0,0,-2.1,false);
+            }
           }
         }
-        device.queue.writeBuffer(this.inject,0,data);this.sourceCells=count;
+        this.sourceCells=cells.size;
+        enc.clearBuffer(this.inject);
+        if(cells.size){
+          update=new Float32Array(cells.size*4);let i=0;
+          for(const v of cells.values()){update.set(v,i);i+=4;}
+          if(!this.deposits||this.deposits.size<update.byteLength){
+            this.deposits?.destroy();
+            this.deposits=device.createBuffer({size:2**Math.ceil(Math.log2(update.byteLength)),usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+          }
+          device.queue.writeBuffer(this.deposits,0,update);
+        }
         this.lastSource=source;this.lastFlat=flat;
       }
+    }
+    const rgba=palette.flatMap(hex=>[1,3,5,7].map(i=>i>=hex.length?1:parseInt(hex.slice(i,i+2),16)/255));
+    device.queue.writeBuffer(this.uniform,0,new Float32Array([n,half,Math.min(1/16,dt)*props.fluidSpeed/100,collisions?.end||0,
+      props.fluidRate/100*(0.45+Math.min(2,level)*1.3+Math.min(2,beat)*0.7),props.fluidFade/100,
+      gravity/17,props.fluidSwirl/100,camera.yaw,camera.tilt,camera.f/Math.tan(.4),camera.distance,
+      camera.panX,camera.panY,width/height,occluders.length,props.fluidOpacity/20,palette.length,this.sourceCells,flatLayers,
+      Math.ceil(n*1.8),floor,source||flat?0:1,time,...rgba]));
+    if(advance){
       const bindings=this.groups||=[
         bind(0,[uniform,wall,b(5,this.mesh)]),
         bind(1,[uniform,b(1,this.field),b(2,this.temp),wall,b(4,this.inject)]),
         bind(2,[uniform,b(1,this.temp),wall,b(8,this.div)]),
         bind(3,[uniform,wall,b(6,this.pa),b(7,this.pb),b(8,this.div)]),
         bind(3,[uniform,wall,b(6,this.pb),b(7,this.pa),b(8,this.div)]),
-        bind(4,[uniform,b(1,this.temp),b(2,this.field),wall,b(6,this.pa)]),
+        bind(4,[uniform,b(1,this.temp),b(2,this.field),wall,b(6,this.pa),{binding:9,resource:this.density.createView()}]),
       ];
       const p=enc.beginComputePass();
       const dispatch=(i,j=i)=>{p.setPipeline(passes[i]);p.setBindGroup(0,bindings[j]);p.dispatchWorkgroups(groups);};
       if(wallsChanged)dispatch(0);
+      if(update){
+        p.setPipeline(passes[5]);p.setBindGroup(0,bind(5,[uniform,b(10,this.deposits),b(11,this.inject)]));
+        p.dispatchWorkgroups(Math.ceil(this.sourceCells/64));
+      }
       dispatch(1);dispatch(2);
       const iterations=2*Math.round(props.fluidPressure/2);
       for(let i=0;i<iterations;i++)dispatch(3,3+i%2);
@@ -284,7 +349,8 @@ export class Fluid3D{
       view:ctx.getCurrentTexture().createView(),loadOp:'clear',storeOp:'store',clearValue:[0,0,0,0],
     }))});
     r.setPipeline(render);r.setBindGroup(0,device.createBindGroup({layout:render.getBindGroupLayout(0),entries:[
-      uniform,b(1,this.field),{binding:2,resource:this.depth.createView({dimension:'2d-array'})}]}));r.draw(3);r.end();
+      uniform,{binding:1,resource:this.density.createView()},{binding:2,resource:this.depth.createView({dimension:'2d-array'})},
+      {binding:3,resource:sampler}]}));r.draw(3);r.end();
     device.queue.submit([enc.finish()]);this.frames++;
     return this.canvas;
   }

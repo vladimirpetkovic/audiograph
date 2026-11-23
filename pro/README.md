@@ -40,9 +40,13 @@ each with its own opacity and blend mode (up to four).
     Choose **3D Fluid** for a volumetric flow instead. Connect a **3D Object**
     or **Cloner** to emit from its surface, or connect an image, waveform,
     or Camera to inject into a flat slice of the volume. Turn on **Collide**
-    on any 3D Object to block the flow. Use **Volume size** to fit the volume
-    around larger objects, and lower **Simulation quality** in Scene settings
-    if the preview is slow. The 3D camera controls the view.
+    on any 3D Object to block the flow. Fluid spreads in all directions unless
+    you wire **Gravity** after it. The optional square **Floor** blocks the flow
+    at ground level. **Container size** sets the size of the cube;
+    **Resolution** sets the simulation detail (24–128 voxels per side). Lower
+    Resolution to lighten the simulation, or lower Scene **Simulation quality**
+    to render the preview at a lower pixel resolution. Wire a **Palette** after
+    3D Fluid to color it by density. The 3D camera controls the view.
     **Look → Trails** follows the particles' recent path
     in 3D, so turning the camera does not leave ghost images. Set it to **0%**
     to draw particles without trails in either 2D or 3D.

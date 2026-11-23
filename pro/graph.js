@@ -277,15 +277,17 @@ export const TYPES = {
     particleSurfaceFlow:bool('Surface flow',false,{sims:['simparticles']}),
     particleFloor:bool('Enabled',true,{sims:['simparticles']}),
     particleFloorSize:n('Size',100,10,800,5,{unit:'%',noPort:true,sims:['simparticles']}),
-    fluidDomain:n('Volume size',220,100,800,5,{unit:'%',noPort:true,sims:['simfluid3d']}),
+    fluidResolution:n('Resolution',48,24,128,8,{unit:' voxels / side',noPort:true,sims:['simfluid3d']}),
+    fluidDomain:n('Container size',220,100,800,5,{unit:'%',noPort:true,sims:['simfluid3d']}),
     fluidRate:n('Amount',180,0,500,5,{unit:'%',sims:['simfluid3d']}),
     fluidSpeed:n('Time scale',100,25,200,5,{unit:'%',sims:['simfluid3d']}),
-    fluidLift:n('Buoyancy',85,-200,200,5,{unit:'%',sims:['simfluid3d']}),
     fluidSwirl:n('Turbulence',80,0,300,5,{unit:'%',sims:['simfluid3d']}),
     fluidFade:n('Dissipation',72,0,400,5,{unit:'%',sims:['simfluid3d']}),
     fluidPressure:n('Pressure iterations',10,4,24,2,{noPort:true,sims:['simfluid3d']}),
     fluidOpacity:n('Opacity',100,0,250,5,{unit:'%',sims:['simfluid3d']}),
     fluidColor:{...color('Color','#6bd2ff'),sims:['simfluid3d']},
+    fluidFloor:bool('Enabled',false,{sims:['simfluid3d']}),
+    fluidFloorSize:n('Size',100,10,800,5,{unit:'%',noPort:true,sims:['simfluid3d']}),
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU emitters')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
@@ -353,7 +355,7 @@ export const TYPES = {
   spin:{category:'forces',label:'Spin',description:'Keep the shape turning, right (clockwise) or left. Speed sets how fast its animation runs.',...SHAPE_IO,props:{
     spin:n('Spin',1,0,5,.1,{key:'_spin'}),dir:pick('Direction','right',['right','left'],{labels:[['right','Spin right ↻'],['left','Spin left ↺']]}),speed:n('Speed',1,.1,5,.1,{key:'_speed'})}},
   // Forces: WebGPU simulation physics, one idea per node. Each knob lists the simulations it moves; defaults match the simulation.
-  gravity:FORCE('Gravity','Pull down (or up). Smoke rises by buoyancy.',{gravity:F('Gravity',-3,-100,100,'pSpGravity',['simparticles']),sand:F('Sand gravity',100,0,100,'pSaGravity',['simsand']),buoyancy:F('Buoyancy',100,0,200,'pSmBuoy',['simsmoke'])}),
+  gravity:FORCE('Gravity','Pull down (or up). Smoke rises by buoyancy.',{gravity:F('Gravity',-3,-100,100,'pSpGravity',['simparticles']),fluidGravity:F('Gravity',50,-100,100,'_fluidGravity',['simfluid3d']),sand:F('Sand gravity',100,0,100,'pSaGravity',['simsand']),buoyancy:F('Buoyancy',100,0,200,'pSmBuoy',['simsmoke'])}),
   drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand'])}),
   swirl:FORCE('Swirl','Rotate the flow and spin the emitters.',{swirl:F('Swirl',43,-100,100,'pSpSwirl',['simparticles']),fluidSwirl:F('Fluid swirl',40,-100,100,'pSfSwirl',['simfluid']),
     spin:F('Emitter spin',0,-100,100,'pSpSpin',['simparticles']),fluidSpin:F('Jet spin',0,-100,100,'pSfSpin',['simfluid']),smokeSpin:F('Burner spin',0,-100,100,'pSmSpin',['simsmoke'])}),
