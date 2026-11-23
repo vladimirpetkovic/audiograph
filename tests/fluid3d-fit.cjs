@@ -100,7 +100,8 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     const physics=await page.evaluate(async()=>{
       const {Fluid3D,prepareFluid3D}=await import('/pro/fluid3d.js'),{defaults}=await import('/pro/graph.js');
       await prepareFluid3D();
-      const fluid=new Fluid3D(),props={...defaults('gpuParticles'),fluidResolution:32,fluidSwirl:0,fluidPressure:6};
+      const fluid=new Fluid3D(),props={...defaults('gpuParticles'),fluidResolution:32,fluidDomain:220,
+        fluidRate:180,fluidSpeed:100,fluidSwirl:0,fluidFade:72,fluidPressure:6};
       const camera={yaw:0,tilt:.25,f:1,distance:2.5,panX:0,panY:0};
       const read=async(...buffers)=>{
         const d=fluid.device,enc=d.createCommandEncoder(),copies=buffers.map(b=>{
@@ -150,7 +151,8 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     assert.equal(physics.startsAtSurface,true,'a non-colliding mesh injects into its actual surface voxel on the first step');
     console.log('ok default flow spreads in all six directions, flat flow uses both sides, and ground and gravity work');
     const ramp=[{c:'#ff3300',a:0},{c:'#ff3300',a:1},{c:'#1111ff',a:1}];
-    await load(scene([n('fluid','gpuParticles',40,200,{mode:'simfluid3d',fluidResolution:64,fluidRate:340}),
+    await load(scene([n('fluid','gpuParticles',40,200,{mode:'simfluid3d',fluidResolution:64,fluidDomain:220,
+      fluidRate:340,fluidSpeed:100,fluidSwirl:80,fluidFade:72}),
       n('gravity','gravity',250,200,{fluidGravity:0}),n('palette','palette',460,200,{mode:'simpleramp',stops:ramp}),n('out','output',670,200)],
     [edge('fluid','shape','gravity','shape'),edge('gravity','shape','palette','shape'),edge('palette','shape','out','image')]));
     await page.evaluate(()=>pro.select('gravity'));
@@ -183,6 +185,25 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     await page.evaluate(()=>{pro.setProperty('fluid','fluidDomain',300);pro.setProperty('fluid','fluidResolution',128);});
     await page.waitForFunction(()=>{const f=pro.engine('fluid')?.fluid;return f?.n===128&&f.domain===3&&f.steps>=2;},null,{timeout:35000});
     console.log('ok Palette colors by density in both ramp modes, Solid overrides the dye, and resolution is independent of container size');
+    const newFluid=scene([n('fluid','gpuParticles',40,200,{mode:'simfluid'}),n('out','output',400,200)],[edge('fluid','shape','out','image')]);
+    const expected={fluidResolution:128,fluidDomain:110,fluidRate:500,fluidSpeed:40,fluidSwirl:260,fluidFade:400,fluidPressure:10};
+    const values=async()=>Object.fromEntries(await Promise.all(Object.keys(expected).map(async key=>
+      [key,Number(await page.locator(`#properties input[data-property="${key}"]`).inputValue())])));
+    await load(newFluid);
+    await page.evaluate(()=>pro.select('fluid'));
+    await page.getByLabel('Simulation',{exact:true}).selectOption('simfluid3d');
+    assert.deepEqual(await values(),expected,'The new 3D Fluid defaults match the Emission panel');
+    await page.waitForFunction(()=>{const f=pro.engine('fluid')?.fluid;return f?.n===128&&f.domain===1.1&&f.steps>=2;},null,{timeout:35000});
+    const legacy=structuredClone(newFluid);
+    legacy.version=15;
+    Object.assign(legacy.layers[0].nodes[0].props,{mode:'simfluid3d',fluidRate:0,fluidResolution:32});
+    await load(legacy);
+    await page.evaluate(()=>pro.select('fluid'));
+    const saved=await page.evaluate(keys=>{const {props}=pro.getProject().layers[0].nodes[0];return Object.fromEntries(keys.map(key=>[key,props[key]]));},Object.keys(expected));
+    assert.deepEqual(saved,{fluidResolution:32,fluidDomain:220,fluidRate:0,fluidSpeed:100,fluidSwirl:80,fluidFade:72,fluidPressure:10},
+      'Older scenes preserve explicit values and their original defaults');
+    await page.locator('#resetNode').click();
+    assert.deepEqual(await values(),expected,'Reset restores the new defaults and keeps 3D Fluid selected');
     assert.deepEqual(errors,[]);
     assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[]);
   }finally{await browser?.close();server.close();}

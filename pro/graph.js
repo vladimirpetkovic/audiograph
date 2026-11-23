@@ -277,12 +277,12 @@ export const TYPES = {
     particleSurfaceFlow:bool('Surface flow',false,{sims:['simparticles']}),
     particleFloor:bool('Enabled',true,{sims:['simparticles']}),
     particleFloorSize:n('Size',100,10,800,5,{unit:'%',noPort:true,sims:['simparticles']}),
-    fluidResolution:n('Resolution',48,24,128,8,{unit:' voxels / side',noPort:true,sims:['simfluid3d']}),
-    fluidDomain:n('Container size',220,100,800,5,{unit:'%',noPort:true,sims:['simfluid3d']}),
-    fluidRate:n('Amount',180,0,500,5,{unit:'%',sims:['simfluid3d']}),
-    fluidSpeed:n('Time scale',100,25,200,5,{unit:'%',sims:['simfluid3d']}),
-    fluidSwirl:n('Turbulence',80,0,300,5,{unit:'%',sims:['simfluid3d']}),
-    fluidFade:n('Dissipation',72,0,400,5,{unit:'%',sims:['simfluid3d']}),
+    fluidResolution:n('Resolution',128,24,128,8,{unit:' voxels / side',noPort:true,sims:['simfluid3d']}),
+    fluidDomain:n('Container size',110,100,800,5,{unit:'%',noPort:true,sims:['simfluid3d']}),
+    fluidRate:n('Amount',500,0,500,5,{unit:'%',sims:['simfluid3d']}),
+    fluidSpeed:n('Time scale',40,25,200,5,{unit:'%',sims:['simfluid3d']}),
+    fluidSwirl:n('Turbulence',260,0,300,5,{unit:'%',sims:['simfluid3d']}),
+    fluidFade:n('Dissipation',400,0,400,5,{unit:'%',sims:['simfluid3d']}),
     fluidPressure:n('Pressure iterations',10,4,24,2,{noPort:true,sims:['simfluid3d']}),
     fluidOpacity:n('Opacity',100,0,250,5,{unit:'%',sims:['simfluid3d']}),
     fluidColor:{...color('Color','#6bd2ff'),sims:['simfluid3d']},
@@ -594,7 +594,7 @@ export function layer(index=1) {
     {from:fx.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=15;
+export const VERSION=16;
 export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
@@ -741,6 +741,13 @@ function migrate(raw){
     for(const nd of g?.nodes||[])if(nd?.type==='gpuParticles'&&wired.has(nd.id)){
       for(const options of [nd.props?.look,nd.props?.opts])
         if(Number.isFinite(options?.pEmitScale))options.pEmitScale=Math.round(options.pEmitScale*100/65);
+    }
+  }
+  // Version 16: older 3D Fluid scenes that omit settings keep the original look.
+  if(raw.version<16){
+    const oldFluid={fluidResolution:48,fluidDomain:220,fluidRate:180,fluidSpeed:100,fluidSwirl:80,fluidFade:72};
+    for(const g of out.layers||[])for(const nd of g?.nodes||[]){
+      if(nd?.type==='gpuParticles'&&nd.props?.mode==='simfluid3d')nd.props={...oldFluid,...nd.props};
     }
   }
   out.version=VERSION;return out;

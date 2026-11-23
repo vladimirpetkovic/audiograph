@@ -44,7 +44,7 @@ each with its own opacity and blend mode (up to four).
     still starts at its surface. Fluid spreads in all directions unless
     you wire **Gravity** after it. The optional square **Floor** blocks the flow
     at ground level. **Container size** sets the size of the cube;
-    **Resolution** sets the simulation detail (24–128 voxels per side). Lower
+    **Resolution** sets the simulation detail (24–128 voxels per side, default 128). Lower
     Resolution to lighten the simulation, or lower Scene **Simulation quality**
     to render the preview at a lower pixel resolution. Wire a **Palette** after
     3D Fluid to color it by density. The 3D camera controls the view.
