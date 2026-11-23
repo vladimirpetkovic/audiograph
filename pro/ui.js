@@ -145,13 +145,15 @@ export function knob(opts) {
 // Balanced chip rows: when a row of chips doesn't fit, it splits into the fewest rows that do, as evenly as
 // possible with the longer rows first (7 chips → 4 + 3, not 6 + 1), and never with one chip alone on a row when a
 // split without one fits (wide labels: 2 + 2 + 3, not 2 + 2 + 2 + 1). Line breaks are inserted between the
-// buttons, so they stay direct children. Every .chips row on the page is balanced, and again on resize.
+// buttons, so they stay direct children. Flex chip rows are balanced again on resize.
 const chipRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((es) => { for (const e of es) for (const c of e.target.querySelectorAll(':scope > .chips')) balanceChips(c); }) : null;
 export function balanceChips(root) {
   if (!root.isConnected || !root.offsetParent || root.classList.contains('toggle')) return;
+  const style = getComputedStyle(root);
+  if (style.display === 'grid') return;
   root.querySelectorAll(':scope > .chips-br').forEach((b) => b.remove());
   const items = [...root.children].filter((c) => c.offsetParent);items.forEach((b) => { b.style.order = ''; });
-  const n = items.length, gap = parseFloat(getComputedStyle(root).columnGap) || 0, avail = root.clientWidth + .5, w = items.map((b) => b.getBoundingClientRect().width);
+  const n = items.length, gap = parseFloat(style.columnGap) || 0, avail = root.clientWidth + .5, w = items.map((b) => b.getBoundingClientRect().width);
   const width = (row) => row.reduce((a, i, k) => a + w[i] + (k ? gap : 0), 0), lone = (rows) => rows.filter((r) => r.length === 1).length;
   // Best split into r rows (in order, any sizes): fewest lone chips, then the most even row widths, longer rows first.
   const best = (r) => { let top = null; const cut = [0], pre = [0];for (const x of w) pre.push(pre[pre.length - 1] + x);const span = (a, b) => pre[b] - pre[a] + gap * (b - a - 1);

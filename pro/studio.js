@@ -9,7 +9,7 @@ import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} f
 import {prepareFluid3D} from './fluid3d.js';
 import {sceneOf,setScene,composeScene,occludeScene,pruneScenes} from './scene3d.js';
 import {collisionField} from './colliders.js';
-import * as ui from './ui.js';
+import * as ui from './ui.js?v=line-style-grid';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
 import {shaderInto,checkShader,dropShaderState,releaseShaders,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,WARP_TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';

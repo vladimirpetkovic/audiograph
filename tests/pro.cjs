@@ -63,6 +63,20 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
      assert.deepEqual(await p2.evaluate(()=>{const b=document.querySelector('.node[data-type=audioIn]');return [b.classList.contains('needs-sound'),b.querySelector('.node-summary').textContent];}),[true,'Select your audio source'],'The Audio node asks for a source');
      assert.deepEqual(await p2.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='palette').props.stops.map(s=>s.a)),[0,1,1,1],'The starting palette keeps only its dark stop transparent');
      assert.equal(await p2.evaluate(()=>pro.stats().audio.input),null,'No song starts by itself');
+     await p2.evaluate(()=>pro.select(pro.getProject().layers[0].nodes.find(n=>n.type==='waveform2d').id));
+     const styleFold=p2.locator('#properties .insp-fold[data-group="Line style"]');
+     if(await styleFold.evaluate(f=>f.classList.contains('closed')))await styleFold.locator('.insp-fold-head').click();
+     const styleChips=styleFold.locator('.chips[data-property=lineShape]');
+     const styleRows=()=>styleChips.evaluate(g=>{
+       const chips=[...g.querySelectorAll('button')],top=chips[0].offsetTop;
+       return [chips.filter(b=>b.offsetTop===top).length,chips.every(b=>b.scrollWidth<=b.clientWidth),g.querySelectorAll('.chips-br').length];
+     });
+     assert.deepEqual(await styleRows(),[4,true,0],'Style fits four buttons in the default inspector width');
+     await p2.locator('.studio').evaluate(s=>s.style.setProperty('--insp-w','220px'));
+     assert.deepEqual(await styleRows(),[3,true,0],'Style reflows in a narrow inspector without clipping labels');
+     await styleChips.getByRole('button',{name:'Ink in Water',exact:true}).click();
+     assert.equal(await p2.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.type==='waveform2d').props.lineShape),'inkwater');
+     await p2.locator('.studio').evaluate(s=>s.style.removeProperty('--insp-w'));
      // A loaded song is drawn like the regular app: its engines run the original's file loop on the decoded song.
      await p2.evaluate(()=>pro.select(pro.getProject().layers[0].nodes.find(n=>n.type==='audioIn').id));await p2.waitForTimeout(300);
      await p2.setInputFiles('#audioFile',path.join(__dirname,'../audio/default-track.m4a'));
