@@ -1825,6 +1825,8 @@ def Camera "Camera" {
       if(titles[i]==='Tune it in the Inspector')assert.deepEqual(await page.evaluate(id=>pro.getProject().layers[0].nodes.find(n=>n.id===id).props,ids.W).then(p=>[p.mode,p.lineShape,p.density,p.height,p.thick,p.varyHeight,p.varyThick]),['spiral','pins',350,100,4,true,false]);
       if(titles[i]==='Let something drive a knob')assert.ok(await page.evaluate(i=>pro.getProject().layers[0].edges.some(e=>e.from===i.L&&e.to===i.T&&e.input==='amount'),ids),'LFO drives Twist');
       if(titles[i]==='Stack Layers')assert.equal(await page.evaluate(()=>pro.getProject().layers.length),2,'Tutorial adds a layer');
+      {const want={'Choose your Colors':'palette','Add Particles':'particles','Finish with Post FX':'bloom','Add from the Library':'twist'}[titles[i]];
+       if(want)assert.ok(await page.evaluate(t=>!!document.querySelector(`#library > .panel:not(.collapsed) .library-node[data-type="${t}"]`),want),'Library opens the section of the node added at '+titles[i]);}
       if(i===2)await page.screenshot({path:process.env.AUDIOGRAPH_TOUR_SHOT||'/tmp/ag-tour.png'});
       if(i===titles.length-1)assert.equal(await page.evaluate(id=>pro.engine(id).__tourMark,ids.W),1,'Tutorial steps reuse the same renderer');
       await page.click('#tourNext');

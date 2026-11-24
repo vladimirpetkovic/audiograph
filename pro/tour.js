@@ -15,7 +15,7 @@ const IN={W:'audio',PT:'shape',T:'shape',P:'shape',B:'image',TR:'image',O:'image
 const OUT={A:'audio',W:'shape',PT:'shape',T:'shape',P:'shape',B:'image',TR:'image'};
 
 export const STEPS=[
-  {t:'Choose your Audio source',sel:['#audioName','#spectrum'],keys:['A','W','O'],ban:'Pick your <b>Audio source</b>',
+  {t:'Choose your Audio source',sel:['#audioName','#spectrum'],keys:['A','W','O'],lib:'A',ban:'Pick your <b>Audio source</b>',
     txt:'Everything starts with sound. Nothing plays until you choose one: the Audio node glows until it has a source. Click the source name any time to open it. Next: the sources, one by one.'},
   {t:'Load a file',sel:'label:has(#audioFile)',select:'A',test:true,ban:'Source: <b>Load file</b>',
     txt:'A short test track is now playing so you can see the visuals move (it shows as “Test track” under the preview). Load your own song or any audio file (MP3, WAV, M4A…) here to replace it; video export uses it as the soundtrack.'},
@@ -37,7 +37,7 @@ export const STEPS=[
     txt:'Post FX polish the finished image: Bloom adds glow, Trails leave a soft echo of motion.'},
   {t:'Let something drive a knob',node:'L',keys:CHAIN,spiral:true,lfo:true,select:'L',ban:'Drive a knob with an <b>LFO</b>',
     txt:'Drag any number output (bass, beat, an LFO, your mouse, MIDI) onto a node and pick the knob it moves. Here an LFO slowly turns the Twist.'},
-  {t:'Stack Layers',sel:'.graph-head',keys:CHAIN,spiral:true,lfo:true,layer2:true,ban:'Stack <b>Layers</b>',
+  {t:'Stack Layers',sel:'.graph-head',keys:CHAIN,spiral:true,lfo:true,layer2:true,lib:'C',ban:'Stack <b>Layers</b>',
     txt:'Each graph is one layer. + Layer adds another and they stack in the preview. We added a Fluid layer (a WebGPU simulation, screened over the first): switch layers with these tabs.'},
   {t:'Start from a Template',sel:['#templates','#randomGraph'],ban:'Start from a <b>Template</b>',
     txt:'Templates load ready-made looks, including every original Audiograph preset. Random builds a surprise graph. Undo always brings your scene back.'},
@@ -143,6 +143,10 @@ export function createTour(api){
     else{if(s.scene!=='keep'){api.setScene(scene(s));api.select(s.select?ids[s.select]:null);}else if(s.select)api.select(ids[s.select]);api.workspace('studio');}
     // A target inside a folded section opens that section first.
     for(const q of s.node?[]:[].concat(s.sel)){const e=document.querySelector(q),p=e?.closest('.panel.collapsed');if(p&&!e.closest('.panel-head'))p.querySelector(':scope > .panel-head')?.click();}
+    // The library shows the section the step's node comes from (Colors for the Palette, Post FX for Bloom…).
+    const libKey=!guideCfg&&(s.lib||s.select);
+    if(libKey&&SPEC[libKey]){const [type,p]=SPEC[libKey],items=[...document.querySelectorAll(`#library .library-node[data-type="${type}"]`)];
+      const item=items.find(b=>b.dataset.mode===p.mode)||items[0],pn=item?.closest('#library > .panel.collapsed');pn?.querySelector(':scope > .panel-head')?.click();}
     const ts=targets(s),tr=ts[0]?.getBoundingClientRect();if(tr&&(tr.top<12||tr.bottom>innerHeight-12||tr.left<0||tr.right>innerWidth))ts[0].scrollIntoView?.({block:tr.height<innerHeight*.6?'center':'nearest',inline:'nearest'});
     $('tourStep').textContent=guideCfg?`${guideCfg.title} · ${idx+1} of ${cur.length}`:`Step ${idx+1} of ${cur.length}`;$('tourTitle').textContent=s.t;$('tourTxt').textContent=s.txt;
     if(s.ban){els.ban.innerHTML=s.ban;show(els.ban,true);}else show(els.ban,false);
