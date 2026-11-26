@@ -28,6 +28,9 @@ const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}
     await page.waitForFunction(()=>window.pro);
     assert.equal((await page.evaluate(()=>pro.getProject())).settings.camera.motion,'static','New scenes always have one scene camera');
     assert.equal((await page.evaluate(()=>pro.getProject())).settings.camera.dof,0,'New scenes have depth of field disabled');
+    assert.equal((await page.evaluate(()=>pro.getProject())).settings.ground.color,'#000000','New ground defaults to black');
+    const savedGround={...scene,settings:{ground:{color:'#b98152'}}};
+    assert.equal((await page.evaluate(p=>pro.validate(p),savedGround)).settings.ground.color,'#b98152','Saved ground colours are preserved');
     assert.equal((await page.evaluate(()=>pro.getProject())).settings.gravity,undefined,'Scene settings have no global gravity');
     await page.evaluate(scene=>{pro.dissolve(false);pro.importProject(scene);},scene);
     await page.waitForFunction(()=>['particles','other'].every(id=>pro.engine(id)?.w?.agSim.stats().live>0));

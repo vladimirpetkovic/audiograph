@@ -47,8 +47,9 @@ const SYMS=[['none','Off'],['x','X'],['y','Y'],['xy','XY'],['r3','3'],['r4','4']
 const SHAPE_IO={inputs:{shape:'shape'},outputs:{shape:'shape'}};
 const FX_IO={inputs:{image:'image'},outputs:{image:'image'}};
 const DEFORM=(label,key,min,max,value,description,step=1)=>({category:'deformers',label,description,...SHAPE_IO,props:{amount:n('Amount',value,min,max,step,{key})}});
-const F=(label,value,min,max,key,sims)=>n(label,value,min,max,1,{key,sims});
-const FORCE=(label,description,props)=>({category:'forces',label,description,...SHAPE_IO,props});
+const F=(label,value,min,max,key,sims)=>n(label,value,min<0?min*10:min,max*10,1,{key,sims});
+const FORCE_INTENSITY=n('Intensity',100,0,1000,10,{unit:'%'});
+const FORCE=(label,description,props)=>({category:'forces',force:true,label,description,...SHAPE_IO,props:{intensity:FORCE_INTENSITY,...props}});
 // Cloner parts (Cinema 4D style): each knob sets one original cloner option ("key" = knob id, "sim" = choice).
 const C3=(label,value,min,max,key,step=1)=>n(label,value,min,max,step,{key,sims:['simcloner']});
 const C3P=(label,value,choices,sim)=>pick(label,value,choices.map(c=>c[0]),{labels:choices,sim,sims:['simcloner']});
@@ -289,6 +290,7 @@ export const TYPES = {
     words:text('Text','SOUND'),font3d:pick('Font','Impact',TEXT_FONTS),depth:n('Depth',30,5,150,5,{noPort:true}),
     animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
   gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','GPU-powered particles, fluid and smoke. Particles emit from a 3D Object or Cloner’s surface, or follow the bright parts of a flat picture.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
+    space:pick('Dimensions','auto',['auto','2d','3d'],{labels:[['auto','Automatic'],['2d','2D'],['3d','3D']],noPort:true,sims:['simparticles']}),
     ...Object.fromEntries(Object.entries({...POSITION_PROPS,
       uniformScale:G('Transforms',n('Scale',100,5,400,5)),
       ...Object.fromEntries(['X','Y','Z'].flatMap(a=>[
@@ -389,13 +391,13 @@ export const TYPES = {
   webcam:{category:'deformers',label:'Webcam',description:'Your camera displaces the shape by brightness and can colour it.',...SHAPE_IO,props:{
     displace:n('Displace',40,0,100,1),colors:pick('Camera colors','on',['on','off'],{labels:[['on','On'],['off','Off']]}),
     dir:pick('Direction','radial',['radial','vertical','horizontal'],{labels:[['radial','Radial'],['vertical','Vertical'],['horizontal','Horiz.']]}),smooth:n('Smoothing',5,1,20,1)}},
-  turbulence:{category:'deformers',group:'Noise',label:'Turbulence',description:'Noise that churns WebGPU Particles and Smoke.',...SHAPE_IO,props:{
-    amount:F('Turbulence',46,0,100,'pSpTurb',['simparticles']),scale:F('Noise scale',66,10,100,'pSpTurbScale',['simparticles']),smoke:F('Smoke turbulence',30,0,100,'pSmTurb',['simsmoke']),rigid:F('Body turbulence',30,0,100,'_rigidTurbulence',['simrigid','simcloner'])}},
-  spin:{category:'forces',label:'Spin',description:'Keep the shape turning, right (clockwise) or left. Speed sets how fast its animation runs.',...SHAPE_IO,props:{
-    spin:n('Spin',1,0,5,.1,{key:'_spin'}),dir:pick('Direction','right',['right','left'],{labels:[['right','Spin right ↻'],['left','Spin left ↺']]}),speed:n('Speed',1,.1,5,.1,{key:'_speed'})}},
+  turbulence:{category:'deformers',force:true,group:'Noise',label:'Turbulence',description:'Noise that churns WebGPU Particles and Smoke.',...SHAPE_IO,props:{
+    intensity:FORCE_INTENSITY,amount:F('Turbulence',46,0,100,'pSpTurb',['simparticles']),scale:F('Noise scale',66,10,100,'pSpTurbScale',['simparticles']),smoke:F('Smoke turbulence',30,0,100,'pSmTurb',['simsmoke']),rigid:F('Body turbulence',30,0,100,'_rigidTurbulence',['simrigid','simcloner'])}},
+  spin:FORCE('Spin','Keep the shape turning, right (clockwise) or left. Speed sets how fast its animation runs.',{
+    spin:n('Spin',1,0,50,.1,{key:'_spin'}),dir:pick('Direction','right',['right','left'],{labels:[['right','Spin right ↻'],['left','Spin left ↺']]}),speed:n('Speed',1,.1,50,.1,{key:'_speed'})}),
   // Forces: WebGPU simulation physics, one idea per node. Each knob lists the simulations it moves; defaults match the simulation.
   gravity:FORCE('Gravity','Pull down (or up). Smoke rises by buoyancy.',{gravity:F('Gravity',-3,-100,100,'pSpGravity',['simparticles']),fluidGravity:F('Gravity',50,-100,100,'_fluidGravity',['simfluid3d']),sand:F('Sand gravity',100,0,100,'pSaGravity',['simsand']),buoyancy:F('Buoyancy',100,0,200,'pSmBuoy',['simsmoke']),rigid:{...F('Body gravity',9.81,-30,30,'_rigidGravity',['simrigid','simcloner']),step:.1}}),
-  drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand']),rigid:{...F('Body drag',.1,0,1,'_rigidDrag',['simrigid','simcloner']),step:.01}}),
+  drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand']),rigid:{...F('Body drag',.1,0,1,'_rigidDrag',['simrigid','simcloner']),max:1,step:.01}}),
   swirl:FORCE('Swirl','Rotate the flow and spin the emitters.',{swirl:F('Swirl',43,-100,100,'pSpSwirl',['simparticles']),fluidSwirl:F('Fluid swirl',40,-100,100,'pSfSwirl',['simfluid']),
     spin:F('Emitter spin',0,-100,100,'pSpSpin',['simparticles']),fluidSpin:F('Jet spin',0,-100,100,'pSfSpin',['simfluid']),smokeSpin:F('Burner spin',0,-100,100,'pSmSpin',['simsmoke']),rigid:F('Body swirl',1,-10,10,'_rigidSwirl',['simrigid','simcloner'])}),
   attract:{...FORCE('Attract','Pull 3D particles, fluid and rigid bodies toward a connected 3D Object or Cloner. Without a target, pull toward the scene origin. Negative values repel.',{
@@ -1071,7 +1073,7 @@ export const SCENE_CAMERA_PROPS={
   px:n('Pan X',0,-4,4,.01),py:n('Pan Y',0,-4,4,.01)
 };
 export const SCENE_CAMERA=Object.fromEntries(Object.entries(SCENE_CAMERA_PROPS).map(([k,s])=>[k,clone(s.value)]));
-export const SCENE_GROUND={enabled:true,visible:true,shadows:true,shape:'square',color:'#aeb0b3',height:-1.2,size:20};
+export const SCENE_GROUND={enabled:true,visible:true,shadows:true,shape:'square',color:'#000000',height:-1.2,size:20};
 export const SCENE_LIGHTING={shadows:true,ambientOcclusion:false,aoStrength:60,aoRadius:1,depthHaze:false,hazeStrength:60,hazeStart:10,hazeEnd:80,hazeColor:'#aeb0b3'};
 export const SCENE_DEFAULTS={background:'#000000',camera:SCENE_CAMERA,ground:SCENE_GROUND,lighting:SCENE_LIGHTING,environment:null};
 function cleanSceneSettings(s){
@@ -1211,6 +1213,8 @@ export function modulate(s,base,v){
 const ADDITIVE=new Set(['_twist','_bulge','_wave','_shear','_depth','_ripple','_water','_jitter','_rDisorder']);
 export function applyShapeNode(type,props,mods){
   const out={...mods};
+  const force=TYPES[type].force,gain=force?(props.intensity??100)/100:1;
+  if(force&&gain===0)return out;
   if(type==='soundEffector')out._soundEffector=true;
   if(type==='palette'){
     const st=paletteStops(props);
@@ -1219,12 +1223,16 @@ export function applyShapeNode(type,props,mods){
     if(out._sim?.emitColor==='source')out._sim={...out._sim,emitColor:'palette'};
     return out;
   }
-  if(type==='motion'||type==='spin'){out._spin=Math.abs(props.spin);out._spinDir=(props.spin<0?-1:1)*(props.dir==='left'?-1:1);out._speed=props.speed;return out;}
+  if(type==='motion'||type==='spin'){out._spin=Math.abs(props.spin)*gain;out._spinDir=(props.spin<0?-1:1)*(props.dir==='left'?-1:1);out._speed=props.speed;return out;}
   if(type==='particles')out._particlesOn=true;
   if(type==='webcam'){out._cam={displace:props.displace,colors:props.colors==='on',dir:props.dir,smooth:props.smooth};return out;}
   for(const [k,s] of Object.entries(TYPES[type].props)){
     if(s.sim){out._sim={...out._sim,[s.sim]:props[k]};continue;}
     if(!s.key)continue;let v=props[k];
+    if(force&&typeof v==='number'&&s.key!=='pSpTurbScale'){
+      // Rigid damping is a bounded per-second fraction, not an acceleration.
+      v=gain===1?v:s.key==='_rigidDrag'?1-Math.pow(1-v,gain):v*gain;
+    }
     if(s.rad)v=v*Math.PI/180;
     if(ADDITIVE.has(s.key)&&typeof out[s.key]==='number')out[s.key]+=v;
     else if(s.key==='_amplify'&&typeof out._amplify==='number')out._amplify*=v;

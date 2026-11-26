@@ -15,6 +15,7 @@ import {decodeMaterials,releaseMaterials} from './model-materials.js';
 import {patchScene,installScene,flowPhase} from './scene3d.js';
 import {patchPalette,installPalette} from './palette-map.js';
 import {soundTransform,rotationMatrix,rotatePoint} from './object-transform.js';
+import {TYPES} from './graph.js';
 // The 3D lighting after the WebGPU Cornell box sample (soft cast shadows, light size, bounce light, floor), smooth
 // cube normals and the link width / glow / pulse knobs are built into the classic engine; Pro keeps only its own defaults.
 function patch3dLighting(patch){
@@ -355,6 +356,14 @@ export class EmitterEngine {
       if(['pG3Size','pG3ObjX','pG3ObjY','pG3ObjZ'].includes(id)){input.min='0.000001';input.max='1000000';}
     }
     this.defaults=w.getDefaultLayerParams();
+    for(const T of Object.values(TYPES))if(T.force)for(const s of Object.values(T.props)){
+      const input=s.key&&w.document.getElementById(s.key);if(!input||s.kind!=='number')continue;
+      const gain=s.key==='pSpTurbScale'?1:10;
+      input.min=Math.min(+input.min,s.min*gain);input.max=Math.max(+input.max,s.max*gain);input.step='any';
+    }
+    for(const id of ['pSpin','pSpeed']){
+      const input=w.document.getElementById(id);input.max=id==='pSpin'?500:50;input.step='any';
+    }
     // Simulations keep the original's sound reaction (audio contrast, swirl by sound, exposure) and quality.
     Object.assign(this.defaults,{_particlesOn:false,_simId:1});
     this.defaults._sim={...w.AG_SIM_DEF_OPT};
@@ -597,7 +606,7 @@ export class EmitterEngine {
         shared:!!src||!!job.emitSurface||!!job.sharedScene||job.sharedCamera,response:job.particleResponse||'sound',
         pose:job.particlePose,sizeScale:job.particlePose?Math.cbrt(job.particlePose.scale.reduce((a,b)=>a*b,1)):1,
         floorCircle:job.ground?.shape==='circle',
-        attract:cm._attractPoint?[...cm._attractPoint,(cm.pSpAttract||0)/100]:[0,0,0,0],
+        attract:[...(cm._attractPoint||[0,0,0]),(cm.pSpAttract||0)/100],
         dof:cm.pG3Dof||0,focus:cm.pG3Focus??50,occluders:job.occluders||[],collisions:job.collisions
       };
       let radius=Math.max(.5,job.particleBounds||0,(job.particleDepth??2)/2);
@@ -651,7 +660,7 @@ export class EmitterEngine {
     const selected=performanceSettings?.simulation;
     const out=volume.draw({camera,width:WIDTH,height:HEIGHT,quality:selected&&selected!=='node'?selected:'med',
       dt:job.dt,time:job.time,frame:job.frame,level:job.audio.drive.fluid,beat:job.audio.drive.beat*p.punch/100,
-      props:p,palette,gravity:cm._fluidGravity??0,attract:cm._attractPoint?[...cm._attractPoint,cm._fluidAttract||0]:[0,0,0,0],source,flat:job.flatFluid,collisions:job.collisions,ground:job.ground,
+      props:p,palette,gravity:cm._fluidGravity??0,attract:[...(cm._attractPoint||[0,0,0]),cm._fluidAttract||0],source,flat:job.flatFluid,collisions:job.collisions,ground:job.ground,
       occluders:job.occluders,renderOnly:job.renderOnly,paused:job.paused});
     if(out){
       this.ctx.resetTransform();this.ctx.clearRect(0,0,WIDTH,HEIGHT);

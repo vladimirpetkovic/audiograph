@@ -229,10 +229,11 @@ export class RigidWorld{
   }
   update(id,u,props,mods){
     const g=this.groups.get(id);if(!g)return;
-    const gravityChanged=g.mods._rigidGravity!==mods._rigidGravity;
+    const forceChanged=['_rigidGravity','_rigidWind','_rigidSwirl','_rigidTurbulence','_rigidAttract'].some(k=>g.mods[k]!==mods[k])||
+      [0,1,2].some(i=>(g.mods._attractPoint?.[i]??0)!==(mods._attractPoint?.[i]??0));
     g.u.set(u);g.props=props;g.mods=mods;
     for(const b of g.bodies){
-      if(gravityChanged)b.wakeUp();
+      if(forceChanged)b.wakeUp();
       const group=props.rigidBody?2:4,mask=props.rigidBody?3:1;
       if(b.collisionFilterGroup!==group||b.collisionFilterMask!==mask){
         b.collisionFilterGroup=group;b.collisionFilterMask=mask;b.aabbNeedsUpdate=true;b.wakeUp();

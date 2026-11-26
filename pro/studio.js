@@ -48,6 +48,9 @@ function upstreamSim(g,n){
   return null;
 }
 const SIM_SOURCE={simparticles:'pEmit',simfluid:'fEmit',simsmoke:'sEmit',simsand:'saEmit'};
+// Unspecified dimensions retain the source-based behavior of saved scenes.
+const spatialParticles=(p,mesh,emit,source)=>p.mode==='simparticles'&&
+  (p.space==='3d'||p.space!=='2d'&&(mesh||!emit&&source!=='image'&&source!=='camera'));
 const EMPTY_FLUID_SOURCE=[];
 const SIM_LOOK=new Set(['pSimExpo','pSimBloom','pSpSize','pSpTrail','pSfShade','pSmLight','pSmLightI','pSmOpac','pSmShadow','pSmEmber']);
 const SIM_SOUND=new Set(['pSimSens','pSimAttack','pSimRelease','pSimReact','pSimSwirlSnd','pSimBass','pSimEnergy','pSimBurst','pSimTilt']);
@@ -1211,7 +1214,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
         r.shape.job.paletteMapping={mode:p.paletteMap,axis:p.paletteAxis,tiling:p.paletteTiling,offset:p.paletteOffset,rotation:p.paletteRotation,primitive:r.object.prim?r.object.shape:null};
       const key=n.type==='gpuParticles'&&SIM_SOURCE[p.mode],eng=key&&engines.get(n.id);
       const source=!emit&&key&&eng?.simSource(r.shape.job,key);
-      const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(mesh||!emit&&source!=='image'&&source!=='camera');
+      const particles3d=n.type==='gpuParticles'&&spatialParticles(p,mesh,emit,source);
       if(particles3d)r.shape.job.particlePose={
         position:['X','Y','Z'].map(a=>p['move'+a]),
         rotation:['X','Y','Z'].map(a=>p['rot'+a]),
@@ -1244,7 +1247,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
             const img=asImage(shape,n.id+'e');
             r.shape.job.flatFluid=(img&&emitterAsset(nstate(n.id+':emit',()=>({name:'Picture'})),img,time))?.points??EMPTY_FLUID_SOURCE;
           }
-        }else if(particles3d){
+        }else if(particles3d&&mesh){
           if(!v||(!object&&shape?.job?.mode!=='simcloner'))throw Error('The 3D emitter object is not ready');
           if(shape?.emitter){
             const flow=p.particleSurfaceFlow?time:null;
@@ -1667,6 +1670,8 @@ function draw(time,dt=1/30){
       if(n.bypass||n.type!=='gpuParticles')return false;
       if(n.props.mode==='simfluid3d')return true;
       if(n.props.mode!=='simparticles')return false;
+      if(n.props.space==='2d')return false;
+      if(n.props.space==='3d')return true;
       const emit=g.edges.find(e=>e.to===n.id&&e.input==='emit');
       return emit?meshEmitter(g,emit):engines.get(n.id)?.w?.__agParticles3d!==null;
     }));
@@ -2377,6 +2382,7 @@ function renderProperties(){
   const t=TYPES[n.type],cat=catOf(n.type),head=el('div','insp-head'),h=el('h3');
   h.style.color=cat.color;h.append(document.createTextNode(nodeTitle(n)));
   head.append(h,el('div','insp-desc',t.description));root.append(head);
+  if(t.force)root.append(el('p','insp-note','Intensity: 0% bypasses this force, 100% keeps its normal strength, and 1000% multiplies its strength by ten. Noise scale and animation speed stay independent.'));
   if(n.type==='templateMorph'){
     for(const key of ['from','to']){const sel=el('select');sel.dataset.property=key;for(const name of TEMPLATE_NAMES)sel.append(new Option(name,name));sel.value=n.props[key];
       sel.onchange=()=>{tm.playing=false;edit((p,g)=>{g.nodes.find(m=>m.id===n.id).props[key]=sel.value;},'Morph template');};root.append(ui.field(TYPES[n.type].props[key].label,sel));}
@@ -2650,7 +2656,17 @@ function renderEmitter(root,n){
     sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);setMode(g,x,sel.value);},`${T.label}: ${emitterNames[sel.value]}`);
     s.append(ui.field(T.props.mode.label,sel));
   }
-  if(['waveform3d','cloner','splat'].includes(n.type)||n.type==='gpuParticles'&&['simparticles','simfluid3d'].includes(n.props.mode)){
+  const emissionWire=n.type==='gpuParticles'&&graph().edges.find(e=>e.to===n.id&&e.input==='emit');
+  const particleMode=n.type==='gpuParticles'&&n.props.mode==='simparticles',mesh=emissionWire&&meshEmitter(graph(),emissionWire);
+  const source=particleMode&&!emissionWire&&engines.get(n.id)?.simSource(jobOf(n),SIM_SOURCE.simparticles);
+  const worldParticles=particleMode&&spatialParticles(n.props,mesh,emissionWire,source),hasFlow=worldParticles&&mesh&&n.props.particleSurfaceFlow;
+  if(particleMode){
+    const dimensions=ui.chips({options:[['2d','2D'],['3d','3D']],value:worldParticles?'3d':'2d',property:'space',
+      onChange:v=>edit((p,g)=>{g.nodes.find(x=>x.id===n.id).props.space=v;},`Particles: ${v.toUpperCase()}`)});
+    dimensions.setAttribute('role','group');dimensions.setAttribute('aria-label','Dimensions');
+    s.append(ui.field('Dimensions',dimensions));
+  }
+  if(['waveform3d','cloner','splat'].includes(n.type)||worldParticles||n.type==='gpuParticles'&&n.props.mode==='simfluid3d'){
     const camera=el('button','mbtn','Scene camera');camera.type='button';camera.dataset.property='sceneCameraOpen';
     camera.onclick=()=>{if(!sceneInspector)$('sceneSettings').click();};s.append(camera);
   }
@@ -2680,9 +2696,6 @@ function renderEmitter(root,n){
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>!['scale','scaleX','scaleY','scaleZ','rotX','rotY','rotZ'].includes(k)&&(k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k))));
-  const emissionWire=n.type==='gpuParticles'&&graph().edges.find(e=>e.to===n.id&&e.input==='emit');
-  const particleMode=n.type==='gpuParticles'&&n.props.mode==='simparticles',mesh=emissionWire&&meshEmitter(graph(),emissionWire),hasFlow=particleMode&&mesh&&n.props.particleSurfaceFlow;
-  const worldParticles=particleMode&&(mesh||!emissionWire&&!['image','camera'].includes(engines.get(n.id)?.simSource(jobOf(n),SIM_SOURCE.simparticles)));
   if(n.type==='waveform3d'||n.type==='cloner'||worldParticles)renderObjectTransforms(root,n);
   if(n.type==='cloner'||n.type==='waveform3d'&&n.props.render==='normal'){
     const mapping=fold(root,'Palette mapping');
@@ -2759,7 +2772,8 @@ function renderEmitter(root,n){
     opts.replaceChildren();top.replaceChildren();
     const sourceKey=n.type==='gpuParticles'&&SIM_SOURCE[n.props.mode],sourceChip=c=>sourceKey&&c.type==='chips'&&c.onclick.startsWith(`setSimOpt('${sourceKey}'`);
     const source=!emissionWire&&sourceKey&&e.simSource(jobOf(n),sourceKey),flat=source==='image'||source==='camera';
-    const spatial=particleMode&&(mesh||!emissionWire&&!flat),simControls=n.type==='gpuParticles';
+    const spatial=particleMode&&spatialParticles(n.props,mesh,emissionWire,source),simControls=n.type==='gpuParticles';
+    if(particleMode&&!!spatial!==!!worldParticles){renderUI();return;}
     const sourceColors=c=>c.type==='chips'&&c.onclick.startsWith("setSimOpt('emitColor'");
     if(emissionWire)controls=controls.filter(c=>!sourceChip(c)&&!sourceColors(c));
     // Choice chips (Type, Direction…) sit at the top; line-look chips join Look. Few knobs share one section named after the node.
@@ -2818,6 +2832,7 @@ function renderEmitter(root,n){
       if(gr==='Emission'){
         if(spatial)renderProps(box,n,['particleDepth',...(mesh?[...(!hasFlow?['particleSpread','particleResponse']:[]),'particleSurfaceFlow']:[])],true);
         if(spatial)box.append(el('p','insp-note','Ground is controlled in Scene settings, together with its height, size and visibility.'));
+        if(particleMode&&!spatial)box.append(el('p','insp-note','2D uses the original flat particle simulation. Wired objects emit from their rendered silhouette; the scene camera, ground and 3D colliders do not affect the particles.'));
         if(emissionWire&&n.props.mode==='simfluid'&&meshEmitter(graph(),emissionWire))box.append(el('p','insp-note','Fluid emits from the object’s rendered silhouette in 2D. It does not collide with the mesh.'));
       }
       if(gr==='Look'&&emissionWire&&!(particleMode&&mesh))renderProps(box,n,['emitColors'],true);
@@ -2896,10 +2911,11 @@ function presetGraph(P){
   if(P.dynamics!=null)response.dynamics=clampProp('waveform2d','dynamics',P.dynamics);
   const renderers=P.layers.map((l,i)=>{
     const look={...l.look};let type,mode=l.layout;
+    if(P.name==='Ink'&&mode==='simfluid')Object.assign(look,{pSimAttack:40,pSimRelease:350,pSimReact:30,pSimEnergy:100});
     if(mode==='object'){type='waveform3d';mode=SOLID_MODELS.includes(look._objModel)?look._objModel:'knot';}
     else type=Object.keys(MODES).find(t=>MODES[t].some(m=>m[0]===mode));
     if(!type)throw Error(`${P.name}: unsupported layout ${mode}`);
-    const n=add(type,x,260+i*170,{mode,look,...geoFromLook(look),...response});wire(src,'audio',n,'audio');
+    const n=add(type,x,260+i*170,{mode,look,...(type==='gpuParticles'?{space:'2d'}:{}),...geoFromLook(look),...response});wire(src,'audio',n,'audio');
     // The look's spin and symmetry become Spin / Symmetry / Mirror nodes after the renderer.
     let last=n;motionFromLook(look).forEach(([t,props],k)=>{const m=add(t,x+220*(k+1),260+i*170,props);wire(last,'shape',m,'shape');last=m;});
     return {n:last,steps:(last===n?0:g.nodes.indexOf(last)-g.nodes.indexOf(n)),opacity:(l.opacity??100)/100};
@@ -3740,10 +3756,11 @@ $('helpBody').innerHTML=`
 <li><b>3D model</b> loads <b>OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers; USD must be flattened, since referenced files are not loaded). Polygons of any size are triangulated. Still models keep up to 500,000 triangles in 3D Object (Normal and Point cloud render them on the GPU; Waveform and Polygons simplify to Max faces) and 1,000,000 in Mapping; animated models are thinned to 40,000 faces, since they are re-posed every frame. Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. If imported materials are unreadable or unsupported (for example, specular/glossiness), the mesh still loads with <b>Palette</b> shading. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
 <li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound, Field, Random, Links) and <b>Look</b> nodes (Material, Light) after it. <b>Collider body</b> provides a passive surface for particles and fluid only. It never causes object or instance collisions. <b>Rigid body</b> enables those collisions, sound impulses and other connected Forces. Attach a <b>Gravity</b> node to make Cloners or 3D Objects fall toward the ground, even with Rigid body off. Positive gravity pulls downward; negative values pull upward. There is no Scene gravity setting. <b>Attract → target</b> accepts a 3D Object or Cloner; the force pulls toward its world position, including moving rigid targets. An unwired Attract pulls toward the origin; negative strength repels.</li>
-<li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. <b>Transforms</b> provides Move, Rotate and Scale XYZ controls and an adaptive preview gizmo for the 3D cloud, including while paused. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles, fluid and rigid bodies; choose Square or Circle, adjust its height and size or switch it off. Hidden ground still collides. Set <b>Look → Trails</b> to 0 to draw particles without trails. The shared Scene camera orbits the whole cloud.</li></ul>
+<li>WebGPU particles have a <b>Dimensions: 2D / 3D</b> control. <b>2D</b> uses the original flat simulation and view controls; wired objects emit from their rendered silhouette, and particles ignore the scene camera, ground and 3D colliders. <b>3D</b> uses the shared world. Wire a 3D Object or Cloner into <b>emit</b> to emit from its mesh, or use a flat source. <b>Transforms</b> provides Move, Rotate and Scale XYZ controls and an adaptive preview gizmo for the 3D cloud, including while paused. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles, fluid and rigid bodies; choose Square or Circle, adjust its height and size or switch it off. New ground is black. Hidden ground still collides. Set <b>Look → Trails</b> to 0 to draw particles without trails. The shared Scene camera orbits the whole cloud.</li></ul>
 <p>Open Tutorials for <b>3D Cloner &amp; rigid bodies</b>, including Scene settings and attached Gravity nodes, or <b>Particles: Waterfall</b>, which builds the saved Waterfall look from particles, forces, colour and a fluid layer.</p>
 <h3 id="h-sims">Simulations</h3>
 <p>WebGPU emitters (Particles, Fluid, Smoke) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
+<p>Every Force, including Spin and Turbulence, has <b>Intensity</b>: 0% bypasses it, 100% preserves its normal strength, and up to 1000% amplifies it. Strength ranges extend ten times further without changing saved defaults. Body drag remains a valid damping fraction even when amplified; Noise scale and animation Speed are independent of Intensity.</p>
 <h3 id="h-fx">Post FX</h3>
 <ul><li><b>Bloom</b> glow, <b>Blur</b> (directional, radial, focal), <b>Lens</b> (chromatic aberration, vignette, grain, scanlines), <b>Kaleido</b>, <b>Trails</b> (echoes with zoom feedback).</li>
 <li><b>Motion blur</b> smears movement: <b>Shutter</b> averages the last frames, <b>Smear</b> leaves a fading tail behind a sharp picture, <b>Directional</b>, <b>Zoom</b> and <b>Spin</b> streak it. The sound can lengthen the blur.</li>

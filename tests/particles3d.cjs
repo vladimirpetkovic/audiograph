@@ -13,7 +13,7 @@ const server=http.createServer((req,res)=>{
   res.end(fs.readFileSync(file));
 });
 // Legacy particle checks isolate their own colliders from the shared Scene ground; the floor checks below enable it explicitly.
-const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,settings:{ground:{enabled:false,visible:false,height:-1.2,size:20}},layers:[{id:'L',name:'3D particles',visible:true,opacity:1,blend:'source-over',
+const scene=(space='auto',shape='sphere')=>({format:'audiograph-pro',version:10,settings:{ground:{enabled:false,visible:false,height:-1.2,size:20}},layers:[{id:'L',name:'3D particles',visible:true,opacity:1,blend:'source-over',
   nodes:[{id:'o',type:'waveform3d',x:0,y:180,props:{mode:shape,render:'normal',stretchZ:180}},
     {id:'d',type:'value',x:0,y:0,props:{value:1}},
     {id:'w',type:'waveform2d',x:0,y:360,props:{mode:'sine'}},
@@ -44,7 +44,7 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     };
     const state=()=>page.evaluate(()=>pro.engine('e').w.agSim.particleState());
     const active=data=>Array.from({length:data.length/16},(_,i)=>data.slice(i*16,i*16+16)).filter(p=>p[8]>0);
-    const inspectorScene=scene('2d');inspectorScene.layers[0].nodes.find(n=>n.id==='e').props.mode='simfluid';
+    const inspectorScene=scene('3d');inspectorScene.layers[0].nodes.find(n=>n.id==='e').props.mode='simfluid';
     await page.evaluate(p=>{pro.importProject(p);pro.select('e');},inspectorScene);
     const inspector=page.locator('#properties');
     await inspector.getByRole('combobox',{name:'Simulation'}).selectOption('simparticles');
@@ -58,10 +58,31 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     assert.equal(await floorSection.count(),0,'The floor is a Scene setting, not a per-emitter control');
     assert.equal(await inspector.locator('[data-property="particleFloor"],[data-property="particleFloorSize"]').count(),0);
     assert.equal(await inspector.locator('[data-group="Quality"]').count(),0,'Quality is part of Look');
-    assert.equal(await inspector.locator('[data-property="space"],[data-property="particleInitialSpeed"],[data-property="particleTrails"]').count(),0);
+    assert.equal(await inspector.locator('[data-property="particleInitialSpeed"],[data-property="particleTrails"]').count(),0);
+    const dimensions=inspector.getByRole('group',{name:'Dimensions'});
+    assert.equal(await dimensions.locator('button').count(),2,'Particles offer an explicit 2D/3D choice');
+    const waitDimension=dimension=>page.waitForFunction(d=>Object.values(pro.engine('e')?.w?.agSim.stats().layers||{}).some(s=>s.dimensions===d&&s.emitted>100),dimension,{timeout:30000});
+    await dimensions.getByRole('button',{name:'2D',exact:true}).click();
+    await waitDimension(2);
+    assert.equal(await inspector.locator('[data-property="moveX"],[data-property="uniformScale"],[data-property="sceneCameraOpen"]').count(),0,'2D exposes the original view controls, not world transforms');
+    assert.equal(await inspector.locator('[data-group="Sound"]').count(),1,'Sound remains in the particle inspector');
+    assert.equal(await page.evaluate(()=>pro.engine('e').w.__agParticles3d),null,'2D does not flatten the 3D backend');
+    assert.equal((await state()).length%12,0,'2D keeps the original 48-byte particle layout');
+    const flatSaved=await page.evaluate(()=>pro.getProject());
+    assert.equal(flatSaved.layers[0].nodes.find(n=>n.id==='e').props.space,'2d');
+    await dimensions.getByRole('button',{name:'3D',exact:true}).click();
+    await waitDimension(3);
+    await page.evaluate(()=>pro.undo());
+    await waitDimension(2);
+    await page.evaluate(()=>pro.redo());
+    await waitDimension(3);
+    await page.evaluate(p=>pro.importProject(p),flatSaved);
+    await waitDimension(2);
+    await page.evaluate(()=>pro.setProperty('e','space','3d'));
+    await waitDimension(3);
     assert.equal(await inspector.getByText('Aurora ribbons',{exact:true}).count(),0);
     assert.equal(await inspector.getByRole('combobox',{name:'Simulation'}).locator('option[value="simsand"]').count(),0);
-    const legacy=scene();Object.assign(legacy.layers[0].nodes.find(n=>n.id==='e').props,{particleInitialSpeed:50,particleTrails:false,opts:{pSpSpeed:70,pSpTrail:60}});
+    const legacy=scene('3d');Object.assign(legacy.layers[0].nodes.find(n=>n.id==='e').props,{particleInitialSpeed:50,particleTrails:false,opts:{pSpSpeed:70,pSpTrail:60}});
     assert.deepEqual(await page.evaluate(p=>pro.validate(p).layers[0].nodes.find(n=>n.id==='e').props.opts,legacy),{pSpSpeed:35,pSpTrail:0});
     legacy.layers[0].nodes.find(n=>n.id==='e').props.opts.pEmitScale=65;
     assert.equal(await page.evaluate(p=>pro.validate(p).layers[0].nodes.find(n=>n.id==='e').props.opts.pEmitScale,legacy),100);
@@ -203,6 +224,12 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     await page.waitForFunction(()=>Object.values(pro.engine('e').w.agSim.stats().layers).some(s=>s.dimensions===2&&s.emitted>100),null,{timeout:20000});
     await page.waitForFunction(()=>pro.emitPoints('e')?.length>0,null,{timeout:15000});
     assert.ok(await page.evaluate(()=>pro.emitPoints('e')?.length>0),'2D samples the rendered waveform');
+    await page.evaluate(()=>pro.setProperty('e','space','3d'));
+    await waitDimension(3);
+    assert.ok(await page.evaluate(()=>pro.emitPoints('e')?.length>0),'Explicit 3D also samples flat sources');
+    assert.deepEqual(await page.evaluate(()=>pro.engine('e').w.agSim.stats().errors),[]);
+    await page.evaluate(()=>pro.setProperty('e','space','auto'));
+    await waitDimension(2);
     await setTrails(1000);
     await page.waitForFunction(()=>pro.engine('e').w.getLayoutParams().pSpTrail===1000&&pro.pixels()>.02);
     await setTrails(55);
@@ -397,8 +424,32 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     await page.evaluate(()=>pro.engine('e').w.agSim.reset());
     const off=await waitFloor(s=>s.insideBelow>100);
     assert.ok(off.insideBelow>100&&off.bounce===0,'Disabling Floor lets particles fall straight through');
-    assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[]);
     assert.deepEqual(await page.evaluate(()=>pro.engine('e').w.agSim.stats().errors),[]);
+    await page.evaluate(()=>pro.loadTemplate('Ink'));
+    await page.waitForFunction(()=>pro.getProject().layers[0].nodes.filter(n=>['gpuParticles','waveform2d'].includes(n.type)).every(n=>pro.engine(n.id)?.frames>3));
+    const ink=await page.evaluate(()=>{
+      const nodes=pro.getProject().layers[0].nodes,fluid=nodes.find(n=>n.type==='gpuParticles'),e=pro.engine(fluid.id);
+      const params=e.w.stackLayouts[0].params,original=e.w.builtinPresets.Ink.stackLayouts[0].params;
+      return {modes:nodes.filter(n=>['gpuParticles','waveform2d'].includes(n.type)).map(n=>n.props.mode),space:fluid.props.space,
+        fields:Object.values(e.w.agSim.stats().layers).map(s=>s.dimensions),
+        current:Object.fromEntries(Object.keys(original).filter(k=>/^p(Sf|Sim)/.test(k)).map(k=>[k,params[k]])),
+        original:Object.fromEntries(Object.entries(original).filter(([k])=>/^p(Sf|Sim)/.test(k)))};
+    });
+    assert.deepEqual(ink.modes,['simfluid','phyllotaxis','circle'],'Ink restores the original flat fluid and two waveform layers');
+    assert.equal(ink.space,'2d');
+    assert.ok(ink.fields.every(d=>d===2));
+    assert.deepEqual(ink.current,ink.original,'Ink keeps the original dye, curl, exposure and sound timing, without newer fluid tuning');
+    const savedImage=scene('auto');
+    savedImage.layers[0].nodes=savedImage.layers[0].nodes.filter(n=>['d','e','out'].includes(n.id));
+    const imageNode=savedImage.layers[0].nodes.find(n=>n.id==='e');
+    imageNode.id='imageProbe';imageNode.props.look={_sim:{pEmit:'image'}};
+    savedImage.layers[0].edges=[{from:'d',out:'value',to:'imageProbe',input:'drive'},{from:'imageProbe',out:'shape',to:'out',input:'image'}];
+    await page.evaluate(p=>{pro.importProject(p);pro.select('imageProbe');},savedImage);
+    await page.waitForFunction(()=>pro.engine('imageProbe')?.status==='ready');
+    await inspector.getByRole('group',{name:'Dimensions'}).getByRole('button',{name:'2D',exact:true}).waitFor({state:'attached'});
+    assert.equal(await inspector.getByRole('button',{name:'2D',exact:true}).getAttribute('aria-pressed'),'true','An asynchronously loaded legacy image source resolves to 2D in the inspector');
+    assert.equal(await inspector.locator('[data-property="sceneCameraOpen"],[data-property="moveX"]').count(),0);
+    assert.deepEqual(await page.evaluate(()=>pro.stats().errors),[]);
     assert.deepEqual(errors,[]);
     console.log('3D particle acceptance passed');
   }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}

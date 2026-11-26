@@ -1,12 +1,40 @@
 const assert=require('node:assert/strict');
 (async()=>{
   const {RigidWorld,instanceCollider,instanceBoxBounds}=await import('../pro/rigid.js');
+  const {TYPES,defaults,applyShapeNode}=await import('../pro/graph.js');
   const props={rigidBody:true,collisionShape:'auto',mass:1,bounce:1,friction:0,damping:0,soundForce:0};
   const ground={enabled:false,visible:false,height:-1,size:20};
   const u=new Float32Array(1264);u[31]=1;u[89]=u[90]=u[91]=1;
   const bounds=[{center:[0,0,0],half:[.5,.5,.5]}];
   const data=(...positions)=>new Float32Array(positions.flatMap(p=>[...p,0,0,0,0,1,.18,0,.5,0]));
   const advance=(w,ids,seconds,g=ground)=>{for(let i=0;i<seconds*120;i++)w.begin(1/120,g,new Set(ids));};
+  const force=(type,overrides)=>applyShapeNode(type,{...defaults(type),...overrides},{});
+  for(const [type,T] of Object.entries(TYPES).filter(([,T])=>T.force)){
+    const background={_rigidGravity:7,_spin:2,pSpTurb:11};
+    assert.deepEqual(applyShapeNode(type,{...defaults(type),intensity:0},background),background,`${type}: zero intensity bypasses the force without erasing earlier nodes`);
+  }
+  assert.equal(force('drag',{rigid:.1})._rigidDrag,.1,'Default intensity preserves existing damping exactly');
+  assert.equal(force('turbulence',{intensity:500,amount:80,scale:30}).pSpTurbScale,30,'Intensity strengthens turbulence without changing its spatial scale');
+  const forcedBody=(type,p)=>{
+    const world=new RigidWorld(),mods=force(type,p);
+    world.register('body',type,data([2,1,2]),u,bounds,['sphere'],props,mods);
+    world.update('body',u,props,mods);
+    const body=world.groups.get('body').bodies[0];
+    body.velocity.set(type==='drag'?3:0,0,0);
+    advance(world,['body'],.25);
+    const result={velocity:body.velocity.toArray(),position:body.position.toArray(),damping:body.linearDamping};
+    world.reset();return result;
+  };
+  for(const [type,p] of [['gravity',{rigid:80}],['wind',{rigid:50}],['swirl',{rigid:8}],['attract',{rigid:10}],['turbulence',{rigid:100}]]){
+    const off=forcedBody(type,{...p,intensity:0}),on=forcedBody(type,{...p,intensity:100}),strong=forcedBody(type,{...p,intensity:500});
+    assert.ok(on.velocity.some((v,i)=>Math.abs(v-off.velocity[i])>.05),`${type} physically moves bodies`);
+    const speed=r=>Math.hypot(...r.velocity);
+    assert.ok(speed(strong)>speed(on)*1.5,`${type} intensity measurably strengthens the force`);
+    assert.ok([...strong.velocity,...strong.position].every(Number.isFinite),`${type} stays finite at amplified values`);
+  }
+  const normalDrag=forcedBody('drag',{rigid:.8,intensity:100}),strongDrag=forcedBody('drag',{rigid:.8,intensity:1000});
+  assert.ok(strongDrag.velocity[0]<normalDrag.velocity[0]*.1,'High drag intensity increases damping instead of producing an invalid Cannon coefficient');
+  assert.ok(strongDrag.damping>=0&&strongDrag.damping<=1&&strongDrag.velocity.every(Number.isFinite));
   const corners=Array.from({length:8},(_,i)=>[0,1,2].map(j=>(i&(1<<j)?.5:-.5)));
   const quads=[[0,1,3,2],[4,6,7,5],[0,4,5,1],[2,3,7,6],[0,2,6,4],[1,5,7,3]];
   const triangles=quads.flatMap(([a,b,c,d])=>[a,b,c,a,c,d]);
