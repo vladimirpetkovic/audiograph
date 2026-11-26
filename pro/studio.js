@@ -5006,7 +5006,7 @@ const SPLASH_GUIDES={
 };
 const SPLASH_ITEMS=[
   ['visualize','Visualize','waveform','Build visuals with nodes'],
-  ['cloner','3D physics','cube','3D Cloner & rigid bodies, with Scene settings'],
+  ['cloner','3D','cube','3D Cloner & rigid bodies, with Scene settings'],
   ['waterfall','Particles','particles','Build the Waterfall particle scene'],
   ['presets','Presets','presets','Start from a template'],
   ['auto','Auto-play','auto','Autopilot: describe a show and let it follow the music'],

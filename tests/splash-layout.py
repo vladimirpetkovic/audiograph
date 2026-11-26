@@ -15,7 +15,7 @@ with sync_playwright() as p:
         page.wait_for_load_state("networkidle")
         page.wait_for_selector(".splash-item")
         assert page.locator(".splash-label").all_text_contents() == [
-            "Visualize", "3D physics", "Particles", "Presets",
+            "Visualize", "3D", "Particles", "Presets",
             "Auto-play", "Project", "Export", "Share",
         ]
         icons = page.evaluate("""() => Object.fromEntries(['visualize','cloner','waterfall','project'].map(id=>{
@@ -32,15 +32,18 @@ with sync_playwright() as p:
                 buttons=[...document.querySelectorAll('.splash-item')].map(b=>b.getBoundingClientRect());
               return {
                 rows:new Set(buttons.map(b=>Math.round(b.top))).size,
+                startGap:buttons[0].top-document.querySelector('#splashStart').getBoundingClientRect().bottom,
                 contained:buttons.every(b=>b.left>=card.left&&b.right<=card.right&&b.top>=card.top&&b.bottom<=card.bottom),
                 overflow:document.documentElement.scrollWidth>innerWidth,
                 labelsFit:[...document.querySelectorAll('.splash-label')].every(label=>{
                   const r=label.getBoundingClientRect(),b=label.parentElement.getBoundingClientRect();
-                  return r.left>=b.left&&r.right<=b.right;
+                  const text=document.createRange();text.selectNodeContents(label);
+                  return r.left>=b.left&&r.right<=b.right&&text.getClientRects().length===1;
                 })
               };
             }""")
             assert layout["rows"] == (1 if width > 700 else 3), (width, layout)
+            assert layout["startGap"] >= 20, (width, layout)
             assert layout["contained"] and layout["labelsFit"] and not layout["overflow"], (width, layout)
             if width == 1440 and os.environ.get("SPLASH_SHOT"):
                 page.screenshot(path=os.environ["SPLASH_SHOT"])
