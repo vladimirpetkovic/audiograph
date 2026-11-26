@@ -60,8 +60,8 @@ with sync_playwright() as p:
         assert page.evaluate(magenta) == flat_pixels, (flat_pixels, page.evaluate(magenta), page.evaluate("() => pro.stats().errors"))
         assert page.evaluate("() => pro.stats().errors") == []
         fixture = page.evaluate("""async () => {
-            const {shadeScene}=await import('/pro/scene-lighting.js');
-            const {setScene}=await import('/pro/scene3d.js');
+            const {shadeScene}=await import('./scene-lighting.js');
+            const {setScene}=await import('./scene3d.js');
             const image=document.createElement('canvas'),depth=document.createElement('canvas');
             image.width=depth.width=128;image.height=depth.height=128;
             const ctx=image.getContext('2d');ctx.fillStyle='#808080';ctx.fillRect(0,0,128,128);
@@ -130,7 +130,7 @@ with sync_playwright() as p:
             let n=0;for(let i=0;i<d.length;i+=4)if(d[i]>245&&d[i+1]>100&&d[i+2]>245)n++;return n;
         }""") > 100, "A Screen-blended flat overlay must be composited after geometry haze"
         await_mapping = page.evaluate("""async p => {
-            const {surface}=await import('/pro/mapping.js');
+            const {surface}=await import('./mapping.js');
             p.mapping={on:true,test:false,surfaces:[surface('lit-layer','Lit layer',[[0,0],[1,0],[1,1],[0,1]],{source:2})]};
             pro.importProject(p);pro.draw();return true;
         }""", partial)
