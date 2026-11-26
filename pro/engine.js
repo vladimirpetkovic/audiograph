@@ -595,10 +595,21 @@ export class EmitterEngine {
         zoom:(v.zm||1)*(cm.pG3Zoom??(src||job.sharedScene?55:100))/100,focal:(+cm.pG3Focal||28)/28,
         panX:v.px||0,panY:v.py||0,depth:job.particleDepth??2,spread:(job.particleSpread??15)/100,floorHalf:job.ground?(job.ground.enabled?job.ground.size/2:0):(job.particleFloorSize??0)/50,floorHeight:job.ground?.height??-1,
         shared:!!src||!!job.emitSurface||!!job.sharedScene||job.sharedCamera,response:job.particleResponse||'sound',
+        pose:job.particlePose,sizeScale:job.particlePose?Math.cbrt(job.particlePose.scale.reduce((a,b)=>a*b,1)):1,
         floorCircle:job.ground?.shape==='circle',
         attract:cm._attractPoint?[...cm._attractPoint,(cm.pSpAttract||0)/100]:[0,0,0,0],
         dof:cm.pG3Dof||0,focus:cm.pG3Focus??50,occluders:job.occluders||[],collisions:job.collisions
       };
+      let radius=Math.max(.5,job.particleBounds||0,(job.particleDepth??2)/2);
+      if(!job.particleBounds&&w.__agParticles3d.source){
+        const data=w.__agParticles3d.source;
+        if(this.particleBoundSource!==data){
+          this.particleBoundSource=data;this.particleBound=radius;
+          for(let i=0;i<data.length;i+=12)this.particleBound=Math.max(this.particleBound,Math.hypot(data[i],data[i+1],data[i+2]));
+        }
+        radius=this.particleBound;
+      }
+      w.__agScene.boundsRadius=radius*Math.max(...(job.particlePose?.scale||[1,1,1]));
     }else w.__agParticles3d=null;
     if(mode==='object')w.objBuiltin=job.classicObject&&job.mode!=='model'?job.mode:'file';
     if(mode==='text'&&this.lastText!==job.text){w.document.getElementById('textLayoutInput').value=job.text||' ';w.generateTextLayout();this.lastText=job.text;}

@@ -44,16 +44,16 @@ with sync_playwright() as p:
         assert lighting.locator("legend").inner_text() == "Global lighting"
         assert lighting.get_by_label("Shadows", exact=True).count() == 1
         assert lighting.get_by_label("Import HDR or EXR environment", exact=True).count() == 1
-        assert lighting.get_by_label("Ambient occlusion", exact=True).input_value() == "false"
-        assert lighting.get_by_label("Depth haze", exact=True).input_value() == "false"
-        lighting.get_by_label("Ambient occlusion", exact=True).select_option("true")
+        assert lighting.get_by_label("Ambient occlusion", exact=True).get_by_role("button", name="Off", exact=True).get_attribute("aria-pressed") == "true"
+        assert lighting.get_by_label("Depth haze", exact=True).get_by_role("button", name="Off", exact=True).get_attribute("aria-pressed") == "true"
+        lighting.get_by_label("Ambient occlusion", exact=True).get_by_role("button", name="On", exact=True).click()
         page.wait_for_timeout(700)
-        lighting.get_by_label("Depth haze", exact=True).select_option("true")
+        lighting.get_by_label("Depth haze", exact=True).get_by_role("button", name="On", exact=True).click()
         lighting.get_by_label("Haze colour", exact=True).evaluate(
             "e=>{e.value='#00ffff';e.dispatchEvent(new Event('change',{bubbles:true}));}"
         )
         for label, value in [("Haze strength (%)", "100"), ("Haze start", "0"), ("Haze end", "1")]:
-            lighting.get_by_label(label, exact=True).fill(value)
+            lighting.get_by_label(label, exact=True).evaluate("(e,value)=>{e.value=value;e.dispatchEvent(new Event('input',{bubbles:true}));}", value)
             lighting.get_by_label(label, exact=True).dispatch_event("change")
         page.wait_for_timeout(300)
         page.screenshot(path="/tmp/audiograph-global-lighting.png")

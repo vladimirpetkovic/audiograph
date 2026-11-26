@@ -23,6 +23,27 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
     const page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/pro/?demo`);await page.waitForFunction(()=>window.pro);
+    await page.evaluate(p=>{pro.dissolve(false);pro.importProject(p);},{
+      format:'audiograph-pro',version:21,settings:{ground:{enabled:false,visible:false}},
+      layers:[{...layer('Passive',[
+        node('sphere','waveform3d',{mode:'sphere',render:'normal',detail:4}),
+        node('passive','cloner',{collide:true,rigidBody:false,countX:6,countY:3,countZ:1,spacingX:20,spacingY:20,moveY:0})
+      ],'passive'),edges:[
+        {from:'sphere',out:'object',to:'passive',input:'object'},
+        {from:'passive',out:'shape',to:'PassiveOut',input:'image'}
+      ]}]
+    });
+    await page.waitForFunction(()=>pro.engine('passive')?.w?.agSim.stats().status==='ready');
+    await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(()=>pro.stats().rigid.bodies),0,'Collider-only clones never create rigid bodies or self-collide');
+    assert.equal(await page.evaluate(()=>pro.engine('passive').w.__agScene.nativeCollider),null,'Sphere collision meshes are not read back without a consuming simulation');
+    assert.ok(await page.evaluate(()=>pro.pixels()>0),'Overlapping passive clones stay visible');
+    await page.evaluate(()=>{
+      const api=pro.engine('passive').w.__agScene,original=api.colliderMesh;
+      window.passiveReadbacks=0;api.colliderMesh=function(...args){window.passiveReadbacks++;return original.apply(this,args);};
+    });
+    await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(()=>window.passiveReadbacks),0,'Passive sphere Cloners skip per-frame CPU collision work');
     await page.evaluate(scene=>{pro.dissolve(false);pro.importProject(scene);},scene);
     await page.waitForFunction(()=>pro.stats().rigid.bodies===3,{},{timeout:30000});
     await page.waitForFunction(()=>pro.stats().rigid.steps>20);
@@ -36,8 +57,8 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
     assert.deepEqual(await page.evaluate(()=>pro.stats().rigid.groups.map(g=>g.positions)),positions,'Paused redraws preserve physical poses');
     await page.getByRole('button',{name:'Scene settings',exact:true}).click();
     const panel=page.locator('.scene-inspector');
-    assert.equal(await panel.getByLabel('Ground enabled',{exact:true}).inputValue(),'true');
-    await panel.getByLabel('Ground enabled',{exact:true}).selectOption('false');
+    assert.equal(await panel.getByLabel('Ground enabled',{exact:true}).getByRole('button',{name:'On',exact:true}).getAttribute('aria-pressed'),'true');
+    await panel.getByLabel('Ground enabled',{exact:true}).getByRole('button',{name:'Off',exact:true}).click();
     assert.equal(await page.evaluate(()=>pro.getProject().settings.ground.enabled),false);
     assert.equal(await page.evaluate(()=>pro.stats().rigid.ground),false);
     await page.evaluate(()=>pro.undo());
@@ -93,13 +114,16 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
       const group=pro.engine('colliders').w.__agScene.rigidConfig.world.groups.get('colliders');
       return group?.effectU[1260]===1;
     });
+    assert.ok(await page.evaluate(positions=>pro.stats().rigid.groups[0].positions.every((p,i)=>p.every((v,j)=>Math.abs(v-positions[i][j])<.0001)),initialBodies),'Gravity-only clones do not separate when an effector changes scale');
+    await page.evaluate(()=>pro.setProperty('colliders','rigidBody',true));
     await page.waitForFunction(()=>{
       const g=pro.engine('colliders').w.__agScene.rigidConfig.world.groups.get('colliders'),[a,b]=g.bodies;
       return Math.abs(a.position.x-b.position.x)>=a.shapes[0].halfExtents.x+b.shapes[0].halfExtents.x-.01;
     });
     await page.evaluate(()=>pro.setProperty('force','rigid',9.81));
     await page.waitForFunction(()=>pro.stats().rigid.groups[0].positions.every(p=>p[1]<0));
-    assert.equal(await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.id==='colliders').props.rigidBody),false,'Attached Gravity does not require the Cloner Rigid body toggle');
+    await page.evaluate(()=>pro.setProperty('colliders','rigidBody',false));
+    assert.equal(await page.evaluate(()=>pro.stats().rigid.bodies),2,'Attached Gravity does not require the Cloner Rigid body toggle');
     await page.evaluate(()=>pro.setProperty('colliders','rigidBody',true));
     assert.deepEqual(await page.evaluate(()=>pro.stats().rigid.errors),[],'Live effector readbacks have no validation errors');
     await page.evaluate(()=>pro.pause(true));

@@ -2,12 +2,16 @@ import {DEPTH_WGSL,flowPhase,routeSample,surfaceRoutes} from './scene3d.js';
 import {COLLISION_WGSL} from './colliders.js';
 export {SCENE_DISTANCE} from './camera.js';
 import {SCENE_DISTANCE} from './camera.js';
+import {poseMatrix,poseDelta} from './object-transform.js';
+const IDENTITY_POSE={position:[0,0,0],rotation:[0,0,0],scale:[1,1,1]};
 const TRAIL_POINTS=8, BASE_TRAIL_POINTS=4;
 const PARTICLE_BYTES=64+TRAIL_POINTS*8;
 const trailSegments=t=>`min(${TRAIL_POINTS}.0,${t}*${BASE_TRAIL_POINTS}.0)`;
 const CONTROLS=`
-struct ParticleControls{launch:vec4f,lens:vec4f,screen0:vec4f,screen1:vec4f,floor:vec4f,attract:vec4f};
+struct ParticleControls{launch:vec4f,lens:vec4f,screen0:vec4f,screen1:vec4f,floor:vec4f,attract:vec4f,pose:mat4x4f};
 @group(1) @binding(0) var<uniform> controls:ParticleControls;
+fn posePoint(p:vec3f)->vec3f{return (controls.pose*vec4f(p,1.0)).xyz;}
+fn poseVector(v:vec3f)->vec3f{return (controls.pose*vec4f(v,0.0)).xyz;}
 `;
 const STRUCT=`
 // data: remaining lifetime, initial lifetime, random seed, palette position.
@@ -77,7 +81,7 @@ fn birth(i:u32)->Part3{
     let ix=min(u32(a*u.sourceN),u32(u.sourceN)-1u);
     if(controls.screen0.w>0.5){
       let life=u.plife*(0.55+0.9*b);
-      p.pos=vec4f(sourceAt(ix).pos.xyz,0.0);p.vel=vec4f(0.0,0.0,0.0,f32(ix)+1.0);p.data=vec4f(life,life,d,a);return p;
+      p.pos=vec4f(posePoint(sourceAt(ix).pos.xyz),0.0);p.vel=vec4f(0.0,0.0,0.0,f32(ix)+1.0);p.data=vec4f(life,life,d,a);return p;
     }
     velocity=velocity+emitterVector(sourceAt(ix).color.xyz)*controls.launch.w;
     if(controls.launch.x>0.5){
@@ -87,7 +91,7 @@ fn birth(i:u32)->Part3{
     }
   }
   let life=u.plife*(0.55+0.9*b);
-  p.pos=vec4f(pos,0.0);p.vel=vec4f(velocity,held);p.data=vec4f(life,life,d,a);
+  p.pos=vec4f(posePoint(pos),0.0);p.vel=vec4f(poseVector(velocity),held);p.data=vec4f(life,life,d,a);
   return p;
 }
 @compute @workgroup_size(64) fn pStep3(@builtin(global_invocation_id) g:vec3u){
@@ -98,17 +102,17 @@ fn birth(i:u32)->Part3{
     var x=p.pos.xyz;var v=p.vel.xyz;let r=length(x)+0.001;let rd=x/r;
     var attached=false;
     if(controls.screen0.w>0.5&&u.sourceN>0.0){
-      let ix=min(u32(p.data.w*u.sourceN),u32(u.sourceN)-1u);x=sourceAt(ix).pos.xyz;v=vec3f(0.0);p.vel.w=f32(ix)+1.0;attached=true;
+      let ix=min(u32(p.data.w*u.sourceN),u32(u.sourceN)-1u);x=posePoint(sourceAt(ix).pos.xyz);v=vec3f(0.0);p.vel.w=f32(ix)+1.0;attached=true;
     }else if(p.vel.w>0.0&&u.sourceN>0.0){
       let src=sourceAt(min(u32(p.vel.w-1.0),u32(u.sourceN)-1u));
       let sound=releaseSound();
       let motion=emitterVector(src.color.xyz)*controls.launch.w;
       if(sound>0.01||length(motion)>0.01){
-        v=v+emitterVector(src.normal.xyz)*releaseSpeed()*sound+motion;p.vel.w=0.0;
+        v=v+poseVector(emitterVector(src.normal.xyz)*releaseSpeed()*sound+motion);p.vel.w=0.0;
       }else{
         var pos=turn(src.pos.xyz*u.emitScale,u.x9);
         let ca=cos(u.emitAngle+u.erot);let sa=sin(u.emitAngle+u.erot);
-        x=vec3f(pos.x*ca-pos.y*sa,pos.x*sa+pos.y*ca,pos.z);v=vec3f(0.0);attached=true;
+        x=posePoint(vec3f(pos.x*ca-pos.y*sa,pos.x*sa+pos.y*ca,pos.z));v=vec3f(0.0);attached=true;
       }
     }
     if(!attached){
@@ -221,7 +225,23 @@ export function patchParticles3d(patch){
     `P.pStep=dev.createComputePipeline({layout:PL(L.part),compute:{module:mp,entryPoint:'pStep'}});
     P.p3Extra=dev.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.COMPUTE|GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:'uniform'}},...Array.from({length:8},(_,i)=>({binding:i+1,visibility:GPUShaderStage.FRAGMENT,texture:{sampleType:'float'}})),...Array.from({length:2},(_,i)=>({binding:i+9,visibility:GPUShaderStage.COMPUTE,texture:{sampleType:'float'}})),{binding:11,visibility:GPUShaderStage.COMPUTE,buffer:{type:'read-only-storage'}}]});
     var mp3=await mod(dev,'particles3d',AG_SIM_PART3D),mr3=await mod(dev,'particles3d render',AG_SIM_PREND3D);
-    P.pStep3=dev.createComputePipeline({layout:dev.createPipelineLayout({bindGroupLayouts:[L.part,P.p3Extra]}),compute:{module:mp3,entryPoint:'pStep3'}});`);
+    P.pStep3=dev.createComputePipeline({layout:dev.createPipelineLayout({bindGroupLayouts:[L.part,P.p3Extra]}),compute:{module:mp3,entryPoint:'pStep3'}});
+    var pose3=dev.createShaderModule({label:'Particle pose changes',code:${JSON.stringify(STRUCT+`
+@group(0) @binding(0) var<storage,read_write> particles:array<Part3>;
+@group(0) @binding(1) var<uniform> delta:mat4x4f;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3u){
+  if(id.x>=arrayLength(&particles)){return;}
+  var p=particles[id.x];if(p.data.x<=0.0){return;}
+  p.pos=vec4f((delta*vec4f(p.pos.xyz,1.0)).xyz,p.pos.w);
+  p.vel=vec4f((delta*vec4f(p.vel.xyz,0.0)).xyz,p.vel.w);
+  for(var i=0u;i<${TRAIL_POINTS}u;i++){
+    let point=trailPoint(p.history[i]);if(point.w<0.5){continue;}
+    let moved=(delta*vec4f(point.xyz,1.0)).xyz;
+    p.history[i]=vec2u(pack2x16float(moved.xy),pack2x16float(vec2f(moved.z,1.0)));
+  }
+  particles[id.x]=p;
+}`)}});
+    P.pPose3=dev.createComputePipeline({layout:'auto',compute:{module:pose3,entryPoint:'main'}});`);
   patch("P.pFade=dev.createRenderPipeline", `var pr3=dev.createPipelineLayout({bindGroupLayouts:[L.rend,P.p3Extra]});
     P.pDraw3=dev.createRenderPipeline({layout:pr3,vertex:{module:mr3,entryPoint:'pVS3'},fragment:{module:mr3,entryPoint:'pFS3',targets:[{format:'rgba16float',blend:add}]},primitive:{topology:'triangle-list'}});
     P.pDepth3=dev.createRenderPipeline({layout:pr3,vertex:{module:mr3,entryPoint:'pDepthVS3'},fragment:{module:mr3,entryPoint:'pDepthFS3',targets:[{format:'rgba8unorm'}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'}});
@@ -235,7 +255,7 @@ export function patchParticles3d(patch){
       var cfg=window.__agParticles3d||{},data=cfg.source,gpu=cfg.gpuSource;
       st.zeroLaunch=o.jet===0;
       if(cfg.response==='motion'){o.response=0;o.bass=0;o.mid=0;o.treb=0;o.onset=0;o.level=0;}
-      o.pglow*=10.0;
+      o.pglow*=10.0;o.psize*=cfg.sizeScale||1;
       Object.assign(o,{x1:cfg.yaw||0,x2:cfg.tilt||0,x3:cfg.zoom||1,x4:cfg.focal||1,x5:cfg.depth||2,x6:cfg.panX||0,x7:cfg.panY||0,x8:gpu?2:data?1:0,x9:cfg.sourceAngle||0,x10:cfg.spread||0,x11:cfg.sourceTilt||0,x12:K('pSpTrail',55)/100});
       if(gpu){o.sourceN=gpu.image.width;o.emitScale=K('pEmitScale',100)/100;o.emitAngle=K('pEmitRZ',0)*Math.PI/180;o.emitColor=0;o.emitType=4;st.sourceCount=o.sourceN;st.emitType=4;return;}
       if(data){
@@ -305,8 +325,21 @@ export function installParticleControls(w){
   w.__agP3={
     bind(dev,P,st,compute=false){
       const cfg=w.__agParticles3d||{};
-      if(!st.extra3)st.extra3={buffer:dev.createBuffer({size:96,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}),textures:[],sources:[]};
+      if(!st.extra3)st.extra3={buffer:dev.createBuffer({size:160,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}),textures:[],sources:[]};
       const extra=st.extra3,occluders=cfg.occluders||[];if(occluders.length>8)throw Error('A shared 3D scene supports at most eight opaque renderers');
+      const pose=cfg.pose||IDENTITY_POSE,poseKey=[...pose.position,...pose.rotation,...pose.scale].join(',');
+      if(extra.poseKey!==poseKey){
+        if(extra.pose){
+          if(!extra.delta)extra.delta=dev.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+          dev.queue.writeBuffer(extra.delta,0,poseDelta(extra.pose,pose));
+          const group=dev.createBindGroup({layout:P.pPose3.getBindGroupLayout(0),entries:[
+            {binding:0,resource:{buffer:st.pbuf}},{binding:1,resource:{buffer:extra.delta}}]}),
+            encoder=dev.createCommandEncoder(),pass=encoder.beginComputePass();
+          pass.setPipeline(P.pPose3);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(st.pn/64));pass.end();
+          dev.queue.submit([encoder.finish()]);
+        }
+        extra.pose=pose;extra.poseKey=poseKey;extra.poseMatrix=poseMatrix(pose);
+      }
       let changed=!extra.group;
       const field=cfg.collisions,bytes=field?.data.byteLength||16;
       if(!extra.collision||extra.collision.size<bytes||bytes*4<extra.collision.size){
@@ -347,10 +380,10 @@ export function installParticleControls(w){
       dev.queue.writeBuffer(extra.buffer,0,new Float32Array([
         st.zeroLaunch?1:0,field?.end||0,cfg.response==='motion'?0:1,cfg.response==='sound'||!cfg.response?0:1,
         cfg.shared?SCENE_DISTANCE*(cfg.focal||1)/Math.max(.0001,cfg.zoom||1):0,(cfg.dof||0)/100*st.oh*.05,((cfg.focus??50)-50)/50*2,extra.sourceDt||1/60,
-        ...row0,...row1,cfg.floorHalf||0,cfg.floorHeight??-1,cfg.floorCircle?1:0,0,...(cfg.attract||[0,0,0,0])]));
+        ...row0,...row1,cfg.floorHalf||0,cfg.floorHeight??-1,cfg.floorCircle?1:0,0,...(cfg.attract||[0,0,0,0]),...extra.poseMatrix]));
       return extra.group;
     },
-    destroy(st){if(st.extra3){st.extra3.buffer.destroy();st.extra3.collision?.destroy();for(const t of [...st.extra3.textures,...st.extra3.sources])t.destroy();st.extra3=null;}}
+    destroy(st){if(st.extra3){st.extra3.buffer.destroy();st.extra3.delta?.destroy();st.extra3.collision?.destroy();for(const t of [...st.extra3.textures,...st.extra3.sources])t.destroy();st.extra3=null;}}
   };
 }
 

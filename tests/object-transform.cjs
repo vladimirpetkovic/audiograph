@@ -1,9 +1,17 @@
 const assert=require('node:assert/strict');
 (async()=>{
-  const {rotatePoint,transformView,projectPoint,legacyPosition,soundTransform}=await import('../pro/object-transform.js');
+  const {rotatePoint,poseMatrix,poseDelta,transformView,projectPoint,legacyPosition,soundTransform}=await import('../pro/object-transform.js');
   const angles=[23,-37,61],position=[.2,-.4,.8],point=[.7,.3,-.5];
   const restored=rotatePoint(rotatePoint(point,angles),angles,true);
   restored.forEach((v,i)=>assert.ok(Math.abs(v-point[i])<1e-12));
+  const applyPose=(m,v)=>[0,1,2].map(r=>m[r]*v[0]+m[4+r]*v[1]+m[8+r]*v[2]+m[12+r]),
+    first={position,rotation:angles,scale:[1.2,.7,2]},
+    second={position:[-1,2,.5],rotation:[-31,12,80],scale:[.6,1.5,.8]},
+    firstWorld=applyPose(poseMatrix(first),point),
+    secondWorld=rotatePoint(point.map((v,i)=>v*second.scale[i]),second.rotation).map((v,i)=>v+second.position[i]),
+    changed=applyPose(poseDelta(first,second),firstWorld);
+  changed.forEach((v,i)=>assert.ok(Math.abs(v-secondWorld[i])<1e-6,'Pose deltas preserve the local point through nonuniform scale, rotation and translation'));
+  applyPose(poseDelta(second,first),changed).forEach((v,i)=>assert.ok(Math.abs(v-firstWorld[i])<1e-6,'Reversing a pose restores existing simulation positions'));
   const view=new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,-4,1]);
   const full=view.slice(),split=view.slice();
   transformView(full,position,angles);
@@ -50,11 +58,16 @@ const assert=require('node:assert/strict');
   const animated=soundTransform(pose,{pG3ScX:80,pG3ScY:25,pG3ScZ:-40,pG3EfRX:37,pG3EfRY:-19,pG3EfRZ:22},.6,1),
     tangent=apply(animated.matrix,rotatePoint([1,0,0],angles)),normal=apply(animated.normals,rotatePoint([0,1,0],angles));
   assert.ok(Math.abs(tangent.reduce((sum,v,i)=>sum+v*normal[i],0))<1e-12,'Nonuniform sound scaling keeps transformed normals perpendicular');
-  const {validate,VERSION}=await import('../pro/graph.js');
+  const {validate,VERSION,node}=await import('../pro/graph.js');
+  const random=node('randomEffector');
+  assert.deepEqual(['rotX','rotY','rotZ'].map(k=>random.props[k]),[0,0,0],'New Random Effectors do not rotate clones by default');
   const old={format:'audiograph-pro',version:19,settings:{camera:{zoom:55,turn:25,tilt:18}},layers:[{id:'l',name:'Transform',visible:true,opacity:1,blend:'source-over',nodes:[
     {id:'c',type:'cloner',x:0,y:0,props:{x:25,y:10,scale:200}},{id:'out',type:'output',x:400,y:0,props:{}}],
     edges:[{from:'c',out:'shape',to:'out',input:'image'}]}]};
   const migrated=validate(old),props=migrated.layers[0].nodes[0].props;
+  old.layers[0].nodes.push(node('randomEffector',0,0,{rotX:45,rotY:30,rotZ:15}));
+  const savedRandom=validate(old).layers[0].nodes.find(n=>n.type==='randomEffector').props;
+  assert.deepEqual(['rotX','rotY','rotZ'].map(k=>savedRandom[k]),[45,30,15],'Saved Random Effector rotations are preserved');
   assert.equal(migrated.version,VERSION);assert.equal(props.x,0);assert.equal(props.y,0);assert.equal(props.scale,400);
   assert.ok(Math.hypot(props.moveX,props.moveY,props.moveZ)>0);
   assert.deepEqual(validate(migrated),migrated);

@@ -192,7 +192,8 @@ export class RigidWorld{
       const half=bound.half.map((v,j)=>Math.max(.002,v*axes[j]));
       const sphere=props.collisionShape==='sphere'||props.collisionShape==='auto'&&shapes[sid]==='sphere';
       const shape=sphere?new Sphere(Math.max(...half)):new Box(V(half));
-      const b=new Body({mass:props.mass,shape,material,linearDamping:props.damping,angularDamping:props.damping,sleepSpeedLimit:.06,sleepTimeLimit:1});
+      const b=new Body({mass:props.mass,shape,material,linearDamping:props.damping,angularDamping:props.damping,sleepSpeedLimit:.06,sleepTimeLimit:1,
+        collisionFilterGroup:props.rigidBody?2:4,collisionFilterMask:props.rigidBody?3:1});
       const local=new Quaternion().setFromEuler(...data.subarray(o+4,o+7),'ZXY');
       rotation.mult(local,b.quaternion);
       const center=bound.center.map((v,j)=>v*axes[j]);
@@ -232,6 +233,10 @@ export class RigidWorld{
     g.u.set(u);g.props=props;g.mods=mods;
     for(const b of g.bodies){
       if(gravityChanged)b.wakeUp();
+      const group=props.rigidBody?2:4,mask=props.rigidBody?3:1;
+      if(b.collisionFilterGroup!==group||b.collisionFilterMask!==mask){
+        b.collisionFilterGroup=group;b.collisionFilterMask=mask;b.aabbNeedsUpdate=true;b.wakeUp();
+      }
       if(b.mass!==props.mass){b.mass=props.mass;b.updateMassProperties();b.wakeUp();}
       b.material.friction=props.friction;b.material.restitution=props.bounce;
       b.linearDamping=mods._rigidDrag??props.damping;b.angularDamping=b.linearDamping;

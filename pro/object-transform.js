@@ -7,6 +7,19 @@ export function rotationMatrix(angles){
   const cols=[[1,0,0],[0,1,0],[0,0,1]].map(v=>rotatePoint(v,angles));
   return Array.from({length:9},(_,i)=>cols[i%3][Math.floor(i/3)]);
 }
+export function poseMatrix(pose){
+  const R=rotationMatrix(pose.rotation),matrix=new Float32Array(16);
+  for(let c=0;c<3;c++)for(let r=0;r<3;r++)matrix[c*4+r]=R[r*3+c]*pose.scale[c];
+  matrix.set(pose.position,12);matrix[15]=1;return matrix;
+}
+export function poseDelta(before,after){
+  const R=rotationMatrix(before.rotation),inverse=new Float32Array(16),current=poseMatrix(after),delta=new Float32Array(16);
+  for(let c=0;c<3;c++)for(let r=0;r<3;r++)inverse[c*4+r]=R[c*3+r]/before.scale[r];
+  for(let r=0;r<3;r++)inverse[12+r]=-before.position.reduce((sum,v,c)=>sum+inverse[c*4+r]*v,0);
+  inverse[15]=1;
+  for(let c=0;c<4;c++)for(let r=0;r<4;r++)for(let k=0;k<4;k++)delta[c*4+r]+=current[k*4+r]*inverse[c*4+k];
+  return delta;
+}
 export function transformView(view,position,angles,rotated=false){
   const old=view.slice(),p=rotated?rotatePoint(position,angles,true):position;
   if(!rotated){

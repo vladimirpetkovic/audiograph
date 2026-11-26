@@ -54,10 +54,10 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     assert.equal(await page.locator('#properties [data-property="fluidLift"]').count(),0);
     assert.equal(await page.locator('#properties [data-property="fluidFloor"]').count(),0,'Ground is no longer a per-emitter toggle');
     await page.getByRole('button',{name:'Scene settings',exact:true}).click();
-    assert.equal(await page.getByLabel('Ground enabled',{exact:true}).inputValue(),'true');
+    assert.equal(await page.getByLabel('Ground enabled',{exact:true}).getByRole('button',{name:'On',exact:true}).getAttribute('aria-pressed'),'true');
     await page.locator('.scene-inspector').getByRole('button',{name:'Done',exact:true}).click();
     try{
-      await page.waitForFunction(()=>{const e=pro.engine('fluid'),s=e?.fluid?.stats();return s?.steps>=14&&s.sourceCells>80&&e.fluid.collisions.end>0&&pro.pixels()>.25;},null,{timeout:35000});
+      await page.waitForFunction(()=>{const e=pro.engine('fluid'),s=e?.fluid?.stats();return s?.steps>=14&&s.sourceCells>80&&e.fluid.collisions.end>0&&['cube','ball'].every(id=>pro.engine(id)?.w?.__agScene.nativeCollider)&&pro.pixels()>.25;},null,{timeout:35000});
     }catch(e){console.log(await page.evaluate(()=>pro.stats()));throw e;}
     const grid=await page.evaluate(()=>{const f=pro.engine('fluid').fluid;
       return {n:f.n,size:f.field.size,colliders:f.collisions.end,depth:f.depth.width};});
@@ -101,9 +101,9 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     await page.waitForFunction(()=>!pro.engine('fluid')?.fluid?.collisions?.end);
     await page.getByRole('button',{name:'Scene settings',exact:true}).click();
     await page.getByLabel('Ground height',{exact:true}).fill('-0.5');
-    await page.getByLabel('Ground height',{exact:true}).press('Tab');
+    await page.getByLabel('Ground height',{exact:true}).dispatchEvent('change');
     await page.waitForFunction(()=>pro.engine('fluid').fluid.floorHeight===-.5&&pro.engine('fluid').fluid.floor===10);
-    await page.getByLabel('Ground enabled',{exact:true}).selectOption('false');
+    await page.getByLabel('Ground enabled',{exact:true}).getByRole('button',{name:'Off',exact:true}).click();
     await page.waitForFunction(()=>pro.engine('fluid').fluid.floor===0);
     await page.locator('.scene-inspector').getByRole('button',{name:'Done',exact:true}).click();
     const video=await page.evaluate(()=>pro.exportVideo({tone:.25,height:540,fps:24}));

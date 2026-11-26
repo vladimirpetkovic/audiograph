@@ -20,7 +20,11 @@ with sync_playwright() as p:
           pro.importProject({format:'audiograph-pro',version:pro.getProject().version,
             settings:{camera:{zoom:12,tilt:32,dof:0},ground:{height:1.2}},
             layers:[{id:'l',name:'Ground',visible:true,opacity:1,blend:'source-over',
-              nodes:[{id:'out',type:'output',x:600,y:0,props:{}}],edges:[]}]});
+              nodes:[{id:'probe',type:'gpuParticles',x:0,y:200,props:{mode:'simparticles',intensity:0}},
+                {id:'zero',type:'value',x:0,y:400,props:{value:0}},
+                {id:'out',type:'output',x:600,y:0,props:{}}],
+              edges:[{from:'zero',out:'value',to:'probe',input:'drive'},
+                {from:'probe',out:'shape',to:'out',input:'image'}]}]});
           const id=pro.addNode('cloner');return {id,y:pro.getProject().layers[0].nodes.find(n=>n.id===id).props.moveY};
         }""")
         cloner = created["id"]
@@ -92,7 +96,7 @@ with sync_playwright() as p:
         page.get_by_label("Ground colour", exact=True).evaluate("e=>{e.value='#aaaaaa';e.dispatchEvent(new Event('change',{bubbles:true}));}")
         shadow_pixels = {}
         for enabled in ["true", "false"]:
-            page.get_by_label("Shadows", exact=True).select_option(enabled)
+            page.get_by_label("Shadows", exact=True).locator(f'button[data-value="{enabled}"]').click()
             page.wait_for_timeout(800)
             shadow_pixels[enabled] = page.evaluate("""id => {
               const c=pro.engine(id).canvas,d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
@@ -102,7 +106,7 @@ with sync_playwright() as p:
         print("shadow pixels", shadow_pixels)
         assert shadow_pixels["true"] > shadow_pixels["false"]+100, shadow_pixels
         assert page.evaluate("() => pro.getProject().settings.lighting.shadows") is False
-        page.get_by_label("Shadows", exact=True).select_option("true")
+        page.get_by_label("Shadows", exact=True).get_by_role("button", name="On", exact=True).click()
         rotated_shadows = {}
         for angle in [0, -90, 90]:
             page.evaluate("([id,angle])=>pro.setProperty(id,'rotX',angle)", [cloner, angle])

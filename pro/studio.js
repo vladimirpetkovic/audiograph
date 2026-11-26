@@ -114,7 +114,7 @@ function rigidProps(n,mods){
   // Removing a Gravity node stops acceleration without discarding existing motion.
   const gravityBody=mods?._rigidGravity!==undefined||rigidWorld.groups.get(n.id)?.props.gravityBody;
   if(gravityBody)return {...p,gravityBody:true};
-  return p.rigidBody||n.type==='cloner'&&p.collide?p:null;
+  return p.rigidBody?p:null;
 }
 const collisionCache={};
 const preview=$('preview'),previewCtx=preview.getContext('2d');
@@ -166,7 +166,7 @@ function edit(fn,label){return attempt(()=>{const next=clone(state);fn(next,next
 function live(fn){if(!liveBefore)liveBefore=clone(state);fn(state);updateSummaries();if(paused)draw(elapsed);}
 function liveCommit(label){
   const before=liveBefore||clone(state);liveBefore=null;
-  try{commit(clone(state),label,before);}catch(error){state=before;reconcile();renderUI();message(error.message,true);}
+  try{commit(clone(state),label,before);}catch(error){state=before;reconcile();renderUI();message(error.message,true);if(paused)draw(elapsed);}
 }
 function restoreSnapshot(snapshot){tm.playing=false;groundPlacements.clear();state=validate(snapshot);rigidWorld.reset();pending=null;reconcile();renderUI();if(paused)draw(elapsed);}
 function undo(){if(history.length){future.push(clone(state));restoreSnapshot(history.pop());message('Undone');}}
@@ -1212,6 +1212,10 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       const key=n.type==='gpuParticles'&&SIM_SOURCE[p.mode],eng=key&&engines.get(n.id);
       const source=!emit&&key&&eng?.simSource(r.shape.job,key);
       const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(mesh||!emit&&source!=='image'&&source!=='camera');
+      if(particles3d)r.shape.job.particlePose={
+        position:['X','Y','Z'].map(a=>p['move'+a]),
+        rotation:['X','Y','Z'].map(a=>p['rot'+a]),
+        scale:['X','Y','Z'].map(a=>p['scale'+a]/100*p.uniformScale/100)};
       const fluid3d=n.type==='gpuParticles'&&p.mode==='simfluid3d';
       if(source==='image')r.shape.job.emitAsset=nodeState.get(n.id+':emitImage')?.asset??null;
       if(source==='camera'){
@@ -1247,6 +1251,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
             if(shape.job.wantSource&&(shape.job.surfaceFlowTime!=null)!==(flow!=null))shape={...shape,job:{...shape.job}};
             Object.assign(shape.job,{wantSource:true,surfaceFlowTime:flow});
             asImage(shape,n.id+'e');
+            r.shape.job.particleBounds=engines.get(shape.emitter.id)?.w?.__agScene.boundsRadius;
           }
           for(const k of ['pG3Yaw','pG3Tilt','pG3Zoom','pG3Focal','pG3Orbit','pG3OrbitSnd','pG3Dof','pG3Focus','_sceneYaw'])if(shape?.mods?.[k]!=null)r.shape.mods[k]=shape.mods[k];
           if(r.shape.mods.pG3Zoom==null)r.shape.mods.pG3Zoom=object?55:100;
@@ -1657,8 +1662,16 @@ function draw(time,dt=1/30){
   sharedRenderers.clear();
   const pictures=[],nextColliders=new Map();
   const ground={...SCENE_GROUND,...state.settings?.ground};
-  const colliderIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0)
-    .flatMap(g=>g.nodes.filter(n=>['waveform3d','cloner'].includes(n.type)&&!n.bypass&&(n.props.collide||rigidProps(n))).map(n=>n.id)));
+  const collisionNeeded=state.layers.some(g=>(g.visible&&g.opacity>0||mapped&&mapLayers.has(g.id)||previewLayer===g)&&
+    (plans.get(g.id)||[]).some(n=>{
+      if(n.bypass||n.type!=='gpuParticles')return false;
+      if(n.props.mode==='simfluid3d')return true;
+      if(n.props.mode!=='simparticles')return false;
+      const emit=g.edges.find(e=>e.to===n.id&&e.input==='emit');
+      return emit?meshEmitter(g,emit):engines.get(n.id)?.w?.__agParticles3d!==null;
+    }));
+  const colliderIds=new Set(collisionNeeded?state.layers.filter(g=>g.visible&&g.opacity>0||mapped&&mapLayers.has(g.id)||previewLayer===g)
+    .flatMap(g=>g.nodes.filter(n=>['waveform3d','cloner'].includes(n.type)&&!n.bypass&&(n.props.collide||rigidProps(n))).map(n=>n.id)):[]);
   let collisions;
   try{if(colliderIds.size||collisionCache.field?.end)collisions=collisionField([...colliderIds].map(id=>collisionMeshes.get(id)).filter(Boolean),collisionCache);}
   catch(error){renderErrors.push(error.message);}
@@ -2333,17 +2346,17 @@ function renderSoundEffector(root,n){
 }
 const objectGizmo={tool:null,drag:null},gizmoBounds=new WeakMap();
 function renderObjectTransforms(root,n){
-  const body=fold(root,'Transforms'),T=TYPES[n.type],cloner=n.type==='cloner';
+  const body=fold(root,'Transforms'),T=TYPES[n.type],particles=n.type==='gpuParticles',cloner=n.type==='cloner'||particles;
   body.append(ui.field('Gizmo',ui.chips({options:[['off','Off'],['move','Move'],['rotate','Rotate'],['scale','Scale']],value:objectGizmo.tool||'off',property:'gizmo',
     onChange:v=>{objectGizmo.tool=v==='off'?null:v;renderProperties();renderOverlay();}})));
   for(const [title,keys] of [['Move',['moveX','moveY','moveZ']],['Rotate',cloner?['rotX','rotY','rotZ']:['tilt','turn','rotation']],['Scale',cloner?['scaleX','scaleY','scaleZ']:['stretchX','stretchY','stretchZ']]]){
     const part=section(body,title),grid=el('div','knob-grid');grid.style.gridTemplateColumns='repeat(3,minmax(0,1fr))';
     keys.forEach((k,i)=>grid.append(propControl(n,k,{...T.props[k],label:'XYZ'[i],unit:title==='Rotate'?'deg':title==='Scale'?'%':''},graph().edges.some(e=>e.to===n.id&&e.input===k))));
     part.append(grid);
-    if(title==='Scale')renderProps(part,n,[...(!cloner?['size']:[]),'scale'],true);
+    if(title==='Scale')renderProps(part,n,[...(!cloner?['size']:[]),particles?'uniformScale':'scale'],true);
   }
-  const legacy=['x','y'].filter(k=>n.props[k]||n.auto?.includes(k)||graph().edges.some(e=>e.to===n.id&&e.input===k));
-  if(legacy.length)renderProps(section(body,'Legacy view offsets'),n,legacy,true);
+  const legacy=[...['x','y'],...(particles?['scale','tilt','turn','rotation','pulse']:[])].filter(k=>n.props[k]!==T.props[k].value||n.auto?.includes(k)||graph().edges.some(e=>e.to===n.id&&e.input===k));
+  if(legacy.length)renderProps(section(body,'Legacy view controls'),n,legacy,true);
 }
 function renderProperties(){
   $('previewWrap').classList.toggle('pinning',!!pinNode());
@@ -2662,12 +2675,15 @@ function renderEmitter(root,n){
   if(n.type==='waveform3d'||n.type==='cloner'){
     const physics=fold(root,'Rigid body');
     renderProps(physics,n,simKeys(graph(),n).filter(k=>T.props[k].group==='Rigid body'&&!['collide','soundForce'].includes(k)),true);
-    physics.append(el('p','insp-note','Collider body provides a surface for particles and fluid; on a Cloner it also resolves overlaps caused by effectors. Attach a Gravity node to make Cloners and 3D Objects fall, even with Rigid body off. Rigid body enables sound impulses and other connected Forces. No Gravity node means no gravity; zero stops acceleration but preserves existing motion. Attract can target a connected 3D Object or Cloner. Ground belongs to Scene settings.'));
+    physics.append(el('p','insp-note','Collider body provides a passive surface for particles and fluid; it never makes objects or Cloner instances collide. Rigid body enables object/instance collisions, sound impulses and other connected Forces. Attach a Gravity node to fall toward the ground even with Rigid body off. No Gravity node means no gravity; zero stops acceleration but preserves existing motion. Attract can target a connected 3D Object or Cloner. Ground belongs to Scene settings.'));
   }
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>!['scale','scaleX','scaleY','scaleZ','rotX','rotY','rotZ'].includes(k)&&(k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k))));
-  if(n.type==='waveform3d'||n.type==='cloner')renderObjectTransforms(root,n);
+  const emissionWire=n.type==='gpuParticles'&&graph().edges.find(e=>e.to===n.id&&e.input==='emit');
+  const particleMode=n.type==='gpuParticles'&&n.props.mode==='simparticles',mesh=emissionWire&&meshEmitter(graph(),emissionWire),hasFlow=particleMode&&mesh&&n.props.particleSurfaceFlow;
+  const worldParticles=particleMode&&(mesh||!emissionWire&&!['image','camera'].includes(engines.get(n.id)?.simSource(jobOf(n),SIM_SOURCE.simparticles)));
+  if(n.type==='waveform3d'||n.type==='cloner'||worldParticles)renderObjectTransforms(root,n);
   if(n.type==='cloner'||n.type==='waveform3d'&&n.props.render==='normal'){
     const mapping=fold(root,'Palette mapping');
     if(n.type==='cloner'){
@@ -2680,8 +2696,6 @@ function renderEmitter(root,n){
       mapping.append(el('p','insp-note','UV follows the model’s UV map (built-in primitives have procedural UVs). Front projects onto local XY; Box chooses the face-facing projection. Horizontal or Vertical chooses the gradient direction; Tiling, Offset and Rotation place it. Waveform and Polygons keep their sound-driven colours.'));
     }
   }
-  const emissionWire=n.type==='gpuParticles'&&graph().edges.find(e=>e.to===n.id&&e.input==='emit');
-  const particleMode=n.type==='gpuParticles'&&n.props.mode==='simparticles',mesh=emissionWire&&meshEmitter(graph(),emissionWire),hasFlow=particleMode&&mesh&&n.props.particleSurfaceFlow;
   if(n.type==='waveform3d'&&n.props.mode==='text3d')renderProps(root,n,['words','font3d','depth']);
   if(n.type==='waveform3d'&&objectOf(n.props).prim&&n.props.mode!=='knot')renderProps(root,n,['detail']);
   if(n.type==='waveform3d'&&n.props.mode==='model'&&n.props.render==='normal')renderProps(root,n,['modelMaterials']);
@@ -2717,7 +2731,7 @@ function renderEmitter(root,n){
   const used=k=>wiredOf(k)||n.auto?.includes(k)||n.props[k]!==undefined&&n.props[k]!==T.props[k].value;
   const geo={};let lineSens=false;const soundActor=n.type==='waveform3d'||n.type==='cloner';
   for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){
-    const gr=T.props[k].group;if(soundActor&&['Sound','Transform','Transforms'].includes(gr))continue;if(gr==='Lines'&&sim||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;
+    const gr=T.props[k].group;if((soundActor||worldParticles)&&['Sound','Transform','Transforms'].includes(gr))continue;if(gr==='Lines'&&sim||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;
     if((k==='tilt'||k==='turn')&&!classic3d&&!used(k))continue;
     if(k==='sensitivity'){lineSens=true;continue;}
     if(k==='contrast'||k==='fade')continue;
@@ -3277,7 +3291,34 @@ function renderSceneSettings(root){
   title.tabIndex=-1;close.type='button';close.onclick=closeSceneInspector;
   head.append(title,close);panel.append(head);root.append(panel);updateHint();
   const group=label=>{const f=el('fieldset');f.append(el('legend','',label));panel.append(f);return f;};
+  const numbers={
+    'Ground height':['ground','height',-100,100,.01,SCENE_GROUND.height],
+    'Ground size':['ground','size',.2,200,.1,SCENE_GROUND.size],
+    'AO strength (%)':['lighting','aoStrength',0,100,1,SCENE_LIGHTING.aoStrength],
+    'AO radius':['lighting','aoRadius',.05,10,.05,SCENE_LIGHTING.aoRadius],
+    'Haze strength (%)':['lighting','hazeStrength',0,100,1,SCENE_LIGHTING.hazeStrength],
+    'Haze start':['lighting','hazeStart',0,500,.1,SCENE_LIGHTING.hazeStart],
+    'Haze end':['lighting','hazeEnd',.01,1000,.01,SCENE_LIGHTING.hazeEnd],
+    'Environment intensity':['environment','intensity',0,20,.05,1],
+    'Environment rotation':['environment','rotation',-180,180,1,0]
+  };
   const field=(box,label,value,options,onChange)=>{
+    if(options==='number'){
+      const [section,key,min,max,step,def]=numbers[label];
+      let grid=box.lastElementChild;
+      if(!grid?.classList.contains('knob-grid')){grid=el('div','knob-grid');box.append(grid);}
+      const control=ui.knob({label,min,max,step,def,value,property:'scene:'+section+':'+key,
+        onInput:v=>live(st=>{st.settings[section]={...(section==='ground'?SCENE_GROUND:section==='lighting'?SCENE_LIGHTING:{}),...st.settings[section],[key]:v};}),onChange:()=>liveCommit(label)});
+      grid.append(control);return control;
+    }
+    if(Array.isArray(options)&&options.length<=5){
+      const toggle=options.length===2&&options[0][0]==='true'&&options[1][0]==='false',
+        change=v=>attempt(()=>onChange(typeof value==='number'?+v:v)),
+        control=toggle?ui.toggle({value:value==='true',labels:options.map(o=>o[1]),onChange:v=>change(String(v))}):
+          ui.chips({options,value,onChange:change});
+      control.setAttribute('role','group');control.setAttribute('aria-label',label);
+      box.append(ui.field(label,control));return control;
+    }
     const c=el(Array.isArray(options)?'select':'input');
     c.setAttribute('aria-label',label);
     if(Array.isArray(options)){
@@ -3294,7 +3335,7 @@ function renderSceneSettings(root){
         if(focused&&!c.isConnected)root.querySelector(`[aria-label="${CSS.escape(label)}"]`)?.focus({preventScroll:true});
       }
     };
-    const row=el('label','prop-row');row.append(el('span','prop-label',label),c);box.append(row);
+    box.append(ui.field(label,c));
     return c;
   };
   renderSceneCamera(group('3D camera'));
@@ -3330,18 +3371,19 @@ function renderSceneSettings(root){
   lighting.append(el('p','insp-note','Depth haze blends distant 3D surfaces toward its colour, based on distance from the shared camera. Start and End are scene distances; End must exceed Start. Flat text, overlays and empty background pixels are not fogged. AO and haze are off by default and use no extra GPU passes while disabled.'));
   lighting.append(el('h4','','Environment light'));
   lighting.append(el('p',environment?'insp-note data-status':'insp-note',environment?.name||'Import a Radiance HDR or OpenEXR panorama to illuminate and reflect in 3D surfaces.'));
-  const hdr=el('input');hdr.type='file';hdr.accept='.hdr,.exr';hdr.setAttribute('aria-label','Import HDR or EXR environment');
+  const hdr=el('input');hdr.type='file';hdr.accept='.hdr,.exr';hdr.hidden=true;hdr.setAttribute('aria-label','Import HDR or EXR environment');
+  const upload=el('button','btn',environment?'Replace environment':'Import HDR / EXR');upload.type='button';upload.onclick=()=>hdr.click();
   hdr.onchange=async()=>{
     const file=hdr.files[0];if(!file)return;
-    const before=state;hdr.disabled=true;message('Loading environment lighting...');
+    const before=state;hdr.disabled=upload.disabled=true;message('Loading environment lighting...');
     try{
       const next=await importEnvironment(file);
       if(state!==before)throw Error('The scene changed while loading. Import the environment again.');
       editScene('environment',next,'Imported environment: '+file.name);
     }catch(error){message('Environment lighting: '+error.message,true);}
-    finally{hdr.disabled=false;hdr.value='';}
+    finally{hdr.disabled=upload.disabled=false;hdr.value='';}
   };
-  lighting.append(hdr);
+  lighting.append(upload,hdr);
   if(environment){
     for(const [label,key] of [['Environment intensity','intensity'],['Environment rotation','rotation']]){
       field(lighting,label,environment[key],'number',v=>
@@ -3697,8 +3739,8 @@ $('helpBody').innerHTML=`
 <li><b>Palette mapping</b>: the Cloner chooses how colours are distributed across its instances. Normal-rendered Objects offer <b>UV</b>, <b>Front</b> or <b>Box</b> projection, with axis, tiling, offset and rotation. Imported models must choose <b>Materials: Palette</b> to use it. Waveform and Polygon colours can react to sound through the connected Sound effector; Point clouds retain their Look colour options.</li>
 <li><b>3D model</b> loads <b>OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers; USD must be flattened, since referenced files are not loaded). Polygons of any size are triangulated. Still models keep up to 500,000 triangles in 3D Object (Normal and Point cloud render them on the GPU; Waveform and Polygons simplify to Max faces) and 1,000,000 in Mapping; animated models are thinned to 40,000 faces, since they are re-posed every frame. Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. If imported materials are unreadable or unsupported (for example, specular/glossiness), the mesh still loads with <b>Palette</b> shading. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
-<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound, Field, Random, Links) and <b>Look</b> nodes (Material, Light) after it. <b>Collider body</b> makes surfaces collide with particles and fluid; Cloner instances also separate and bounce when effectors move, rotate or enlarge them. Attach a <b>Gravity</b> node to make Cloners or 3D Objects fall, even with Rigid body off. Positive <b>Body gravity</b> pulls downward; negative values pull upward. There is no Scene gravity setting. <b>Rigid body</b> adds sound impulses and other connected Forces. <b>Attract → target</b> accepts a 3D Object or Cloner; the force pulls toward its world position, including moving rigid targets. An unwired Attract pulls toward the origin; negative strength repels.</li>
-<li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles, fluid and rigid bodies; choose Square or Circle, adjust its height and size or switch it off. Hidden ground still collides. Set <b>Look → Trails</b> to 0 to draw particles without trails. The shared Scene camera orbits the whole cloud.</li></ul>
+<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound, Field, Random, Links) and <b>Look</b> nodes (Material, Light) after it. <b>Collider body</b> provides a passive surface for particles and fluid only. It never causes object or instance collisions. <b>Rigid body</b> enables those collisions, sound impulses and other connected Forces. Attach a <b>Gravity</b> node to make Cloners or 3D Objects fall toward the ground, even with Rigid body off. Positive gravity pulls downward; negative values pull upward. There is no Scene gravity setting. <b>Attract → target</b> accepts a 3D Object or Cloner; the force pulls toward its world position, including moving rigid targets. An unwired Attract pulls toward the origin; negative strength repels.</li>
+<li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. <b>Transforms</b> provides Move, Rotate and Scale XYZ controls and an adaptive preview gizmo for the 3D cloud, including while paused. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles, fluid and rigid bodies; choose Square or Circle, adjust its height and size or switch it off. Hidden ground still collides. Set <b>Look → Trails</b> to 0 to draw particles without trails. The shared Scene camera orbits the whole cloud.</li></ul>
 <p>Open Tutorials for <b>3D Cloner &amp; rigid bodies</b>, including Scene settings and attached Gravity nodes, or <b>Particles: Waterfall</b>, which builds the saved Waterfall look from particles, forces, colour and a fluid layer.</p>
 <h3 id="h-sims">Simulations</h3>
 <p>WebGPU emitters (Particles, Fluid, Smoke) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
@@ -4227,10 +4269,11 @@ function drawGizmoHandles(G,tool,k,act=-1,box=false){
 function objectGizmoFrame(){
   if(workspace!=='studio'||multi.size>1||!objectGizmo.tool)return null;
   const n=findNode(selected),e=n&&engines.get(n.id),c=e?.w?.__agScene.camera;
-  if(!n||!['waveform3d','cloner'].includes(n.type)||!c)return null;
-  const p=n.props,cloner=n.type==='cloner',rotation=cloner?[p.rotX,p.rotY,p.rotZ]:[p.tilt,p.turn,-p.rotation],
+  const particles=n?.type==='gpuParticles'&&n.props.mode==='simparticles'&&!!e?.w?.__agParticles3d;
+  if(!n||!['waveform3d','cloner'].includes(n.type)&&!particles||!c)return null;
+  const p=n.props,cloner=n.type==='cloner'||particles,rotation=cloner?[p.rotX,p.rotY,p.rotZ]:[p.tilt,p.turn,-p.rotation],
     position=['X','Y','Z'].map(a=>p['move'+a]||0),axes=cloner?['scaleX','scaleY','scaleZ']:['stretchX','stretchY','stretchZ'],
-    T={x:position[0],y:position[1],z:position[2],rx:rotation[0],ry:rotation[1],rz:rotation[2],sx:p[axes[0]]/100,sy:p[axes[1]]/100,sz:p[axes[2]]/100,scale:p.scale/100};
+    T={x:position[0],y:position[1],z:position[2],rx:rotation[0],ry:rotation[1],rz:rotation[2],sx:p[axes[0]]/100,sy:p[axes[1]]/100,sz:p[axes[2]]/100,scale:(particles?p.uniformScale:p.scale)/100};
   let S;
   if(cloner){const radius=e.w.__agScene.boundsRadius||1;S=[radius*2,radius*2,radius*2];}
   else{
@@ -4266,8 +4309,8 @@ window.addEventListener('pointermove',ev=>{
   live(()=>{
     const n=findNode(d.n.id);if(!n)return;const p=n.props;
     if(d.h.tool==='move')[p.moveX,p.moveY,p.moveZ]=[t.x,t.y,t.z];
-    else if(d.h.tool==='rotate'){if(n.type==='cloner')[p.rotX,p.rotY,p.rotZ]=[t.rx,t.ry,t.rz];else [p.tilt,p.turn,p.rotation]=[t.rx,t.ry,-t.rz];}
-    else if(d.h.axis===3)p.scale=t.scale*100;
+    else if(d.h.tool==='rotate'){if(n.type==='cloner'||n.type==='gpuParticles')[p.rotX,p.rotY,p.rotZ]=[t.rx,t.ry,t.rz];else [p.tilt,p.turn,p.rotation]=[t.rx,t.ry,-t.rz];}
+    else if(d.h.axis===3)p[d.n.type==='gpuParticles'?'uniformScale':'scale']=t.scale*100;
     else p[d.axes[d.h.axis]]=Math.max(TYPES[n.type].props[d.axes[d.h.axis]].min,Math.min(TYPES[n.type].props[d.axes[d.h.axis]].max,t['s'+'xyz'[d.h.axis]]*100));
   });
   ev.preventDefault();ev.stopImmediatePropagation();renderOverlay();

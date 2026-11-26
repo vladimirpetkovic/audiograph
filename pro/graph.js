@@ -289,6 +289,12 @@ export const TYPES = {
     words:text('Text','SOUND'),font3d:pick('Font','Impact',TEXT_FONTS),depth:n('Depth',30,5,150,5,{noPort:true}),
     animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
   gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','GPU-powered particles, fluid and smoke. Particles emit from a 3D Object or Cloner’s surface, or follow the bright parts of a flat picture.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
+    ...Object.fromEntries(Object.entries({...POSITION_PROPS,
+      uniformScale:G('Transforms',n('Scale',100,5,400,5)),
+      ...Object.fromEntries(['X','Y','Z'].flatMap(a=>[
+        ['scale'+a,G('Transforms',n('Scale '+a,100,5,500,5))],
+        ['rot'+a,G('Transforms',n('Rotate '+a,0,-180,180,1))]]))
+    }).map(([key,spec])=>[key,{...spec,sims:['simparticles']}])),
     particleDepth:n('Depth',2,.2,8,.1,{sims:['simparticles']}),
     particleSpread:n('Surface spread',15,0,100,5,{sims:['simparticles']}),
     particleResponse:pick('Release on','sound',['sound','motion','both'],{labels:[['sound','Sound'],['motion','Object motion'],['both','Sound + object motion']],sims:['simparticles']}),
@@ -342,7 +348,7 @@ export const TYPES = {
   randomEffector:C3D('Effectors','Random effector','Random scale, rotation and position per clone, on each axis, plus colour.',{
     seed:C3('Seed',1,0,999,'pG3Seed'),color:C3('Colour',30,0,100,'pG3RndCol',5),
     size:G('Scale',C3('Uniform',40,0,100,'pG3RndScale',5)),scaleX:G('Scale',C3('X',0,0,100,'pG3RndSX',5)),height:G('Scale',C3('Y',0,0,100,'pG3RndH',5)),scaleZ:G('Scale',C3('Z',0,0,100,'pG3RndSZ',5)),
-    rotX:G('Rotation',C3('X',45,0,180,'pG3RndRX',5)),rotY:G('Rotation',C3('Y',45,0,180,'pG3RndRY',5)),rotZ:G('Rotation',C3('Z',45,0,180,'pG3RndRZ',5)),
+    rotX:G('Rotation',C3('X',0,0,180,'pG3RndRX',5)),rotY:G('Rotation',C3('Y',0,0,180,'pG3RndRY',5)),rotZ:G('Rotation',C3('Z',0,0,180,'pG3RndRZ',5)),
     posX:G('Position',C3('X',0,0,300,'pG3RndPosX',5)),posY:G('Position',C3('Y',0,0,300,'pG3RndPosY',5)),posZ:G('Position',C3('Z',0,0,300,'pG3RndPosZ',5))}),
   links:C3D('Effectors','Links','Connect each clone to its nearest neighbours with glowing lines: how many, how far, how thick, how bright and how much they pulse. Their colour is Material › Edges.',{
     links:C3('Links per clone',3,0,8,'pG3Links'),distance:C3('Distance',150,20,400,'pG3LinkDist',5),

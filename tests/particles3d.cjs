@@ -68,6 +68,11 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     const volumeScene=scene();volumeScene.layers[0].edges.splice(1,1);
     await load(volumeScene);
     assert.ok(active(await state()).some(p=>Math.abs(p[2])>.1),'Unwired procedural emitters spawn in 3D');
+    const posedSource=scene();
+    Object.assign(posedSource.layers[0].nodes.find(n=>n.id==='e').props,{moveX:5,rotZ:90,scaleX:150,particleSurfaceFlow:true});
+    await page.evaluate(()=>pro.engine('e').w.agSim.reset());
+    await load(posedSource);
+    assert.ok(active(await state()).every(p=>p[0]>3&&p[0]<7),'Transformed births and surface attachments stay at the moved emitter while simulation runs');
     const gravityScene=scene();
     gravityScene.settings.gravity=1.6;
     gravityScene.layers[0].edges=gravityScene.layers[0].edges.filter(e=>e.input!=='emit');
@@ -137,6 +142,61 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     assert.equal(pitch,120,'Camera pitch can orbit over the pole');
     assert.ok((await pixels()).some((v,i)=>v!==image2[i]),'The camera projects the cloud from the other side of the pole');
     assert.deepEqual(await state(),before,'Orbiting over the pole preserves the world-space state');
+    await page.evaluate(()=>{pro.select('e');pro.setSceneCamera({turn:25,tilt:18,zoom:55});});
+    const transforms=inspector.locator('[data-group="Transforms"]');
+    if(await transforms.evaluate(e=>e.classList.contains('closed')))await transforms.locator('.insp-fold-head').click();
+    for(const row of [['moveX','moveY','moveZ'],['rotX','rotY','rotZ'],['scaleX','scaleY','scaleZ']]){
+      const ys=await Promise.all(row.map(key=>transforms.locator(`input[data-property="${key}"]`).evaluate(e=>e.getBoundingClientRect().y)));
+      assert.ok(Math.max(...ys)-Math.min(...ys)<1,'Particle XYZ transforms share aligned rows');
+    }
+    await transforms.locator('[data-property="gizmo"]').getByRole('button',{name:'Move',exact:true}).click();
+    assert.equal(await page.locator('#mapOverlay [data-gizmo="move"]').count(),1,'3D particles expose the same interactive gizmo');
+    const dragCamera=await page.evaluate(()=>pro.getProject().settings.camera);
+    const moveGesture=await page.evaluate(()=>{
+      const r=document.querySelector('#preview').getBoundingClientRect(),l=document.querySelector('#mapOverlay .gizmo line'),
+        c=[+l.getAttribute('x1'),+l.getAttribute('y1')],p=[+l.getAttribute('x2'),+l.getAttribute('y2')],
+        d=p.map((v,i)=>v-c[i]),length=Math.hypot(...d),screen=p=>[r.x+p[0]/960*r.width,r.y+p[1]/540*r.height];
+      return [screen(p),screen(p.map((v,i)=>v+d[i]/length*35))];
+    });
+    await page.mouse.move(...moveGesture[0]);await page.mouse.down();await page.mouse.move(...moveGesture[1],{steps:5});await page.mouse.up();
+    assert.notEqual(await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.id==='e').props.moveX),0,'Dragging the particle gizmo moves the system');
+    assert.deepEqual(await page.evaluate(()=>pro.getProject().settings.camera),dragCamera,'Particle gizmo gestures do not orbit the camera');
+    await page.evaluate(()=>pro.undo());
+    await transforms.locator('[data-property="gizmo"]').getByRole('button',{name:'Scale',exact:true}).click();
+    const scaleCentre=await page.evaluate(()=>{
+      const r=document.querySelector('#preview').getBoundingClientRect(),c=document.querySelector('#mapOverlay .gizmo circle');
+      return [r.x+(+c.getAttribute('cx'))/960*r.width,r.y+(+c.getAttribute('cy'))/540*r.height];
+    });
+    await page.mouse.move(...scaleCentre);await page.mouse.down();await page.mouse.move(scaleCentre[0]+30,scaleCentre[1]-15,{steps:5});await page.mouse.up();
+    const gizmoScaled=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.id==='e').props);
+    assert.notEqual(gizmoScaled.uniformScale,100,'The central particle scale handle changes uniform world scale');
+    assert.equal(gizmoScaled.scale,100,'The particle gizmo leaves legacy view zoom untouched');
+    await page.evaluate(()=>pro.undo());
+    const originalPose=await state();
+    await page.evaluate(()=>pro.setProperty('e','moveX',2));
+    const movedPose=await state();
+    for(let i=0;i<originalPose.length;i+=16)if(originalPose[i+8]>0){
+      assert.ok(Math.abs(movedPose[i]-originalPose[i]-2)<.00001,'Move updates live world-space particles while paused');
+      assert.equal(movedPose[i+8],originalPose[i+8],'Moving particles does not advance their lifetimes');
+    }
+    await page.evaluate(()=>pro.setProperty('e','rotZ',90));
+    const rotatedPose=await state();
+    for(let i=0;i<originalPose.length;i+=16)if(originalPose[i+8]>0){
+      assert.ok(Math.abs(rotatedPose[i]-(2-originalPose[i+1]))<.00002);
+      assert.ok(Math.abs(rotatedPose[i+1]-originalPose[i])<.00002,'Rotation transforms positions about the particle-system pivot');
+      assert.ok(Math.abs(rotatedPose[i+4]+originalPose[i+5])<.00002,'Rotation transforms particle velocities');
+    }
+    await page.evaluate(()=>pro.setProperty('e','scaleX',150));
+    const scaledPose=await state();
+    for(let i=0;i<originalPose.length;i+=16)if(originalPose[i+8]>0)
+      assert.ok(Math.abs(scaledPose[i+1]-originalPose[i]*1.5)<.00003,'XYZ scale stretches the local particle-system axes');
+    await page.evaluate(()=>pro.setProperty('e','uniformScale',150));
+    const uniformPose=await state();
+    for(let i=0;i<originalPose.length;i+=16)if(originalPose[i+8]>0)
+      assert.ok(Math.abs(uniformPose[i+1]-originalPose[i]*2.25)<.00005,'Uniform scale composes with XYZ scale without changing legacy view zoom');
+    await page.evaluate(()=>{pro.undo();pro.undo();pro.undo();pro.undo();});
+    const restoredPose=await state();
+    assert.ok(restoredPose.every((v,i)=>Math.abs(v-originalPose[i])<.00003),'Undo restores the cloud without resetting its simulation');
     await page.evaluate(()=>{pro.engine('e').w.agSim.expMode(false);pro.pause(false);});
     // Live rewiring to a flat waveform and back rebuilds the correct buffer stride.
     assert.ok(await page.evaluate(()=>pro.connect('w','shape','e','emit')));
@@ -332,7 +392,7 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     })();
     assert.ok(raised.bounce>100&&raised.below<raised.bounce*.05,'Ground height moves the particle floor: '+JSON.stringify(raised));
     await sceneSettings();
-    await inspector.getByLabel('Ground enabled',{exact:true}).selectOption('false');
+    await inspector.getByLabel('Ground enabled',{exact:true}).getByRole('button',{name:'Off',exact:true}).click();
     assert.equal(await page.evaluate(()=>pro.getProject().settings.ground.enabled),false);
     await page.evaluate(()=>pro.engine('e').w.agSim.reset());
     const off=await waitFloor(s=>s.insideBelow>100);

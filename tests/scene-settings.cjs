@@ -34,6 +34,11 @@ const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}
     await page.evaluate(()=>pro.pause(true));
     const project=()=>page.evaluate(()=>pro.getProject()),panel=page.locator('#properties .scene-inspector');
     const field=label=>panel.getByLabel(label,{exact:true}),gear=page.getByRole('button',{name:'Scene settings'});
+    const choose=async(label,value)=>{
+      const control=field(label);
+      if(await control.getAttribute('role')==='group')await control.locator(`button[data-value="${value}"]`).click();
+      else await control.selectOption(value);
+    };
     assert.ok(await gear.evaluate(el=>el.previousElementSibling.id==='reset'));
     assert.equal(await page.evaluate(()=>pro.engine('mesh').w.__agDofCfg.amt),45);
     const flat=()=>page.evaluate(()=>{
@@ -80,19 +85,19 @@ const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}
     assert.equal(await knob('turn').count(),0,'Object inspectors do not expose a private camera');
     await gear.click();
     assert.equal(await knob('turn').inputValue(),'80');
-    await field('Live resolution').selectOption('720');
+    await choose('Live resolution','720');
     assert.equal(await page.locator('#resolution').inputValue(),'720');
     assert.equal(await page.locator('#preview').evaluate(el=>el.height),720);
     await field('Canvas background').fill('#102030');
-    await field('Video quality').selectOption('max');
+    await choose('Video quality','max');
     const tiers=()=>page.evaluate(()=>['particles','other'].map(id=>{
       const e=pro.engine(id),s=e.w.agSim.stats();
       return {applied:e.applied?._sim.q,active:s.layers[s.simUid]?.q,live:Object.values(s.layers).map(l=>l.q)};
     }));
     const baseline=await tiers();
-    await field('Live frame-rate cap').selectOption('15');
-    await field('WebGPU simulation quality').selectOption('low');
-    await field('3D lens effects').selectOption('false');
+    await choose('Live frame-rate cap','15');
+    await choose('WebGPU simulation quality','low');
+    await choose('3D lens effects','false');
     const tuned=await project();
     assert.deepEqual(tuned.settings.performance,{fps:15,simulation:'low',lensEffects:false});
     assert.equal(tuned.settings.background,'#102030');
@@ -100,7 +105,7 @@ const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}
     const reduced=await tiers();
     assert.ok(reduced.every(s=>s.applied==='low'&&s.active==='low'),JSON.stringify(reduced));
     assert.equal(await page.evaluate(()=>pro.engine('mesh').w.__agDofCfg),null);
-    await field('3D lens effects').focus();
+    await field('3D lens effects').locator('button[data-value="false"]').focus();
     await page.keyboard.press('Escape');assert.equal(await panel.isVisible(),false);
     assert.equal(await gear.evaluate(el=>document.activeElement===el),true);
     const preview=await page.locator('#preview').boundingBox();
@@ -113,10 +118,21 @@ const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}
     assert.equal(await page.evaluate(()=>pro.engine('mesh').w.__agDofCfg.amt),45);
     await page.evaluate(p=>pro.importProject(JSON.parse(JSON.stringify(p))),tuned);
     assert.deepEqual((await project()).settings,tuned.settings);
-    await page.setViewportSize({width:390,height:740});await gear.click();
+    await gear.click();
+    await field('Haze strength (%)').fill('75');
+    assert.equal((await project()).settings.lighting.hazeStrength,75,'Scene knobs update live without rebuilding the inspector');
+    await field('Haze strength (%)').dispatchEvent('change');
+    await page.evaluate(()=>pro.undo());
+    assert.equal((await project()).settings.lighting.hazeStrength,tuned.settings.lighting.hazeStrength);
+    await field('Haze end').fill('1');await field('Haze end').dispatchEvent('change');
+    assert.equal((await project()).settings.lighting.hazeEnd,tuned.settings.lighting.hazeEnd,'Invalid haze ranges restore the last valid setting');
+    assert.equal(await field('Haze end').inputValue(),String(tuned.settings.lighting.hazeEnd));
+    await page.screenshot({path:'/tmp/audiograph-scene-controls-desktop.png',fullPage:true});
+    await page.setViewportSize({width:390,height:740});
     const box=await panel.boundingBox();
     assert.ok(box.x>=0&&box.x+box.width<=390);
     assert.equal(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth),true,'Mobile inspector has no horizontal overflow');
+    await page.screenshot({path:'/tmp/audiograph-scene-controls-mobile.png',fullPage:true});
     await panel.getByRole('button',{name:'Done'}).click();
     const conflict=structuredClone(scene),other=conflict.layers[3];
     other.nodes.push(n('camera2','camera3d',{dof:20}));
