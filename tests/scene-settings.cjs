@@ -27,6 +27,8 @@ const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}
     await page.goto((process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/pro/`)+'?demo');
     await page.waitForFunction(()=>window.pro);
     assert.equal((await page.evaluate(()=>pro.getProject())).settings.camera.motion,'static','New scenes always have one scene camera');
+    assert.equal((await page.evaluate(()=>pro.getProject())).settings.camera.dof,0,'New scenes have depth of field disabled');
+    assert.equal((await page.evaluate(()=>pro.getProject())).settings.gravity,0,'Scene gravity defaults to zero');
     await page.evaluate(scene=>{pro.dissolve(false);pro.importProject(scene);},scene);
     await page.waitForFunction(()=>['particles','other'].every(id=>pro.engine(id)?.w?.agSim.stats().live>0));
     await page.evaluate(()=>pro.pause(true));
@@ -44,7 +46,14 @@ const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}
     assert.equal(await gear.getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('dialog[open]').count(),0,'Scene settings never opens a dialog');
     assert.equal(await panel.getByRole('heading',{name:'Scene settings'}).evaluate(el=>document.activeElement===el),true);
-    assert.deepEqual(await panel.locator('legend').allTextContents(),['3D camera','Ground','Environment lighting','Output','Performance','2D composition']);
+    assert.deepEqual(await panel.locator('legend').allTextContents(),['3D camera','Physics','Ground','Global lighting','Output','Performance','2D composition']);
+    await field('Scene gravity').fill('9.81');
+    await field('Scene gravity').dispatchEvent('change');
+    assert.equal((await project()).settings.gravity,9.81);
+    assert.equal(await page.evaluate(()=>pro.engine('particles').w.__agScene.gravity),9.81);
+    await page.evaluate(()=>pro.undo());
+    assert.equal((await project()).settings.gravity,0);
+    assert.equal(await page.evaluate(()=>pro.engine('particles').w.__agScene.gravity),0);
     assert.equal(await field('Camera mode').count(),0,'There is no per-node camera mode');
     const knob=(k,mode='sceneCamera')=>page.locator(`#properties input[data-property="${mode}:${k}"]`);
     const setKnob=(k,value,commit,mode)=>knob(k,mode).evaluate((el,{value,commit})=>{

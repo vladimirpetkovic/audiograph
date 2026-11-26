@@ -46,7 +46,7 @@ export const STEPS=[
   {t:'Autopilot',sel:'#modeAuto',ban:'Let <b>Autopilot</b> play',
     txt:'Autopilot follows the music and makes new looks at each section. Describe a vibe to steer it, or use Preset Morph to glide between the original presets.'},
   {t:'Record and Perform',sel:['#record','#snap','.transport-side.end'],ban:'Record and <b>Perform</b>',
-    txt:'Record captures video with its audio and the camera saves a PNG. Pick the resolution, go fullscreen (Tab), or Detach the output into a window for a projector.'},
+    txt:'Record captures video with its audio and the camera saves a PNG. Pick the resolution, go fullscreen (Cmd+F), or Detach the output into a window for a projector.'},
   {t:'Save your Scene',sel:['label:has(#import)','#save','#restore'],last:true,ban:'Save your <b>Scene</b>',
     txt:'Save → Save scene writes an .ag file wherever you choose (⌘S); Save as template adds it to Templates → User templates. Open loads a scene back. The ? button opens the full Guide. Your tutorial scene stays: keep playing!'}
 ];

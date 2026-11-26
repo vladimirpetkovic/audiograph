@@ -324,11 +324,11 @@ export const TYPES = {
     variety:G('Objects',n('Variety',100,0,100,5,{key:'pG3Mix'}))},{},'Cloner'),inputs:{audio:'audio',drive:'number',object:'object3d',object2:'object3d',object3:'object3d',mask:'visual'}},
   soundEffector:C3D('Effectors','Sound effector','Connected objects and clones respond to sound: move, rotate and scale with shared sensitivity and response controls.',{
     listen:C3P('Spectrum distribution','index',[['index','Order'],['distance','Distance'],['x','X'],['y','Y'],['z','Z'],['random','Random']],'g3Map'),
-    sensitivity:G('Sound',C3('Sensitivity',100,0,200,'pSimSens',5)),attack:G('Sound',C3('Attack',40,5,400,'pSimAttack',5)),
-    release:G('Sound',C3('Release',350,50,2000,'pSimRelease',10)),bass:G('Sound',C3('Bass reaction',100,0,300,'pSimBass',5)),
-    energy:G('Sound',C3('Energy',100,0,200,'pSimEnergy',5)),burst:G('Sound',C3('Beat burst',100,0,200,'pSimBurst',5)),
-    spectrumTilt:G('Sound',C3('Spectrum tilt',0,-100,100,'pSimTilt',5)),
-    soundForce:G('Sound',C3('Sound impulse',5,0,30,'_rigidSoundForce',.5)),
+    sensitivity:G('Response',C3('Sensitivity',100,0,200,'pSimSens',5)),attack:G('Response',C3('Attack',40,5,400,'pSimAttack',5)),
+    release:G('Response',C3('Release',350,50,2000,'pSimRelease',10)),bass:G('Response',C3('Bass reaction',100,0,300,'pSimBass',5)),
+    energy:G('Response',C3('Energy',100,0,200,'pSimEnergy',5)),burst:G('Response',C3('Beat burst',100,0,200,'pSimBurst',5)),
+    spectrumTilt:G('Response',C3('Spectrum tilt',0,-100,100,'pSimTilt',5)),
+    soundForce:G('Response',C3('Sound impulse',5,0,30,'_rigidSoundForce',.5)),
     intensity:G('Response',C3('Intensity',100,0,200,'_soundIntensity',5)),punch:G('Response',C3('Bass punch',60,0,100,'_soundPunch')),
     responseRelease:G('Response',C3('Bass release',220,60,800,'_soundRelease',10)),dynamics:G('Response',C3('Dynamics',50,0,100,'_soundDynamics')),
     grow:G('Scale',C3('Grow from base',0,0,100,'pG3Anchor',5)),spread:G('Distribution',C3('Spread',35,0,100,'pG3Indep',5)),delay:G('Distribution',C3('Delay',0,0,100,'pG3Delay',5)),
@@ -361,7 +361,7 @@ export const TYPES = {
     floor:G('Floor',C3('Floor',0,0,100,'pG3Floor',5)),floorHeight:G('Floor',C3('Height',0,-100,100,'pG3FloorY',5)),floorTint:G('Floor',C3('Tint',30,0,100,'pG3FloorTint',5))}),
   camera3d:C3D('Look','3D camera','Rotate, orbit (on its own or with the music), tilt and zoom, lens focal length (14–200 mm), depth of field (every 3D Object render, Waveform included) and motion blur. Drag in the preview to look around.',{
     turn:C3('Rotate',0,-180,180,'pG3Yaw'),orbit:C3('Orbit',0,-100,100,'pG3Orbit'),orbitSound:C3('Orbit with sound',0,0,100,'pG3OrbitSnd',5),tilt:C3('Tilt',18,-180,180,'pG3Tilt'),zoom:C3('Zoom',100,30,300,'pG3Zoom',5),
-    focal:G('Lens',pick('Focal length','28',['14','18','24','28','35','50','85','135','200'],{key:'pG3Focal',sims:['simcloner','simparticles','simfluid3d'],labels:[['14','14 mm ultra wide'],['18','18 mm'],['24','24 mm wide'],['28','28 mm'],['35','35 mm'],['50','50 mm normal'],['85','85 mm portrait'],['135','135 mm tele'],['200','200 mm long tele']]})),dof:G('Lens',C3('Depth of field',30,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
+    focal:G('Lens',pick('Focal length','28',['14','18','24','28','35','50','85','135','200'],{key:'pG3Focal',sims:['simcloner','simparticles','simfluid3d'],labels:[['14','14 mm ultra wide'],['18','18 mm'],['24','24 mm wide'],['28','28 mm'],['35','35 mm'],['50','50 mm normal'],['85','85 mm portrait'],['135','135 mm tele'],['200','200 mm long tele']]})),dof:G('Lens',C3('Depth of field',0,0,100,'pG3Dof',5)),focus:G('Lens',C3('Focus',50,0,100,'pG3Focus',5)),blur:G('Lens',C3('Motion blur',0,0,100,'pG3Mb',5))}),
   // Deformers
   symmetry:{category:'deformers',group:'Symmetry',label:'Symmetry',description:'Repeat the shape: mirror across X / Y or turn it into 3- to 8-fold rotations.',...SHAPE_IO,props:{
     mode:pick('Symmetry','r6',SYMS.map(s=>s[0]),{labels:SYMS,key:'_symmetryMode'}),gap:n('Gap',0,0,100,1,{key:'_symGap'})}},
@@ -632,7 +632,7 @@ export function layer(index=1) {
     {from:merge.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=20;
+export const VERSION=21;
 export function project() { return {format:'audiograph-pro',version:VERSION,settings:clone(SCENE_DEFAULTS),layers:[layer()]}; }
 export function routeVisual(g,source,out){
   const output=g.nodes.find(n=>n.type==='output');if(!output)return;
@@ -1065,17 +1065,26 @@ export const SCENE_CAMERA_PROPS={
   px:n('Pan X',0,-4,4,.01),py:n('Pan Y',0,-4,4,.01)
 };
 export const SCENE_CAMERA=Object.fromEntries(Object.entries(SCENE_CAMERA_PROPS).map(([k,s])=>[k,clone(s.value)]));
-export const SCENE_GROUND={enabled:true,visible:true,shape:'square',color:'#aeb0b3',height:-1.2,size:20};
-export const SCENE_DEFAULTS={background:'#000000',camera:SCENE_CAMERA,ground:SCENE_GROUND,environment:null};
+export const SCENE_GROUND={enabled:true,visible:true,shadows:true,shape:'square',color:'#aeb0b3',height:-1.2,size:20};
+export const SCENE_LIGHTING={shadows:true,ambientOcclusion:false,aoStrength:60,aoRadius:1,depthHaze:false,hazeStrength:60,hazeStart:10,hazeEnd:80,hazeColor:'#aeb0b3'};
+export const SCENE_DEFAULTS={background:'#000000',gravity:0,camera:SCENE_CAMERA,ground:SCENE_GROUND,lighting:SCENE_LIGHTING,environment:null};
 function cleanSceneSettings(s){
   if(s===undefined)s={};
   if(!s||typeof s!=='object'||Array.isArray(s))throw Error('Invalid scene settings');
-  const out={camera:{...SCENE_CAMERA}};
+  const out={gravity:finite(s.gravity??0,-30,30,'Scene gravity'),camera:{...SCENE_CAMERA}};
+  if(s.lighting!==undefined&&(!s.lighting||typeof s.lighting!=='object'||Array.isArray(s.lighting)))throw Error('Invalid scene lighting');
+  const light={...SCENE_LIGHTING,shadows:s.ground?.shadows??SCENE_LIGHTING.shadows,...s.lighting};
+  for(const k of ['shadows','ambientOcclusion','depthHaze'])if(typeof light[k]!=='boolean')throw Error('Invalid scene lighting: '+k);
+  out.lighting={shadows:light.shadows,ambientOcclusion:light.ambientOcclusion,depthHaze:light.depthHaze,
+    aoStrength:finite(light.aoStrength,0,100,'AO strength'),aoRadius:finite(light.aoRadius,.05,10,'AO radius'),
+    hazeStrength:finite(light.hazeStrength,0,100,'Haze strength'),hazeStart:finite(light.hazeStart,0,500,'Haze start'),
+    hazeEnd:finite(light.hazeEnd,.01,1000,'Haze end'),hazeColor:cleanProp(color('Haze colour',SCENE_LIGHTING.hazeColor),light.hazeColor,'Haze colour')};
+  if(out.lighting.hazeEnd<=out.lighting.hazeStart)throw Error('Haze end must be farther than haze start');
   if(s.ground!==undefined){
     const g={...SCENE_GROUND,...s.ground};
-    if(!s.ground||typeof s.ground!=='object'||Array.isArray(s.ground)||typeof g.enabled!=='boolean'||typeof g.visible!=='boolean')throw Error('Invalid scene ground');
+    if(!s.ground||typeof s.ground!=='object'||Array.isArray(s.ground)||typeof g.enabled!=='boolean'||typeof g.visible!=='boolean'||typeof g.shadows!=='boolean')throw Error('Invalid scene ground');
     if(!['square','circle'].includes(g.shape))throw Error('Invalid ground shape');
-    out.ground={enabled:g.enabled,visible:g.visible,shape:g.shape,color:cleanProp(color('Ground colour',SCENE_GROUND.color),g.color,'Ground colour'),height:finite(g.height,-100,100,'Ground height'),size:finite(g.size,.2,200,'Ground size')};
+    out.ground={enabled:g.enabled,visible:g.visible,shadows:g.shadows,shape:g.shape,color:cleanProp(color('Ground colour',SCENE_GROUND.color),g.color,'Ground colour'),height:finite(g.height,-100,100,'Ground height'),size:finite(g.size,.2,200,'Ground size')};
   }
   if(s.environment!==undefined){
     const e=s.environment;

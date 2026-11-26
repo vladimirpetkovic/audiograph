@@ -228,12 +228,14 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     const sound=page.locator('#properties [data-group="Sound"]');
     await sound.getByRole('button',{name:'Sound',exact:true}).click();
     const bandButton=label=>sound.getByRole('button',{name:label,exact:true});
+    const pausedFluidSteps=await page.evaluate(()=>pro.engine('fluid').fluid.steps);
     await bandButton('Highs').click();
     await page.evaluate(()=>pro.draw());
     assert.ok(await page.evaluate(()=>Math.abs(pro.engine('fluid').fluid.audioLevel-pro.value('high'))<.0001));
     await bandButton('Bass').click();
     await page.evaluate(()=>pro.draw());
     assert.ok(await page.evaluate(()=>Math.abs(pro.engine('fluid').fluid.audioLevel-pro.value('bass'))<.0001));
+    assert.equal(await page.evaluate(()=>pro.engine('fluid').fluid.steps),pausedFluidSteps,'Paused band edits update their input without advancing fluid physics');
     for(const label of ['Mids','Full range'])assert.ok(await bandButton(label).isVisible());
     for(const label of ['Attack (ms)','Release (ms)','Sound turbulence','Sound speed'])await sound.getByRole('slider',{name:label}).waitFor({state:'attached'});
     const response=await page.evaluate(async()=>{

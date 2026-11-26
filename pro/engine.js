@@ -14,7 +14,7 @@ import {patchEnvironment,installEnvironment} from './environment.js';
 import {decodeMaterials,releaseMaterials} from './model-materials.js';
 import {patchScene,installScene,flowPhase} from './scene3d.js';
 import {patchPalette,installPalette} from './palette-map.js';
-import {soundTransform} from './object-transform.js';
+import {soundTransform,rotationMatrix,rotatePoint} from './object-transform.js';
 // The 3D lighting after the WebGPU Cornell box sample (soft cast shadows, light size, bounce light, floor), smooth
 // cube normals and the link width / glow / pulse knobs are built into the classic engine; Pro keeps only its own defaults.
 function patch3dLighting(patch){
@@ -162,6 +162,7 @@ async function engineSource() {
     html=html.replace(/@import\s+url\((['"]?)[^'")]*\1\)\s*;?/g,'');
     // Cloner: shapes "mesh0".."mesh2" are the 3D objects wired into the Cloner node (an OBJ or the knot).
     const patch=(from,to)=>{if(!html.includes(from))throw Error('Audiograph engine patch target missing: '+from.slice(0,100));html=html.replace(from,to);};
+    patch("pgrav:K('pSpGravity',-3)/100*1.6","pgrav:K('pSpGravity',-3)/100*1.6+(window.__agScene.gravity||0)");
     patch("['pSpSpeed','Launch speed',10,200,10,5,", "['pSpSpeed','Launch speed',0,400,10,1,");
     patch("(+document.getElementById('pObjNoise').value||50)/100","+document.getElementById('pObjNoise').value/100");
     patch("(+document.getElementById('pObjElev').value||60)/100","+document.getElementById('pObjElev').value/100");
@@ -497,12 +498,16 @@ export class EmitterEngine {
     w.__agObjectComposite=!!job.sceneObject;
     w.__agScene.start(!!job.wantDepth,!!job.wantSource,job.surfaceFlowTime==null?null:flowPhase(job.surfaceFlowTime),!!job.wantCollision);
     w.__agScene.rigidConfig=job.rigid||null;
-    w.__agScene.groundConfig=job.ground||null;w.__agScene.groundOnly=!!job.groundOnly;
+    w.__agScene.groundConfig=job.ground||null;w.__agScene.groundOnly=!!job.groundOnly;w.__agScene.gravity=job.sceneGravity??0;
+    const root=job.objectTransform,rotation=rotationMatrix(root?.rotation||[0,0,0]),
+      origin=rotatePoint(root?.position||[0,0,0],root?.rotation||[0,0,0],true);
+    w.__agScene.groundMatrix=new Float32Array([rotation[0],rotation[1],rotation[2],0,rotation[3],rotation[4],rotation[5],0,rotation[6],rotation[7],rotation[8],0,-origin[0],-origin[1],-origin[2],1]);
     if(job.need&&this.mediaKind!==job.need)throw Error(`${job.label||job.mode}: load ${job.need==='image'?'an image':'a video'} in its properties`);
     const p={...this.base};
     for(const [k,v] of Object.entries(job.opts||{}))if(OPT_ID.test(k))p[k]=v;
     const cam=job.mods?._cam;
     Object.assign(p,job.mods||{});delete p._cam;
+    if(job.ground?.shadows===false)p.pG3Shadow=0;
     if(soundActor&&soundOn&&mode==='object')p._sensitivity=p.pSimSens??100;
     if(soundActor&&!soundOn)Object.assign(p,{pSimSens:0,pSimBass:0,pSimBurst:0,pG3ScX:0,pG3ScY:0,pG3ScZ:0,pG3EfX:0,pG3EfY:0,pG3EfZ:0,pG3EfRX:0,pG3EfRY:0,pG3EfRZ:0,pG3EfScale:0});
     if(soundActor&&!soundOn&&mode!=='simcloner'){
@@ -634,8 +639,8 @@ export class EmitterEngine {
     const selected=performanceSettings?.simulation;
     const out=volume.draw({camera,width:WIDTH,height:HEIGHT,quality:selected&&selected!=='node'?selected:'med',
       dt:job.dt,time:job.time,frame:job.frame,level:job.audio.drive.fluid,beat:job.audio.drive.beat*p.punch/100,
-      props:p,palette,gravity:cm._fluidGravity,attract:cm._attractPoint?[...cm._attractPoint,cm._fluidAttract||0]:[0,0,0,0],source,flat:job.flatFluid,collisions:job.collisions,ground:job.ground,
-      occluders:job.occluders,renderOnly:job.renderOnly});
+      props:p,palette,gravity:(cm._fluidGravity??0)+(job.sceneGravity??0)*17,attract:cm._attractPoint?[...cm._attractPoint,cm._fluidAttract||0]:[0,0,0,0],source,flat:job.flatFluid,collisions:job.collisions,ground:job.ground,
+      occluders:job.occluders,renderOnly:job.renderOnly,paused:job.paused});
     if(out){
       this.ctx.resetTransform();this.ctx.clearRect(0,0,WIDTH,HEIGHT);
       this.ctx.filter=job.hue?`hue-rotate(${job.hue}deg)`:'none';this.ctx.drawImage(out,0,0,WIDTH,HEIGHT);this.ctx.filter='none';

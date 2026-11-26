@@ -34,7 +34,7 @@ with sync_playwright() as p:
             project = page.evaluate("() => pro.getProject()")
             if guide == "cloner":
                 assert project["settings"]["ground"]["shape"] == "circle"
-                assert any(n["type"] == "gravity" for n in project["layers"][0]["nodes"])
+                assert project["settings"]["gravity"] == 9.81
                 assert page.evaluate("() => pro.stats().rigid.bodies") == 30
             else:
                 assert len(project["layers"]) == 2
@@ -72,6 +72,14 @@ with sync_playwright() as p:
         assert page.locator('.insp-fold[data-group="Sound"]').count() == 0
         fx = page.evaluate("id => pro.getProject().layers[0].edges.find(e=>e.from===id&&e.input==='shape').to", clone)
         page.evaluate("id => pro.select(id)", fx)
+        assert page.locator('.insp-fold[data-group="Sound"]').count() == 0
+        response = page.locator('.insp-fold[data-group="Response"]')
+        if "closed" in response.get_attribute("class").split():
+            response.locator(".insp-fold-head").click()
+        for key in ["intensity", "attack", "release", "bass", "burst", "dynamics", "spectrumTilt", "soundForce"]:
+            assert response.locator(f'[data-property="{key}"]').first.is_visible()
+        for key in ["sensitivity", "energy", "punch", "responseRelease"]:
+            assert page.locator(f'[data-property="{key}"]').count() == 0
         page.locator('.insp-fold[data-group="Transforms"] .insp-fold-head').click()
         for keys in [["moveX", "moveY", "moveZ"], ["rotateX", "rotateY", "rotateZ"], ["scaleX", "scaleY", "scaleZ"]]:
             ys = [page.locator(f'[data-property="{key}"]').first.bounding_box()["y"] for key in keys]
@@ -87,6 +95,6 @@ with sync_playwright() as p:
         assert abs(page.evaluate("() => pro.stats().rigid.groups[0].positions[0][1]")) < .01
         assert not errors, errors
         assert page.evaluate("() => Object.values(pro.stats().engines).flatMap(e=>e.sim?.errors||[])") == []
-        print("ok - Cloner and Waterfall guides, scene help, ground types, EXR picker and object palette mapping")
+        print("ok - Cloner and Waterfall guides, scene help, ground types, EXR, palettes and consolidated Sound Effector Response")
     finally:
         browser.close()

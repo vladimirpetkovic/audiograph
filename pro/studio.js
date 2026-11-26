@@ -1,5 +1,5 @@
 import * as sensors from './sensors.js';import * as lights from './lights.js';
-import {OUTPUT_SIZES,VIDEO_QUALITIES,LIVE_FRAME_RATES,SIM_QUALITIES,SCENE_PERFORMANCE,SCENE_CAMERA,SCENE_CAMERA_PROPS,SCENE_DEFAULTS,SCENE_GROUND,routeVisual,legacyCameraNotice} from './graph.js';
+import {OUTPUT_SIZES,VIDEO_QUALITIES,LIVE_FRAME_RATES,SIM_QUALITIES,SCENE_PERFORMANCE,SCENE_CAMERA,SCENE_CAMERA_PROPS,SCENE_DEFAULTS,SCENE_GROUND,SCENE_LIGHTING,routeVisual,legacyCameraNotice} from './graph.js';
 import {CAMERA_MOTIONS,CAMERA_ZOOM_MIN,CAMERA_ZOOM_MAX,cameraPose,advanceCamera,frameCamera} from './camera.js';
 import {RigidWorld} from './rigid.js';
 import {importEnvironment} from './environment.js';
@@ -11,6 +11,7 @@ import {MASK_KEYS,setTextMesher,HIDDEN_MODES,FORCE_KNOBS,TYPES,defaults,CATEGORI
 import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} from './engine.js';
 import {prepareFluid3D} from './fluid3d.js';
 import {sceneOf,setScene,composeScene,occludeScene,pruneScenes} from './scene3d.js';
+import {shadeScene,pruneSceneLighting,beginSceneLighting,endSceneLighting} from './scene-lighting.js';
 import {collisionField} from './colliders.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
@@ -125,6 +126,7 @@ function reconcile(){
   for(const map of [surfaces,thumbs])for(const [id,cv] of map)if(!nodeIDs.has(id.split(':')[0])){cv.width=cv.height=1;map.delete(id);}
   for(const id of nodeState.keys())if(!nodeIDs.has(id.split(':')[0]))nodeState.delete(id);
   pruneScenes(new Set([...nodeIDs,'__stage']));
+  pruneSceneLighting(new Set([...nodeIDs,'__stage']));
   for(const [id,m] of mediaEls)if(!nodeIDs.has(id)){m.clear();mediaEls.delete(id);}
   dropShaderState(nodeIDs);if(!state.layers.some(g=>g.nodes.some(n=>SHADER_NODES.has(n.type))))releaseShaders();for(const id of shaderErrors.keys())if(!nodeIDs.has(id))shaderErrors.delete(id);
   plans=new Map(state.layers.map(g=>{
@@ -135,7 +137,8 @@ function reconcile(){
   }));
   layerReaders=new Set(state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='layerIn').map(n=>state.layers[n.props.layer-1]?.id)).filter(Boolean));
   mapLayers=new Set((state.mapping?.surfaces||[]).filter(s=>s.source!=='all').map(s=>state.layers[s.source-1]?.id).filter(Boolean));
-  for(const id of layerImages.keys())if(!layerReaders.has(id)&&!mapLayers.has(id))layerImages.delete(id);
+  for(const id of layerImages.keys())if(!layerReaders.has(id))layerImages.delete(id);
+  for(const id of mappingLayerImages.keys())if(!mapLayers.has(id))mappingLayerImages.delete(id);
   if(mapSel&&!state.mapping?.surfaces.some(s=>s.id===mapSel)){mapSel=null;mapPt=-1;}
   if(!state.layers.some(g=>g.id===active))active=state.layers[0].id;
   if(!graph().nodes.some(n=>n.id===selected))selected=null;
@@ -193,6 +196,13 @@ function addNode(type,x,y,props={}){
     // A Cloner always starts with an object; a new object goes into the selected Cloner's first free slot.
     // A Cloner always starts with a Cube object and a Sound effector after it (so the clones move with the music).
     if(type==='cloner'){const o=node('waveform3d',n.x-210,n.y+40,{mode:'cube',render:'normal'});g.nodes.push(o);g.edges.push({from:o.id,out:'object',to:n.id,input:'object'});
+      const ground={...SCENE_GROUND,...p.settings?.ground};
+      if(ground.enabled&&!Object.hasOwn(props,'moveY')&&n.props.layout==='grid'){
+        const radius=o.props.size/100*n.props.scale/100,
+          half=['X','Y','Z'].map(a=>radius*((n.props['count'+a]-1)*n.props['spacing'+a]/100+1.5*n.props['scale'+a]/100)),
+          rotation=rotationMatrix([n.props.rotX,n.props.rotY,n.props.rotZ]);
+        n.props.moveY=ground.height+half.reduce((sum,v,i)=>sum+Math.abs(rotation[3+i])*v,0)+radius*.15;
+      }
       const fx=node('soundEffector',n.x+210,n.y);for(const m of g.nodes)if(m!==n&&m.x>n.x+20&&m.y<n.y+120&&m.y>n.y-120)m.x+=210;g.nodes.push(fx);
       const down=g.edges.filter(e=>e.from===n.id&&e.out==='shape');g.edges=g.edges.filter(e=>!down.includes(e));
       g.edges.push({from:n.id,out:'shape',to:fx.id,input:'shape'},...down.map(e=>({...e,from:fx.id})));visual=fx;}
@@ -562,13 +572,13 @@ function surface(id){
 function colorScene(src,canvas,paint,opaque=true){
   paint();
   const meta=sceneOf(src);
-  const {composition,...base}=meta||{};
+  const {composition,lightingComposition,...base}=meta||{};
   if(meta)setScene(canvas,{...base,...(!opaque&&{opaque:null,
     roots:meta.roots.map(r=>r.kind==='geometry'?{...r,opaque:null}:r)}),
     refresh:()=>{meta.refresh?.();paint();}});
   return canvas;
 }
-function compositeInputs(id,canvas,ctx,inputs,mode,blendOf,occlusion=true){
+function compositeInputs(id,canvas,ctx,inputs,mode,blendOf,occlusion=true,lighting=false){
   let images=inputs.filter(({img,alpha})=>img&&alpha>0);
   if(!images.length)return;
   if(mode==='source-over'){
@@ -593,15 +603,40 @@ function compositeInputs(id,canvas,ctx,inputs,mode,blendOf,occlusion=true){
       .flatMap(({img})=>sceneOf(img)?.roots.filter(r=>r.kind==='geometry')||[]));
     occludeScene(images.map(({img})=>img),excluded);
   }
+  const light=state.settings.lighting;
+  if(lighting&&spatial&&mode==='source-over'&&(light.ambientOcclusion&&light.aoStrength>0||light.depthHaze&&light.hazeStrength>0)){
+    const geometry=surface(id+':lightingGeometry');
+    compositeInputs(id+':lightingGeometry',geometry.canvas,geometry.ctx,images.filter(({img})=>sceneOf(img)),mode,blendOf,false);
+    let lit;
+    if(images.some(({img})=>sceneOf(img)?.lightingComposition)){
+      const target=surface(id+':litGeometry'),depth=sceneOf(geometry.canvas)?.depth;
+      const shaded=images.filter(({img})=>sceneOf(img)).map((item,i)=>({...item,img:lightTree(id+':lightTree'+i,item.img,depth)}));
+      compositeInputs(id+':litGeometry',target.canvas,target.ctx,shaded,mode,blendOf,false);
+      lit=target.canvas;
+    }else lit=shadeScene(id+':lighting',geometry.canvas,light,rigidChanged);
+    colorScene(lit,canvas,()=>{
+      ctx.clearRect(0,0,WIDTH,HEIGHT);
+      const flat=role=>{
+        for(const {img,alpha} of images.filter(i=>!sceneOf(i.img)&&i.role===role)){
+          ctx.globalAlpha=alpha;ctx.globalCompositeOperation=blendOf?.get(img)||'source-over';ctx.drawImage(img,0,0);
+        }
+      };
+      flat('background');ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.drawImage(lit,0,0);
+      flat('overlay');ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+    });
+    return;
+  }
   const normal=spatial&&mode==='source-over'&&images.every(({img,alpha})=>
     alpha===1&&(!blendOf?.get(img)||blendOf.get(img)==='source-over'));
   let acc;
   if(normal){
-    acc=images[0].img;
+    const lastSpatial=images.findLastIndex(({img})=>sceneOf(img));
+    const shade=(image,i)=>lighting&&i===lastSpatial?shadeScene(id+':lighting',image,state.settings.lighting,rigidChanged):image;
+    acc=shade(images[0].img,0);
     for(let i=1;i<images.length;i++){
       const next=surface(id+':scene'+i).canvas,img=images[i].img;
       if(!composeScene(id+':scene'+i,acc,img,next)){const x=next.getContext('2d');x.drawImage(acc,0,0);x.drawImage(img,0,0);}
-      acc=next;
+      acc=shade(next,i);
     }
   }else if(spatial){
     const depth=images.map(({img,alpha},i)=>{
@@ -627,6 +662,20 @@ function compositeInputs(id,canvas,ctx,inputs,mode,blendOf,occlusion=true){
   });
   if(spatial&&mode==='source-over'&&images.every(({img})=>!blendOf?.get(img)||blendOf.get(img)==='source-over')&&sceneOf(canvas))
     setScene(canvas,{...sceneOf(canvas),composition:images});
+  if(spatial&&mode!=='source-over'&&images.some(({img})=>!sceneOf(img))&&sceneOf(canvas))
+    setScene(canvas,{...sceneOf(canvas),lightingComposition:{images,mode,blendOf}});
+}
+function lightTree(id,image,depth){
+  const meta=sceneOf(image),tree=meta?.lightingComposition||(meta?.composition?{images:meta.composition,mode:'source-over'}:null);
+  if(!tree)return shadeScene(id,image,state.settings.lighting,rigidChanged,depth);
+  const target=surface(id+':tree'),blends=tree.blendOf?new Map():undefined;
+  const inputs=tree.images.map((item,i)=>{
+    const img=lightTree(id+':child'+i,item.img,depth);
+    if(blends)blends.set(img,tree.blendOf.get(item.img));
+    return {...item,img};
+  });
+  compositeInputs(id+':tree',target.canvas,target.ctx,inputs,tree.mode,blends,false);
+  return target.canvas;
 }
 // Text (Inputs): plain letters (font, weight, colour), scaled by the sound with Bounce. A picture, not an emitter.
 function plainText(id,p,sig){
@@ -974,6 +1023,12 @@ function glitchInto(canvas,g){
   if(g.k<=.003||g.seed%4===0){hc.clearRect(0,0,W,H);hc.drawImage(canvas,0,0);}
 }
 function engineFor(id){if(!engines.has(id))engines.set(id,new EmitterEngine(id,m=>message(m,true,'render')));return engines.get(id);}
+let rigidRedrawPending=false;
+function rigidChanged(){
+  if(!paused||rigidRedrawPending)return;
+  rigidRedrawPending=true;
+  requestAnimationFrame(()=>{rigidRedrawPending=false;if(paused)draw(elapsed,0);});
+}
 function fxEngine(){
   for(const e of engines.values())if(e.status==='ready')return e;
   if(!engines.size)engineFor('__fx');return null;
@@ -1018,6 +1073,7 @@ function previewExtra(g,plan){
 function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
   layerView.delete(g.id);layerZoom.delete(g.id);layerBlend.delete(g.id);
   const performanceSettings=state.settings?.performance;
+  const sceneGround={...SCENE_GROUND,...state.settings?.ground,shadows:state.settings.lighting.shadows};
   // blendOf: a visual source's Compositing blend, carried with its picture to the Merge or layer stack that lays it over others.
   const outputs=new Map(),byInput=new Map(g.edges.map(e=>[e.to+':'+e.input,e])),rendered=new Map(),sourceSnapshots=new Map(),blendOf=new Map();let image=null;
   const input=(n,key)=>{const e=byInput.get(n.id+':'+key);return e?outputs.get(e.from)?.[e.out]:undefined;};
@@ -1039,9 +1095,9 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
     const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+'|'+(v.comp?.o??100)+'|'+!!v.job.sharedScene+'|'+!!v.job.wantSource+'|'+(v.job.surfaceFlowTime!=null);
     const wantCollision=colliderIds.has(v.emitter.id);
     if(rendered.has(key)){const poses=sourceSnapshots.get(key);Object.assign(v,poses);if(poses.collider)nextColliders.set(v.emitter.id,poses.collider);return rendered.get(key);}
-    const e=engineFor(v.emitter.id),job={...v.job,mods,hue:v.hue,view,wantCollision,sharedCamera:!!shared,
-      environment:state.settings?.environment??null,ground:{...SCENE_GROUND,...state.settings?.ground,...(sceneCamera?{visible:false}:{})},
-      rigid:v.job.rigidProps?{id:v.emitter.id,world:rigidWorld,props:v.job.rigidProps,mods,audio:v.job.audio,object:v.job.sceneObject}:null,
+    const e=engineFor(v.emitter.id),job={...v.job,mods,hue:v.hue,view,wantCollision,sharedCamera:!!shared,renderOnly:paused,paused,
+      sceneGravity:state.settings?.gravity??0,environment:state.settings?.environment??null,ground:{...sceneGround,...(sceneCamera?{visible:false,shadowOnly:sceneGround.visible&&sceneGround.shadows}:{})},
+      rigid:v.job.rigidProps?{id:v.emitter.id,world:rigidWorld,props:v.job.rigidProps,mods:{...mods,_sceneGravity:state.settings?.gravity??0},audio:v.job.audio,object:v.job.sceneObject,onUpdate:rigidChanged}:null,
       wantDepth:!!v.job.sceneObject||v.job.mode==='simcloner'&&mods?._sceneYaw!=null||v.job.sharedScene||!!shared&&v.job.mode==='simparticles'},
       out=e.draw(job,performanceSettings);
     if(e.viewMode)layerView.set(g.id,e.viewMode);
@@ -1123,7 +1179,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       if(n.type==='cloner')r.shape.job.paletteBy=p.paletteBy;
       if(n.type==='waveform3d'&&p.render==='normal'&&(p.mode!=='model'||p.modelMaterials==='palette'))
         r.shape.job.paletteMapping={mode:p.paletteMap,axis:p.paletteAxis,tiling:p.paletteTiling,offset:p.paletteOffset,rotation:p.paletteRotation,primitive:r.object.prim?r.object.shape:null};
-      if((n.type==='cloner'||n.type==='waveform3d')&&p.rigidBody)r.shape.job.rigidProps=p;
+      if((n.type==='cloner'||n.type==='waveform3d')&&(p.rigidBody||n.type==='cloner'&&p.collide))r.shape.job.rigidProps=p;
       const key=n.type==='gpuParticles'&&SIM_SOURCE[p.mode],eng=key&&engines.get(n.id);
       const source=!emit&&key&&eng?.simSource(r.shape.job,key);
       const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(mesh||!emit&&source!=='image'&&source!=='camera');
@@ -1472,11 +1528,23 @@ function drawPinGrid(ctx,q){ctx.save();ctx.strokeStyle='rgba(255,255,255,.75)';c
   for(let k=0;k<=8;k++){const t=k/8;ctx.beginPath();ctx.moveTo(...quadPoint(q,t,0));ctx.lineTo(...quadPoint(q,t,1));ctx.moveTo(...quadPoint(q,0,t));ctx.lineTo(...quadPoint(q,1,t));ctx.stroke();}
   ctx.fillStyle='#e6e6ea';for(const p of q){ctx.beginPath();ctx.arc(p[0],p[1],7,0,7);ctx.fill();}ctx.restore();}
 // Layer nodes read other layers' pictures: this frame's if already drawn, otherwise the previous frame's.
-const layerImages=new Map();let layerReaders=new Set(),mapLayers=new Set();
+const layerImages=new Map(),mappingLayerImages=new Map();let layerReaders=new Set(),mapLayers=new Set();
 // With projection mapping on, layers composite into the program picture, which is then warped onto the surfaces.
 const program=document.createElement('canvas');program.width=WIDTH;program.height=HEIGHT;const programCtx=program.getContext('2d');
 const mapActive=()=>!!state.mapping?.surfaces.length&&(state.mapping.on||state.mapping.test);
 function keepLayer(id,image){if(!layerImages.has(id)){const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;layerImages.set(id,c);}const c=layerImages.get(id),x=c.getContext('2d');x.clearRect(0,0,WIDTH,HEIGHT);x.drawImage(image,0,0);}
+function lightLayer(id,image){
+  const light=state.settings.lighting;
+  if(!sceneOf(image)||!(light.ambientOcclusion&&light.aoStrength>0||light.depthHaze&&light.hazeStrength>0))return image;
+  const target=surface('__stage:layerLighting:'+id);
+  compositeInputs('__stage:layerLighting:'+id,target.canvas,target.ctx,[{img:image,alpha:1}],'source-over',undefined,false,true);
+  return target.canvas;
+}
+function keepMappingLayer(id,image){
+  if(!mappingLayerImages.has(id)){const c=document.createElement('canvas');c.width=WIDTH;c.height=HEIGHT;mappingLayerImages.set(id,c);}
+  const c=mappingLayerImages.get(id),x=c.getContext('2d');
+  x.clearRect(0,0,WIDTH,HEIGHT);x.drawImage(lightLayer(id,image),0,0);
+}
 function drawThumb(id,src){const cv=thumbs.get(id);if(!cv?.isConnected)return;const c=cv.getContext('2d');c.fillStyle='#000';c.fillRect(0,0,cv.width,cv.height);c.drawImage(src,0,0,cv.width,cv.height);}
 // Auto knobs: a shared clock (scaled by the Auto speed) and the drifted values shown on the knobs.
 let autoClock=0,knobAutoSpeed=1;const autoValues=new Map(),mapAutoValues=new Map();
@@ -1531,7 +1599,7 @@ function drawSceneGround(camera,ground){
   const e=engineFor('__ground'),mods={...GRAY,...applyShapeNode('camera3d',camera,{}),_sceneYaw:camera.yaw??0,
     pG3Nx:1,pG3Ny:1,pG3Nz:1,pG3Size:60,pG3ScX:0,pG3ScY:0,pG3ScZ:0,pG3Ao:0,pG3Shadow:0},
     view={...VIEW0,px:camera.px||0,py:camera.py||0};
-  const raw=e.draw({mode:'simcloner',label:'Scene ground',mods,view,ground,groundOnly:true,wantDepth:true,sharedCamera:true,
+  const raw=e.draw({mode:'simcloner',label:'Scene ground',mods,view,ground,groundOnly:true,wantDepth:true,sharedCamera:true,renderOnly:paused,
     environment:state.settings?.environment??null,audio:{freq:A.freq,wave:A.wave,rate:A.rate,drive:{bass:0,beat:0}}},state.settings?.performance);
   if(!raw)return null;
   const {canvas,ctx}=surface('__ground:r');ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.drawImage(raw,0,0,WIDTH,HEIGHT);
@@ -1542,6 +1610,7 @@ function drawSceneGround(camera,ground){
 }
 function draw(time,dt=1/30){
   if(pageHidden&&!exporting)return;
+  beginSceneLighting();
   drawSeq++;
   dissolveCheck();
   if(!paused)autoClock+=dt*knobAutoSpeed;
@@ -1552,7 +1621,7 @@ function draw(time,dt=1/30){
   const camera=state.settings.camera;
   if(sceneMotion.motion!==camera.motion){sceneMotion.phase=0;sceneMotion.motion=camera.motion;}
   if(!paused)sceneMotion.phase=advanceCamera(sceneMotion.phase,camera,dt,A.bands.bass);
-  const rigidIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0).flatMap(g=>g.nodes.filter(n=>!n.bypass&&n.props.rigidBody).map(n=>n.id)));
+  const rigidIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0).flatMap(g=>g.nodes.filter(n=>!n.bypass&&(n.props.rigidBody||n.type==='cloner'&&n.props.collide)).map(n=>n.id)));
   rigidWorld.begin(paused?0:dt,{...SCENE_GROUND,...state.settings?.ground},rigidIds);
   const sceneCamera=cameraPose(camera,sceneMotion.phase);
   sharedViewLayers.clear();
@@ -1567,7 +1636,7 @@ function draw(time,dt=1/30){
   for(const g of state.layers){
     // A hidden layer still renders when a mapping surface shows it on its own.
     const shown=g.visible&&g.opacity>0,forMap=mapped&&mapLayers.has(g.id);if(!shown&&!forMap&&previewLayer!==g)continue;
-    try{const image=execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);pictures.push({g,image,shown,forMap});}}
+    try{const image=execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera);if(image){if(layerReaders.has(g.id))keepLayer(g.id,image);pictures.push({g,image,shown,forMap});}}
     catch(error){renderErrors.push(error.message);}
   }
   if(sceneCamera&&ground.enabled&&ground.visible&&sharedViewLayers.size){
@@ -1582,12 +1651,15 @@ function draw(time,dt=1/30){
   try{
     const shown=pictures.filter(p=>p.shown),excluded=new Set(shown.filter(({g})=>g.opacity<1).flatMap(({image})=>sceneOf(image)?.roots.filter(r=>r.kind==='geometry')||[]));
     occludeScene(shown.map(p=>p.image),excluded);
-    for(const {g,image,forMap} of pictures)if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);
+    for(const {g,image,forMap} of pictures){
+      if(layerReaders.has(g.id))keepLayer(g.id,image);
+      if(forMap)keepMappingLayer(g.id,image);
+    }
     let inputs=[],index=0;
     const flush=()=>{
       if(!inputs.length)return;
       const id='__stage:scene'+index++,s=surface(id);
-      compositeInputs(id,s.canvas,s.ctx,inputs,'source-over',undefined,false);
+      compositeInputs(id,s.canvas,s.ctx,inputs,'source-over',undefined,false,true);
       out.globalAlpha=1;out.globalCompositeOperation='source-over';out.drawImage(s.canvas,0,0);inputs=[];
     };
     for(const {g,image} of shown){
@@ -1597,14 +1669,15 @@ function draw(time,dt=1/30){
         if(g.view&&!sharedViewLayers.has(g.id)){const s=surface('__stage:view:'+g.id);drawLayer(s.ctx,g,image);img=s.canvas;}
         inputs.push({img,alpha:1,background:plans.get(g.id)?.some(n=>n.type==='background')});continue;
       }
-      flush();out.globalAlpha=g.opacity;out.globalCompositeOperation=blend;drawLayer(out,g,image);
+      flush();out.globalAlpha=g.opacity;out.globalCompositeOperation=blend;
+      drawLayer(out,g,lightLayer(g.id,image));
     }
     flush();
   }catch(error){renderErrors.push(error.message);}
-  out.globalAlpha=1;out.globalCompositeOperation='source-over';
+  endSceneLighting();out.globalAlpha=1;out.globalCompositeOperation='source-over';
   if(mapped)mapTime=time;
   if(previewImg){previewCtx.globalAlpha=1;previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.drawImage(previewImg,0,0,WIDTH,HEIGHT);}
-  else if(mapped)mapping.render(previewCtx,remoteDim(map3d.driftMapping(state.mapping,autoClock,mapAutoValues)),(src,sf)=>src==='ai'?aiTexOf(sf):src==='all'?program:layerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time,{bands:A.bands,pulse:A.beatPulse,beat:clockBeat(time),bpm:clock.bpm,song:clock.source==='song'?songNow:null,cam:camMapFrame(),tagShow:tagMode?mapSel:null,res:exporting?1:mapLoad.res});
+  else if(mapped)mapping.render(previewCtx,remoteDim(map3d.driftMapping(state.mapping,autoClock,mapAutoValues)),(src,sf)=>src==='ai'?aiTexOf(sf):src==='all'?program:mappingLayerImages.get(state.layers[src-1]?.id)||null,WIDTH,HEIGHT,time,{bands:A.bands,pulse:A.beatPulse,beat:clockBeat(time),bpm:clock.bpm,song:clock.source==='song'?songNow:null,cam:camMapFrame(),tagShow:tagMode?mapSel:null,res:exporting?1:mapLoad.res});
   dissolveDraw(paused?0:dt);
   blackout.level+=((blackout.on?1:0)-blackout.level)*Math.min(1,dt*8);if(blackout.level<.002&&!blackout.on)blackout.level=0;
   if(blackout.level>0){previewCtx.globalAlpha=Math.min(1,blackout.level*1.02);previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.globalAlpha=1;}
@@ -2223,8 +2296,7 @@ function renderSoundEffector(root,n){
   choices.style.setProperty('--option-columns',3);distribution.append(choices);
   renderProps(distribution,n,['spread','delay'],true);
   distribution.append(el('p','insp-note','Chooses which frequency band drives each clone: Order maps bass to the first clone and treble to the last; Distance maps outward from the centre; X, Y and Z map along an axis; Random assigns bands randomly. Spread blends that layout with random bands. Delay staggers the response along the array.'));
-  renderProps(fold(root,'Sound'),n,['sensitivity','attack','release','bass','energy','burst','spectrumTilt','soundForce'],true);
-  renderProps(fold(root,'Response'),n,['intensity','punch','responseRelease','dynamics'],true);
+  renderProps(fold(root,'Response'),n,['intensity','attack','release','bass','burst','dynamics','spectrumTilt','soundForce'],true);
   const transforms=fold(root,'Transforms');
   for(const [title,keys] of [['Move',['moveX','moveY','moveZ']],['Rotate',['rotateX','rotateY','rotateZ']],['Scale',['scaleX','scaleY','scaleZ','uniformScale','grow']]])
     renderProps(section(transforms,title),n,keys,true);
@@ -2561,7 +2633,7 @@ function renderEmitter(root,n){
   if(n.type==='waveform3d'||n.type==='cloner'){
     const physics=fold(root,'Rigid body');
     renderProps(physics,n,simKeys(graph(),n).filter(k=>T.props[k].group==='Rigid body'&&!['collide','soundForce'].includes(k)),true);
-    physics.append(el('p','insp-note','Collider body makes a stationary surface for particles and fluid, without enabling forces. Rigid body enables dynamic object and clone collisions and sound impulses. Objects float until you add a Gravity force. Attract can target a connected 3D Object or Cloner. Ground belongs to Scene settings.'));
+    physics.append(el('p','insp-note','Collider body provides a surface for particles and fluid; on a Cloner it also resolves overlaps caused by effectors without enabling gravity or Forces. Rigid body enables dynamic collisions, sound impulses, Scene gravity and connected Forces. Scene gravity defaults to zero and adds to a connected Gravity force. Attract can target a connected 3D Object or Cloner. Ground belongs to Scene settings.'));
   }
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
@@ -3115,7 +3187,7 @@ function changeResolution(height){
   if(recorder)throw Error('Stop recording before changing resolution');
   setRenderResolution(height);
   const temp=document.createElement('canvas'),ctx=temp.getContext('2d');
-  const canvases=new Set([preview,program,fadeCv,...surfaces.values(),...mapped.values(),...layerImages.values()]);
+  const canvases=new Set([preview,program,fadeCv,...surfaces.values(),...mapped.values(),...layerImages.values(),...mappingLayerImages.values()]);
   for(const s of nodeState.values())if(s.c instanceof HTMLCanvasElement)canvases.add(s.c);
   for(const c of canvases){
     temp.width=c.width;temp.height=c.height;ctx.drawImage(c,0,0);
@@ -3197,6 +3269,8 @@ function renderSceneSettings(root){
     return c;
   };
   renderSceneCamera(group('3D camera'));
+  field(group('Physics'),'Scene gravity',settings.gravity??0,'number',v=>editScene('gravity',v,'Changed scene gravity'));
+  panel.lastChild.append(el('p','insp-note','Scene gravity defaults to 0. Positive values pull rigid 3D objects, rigid Cloners, particles and fluid downward; negative values pull upward. Connected Gravity forces add to it. Forces affect a Cloner only when Rigid body is on; Collider body alone ignores gravity and Forces.'));
   const ground=group('Ground'),groundSettings={...SCENE_GROUND,...settings.ground};
   const groundField=(label,key,value,options,parse=v=>v)=>field(ground,label,value,options,v=>
     editScene('ground',{...SCENE_GROUND,...state.settings?.ground,[key]:parse(v)},`Ground: ${label}`));
@@ -3210,7 +3284,24 @@ function renderSceneSettings(root){
   const restart=el('button','btn','Restart rigid bodies');restart.type='button';
   restart.onclick=()=>{rigidWorld.reset();if(paused)draw(elapsed);message('Rigid bodies restarted');};
   ground.append(restart);
-  const lighting=group('Environment lighting'),environment=settings.environment;
+  const lighting=group('Global lighting'),environment=settings.environment,lightSettings={...SCENE_LIGHTING,...settings.lighting};
+  const lightField=(label,key,options,parse=v=>v)=>field(lighting,label,
+    typeof lightSettings[key]==='boolean'?String(lightSettings[key]):lightSettings[key],options,v=>
+      editScene('lighting',{...SCENE_LIGHTING,...state.settings?.lighting,[key]:parse(v)},`Lighting: ${label}`));
+  const toggle=[['true','On'],['false','Off']];
+  lightField('Shadows','shadows',toggle,v=>v==='true');
+  lightField('Ambient occlusion','ambientOcclusion',toggle,v=>v==='true');
+  lightField('AO strength (%)','aoStrength','number');
+  lightField('AO radius','aoRadius','number');
+  lighting.append(el('p','insp-note','Shadows fall onto the shared Ground. Screen-space ambient occlusion darkens nearby creases and contacts across 3D objects. Strength is a percentage; Radius is in scene units. Both effects leave flat overlays unchanged.'));
+  lighting.append(el('h4','','Depth haze'));
+  lightField('Depth haze','depthHaze',toggle,v=>v==='true');
+  lightField('Haze strength (%)','hazeStrength','number');
+  lightField('Haze start','hazeStart','number');
+  lightField('Haze end','hazeEnd','number');
+  lightField('Haze colour','hazeColor','color');
+  lighting.append(el('p','insp-note','Depth haze blends distant 3D surfaces toward its colour, based on distance from the shared camera. Start and End are scene distances; End must exceed Start. Flat text, overlays and empty background pixels are not fogged. AO and haze are off by default and use no extra GPU passes while disabled.'));
+  lighting.append(el('h4','','Environment light'));
   lighting.append(el('p',environment?'insp-note data-status':'insp-note',environment?.name||'Import a Radiance HDR or OpenEXR panorama to illuminate and reflect in 3D surfaces.'));
   const hdr=el('input');hdr.type='file';hdr.accept='.hdr,.exr';hdr.setAttribute('aria-label','Import HDR or EXR environment');
   hdr.onchange=async()=>{
@@ -3533,7 +3624,7 @@ $('helpBody').innerHTML=`
 <li>Press <b>V</b> on any node to see only its picture, <b>B</b> to switch it off for a moment, ⌘Z to undo anything.</li></ol>
 <p>A good first scene: <b>Audio → Waveform (Circle) → Twist → Palette → Bloom → Output</b>. Then try swapping the Waveform for an Emitter or a 3D Object, and add <b>Liquid glass</b> or <b>Fracture</b> at the end.</p>
 <h3 id="h-screen">The screen</h3>
-<p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play / pause (Space; it pauses the visuals too), stop, record to video, snapshot, the audio source, the live spectrum, fullscreen (Tab) and <b>Detach</b>. Press <b>F</b> to frame all scene objects. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
+<p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play / pause (Space; it pauses the visuals too), stop, record to video, snapshot, the audio source, the live spectrum, fullscreen (⌘F / Ctrl+F) and <b>Detach</b>. Press <b>F</b> to frame all scene objects; <b>Tab</b> opens node search. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
 <p><b>Move the view</b> with the mouse over the preview; it moves the active layer. On a 3D layer (Cloner, 3D Object, splats) drag orbits the camera, right-drag or Shift-drag pans. On a 2D layer drag moves the picture. The wheel or a trackpad / touch pinch zooms (2D zooms toward the pointer), double-click resets. Every move is undoable and saved with the project.</p>
 <p>The <b>inspector</b> shows the selected node's knobs, grouped into sections, with a short description of what the node does at the top. With nothing selected it shows the layer (opacity, blend mode, resolution).</p>
 <h3 id="h-graph">Nodes &amp; wires</h3>
@@ -3557,7 +3648,7 @@ $('helpBody').innerHTML=`
 <li><b>Emitters</b>: Simple particles and WebGPU emitters (Particles, Fluid, Smoke).</li>
 <li><b>Compositing</b>: the last section of every waveform and emitter sets its <b>Opacity</b> and <b>Blend</b> mode (Screen, Add, Multiply, Difference…) against the layers below, even through a Palette.</li>
 <li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, USD, GLB or glTF), drawn <b>Normal</b> (solid), as a <b>Waveform</b> (lines) or as <b>Polygons</b> (filled faces that light up and move with the sound); any of them plugs into the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light). Chain effectors and look nodes after the Cloner. All 3D shares the camera in <b>Scene settings</b>.</li>
-<li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
+<li><b>Forces</b> push WebGPU simulations and rigid 3D objects or Cloners: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it. Cloners need <b>Rigid body</b> enabled to respond to Forces.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Water ripples (beats drop stones onto the shape), Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
 <li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto; the box under each stop is that colour's opacity: type a % or drag it up/down; Opacity makes the whole result see-through), Hue shift, Color correct.</li>
 <li><b>Post FX</b> work on images: Bloom, Blur, Motion blur, Lens, Kaleido, Trails, Fracture, Liquid glass, Glitch, Strobe, Melt, Tunnel, Shader, Corner pin.</li>
@@ -3573,15 +3664,15 @@ $('helpBody').innerHTML=`
 <h3 id="h-layers">Layers</h3>
 <p>Each graph is one layer. <b>+ Layer</b> adds another; layers stack in the preview using each layer's opacity and blend mode (select empty graph space to see the layer settings). Use the tabs above the graph to switch layers and the checkbox to show or hide one. A <b>Layer</b> node brings another layer into this graph, so one layer can be refracted, masked or blended by another.</p>
 <h3 id="h-3d">3D &amp; models</h3>
-<p><b>One scene, one camera.</b> Open <b>Scene settings</b> for the shared 3D camera, square or circular Ground with a colour picker, and HDR/EXR environment lighting. Camera movement includes Static, Orbit, Pendulum, Dolly and Spiral. Press <b>F</b> to frame all visible 3D content; <b>Tab</b> toggles fullscreen. New visual nodes connect to Merge automatically; manually edited routing stays yours. 3D objects share depth, while 2D visuals remain composited overlays. Scene settings has its own <b>?</b> for explanations.</p>
+<p><b>One scene, one camera.</b> Open <b>Scene settings</b> for the shared 3D camera, Physics and square or circular Ground with a colour picker. <b>Global lighting</b> groups Shadows, screen-space Ambient occlusion, Depth haze and HDR/EXR environment lighting. AO darkens creases and contacts; haze fades distant 3D surfaces toward its colour. Flat overlays stay unchanged. AO and haze are off by default, with no extra GPU passes. Scene gravity and Depth of field default to <b>0</b>. Camera movement includes Static, Orbit, Pendulum, Dolly and Spiral. Press <b>F</b> to frame all visible 3D content, <b>Tab</b> for node search and <b>⌘F / Ctrl+F</b> for fullscreen. New visual nodes connect to Merge automatically; manually edited routing stays yours. 3D objects share depth, while 2D visuals remain composited overlays. Scene settings has its own <b>?</b> for explanations.</p>
 <ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (lines), Polygons (faces; Gap separates them, Edges outlines them) or Point cloud (3D model). All four use the same scale and world pose. <b>Transforms</b> on Objects and Cloners has separate Move, Rotate and Scale XYZ rows, Size and Uniform scale. Choose <b>Gizmo: Move / Rotate / Scale</b> to edit the object directly in the preview; each drag is one undo step. With the gizmo off, drag orbits the shared camera, right-drag pans, scroll zooms and double-click resets.</li>
-<li><b>Sound effector</b> owns the sound controls. Standalone objects stay still unless one is connected; new Cloners include one automatically. <b>Sound</b> and <b>Response</b> shape sensitivity, attack, release and intensity. Its <b>Transforms</b> section has Move XYZ, Rotate XYZ, Scale XYZ, Uniform scale and Grow from base. <b>Spectrum distribution</b> assigns frequency bands across clones by Order, Distance, X, Y, Z or Random; Spread and Delay vary how they respond.</li>
+<li><b>Sound effector</b> owns the sound controls. Standalone objects stay still unless one is connected; new Cloners include one automatically. A single <b>Response</b> section controls Intensity, Attack, Release, Bass reaction, Beat burst, Dynamics, Spectrum tilt and Sound impulse, without duplicate gain or bass knobs. Its <b>Transforms</b> section has Move XYZ, Rotate XYZ, Scale XYZ, Uniform scale and Grow from base. <b>Spectrum distribution</b> assigns frequency bands across clones by Order, Distance, X, Y, Z or Random; Spread and Delay vary how they respond.</li>
 <li><b>Palette mapping</b>: the Cloner chooses how colours are distributed across its instances. Normal-rendered Objects offer <b>UV</b>, <b>Front</b> or <b>Box</b> projection, with axis, tiling, offset and rotation. Imported models must choose <b>Materials: Palette</b> to use it. Waveform and Polygon colours can react to sound through the connected Sound effector; Point clouds retain their Look colour options.</li>
 <li><b>3D model</b> loads <b>OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers; USD must be flattened, since referenced files are not loaded). Polygons of any size are triangulated. Still models keep up to 500,000 triangles in 3D Object (Normal and Point cloud render them on the GPU; Waveform and Polygons simplify to Max faces) and 1,000,000 in Mapping; animated models are thinned to 40,000 faces, since they are re-posed every frame. Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. If imported materials are unreadable or unsupported (for example, specular/glossiness), the mesh still loads with <b>Palette</b> shading. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
-<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound, Field, Random, Links) and <b>Look</b> nodes (Material, Light) after it. <b>Collider body</b> on an Object or Cloner makes its surfaces collide with particles and fluid without enabling physical forces. <b>Rigid body</b> makes objects and every clone bounce off one another, respond to sound impulses and receive connected forces. There is <b>no gravity by default</b>: add a <b>Gravity</b> node. <b>Attract → target</b> accepts a 3D Object or Cloner; the force pulls toward its world position, including moving rigid targets. An unwired Attract pulls toward the origin; negative strength repels.</li>
+<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound, Field, Random, Links) and <b>Look</b> nodes (Material, Light) after it. <b>Collider body</b> makes surfaces collide with particles and fluid; Cloner instances also separate and bounce when effectors move, rotate or enlarge them. Collider-only objects and Cloners ignore gravity and Forces. <b>Rigid body</b> adds sound impulses, connected Forces and <b>Scene settings → Physics → Scene gravity</b>. Gravity defaults to <b>0</b>; connected Gravity nodes add to or subtract from the scene value. <b>Attract → target</b> accepts a 3D Object or Cloner; the force pulls toward its world position, including moving rigid targets. An unwired Attract pulls toward the origin; negative strength repels.</li>
 <li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles, fluid and rigid bodies; choose Square or Circle, adjust its height and size or switch it off. Hidden ground still collides. Set <b>Look → Trails</b> to 0 to draw particles without trails. The shared Scene camera orbits the whole cloud.</li></ul>
-<p>Open Tutorials for <b>3D Cloner &amp; rigid bodies</b>, including Scene settings and explicit Gravity, or <b>Particles: Waterfall</b>, which builds the saved Waterfall look from particles, forces, colour and a fluid layer.</p>
+<p>Open Tutorials for <b>3D Cloner &amp; rigid bodies</b>, including Scene settings and Scene gravity, or <b>Particles: Waterfall</b>, which builds the saved Waterfall look from particles, forces, colour and a fluid layer.</p>
 <h3 id="h-sims">Simulations</h3>
 <p>WebGPU emitters (Particles, Fluid, Smoke) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
 <h3 id="h-fx">Post FX</h3>
@@ -3613,7 +3704,7 @@ $('helpBody').innerHTML=`
 <li><b>Output</b> → second display: Detach opens the picture in its own window for a projector or screen.</li>
 <li>Older projects open automatically and are updated to the current nodes.</li></ul>
 <h3 id="h-keys">Keys</h3>
-<ul><li><kbd>Space</kbd> pause visuals · <kbd>F</kbd> frame scene · <kbd>Tab</kbd> fullscreen · <kbd>Shift+A</kbd> add node · <kbd>Delete</kbd> remove node</li>
+<ul><li><kbd>Space</kbd> pause visuals · <kbd>F</kbd> frame scene · <kbd>Tab</kbd> node search · <kbd>⌘F / Ctrl+F</kbd> fullscreen · <kbd>Shift+A</kbd> add node · <kbd>Delete</kbd> remove node</li>
 <li><kbd>B</kbd> bypass selected · <kbd>V</kbd> preview selected · <kbd>Esc</kbd> leave preview or close dialogs</li>
 <li><kbd>⌘Z</kbd> undo · <kbd>⇧⌘Z</kbd> redo · <kbd>⌘S</kbd> save · <kbd>⇧⌘S</kbd> save as template · <kbd>⌘O</kbd> open</li>
 <li>Drag on empty graph space to select several nodes (<kbd>Shift</kbd> adds, <kbd>⌘A</kbd> selects all) · <kbd>⌘C</kbd> / <kbd>⌘X</kbd> / <kbd>⌘V</kbd> copy, cut, paste · Alt-drag, middle-drag or two fingers pan</li>
@@ -3672,11 +3763,12 @@ document.addEventListener('keydown',e=>{
     e.preventDefault();closeSceneInspector();return;
   }
   if((e.metaKey||e.ctrlKey)&&!e.altKey&&/^[so]$/i.test(e.key)){e.preventDefault();if(e.key.toLowerCase()==='s')(e.shiftKey?saveTemplate:saveScene)();else $('import').click();return;}
+  if((e.metaKey||e.ctrlKey)&&!e.altKey&&e.key.toLowerCase()==='f'){e.preventDefault();if(!e.repeat)toggleFullscreen();return;}
   if(e.target.closest('input,textarea,select,[contenteditable]')||$('help').open)return;
   const k=e.key.toLowerCase();
   if(/^[1-9]$/.test(e.key)&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&state.mapping?.on&&launchCue(+e.key-1)){e.preventDefault();return;}
   if(mapKey(e))return;
-  if(e.key==='Tab'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&!e.shiftKey){e.preventDefault();if(!e.repeat)toggleFullscreen();}
+  if(e.key==='Tab'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&!e.shiftKey){e.preventDefault();if(!e.repeat)openSearch();}
   else if(k==='a'&&e.shiftKey&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&(pointer.inGraph||e.target.closest?.('#graphViewport'))){e.preventDefault();openSearch();}
   else if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();}
   else if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redo();}
@@ -4775,6 +4867,8 @@ requestAnimationFrame(loop);
 const SPLASH_KEY='agpro.splash.hide';
 const SPLASH_ICONS={
   waveform:'<path d="M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2"/>',
+  cube:'<path d="m12 2 10 5.5v9L12 22 2 16.5v-9L12 2ZM2 7.5l10 5.5 10-5.5M12 13v9"/>',
+  particles:'<g fill="#000" stroke="none"><circle cx="12" cy="12" r="2.5"/><circle cx="7" cy="3" r="1.3"/><circle cx="18" cy="5" r="2"/><circle cx="3" cy="9" r="1.7"/><circle cx="21" cy="12" r="1.3"/><circle cx="5" cy="17" r="2"/><circle cx="11" cy="21" r="1.3"/><circle cx="18" cy="19" r="1.7"/></g>',
   presets:'<rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/>',
   auto:'<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3M5 6v4M19 14v4M10 2v2M7 8H3M21 16h-4M11 3H9"/>',
   project:'<path d="M5 7 3 5M9 6V3m4 4 2-2"/><circle cx="9" cy="13" r="3"/><path d="M11.83 12H20a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h2.17M16 16h2"/>',
@@ -4811,11 +4905,10 @@ function tourCloner(stage,type='cloner',property){
   add('tc-palette','palette',760,230,{stops:['#080f16','#2a8c9b','#78c6df','#f1bd78','#e9f4f8'].map((c,i)=>({c,auto:false,a:i?1:0}))});
   add('tc-merge','merge',760,450);add('tc-output','output',1000,450);
   wire('tc-audio','audio','tc-cloner','audio');wire('tc-object','object','tc-cloner','object');
-  wire('tc-cloner','shape','tc-sound','shape');let last='tc-sound';
-  if(stage>=5){add('tc-gravity','gravity',280,450,{rigid:9.81});wire(last,'shape','tc-gravity','shape');last='tc-gravity';}
-  wire(last,'shape','tc-material','shape');wire('tc-material','shape','tc-palette','shape');
+  wire('tc-cloner','shape','tc-sound','shape');
+  wire('tc-sound','shape','tc-material','shape');wire('tc-material','shape','tc-palette','shape');
   wire('tc-palette','shape','tc-merge','a');wire('tc-merge','image','tc-output','image');
-  importProject({format:'audiograph-pro',version:VERSION,layers:[g],settings:{camera:{...SCENE_CAMERA,turn:-28,tilt:18,zoom:stage>=6?10:14,motion:stage>=7?'orbit':'static',speed:3},ground:{...SCENE_GROUND,shape:'circle',height:-3,size:14}}},'Tutorial: 3D Cloner');
+  importProject({format:'audiograph-pro',version:VERSION,layers:[g],settings:{gravity:stage>=5?9.81:0,camera:{...SCENE_CAMERA,turn:-28,tilt:18,zoom:stage>=6?10:14,motion:stage>=7?'orbit':'static',speed:3},ground:{...SCENE_GROUND,shape:'circle',height:-3,size:14}}},'Tutorial: 3D Cloner');
   tourInspect(type,property);fit();
 }
 function tourWaterfall(stage,type='gpuParticles',property){
@@ -4845,9 +4938,9 @@ const SPLASH_GUIDES={
     {sel:'.knob-grid:has([data-property=countX])',run:()=>tourCloner(2,'cloner','countX'),t:'Build the array',txt:'Count X, Y and Z make 30 instances. Spacing keeps their surfaces apart. The automatic Merge shows the result without extra preview wiring.'},
     {sel:'.prop-row:has([data-property=rigidBody])',run:()=>tourCloner(3,'cloner','rigidBody'),t:'Give each clone a body',txt:'Rigid body is now on. Every instance can collide with other clones and rigid objects across layers. Nothing falls yet: gravity is not automatic. Collider body alone is for particle and fluid surfaces, without forces.'},
     {sel:'.scene-inspector fieldset:has([aria-label="Ground type"])',run:()=>{tourCloner(4);tourSceneSettings();},t:'The ground belongs to the scene',txt:'Scene settings holds the shared Ground. We chose Circle and lowered it beneath the array. Square is also available; Collision only hides it without removing its physical surface.'},
-    {sel:'.inspector',run:()=>tourCloner(5,'gravity'),t:'Add gravity as a force',txt:'A Gravity node now sits after the Cloner. Its Body gravity pulls the marbles down onto the stage; Bounce controls their rebound. Delete or bypass Gravity to let them float.'},
+    {sel:'.scene-inspector fieldset:has([aria-label="Scene gravity"])',run:()=>{tourCloner(5);tourSceneSettings();},t:'Set Scene gravity',txt:'Scene gravity is now 9.81 in Physics. It pulls the rigid marbles down onto the stage; Bounce controls their rebound. Set it to 0 to let them float. Connected Gravity nodes remain available and add to or subtract from this shared value.'},
     {sel:'.knob-grid:has([data-property=soundForce])',run:()=>tourCloner(6,'soundEffector','soundForce'),t:'Let the music lift them',txt:'Sound impulse is now 2, on the Sound Effector. Hits lift the bodies, and real collisions settle them back onto the circular stage. This node owns the audio response and sound-driven Transforms; a new Cloner comes with it automatically.'},
-    {sel:'.scene-inspector fieldset:first-of-type',run:()=>{tourCloner(7);tourSceneSettings();},t:'One moving camera',txt:'Orbit moves around the whole scene, not individual nodes. F frames everything; Tab toggles fullscreen. Use the Scene ? for camera, ground and HDR/EXR lighting help.'}],
+    {sel:'.scene-inspector fieldset:first-of-type',run:()=>{tourCloner(7);tourSceneSettings();},t:'One moving camera',txt:'Orbit moves around the whole scene, not individual nodes. F frames everything; Tab opens node search; Cmd+F or Ctrl+F toggles fullscreen. Use the Scene ? for camera, physics, ground and Global lighting help.'}],
     done:{label:'Keep exploring'}},
   waterfall:{title:'Particles: Waterfall',demo:true,steps:[
     {sel:'.inspector',ws:'studio',run:()=>tourWaterfall(0),t:'Start with particles',txt:'We are rebuilding the saved Waterfall scene, one part at a time. The audio source drives emission, while life, amount, size and trails shape the stream. This replaces your scene; Undo brings it back.'},
@@ -4913,8 +5006,8 @@ const SPLASH_GUIDES={
 };
 const SPLASH_ITEMS=[
   ['visualize','Visualize','waveform','Build visuals with nodes'],
-  ['cloner','3D physics','project','3D Cloner & rigid bodies, with Scene settings'],
-  ['waterfall','Particles','waveform','Build the Waterfall particle scene'],
+  ['cloner','3D physics','cube','3D Cloner & rigid bodies, with Scene settings'],
+  ['waterfall','Particles','particles','Build the Waterfall particle scene'],
   ['presets','Presets','presets','Start from a template'],
   ['auto','Auto-play','auto','Autopilot: describe a show and let it follow the music'],
   ['project','Project','project','Projection mapping onto walls, objects and screens'],

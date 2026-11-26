@@ -18,6 +18,12 @@ const assert=require('node:assert/strict');
   assert.deepEqual([rotated.rotateX,rotated.rotateY,rotated.rotateZ],[45,90,0],'Legacy tumble preserves its original XYZ angles');
   const mods=applyShapeNode('soundEffector',{...defaults('soundEffector'),rotateX:30,rotateY:60,rotateZ:90,uniformScale:50},{});
   assert.equal(mods._soundEffector,true);assert.equal(mods.pG3EfRX,30);assert.equal(mods.pG3EfRY,60);assert.equal(mods.pG3EfRZ,90);assert.equal(mods.pG3EfScale,50);
+  const calibrated=structuredClone(p),savedFx=calibrated.layers[0].nodes.find(n=>n.type==='soundEffector');
+  Object.assign(savedFx.props,{sensitivity:125,energy:140,punch:75,responseRelease:410});
+  const loadedFx=validate(calibrated).layers[0].nodes.find(n=>n.type==='soundEffector'),
+    retained=applyShapeNode('soundEffector',loadedFx.props,{});
+  assert.equal(retained.pSimSens,125);assert.equal(retained.pSimEnergy,140);
+  assert.equal(retained._soundPunch,75);assert.equal(retained._soundRelease,410,'Removing duplicate UI knobs preserves saved response calibration');
   assert.equal(p.version,VERSION);
   console.log('ok - Explicit sound gating, XYZ/uniform transforms and legacy sound/gravity migration');
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -68,6 +68,21 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     const volumeScene=scene();volumeScene.layers[0].edges.splice(1,1);
     await load(volumeScene);
     assert.ok(active(await state()).some(p=>Math.abs(p[2])>.1),'Unwired procedural emitters spawn in 3D');
+    const gravityScene=scene();
+    gravityScene.settings.gravity=1.6;
+    gravityScene.layers[0].edges=gravityScene.layers[0].edges.filter(e=>e.input!=='emit');
+    Object.assign(gravityScene.layers[0].nodes.find(n=>n.id==='e').props,{
+      opts:{pSpSpeed:0,pSpTurb:0,pSpSwirl:0,pSpDrag:0,pSpGravity:0,pSimSens:100,pSimReact:0}
+    });
+    await page.evaluate(()=>pro.engine('e').w.agSim.reset());
+    await load(gravityScene);
+    assert.ok(active(await state()).some(p=>p[5]<-.05),'Scene gravity pulls particles down without a connected Force node');
+    gravityScene.layers[0].nodes.push({id:'gravityForce',type:'gravity',x:330,y:0,props:{gravity:-100}});
+    gravityScene.layers[0].edges.find(e=>e.from==='e'&&e.to==='c').from='gravityForce';
+    gravityScene.layers[0].edges.push({from:'e',out:'shape',to:'gravityForce',input:'shape'});
+    await page.evaluate(()=>pro.engine('e').w.agSim.reset());
+    await load(gravityScene);
+    assert.ok(active(await state()).every(p=>Math.abs(p[5])<.0001),'A connected particle Gravity force subtracts from and can cancel scene gravity');
     await load(scene());
     let parts=active(await state());
     assert.ok(parts.length>100,'Live 3D particles');

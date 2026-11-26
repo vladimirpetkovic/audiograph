@@ -19,8 +19,9 @@ const NATIVE_DEPTH=DEPTH_WGSL+`
   if(c.mt.z<0.995||c.mt2.y==1.0){discard;}return encodeSceneDepth(fi.cp.w-length(c.cam.xyz));
 }
 @fragment fn sceneFloorDepth(fi:FlO)->@location(0) vec4f{
-  let r=select(max(abs(fi.wp.x),abs(fi.wp.z)),length(fi.wp.xz),c.fl.z>0.5)/c.gi.w;
+  let r=select(max(abs(fi.ground.x),abs(fi.ground.z)),length(fi.ground.xz),c.fl.z>0.5)/c.gi.w;
   let a=c.fl.w*(1.0-smoothstep(0.3,1.0,r));
+  if(c.gcolor.w>1.5&&a*(1.0-shadowAt(fi.wp,normalize(c.groundToObject[1].xyz),fi.pos.xy))<0.004){discard;}
   if(a<0.004){discard;}return encodeSceneDepth(fi.cp.w-length(c.cam.xyz));
 }
 `;
@@ -155,18 +156,22 @@ export const MATERIAL_DEPTH=DEPTH_WGSL+`
 }
 `;
 export function patchScene(patch){
-  patch('G3UF=1264','G3UF=1268');
-  patch('fl:vec4f,rs3:vec4f};','fl:vec4f,rs3:vec4f,gcolor:vec4f};');
+  patch('G3UF=1264','G3UF=1284');
+  patch('fl:vec4f,rs3:vec4f};','fl:vec4f,rs3:vec4f,gcolor:vec4f,groundToObject:mat4x4f};');
   patch('return mix(vec3f(0.42,0.43,0.46),palAvg()*0.8,c.fl.x);','return mix(pow(c.gcolor.rgb,vec3f(2.2)),palAvg()*0.8,c.fl.x);');
   patch('st.g3n=n;st.g3req=req;', 'if(window.__agScene.groundOnly)n=0;st.g3n=n;st.g3req=req;');
   patch('var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=', 'bnd=window.__agScene.rigidBounds(bnd);window.__agScene.boundsRadius=bnd;var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=');
   patch('st.ibuf=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC})',
     'st.ibuf=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST})');
   patch('if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=', 'window.__agScene.rigid(st,enc,m,n,dev);\n    if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=');
-  patch('var fy=-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;', 'var fy=window.__agScene.groundConfig?window.__agScene.groundConfig.height:-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;if(window.__agScene.groundConfig){flA=window.__agScene.groundConfig.enabled&&window.__agScene.groundConfig.visible?0.35:0;}');
+  patch('var fy=-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;', 'var fy=window.__agScene.groundConfig?window.__agScene.groundConfig.height:-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;if(window.__agScene.groundConfig){flA=window.__agScene.groundConfig.enabled&&(window.__agScene.groundConfig.visible||window.__agScene.groundConfig.shadowOnly)?0.35:0;}');
   patch("set(1252,K('pG3Bounce',40)/100,shSz,fy,bnd*2.4);", "set(1252,K('pG3Bounce',40)/100,shSz,fy,window.__agScene.groundConfig?window.__agScene.groundConfig.size/2:bnd*2.4);");
-  patch("set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,0,flA);","set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,window.__agScene.groundConfig?.shape==='circle'?1:0,flA);var gc=g3Hex(window.__agScene.groundConfig?.color||'#aeb0b3');set(1264,gc[0],gc[1],gc[2],1);");
-  patch("let r=length(fi.wp.xz)/c.gi.w;let a=c.fl.w*","let r=select(max(abs(fi.wp.x),abs(fi.wp.z)),length(fi.wp.xz),c.fl.z>0.5)/c.gi.w;let a=c.fl.w*");
+  patch("set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,0,flA);","set(1256,window.__agScene.groundConfig?0:K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,window.__agScene.groundConfig?.shape==='circle'?1:0,flA);var gc=g3Hex(window.__agScene.groundConfig?.color||'#aeb0b3');set(1264,gc[0],gc[1],gc[2],window.__agScene.groundConfig?.shadowOnly?2:1);U.set(window.__agScene.groundMatrix||[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],1268);");
+  patch("cp:vec4f,@location(2) pp:vec4f};\n@vertex fn vsf","cp:vec4f,@location(2) pp:vec4f,@location(3) ground:vec3f};\n@vertex fn vsf");
+  patch("let p=vec3f(q[vi].x*c.gi.w,c.gi.z,q[vi].y*c.gi.w);\n  var o:FlO;o.pos=","let ground=vec3f(q[vi].x*c.gi.w,c.gi.z,q[vi].y*c.gi.w);let p=(c.groundToObject*vec4f(ground,1.0)).xyz;\n  var o:FlO;o.ground=ground;o.pos=");
+  patch("let n=vec3f(0.0,1.0,0.0);let L=normalize(c.lit.xyz);let V=normalize(c.cam.xyz-fi.wp);","let n=normalize(c.groundToObject[1].xyz);let L=normalize(c.lit.xyz);let V=normalize(c.cam.xyz-fi.wp);");
+  patch("let r=length(fi.wp.xz)/c.gi.w;let a=c.fl.w*","let r=select(max(abs(fi.ground.x),abs(fi.ground.z)),length(fi.ground.xz),c.fl.z>0.5)/c.gi.w;let a=c.fl.w*");
+  patch("return FOut(vec4f(col*a,a),vec4f(vel,fi.cp.w-length(c.cam.xyz),1.0),vec2f(dot(n,c.vx.xyz),dot(n,c.vy.xyz)));}","return FOut(select(vec4f(col*a,a),vec4f(vec3f(0.0),a*(1.0-shd)),c.gcolor.w>1.5),vec4f(vel,fi.cp.w-length(c.cam.xyz),1.0),vec2f(dot(n,c.vx.xyz),dot(n,c.vy.xyz)));}");
   patch("binding:1,visibility:V,buffer:{type:'read-only-storage'}","binding:1,visibility:V|F,buffer:{type:'read-only-storage'}");
   patch("binding:1,visibility:V,buffer:{type:'read-only-storage'}","binding:1,visibility:V|F,buffer:{type:'read-only-storage'}");
   patch('usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});G.dev.queue.writeBuffer(buf,0,arr);','usage:GPUBufferUsage.VERTEX|GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});G.dev.queue.writeBuffer(buf,0,arr);');

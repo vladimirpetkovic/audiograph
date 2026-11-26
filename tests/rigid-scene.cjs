@@ -63,6 +63,52 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
     assert.deepEqual(await page.evaluate(()=>Object.values(pro.stats().engines).flatMap(e=>e.sim?.errors||[])),[]);
     await page.evaluate(()=>{const scene=pro.getProject();scene.settings.ground.visible=false;pro.importProject(scene);pro.draw();});
     assert.equal(await page.evaluate(()=>!!pro.engine('__ground')),false,'Collision-only ground does not draw a floor');
+    await page.evaluate(p=>pro.importProject(p),{
+      format:'audiograph-pro',version:20,settings:{gravity:9.81,ground:{enabled:false,visible:false}},
+      layers:[{...layer('Effects',[
+        node('shape','waveform3d',{mode:'cube',render:'normal',size:60}),
+        node('colliders','cloner',{collide:true,rigidBody:false,countX:2,countY:1,countZ:1,spacingX:220,moveY:1,collisionShape:'box',bounce:1,damping:0}),
+        node('random','randomEffector',{size:0,scaleX:0,height:0,scaleZ:0,seed:5}),
+        node('field','fieldEffector',{strength:0}),
+        node('force','gravity',{rigid:9.81})
+      ],'force'),edges:[
+        {from:'shape',out:'object',to:'colliders',input:'object'},
+        {from:'colliders',out:'shape',to:'random',input:'shape'},
+        {from:'random',out:'shape',to:'field',input:'shape'},
+        {from:'field',out:'shape',to:'force',input:'shape'},
+        {from:'force',out:'shape',to:'EffectsOut',input:'image'}
+      ]}]
+    });
+    await page.evaluate(()=>pro.pause(false));
+    await page.waitForFunction(()=>pro.stats().rigid.bodies===2);
+    const initialBodies=await page.evaluate(()=>pro.stats().rigid.groups[0].positions);
+    await page.waitForTimeout(500);
+    assert.deepEqual(await page.evaluate(()=>pro.stats().rigid.groups[0].positions),initialBodies,'Collider-only cloners ignore scene and connected gravity');
+    await page.evaluate(()=>pro.setProperty('random','scaleX',100));
+    await page.waitForFunction(()=>{
+      const group=pro.engine('colliders').w.__agScene.rigidConfig.world.groups.get('colliders');
+      return group?.effectU[1260]===1;
+    });
+    await page.waitForFunction(()=>{
+      const g=pro.engine('colliders').w.__agScene.rigidConfig.world.groups.get('colliders'),[a,b]=g.bodies;
+      return Math.abs(a.position.x-b.position.x)>=a.shapes[0].halfExtents.x+b.shapes[0].halfExtents.x-.01;
+    });
+    await page.evaluate(()=>pro.setProperty('colliders','rigidBody',true));
+    await page.waitForFunction(()=>pro.stats().rigid.groups[0].positions.every(p=>p[1]<0));
+    assert.deepEqual(await page.evaluate(()=>pro.stats().rigid.errors),[],'Live effector readbacks have no validation errors');
+    await page.evaluate(()=>pro.pause(true));
+    const pausedSteps=await page.evaluate(()=>pro.stats().rigid.steps);
+    await page.evaluate(()=>{pro.setProperty('random','posX',100);pro.setProperty('field','strength',100);});
+    await page.waitForFunction(()=>{
+      const g=pro.engine('colliders').w.__agScene.rigidConfig.world.groups.get('colliders');
+      return g.effectU[72]===1&&g.effectU[197]===1;
+    });
+    await page.waitForTimeout(150);
+    const pausedFrames=await page.evaluate(()=>pro.engine('colliders').frames);
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(()=>pro.engine('colliders').frames),pausedFrames,'Animated effector edits do not cause a paused redraw loop');
+    assert.equal(await page.evaluate(()=>pro.stats().rigid.steps),pausedSteps,'Readback refreshes do not advance paused physics');
+    await page.evaluate(()=>pro.pause(false));
     for(const [name,count] of [['HUD',3],['Propane',1],['Waterfall',2]]){
       await page.evaluate(name=>pro.loadTemplate(name),name);
       const project=await page.evaluate(()=>pro.getProject());

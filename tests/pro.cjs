@@ -1035,7 +1035,8 @@ const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
     }
     {const sp=await browser.newPage({viewport:{width:1200,height:800}});
       await sp.goto(new URL('?splash',proUrl).href);await sp.waitForSelector('.splash-item');
-      assert.deepEqual(await sp.$$eval('.splash-item',b=>b.map(x=>x.textContent)),['Visualize','Presets','Auto-play','Project','Export','Share'],'Splash shows six sections');
+      assert.deepEqual(await sp.$$eval('.splash-item',b=>b.map(x=>x.textContent)),['Visualize','3D physics','Particles','Presets','Auto-play','Project','Export','Share'],'Splash shows eight sections');
+      assert.equal(await sp.$$eval('.splash-item',b=>new Set(b.map(x=>Math.round(x.getBoundingClientRect().top))).size),1,'Desktop splash shortcuts stay on one row');
       await sp.waitForSelector('.splash-video.ready',{timeout:15000});
       assert.equal(await sp.evaluate(()=>getComputedStyle(document.getElementById('preview')).visibility),'hidden','The studio preview is hidden behind the splash');
       await sp.click('[data-splash=project]');

@@ -107,7 +107,7 @@ overlays. Earlier 2D inputs and Background nodes can sit behind the 3D world.
 - **Scene settings → 3D camera → Depth of field / Focus** works on every 3D Object render, the
   Waveform (line) render included, and on 3D particles. Normal/Polygons/model
   point clouds and particles use a shared world-space focus plane: 50 is the
-  scene origin, 0 nearer and 100 farther.
+  scene origin, 0 nearer and 100 farther. Depth of field defaults to 0.
 - **Shared 3D depth**: Normal/Polygons objects and 3D particles use the universal
   scene camera and intersect in depth, in Merge and across project layers. Front particles
   remain visible and particles behind opaque surfaces disappear; imported alpha
@@ -223,8 +223,11 @@ overlays. Earlier 2D inputs and Background nodes can sit behind the 3D world.
   clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links with width, glow and sound pulse) and **Look** (Material,
   Light). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
   and coloured bounce light. Ground and HDR/EXR lighting belong to Scene settings.
-  A new Cloner comes with a Sound effector. Its **Sound** and **Response** sections
-  control sensitivity and envelopes; **Transforms** contains Move XYZ, Rotate XYZ,
+  New Cloners start entirely above the enabled Scene ground, with a Sound effector.
+  Its single **Response** section controls Intensity, Attack, Release, Bass reaction,
+  Beat burst, Dynamics, Spectrum tilt and Sound impulse. Overlapping Sensitivity,
+  Energy, Bass punch and Bass release knobs are no longer shown; saved calibration
+  still loads unchanged. **Transforms** contains Move XYZ, Rotate XYZ,
   Scale XYZ, Uniform scale and Grow from base. **Spectrum distribution** assigns
   frequency bands by clone order, distance, axis or randomly; Spread and Delay vary
   the response across clones. Cloner **Palette** chooses colour distribution across
@@ -232,7 +235,8 @@ overlays. Earlier 2D inputs and Background nodes can sit behind the 3D world.
   into these nodes automatically.
 - **Frame scene**: press **F**, or use **Scene settings → 3D camera → Frame scene**, to fit
   all rendered 3D objects and cloner instances, including moved rigid bodies. The ground
-  does not affect framing. **Tab** toggles fullscreen; **Shift+A** opens node search.
+  does not affect framing. **Cmd+F** (Ctrl+F on Windows/Linux) toggles fullscreen;
+  **Tab** opens node search, with **Shift+A** as a graph shortcut.
 - **Viewport camera**: drag in the preview to orbit the whole 3D scene (right- or Shift-drag pans), or to move a 2D
   layer; the wheel, a trackpad pinch (Chrome, Edge, Safari) or a two-finger touch pinch zooms, and a double-click resets.
   Classic 3D renders (Waveform, Polygons) zoom natively, so lines stay sharp. The
@@ -392,7 +396,7 @@ process the finished image.
   (the inspector title takes its category colour) and wire types.
 - **Quick build**: select a node, then click a library node. It is inserted right
   after the selection. Deleting a node heals the chain.
-- **Node search**: press Shift+A with the mouse over the graph, type (e.g. "fluid",
+- **Node search**: press Tab, or Shift+A with the mouse over the graph, type (e.g. "fluid",
   "bloom"), and press Enter. The node drops at the cursor; over a wire, it is
   inserted into that wire.
 - **Bypass** (⏻ on the node, or **B** for the selection): the node is switched off
@@ -431,7 +435,7 @@ process the finished image.
   synthetic beat instead. Wiring a
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
-  F frames the 3D scene, Tab toggles fullscreen, Shift+A opens node search.
+  F frames the 3D scene, Cmd+F toggles fullscreen, Tab or Shift+A opens node search.
 - **Templates**: **User templates** (Save → Save as template, kept in the browser) and the **Audiograph presets** (the originals plus saved scenes in `scenes.js`: **Cloned**, **Doppler**, **Cell**, **Eternity**, **Firepit**, **Fractal** and **Globe**; a saved scene replaces the original preset of the same name, and Sacred circle, Spiral planes and Organica are retired from the menu and the Template morph list but still load in old projects). The **×** next to a user template deletes it (after a confirm). All presets sit on plain black (no Background node).
 - **Save**: Save scene writes an .ag file wherever you choose (⌘S); Save as template (⇧⌘S) adds a User template.
 - **Tips stay hidden**: node descriptions and help notes sit behind the **?** in
@@ -476,11 +480,23 @@ process the finished image.
   objects, cloner instances and layers. Collision bounds can be Auto, Box or
   Sphere; Gravity, Wind, Swirl, Drag, Turbulence and Field effectors add forces.
   **Collider body** makes an Object or Cloner a particle/fluid obstacle without enabling
-  dynamic forces. Gravity is off until a **Gravity** node is connected. **Attract**
+  gravity or Forces. Cloner instances also separate and bounce when effectors move,
+  rotate or scale them; their collision shapes follow random XYZ and uniform scaling.
+  **Scene settings → Physics → Scene gravity** defaults to 0 and affects rigid
+  Objects, rigid Cloners, particles and fluid. Connected Gravity nodes add to or
+  subtract from it. Forces still affect 3D Objects and Cloners with **Rigid body**
+  enabled; Collider body alone does not enable forces. **Attract**
   has a target input for an Object or Cloner; without a target it attracts to the origin.
   **Ground** is enabled by default; choose Square or Circle, set colour, size and height,
-  or hide it while keeping collisions.
-  Import a Radiance **.hdr** or OpenEXR **.exr** environment in Scene settings to light
+  or hide it while keeping collisions. **Global lighting → Shadows** toggles native 3D cast shadows
+  scene-wide, including shadow catchers on the shared ground. Ground colour is
+  independent of object palettes.
+  **Global lighting → Ambient occlusion** adds depth-aware contact and crease shading
+  across the shared scene, with Strength and a world-space Radius. It runs at half
+  resolution with depth-aware smoothing. **Depth haze** blends distant 3D surfaces
+  toward a colour, with Strength, Start and End camera distances. Both are off by
+  default, allocate no resources while unused, and leave flat overlays unchanged.
+  Import a Radiance **.hdr** or OpenEXR **.exr** environment under Global lighting to light
   native solid meshes and imported PBR materials. Intensity and rotation adjust its
   illumination; the environment is embedded in the saved scene. It does not replace
   the canvas background. Scene descriptions are behind its **?**.

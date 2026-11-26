@@ -26,7 +26,8 @@ function random(i,k,seed){
 function scaleOf(data,i,u){
   const o=i*12,v=data[o+3],scale=data[o+7]*u[31];
   const axes=[0,1,2].map(j=>Math.max(.02,1+u[192+j]*v)*u[89+j]*scale);
-  axes[1]*=Math.exp(u[200]*1.6*(2*random(i,60,Math.round(u[75]))/4294967295-1));
+  for(const [j,k,amount] of [[0,61,u[1260]||0],[1,60,u[200]||0],[2,62,u[1262]||0]])
+    axes[j]*=Math.exp(amount*1.6*(2*random(i,k,Math.round(u[75]))/4294967295-1));
   return axes;
 }
 export function instanceCollider(arr,data,u,map,previousFaces){
@@ -114,8 +115,10 @@ export class RigidWorld{
       const p=g.props,mods=g.mods;
       for(let i=0;i<g.bodies.length;i++){
         const b=g.bodies[i],level=soundAt(g.data,i,g.u),rise=Math.max(0,level-g.levels[i]);
-        const impulse=mods._soundEffector?(mods._rigidSoundForce??p.soundForce??5):0;
         g.levels[i]=level;g.data[i*12+3]=level;g.data[i*12+7]=g.baseScales[i]*Math.max(.02,1+g.u[35]*level);
+        this.updateShape(g,i);
+        if(!p.rigidBody)continue;
+        const impulse=mods._soundEffector?(mods._rigidSoundForce??p.soundForce??5):0;
         if(rise>.002)b.applyImpulse(new Vec3(
           (mods.pG3EfX||0)/100*rise*impulse*b.mass,
           rise*impulse*b.mass*(1+(mods.pG3EfY||0)/100),
@@ -123,7 +126,7 @@ export class RigidWorld{
         const torque=rise*b.mass/180;
         if(mods.pG3Spin||mods.pG3EfRX||mods.pG3EfRY||mods.pG3EfRZ)b.applyTorque(new Vec3(
           (mods.pG3EfRX||0)*torque,(mods.pG3Spin||0)/100*b.mass+(mods.pG3EfRY||0)*torque,(mods.pG3EfRZ||0)*torque));
-        const gravity=mods._rigidGravity??0;
+        const gravity=(mods._rigidGravity??0)+(mods._sceneGravity??0);
         b.force.y-=b.mass*gravity;
         const wind=mods._rigidWind??0,swirl=mods._rigidSwirl??0;
         const noise=(mods._rigidTurbulence??0)/100;
@@ -132,7 +135,7 @@ export class RigidWorld{
           const delta=new Vec3(...target).vsub(b.position),scale=b.mass*attract/(1+.5*delta.length());
           b.applyForce(delta.scale(scale));
         }
-        const field=mods._sim?.g3Field,strength=(mods.pG3FieldAmt||0)/100;
+        const field=g.nativeEffects?null:mods._sim?.g3Field,strength=(mods.pG3FieldAmt||0)/100;
         if(wind||swirl||noise||strength&&field&&field!=='none'){
           const t=this.world.time;
           const size=Math.max(.01,(mods.pG3FieldSize??100)/100*g.u[28]*3),time=t*(mods.pG3FieldSpd??50)/50;
@@ -145,7 +148,6 @@ export class RigidWorld{
             b.mass*(lift+noise*10*Math.sin(t*1.71+i*2.3)),
             b.mass*(swirl*b.position.x+noise*10*Math.cos(t*1.93+i*2.7))));
         }
-        this.updateShape(g,i);
       }
     }
     this.world.step(STEP,Math.min(dt,1/15),8);this.steps++;
@@ -158,7 +160,7 @@ export class RigidWorld{
     const rotation=new Quaternion().setFromEuler(
       (mods.pG3GrX||0)*Math.PI/180,(mods.pG3GrY||0)*Math.PI/180,(mods.pG3GrZ||0)*Math.PI/180,'ZXY');
     const inverse=rotation.inverse();
-    const g={key,data:new Float32Array(data),u:new Float32Array(u),bounds,props,mods,rotation,inverse,origin:V(origin),bodies:[],levels:new Float32Array(data.length/12),centers:[]};
+    const g={key,data:new Float32Array(data),effectData:new Float32Array(data),effectU:new Float32Array(u),u:new Float32Array(u),bounds,props,mods,rotation,inverse,origin:V(origin),bodies:[],levels:new Float32Array(data.length/12),centers:[]};
     g.baseScales=Array.from({length:data.length/12},(_,i)=>data[i*12+7]/Math.max(.02,1+u[35]*data[i*12+3]));
     const material=new Material({friction:props.friction,restitution:props.bounce});
     g.contact=new ContactMaterial(material,this.floor.material,{friction:props.friction,restitution:props.bounce});
@@ -181,9 +183,32 @@ export class RigidWorld{
     }
     this.groups.set(id,g);return g;
   }
+  applyEffects(id,data,u){
+    const g=this.groups.get(id);
+    if(!g)return;
+    if(data.length!==g.data.length||!data.every(Number.isFinite))throw Error('Effector collision transforms are invalid');
+    for(let i=0;i<g.bodies.length;i++){
+      const o=i*12,b=g.bodies[i],bound=g.bounds[Math.round(data[o+9])];
+      if(!bound)throw Error('Effector collision mesh bounds are missing');
+      const center=(d,uniforms)=>{
+        const axes=scaleOf(d,i,uniforms),p=bound.center.map((v,j)=>v*axes[j]);
+        p[1]+=uniforms[195]*.7*(axes[1]-uniforms[31]);
+        const q=new Quaternion().setFromEuler(...d.subarray(o+4,o+7),'ZXY');
+        return {q,p:q.vmult(V(p)).vadd(V(Array.from(d.subarray(o,o+3))))};
+      };
+      const before=center(g.effectData,g.effectU),after=center(data,u);
+      const shift=g.rotation.vmult(after.p.vsub(before.p));
+      const turn=g.rotation.mult(after.q.mult(before.q.inverse())).mult(g.inverse);
+      b.position.vadd(shift,b.position);turn.mult(b.quaternion,b.quaternion);
+      if(shift.lengthSquared()>1e-10||Math.abs(turn.w)<.999999){b.aabbNeedsUpdate=true;b.wakeUp();}
+      g.baseScales[i]=data[o+7]/Math.max(.02,1+u[35]*data[o+3]);
+    }
+    g.data.set(data);g.effectData.set(data);g.effectU.set(u);
+    for(let i=0;i<g.bodies.length;i++)this.updateShape(g,i);
+  }
   update(id,u,props,mods){
     const g=this.groups.get(id);if(!g)return;
-    const gravityChanged=g.mods._rigidGravity!==mods._rigidGravity;
+    const gravityChanged=g.mods._rigidGravity!==mods._rigidGravity||g.mods._sceneGravity!==mods._sceneGravity;
     g.u.set(u);g.props=props;g.mods=mods;
     for(const b of g.bodies){
       if(gravityChanged)b.wakeUp();
@@ -237,6 +262,14 @@ export function installRigid(w,scene){
   };
   const keyOf=(st,mesh,n,c)=>[n,st.g3shape,mesh.tris,st.cu[31],...st.cu.slice(24,31),...st.cu.slice(89,92),...st.cu.slice(92,96),
     c.props.collisionShape,c.mods.pG3GrX||0,c.mods.pG3GrY||0,c.mods.pG3GrZ||0].join('|');
+  const effectKeyOf=(u,c)=>{
+    const values=[...u.slice(32,40),u[47],u[57],...u.slice(72,86),u[87],...u.slice(192,204),...u.slice(1260,1264)];
+    if(u[85]>0)values.push(u[86]);
+    if(u[196]>0&&u[197]>0)values.push(u[19]);
+    const soundTransforms=[...u.slice(32,39),u[84],...u.slice(192,195),u[197]].some(v=>v!==0);
+    if(c.mods._soundEffector&&soundTransforms)values.push(u[46],...u.slice(96,160),...(u[203]>0?u.slice(208,1260):[]));
+    return values.join('|');
+  };
   scene.rigidModel=model=>{
     const c=scene.rigidConfig,scale=w.__agCam?.scale;
     if(!c?.props.rigidBody||!scale)return model;
@@ -264,7 +297,7 @@ export function installRigid(w,scene){
   };
   scene.rigid=(st,enc,mesh,n,device)=>{
     const c=scene.rigidConfig;
-    if(!c?.props.rigidBody){if(upload)release();return;}
+    if(!c||!c.props.rigidBody&&!c.props.collide){if(upload)release();return;}
     c.world.rendered.add(c.id);
     if(dev!==device){release();dev=device;}
     scene.matrix=Array.from(st.cu.slice(0,16));scene.distance=st.g3dist;
@@ -273,6 +306,22 @@ export function installRigid(w,scene){
     if(group?.key===key){
       if(group.meshArray!==mesh.arr){group.bounds=meshBounds(mesh.arr);group.meshArray=mesh.arr;}
       c.world.update(c.id,st.cu,c.props,c.mods);
+      const effectKey=effectKeyOf(st.cu,c);
+      if(group.effectKey!==effectKey&&!pending){
+        const token=generation,epoch=c.world.epoch,u=st.cu.slice(),
+          buffer=dev.createBuffer({size:n*48,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
+        enc.copyBufferToBuffer(st.ibuf,0,buffer,0,n*48);pending=buffer;
+        queueMicrotask(async()=>{
+          try{
+            await buffer.mapAsync(GPUMapMode.READ);
+            const data=new Float32Array(buffer.getMappedRange()).slice();
+            if(token===generation&&c.world.epoch===epoch&&c.world.groups.get(c.id)===group){
+              c.world.applyEffects(c.id,data,u);group.effectKey=effectKey;c.onUpdate?.();
+            }
+          }catch(error){if(token===generation)c.world.errors.set(c.id,'Effector collisions: '+error.message);}
+          finally{buffer.destroy();if(pending===buffer)pending=null;}
+        });
+      }
       const data=c.world.instances(c.id);
       if(!upload||upload.size<data.byteLength){upload?.destroy();upload=dev.createBuffer({size:data.byteLength,usage:GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST});}
       dev.queue.writeBuffer(upload,0,data);enc.copyBufferToBuffer(upload,0,st.ibuf,0,data.byteLength);
@@ -284,12 +333,15 @@ export function installRigid(w,scene){
     const u=st.cu.slice(),bounds=meshBounds(mesh.arr),shapes=st.g3shape.split('+');
     enc.copyBufferToBuffer(st.ibuf,0,buffer,0,n*48);
     pending=buffer;
-    // This is the only GPU readback: seed the bodies from the actual generated clone transforms.
+    // Seed from native transforms; later effector changes retain the collision-resolved pose.
     queueMicrotask(async()=>{
       try{
         await buffer.mapAsync(GPUMapMode.READ);
         const data=new Float32Array(buffer.getMappedRange()).slice();
-        if(token===generation&&c.world.epoch===epoch&&scene.rigidConfig?.id===c.id&&scene.rigidConfig.world===c.world)c.world.register(c.id,key,data,u,bounds,shapes,c.props,c.mods,origin);
+        if(token===generation&&c.world.epoch===epoch&&scene.rigidConfig?.id===c.id&&scene.rigidConfig.world===c.world){
+          const g=c.world.register(c.id,key,data,u,bounds,shapes,c.props,c.mods,origin);
+          g.nativeEffects=true;g.effectKey=effectKeyOf(u,c);c.onUpdate?.();
+        }
       }catch(error){if(token===generation)c.world.errors.set(c.id,'Rigid bodies: '+error.message);}
       finally{buffer.destroy();if(pending===buffer)pending=null;}
     });

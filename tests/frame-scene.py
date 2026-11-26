@@ -55,8 +55,14 @@ with sync_playwright() as p:
         assert page.evaluate("()=>pro.getProject().settings.camera.zoom") == 200
         assert page.evaluate("()=>pro.frameScene()")
         page.keyboard.press("Tab")
-        page.wait_for_function("()=>document.fullscreenElement?.id==='previewWrap'")
+        page.wait_for_selector(".node-search")
         page.keyboard.press("Tab")
+        assert page.locator(".node-search").is_visible()
+        assert page.evaluate("()=>!document.fullscreenElement")
+        page.keyboard.press("Escape")
+        page.keyboard.press("Meta+f")
+        page.wait_for_function("()=>document.fullscreenElement?.id==='previewWrap'")
+        page.keyboard.press("Meta+f")
         page.wait_for_function("()=>!document.fullscreenElement")
         page.locator("#graphViewport").hover()
         page.keyboard.press("Shift+a")
@@ -66,6 +72,6 @@ with sync_playwright() as p:
         page.get_by_role("button", name="Frame scene", exact=True).click()
         assert page.evaluate("()=>pro.stats().errors") == []
         assert errors == [], errors
-        print("ok - Default cloner framing, unrestricted zoom-out, F frame/undo, Tab fullscreen and Shift+A search")
+        print("ok - Default cloner framing, unrestricted zoom-out, F frame/undo, Cmd+F fullscreen and Tab/Shift+A search")
     finally:
         browser.close()

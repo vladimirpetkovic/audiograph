@@ -245,7 +245,7 @@ export class Fluid3D{
     this.ctx?.unconfigure();this.depthCtx?.unconfigure();this.buffers=null;this.depth=null;this.deposits=null;this.n=0;
   }
   draw({camera,width,height,quality,dt,time,frame,level,beat,props,palette=[props.fluidColor],gravity=0,attract=[0,0,0,0],
-      source,flat,collisions,ground,occluders=[],renderOnly=false}){
+      source,flat,collisions,ground,occluders=[],renderOnly=false,paused=false}){
     const g=backend();if(!g)return null;
     const {device,passes,render,sampler}=g,n=8*Math.round(props.fluidResolution/8),total=n**3,half=props.fluidDomain/100;
     const floor=ground?(ground.enabled?ground.size/2:0):props.fluidFloor?props.fluidFloorSize/50:0;
@@ -350,9 +350,9 @@ export class Fluid3D{
       }
     }
     const rgba=palette.flatMap(hex=>[1,3,5,7].map(i=>i>=hex.length?1:parseInt(hex.slice(i,i+2),16)/255));
-    if(advance){
+    if(advance||paused){
       const smooth=level>this.audioLevel?props.fluidAttack:props.fluidRelease;
-      this.audioLevel=smooth>0?level+(this.audioLevel-level)*Math.exp(-dt*1000/smooth):level;
+      this.audioLevel=paused||smooth===0?level:level+(this.audioLevel-level)*Math.exp(-dt*1000/smooth);
     }
     const sound=Math.min(1,this.audioLevel),motion=1+sound*props.fluidSoundSpeed/100;
     const swirl=props.fluidSwirl+sound*props.fluidSoundSwirl,emission=Math.min(2,this.audioLevel*props.intensity/100);
