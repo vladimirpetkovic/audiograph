@@ -1,11 +1,12 @@
 import {DEPTH_WGSL,flowPhase,routeSample,surfaceRoutes} from './scene3d.js';
 import {COLLISION_WGSL} from './colliders.js';
-export const SCENE_DISTANCE=.78/Math.sin(.4)*.92;
+export {SCENE_DISTANCE} from './camera.js';
+import {SCENE_DISTANCE} from './camera.js';
 const TRAIL_POINTS=8, BASE_TRAIL_POINTS=4;
 const PARTICLE_BYTES=64+TRAIL_POINTS*8;
 const trailSegments=t=>`min(${TRAIL_POINTS}.0,${t}*${BASE_TRAIL_POINTS}.0)`;
 const CONTROLS=`
-struct ParticleControls{launch:vec4f,lens:vec4f,screen0:vec4f,screen1:vec4f,floor:vec4f};
+struct ParticleControls{launch:vec4f,lens:vec4f,screen0:vec4f,screen1:vec4f,floor:vec4f,attract:vec4f};
 @group(1) @binding(0) var<uniform> controls:ParticleControls;
 `;
 const STRUCT=`
@@ -111,7 +112,12 @@ fn birth(i:u32)->Part3{
       }
     }
     if(!attached){
-    var acc=vec3f(0.0,-u.pgrav,0.0)-rd*u.pattract*(1.0+u.bass*1.5)*r/(0.15+r*r);
+    var pull=-rd*u.pattract*(1.0+u.bass*1.5)*r/(0.15+r*r);
+    if(abs(controls.attract.w)>0.00001){
+      let delta=controls.attract.xyz-x;
+      pull=delta*controls.attract.w*5.0/(1.0+0.5*length(delta));
+    }
+    var acc=vec3f(0.0,-u.pgrav,0.0)+pull;
     acc=acc+cross(vec3f(0.0,1.0,0.0),rd)*(u.pvort+u.torque*0.3)*r/(0.2+r*r);
     acc=acc+noise3(x*u.pcscale+vec3f(u.time*0.15,-u.time*0.11,u.time*0.09))*u.pcurl*(1.0+u.mid*1.5+u.treb);
     acc=acc+noise3(x*1.7+vec3f(u.time*0.3))*(select(0.5,0.0,controls.launch.x>0.5)+5.0*u.level+3.0*u.mid)*u.response*u.sstr;
@@ -261,9 +267,9 @@ export function patchParticles3d(patch){
   patch("if((st.kind==='particles'||st.kind==='boids')&&sv.hdr&&!sv.ac){",
     "if((st.kind==='particles'||st.kind==='boids')&&!st.space3&&sv.hdr&&!sv.ac){");
   patch('kind:s.kind,q:s.q,grid:', 'kind:s.kind,dimensions:s.space3?3:2,sourcePoints:s.sourceCount||0,trailSegments:s.space3?Math.max(0,(s.trailVerts||6)/6-1):0,q:s.q,grid:');
-  patch('api.splat=function(){',`api.particleState=async function(){
+  patch('api.splat=function(){',`api.particleState=async function(all=false){
     var st=ST[simUid];if(!st||st.kind!=='particles')return null;
-    var count=Math.min(st.pn,4096),stride=st.space3?${PARTICLE_BYTES}:48,size=count*stride,dev=G.dev,b=dev.createBuffer({size:size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
+    var count=all?st.pn:Math.min(st.pn,4096),stride=st.space3?${PARTICLE_BYTES}:48,size=count*stride,dev=G.dev,b=dev.createBuffer({size:size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
     try{var enc=dev.createCommandEncoder();enc.copyBufferToBuffer(st.pbuf,0,b,0,size);dev.queue.submit([enc.finish()]);await b.mapAsync(GPUMapMode.READ);
       var data=new Float32Array(b.getMappedRange());if(!st.space3)return Array.from(data);
       var out=[];for(var i=0;i<count;i++)out.push(...data.subarray(i*stride/4,i*stride/4+16));return out;}
@@ -299,7 +305,7 @@ export function installParticleControls(w){
   w.__agP3={
     bind(dev,P,st,compute=false){
       const cfg=w.__agParticles3d||{};
-      if(!st.extra3)st.extra3={buffer:dev.createBuffer({size:80,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}),textures:[],sources:[]};
+      if(!st.extra3)st.extra3={buffer:dev.createBuffer({size:96,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST}),textures:[],sources:[]};
       const extra=st.extra3,occluders=cfg.occluders||[];if(occluders.length>8)throw Error('A shared 3D scene supports at most eight opaque renderers');
       let changed=!extra.group;
       const field=cfg.collisions,bytes=field?.data.byteLength||16;
@@ -340,8 +346,8 @@ export function installParticleControls(w){
       row0[3]=cfg.surfaceFlow?1:0;
       dev.queue.writeBuffer(extra.buffer,0,new Float32Array([
         st.zeroLaunch?1:0,field?.end||0,cfg.response==='motion'?0:1,cfg.response==='sound'||!cfg.response?0:1,
-        cfg.shared?SCENE_DISTANCE*(cfg.focal||1)/Math.max(.3,cfg.zoom||1):0,(cfg.dof||0)/100*st.oh*.05,((cfg.focus??50)-50)/50*2,extra.sourceDt||1/60,
-        ...row0,...row1,cfg.floorHalf||0,cfg.floorHeight??-1,0,0]));
+        cfg.shared?SCENE_DISTANCE*(cfg.focal||1)/Math.max(.0001,cfg.zoom||1):0,(cfg.dof||0)/100*st.oh*.05,((cfg.focus??50)-50)/50*2,extra.sourceDt||1/60,
+        ...row0,...row1,cfg.floorHalf||0,cfg.floorHeight??-1,cfg.floorCircle?1:0,0,...(cfg.attract||[0,0,0,0])]));
       return extra.group;
     },
     destroy(st){if(st.extra3){st.extra3.buffer.destroy();st.extra3.collision?.destroy();for(const t of [...st.extra3.textures,...st.extra3.sources])t.destroy();st.extra3=null;}}

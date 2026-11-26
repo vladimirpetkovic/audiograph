@@ -1,6 +1,6 @@
 import * as sensors from './sensors.js';import * as lights from './lights.js';
 import {OUTPUT_SIZES,VIDEO_QUALITIES,LIVE_FRAME_RATES,SIM_QUALITIES,SCENE_PERFORMANCE,SCENE_CAMERA,SCENE_CAMERA_PROPS,SCENE_DEFAULTS,SCENE_GROUND,routeVisual,legacyCameraNotice} from './graph.js';
-import {CAMERA_MOTIONS,cameraPose,advanceCamera} from './camera.js';
+import {CAMERA_MOTIONS,CAMERA_ZOOM_MIN,CAMERA_ZOOM_MAX,cameraPose,advanceCamera,frameCamera} from './camera.js';
 import {RigidWorld} from './rigid.js';
 import {importEnvironment} from './environment.js';
 import {directScene,SCENE_RECIPES,SCENE_PALETTES} from './director.js';
@@ -22,6 +22,7 @@ import {ATTRACTORS,attractorParams,rk4,seedAttractor} from './attractors.js';
 import {Media,drawMedia,analyse,emitterAsset} from './media.js';
 import * as mapping from './mapping.js';
 import * as map3d from './map3d.js';
+import {projectPoint,rotationMatrix,rotatePoint} from './object-transform.js';
 import * as songMap from './song.js';
 import * as cutter from './cutter.js';
 import {hostLink,localLink} from './remote-link.js';
@@ -81,7 +82,7 @@ function cloneObjects(objs,p,shape){
 const SIM_PROPS=type=>Object.values(TYPES[type].props).some(s=>s.sims);
 function simKeys(g,n){
   const t=TYPES[n.type],keys=Object.keys(t.props).filter(k=>
-    !(t.props[k].group==='Rigid body'&&k!=='rigidBody'&&!n.props.rigidBody)&&
+    !(t.props[k].group==='Rigid body'&&!['rigidBody','collide'].includes(k)&&!n.props.rigidBody)&&
     !(n.type==='light'&&['floor','floorHeight'].includes(k)));
   if(n.type==='gpuParticles'){
     return keys.filter(k=>(!t.props[k].sims||t.props[k].sims.includes(n.props.mode))&&
@@ -169,7 +170,7 @@ function addNode(type,x,y,props={}){
   if(type==='camera3d')throw Error('The universal 3D camera is in Scene settings');
   let made=null;
   const ok=edit((p,g)=>{
-    const sel=g.nodes.find(n=>n.id===selected),n=node(type,0,0,props);made=n;let visual=n;
+    const sel=g.nodes.find(n=>n.id===selected),n=node(type,0,0,type==='waveform3d'?{render:'normal',...props}:props);made=n;let visual=n;
     if(x===undefined){
       if(sel&&isChain(type)&&Object.keys(TYPES[sel.type].outputs).length){
         const out=Object.keys(TYPES[sel.type].outputs)[0],inPort=Object.keys(TYPES[type].inputs)[0],outPort=Object.keys(TYPES[type].outputs)[0];
@@ -304,7 +305,7 @@ function connection(from,out,to,input){
     }
     if(!tn||!isChain(tn.type)||g.edges.some(e=>e.from===to))return;
     const down=g.edges.filter(e=>e.from===from&&e.out===out&&e.to!==to);
-    if(!down.length||!down.every(e=>g.nodes.find(m=>m.id===e.to)?.type==='output'||e.auto&&g.nodes.find(m=>m.id===e.to)?.type==='merge')||Object.values(TYPES[tn.type].outputs).includes('audio'))return;
+    if(!down.length||!down.every(e=>g.nodes.find(m=>m.id===e.to)?.type==='output'||e.auto&&g.nodes.find(m=>m.id===e.to)?.type==='merge')||    Object.values(TYPES[tn.type].outputs).includes('audio'))return;
     const outs=Object.entries(TYPES[tn.type].outputs),before=g.edges;
     const moved=down.map(e=>{const t=inputsOf(g.nodes.find(m=>m.id===e.to).type)[e.input],o=outs.find(([,ty])=>compatible(ty,t));return o&&{...e,from:to,out:o[0]};});
     if(moved.some(m=>!m))return;
@@ -1032,7 +1033,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
     if(!v||v instanceof HTMLCanvasElement)return v;
     const volume=v.job.mode==='simfluid3d';
     const shared=!!sceneCamera&&(volume||v.job.sceneObject||v.job.mode==='simcloner'||v.job.mode==='simsplat'||v.job.mode==='simparticles'&&v.mods?._sim?.pSpace==='3d');
-    if(shared)sharedViewLayers.add(g.id);
+    if(shared){sharedViewLayers.add(g.id);sharedRenderers.add(v.emitter.id);}
     const mods=shared?{...applyShapeNode('camera3d',sceneCamera,v.mods),_sceneYaw:sceneCamera.yaw}:v.mods;
     const view=shared?{...VIEW0,px:sceneCamera.px||0,py:sceneCamera.py||0}:g.view;
     const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+'|'+(v.comp?.o??100)+'|'+!!v.job.sharedScene+'|'+!!v.job.wantSource+'|'+(v.job.surfaceFlowTime!=null);
@@ -1112,8 +1113,16 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       }
       r.shape={emitter:n,comp:{o:p.compOpacity??100,b:p.compBlend??'source-over'},mods:{...geoMods(p),...(spec.mode==='simfluid3d'||p.look?._colorMode||p.look?._toneStops?{}:MEDIA_KIND[n.type]==='image'||MEDIA_KIND[n.type]==='video'?GRAY_MEDIA:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,song:driven?null:sig.song||null,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
-      if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);Object.assign(r.shape.mods,{pG3Zoom:55,pG3ScX:0,pG3ScY:0,pG3ScZ:0});}}
+      if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf({...p,size:p.size*p.scale/100},e?.mediaKind==='object'&&e.w?.objModelData);r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);Object.assign(r.shape.mods,{pG3Zoom:55,pG3ScX:0,pG3ScY:0,pG3ScZ:0});}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
+      if(n.type==='waveform3d'||n.type==='cloner'){
+        const rotation=n.type==='cloner'?[p.rotX,p.rotY,p.rotZ]:[p.tilt,p.turn,-p.rotation];
+        r.shape.job.objectTransform={position:['X','Y','Z'].map(a=>p['move'+a]||0),rotation};
+        Object.assign(r.shape.mods,{_zoom:100,_dragRotX:0,_dragRotY:0,_rotation:0,pG3GrX:rotation[0],pG3GrY:rotation[1],pG3GrZ:rotation[2]});
+      }
+      if(n.type==='cloner')r.shape.job.paletteBy=p.paletteBy;
+      if(n.type==='waveform3d'&&p.render==='normal'&&(p.mode!=='model'||p.modelMaterials==='palette'))
+        r.shape.job.paletteMapping={mode:p.paletteMap,axis:p.paletteAxis,tiling:p.paletteTiling,offset:p.paletteOffset,rotation:p.paletteRotation,primitive:r.object.prim?r.object.shape:null};
       if((n.type==='cloner'||n.type==='waveform3d')&&p.rigidBody)r.shape.job.rigidProps=p;
       const key=n.type==='gpuParticles'&&SIM_SOURCE[p.mode],eng=key&&engines.get(n.id);
       const source=!emit&&key&&eng?.simSource(r.shape.job,key);
@@ -1407,6 +1416,16 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
           const s=need(n,'shape','a shape');
           if(s===blank())r.shape=s;else if(s instanceof HTMLCanvasElement)throw Error(`${g.name}: ${t.label} needs a shape from an Emitter, not an image`);
           const mods=applyShapeNode(n.type,p,s.mods);let hue=s.hue;
+          if(n.type==='attract'&&byInput.has(n.id+':target')){
+            const wire=byInput.get(n.id+':target'),target=outputs.get(wire.from)?.shape;
+            if(!target?.job||!(target.job.sceneObject||target.job.mode==='simcloner'))throw Error('Attract target needs a 3D Object or Cloner');
+            asImage(target,n.id+':target');
+            const bodies=rigidWorld.groups.get(target.emitter.id)?.bodies;
+            const point=bodies?.length?[0,1,2].map(i=>bodies.reduce((sum,b)=>sum+b.position.toArray()[i],0)/bodies.length):
+              engines.get(target.emitter.id)?.w?.__agScene.mapper()?.([0,0,0]);
+            if(!point)throw Error('Attraction target is still loading');
+            mods._attractPoint=point;
+          }
           if(n.type==='hue')hue+=p.hue+p.cycle*time;
           r.shape={...s,mods,hue:((hue%360)+360)%360};
         }
@@ -1500,7 +1519,7 @@ function dissolveDraw(dt){
 }
 // Layers the engine cannot frame itself (2D, and pan/zoom of classic 3D) are moved and scaled as a picture.
 const layerView=new Map(),layerZoom=new Map(),layerBlend=new Map();
-const sharedViewLayers=new Set();
+const sharedViewLayers=new Set(),sharedRenderers=new Set();
 function drawLayer(out,g,image){
   const v=g.view,zm=v?v.zm/(layerZoom.get(g.id)||1):1;if(!v||sharedViewLayers.has(g.id)||layerView.get(g.id)==='sim'||(zm===1&&!v.px&&!v.py)){out.drawImage(image,0,0);return;}
   out.setTransform(zm,0,0,zm,WIDTH/2*(1-zm)+v.px*WIDTH/2,HEIGHT/2*(1-zm)-v.py*HEIGHT/2);out.drawImage(image,0,0);out.setTransform(1,0,0,1,0,0);
@@ -1537,10 +1556,11 @@ function draw(time,dt=1/30){
   rigidWorld.begin(paused?0:dt,{...SCENE_GROUND,...state.settings?.ground},rigidIds);
   const sceneCamera=cameraPose(camera,sceneMotion.phase);
   sharedViewLayers.clear();
+  sharedRenderers.clear();
   const pictures=[],nextColliders=new Map();
   const ground={...SCENE_GROUND,...state.settings?.ground};
   const colliderIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0)
-    .flatMap(g=>g.nodes.filter(n=>n.type==='waveform3d'&&!n.bypass&&n.props.collide).map(n=>n.id)));
+    .flatMap(g=>g.nodes.filter(n=>['waveform3d','cloner'].includes(n.type)&&!n.bypass&&(n.props.collide||n.props.rigidBody)).map(n=>n.id)));
   let collisions;
   try{if(colliderIds.size||collisionCache.field?.end)collisions=collisionField([...colliderIds].map(id=>collisionMeshes.get(id)).filter(Boolean),collisionCache);}
   catch(error){renderErrors.push(error.message);}
@@ -1589,6 +1609,7 @@ function draw(time,dt=1/30){
   blackout.level+=((blackout.on?1:0)-blackout.level)*Math.min(1,dt*8);if(blackout.level<.002&&!blackout.on)blackout.level=0;
   if(blackout.level>0){previewCtx.globalAlpha=Math.min(1,blackout.level*1.02);previewCtx.globalCompositeOperation='source-over';previewCtx.fillStyle='#000';previewCtx.fillRect(0,0,WIDTH,HEIGHT);previewCtx.globalAlpha=1;}
   frame++;
+  if(objectGizmo.tool&&!mapMode)renderOverlay();
   if(frame%2===0){drawSpectrum();showAutoKnobs();showMapAutoKnobs();if(remote.links.size&&performance.now()-remote.sent>1000)remoteSend();}
   if(frame%4===0)updatePalettePreview();
   const list=[...engines.values()],starting=list.some(e=>e.status==='starting');
@@ -1867,7 +1888,7 @@ function startWire(event,n,key,type){
   };
   window.addEventListener('pointermove',move);window.addEventListener('pointerup',end);
 }
-// ---------- Tab: node search ----------
+// ---------- node search ----------
 const pointer={x:0,y:0,inGraph:false};
 function searchItems(){
   const items=[];
@@ -1908,7 +1929,7 @@ function wireNear(rect,tol,fits){
   return best;
 }
 const toGraph=(x,y)=>{const r=$('graphViewport').getBoundingClientRect(),z=uiZ();return {x:((x-r.left)/z-view.x)/view.zoom,y:((y-r.top)/z-view.y)/view.zoom};};
-// A wire near a screen point (drops, Tab search): ~22 screen px of slack.
+// A wire near a screen point (drops, node search): ~22 screen px of slack.
 const wireAt=(x,y,fits)=>{const p=toGraph(x,y),t=22/view.zoom;return wireNear({x:p.x,y:p.y,w:0,h:0},t,fits);};
 // The library node being dragged (dragover cannot read its data) and the wire it would drop into.
 let libDrag=null,dropWire=null;
@@ -2195,6 +2216,34 @@ function renderProps(root,n,keys,folded){
   // Color pickers commit on close, not on every input event.
   root.querySelectorAll('input[type=color]').forEach(i=>i.addEventListener('change',()=>liveCommit('Changed color')));
 }
+function renderSoundEffector(root,n){
+  const distribution=fold(root,'Spectrum distribution');
+  const choices=ui.chips({options:[['index','Order'],['distance','Distance'],['random','Random'],['x','X'],['y','Y'],['z','Z']],value:n.props.listen,property:'listen',
+    onChange:v=>edit((p,g)=>{g.nodes.find(x=>x.id===n.id).props.listen=v;},'Spectrum distribution')});
+  choices.style.setProperty('--option-columns',3);distribution.append(choices);
+  renderProps(distribution,n,['spread','delay'],true);
+  distribution.append(el('p','insp-note','Chooses which frequency band drives each clone: Order maps bass to the first clone and treble to the last; Distance maps outward from the centre; X, Y and Z map along an axis; Random assigns bands randomly. Spread blends that layout with random bands. Delay staggers the response along the array.'));
+  renderProps(fold(root,'Sound'),n,['sensitivity','attack','release','bass','energy','burst','spectrumTilt','soundForce'],true);
+  renderProps(fold(root,'Response'),n,['intensity','punch','responseRelease','dynamics'],true);
+  const transforms=fold(root,'Transforms');
+  for(const [title,keys] of [['Move',['moveX','moveY','moveZ']],['Rotate',['rotateX','rotateY','rotateZ']],['Scale',['scaleX','scaleY','scaleZ','uniformScale','grow']]])
+    renderProps(section(transforms,title),n,keys,true);
+  transforms.append(el('p','insp-note','Transform amounts are driven by sound, not static object transforms. Uniform scale grows all three axes together; Grow from base anchors that growth. Sound impulse lifts enabled rigid bodies; without a Sound Effector, 3D objects do not react to audio.'));
+}
+const objectGizmo={tool:null,drag:null},gizmoBounds=new WeakMap();
+function renderObjectTransforms(root,n){
+  const body=fold(root,'Transforms'),T=TYPES[n.type],cloner=n.type==='cloner';
+  body.append(ui.field('Gizmo',ui.chips({options:[['off','Off'],['move','Move'],['rotate','Rotate'],['scale','Scale']],value:objectGizmo.tool||'off',property:'gizmo',
+    onChange:v=>{objectGizmo.tool=v==='off'?null:v;renderProperties();renderOverlay();}})));
+  for(const [title,keys] of [['Move',['moveX','moveY','moveZ']],['Rotate',cloner?['rotX','rotY','rotZ']:['tilt','turn','rotation']],['Scale',cloner?['scaleX','scaleY','scaleZ']:['stretchX','stretchY','stretchZ']]]){
+    const part=section(body,title),grid=el('div','knob-grid');grid.style.gridTemplateColumns='repeat(3,minmax(0,1fr))';
+    keys.forEach((k,i)=>grid.append(propControl(n,k,{...T.props[k],label:'XYZ'[i],unit:title==='Rotate'?'deg':title==='Scale'?'%':''},graph().edges.some(e=>e.to===n.id&&e.input===k))));
+    part.append(grid);
+    if(title==='Scale')renderProps(part,n,[...(!cloner?['size']:[]),'scale'],true);
+  }
+  const legacy=['x','y'].filter(k=>n.props[k]||n.auto?.includes(k)||graph().edges.some(e=>e.to===n.id&&e.input===k));
+  if(legacy.length)renderProps(section(body,'Legacy view offsets'),n,legacy,true);
+}
 function renderProperties(){
   $('previewWrap').classList.toggle('pinning',!!pinNode());
   const root=$('properties'),focused=document.activeElement;
@@ -2205,6 +2254,7 @@ function renderProperties(){
   $('sceneSettings').setAttribute('aria-pressed',String(sceneInspector));
   if(sceneInspector){
     renderSceneSettings(root);
+    tipify();
     if(cameraKnob)root.querySelector(`[data-property="${CSS.escape(cameraKnob)}"]`)?.focus({preventScroll:true});
     return;
   }
@@ -2221,6 +2271,7 @@ function renderProperties(){
     renderProps(fold(root,'Compositing'),n,COMP_KEYS,true);
   }
   else if(t.engine)renderEmitter(root,n);
+  else if(n.type==='soundEffector')renderSoundEffector(root,n);
   else{
     if(n.type==='audioIn')renderAudioSource(root);
     if(n.type==='palette')renderPalettePresets(root,n);
@@ -2506,19 +2557,32 @@ function renderEmitter(root,n){
     return;
   }
   if(T.props.render)s.append(ui.field(T.props.render.label,ui.chips({options:T.props.render.labels.filter(l=>!(n.type==='waveform3d'&&l[0]==='points'&&n.props.mode!=='model')),value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)})));
-  if(n.type==='waveform3d')s.append(propControl(n,'collide',T.props.collide));
+  if(n.type==='waveform3d'||n.type==='cloner')s.append(propControl(n,'collide',T.props.collide));
   if(n.type==='waveform3d'||n.type==='cloner'){
     const physics=fold(root,'Rigid body');
-    renderProps(physics,n,simKeys(graph(),n).filter(k=>T.props[k].group==='Rigid body'),true);
-    physics.append(el('p','insp-note','Enable to collide with other rigid objects and every rigid cloner instance across layers. Auto uses a sphere for spheres and box bounds for other objects. Gravity, Wind, Swirl, Drag and Turbulence nodes add forces. Ground is controlled in Scene settings.'));
+    renderProps(physics,n,simKeys(graph(),n).filter(k=>T.props[k].group==='Rigid body'&&!['collide','soundForce'].includes(k)),true);
+    physics.append(el('p','insp-note','Collider body makes a stationary surface for particles and fluid, without enabling forces. Rigid body enables dynamic object and clone collisions and sound impulses. Objects float until you add a Gravity force. Attract can target a connected 3D Object or Cloner. Ground belongs to Scene settings.'));
   }
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
-  if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k)));
+  if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>!['scale','scaleX','scaleY','scaleZ','rotX','rotY','rotZ'].includes(k)&&(k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k))));
+  if(n.type==='waveform3d'||n.type==='cloner')renderObjectTransforms(root,n);
+  if(n.type==='cloner'||n.type==='waveform3d'&&n.props.render==='normal'){
+    const mapping=fold(root,'Palette mapping');
+    if(n.type==='cloner'){
+      renderProps(mapping,n,['paletteBy'],true);
+      mapping.append(el('p','insp-note','Spread the palette by clone, polygon, local height or sound. Follow Material preserves the downstream Material choice; an explicit choice here overrides it.'));
+    }else if(n.props.mode==='model'&&n.props.modelMaterials!=='palette'){
+      mapping.append(el('p','insp-note','Imported PBR uses the model’s own texture UVs. Choose Materials: Palette to map the connected palette instead.'));
+    }else{
+      renderProps(mapping,n,['paletteMap',...(n.props.paletteMap==='default'?[]:['paletteAxis','paletteTiling','paletteOffset','paletteRotation'])],true);
+      mapping.append(el('p','insp-note','UV follows the model’s UV map (built-in primitives have procedural UVs). Front projects onto local XY; Box chooses the face-facing projection. Horizontal or Vertical chooses the gradient direction; Tiling, Offset and Rotation place it. Waveform and Polygons keep their sound-driven colours.'));
+    }
+  }
   const emissionWire=n.type==='gpuParticles'&&graph().edges.find(e=>e.to===n.id&&e.input==='emit');
   const particleMode=n.type==='gpuParticles'&&n.props.mode==='simparticles',mesh=emissionWire&&meshEmitter(graph(),emissionWire),hasFlow=particleMode&&mesh&&n.props.particleSurfaceFlow;
   if(n.type==='waveform3d'&&n.props.mode==='text3d')renderProps(root,n,['words','font3d','depth']);
-  if(n.type==='waveform3d')renderProps(root,n,['size',...(objectOf(n.props).prim&&n.props.mode!=='knot'?['detail']:[]),'stretchX','stretchY','stretchZ']);
+  if(n.type==='waveform3d'&&objectOf(n.props).prim&&n.props.mode!=='knot')renderProps(root,n,['detail']);
   if(n.type==='waveform3d'&&n.props.mode==='model'&&n.props.render==='normal')renderProps(root,n,['modelMaterials']);
   const kind=mediaKind(n);
   if(kind){
@@ -2550,9 +2614,9 @@ function renderEmitter(root,n){
   // Waveforms expose both line Sensitivity and overall Intensity. Only classic 3D modes use tilt / rotate.
   const sim=SIM_NODES.includes(n.type)||n.type==='waveform3d'&&n.props.render==='normal',classic3d=n.type==='waveform3d'||n.type==='waveform2d'&&n.props.mode==='fractal';
   const used=k=>wiredOf(k)||n.auto?.includes(k)||n.props[k]!==undefined&&n.props[k]!==T.props[k].value;
-  const geo={};let lineSens=false;
+  const geo={};let lineSens=false;const soundActor=n.type==='waveform3d'||n.type==='cloner';
   for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){
-    const gr=T.props[k].group;if(gr==='Lines'&&sim||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;
+    const gr=T.props[k].group;if(soundActor&&['Sound','Transform','Transforms'].includes(gr))continue;if(gr==='Lines'&&sim||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;
     if((k==='tilt'||k==='turn')&&!classic3d&&!used(k))continue;
     if(k==='sensitivity'){lineSens=true;continue;}
     if(k==='contrast'||k==='fade')continue;
@@ -2565,17 +2629,18 @@ function renderEmitter(root,n){
   for(const [gr,ks] of Object.entries(geo))renderProps(fold(gr==='Line style'?styleWrap:root,gr),n,ks,true);
   if(wiredOf('mask'))renderProps(fold(root,'Mask'),n,MASK_KEYS,true);
   if(T.props.compBlend)renderProps(fold(root,'Compositing'),n,COMP_KEYS,true);
-  const d=fold(sndWrap,'Sound');
+  const d=soundActor?null:fold(sndWrap,'Sound');
   const wiredDrive=graph().edges.some(e=>e.to===n.id&&e.input==='drive');
   const sndKeys=sim?['intensity','punch','release','dynamics'].filter(used):[...(lineSens?['sensitivity','contrast','fade']:[]),...(T.category==='waveforms'||!lineSens||used('intensity')?['intensity']:[]),'punch','release','dynamics'].filter(k=>T.props[k]);
-  if(sndKeys.length){const rg=el('div','knob-grid');for(const k of sndKeys)rg.append(propControl(n,k,T.props[k],wiredOf(k)));d.append(rg);}
+  if(d&&sndKeys.length){const rg=el('div','knob-grid');for(const k of sndKeys)rg.append(propControl(n,k,T.props[k],wiredOf(k)));d.append(rg);}
   const wiredAudio=graph().edges.find(e=>e.to===n.id&&e.input==='audio'),from=wiredAudio&&findNode(wiredAudio.from);
-  d.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':from?`Hears ${TYPES[from.type].label} (${sourceName()}).`:T.category==='inputs'?'Still until you wire audio into it.':`Hears the project sound (${sourceName()}).`));
+  d?.append(el('p','insp-note',wiredDrive?'Driven by the connected number (it replaces the music).':from?`Hears ${TYPES[from.type].label} (${sourceName()}).`:T.category==='inputs'?'Still until you wire audio into it.':`Hears the project sound (${sourceName()}).`));
   const e=engineFor(n.id);
   const fill=()=>{
     if(selected!==n.id||!opts.isConnected)return;
     let controls;try{controls=e.controls(jobOf(n));}catch(err){opts.append(el('p','insp-note insp-err',err.message));return;}
     if(!controls)return;
+    if(soundActor)controls=controls.filter(c=>c.type!=='range'||!SIM_SOUND.has(c.id)&&optGroup(c.label)!=='Sound');
     opts.replaceChildren();top.replaceChildren();
     const sourceKey=n.type==='gpuParticles'&&SIM_SOURCE[n.props.mode],sourceChip=c=>sourceKey&&c.type==='chips'&&c.onclick.startsWith(`setSimOpt('${sourceKey}'`);
     const source=!emissionWire&&sourceKey&&e.simSource(jobOf(n),sourceKey),flat=source==='image'||source==='camera';
@@ -2592,6 +2657,7 @@ function renderEmitter(root,n){
     if(spatial)controls=controls.filter(c=>c.type!=='chips'||!/setSimOpt\('pBounds'/.test(c.onclick));
     if(hasFlow)controls=controls.filter(c=>!['pSpSpeed','pEmitScale'].includes(c.id));
     if(n.type==='waveform3d'||n.type==='splat'||spatial)controls=controls.filter(c=>c.type!=='range'||!CAM_VIEW_KNOBS.has(c.id));
+    if(n.type==='waveform3d')controls=controls.filter(c=>!['pGsRX','pGsRY','pGsRZ'].includes(c.id));
     // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
     if(clonerLike)controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3')&&(optGroup(c.label)!=='Look'||n.props.opts?.[c.id]!==undefined&&n.props.opts[c.id]!==c.def):!/\('g3|simApplyPreset/.test(c.onclick));
     // Leftover knobs share one "Form" section; sound, look and quality always keep their own.
@@ -2743,7 +2809,7 @@ function presetGraph(P){
 }
 // Saved scenes replace the converted preset of the same name; RETIRED presets stay loadable (old projects) but are not offered.
 for(const P of ORIGINAL_PRESETS)if(!Object.hasOwn(TEMPLATES,P.name))TEMPLATES[P.name]=()=>presetGraph(P);
-const ORIGINAL_NAMES=[...SCENES.map(([name])=>name),...ORIGINAL_PRESETS.map(P=>P.name).filter(n=>!RETIRED.has(n)&&!SCENES.some(([s])=>s===n))];
+const ORIGINAL_NAMES=[...SCENES.map(([name])=>name),...ORIGINAL_PRESETS.map(P=>P.name).filter(n=>!RETIRED.has(n)&&!SCENES.some(([s])=>s===n))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true}));
 function loadTemplate(name){
   if(!Object.hasOwn(TEMPLATES,name))throw Error('Unknown template '+name);
   const layers=TEMPLATES[name]();layers.forEach((g,i)=>{if(i===0)g.blend='source-over';});
@@ -3083,6 +3149,7 @@ function renderSceneCamera(root){
     section(root,title).append(grid);
   }
   const actions=el('div','insp-actions');
+  const frame=el('button','btn','Frame scene');frame.type='button';frame.title='Frame all scene objects (F)';frame.onclick=()=>frameScene();actions.append(frame);
   const reset=el('button','btn','Reset camera');reset.type='button';
   reset.onclick=()=>{sceneMotion.phase=0;editScene('camera',{...SCENE_CAMERA},'Reset scene camera');};
   actions.append(reset);
@@ -3135,6 +3202,8 @@ function renderSceneSettings(root){
     editScene('ground',{...SCENE_GROUND,...state.settings?.ground,[key]:parse(v)},`Ground: ${label}`));
   groundField('Ground enabled','enabled',String(groundSettings.enabled),[['true','On'],['false','Off']],v=>v==='true');
   groundField('Show ground','visible',String(groundSettings.visible),[['true','Visible'],['false','Collision only']],v=>v==='true');
+  groundField('Ground type','shape',groundSettings.shape,[['square','Square'],['circle','Circle']]);
+  groundField('Ground colour','color',groundSettings.color,'color');
   groundField('Ground height','height',groundSettings.height,'number');
   groundField('Ground size','size',groundSettings.size,'number');
   ground.append(el('p','insp-note','One shared ground for the scene. Rigid bodies collide with it when enabled, even when it is hidden.'));
@@ -3142,27 +3211,27 @@ function renderSceneSettings(root){
   restart.onclick=()=>{rigidWorld.reset();if(paused)draw(elapsed);message('Rigid bodies restarted');};
   ground.append(restart);
   const lighting=group('Environment lighting'),environment=settings.environment;
-  lighting.append(el('p','insp-note',environment?.name||'Import a Radiance HDR panorama to illuminate and reflect in 3D surfaces.'));
-  const hdr=el('input');hdr.type='file';hdr.accept='.hdr';hdr.setAttribute('aria-label','Import HDR environment');
+  lighting.append(el('p',environment?'insp-note data-status':'insp-note',environment?.name||'Import a Radiance HDR or OpenEXR panorama to illuminate and reflect in 3D surfaces.'));
+  const hdr=el('input');hdr.type='file';hdr.accept='.hdr,.exr';hdr.setAttribute('aria-label','Import HDR or EXR environment');
   hdr.onchange=async()=>{
     const file=hdr.files[0];if(!file)return;
-    const before=state;hdr.disabled=true;message('Loading HDR environment...');
+    const before=state;hdr.disabled=true;message('Loading environment lighting...');
     try{
       const next=await importEnvironment(file);
-      if(state!==before)throw Error('The scene changed while loading. Import the HDR again.');
-      editScene('environment',next,'Imported HDR environment: '+file.name);
-    }catch(error){message('HDR environment: '+error.message,true);}
+      if(state!==before)throw Error('The scene changed while loading. Import the environment again.');
+      editScene('environment',next,'Imported environment: '+file.name);
+    }catch(error){message('Environment lighting: '+error.message,true);}
     finally{hdr.disabled=false;hdr.value='';}
   };
   lighting.append(hdr);
   if(environment){
     for(const [label,key] of [['Environment intensity','intensity'],['Environment rotation','rotation']]){
       field(lighting,label,environment[key],'number',v=>
-        editScene('environment',{...state.settings.environment,[key]:v},`HDR: ${label}`));
+        editScene('environment',{...state.settings.environment,[key]:v},`Environment: ${label}`));
     }
-    const remove=el('button','btn','Remove HDR');remove.type='button';
-    remove.onclick=()=>editScene('environment',null,'Removed HDR environment');lighting.append(remove);
-    lighting.append(el('p','insp-note','The HDR is embedded in saved scenes. Intensity controls light strength; rotation turns the panorama in degrees.'));
+    const remove=el('button','btn','Remove environment');remove.type='button';
+    remove.onclick=()=>editScene('environment',null,'Removed environment');lighting.append(remove);
+    lighting.append(el('p','insp-note','The HDR or EXR is embedded in saved scenes. Intensity controls light strength; rotation turns the panorama in degrees.'));
   }
   const output=group('Output'),sizes=OUTPUT_SIZES.map(h=>[h,h===2160?'4K':`${h}p`]),video={...exportPrefs,...settings.video};
   field(output,'Live resolution',settings.resolution??preferredResolution,sizes,setSceneResolution);
@@ -3261,6 +3330,38 @@ function viewCam(g){
 }
 function setCam(id,fn){live(st=>{fn(st.settings.camera);});}
 function setView(id,fn){live(st=>{const g=st.layers.find(l=>l.id===id);if(!g)return;const v={...VIEW0,...g.view};fn(v);const c=cleanView(v);if(c)g.view=c;else delete g.view;});}
+let framing=false;
+async function frameScene(){
+  if(framing)return false;
+  framing=true;
+  try{
+    for(const e of engines.values())if(e.w?.__agScene)e.w.__agScene.frameRequested=true;
+    draw(elapsed);
+    if(!sharedRenderers.size){
+      return edit(p=>{for(const g of p.layers)if(g.visible)delete g.view;},'Framed scene');
+    }
+    const snapshot=state;let radius=0;
+    for(const id of sharedRenderers){
+      const e=engines.get(id),api=e?.w?.__agScene;
+      if(!api||e.status==='starting')throw Error('3D objects are still loading. Press F again when they appear.');
+      let bound=api.boundsRadius||0;
+      const origin=api.mapper()?.([0,0,0]);
+      if(origin)bound+=Math.hypot(...origin);
+      if(api.surfaceMesh)for(const point of api.surfaceMesh.verts)bound=Math.max(bound,Math.hypot(...point));
+      if(e.fluid)bound=Math.max(bound,e.fluid.domain*Math.sqrt(3));
+      if(e.w.__agParticles3d?.shared){
+        const data=await e.w.agSim.particleState(true);
+        if(data)for(let i=0;i<data.length;i+=16)if(data[i+8]>0)bound=Math.max(bound,Math.hypot(data[i],data[i+1],data[i+2])+.1);
+      }
+      if(!Number.isFinite(bound)||bound<=0)throw Error('Scene bounds are not ready. Press F again when the objects appear.');
+      radius=Math.max(radius,bound);
+    }
+    if(state!==snapshot)throw Error('The scene changed while framing. Press F again.');
+    const camera=frameCamera(state.settings.camera,radius,WIDTH/HEIGHT);
+    return editScene('camera',camera,'Framed scene');
+  }catch(error){message('Frame scene: '+error.message,true);return false;}
+  finally{framing=false;for(const e of engines.values())if(e.w?.__agScene)e.w.__agScene.frameRequested=false;}
+}
 preview.addEventListener('pointerdown',ev=>{
   if(viewOff()||ev.defaultPrevented)return;
   const g=viewLayer(),cam=viewCam(g),three=!!cam||layerView.has(g.id);
@@ -3280,7 +3381,7 @@ preview.addEventListener('contextmenu',ev=>{if(!viewOff())ev.preventDefault();})
 // Zoom the active layer by k around a screen point: its 3D camera if it has one, else the viewport.
 function zoomView(k,cx,cy,label='Zoomed view'){
   const g=viewLayer(),cam=viewCam(g);
-  if(cam){setCam(cam.id,c=>{c.zoom=Math.round(Math.max(30,Math.min(300,(c.zoom??100)*k)));});clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit('3D camera: zoom'),350);return;}
+  if(cam){setCam(cam.id,c=>{c.zoom=Math.max(CAMERA_ZOOM_MIN,Math.min(CAMERA_ZOOM_MAX,c.zoom*k));});clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>liveCommit('3D camera: zoom'),350);return;}
   const r=preview.getBoundingClientRect(),u=(cx-r.left)/r.width*2-1,w=(cy-r.top)/r.height*2-1,flat=layerView.get(g.id)!=='sim';
   setView(g.id,v=>{const z=Math.max(.2,Math.min(6,v.zm*k));
     // 2D zooms toward the pointer; 3D dollies the camera.
@@ -3354,7 +3455,7 @@ function fillTemplates(){
   for(const [label,names,pre] of [['User templates',Object.keys(userTemplates()),'user:'],['Audiograph presets',ORIGINAL_NAMES,'']]){
     if(!names.length)continue;
     const grp=el('div','tpl-group');grp.append(el('div','tpl-group-label',label));
-    for(const name of names){
+    for(const name of [...names].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true}))){
       const row=el('div','tpl-row');row.dataset.value=pre+name;row.setAttribute('role','option');
       const pickBtn=el('button','tpl-name',name);pickBtn.type='button';pickBtn.onclick=()=>{closeTemplates();pickTemplate(pre+name);};row.append(pickBtn);
       if(pre){const x=el('button','tpl-x','×');x.type='button';x.title=x.ariaLabel=`Delete template ${name}`;x.onclick=e=>{e.stopPropagation();deleteTemplate(name);};row.append(x);}
@@ -3391,7 +3492,7 @@ function saveTemplate(){
   fillTemplates();message(`Saved template ${name}`);
 }
 function removeTemplate(){
-  const all=userTemplates(),names=Object.keys(all);if(!names.length)return message('No user templates yet');
+  const all=userTemplates(),names=Object.keys(all).sort((a,b)=>a.localeCompare(b));if(!names.length)return message('No user templates yet');
   const name=prompt('Remove which template?\n'+names.join('\n'),names[names.length-1])?.trim();if(!name)return;
   if(!all[name])return message('No template called '+name,true);
   delete all[name];localStorage.setItem(USER_KEY,JSON.stringify(all));fillTemplates();message(`Removed template ${name}`);
@@ -3432,13 +3533,13 @@ $('helpBody').innerHTML=`
 <li>Press <b>V</b> on any node to see only its picture, <b>B</b> to switch it off for a moment, ⌘Z to undo anything.</li></ol>
 <p>A good first scene: <b>Audio → Waveform (Circle) → Twist → Palette → Bloom → Output</b>. Then try swapping the Waveform for an Emitter or a 3D Object, and add <b>Liquid glass</b> or <b>Fracture</b> at the end.</p>
 <h3 id="h-screen">The screen</h3>
-<p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play / pause (Space; it pauses the visuals too), stop, record to video, snapshot, the audio source, the live spectrum, fullscreen (F) and <b>Detach</b>. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
+<p><b>Studio</b>, <b>Mapping</b> and <b>Autopilot</b> are the tabs at the top left; each has its own settings below it. The <b>preview</b> sits in the middle with the transport bar under it: play / pause (Space; it pauses the visuals too), stop, record to video, snapshot, the audio source, the live spectrum, fullscreen (Tab) and <b>Detach</b>. Press <b>F</b> to frame all scene objects. The <b>graph</b> is below the preview, the <b>inspector</b> on the right. Drag the gutters between panels to resize them; double-click a gutter to hide or show that panel.</p>
 <p><b>Move the view</b> with the mouse over the preview; it moves the active layer. On a 3D layer (Cloner, 3D Object, splats) drag orbits the camera, right-drag or Shift-drag pans. On a 2D layer drag moves the picture. The wheel or a trackpad / touch pinch zooms (2D zooms toward the pointer), double-click resets. Every move is undoable and saved with the project.</p>
 <p>The <b>inspector</b> shows the selected node's knobs, grouped into sections, with a short description of what the node does at the top. With nothing selected it shows the layer (opacity, blend mode, resolution).</p>
 <h3 id="h-graph">Nodes &amp; wires</h3>
 <p>Wires carry typed values, colour-coded on their ports: <span style="color:${PORT_COLORS.audio}">audio</span> (the sound), <span style="color:${PORT_COLORS.shape}">shape</span> (something that can still be bent and recoloured), <span style="color:${PORT_COLORS.image}">image</span> (finished pixels), <span style="color:${PORT_COLORS.number}">number</span> (a value that drives knobs), <span style="color:${PORT_COLORS.colors}">colors</span> (a palette) and <span style="color:${PORT_COLORS.object3d}">3D object</span>. A shape wired into an image input is rendered at that point; after that it is pixels. A typical chain is Audio → Waveform or Emitter → Deformers → Palette → Post FX → Output.</p>
 <ul><li>Drag from an output port to an input port to connect. Click a wire to remove it. Ports only accept matching types.</li>
-<li><b>Tab</b> over the graph searches every node and drops it at the cursor; over (or near) a wire it is inserted into the wire.</li>
+<li><b>Shift+A</b> over the graph searches every node and drops it at the cursor; over (or near) a wire it is inserted into the wire.</li>
 <li>Drag an unconnected node so its body covers a wire and the wire lights up; let go to wedge it in. Library items work the same way.</li>
 <li>Drop a library item onto a node, or drag a node onto another, to replace it: the node is outlined when it fits and the newcomer keeps its wires.</li>
 <li>Drag empty space to pan or use the wheel to zoom. <b>Fit</b> arranges the graph left to right and frames every node.</li>
@@ -3455,7 +3556,7 @@ $('helpBody').innerHTML=`
 <li>These draw in greys, so a <b>Palette</b> after them spreads its whole ramp. <b>Line style</b> makes their lines Solid, Dashed, Long dash, Dotted or Dash-dot; <b>Cell shape</b> draws cells as squares, dots, rings or crosses.</li></ul></li>
 <li><b>Emitters</b>: Simple particles and WebGPU emitters (Particles, Fluid, Smoke).</li>
 <li><b>Compositing</b>: the last section of every waveform and emitter sets its <b>Opacity</b> and <b>Blend</b> mode (Screen, Add, Multiply, Difference…) against the layers below, even through a Palette.</li>
-<li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, USD, GLB or glTF), drawn <b>Normal</b> (solid), as a <b>Waveform</b> (lines) or as <b>Polygons</b> (filled faces that light up and move with the sound); any of them plugs into the Cloner, the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light, 3D camera). Chain effectors and look nodes after the Cloner.</li>
+<li><b>3D</b>: <b>3D Object</b> — every shape (Sphere, Cube, Cylinder… DNA, Terrain, and 3D model for your OBJ, FBX, USD, GLB or glTF), drawn <b>Normal</b> (solid), as a <b>Waveform</b> (lines) or as <b>Polygons</b> (filled faces that light up and move with the sound); any of them plugs into the <b>Cloner</b> (repeats up to three objects in a grid, ring, spiral…), Effectors (Sound, Field, Random, Links) and Look (Material, Light). Chain effectors and look nodes after the Cloner. All 3D shares the camera in <b>Scene settings</b>.</li>
 <li><b>Forces</b> push WebGPU simulations: Spin, Gravity, Drag, Swirl, Attract, Wind, Vorticity. Each shows only the knobs that matter for the simulation before it.</li>
 <li><b>Deformers</b> bend shapes: Symmetry, Mirror, Twist, Bulge, Wave, Shear, Depth, Ripple, Water ripples (beats drop stones onto the shape), Webcam, plus Noise (Jitter, Disorder, Randomize, Turbulence, Flow field).</li>
 <li><b>Color</b>: Palette (without one, shapes draw in grayscale; click its ramp to add a colour, click a stop to pick, drag it off to remove, the dot below turns on slow hue Auto; the box under each stop is that colour's opacity: type a % or drag it up/down; Opacity makes the whole result see-through), Hue shift, Color correct.</li>
@@ -3472,11 +3573,15 @@ $('helpBody').innerHTML=`
 <h3 id="h-layers">Layers</h3>
 <p>Each graph is one layer. <b>+ Layer</b> adds another; layers stack in the preview using each layer's opacity and blend mode (select empty graph space to see the layer settings). Use the tabs above the graph to switch layers and the checkbox to show or hide one. A <b>Layer</b> node brings another layer into this graph, so one layer can be refracted, masked or blended by another.</p>
 <h3 id="h-3d">3D &amp; models</h3>
-<ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (audio-reactive lines), Polygons (faces that flash and push out with their band; Gap separates them, Edges outlines them) or Point cloud (3D model). A <b>3D model</b> comes with a <b>3D camera</b> after it that holds the view (Rotate, Orbit, Tilt, Zoom, Focal length): drag the preview to rotate and tilt it, scroll to zoom, double-click to reset. Colours come from the layer's <b>Palette</b>: loud lines and faces take the top of the ramp (Sound › Sensitivity / Contrast set how much); a Point cloud picks Look › Colour (Palette · sound) and Sound glow.</li>
+<p><b>One scene, one camera.</b> Open <b>Scene settings</b> for the shared 3D camera, square or circular Ground with a colour picker, and HDR/EXR environment lighting. Camera movement includes Static, Orbit, Pendulum, Dolly and Spiral. Press <b>F</b> to frame all visible 3D content; <b>Tab</b> toggles fullscreen. New visual nodes connect to Merge automatically; manually edited routing stays yours. 3D objects share depth, while 2D visuals remain composited overlays. Scene settings has its own <b>?</b> for explanations.</p>
+<ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (lines), Polygons (faces; Gap separates them, Edges outlines them) or Point cloud (3D model). All four use the same scale and world pose. <b>Transforms</b> on Objects and Cloners has separate Move, Rotate and Scale XYZ rows, Size and Uniform scale. Choose <b>Gizmo: Move / Rotate / Scale</b> to edit the object directly in the preview; each drag is one undo step. With the gizmo off, drag orbits the shared camera, right-drag pans, scroll zooms and double-click resets.</li>
+<li><b>Sound effector</b> owns the sound controls. Standalone objects stay still unless one is connected; new Cloners include one automatically. <b>Sound</b> and <b>Response</b> shape sensitivity, attack, release and intensity. Its <b>Transforms</b> section has Move XYZ, Rotate XYZ, Scale XYZ, Uniform scale and Grow from base. <b>Spectrum distribution</b> assigns frequency bands across clones by Order, Distance, X, Y, Z or Random; Spread and Delay vary how they respond.</li>
+<li><b>Palette mapping</b>: the Cloner chooses how colours are distributed across its instances. Normal-rendered Objects offer <b>UV</b>, <b>Front</b> or <b>Box</b> projection, with axis, tiling, offset and rotation. Imported models must choose <b>Materials: Palette</b> to use it. Waveform and Polygon colours can react to sound through the connected Sound effector; Point clouds retain their Look colour options.</li>
 <li><b>3D model</b> loads <b>OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers; USD must be flattened, since referenced files are not loaded). Polygons of any size are triangulated. Still models keep up to 500,000 triangles in 3D Object (Normal and Point cloud render them on the GPU; Waveform and Polygons simplify to Max faces) and 1,000,000 in Mapping; animated models are thinned to 40,000 faces, since they are re-posed every frame. Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. If imported materials are unreadable or unsupported (for example, specular/glossiness), the mesh still loads with <b>Palette</b> shading. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
-<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound pushes clones with the music, Field, Random, Links draws lines between them) and <b>Look</b> nodes (Material, Light, 3D camera with lens Focal length, 14 mm wide to 200 mm telephoto, and Depth of field) after it. Turn on <b>Collide</b> on a 3D Object to bounce free 3D particles off its surface.</li>
-<li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles and rigid bodies; adjust its height and size or switch it off. Set <b>Look → Trails</b> to 0 to draw particles without trails. Add a <b>3D camera</b> to orbit the cloud.</li></ul>
+<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound, Field, Random, Links) and <b>Look</b> nodes (Material, Light) after it. <b>Collider body</b> on an Object or Cloner makes its surfaces collide with particles and fluid without enabling physical forces. <b>Rigid body</b> makes objects and every clone bounce off one another, respond to sound impulses and receive connected forces. There is <b>no gravity by default</b>: add a <b>Gravity</b> node. <b>Attract → target</b> accepts a 3D Object or Cloner; the force pulls toward its world position, including moving rigid targets. An unwired Attract pulls toward the origin; negative strength repels.</li>
+<li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles, fluid and rigid bodies; choose Square or Circle, adjust its height and size or switch it off. Hidden ground still collides. Set <b>Look → Trails</b> to 0 to draw particles without trails. The shared Scene camera orbits the whole cloud.</li></ul>
+<p>Open Tutorials for <b>3D Cloner &amp; rigid bodies</b>, including Scene settings and explicit Gravity, or <b>Particles: Waterfall</b>, which builds the saved Waterfall look from particles, forces, colour and a fluid layer.</p>
 <h3 id="h-sims">Simulations</h3>
 <p>WebGPU emitters (Particles, Fluid, Smoke) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
 <h3 id="h-fx">Post FX</h3>
@@ -3508,7 +3613,7 @@ $('helpBody').innerHTML=`
 <li><b>Output</b> → second display: Detach opens the picture in its own window for a projector or screen.</li>
 <li>Older projects open automatically and are updated to the current nodes.</li></ul>
 <h3 id="h-keys">Keys</h3>
-<ul><li><kbd>Space</kbd> pause visuals · <kbd>F</kbd> fullscreen · <kbd>Tab</kbd> add node · <kbd>Delete</kbd> remove node</li>
+<ul><li><kbd>Space</kbd> pause visuals · <kbd>F</kbd> frame scene · <kbd>Tab</kbd> fullscreen · <kbd>Shift+A</kbd> add node · <kbd>Delete</kbd> remove node</li>
 <li><kbd>B</kbd> bypass selected · <kbd>V</kbd> preview selected · <kbd>Esc</kbd> leave preview or close dialogs</li>
 <li><kbd>⌘Z</kbd> undo · <kbd>⇧⌘Z</kbd> redo · <kbd>⌘S</kbd> save · <kbd>⇧⌘S</kbd> save as template · <kbd>⌘O</kbd> open</li>
 <li>Drag on empty graph space to select several nodes (<kbd>Shift</kbd> adds, <kbd>⌘A</kbd> selects all) · <kbd>⌘C</kbd> / <kbd>⌘X</kbd> / <kbd>⌘V</kbd> copy, cut, paste · Alt-drag, middle-drag or two fingers pan</li>
@@ -3571,7 +3676,8 @@ document.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(/^[1-9]$/.test(e.key)&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&state.mapping?.on&&launchCue(+e.key-1)){e.preventDefault();return;}
   if(mapKey(e))return;
-  if(e.key==='Tab'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&(pointer.inGraph||e.target.closest?.('#graphViewport'))){e.preventDefault();openSearch();}
+  if(e.key==='Tab'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&!e.shiftKey){e.preventDefault();if(!e.repeat)toggleFullscreen();}
+  else if(k==='a'&&e.shiftKey&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&(pointer.inGraph||e.target.closest?.('#graphViewport'))){e.preventDefault();openSearch();}
   else if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();}
   else if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redo();}
   else if((e.metaKey||e.ctrlKey)&&k==='d'){e.preventDefault();duplicateSelected();}
@@ -3584,7 +3690,7 @@ document.addEventListener('keydown',e=>{
   else if(k==='v'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){const n=graph().nodes.find(m=>m.id===selected);if(previewId&&(!n||n.id===previewId))setPreview(previewId);else if(canPreview(n))setPreview(n.id);}
   else if(e.key===' '&&!e.target.closest('button')){e.preventDefault();$('play').click();}
   else if(e.key==='Home'&&audio.buffer&&!audio.live){e.preventDefault();const on=!!audio.source;stopAudio();if(on)play().catch(()=>{});message('Back to the start');}
-  else if(k==='f'&&!e.metaKey&&!e.ctrlKey){toggleFullscreen();}
+  else if(k==='f'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();if(!e.repeat)frameScene();}
 });
 window.addEventListener('resize',()=>requestAnimationFrame(renderWires));
 window.addEventListener('pagehide',event=>{
@@ -3987,8 +4093,11 @@ function svg(tag,attrs){const n=document.createElementNS(SVGNS,tag);for(const [k
 const GIZ_COLORS=['#ff5d6c','#7be36f','#5aa2ff'];
 function drawGizmo(s,k){
   if(!gizOn(s))return;const G=map3d.gizmo(s,mapGiz.target,WIDTH,HEIGHT,mapTime);if(!G.front)return;
-  const tool=mapGiz.tool,act=mapDrag?.kind==='giz'?mapDrag.h.axis:-1,g=svg('g',{class:'gizmo','data-gizmo':tool}),P=p=>`${p[0].toFixed(1)},${p[1].toFixed(1)}`,line=(a,b,c,w=2.5)=>g.append(svg('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:c,'stroke-width':w*k,'stroke-linecap':'round'}));
-  if(mapGiz.target==='box'||tool==='scale')g.append(svg('path',{d:G.edges.map(([i,j])=>`M${P(G.corners[i])}L${P(G.corners[j])}`).join(''),fill:'none',stroke:'#ffe066','stroke-width':1.2*k,'stroke-dasharray':`${5*k} ${4*k}`,opacity:.85}));
+  drawGizmoHandles(G,mapGiz.tool,k,mapDrag?.kind==='giz'?mapDrag.h.axis:-1,mapGiz.target==='box');
+}
+function drawGizmoHandles(G,tool,k,act=-1,box=false){
+  const g=svg('g',{class:'gizmo','data-gizmo':tool}),P=p=>`${p[0].toFixed(1)},${p[1].toFixed(1)}`,line=(a,b,c,w=2.5)=>g.append(svg('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:c,'stroke-width':w*k,'stroke-linecap':'round'}));
+  if(box||tool==='scale')g.append(svg('path',{d:G.edges.map(([i,j])=>`M${P(G.corners[i])}L${P(G.corners[j])}`).join(''),fill:'none',stroke:'#ffe066','stroke-width':1.2*k,'stroke-dasharray':`${5*k} ${4*k}`,opacity:.85}));
   if(tool==='move')G.move.forEach((t,a)=>{const c=GIZ_COLORS[a],w=act===a?4:2.5;line(G.c,t,c,w);const dx=t[0]-G.c[0],dy=t[1]-G.c[1],l=Math.hypot(dx,dy)||1,ux=dx/l,uy=dy/l,h=11*k;
     g.append(svg('polygon',{points:[[t[0]+ux*h,t[1]+uy*h],[t[0]-uy*h*.45,t[1]+ux*h*.45],[t[0]+uy*h*.45,t[1]-ux*h*.45]].map(P).join(' '),fill:c}));});
   if(tool==='scale'){G.scale.forEach((t,a)=>{const c=GIZ_COLORS[a];line(G.c,t,c,act===a?4:2.5);g.append(svg('rect',{x:t[0]-5*k,y:t[1]-5*k,width:10*k,height:10*k,fill:c}));});
@@ -3996,8 +4105,64 @@ function drawGizmo(s,k){
   if(tool==='rotate')G.rings.forEach((r,a)=>g.append(svg('polyline',{points:r.pts.map(P).join(' '),fill:'none',stroke:GIZ_COLORS[a],'stroke-width':(act===a?4:2.2)*k,opacity:act<0||act===a?1:.35})));
   g.append(svg('circle',{cx:G.c[0],cy:G.c[1],r:3*k,fill:'#fff'}));overlay.append(g);
 }
+function objectGizmoFrame(){
+  if(workspace!=='studio'||multi.size>1||!objectGizmo.tool)return null;
+  const n=findNode(selected),e=n&&engines.get(n.id),c=e?.w?.__agScene.camera;
+  if(!n||!['waveform3d','cloner'].includes(n.type)||!c)return null;
+  const p=n.props,cloner=n.type==='cloner',rotation=cloner?[p.rotX,p.rotY,p.rotZ]:[p.tilt,p.turn,-p.rotation],
+    position=['X','Y','Z'].map(a=>p['move'+a]||0),axes=cloner?['scaleX','scaleY','scaleZ']:['stretchX','stretchY','stretchZ'],
+    T={x:position[0],y:position[1],z:position[2],rx:rotation[0],ry:rotation[1],rz:rotation[2],sx:p[axes[0]]/100,sy:p[axes[1]]/100,sz:p[axes[2]]/100,scale:p.scale/100};
+  let S;
+  if(cloner){const radius=e.w.__agScene.boundsRadius||1;S=[radius*2,radius*2,radius*2];}
+  else{
+    const object=objectOf(p,e.mediaKind==='object'&&e.w.objModelData),native=object.prim&&object.shape!=='knot',
+      mesh=native?e.w.agSim.particleMesh(object.shape,object.detail):object.mesh==='knot'?(e.w._objDefault||=e.w._objDefaultModel()):object.mesh;
+    if(!mesh?.verts?.length)return null;
+    let bounds=gizmoBounds.get(mesh.verts);
+    if(!bounds){const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const v of mesh.verts)for(let i=0;i<3;i++){lo[i]=Math.min(lo[i],v[i]);hi[i]=Math.max(hi[i],v[i]);}bounds=hi.map((v,i)=>v-lo[i]);gizmoBounds.set(mesh.verts,bounds);}
+    S=bounds.map((v,i)=>Math.max(.05,v*p.size/100*(native?1:.7)*T.scale*p[axes[i]]/100));
+  }
+  const group=rigidWorld.groups.get(n.id);
+  if(group?.bodies.length){for(let i=0;i<3;i++)position[i]=group.bodies.reduce((sum,b)=>sum+b.position['xyz'[i]],0)/group.bodies.length;[T.x,T.y,T.z]=position;}
+  const F={R:rotationMatrix(rotation),S,c:position,ring:.62*Math.max(...S,.3),
+    rotationAxes:[rotatePoint([1,0,0],[0,0,rotation[2]]),rotatePoint([0,1,0],[rotation[0],0,rotation[2]]),[0,0,1]],
+    toScreen:v=>projectPoint(v,c,WIDTH,HEIGHT)};
+  return {n,T,G:map3d.gizmoFromFrame(F,T),axes};
+}
+function startObjectGizmo(ev){
+  if(ev.button!==0||ev.defaultPrevented)return false;
+  const f=objectGizmoFrame();if(!f||!f.G.front)return false;
+  const r=preview.getBoundingClientRect(),P=[(ev.clientX-r.left)/r.width*WIDTH,(ev.clientY-r.top)/r.height*HEIGHT],
+    h=map3d.gizmoHit(f.G,objectGizmo.tool,...P,12*WIDTH/r.width);
+  if(!h)return false;
+  objectGizmo.drag={...f,h,p0:P,target:ev.currentTarget,pointer:ev.pointerId};
+  ev.currentTarget.setPointerCapture(ev.pointerId);ev.preventDefault();ev.stopImmediatePropagation();renderOverlay();return true;
+}
+preview.addEventListener('pointerdown',startObjectGizmo,true);
+window.addEventListener('pointermove',ev=>{
+  const d=objectGizmo.drag;if(!d)return;
+  const r=preview.getBoundingClientRect(),P=[(ev.clientX-r.left)/r.width*WIDTH,(ev.clientY-r.top)/r.height*HEIGHT],
+    t=map3d.dragGizmo(d.G,d.T,d.h,d.p0,P);
+  live(()=>{
+    const n=findNode(d.n.id);if(!n)return;const p=n.props;
+    if(d.h.tool==='move')[p.moveX,p.moveY,p.moveZ]=[t.x,t.y,t.z];
+    else if(d.h.tool==='rotate'){if(n.type==='cloner')[p.rotX,p.rotY,p.rotZ]=[t.rx,t.ry,t.rz];else [p.tilt,p.turn,p.rotation]=[t.rx,t.ry,-t.rz];}
+    else if(d.h.axis===3)p.scale=t.scale*100;
+    else p[d.axes[d.h.axis]]=Math.max(TYPES[n.type].props[d.axes[d.h.axis]].min,Math.min(TYPES[n.type].props[d.axes[d.h.axis]].max,t['s'+'xyz'[d.h.axis]]*100));
+  });
+  ev.preventDefault();ev.stopImmediatePropagation();renderOverlay();
+},true);
+const endObjectGizmo=ev=>{
+  const d=objectGizmo.drag;if(!d)return;
+  objectGizmo.drag=null;if(d.target.hasPointerCapture(d.pointer))d.target.releasePointerCapture(d.pointer);
+  if(liveBefore)liveCommit('Object '+d.h.tool);renderProperties();renderOverlay();ev.stopImmediatePropagation();
+};
+window.addEventListener('pointerup',endObjectGizmo,true);window.addEventListener('pointercancel',endObjectGizmo,true);
 function renderOverlay(){
-  if(!overlay||overlay.hasAttribute('hidden'))return;overlay.replaceChildren();const r=overlayBox(),k=WIDTH/(r.width||WIDTH),m=curMap();
+  if(!overlay)return;
+  const object=!mapMode&&objectGizmoFrame();overlay.toggleAttribute('hidden',!mapMode&&!object);overlay.classList.toggle('object-overlay',!!object);
+  if(overlay.hasAttribute('hidden'))return;overlay.replaceChildren();const r=overlayBox(),k=WIDTH/(r.width||WIDTH),m=curMap();
+  if(object){if(object.G.front)drawGizmoHandles(object.G,objectGizmo.tool,k,objectGizmo.drag?.h.axis??-1);return;}
   const P=p=>`${(p[0]*WIDTH).toFixed(1)},${(p[1]*HEIGHT).toFixed(1)}`;
   for(const s of m.surfaces){
     if(s.kind==='3d')continue;
@@ -4024,6 +4189,7 @@ new ResizeObserver(()=>renderOverlay()).observe(preview);
 const normPoint=ev=>{const r=preview.getBoundingClientRect();return [(ev.clientX-r.left)/r.width,(ev.clientY-r.top)/r.height];};
 const round4=v=>Math.round(v*10000)/10000;
 overlay.addEventListener('pointerdown',ev=>{
+  if(!mapMode){startObjectGizmo(ev);return;}
   if(![0,2].includes(ev.button))return;ev.preventDefault();const [x,y]=normPoint(ev),r=preview.getBoundingClientRect(),m=curMap();
   const s=selSurface();if(s?.kind==='3d'){
     if(gizOn(s)){const px=[x*WIDTH,y*HEIGHT],G=map3d.gizmo(s,mapGiz.target,WIDTH,HEIGHT,mapTime),h=G.front&&map3d.gizmoHit(G,mapGiz.tool,px[0],px[1],12*WIDTH/r.width);
@@ -4600,7 +4766,7 @@ window.pro={
   midi:{inject:b=>sensors.injectMidi(b),learn:on=>setMidiLearn(on),actions:()=>({...midiActions}),blackout:()=>blackout.on},
   share:{link:()=>shareLink(),open:link=>openShared(new URL(link).hash.replace(/^#scene=/,''))},
   camera:()=>({phase:sceneMotion.phase,pose:cameraPose(state.settings.camera,sceneMotion.phase)}),
-  draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),emitPoints:id=>nodeState.get(id+':emit')?.asset?.points,view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
+  draw:()=>draw(elapsed),frameScene,engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),emitPoints:id=>nodeState.get(id+':emit')?.asset?.points,view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 attempt(()=>{const h=+localStorage.getItem('agpro.resolution');if(OUTPUT_SIZES.includes(h))preferredResolution=h;});
 sensors.autoMidi();reconcile();renderLibrary();renderUI();openShared();requestAnimationFrame(()=>{fit();if(graph().nodes[0]){selected=graph().nodes.find(n=>isEngine(n.type))?.id||null;renderUI();}});
@@ -4622,11 +4788,81 @@ function tourNeed3d(auto){
   else if(mapSel!==t.id){mapSel=t.id;mapPt=-1;renderMapPanel();renderOverlay();}
   if(auto&&t&&!t.fx?.auto?.on)mapEdit(x=>{const y=x.surfaces.find(z=>z.id===t.id);y.fx={...y.fx,auto:{...y.fx.auto,on:true}};},'Animate autopilot on');
 }
+function tourInspect(type,property){
+  sceneInspector=false;
+  const n=graph().nodes.find(n=>n.type===type);selected=n?.id||null;multi.clear();renderUI();
+  const item=document.querySelector(`#library .library-node[data-type="${type}"]`);
+  item?.closest('.panel.collapsed')?.querySelector(':scope > .panel-head')?.click();
+  const control=property&&$('properties').querySelector(`[data-property="${property}"]`);
+  control?.closest('.insp-fold.closed')?.firstChild.click();
+}
+function tourSceneSettings(){
+  if(!sceneInspector)$('sceneSettings').click();
+}
+function tourCloner(stage,type='cloner',property){
+  const g={id:'tutorial-cloner',name:'Tidal marbles',visible:true,opacity:1,blend:'source-over',nodes:[],edges:[]};
+  const add=(id,type,x,y,props={})=>{const n=node(type,x,y,props);n.id=id;g.nodes.push(n);return n;};
+  const wire=(from,out,to,input)=>g.edges.push({from,out,to,input});
+  add('tc-audio','audioIn',40,30);
+  add('tc-object','waveform3d',40,230,{mode:'sphere',render:'normal',size:32,intensity:20});
+  add('tc-cloner','cloner',280,230,{countX:5,countY:3,countZ:2,spacingX:170,spacingY:170,spacingZ:170,rigidBody:stage>=3,bounce:.8,friction:.25,damping:.1});
+  add('tc-sound','soundEffector',520,30,{soundForce:stage>=6?2:0,scaleX:0,scaleY:0,scaleZ:0});
+  add('tc-material','material',520,230,{roughness:28,metallic:25,rim:35,colorBy:'clone'});
+  add('tc-palette','palette',760,230,{stops:['#080f16','#2a8c9b','#78c6df','#f1bd78','#e9f4f8'].map((c,i)=>({c,auto:false,a:i?1:0}))});
+  add('tc-merge','merge',760,450);add('tc-output','output',1000,450);
+  wire('tc-audio','audio','tc-cloner','audio');wire('tc-object','object','tc-cloner','object');
+  wire('tc-cloner','shape','tc-sound','shape');let last='tc-sound';
+  if(stage>=5){add('tc-gravity','gravity',280,450,{rigid:9.81});wire(last,'shape','tc-gravity','shape');last='tc-gravity';}
+  wire(last,'shape','tc-material','shape');wire('tc-material','shape','tc-palette','shape');
+  wire('tc-palette','shape','tc-merge','a');wire('tc-merge','image','tc-output','image');
+  importProject({format:'audiograph-pro',version:VERSION,layers:[g],settings:{camera:{...SCENE_CAMERA,turn:-28,tilt:18,zoom:stage>=6?10:14,motion:stage>=7?'orbit':'static',speed:3},ground:{...SCENE_GROUND,shape:'circle',height:-3,size:14}}},'Tutorial: 3D Cloner');
+  tourInspect(type,property);fit();
+}
+function tourWaterfall(stage,type='gpuParticles',property){
+  const p=validate({format:'audiograph-pro',version:16,layers:TEMPLATES.Waterfall()});
+  p.settings.ground={...SCENE_GROUND,visible:false};
+  p.layers[1].visible=true;
+  const g=p.layers[0],byType=type=>g.nodes.find(n=>n.type===type);
+  const audio=byType('audioIn'),particles=byType('gpuParticles'),out=byType('output');
+  particles.props.opts.pSpGravity=0;
+  const chain=[particles,...['gravity','turbulence','palette','hue'].slice(0,Math.min(stage,4)).map(byType)];
+  const merge=node('merge',760,450);merge.id='tutorial-waterfall-merge';
+  const bloom=byType('bloom');
+  g.nodes=[audio,...chain,merge,...(stage>=5?[bloom]:[]),out];g.edges=[];
+  const positions=[[40,230],[280,230],[520,230],[760,230],[1000,230]];
+  chain.forEach((n,i)=>{[n.x,n.y]=positions[i];if(i)g.edges.push({from:chain[i-1].id,out:'shape',to:n.id,input:'shape'});});
+  audio.x=40;audio.y=30;out.x=1000;out.y=450;bloom.x=520;bloom.y=450;
+  g.edges.push({from:audio.id,out:'audio',to:particles.id,input:'audio'},{from:chain.at(-1).id,out:'shape',to:merge.id,input:'a'});
+  if(stage>=5)g.edges.push({from:merge.id,out:'image',to:bloom.id,input:'image'});
+  g.edges.push({from:stage>=5?bloom.id:merge.id,out:'image',to:out.id,input:'image'});
+  if(stage<6)p.layers=[g];
+  importProject(p,'Tutorial: Waterfall');tourInspect(type,property);fit();
+}
 const SPLASH_GUIDES={
+  cloner:{title:'3D Cloner & rigid bodies',demo:true,steps:[
+    {sel:'#previewWrap',ws:'studio',run:()=>tourCloner(0),t:'Tidal marbles',txt:'A cool glass-and-amber array on a circular stage. We will turn these clones into a shared physical scene. This tutorial replaces your scene; Undo brings it back.'},
+    {sel:'.inspector',run:()=>tourCloner(1,'waveform3d'),t:'One object, many copies',txt:'A small Sphere is wired from its object output into the Cloner. Change the source shape and every copy changes with it.'},
+    {sel:'.knob-grid:has([data-property=countX])',run:()=>tourCloner(2,'cloner','countX'),t:'Build the array',txt:'Count X, Y and Z make 30 instances. Spacing keeps their surfaces apart. The automatic Merge shows the result without extra preview wiring.'},
+    {sel:'.prop-row:has([data-property=rigidBody])',run:()=>tourCloner(3,'cloner','rigidBody'),t:'Give each clone a body',txt:'Rigid body is now on. Every instance can collide with other clones and rigid objects across layers. Nothing falls yet: gravity is not automatic. Collider body alone is for particle and fluid surfaces, without forces.'},
+    {sel:'.scene-inspector fieldset:has([aria-label="Ground type"])',run:()=>{tourCloner(4);tourSceneSettings();},t:'The ground belongs to the scene',txt:'Scene settings holds the shared Ground. We chose Circle and lowered it beneath the array. Square is also available; Collision only hides it without removing its physical surface.'},
+    {sel:'.inspector',run:()=>tourCloner(5,'gravity'),t:'Add gravity as a force',txt:'A Gravity node now sits after the Cloner. Its Body gravity pulls the marbles down onto the stage; Bounce controls their rebound. Delete or bypass Gravity to let them float.'},
+    {sel:'.knob-grid:has([data-property=soundForce])',run:()=>tourCloner(6,'soundEffector','soundForce'),t:'Let the music lift them',txt:'Sound impulse is now 2, on the Sound Effector. Hits lift the bodies, and real collisions settle them back onto the circular stage. This node owns the audio response and sound-driven Transforms; a new Cloner comes with it automatically.'},
+    {sel:'.scene-inspector fieldset:first-of-type',run:()=>{tourCloner(7);tourSceneSettings();},t:'One moving camera',txt:'Orbit moves around the whole scene, not individual nodes. F frames everything; Tab toggles fullscreen. Use the Scene ? for camera, ground and HDR/EXR lighting help.'}],
+    done:{label:'Keep exploring'}},
+  waterfall:{title:'Particles: Waterfall',demo:true,steps:[
+    {sel:'.inspector',ws:'studio',run:()=>tourWaterfall(0),t:'Start with particles',txt:'We are rebuilding the saved Waterfall scene, one part at a time. The audio source drives emission, while life, amount, size and trails shape the stream. This replaces your scene; Undo brings it back.'},
+    {sel:'.inspector',run:()=>tourWaterfall(1,'gravity'),t:'Make the water fall',txt:'Add Gravity after the particle system. Particles have no gravity by default; this explicit force makes the stream descend.'},
+    {sel:'.inspector',run:()=>tourWaterfall(2,'turbulence'),t:'Break up the stream',txt:'Waterfall uses Turbulence: Amount 46 and Scale 66. It curls the falling particles into soft eddies rather than a rigid column.'},
+    {sel:'.inspector',run:()=>tourWaterfall(3,'palette'),t:'Colour the current',txt:'The original Rose ramp moves from transparent plum through rose and peach to green. Transparent quiet particles keep the bright stream crisp against black.'},
+    {sel:'.inspector',run:()=>tourWaterfall(4,'hue'),t:'Shift the palette',txt:'Waterfall adds a 60-degree Hue shift after its Palette. This is a colour treatment, not a change to the physical simulation.'},
+    {sel:'.inspector',run:()=>tourWaterfall(5,'bloom'),t:'Catch the highlights',txt:'Bloom 17 with Edge 6 gives the smallest particles a restrained glow. It is an image effect, after the particle shape has reached Merge.'},
+    {sel:'#layers',run:()=>tourWaterfall(6),t:'Add the fluid undertow',txt:'The original second layer is now restored: a blue, teal and gold fluid simulation with its own Palette and Bloom, composited in Screen mode. Together they recreate Waterfall.'},
+    {sel:'.scene-inspector',run:()=>{tourWaterfall(6);tourSceneSettings();},t:'Frame the whole waterfall',txt:'Both layers share the Scene camera. Adjust its view here, press F to frame live particles, or choose Orbit for a moving view. Ground and HDR/EXR illumination are also scene-wide.'}],
+    done:{label:'Keep exploring'}},
   visualize:{title:'Visualize',steps:[
     {sel:'#previewWrap',ws:'studio',t:'The preview',txt:'This is what your audience sees, live with the music. Drag to orbit 3D, right-drag to pan, scroll or pinch to zoom, double-click to reset the view.'},
     {sel:'#graphViewport',t:'Nodes and wires',txt:'Every look is a small graph: sound flows from Audio through nodes that draw, colour and distort it, into Output. Drag from an output to an input to connect; click a wire to remove it.'},
-    {sel:'.library',t:'Add from the Library',txt:'Waveforms, particles, 3D, deformers, colour and Post FX. Click an item to insert it after the selected node, or drag it onto the graph. Tab searches.'},
+    {sel:'.library',t:'Add from the Library',txt:'Waveforms, particles, 3D, deformers, colour and Post FX. Click an item to insert it after the selected node, or drag it onto the graph. Shift+A searches.'},
     {sel:'.inspector',t:'Tune in the Inspector',txt:'Select a node to see its knobs. Drag to change, double-click to type. The small dot beside a knob makes it move on its own.'},
     {sel:['#audioName','#spectrum'],t:'Bring your sound',txt:'Click the source to load a song, or use the Mic or System audio. Everything reacts to it.'}]},
   presets:{title:'Presets',steps:[
@@ -4677,6 +4913,8 @@ const SPLASH_GUIDES={
 };
 const SPLASH_ITEMS=[
   ['visualize','Visualize','waveform','Build visuals with nodes'],
+  ['cloner','3D physics','project','3D Cloner & rigid bodies, with Scene settings'],
+  ['waterfall','Particles','waveform','Build the Waterfall particle scene'],
   ['presets','Presets','presets','Start from a template'],
   ['auto','Auto-play','auto','Autopilot: describe a show and let it follow the music'],
   ['project','Project','project','Projection mapping onto walls, objects and screens'],

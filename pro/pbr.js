@@ -39,7 +39,7 @@ struct ShadowVertex{@builtin(position) pos:vec4f,@location(0) uv:vec4f,@location
 @vertex fn vshMaterial(vin:VIn,@builtin(instance_index) ii:u32)->ShadowVertex{
   let I=inst[ii];var o:ShadowVertex;o.uv=vin.uv;o.tint=vin.tint;
   if(abs(floor(vin.fid+0.001)-I.dat.y)>0.5){o.pos=vec4f(2.0,2.0,2.0,1.0);return o;}
-  let wp=I.pos.xyz+rotM(I.rot.xyz)*(anch(vin.pos,cloneS(I,ii))*c.sp.w*I.rot.w);
+  let wp=I.pos.xyz+rotM(I.rot.xyz)*(anch(vin.pos,cloneS(I,ii),I.rot.w)*c.sp.w*I.rot.w);
   o.pos=c.lvp*vec4f(wp,1.0);return o;
 }
 @fragment fn shadowMaterial(fi:ShadowVertex,@builtin(front_facing) ff:bool){

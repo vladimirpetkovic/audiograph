@@ -351,11 +351,14 @@ function gizmoFrame(s,target,W,H,time){
   return {R:o.R,S:ext,c:[0,1,2].map(k=>(o.pivot[k]+o.move[k])/unit),ring:.62*Math.max(...ext,.3),toScreen:p=>scr(p.map(x=>x*unit*s.scale))};
 }
 export function gizmo(s,target,W,H,time=0){
-  const F=gizmoFrame(s,target,W,H,time),c=F.toScreen(F.c),E=[[1,0,0],[0,1,0],[0,0,1]],at=(v,k=1)=>F.toScreen(F.c.map((x,i)=>x+v[i]*k));
+  return gizmoFromFrame(gizmoFrame(s,target,W,H,time),target==='box'?s.box:s.xf);
+}
+export function gizmoFromFrame(F,T){
+  const c=F.toScreen(F.c),E=[[1,0,0],[0,1,0],[0,0,1]],at=(v,k=1)=>F.toScreen(F.c.map((x,i)=>x+v[i]*k));
   const col=a=>[F.R[a],F.R[3+a],F.R[6+a]];
   const move=E.map(e=>at(e,MOVE_LEN)),scale=[0,1,2].map(a=>at(col(a),F.S[a]/2));
-  const T=target==='box'?s.box:s.xf,Rz=boxMatrix({rx:0,ry:0,rz:T.rz}),Ryz=boxMatrix({rx:0,ry:T.ry,rz:T.rz});
-  const axes=[apply(Ryz,[1,0,0]),apply(Rz,[0,1,0]),[0,0,1]];
+  const Rz=boxMatrix({rx:0,ry:0,rz:T.rz}),Ryz=boxMatrix({rx:0,ry:T.ry,rz:T.rz});
+  const axes=F.rotationAxes||[apply(Ryz,[1,0,0]),apply(Rz,[0,1,0]),[0,0,1]];
   const rings=axes.map(ax=>{const u=norm(cross(ax,Math.abs(ax[0])<.9?[1,0,0]:[0,1,0])),v=cross(ax,u),pts=[];
     for(let i=0;i<=48;i++){const t=i/48*Math.PI*2;pts.push(at(u.map((x,k)=>x*Math.cos(t)+v[k]*Math.sin(t)),F.ring));}
     const a=pts[0],b=pts[2],sign=Math.sign((a[0]-c[0])*(b[1]-c[1])-(a[1]-c[1])*(b[0]-c[0]))||1;return {pts,sign};});
@@ -374,9 +377,12 @@ export function gizmoHit(G,tool,x,y,tol=10){
 }
 // New transform values (Object xf or Box) after dragging handle h from p0 to p1 (output pixels). s0 is the surface when the drag began.
 export function gizmoDrag(s0,target,h,p0,p1,W,H,time=0){
-  const G=gizmo(s0,target,W,H,time),t0=target==='box'?s0.box:s0.xf,t={...t0},d=[p1[0]-p0[0],p1[1]-p0[1]],a=h.axis,K='xyz'[a];
+  return dragGizmo(gizmo(s0,target,W,H,time),target==='box'?s0.box:s0.xf,h,p0,p1,target==='box'?[2,.05,20]:[10,.01,100]);
+}
+export function dragGizmo(G,t0,h,p0,p1,lim=[100,.01,16]){
+  const t={...t0},d=[p1[0]-p0[0],p1[1]-p0[1]],a=h.axis,K='xyz'[a];
   const along=tip=>{const v=[tip[0]-G.c[0],tip[1]-G.c[1]];return (d[0]*v[0]+d[1]*v[1])/(v[0]*v[0]+v[1]*v[1]||1);};
-  const lim=target==='box'?[2,.05,20]:[10,.01,100],r4=v=>Math.round(v*1e4)/1e4;
+  const r4=v=>Math.round(v*1e4)/1e4;
   if(h.tool==='move')t[K]=r4(Math.max(-lim[0],Math.min(lim[0],t0[K]+along(G.move[a])*MOVE_LEN)));
   else if(h.tool==='scale'){if(a===3)t.scale=r4(Math.max(lim[1],Math.min(lim[2],t0.scale*Math.exp((d[0]-d[1])/160))));
     else t['s'+K]=r4(Math.max(lim[1],Math.min(lim[2],t0['s'+K]*Math.max(.02,1+along(G.scale[a])))));}

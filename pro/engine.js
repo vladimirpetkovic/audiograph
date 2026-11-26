@@ -13,6 +13,8 @@ import {patchPbr,installPbr} from './pbr.js';
 import {patchEnvironment,installEnvironment} from './environment.js';
 import {decodeMaterials,releaseMaterials} from './model-materials.js';
 import {patchScene,installScene,flowPhase} from './scene3d.js';
+import {patchPalette,installPalette} from './palette-map.js';
+import {soundTransform} from './object-transform.js';
 // The 3D lighting after the WebGPU Cornell box sample (soft cast shadows, light size, bounce light, floor), smooth
 // cube normals and the link width / glow / pulse knobs are built into the classic engine; Pro keeps only its own defaults.
 function patch3dLighting(patch){
@@ -47,13 +49,19 @@ function patch3dLighting(patch){
   patch("Math.max(-1.5,Math.min(1.5,K('pGsTilt',12)*dg+(simOpt.vPit||0)*dg))","(window.__agSceneCam?.tilt??K('pGsTilt',12)*dg)+(simOpt.vPit||0)*dg");
   patch("xA=nrm3([zA[2],0,-zA[0]])","xA=[Math.cos(yaw),0,-Math.sin(yaw)]");
   patch("var xA=nrm([zA[2],0,-zA[0]])","var xA=walk?nrm([zA[2],0,-zA[0]]):[Math.cos(yaw),0,-Math.sin(yaw)]");
+  patch("view[12]+=(simOpt.vPx||0)*dist*Math.tan(fovY/2)*asp;",
+    "window.__agScene.objectView(view,typeof gX==='number'?[gX/dg,gY/dg,gZ/dg]:null);view[12]+=(simOpt.vPx||0)*dist*Math.tan(fovY/2)*asp;");
+  patch("var near=Math.max(0.02,dist-bnd*1.6),far=dist+bnd*2.5,fl=",
+    "var extent=bnd+window.__agScene.objectOffset();var near=Math.max(0.02,dist-extent*1.6),far=dist+extent*2.5,fl=");
   patch("dist+(K('pG3Focus',50)-50)/50*bnd","dist+(K('pG3Focus',50)-50)/50*(window.__agSceneCam?2:bnd)");
   patch("var p=sample(r(),r(),r()).pos,o=i*8,x=p[0],y=-p[1],z=p[2];","var p=sample(r(),r(),r()).pos,o=i*8,_s=window.__agSceneCam?.scale||1,_a=window.__agSceneCam?.stretch||[1,1,1],x=p[0]*_s*_a[0],y=-p[1]*_s*_a[1],z=p[2]*_s*_a[2];");
   // Point clouds take the same lens; a model turned into points is framed like the model drawn as lines or polygons.
   patch("asp=st.ow/st.oh,fovY=0.8,half=","asp=st.ow/st.oh,fovY=2*Math.atan(Math.tan(0.4)/(window.__agFov||1)),half=");
   patch("var bnd=1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom'","var bnd=window.__agSplBnd||1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom'");
   patch("var bnd=window.__agSplBnd||1.6,dist=bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom',100)/100)*0.92/(simOpt.vZm||1),","var bnd=window.__agSplBnd||1.6,dist=window.__agSceneCam?window.__agSceneCam.distance/(simOpt.vZm||1):bnd/Math.sin(half)/Math.max(0.3,K('pGsZoom',100)/100)*0.92/(simOpt.vZm||1),");
-  patch("U.set(g3Mul(pr,view),0);\n    var set=", "U.set(g3Mul(pr,view),0);\n    window.__agScene.projectedMesh(U,dist);\n    var set=");
+  patch("var near=Math.max(0.02,dist-bnd*1.6),far=dist+bnd*2.5,fl=1/Math.tan(fovY/2),pr=new Float32Array(16);",
+    "window.__agScene.objectView(view,null);var extent=bnd*Math.max(1,(window.__agSceneCam?.scale||1)*Math.max(...(window.__agSceneCam?.stretch||[1])))*Math.max(1,...(window.__agObjectSound?.scale||[1]))+window.__agScene.objectOffset();var near=Math.max(0.02,dist-extent*1.6),far=dist+extent*2.5,fl=1/Math.tan(fovY/2),pr=new Float32Array(16);");
+  patch("U.set(g3Mul(pr,view),0);\n    var set=", "U.set(g3Mul(pr,view),0);\n    window.__agScene.boundsRadius=bnd*Math.max(1,window.__agSceneCam?.scale||1,...(window.__agSceneCam?.stretch||[1]));window.__agScene.projectedMesh(U,dist);\n    var set=");
   patch('set(48,m00,m01,m02,0);set(52,m10,m11,m12,0);',
     "set(48,m00,m01,m02,window.__agSplDof||0);set(52,m10,m11,m12,dist+(K('pG3Focus',50)-50)/50*2);");
   patch("set(60,14/Math.max(0.3,spd),spd,K('pGsSzSnd',60)/100,0);",
@@ -153,7 +161,7 @@ async function engineSource() {
     // Load the trusted local app, not any project-provided source. Keep fonts and media offline.
     html=html.replace(/@import\s+url\((['"]?)[^'")]*\1\)\s*;?/g,'');
     // Cloner: shapes "mesh0".."mesh2" are the 3D objects wired into the Cloner node (an OBJ or the knot).
-    const patch=(from,to)=>{if(!html.includes(from))throw Error('Audiograph engine patch target missing');html=html.replace(from,to);};
+    const patch=(from,to)=>{if(!html.includes(from))throw Error('Audiograph engine patch target missing: '+from.slice(0,100));html=html.replace(from,to);};
     patch("['pSpSpeed','Launch speed',10,200,10,5,", "['pSpSpeed','Launch speed',0,400,10,1,");
     patch("(+document.getElementById('pObjNoise').value||50)/100","+document.getElementById('pObjNoise').value/100");
     patch("(+document.getElementById('pObjElev').value||60)/100","+document.getElementById('pObjElev').value/100");
@@ -184,9 +192,26 @@ async function engineSource() {
     patch3dLighting(patch);
     patchParticles3d(patch);
     patchPbr(patch);
+    patchPalette(patch);
+    patch("['pG3EfRot','Rotate',-360,360,0,5,'deg','Loud clones tumble by up to this angle.'],",
+      "['pG3EfRot','Rotate',-360,360,0,5,'deg','Loud clones tumble by up to this angle.'],['pG3EfRX','Rotate X',-360,360,0,5,'deg','Sound rotation X.'],['pG3EfRY','Rotate Y',-360,360,0,5,'deg','Sound rotation Y.'],['pG3EfRZ','Rotate Z',-360,360,0,5,'deg','Sound rotation Z.'],['pG3EfScale','Uniform scale',-100,800,0,5,'%','Uniform sound scale.'],");
+    patch("var efr=K('pG3EfRot',0)*dg*enr;set(36,efr*0.5,efr,0,st.g3spin);",
+      "set(36,K('pG3EfRX',0)*dg*enr,K('pG3EfRY',0)*dg*enr,K('pG3EfRZ',0)*dg*enr,st.g3spin);");
+    patch("set(32,mv[0],mv[1],mv[2],0);","set(32,mv[0],mv[1],mv[2],K('pG3EfScale',0)/100*enr);");
     patchScene(patch);
     patchEnvironment(patch);
+    patch("fn anch(p:vec3f,S:vec3f)->vec3f{let a=c.sx.w*0.7;return vec3f(p.x*S.x,(p.y+a)*S.y-a,p.z*S.z);}",
+      "fn anch(p:vec3f,S:vec3f,sc:f32)->vec3f{let a=c.sx.w*0.7;return vec3f(p.x*S.x,(p.y+a)*S.y-a/max(0.02,sc),p.z*S.z);}");
+    patch("anch(vin.pos,S)","anch(vin.pos,S,I.rot.w)");
+    patch("anch(vin.pos,cloneS(I,ii))","anch(vin.pos,cloneS(I,ii),I.rot.w)");
+    patch("anch(vin.pos,cloneS(J,ii))","anch(vin.pos,cloneS(J,ii),J.rot.w)");
     patch("var _model=_objActiveModel();","window.__agScene.beforePaint(ctx,W,H);var _model=window.__agScene.stretchModel(_objActiveModel());");
+    patch("var dz=sv[2]*baseR+sn[2]*h;","var dz=sv[2]*baseR+sn[2]*h;if(window.__agObjectSound){var q=window.__agScene.soundPoint(dx,dy,dz,persp);dx=q[0];dy=q[1];dz=q[2];}");
+    patch("var nnx=sn[0]*cosR+sn[2]*sinR;","if(window.__agObjectSound)sn=window.__agScene.soundNormal(sn);var nnx=sn[0]*cosR+sn[2]*sinR;");
+    patch("var rx=x*cosR+z*sinR,rz=-x*sinR+z*cosR,ty=y*cosT-rz*sinT,tz=y*sinT+rz*cosT;",
+      "if(window.__agObjectSound){var q=window.__agScene.soundPoint(x,y,z,o.persp);x=q[0];y=q[1];z=q[2];}var rx=x*cosR+z*sinR,rz=-x*sinR+z*cosR,ty=y*cosT-rz*sinT,tz=y*sinT+rz*cosT;");
+    patch("var dx=v[0]*R0,dy=v[1]*R0,dz=v[2]*R0,rx=dx*cosR+dz*sinR,rz=-dx*sinR+dz*cosR;",
+      "var dx=v[0]*R0,dy=v[1]*R0,dz=v[2]*R0;if(window.__agObjectSound){var q=window.__agScene.soundPoint(dx,dy,dz,o.persp);dx=q[0];dy=q[1];dz=q[2];}var rx=dx*cosR+dz*sinR,rz=-dx*sinR+dz*cosR;");
     patch("var edges=_wire.edges.slice();","window.__agScene.classicSurface(ctx,projected,_model,_wire,persp);var edges=_wire.edges.slice();");
     patch("return db-da;","return window.__agCam?da-db:db-da;");
     patch("if(pa.nz>0.1&&pb.nz>0.1)","if(window.__agCam?(pa.nz<-.1&&pb.nz<-.1):(pa.nz>.1&&pb.nz>.1))");
@@ -202,6 +227,7 @@ async function engineSource() {
     patch("var pts=[],depth=0,ok=true;","var pts=[],zs=[],ds=[],depth=0,ok=true;");
     patch("pts.push(sx,sy);depth+=tz}","pts.push(sx,sy);zs.push(tz);ds.push(d);"+DZ+"(sx,sy,tz);depth+=tz}");
     patch("if(!ok)continue;\n    var rnx=","if(!ok)continue;window.__agDpoly&&window.__agDpoly(pts,zs,ds);window.__agScene.polygon(ctx,pts,zs,ds,o.persp);\n    var rnx=");
+    patch("var rnx=nx*cosR+nz*sinR,","if(window.__agObjectSound){var q=window.__agScene.soundNormal([nx,ny,nz]);nx=q[0];ny=q[1];nz=q[2];}var rnx=nx*cosR+nz*sinR,");
     patch("strand1.push({sx:sx1,sy:sy1,z:rz1,",DZ+"(sx1,sy1,rz1);"+DZ+"(sx2,sy2,rz2);strand1.push({sx:sx1,sy:sy1,z:rz1,");
     patch("if(o.d3){var q=distortLinear(sx,sy,W,H,o.d3);sx=q.x;sy=q.y}return[sx,sy,c[2]]}","if(o.d3){var q=distortLinear(sx,sy,W,H,o.d3);sx=q.x;sy=q.y}"+DZ+"(sx,sy,c[2]);return[sx,sy,c[2]]}");
     // Wired emit assets are whole frames; 100% maps a source pixel back to its frame position.
@@ -322,13 +348,18 @@ export class EmitterEngine {
     const realSet=w.setLayoutParams,realGet=w.getLayoutParams;this.realSet=realSet;
     w.setLayoutParams=q=>{if(this.frameP&&q===this.frameP)return;this.applied=null;realSet(q);};
     w.getLayoutParams=()=>this.frameP||realGet();
+    // These hidden sliders are backend parameters; their HTML steps must not snap Pro's world transforms.
+    for(const id of ['pG3Size','pG3ObjX','pG3ObjY','pG3ObjZ','pG3GrX','pG3GrY','pG3GrZ','pG3EfRX','pG3EfRY','pG3EfRZ','pG3EfScale','pG3Tilt','pG3Focal']){
+      const input=w.document.getElementById(id);if(!input)continue;input.step='any';
+      if(['pG3Size','pG3ObjX','pG3ObjY','pG3ObjZ'].includes(id)){input.min='0.000001';input.max='1000000';}
+    }
     this.defaults=w.getDefaultLayerParams();
     // Simulations keep the original's sound reaction (audio contrast, swirl by sound, exposure) and quality.
     Object.assign(this.defaults,{_particlesOn:false,_simId:1});
     this.defaults._sim={...w.AG_SIM_DEF_OPT};
     w.stackMode=true;w.activeLayerIdx=0;w.stackLayouts=[{layout:'linear',opacity:100,params:this.defaults}];
     installDof(w);
-    installScene(w);
+    installScene(w);installPalette(w);
     installParticleControls(w);
     this.status='ready';return true;
   }
@@ -377,7 +408,13 @@ export class EmitterEngine {
     }
     // Polygons: the 3D Object's faces drawn filled (after the chips, so a remembered Signal chip can't override it).
     if(mode==='object'){w.objSignal=job.poly?'poly':w.objSignal==='poly'?'shape':w.objSignal;try{w.syncObjSignalUI();}catch(e){console.warn(e);}}
-    this.base={...params,...w.getLayoutParams()};this.baseKey=key;return mode;
+    this.base={...params,...w.getLayoutParams()};
+    if(job.sceneObject){
+      if(mode==='object'&&job.opts?.pObjGap==null&&job.look?.pObjGap==null)this.base.pObjGap=0;
+      if(mode==='simcloner'&&job.opts?.pSimBloom==null&&job.look?.pSimBloom==null)this.base.pSimBloom=0;
+    }
+    if(mode==='simparticles')this.base.pSpGravity=0;
+    this.baseKey=key;return mode;
   }
   // Template looks: original layer parameters on top of the engine defaults (simulations never auto-switch).
   withLook(look) {
@@ -448,6 +485,14 @@ export class EmitterEngine {
     if(job.mode==='simfluid3d')return this.drawFluid(job,performanceSettings);
     if(this.fluid){this.fluid.dispose();this.fluid=null;}
     const w=this.w,mode=this.prepare(job);
+    const soundActor=!!job.sceneObject||mode==='simcloner',soundOn=!!job.mods?._soundEffector;
+    if(soundActor&&!soundOn){
+      const freq=this.silentFreq?.length===job.audio?.freq?.length?this.silentFreq:(this.silentFreq=new Uint8Array(job.audio?.freq?.length||BINS));
+      const wave=this.silentWave?.length===job.audio?.wave?.length?this.silentWave:(this.silentWave=new Uint8Array(job.audio?.wave?.length||BINS).fill(128));
+      job={...job,audio:{...job.audio,freq,wave,song:null,drive:{bass:0,beat:0}},response:{...job.response,intensity:0}};
+    }else if(soundActor){
+      job={...job,response:{intensity:job.mods._soundIntensity??100,punch:job.mods._soundPunch??60,release:job.mods._soundRelease??220,dynamics:job.mods._soundDynamics??50}};
+    }
     if(performanceSettings?.lensEffects===false)job={...job,mods:{...job.mods,pG3Dof:0,pG3Mb:0}};
     w.__agObjectComposite=!!job.sceneObject;
     w.__agScene.start(!!job.wantDepth,!!job.wantSource,job.surfaceFlowTime==null?null:flowPhase(job.surfaceFlowTime),!!job.wantCollision);
@@ -458,7 +503,16 @@ export class EmitterEngine {
     for(const [k,v] of Object.entries(job.opts||{}))if(OPT_ID.test(k))p[k]=v;
     const cam=job.mods?._cam;
     Object.assign(p,job.mods||{});delete p._cam;
+    if(soundActor&&soundOn&&mode==='object')p._sensitivity=p.pSimSens??100;
+    if(soundActor&&!soundOn)Object.assign(p,{pSimSens:0,pSimBass:0,pSimBurst:0,pG3ScX:0,pG3ScY:0,pG3ScZ:0,pG3EfX:0,pG3EfY:0,pG3EfZ:0,pG3EfRX:0,pG3EfRY:0,pG3EfRZ:0,pG3EfScale:0});
+    if(soundActor&&!soundOn&&mode!=='simcloner'){
+      const stops=p._toneStops||p._simpleStops||['#aaaaaa'];
+      p._colorMode='solid';p._solidColor=stops[Math.floor(stops.length/2)];
+    }
     if(job.mods?._sim)p._sim={...this.base._sim,...job.mods._sim};
+    w.__agPaletteSettings=job.paletteMapping||null;
+    if(job.paletteBy&&job.paletteBy!=='inherit')p._sim={...p._sim,g3CBy:job.paletteBy};
+    if(job.paletteMapping&&job.paletteMapping.mode!=='default')p._sim={...p._sim,g3CBy:'mapped'};
     if(mode.startsWith('sim')&&performanceSettings?.simulation&&performanceSettings.simulation!=='node'){
       p._sim={...p._sim,q:performanceSettings.simulation};
     }
@@ -469,6 +523,7 @@ export class EmitterEngine {
       w.__agPbr.retain(w.__agG3Meshes);
       w.__agG3MeshVer=(w.__agG3MeshVer||0)+1;
     }
+    w.__agObjectTransform=job.objectTransform||null;
     this.camera(cam);
     // The 3D camera node's lens (Depth of field, Focus) reaches the classic 3D line drawers too.
     w.__agFocal=VIEW3D.includes(mode)&&job.mods?.pG3Focal>0?job.mods.pG3Focal/28:1;
@@ -494,7 +549,7 @@ export class EmitterEngine {
     this.camAt=now;
     const camYaw=(cm.pG3Yaw||0)+(cm._sceneYaw??(camOn?this.camYaw:0)),sceneZoom=cm.pG3Zoom??(job.sceneObject?55:100);
     const sceneCam={f:(+cm.pG3Focal||28)/28,zoom:sceneZoom/100,tilt:(cm.pG3Tilt??18)*dg,yaw:camYaw*dg,
-      distance:SCENE_DISTANCE*((+cm.pG3Focal||28)/28)/Math.max(.3,sceneZoom/100),
+      distance:SCENE_DISTANCE*((+cm.pG3Focal||28)/28)/Math.max(.0001,sceneZoom/100),
       scale:(job.sceneObject?.size??60)/100*(job.sceneObject?.prim&&job.sceneObject.shape!=='knot'?1:.7),
       stretch:['stretchX','stretchY','stretchZ'].map(k=>(job.sceneObject?.[k]??100)/100),panX:v.px||0,panY:v.py||0};
     if(mode==='simsplat'&&job.sceneObject){
@@ -502,6 +557,16 @@ export class EmitterEngine {
       if(this.pointScale!==key){this.pointScale=key;w.AG_SPLAT.meshVer=(w.AG_SPLAT.meshVer||0)+1;}
     }
     w.__agSceneCam=job.sceneObject||mode==='simcloner'&&cm._sceneYaw!=null||job.sharedCamera&&mode==='simsplat'?sceneCam:null;
+    w.__agObjectSound=null;
+    if(job.sceneObject&&soundOn&&mode!=='simcloner'&&!job.rigid&&job.objectTransform){
+      const f=job.audio.freq,count=Math.min(64,f.length),raw=count?f.slice(0,count).reduce((a,b)=>a+b,0)/count/255:0,
+        dt=job.renderOnly?0:Math.min(.1,Math.max(0,(this.drawnAt-(this.soundAt??this.drawnAt))/1000)),
+        ms=raw>(this.soundLevel||0)?(cm.pSimAttack??30):(cm.pSimRelease??150),alpha=ms>0?1-Math.exp(-dt*1000/ms):1;
+      this.soundLevel=(this.soundLevel??raw)+(raw-(this.soundLevel??raw))*alpha;
+      const level=this.soundLevel*(cm.pSimSens??100)/100*(cm.pSimEnergy??100)/100*(cm._soundIntensity??100)/100;
+      w.__agObjectSound=soundTransform(job.objectTransform,cm,(job.sceneObject.size??60)/100,level);
+    }else this.soundLevel=0;
+    this.soundAt=this.drawnAt;
     w.__agCam=job.sceneObject&&mode==='object'?{...sceneCam,distance:sceneCam.distance/(v.zm||1)}:null;
     w.__agScene.camera={distance:sceneCam.distance/(v.zm||1),f:sceneCam.f,tilt:sceneCam.tilt+(v.pit||0)*dg,yaw:sceneCam.yaw+(v.yaw||0)*dg,panX:v.px||0,panY:v.py||0,aspect:WIDTH/HEIGHT};
     w.__agFov=camOn&&mode==='simsplat'?(+cm.pG3Focal||28)/28:1;
@@ -524,6 +589,8 @@ export class EmitterEngine {
         zoom:(v.zm||1)*(cm.pG3Zoom??(src||job.sharedScene?55:100))/100,focal:(+cm.pG3Focal||28)/28,
         panX:v.px||0,panY:v.py||0,depth:job.particleDepth??2,spread:(job.particleSpread??15)/100,floorHalf:job.ground?(job.ground.enabled?job.ground.size/2:0):(job.particleFloorSize??0)/50,floorHeight:job.ground?.height??-1,
         shared:!!src||!!job.emitSurface||!!job.sharedScene||job.sharedCamera,response:job.particleResponse||'sound',
+        floorCircle:job.ground?.shape==='circle',
+        attract:cm._attractPoint?[...cm._attractPoint,(cm.pSpAttract||0)/100]:[0,0,0,0],
         dof:cm.pG3Dof||0,focus:cm.pG3Focus??50,occluders:job.occluders||[],collisions:job.collisions
       };
     }else w.__agParticles3d=null;
@@ -557,7 +624,7 @@ export class EmitterEngine {
     const zoom=(view.zm||1)*(cm.pG3Zoom??(job.sharedScene?55:100))/100;
     const camera={yaw:((cm.pG3Yaw||0)+(cm._sceneYaw||0)+(view.yaw||0)-(cm._dragRotY||0)/dg)*dg,
       tilt:((cm.pG3Tilt??18)+(view.pit||0)+(cm._dragRotX||0)/dg)*dg,
-      f,distance:SCENE_DISTANCE*f/Math.max(.3,zoom),panX:view.px||0,panY:view.py||0};
+      f,distance:SCENE_DISTANCE*f/Math.max(.0001,zoom),panX:view.px||0,panY:view.py||0};
     if(this.mode!=='simfluid3d'){this.w.agSim.reset();this.mode=job.mode;this.baseKey='';this.generation++;}
     this.viewMode='sim';this.viewZoom=1;
     const volume=this.fluid||=new Fluid3D(),p=job.fluid,src=job.emitObject;
@@ -567,7 +634,7 @@ export class EmitterEngine {
     const selected=performanceSettings?.simulation;
     const out=volume.draw({camera,width:WIDTH,height:HEIGHT,quality:selected&&selected!=='node'?selected:'med',
       dt:job.dt,time:job.time,frame:job.frame,level:job.audio.drive.fluid,beat:job.audio.drive.beat*p.punch/100,
-      props:p,palette,gravity:cm._fluidGravity,source,flat:job.flatFluid,collisions:job.collisions,ground:job.ground,
+      props:p,palette,gravity:cm._fluidGravity,attract:cm._attractPoint?[...cm._attractPoint,cm._fluidAttract||0]:[0,0,0,0],source,flat:job.flatFluid,collisions:job.collisions,ground:job.ground,
       occluders:job.occluders,renderOnly:job.renderOnly});
     if(out){
       this.ctx.resetTransform();this.ctx.clearRect(0,0,WIDTH,HEIGHT);

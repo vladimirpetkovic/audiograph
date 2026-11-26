@@ -1,4 +1,4 @@
-import {World,Body,Box,Sphere,Vec3,Quaternion,Material,ContactMaterial,SAPBroadphase} from './vendor/cannon-es.js';
+import {World,Body,Box,Sphere,Cylinder,Vec3,Quaternion,Material,ContactMaterial,SAPBroadphase} from './vendor/cannon-es.js';
 
 const STEP=1/120;
 const V=(a)=>new Vec3(...a);
@@ -12,7 +12,7 @@ const euler=q=>{
 export function meshBounds(arr){
   const bounds=[];
   for(let o=0;o<arr.length;o+=16){
-    const id=Math.round(arr[o+15]);
+    const id=Math.floor(arr[o+15]+.001);
     const b=bounds[id]??={min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]};
     for(let j=0;j<3;j++){b.min[j]=Math.min(b.min[j],arr[o+j]);b.max[j]=Math.max(b.max[j],arr[o+j]);}
   }
@@ -29,6 +29,31 @@ function scaleOf(data,i,u){
   axes[1]*=Math.exp(u[200]*1.6*(2*random(i,60,Math.round(u[75]))/4294967295-1));
   return axes;
 }
+export function instanceCollider(arr,data,u,map,previousFaces){
+  const groups=[];
+  for(let o=0;o<arr.length;o+=48){
+    const id=Math.floor(arr[o+15]+.001);
+    (groups[id]||=[]).push(o);
+  }
+  const count=Array.from({length:data.length/12},(_,i)=>groups[Math.round(data[i*12+9])]?.length||0).reduce((a,b)=>a+b,0);
+  if(count>500000)throw Error('Particle collision supports up to 500,000 triangles across the scene');
+  const verts=[],faces=previousFaces?.length===count?previousFaces:[];
+  for(let i=0;i<data.length/12;i++){
+    const o=i*12,axes=scaleOf(data,i,u),base=u[31],anchor=u[195]*.7;
+    const rotation=new Quaternion().setFromEuler(...data.subarray(o+4,o+7),'ZXY');
+    for(const start of groups[Math.round(data[o+9])]||[]){
+      const first=verts.length;
+      for(let j=0;j<3;j++){
+        const k=start+j*16,p=rotation.vmult(new Vec3(arr[k]*axes[0],arr[k+1]*axes[1]+anchor*(axes[1]-base),arr[k+2]*axes[2]));
+        const point=map([p.x+data[o],p.y+data[o+1],p.z+data[o+2]]);
+        if(!point.every(Number.isFinite))throw Error('Collider transform is invalid');
+        verts.push(point);
+      }
+      if(faces!==previousFaces)faces.push([first,first+1,first+2]);
+    }
+  }
+  return {verts,faces,world:true};
+}
 function soundAt(data,i,u){
   const seed=Math.round(u[75]),hr=k=>random(i,k,seed)/4294967295;
   const x=Math.max(0,Math.min(1,data[i*12+8]*(1-u[80])+hr(1)*u[80])),f=x*63,a=Math.floor(f),b=Math.min(63,a+1);
@@ -44,7 +69,7 @@ function soundAt(data,i,u){
 
 export class RigidWorld{
   constructor(){
-    this.world=new World({gravity:new Vec3(0,-9.81,0),allowSleep:true});
+    this.world=new World({gravity:new Vec3(0,0,0),allowSleep:true});
     this.world.broadphase=new SAPBroadphase(this.world);
     this.world.solver.iterations=12;
     this.groups=new Map();this.errors=new Map();this.steps=0;this.epoch=0;this.rendered=new Set();
@@ -73,10 +98,11 @@ export class RigidWorld{
     if(!enabled&&this.floor.world)this.world.removeBody(this.floor);
     if(groundChanged)for(const g of this.groups.values())for(const b of g.bodies)b.wakeUp();
     const half=Math.max(.1,ground.size/2);
-    const floorShape=this.floor.shapes[0];
-    if(floorShape.halfExtents.x!==half){
-      floorShape.halfExtents.set(half,.05,half);floorShape.updateConvexPolyhedronRepresentation();
-      floorShape.updateBoundingSphereRadius();this.floor.updateBoundingRadius();this.floor.aabbNeedsUpdate=true;
+    const key=ground.shape+':'+half;
+    if(this.floorKey!==key){
+      this.floor.removeShape(this.floor.shapes[0]);
+      this.floor.addShape(ground.shape==='circle'?new Cylinder(half,half,.1,64):new Box(new Vec3(half,.05,half)));
+      this.floorKey=key;this.floor.updateBoundingRadius();this.floor.aabbNeedsUpdate=true;
       for(const g of this.groups.values())for(const b of g.bodies)b.wakeUp();
     }
     if(this.floor.position.y!==ground.height-.05){
@@ -88,18 +114,26 @@ export class RigidWorld{
       const p=g.props,mods=g.mods;
       for(let i=0;i<g.bodies.length;i++){
         const b=g.bodies[i],level=soundAt(g.data,i,g.u),rise=Math.max(0,level-g.levels[i]);
-        g.levels[i]=level;g.data[i*12+3]=level;
+        const impulse=mods._soundEffector?(mods._rigidSoundForce??p.soundForce??5):0;
+        g.levels[i]=level;g.data[i*12+3]=level;g.data[i*12+7]=g.baseScales[i]*Math.max(.02,1+g.u[35]*level);
         if(rise>.002)b.applyImpulse(new Vec3(
-          (mods.pG3EfX||0)/100*rise*p.soundForce*b.mass,
-          rise*p.soundForce*b.mass*(1+(mods.pG3EfY||0)/100),
-          (mods.pG3EfZ||0)/100*rise*p.soundForce*b.mass));
-        const torque=((mods.pG3Spin||0)/100+rise*(mods.pG3EfRot||0)/180)*b.mass;
-        if(torque)b.applyTorque(new Vec3(0,torque,0));
-        const gravity=mods._rigidGravity??p.bodyGravity;
+          (mods.pG3EfX||0)/100*rise*impulse*b.mass,
+          rise*impulse*b.mass*(1+(mods.pG3EfY||0)/100),
+          (mods.pG3EfZ||0)/100*rise*impulse*b.mass));
+        const torque=rise*b.mass/180;
+        if(mods.pG3Spin||mods.pG3EfRX||mods.pG3EfRY||mods.pG3EfRZ)b.applyTorque(new Vec3(
+          (mods.pG3EfRX||0)*torque,(mods.pG3Spin||0)/100*b.mass+(mods.pG3EfRY||0)*torque,(mods.pG3EfRZ||0)*torque));
+        const gravity=mods._rigidGravity??0;
+        b.force.y-=b.mass*gravity;
         const wind=mods._rigidWind??0,swirl=mods._rigidSwirl??0;
         const noise=(mods._rigidTurbulence??0)/100;
+        const attract=mods._rigidAttract??0,target=mods._attractPoint||[0,0,0];
+        if(attract){
+          const delta=new Vec3(...target).vsub(b.position),scale=b.mass*attract/(1+.5*delta.length());
+          b.applyForce(delta.scale(scale));
+        }
         const field=mods._sim?.g3Field,strength=(mods.pG3FieldAmt||0)/100;
-        if(gravity!==9.81||wind||swirl||noise||strength&&field&&field!=='none'){
+        if(wind||swirl||noise||strength&&field&&field!=='none'){
           const t=this.world.time;
           const size=Math.max(.01,(mods.pG3FieldSize??100)/100*g.u[28]*3),time=t*(mods.pG3FieldSpd??50)/50;
           const wave=field==='ripple'?Math.sin(Math.hypot(b.position.x,b.position.z)/size*Math.PI-time*2):
@@ -108,7 +142,7 @@ export class RigidWorld{
           const lift=field&&field!=='none'?wave*strength*10*(.35+level):0;
           b.applyForce(new Vec3(
             b.mass*(wind-swirl*b.position.z+noise*10*Math.sin(t*2.13+i*1.7)),
-            b.mass*(9.81-gravity+lift+noise*10*Math.sin(t*1.71+i*2.3)),
+            b.mass*(lift+noise*10*Math.sin(t*1.71+i*2.3)),
             b.mass*(swirl*b.position.x+noise*10*Math.cos(t*1.93+i*2.7))));
         }
         this.updateShape(g,i);
@@ -125,6 +159,7 @@ export class RigidWorld{
       (mods.pG3GrX||0)*Math.PI/180,(mods.pG3GrY||0)*Math.PI/180,(mods.pG3GrZ||0)*Math.PI/180,'ZXY');
     const inverse=rotation.inverse();
     const g={key,data:new Float32Array(data),u:new Float32Array(u),bounds,props,mods,rotation,inverse,origin:V(origin),bodies:[],levels:new Float32Array(data.length/12),centers:[]};
+    g.baseScales=Array.from({length:data.length/12},(_,i)=>data[i*12+7]/Math.max(.02,1+u[35]*data[i*12+3]));
     const material=new Material({friction:props.friction,restitution:props.bounce});
     g.contact=new ContactMaterial(material,this.floor.material,{friction:props.friction,restitution:props.bounce});
     this.world.addContactMaterial(g.contact);
@@ -139,7 +174,7 @@ export class RigidWorld{
       const local=new Quaternion().setFromEuler(...data.subarray(o+4,o+7),'ZXY');
       rotation.mult(local,b.quaternion);
       const center=bound.center.map((v,j)=>v*axes[j]);
-      center[1]+=u[195]*.7*(axes[1]-u[31]*data[o+7]);
+      center[1]+=u[195]*.7*(axes[1]-u[31]);
       local.vmult(V(center),b.position);b.position.vadd(V(Array.from(data.subarray(o,o+3))),b.position);
       rotation.vmult(b.position,b.position);b.position.vadd(g.origin,b.position);this.world.addBody(b);
       g.bodies.push(b);g.centers.push(center);g.levels[i]=soundAt(data,i,u);
@@ -148,13 +183,16 @@ export class RigidWorld{
   }
   update(id,u,props,mods){
     const g=this.groups.get(id);if(!g)return;
+    const gravityChanged=g.mods._rigidGravity!==mods._rigidGravity;
     g.u.set(u);g.props=props;g.mods=mods;
     for(const b of g.bodies){
+      if(gravityChanged)b.wakeUp();
       if(b.mass!==props.mass){b.mass=props.mass;b.updateMassProperties();b.wakeUp();}
       b.material.friction=props.friction;b.material.restitution=props.bounce;
       b.linearDamping=mods._rigidDrag??props.damping;b.angularDamping=b.linearDamping;
     }
     g.contact.friction=props.friction;g.contact.restitution=props.bounce;
+    for(let i=0;i<g.bodies.length;i++){g.data[i*12+7]=g.baseScales[i]*Math.max(.02,1+u[35]*g.data[i*12+3]);this.updateShape(g,i);}
   }
   updateShape(g,i){
     const b=g.bodies[i],bound=g.bounds[Math.round(g.data[i*12+9])],axes=scaleOf(g.data,i,g.u);
@@ -167,7 +205,7 @@ export class RigidWorld{
       shape.updateBoundingSphereRadius();b.updateBoundingRadius();b.updateMassProperties();b.aabbNeedsUpdate=true;b.wakeUp();
     }
     g.centers[i]=bound.center.map((v,j)=>v*axes[j]);
-    g.centers[i][1]+=g.u[195]*.7*(axes[1]-g.u[31]*g.data[i*12+7]);
+    g.centers[i][1]+=g.u[195]*.7*(axes[1]-g.u[31]);
   }
   instances(id){
     const g=this.groups.get(id);if(!g)return null;
@@ -211,7 +249,7 @@ export function installRigid(w,scene){
       const arr=new Float32Array(model.verts.length*16);
       model.verts.forEach((v,i)=>arr.set([v[0],-v[1],v[2]],i*16));
       const data=new Float32Array([0,0,0,0,0,0,0,1,.18,0,.5,0]);
-      c.world.register(c.id,key,data,u,meshBounds(arr),[c.object?.shape],c.props,c.mods);
+      c.world.register(c.id,key,data,u,meshBounds(arr),[c.object?.shape],c.props,c.mods,w.__agObjectTransform?.position||[0,0,0]);
     }
     c.world.update(c.id,u,c.props,c.mods);
     const g=c.world.groups.get(c.id),b=g.bodies[0];

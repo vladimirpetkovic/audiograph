@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Audiograph Pro — by Vladimir Petković</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="stylesheet" href="./studio.css?v=unified-scene">
+  <link rel="stylesheet" href="./studio.css?v=object-transforms-v20">
 </head>
 <body>
   <header class="topbar">
@@ -59,7 +59,7 @@
             <option value="1440">1440p</option>
             <option value="2160">4K</option>
           </select>
-          <button class="btn icon" id="fullscreen" title="Fullscreen preview (F)" aria-label="Fullscreen"><svg viewBox="0 0 16 16"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button class="btn icon" id="fullscreen" title="Fullscreen preview (Tab)" aria-label="Fullscreen"><svg viewBox="0 0 16 16"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <button class="btn detach" id="output" title="Detach the output into its own window for a projector or second display (double-click it there for fullscreen). Use a Corner pin node to map it."><svg viewBox="0 0 16 16"><path d="M9 2h5v5M14 2 7.5 8.5M12 10v4H2V4h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Detach</button>
         </div>
       </div>
@@ -67,7 +67,7 @@
         <div class="graph-head">
           <div id="layers" class="layer-tabs" role="tablist" aria-label="Layer graphs"></div>
           <button class="tbtn" id="addLayer" title="Add a layer graph">+ Layer</button>
-          <span class="graph-hint" id="graphHint">Tab: add node · drag output → input · click a wire to remove it · hold a node to detach</span>
+          <span class="graph-hint" id="graphHint">Shift+A: add node · F: frame scene · Tab: fullscreen · drag output → input</span>
           <button class="tbtn tips-btn" id="graphTips" aria-pressed="false" title="Show tips" aria-label="Show graph tips">?</button>
           <span class="sep"></span>
           <div class="tpl-dd"><button class="tbtn tpl-btn" id="templates" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Start from a template">Templates</button><div class="tpl-menu" id="templateMenu" role="listbox" hidden></div></div>
@@ -128,31 +128,34 @@
     {
       "imports": {
         "./autopilot.js": "./autopilot.js?v=modern-autopilot",
-        "./camera.js": "./camera.js?v=unified-scene",
-        "./colliders.js": "./colliders.js?v=unified-scene",
+        "./camera.js": "./camera.js?v=scene-controls-v20",
+        "./colliders.js": "./colliders.js?v=scene-controls-v20",
         "./curator.js": "./curator.js?v=particle-emission",
         "./director.js": "./director.js?v=unified-scene",
-        "./engine.js": "./engine.js?v=unified-scene",
-        "./environment.js": "./environment.js?v=unified-scene",
-        "./fluid3d.js": "./fluid3d.js?v=unified-scene",
+        "./engine.js": "./engine.js?v=scene-controls-v20",
+        "./environment.js": "./environment.js?v=scene-controls-v20",
+        "./exr-types.js": "./exr-types.js?v=scene-controls-v19",
+        "./fluid3d.js": "./fluid3d.js?v=scene-controls-v20",
         "./gltf.js": "./gltf.js?v=surface-flow",
-        "./graph.js": "./graph.js?v=unified-scene",
-        "./map3d.js": "./map3d.js?v=surface-flow",
+        "./graph.js": "./graph.js?v=scene-controls-v20",
+        "./map3d.js": "./map3d.js?v=object-transforms-v20",
+        "./object-transform.js": "./object-transform.js?v=object-transforms-v20",
         "./media.js": "./media.js?v=emitter-media",
         "./model-materials.js": "./model-materials.js?v=surface-flow",
-        "./particles3d.js": "./particles3d.js?v=unified-scene",
+        "./particles3d.js": "./particles3d.js?v=scene-controls-v20",
+        "./palette-map.js": "./palette-map.js?v=scene-controls-v19",
         "./pilot.js": "./pilot.js?v=modern-autopilot",
-        "./pbr.js": "./pbr.js?v=unified-scene",
-        "./rigid.js": "./rigid.js?v=unified-scene",
-        "./scene3d.js": "./scene3d.js?v=unified-scene",
+        "./pbr.js": "./pbr.js?v=scene-controls-v20",
+        "./rigid.js": "./rigid.js?v=scene-controls-v20",
+        "./scene3d.js": "./scene3d.js?v=scene-controls-v20",
         "./ui.js": "./ui.js?v=unified-scene",
         "./usd-model.js": "./usd-model.js?v=surface-flow",
         "./templates.js": "./templates.js?v=universe-scale",
-        "./tour.js": "./tour.js?v=unified-scene",
+        "./tour.js": "./tour.js?v=scene-controls-v20",
         "./scenes.js": "./scenes.js?v=unified-scene"
       }
     }
   </script>
-  <script type="module" src="./studio.js?v=unified-scene"></script>
+  <script type="module" src="./studio.js?v=scene-controls-v20"></script>
 </body>
 </html>

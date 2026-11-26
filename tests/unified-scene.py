@@ -135,6 +135,11 @@ def run(page):
     ) == positions, "Camera edits never reset or move physical objects"
     cameras = page.evaluate("() => ['physA','physB'].map(id=>pro.engine(id).w.__agScene.camera)")
     assert cameras[0] == cameras[1], "Objects and clones use the same projection"
+    assert page.evaluate("()=>pro.frameScene()")
+    page.evaluate("()=>pro.draw()")
+    assert page.evaluate(
+        "() => Object.fromEntries(pro.stats().rigid.groups.map(g=>[g.id,g.positions]))"
+    ) == positions, "Framing preserves physical poses"
 
     mixed = scene([
         node("a", "waveform3d", mode="cube", render="normal", size=60),

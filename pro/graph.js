@@ -5,6 +5,7 @@ import {EPI_LIST,POLAR_LIST,CA_LIST,SCOPE_LIST,LINE_STYLES,CELL_SHAPES} from './
 import {cleanMapping} from './mapping.js';
 import {SHADER_EXAMPLES,SHADER_DEFAULT,parseKnobs,knobDefault} from './shaderfx.js';
 import {TEMPLATE_NAMES} from './morph.js';
+import {legacyPosition} from './object-transform.js';
 import {wander} from './wander.js';
 import {validateEnvironment} from './environment.js';
 import {CAMERA_MOTIONS} from './camera.js';
@@ -59,6 +60,7 @@ export const CLONER_LAYOUTS=[['grid','Grid'],['linear','Linear'],['ring','Radial
 const FX=(label,description,props)=>({category:'postfx',label,description,...FX_IO,fx:true,props});
 // Lines, transform, motion and symmetry live on every renderer node (grouped in its inspector).
 const G=(group,spec)=>({...spec,group});
+const POSITION_PROPS=Object.fromEntries(['X','Y','Z'].map(a=>['move'+a,G('Transforms',n('Move '+a,0,-100,100,.01))]));
 export const GEO_PROPS={
   density:G('Lines',n('Line count',350,80,800,10,{key:'_lines'})),height:G('Lines',n('Height',80,5,300,5,{key:'_height'})),thick:G('Lines',n('Thickness',1,.5,15,.25,{key:'_thick'})),
   contrast:G('Lines',n('Contrast',75,5,100,1,{key:'_contrast'})),sensitivity:G('Lines',n('Sensitivity',100,5,200,5,{key:'_sensitivity'})),fade:G('Lines',n('Fade edges',0,0,100,5,{key:'_fadeEdge'})),
@@ -123,14 +125,13 @@ const ENGINE=(category,label,description,props,outputs={},group)=>({category,gro
   props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound',n('Intensity',category==='waveforms'?85:100,0,200,5)),punch:G('Sound',n('Bass punch',category==='waveforms'?65:60,0,100,1)),release:G('Sound',n('Bass release',category==='waveforms'?150:220,60,800,10)),dynamics:G('Sound',n('Dynamics',50,0,100,1)),
     opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}},...MASK_PROPS,...COMP_PROPS}});
 const RIGID_PROPS={
+  collide:G('Rigid body',bool('Collider body',false)),
   rigidBody:G('Rigid body',bool('Rigid body',false)),
   collisionShape:G('Rigid body',pick('Collision shape','auto',['auto','box','sphere'],{labels:[['auto','Auto bounds'],['box','Box'],['sphere','Sphere']]})),
   mass:G('Rigid body',n('Mass',1,.05,100,.05)),
   bounce:G('Rigid body',n('Bounce',.65,0,1,.05)),
   friction:G('Rigid body',n('Friction',.4,0,1,.05)),
-  damping:G('Rigid body',n('Damping',.08,0,1,.01)),
-  bodyGravity:G('Rigid body',n('Gravity',9.81,-30,30,.1)),
-  soundForce:G('Rigid body',n('Sound impulse',5,0,30,.5))
+  damping:G('Rigid body',n('Damping',.08,0,1,.01))
 };
 const MEDIA=(label,description,cam)=>({category:'inputs',group:'Media',label,description,inputs:{audio:'audio',mask:'visual'},
   outputs:{image:'image',palette:'colors',brightness:'number',...(label==='Image'?{}:{motion:'number'})},
@@ -278,8 +279,13 @@ export const TYPES = {
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads OBJ, FBX, USD, GLB or glTF; GLB/USD materials render as imported PBR in Normal. Animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('3D Object','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
-    render:pick('Rendering','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),collide:bool('Collide',false),...RIGID_PROPS,...PRIM_PROPS,...STYLE_PROPS,
+    render:pick('Rendering','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...RIGID_PROPS,...POSITION_PROPS,...PRIM_PROPS,...STYLE_PROPS,
     modelMaterials:pick('Materials','imported',['imported','palette'],{labels:[['imported','Imported PBR'],['palette','Palette']]}),
+    paletteMap:G('Palette mapping',pick('Mapping','default',['default','uv','front','box'],{labels:[['default','Default'],['uv','UV map'],['front','Front projection'],['box','Box']]})),
+    paletteAxis:G('Palette mapping',pick('Gradient axis','u',['u','v'],{labels:[['u','Horizontal'],['v','Vertical']]})),
+    paletteTiling:G('Palette mapping',n('Tiling',1,.1,20,.1)),
+    paletteOffset:G('Palette mapping',n('Offset',0,-2,2,.01)),
+    paletteRotation:G('Palette mapping',n('Rotation',0,-180,180,1)),
     words:text('Text','SOUND'),font3d:pick('Font','Impact',TEXT_FONTS),depth:n('Depth',30,5,150,5,{noPort:true}),
     animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
   gpuParticles:(t=>({...t,inputs:{...t.inputs,emit:'source'}}))(ENGINE('emitters','WebGPU particles','GPU-powered particles, fluid and smoke. Particles emit from a 3D Object or Cloner’s surface, or follow the bright parts of a flat picture.',{mode:pick('Simulation','simfluid',MODES.gpuParticles.map(m=>m[0]),{labels:MODES.gpuParticles}),
@@ -308,17 +314,27 @@ export const TYPES = {
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU emitters')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
   cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it. Enable Rigid body to make instances bounce off each other and other rigid objects. Ground is in Scene settings.',{
-    layout:pick('Layout','grid',CLONER_LAYOUTS.map(c=>c[0]),{labels:CLONER_LAYOUTS,sim:'g3Mode'}),...RIGID_PROPS,
+    layout:pick('Layout','grid',CLONER_LAYOUTS.map(c=>c[0]),{labels:CLONER_LAYOUTS,sim:'g3Mode'}),...RIGID_PROPS,...POSITION_PROPS,
+    paletteBy:G('Palette mapping',pick('Palette by','inherit',['inherit','clone','face','height','sound'],{labels:[['inherit','Follow Material'],['clone','Clone'],['face','Polygon'],['height','Height'],['sound','Sound']]})),
     countX:G('Count',n('Count X',5,1,60,1,{key:'pG3Nx'})),countY:G('Count',n('Count Y',5,1,60,1,{key:'pG3Ny'})),countZ:G('Count',n('Count Z',5,1,60,1,{key:'pG3Nz'})),
     spacingX:G('Spacing',n('Spacing X',150,20,1000,5,{key:'pG3SpX'})),spacingY:G('Spacing',n('Spacing Y',150,0,1000,5,{key:'pG3SpY'})),spacingZ:G('Spacing',n('Spacing Z',150,0,1000,5,{key:'pG3SpZ'})),
     twist:G('Steps',n('Twist',0,-45,45,1,{key:'pG3StRotY'})),endScale:G('Steps',n('End scale',100,10,300,5,{key:'pG3StScale'})),cloneSpin:G('Steps',n('Spin',0,-100,100,5,{key:'pG3Spin'})),
     scale:G('Scale',n('Scale',100,5,400,5)),scaleX:G('Scale',n('Scale X',100,5,500,5)),scaleY:G('Scale',n('Scale Y',100,5,500,5)),scaleZ:G('Scale',n('Scale Z',100,5,500,5)),
     rotX:G('Rotate',n('Rotate X',0,-180,180,1,{key:'pG3GrX'})),rotY:G('Rotate',n('Rotate Y',0,-180,180,1,{key:'pG3GrY'})),rotZ:G('Rotate',n('Rotate Z',0,-180,180,1,{key:'pG3GrZ'})),
     variety:G('Objects',n('Variety',100,0,100,5,{key:'pG3Mix'}))},{},'Cloner'),inputs:{audio:'audio',drive:'number',object:'object3d',object2:'object3d',object3:'object3d',mask:'visual'}},
-  soundEffector:C3D('Effectors','Sound effector','Loud clones move, grow and tumble.',{
-    listen:C3P('Listen by','index',[['index','Order'],['distance','Distance'],['x','X'],['y','Y'],['z','Z'],['random','Random']],'g3Map'),
-    rotate:C3('Rotate',0,-360,360,'pG3EfRot',5),grow:C3('Grow from base',0,0,100,'pG3Anchor',5),spread:C3('Spread',35,0,100,'pG3Indep',5),delay:C3('Delay',0,0,100,'pG3Delay',5),
+  soundEffector:C3D('Effectors','Sound effector','Connected objects and clones respond to sound: move, rotate and scale with shared sensitivity and response controls.',{
+    listen:C3P('Spectrum distribution','index',[['index','Order'],['distance','Distance'],['x','X'],['y','Y'],['z','Z'],['random','Random']],'g3Map'),
+    sensitivity:G('Sound',C3('Sensitivity',100,0,200,'pSimSens',5)),attack:G('Sound',C3('Attack',40,5,400,'pSimAttack',5)),
+    release:G('Sound',C3('Release',350,50,2000,'pSimRelease',10)),bass:G('Sound',C3('Bass reaction',100,0,300,'pSimBass',5)),
+    energy:G('Sound',C3('Energy',100,0,200,'pSimEnergy',5)),burst:G('Sound',C3('Beat burst',100,0,200,'pSimBurst',5)),
+    spectrumTilt:G('Sound',C3('Spectrum tilt',0,-100,100,'pSimTilt',5)),
+    soundForce:G('Sound',C3('Sound impulse',5,0,30,'_rigidSoundForce',.5)),
+    intensity:G('Response',C3('Intensity',100,0,200,'_soundIntensity',5)),punch:G('Response',C3('Bass punch',60,0,100,'_soundPunch')),
+    responseRelease:G('Response',C3('Bass release',220,60,800,'_soundRelease',10)),dynamics:G('Response',C3('Dynamics',50,0,100,'_soundDynamics')),
+    grow:G('Scale',C3('Grow from base',0,0,100,'pG3Anchor',5)),spread:G('Distribution',C3('Spread',35,0,100,'pG3Indep',5)),delay:G('Distribution',C3('Delay',0,0,100,'pG3Delay',5)),
     moveX:G('Move',C3('Move X',0,-300,300,'pG3EfX',5)),moveY:G('Move',C3('Move Y',0,-300,300,'pG3EfY',5)),moveZ:G('Move',C3('Move Z',0,-300,300,'pG3EfZ',5)),
+    rotateX:G('Rotate',C3('Rotate X',0,-360,360,'pG3EfRX',5)),rotateY:G('Rotate',C3('Rotate Y',0,-360,360,'pG3EfRY',5)),rotateZ:G('Rotate',C3('Rotate Z',0,-360,360,'pG3EfRZ',5)),
+    uniformScale:G('Scale',C3('Uniform scale',0,-100,800,'pG3EfScale',5)),
     scaleX:G('Scale',C3('Scale X',40,-100,800,'pG3ScX',5)),scaleY:G('Scale',C3('Scale Y',40,-100,800,'pG3ScY',5)),scaleZ:G('Scale',C3('Scale Z',40,-100,800,'pG3ScZ',5))}),
   fieldEffector:C3D('Effectors','Field effector','A moving pattern lifts and scales the clones.',{
     field:C3P('Field','wave',[['noise','Noise'],['wave','Wave'],['ripple','Ripple']],'g3Field'),
@@ -338,7 +354,7 @@ export const TYPES = {
     colorBy:G('Colour',C3P('Palette by','height',[['clone','Clone'],['face','Polygon'],['height','Height'],['sound','Sound']],'g3CBy')),
     surface:G('Colour',C3P('Surface','palette',[['palette','Palette'],['custom','Picked']],'g3CSrc')),surfaceColor:G('Colour',{...color('Picked surface','#4aa3ff'),key:'pG3Col'}),
     edges:G('Colour',C3P('Edges','custom',[['palette','Palette'],['custom','Picked']],'g3ESrc')),edgeColor:G('Colour',{...color('Picked edges','#ffffff'),key:'pG3EdgeCol'})}),
-  light:C3D('Look','Light','Key and ambient light, soft cast shadows and bounce light. Ground and imported HDR environment lighting are controlled in Scene settings.',{
+  light:C3D('Look','Light','Key and ambient light, soft cast shadows and bounce light. Ground and HDR/EXR environment lighting are controlled in Scene settings.',{
     key:C3('Key light',100,0,200,'pG3Light',5),ambient:C3('Ambient',35,0,150,'pG3Amb',5),angle:C3('Angle',-42,-180,180,'pG3LitAz'),height:C3('Height',45,-20,89,'pG3LitEl'),
     shadow:G('Shadows',C3('Cast shadows',60,0,100,'pG3Shadow',5)),size:G('Shadows',C3('Light size',35,0,100,'pG3LitSize',5)),
     ao:G('Shadows',C3('Occlusion',50,0,100,'pG3Ao',5)),aoRadius:G('Shadows',C3('Radius',60,10,300,'pG3AoRad',5)),bounce:G('Shadows',C3('Bounce light',40,0,100,'pG3Bounce',5)),
@@ -376,7 +392,10 @@ export const TYPES = {
   drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand']),rigid:{...F('Body drag',.1,0,1,'_rigidDrag',['simrigid','simcloner']),step:.01}}),
   swirl:FORCE('Swirl','Rotate the flow and spin the emitters.',{swirl:F('Swirl',43,-100,100,'pSpSwirl',['simparticles']),fluidSwirl:F('Fluid swirl',40,-100,100,'pSfSwirl',['simfluid']),
     spin:F('Emitter spin',0,-100,100,'pSpSpin',['simparticles']),fluidSpin:F('Jet spin',0,-100,100,'pSfSpin',['simfluid']),smokeSpin:F('Burner spin',0,-100,100,'pSmSpin',['simsmoke']),rigid:F('Body swirl',1,-10,10,'_rigidSwirl',['simrigid','simcloner'])}),
-  attract:FORCE('Attract','Pull toward the centre or the magnets (negative pushes away).',{pull:F('Centre pull',0,-100,100,'pSpAttract',['simparticles'])}),
+  attract:{...FORCE('Attract','Pull 3D particles, fluid and rigid bodies toward a connected 3D Object or Cloner. Without a target, pull toward the scene origin. Negative values repel.',{
+    pull:F('Particle pull',30,-100,100,'pSpAttract',['simparticles']),
+    rigid:{...F('Body pull',4,-30,30,'_rigidAttract',['simrigid','simcloner']),step:.1},
+    fluid:{...F('Fluid pull',4,-30,30,'_fluidAttract',['simfluid3d']),step:.1}}),inputs:{shape:'shape',target:'source'}},
   wind:FORCE('Wind','Blow sideways.',{smoke:F('Wind',0,-100,100,'pSmWind',['simsmoke']),sand:F('Sand wind',0,-100,100,'pSaWind',['simsand']),rigid:F('Body wind',2,-30,30,'_rigidWind',['simrigid','simcloner'])}),
   vorticity:FORCE('Vorticity','Curl the flow into eddies.',{fluid:F('Fluid vorticity',45,0,100,'pSfVort',['simfluid']),smoke:F('Smoke vorticity',55,0,100,'pSmVort',['simsmoke'])}),
   // Color
@@ -517,6 +536,7 @@ export const TYPES = {
   output:{category:'composite',label:'Output',description:'The end of the chain: what this layer shows.',inputs:{image:'image'},outputs:{},props:{}}
 };
 export const EQ_KEYS=['eq32','eq64','eq125','eq250','eq500','eq1k','eq2k','eq4k','eq8k','eq16k'];
+for(const type of ['waveform3d','cloner'])TYPES[type].props.scale=G('Transforms',n('Uniform scale',100,1,1600,1,{unit:'%'}));
 export const EQ_HZ=[32,64,125,250,500,1000,2000,4000,8000,16000];
 
 // Every numeric property (unless noPort) can be driven by a number wire on an input port of the same name.
@@ -612,7 +632,7 @@ export function layer(index=1) {
     {from:merge.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=17;
+export const VERSION=20;
 export function project() { return {format:'audiograph-pro',version:VERSION,settings:clone(SCENE_DEFAULTS),layers:[layer()]}; }
 export function routeVisual(g,source,out){
   const output=g.nodes.find(n=>n.type==='output');if(!output)return;
@@ -810,8 +830,64 @@ function migrate(raw){
       if(nd?.type==='gpuParticles'&&nd.props?.mode==='simfluid3d')nd.props={...oldFluid,...nd.props};
     }
   }
+  if(raw.version<18)for(const g of out.layers||[])for(const n of [...g.nodes]){
+    if(!n.props?.rigidBody)continue;
+    const gravity=n.props.bodyGravity??9.81,edges=g.edges.filter(e=>e.from===n.id&&e.out==='shape');
+    if(gravity&&edges.length){
+      const force=node('gravity',(n.x||0)+210,n.y||0,{rigid:gravity});g.nodes.push(force);
+      for(const e of edges)e.from=force.id;
+      g.edges.push({from:n.id,out:'shape',to:force.id,input:'shape'});
+    }
+    delete n.props.bodyGravity;
+  }
+  if(raw.version<19)for(const g of out.layers||[]){
+        for(const fx of g.nodes.filter(n=>n.type==='soundEffector')){
+          if(Number.isFinite(fx.props?.rotate)){fx.props.rotateX??=fx.props.rotate*.5;fx.props.rotateY??=fx.props.rotate;fx.props.rotateZ??=0;delete fx.props.rotate;}
+          for(const e of g.edges)if(e.to===fx.id&&e.input==='rotate')e.input='rotateY';
+          if(fx.auto)fx.auto=fx.auto.map(k=>k==='rotate'?'rotateY':k);
+        }
+        for(const source of [...g.nodes].filter(n=>n.type==='waveform3d'||n.type==='cloner')){
+          const outgoing=g.edges.filter(e=>e.from===source.id&&e.out==='shape');
+          if(!outgoing.length)continue;
+          let fx=g.nodes.find(n=>n.type==='soundEffector'&&outgoing.some(e=>e.to===n.id));
+          if(!fx){fx=node('soundEffector',(source.x||0)+210,source.y||0,{moveX:0,moveY:0,moveZ:0,scaleX:0,scaleY:0,scaleZ:0});g.nodes.push(fx);
+            for(const e of outgoing)e.from=fx.id;g.edges.push({from:source.id,out:'shape',to:fx.id,input:'shape'});}
+          fx.props={...fx.props};
+          const moveAuto=(old,key)=>{
+            if(!source.auto?.includes(old))return;
+            fx.auto=[...new Set([...(fx.auto||[]),key])];source.auto=source.auto.filter(k=>k!==old);
+          };
+          for(const [key,param] of [['sensitivity','pSimSens'],['attack','pSimAttack'],['release','pSimRelease'],['bass','pSimBass'],['energy','pSimEnergy'],['burst','pSimBurst'],['spectrumTilt','pSimTilt']]){
+            const value=source.props?.opts?.[param]??source.props?.look?.[param];
+            if(Number.isFinite(value))fx.props[key]=value;
+            moveAuto('opt:'+param,key);
+            for(const e of g.edges)if(e.to===source.id&&e.input==='opt:'+param){e.to=fx.id;e.input=key;}
+            if(source.props?.opts)delete source.props.opts[param];
+            if(source.props?.look)delete source.props.look[param];
+          }
+          for(const [old,key] of [['intensity','intensity'],['punch','punch'],['release','responseRelease'],['dynamics','dynamics'],['soundForce','soundForce']]){
+            if(Number.isFinite(source.props?.[old]))fx.props[key]=source.props[old];
+            moveAuto(old,key);
+            for(const e of g.edges)if(e.to===source.id&&e.input===old){e.to=fx.id;e.input=key;}
+          }
+        }
+  }
   const primary=primaryCamera(legacyCameras(out));
   if(!out.settings?.camera&&primary)out.settings={...out.settings,camera:{...defaults('camera3d'),...primary.n.props}};
+  if(raw.version<20){
+    const c={...SCENE_CAMERA,...out.settings?.camera},f=c.focal/28;
+    for(const g of out.layers||[])for(const n of g.nodes||[])if(n.type==='waveform3d'||n.type==='cloner'){
+      const p=n.props||={},wired=new Set((g.edges||[]).filter(e=>e.to===n.id).map(e=>e.input));
+      if(!wired.has('x')&&!wired.has('y')&&!n.auto?.some(k=>k==='x'||k==='y')){
+        const zoom=out.settings?.camera?.zoom??(raw.version<17&&n.type==='waveform3d'?55:100),
+          camera={distance:0.78/Math.sin(.4)*.92*f/Math.max(.0001,zoom/100),f,aspect:16/9,yaw:c.turn*Math.PI/180,tilt:c.tilt*Math.PI/180};
+        const position=legacyPosition(p.x||0,p.y||0,camera);
+        for(const [i,a] of ['X','Y','Z'].entries())p['move'+a]??=position[i];
+        p.x=0;p.y=0;
+      }
+      if(n.type==='cloner'&&!wired.has('scale')&&!n.auto?.includes('scale'))p.scale=(p.scale??100)**2/100;
+    }
+  }
   for(const g of out.layers||[])for(const camera of (g.nodes||[]).filter(n=>n.type==='camera3d')){
     const source=g.edges?.find(e=>e.to===camera.id&&e.input==='shape');
     g.edges=(g.edges||[]).filter(e=>e.to!==camera.id).flatMap(e=>e.from!==camera.id?[e]:source?[{...e,from:source.from,out:source.out}]:[]);
@@ -983,12 +1059,13 @@ export const SIM_QUALITIES=[['node','Use node settings'],['low','Low'],['med','M
 export const SCENE_PERFORMANCE={fps:30,simulation:'node',lensEffects:true};
 export const SCENE_CAMERA_PROPS={
   ...Object.fromEntries(['turn','tilt','zoom','focal','dof','focus','blur'].map(k=>[k,TYPES.camera3d.props[k]])),
+  zoom:n('Zoom',8,.01,300,.01,{unit:'%'}),
   motion:pick('Movement','static',CAMERA_MOTIONS.map(([id])=>id),{labels:CAMERA_MOTIONS}),
   speed:n('Speed',20,-100,100,1),range:n('Range',35,0,100,1),height:n('Height',25,0,100,1),audio:n('Audio influence',0,0,100,1),
   px:n('Pan X',0,-4,4,.01),py:n('Pan Y',0,-4,4,.01)
 };
-export const SCENE_CAMERA={...Object.fromEntries(Object.entries(SCENE_CAMERA_PROPS).map(([k,s])=>[k,clone(s.value)])),zoom:55};
-export const SCENE_GROUND={enabled:true,visible:true,height:-1.2,size:20};
+export const SCENE_CAMERA=Object.fromEntries(Object.entries(SCENE_CAMERA_PROPS).map(([k,s])=>[k,clone(s.value)]));
+export const SCENE_GROUND={enabled:true,visible:true,shape:'square',color:'#aeb0b3',height:-1.2,size:20};
 export const SCENE_DEFAULTS={background:'#000000',camera:SCENE_CAMERA,ground:SCENE_GROUND,environment:null};
 function cleanSceneSettings(s){
   if(s===undefined)s={};
@@ -997,14 +1074,15 @@ function cleanSceneSettings(s){
   if(s.ground!==undefined){
     const g={...SCENE_GROUND,...s.ground};
     if(!s.ground||typeof s.ground!=='object'||Array.isArray(s.ground)||typeof g.enabled!=='boolean'||typeof g.visible!=='boolean')throw Error('Invalid scene ground');
-    out.ground={enabled:g.enabled,visible:g.visible,height:finite(g.height,-100,100,'Ground height'),size:finite(g.size,.2,200,'Ground size')};
+    if(!['square','circle'].includes(g.shape))throw Error('Invalid ground shape');
+    out.ground={enabled:g.enabled,visible:g.visible,shape:g.shape,color:cleanProp(color('Ground colour',SCENE_GROUND.color),g.color,'Ground colour'),height:finite(g.height,-100,100,'Ground height'),size:finite(g.size,.2,200,'Ground size')};
   }
   if(s.environment!==undefined){
     const e=s.environment;
     if(e===null)out.environment=null;
     else{
       if(!e||typeof e!=='object'||typeof e.name!=='string'||e.name.length>255||typeof e.data!=='string'||e.data.length>96*1024*1024||
-        !/^data:[a-zA-Z0-9.+/-]*;base64,[A-Za-z0-9+/]+={0,2}$/.test(e.data))throw Error('Invalid HDR environment');
+        !/^data:[a-zA-Z0-9.+/-]*;base64,[A-Za-z0-9+/]+={0,2}$/.test(e.data))throw Error('Invalid environment lighting');
       out.environment={name:e.name,data:e.data,intensity:finite(e.intensity??1,0,20,'Environment intensity'),rotation:finite(e.rotation??0,-180,180,'Environment rotation')};
       validateEnvironment(out.environment);
     }
@@ -1118,6 +1196,7 @@ export function modulate(s,base,v){
 const ADDITIVE=new Set(['_twist','_bulge','_wave','_shear','_depth','_ripple','_water','_jitter','_rDisorder']);
 export function applyShapeNode(type,props,mods){
   const out={...mods};
+  if(type==='soundEffector')out._soundEffector=true;
   if(type==='palette'){
     const st=paletteStops(props);
     out._colorMode=props.mode;out._solidColor=props.solid;out._toneStops=st.tone;out._simpleStops=st.simple;

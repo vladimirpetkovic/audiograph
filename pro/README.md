@@ -204,19 +204,35 @@ overlays. Earlier 2D inputs and Background nodes can sit behind the 3D world.
   Cone, Icosphere, Pyramid, Frame, Knot, Tetrahedron, DNA, Terrain, **3D text** (your words
   extruded from the letters' outlines, smooth curves and crisp corners, with Font and Depth) and **3D model** (your
   imported OBJ, the built-in knot until you load one). **Render** is **Normal** (a
-  solid, lit object with size, detail and stretch), **Waveform** (audio-reactive
+  solid, lit object with size, detail and stretch), **Waveform** (reactive
   lines), **Polygons** (filled faces in palette colours: each face hears its own
   band, brightens and moves out along its normal; Elevation, Noise, Gap and Edges
   shape it; animated models play) or, for a Model, **Point cloud** (framed like the other renders).
   Every model uses the camera in **Scene settings**. Dragging the preview rotates
   and tilts that camera, the wheel zooms it, and double-click resets it. Object
-  transforms remain on the object node. A model's colours come from the Palette:
-  loud lines / faces take the top of the ramp (Sound › Sensitivity, Contrast); a point cloud uses Look › Colour. Every 3D Object has an `object` output:
+  **Transforms** on Objects and Cloners contains **Gizmo: Off / Move / Rotate / Scale**,
+  aligned XYZ controls for each transform, Size and Uniform scale. Gizmo drags edit the
+  object, not the camera, and undo as one change. All four renders use the same scale
+  and world pose. Standalone objects are sound-neutral: connect a **Sound effector**
+  to make them react. A model's colours come from the Palette:
+  loud lines / faces take the top of the ramp; a point cloud uses Look › Colour.
+  Normal-rendered Objects offer **Palette mapping** with UV, Front or Box projection,
+  axis, tiling, offset and rotation. Imported PBR models must select **Materials: Palette**
+  to use it. Every 3D Object has an `object` output:
   **Cloner** (layout, counts, spacing, steps, **Scale** (uniform and X / Y / Z, on top of the object's own size and stretch), rotation, variety) takes up to three and
   clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links with width, glow and sound pulse) and **Look** (Material,
   Light). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
-  and coloured bounce light. Ground and HDR lighting belong to Scene settings. Chain effectors and look nodes after the Cloner. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
+  and coloured bounce light. Ground and HDR/EXR lighting belong to Scene settings.
+  A new Cloner comes with a Sound effector. Its **Sound** and **Response** sections
+  control sensitivity and envelopes; **Transforms** contains Move XYZ, Rotate XYZ,
+  Scale XYZ, Uniform scale and Grow from base. **Spectrum distribution** assigns
+  frequency bands by clone order, distance, axis or randomly; Spread and Delay vary
+  the response across clones. Cloner **Palette** chooses colour distribution across
+  instances. Chain effectors and look nodes after the Cloner. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
   into these nodes automatically.
+- **Frame scene**: press **F**, or use **Scene settings → 3D camera → Frame scene**, to fit
+  all rendered 3D objects and cloner instances, including moved rigid bodies. The ground
+  does not affect framing. **Tab** toggles fullscreen; **Shift+A** opens node search.
 - **Viewport camera**: drag in the preview to orbit the whole 3D scene (right- or Shift-drag pans), or to move a 2D
   layer; the wheel, a trackpad pinch (Chrome, Edge, Safari) or a two-finger touch pinch zooms, and a double-click resets.
   Classic 3D renders (Waveform, Polygons) zoom natively, so lines stay sharp. The
@@ -376,7 +392,7 @@ process the finished image.
   (the inspector title takes its category colour) and wire types.
 - **Quick build**: select a node, then click a library node. It is inserted right
   after the selection. Deleting a node heals the chain.
-- **Tab search**: press Tab with the mouse over the graph, type (e.g. "fluid",
+- **Node search**: press Shift+A with the mouse over the graph, type (e.g. "fluid",
   "bloom"), and press Enter. The node drops at the cursor; over a wire, it is
   inserted into that wire.
 - **Bypass** (⏻ on the node, or **B** for the selection): the node is switched off
@@ -390,7 +406,7 @@ process the finished image.
 - **Wedge**: drag an unconnected node (or a library item) onto a wire; the wire
   lights up, and on release the node is inserted between the two nodes. No need to
   aim: any wire passing under the dragged node's body (or within ~20 px of a library
-  item or the Tab-search cursor) counts, and only wires whose ports fit light up.
+  item or the node-search cursor) counts, and only wires whose ports fit light up.
 - **Replace**: drop a library item onto a node, or drag a node already in the graph onto another, and it
   takes that node's place and keeps its wires (each on the matching port where it fits). The node is outlined
   only when it applies: never the Output, and only if the newcomer can keep at least one wire. One undo.
@@ -415,7 +431,7 @@ process the finished image.
   synthetic beat instead. Wiring a
   number into an emitter's Drive replaces the music for that emitter.
 - **Keys**: ⌘Z / ⇧⌘Z undo and redo, ⌘D duplicates, Delete removes, Space pauses,
-  F toggles fullscreen.
+  F frames the 3D scene, Tab toggles fullscreen, Shift+A opens node search.
 - **Templates**: **User templates** (Save → Save as template, kept in the browser) and the **Audiograph presets** (the originals plus saved scenes in `scenes.js`: **Cloned**, **Doppler**, **Cell**, **Eternity**, **Firepit**, **Fractal** and **Globe**; a saved scene replaces the original preset of the same name, and Sacred circle, Spiral planes and Organica are retired from the menu and the Template morph list but still load in old projects). The **×** next to a user template deletes it (after a confirm). All presets sit on plain black (no Background node).
 - **Save**: Save scene writes an .ag file wherever you choose (⌘S); Save as template (⇧⌘S) adds a User template.
 - **Tips stay hidden**: node descriptions and help notes sit behind the **?** in
@@ -426,7 +442,7 @@ process the finished image.
   ⌘C / ⌘X / ⌘V copy, cut and paste (at the pointer), Delete removes, ⌘D duplicates.
   Pan with Alt-drag, middle-drag or two fingers. **Save as custom node** keeps the
   selected group in a **Custom** library category at the bottom (stored in this
-  browser); click it, or find it with Tab, to add the whole group.
+  browser); click it, or find it with Shift+A, to add the whole group.
 - The **Camera** node shows a live thumbnail of your webcam in its inspector.
 - **Media inputs** (Image, Video, OBJ, splat) have a single Choose button; a loaded
   file shows as a thumbnail (or its name) with × to remove it. Image, Video and Camera
@@ -459,10 +475,16 @@ process the finished image.
   Enable **Rigid body** on 3D Objects and Cloners for shared collisions across
   objects, cloner instances and layers. Collision bounds can be Auto, Box or
   Sphere; Gravity, Wind, Swirl, Drag, Turbulence and Field effectors add forces.
-  **Ground** is enabled by default and can be visible or collision-only.
-  Import a Radiance **.hdr** environment in Scene settings to light native solid meshes
-  and imported PBR materials. Intensity and rotation adjust its illumination; the HDR
-  is embedded in the saved scene. It does not replace the canvas background.
+  **Collider body** makes an Object or Cloner a particle/fluid obstacle without enabling
+  dynamic forces. Gravity is off until a **Gravity** node is connected. **Attract**
+  has a target input for an Object or Cloner; without a target it attracts to the origin.
+  **Ground** is enabled by default; choose Square or Circle, set colour, size and height,
+  or hide it while keeping collisions.
+  Import a Radiance **.hdr** or OpenEXR **.exr** environment in Scene settings to light
+  native solid meshes and imported PBR materials. Intensity and rotation adjust its
+  illumination; the environment is embedded in the saved scene. It does not replace
+  the canvas background. Scene descriptions are behind its **?**.
+  Tutorials include **3D Cloner & rigid bodies** and **Particles: Waterfall**.
   Opaque models occlude particles viewed through the same camera;
   transparent surfaces and cutouts still let particles show through.
   **Performance** can cap live FPS, override WebGPU simulation quality, or skip 3D lens effects

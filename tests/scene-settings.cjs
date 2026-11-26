@@ -154,7 +154,7 @@ const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}
     await page.keyboard.press('v');
     await page.evaluate(()=>pro.draw());
     const thumb=()=>page.locator('#preview').evaluate(src=>{
-      const c=document.createElement('canvas');c.width=160;c.height=90;
+      const c=document.createElement('canvas');c.width=320;c.height=180;
       const ctx=c.getContext('2d');ctx.drawImage(src,0,0,c.width,c.height);
       return [...ctx.getImageData(0,0,c.width,c.height).data];
     });
@@ -162,7 +162,8 @@ const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}
     await dragPreview();
     assert.equal(await angle(),19,'Solo 3D previews use the same universal camera');
     assert.equal((await project()).layers[0].view,undefined,'3D preview does not create a private layer camera');
-    assert.ok((await thumb()).filter((v,i)=>Math.abs(v-beforeOrbit[i])>12).length>100,'The solo object visibly rotates');
+    const orbitDifference=(await thumb()).filter((v,i)=>Math.abs(v-beforeOrbit[i])>12).length;
+    assert.ok(orbitDifference>100,`The solo object visibly rotates (${orbitDifference} changed channels)`);
     await page.keyboard.press('Escape');
     const bypass=structuredClone(scene);bypass.layers=[bypass.layers[0]];bypass.layers[0].nodes.find(n=>n.id==='camera').bypass=true;
     await page.evaluate(p=>pro.importProject(p),bypass);

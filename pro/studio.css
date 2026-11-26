@@ -410,6 +410,8 @@ body:not(.ws-studio) .studio-only,body:not(.ws-studio) #selectionHint{display:no
 .ws-block+.ws-block{margin-top:10px;padding-top:18px;border-top:2px solid var(--border)}
 .ws-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
 .map-overlay{position:absolute;z-index:1;touch-action:none;cursor:crosshair;overflow:visible}
+.map-overlay.object-overlay{pointer-events:none}
+.map-overlay.object-overlay .gizmo{pointer-events:stroke;cursor:grab}
 .map-overlay .surf{fill:rgba(210,255,58,.04);stroke:rgba(255,255,255,.45);stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:move}
 .map-overlay .surf.sel{fill:rgba(255,255,255,.06);stroke:#fff;stroke-width:2}
 .map-overlay .mesh{fill:none;stroke:rgba(210,255,58,.45);stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}

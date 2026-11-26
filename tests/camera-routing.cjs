@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),path=require('node:path');
 const {pathToFileURL}=require('node:url');
 (async()=>{
   const graph=await import(pathToFileURL(path.resolve(__dirname,'../pro/graph.js')));
-  const {cameraPose,advanceCamera}=await import(pathToFileURL(path.resolve(__dirname,'../pro/camera.js')));
+  const {cameraPose,advanceCamera,frameCamera,SCENE_DISTANCE}=await import(pathToFileURL(path.resolve(__dirname,'../pro/camera.js')));
   const {node,project,validate,routeVisual,legacyCameraNotice,SCENE_CAMERA}=graph;
   const raw=project(),g=raw.layers[0],merge=g.nodes.find(n=>n.type==='merge'),output=g.nodes.find(n=>n.type==='output');
   assert.ok(g.edges.some(e=>e.from===merge.id&&e.to===output.id),'New scenes have Merge connected to Output');
@@ -52,6 +52,15 @@ const {pathToFileURL}=require('node:url');
   assert.ok(cameraPose({...SCENE_CAMERA,motion:'dolly'},Math.PI/2).zoom>SCENE_CAMERA.zoom);
   const spiral=cameraPose({...SCENE_CAMERA,motion:'spiral'},Math.PI/2);
   assert.ok(spiral.zoom!==SCENE_CAMERA.zoom&&spiral.tilt!==SCENE_CAMERA.tilt,'Spiral changes both radius and elevation');
+  for(const motion of ['static','orbit','pendulum','dolly','spiral'])for(const aspect of [.5,16/9])for(const focal of [14,28,200]){
+    const camera=frameCamera({...SCENE_CAMERA,motion,focal,px:3,py:-2},40,aspect);
+    const pose=cameraPose(camera,Math.PI/2),distance=SCENE_DISTANCE*(focal/28)/(pose.zoom/100);
+    const half=Math.atan(Math.tan(.4)*Math.min(1,aspect)/(focal/28));
+    assert.ok(distance*Math.sin(half*.9)>=40-1e-8,'Framing includes the whole scene through movement and lens changes');
+    assert.equal(camera.px,0);assert.equal(camera.py,0);
+    assert.ok(camera.zoom<30,'Large scenes can pull back below the legacy zoom limit');
+  }
+  assert.throws(()=>frameCamera(SCENE_CAMERA,NaN,1),/bounds/);
   const bad=project();bad.settings.camera.motion='unknown';
   assert.throws(()=>validate(bad),/Movement/,'Unknown camera presets are rejected');
   console.log('ok - Universal camera migration, looping motion, audio influence, default Merge and automatic routing');

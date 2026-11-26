@@ -1,3 +1,5 @@
+import {EXRLoader} from './vendor/exr-loader.js';
+import {FloatType} from './exr-types.js';
 const MAX_FILE=32*1024*1024, MAX_PIXELS=32*1024*1024;
 const decoded=new Map();
 const CACHE_SIZE=2;
@@ -55,12 +57,53 @@ export function decodeHDR(input){
   }
   return {width,height,pixels};
 }
+export function decodeEXR(input){
+  const bytes=input instanceof Uint8Array?input:new Uint8Array(input);
+  if(bytes.length<8||bytes.length>MAX_FILE)throw Error('Invalid EXR: truncated or oversized file');
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  if(view.getUint32(0,true)!==20000630)throw Error('Invalid EXR: missing OpenEXR signature');
+  if(view.getUint32(4,true)&0x1800)throw Error('EXR deep and multipart images are not supported; export a single RGB panorama');
+  let at=8,dimensions=false;
+  const text=()=>{
+    const start=at;while(at<bytes.length&&bytes[at]&&at-start<256)at++;
+    if(at>=bytes.length||bytes[at])throw Error('Invalid EXR: malformed header');
+    return new TextDecoder().decode(bytes.subarray(start,at++));
+  };
+  while(at<bytes.length){
+    const name=text();if(!name)break;
+    const type=text();
+    if(at+4>bytes.length)throw Error('Invalid EXR: truncated attribute');
+    const size=view.getUint32(at,true);at+=4;
+    if(size>bytes.length-at)throw Error('Invalid EXR: truncated attribute');
+    if(name==='dataWindow'){
+      if(type!=='box2i'||size!==16)throw Error('Invalid EXR: malformed data window');
+      const width=view.getInt32(at+8,true)-view.getInt32(at,true)+1;
+      const height=view.getInt32(at+12,true)-view.getInt32(at+4,true)+1;
+      if(width<=0||height<=0||width*height>MAX_PIXELS)throw Error('EXR image dimensions are too large');
+      dimensions=true;
+    }
+    at+=size;
+  }
+  if(!dimensions)throw Error('Invalid EXR: missing data window');
+  const result=new EXRLoader().setDataType(FloatType).parse(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
+  const {width,height,data}=result,pixels=new Float32Array(width*height*3);
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++)for(let c=0;c<3;c++){
+    const value=data[((height-1-y)*width+x)*4+c];
+    if(!Number.isFinite(value))throw Error('Invalid EXR: non-finite lighting value');
+    pixels[(y*width+x)*3+c]=value;
+  }
+  return {width,height,pixels};
+}
+export function decodeEnvironment(input){
+  const bytes=input instanceof Uint8Array?input:new Uint8Array(input);
+  return bytes.length>=4&&new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength).getUint32(0,true)===20000630?decodeEXR(bytes):decodeHDR(bytes);
+}
 
 function dataBytes(data){
-  if(typeof data!=='string'||!/^data:[^,]*;base64,/i.test(data))throw Error('Invalid HDR: expected embedded data URL');
+  if(typeof data!=='string'||!/^data:[^,]*;base64,/i.test(data))throw Error('Invalid environment: expected embedded data URL');
   const encoded=data.slice(data.indexOf(',')+1);
-  if(encoded.length>Math.ceil(MAX_FILE*4/3)+4||!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded))throw Error('Invalid HDR: invalid or oversized data');
-  let binary;try{binary=atob(encoded);}catch{throw Error('Invalid HDR: malformed base64');}
+  if(encoded.length>Math.ceil(MAX_FILE*4/3)+4||!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded))throw Error('Invalid environment: invalid or oversized data');
+  let binary;try{binary=atob(encoded);}catch{throw Error('Invalid environment: malformed base64');}
   return Uint8Array.from(binary,c=>c.charCodeAt(0));
 }
 function digest(data){
@@ -73,7 +116,7 @@ function imageFor(data){
   if(data===lastData)return lastImage;
   const id=digest(data);let image=decoded.get(id);
   if(image)decoded.delete(id);
-  else image=uploadPixels(decodeHDR(dataBytes(data)));
+  else image=uploadPixels(decodeEnvironment(dataBytes(data)));
   decoded.set(id,image);
   while(decoded.size>CACHE_SIZE)decoded.delete(decoded.keys().next().value);
   lastData=data;lastImage=image;return image;
@@ -84,9 +127,9 @@ export function validateEnvironment(value){
   return value;
 }
 export async function importEnvironment(file){
-  if(!file||file.size>MAX_FILE)throw Error('HDR file exceeds 32 MB');
-  const bytes=new Uint8Array(await file.arrayBuffer());if(bytes.length>MAX_FILE)throw Error('HDR file exceeds 32 MB');
-  decodeHDR(bytes);
+  if(!file||file.size>MAX_FILE)throw Error('Environment file exceeds 32 MB');
+  const bytes=new Uint8Array(await file.arrayBuffer());if(bytes.length>MAX_FILE)throw Error('Environment file exceeds 32 MB');
+  decodeEnvironment(bytes);
   let binary='';for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));
   return {name:String(file.name||'Environment.hdr'),data:'data:application/octet-stream;base64,'+btoa(binary),intensity:1,rotation:0};
 }

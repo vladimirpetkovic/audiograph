@@ -1,4 +1,5 @@
-import {installRigid} from './rigid.js';
+import {installRigid,instanceCollider} from './rigid.js';
+import {rotatePoint,transformView} from './object-transform.js';
 
 export const DEPTH_WGSL=`
 fn encodeSceneDepth(z:f32)->vec4f{
@@ -18,7 +19,8 @@ const NATIVE_DEPTH=DEPTH_WGSL+`
   if(c.mt.z<0.995||c.mt2.y==1.0){discard;}return encodeSceneDepth(fi.cp.w-length(c.cam.xyz));
 }
 @fragment fn sceneFloorDepth(fi:FlO)->@location(0) vec4f{
-  let a=c.fl.w*(1.0-smoothstep(0.3,1.0,length(fi.wp.xz)/c.gi.w));
+  let r=select(max(abs(fi.wp.x),abs(fi.wp.z)),length(fi.wp.xz),c.fl.z>0.5)/c.gi.w;
+  let a=c.fl.w*(1.0-smoothstep(0.3,1.0,r));
   if(a<0.004){discard;}return encodeSceneDepth(fi.cp.w-length(c.cam.xyz));
 }
 `;
@@ -76,7 +78,7 @@ struct SurfaceCamera{row0:vec4f,row1:vec4f,lens:vec4f,eye:vec4f,info:vec4f,flow:
 }
 fn surfacePoint(o:u32,ii:u32)->vec3f{
   let I=inst[ii];let v=vec3f(surfaceVertices[o],surfaceVertices[o+1u],surfaceVertices[o+2u]);
-  let wp=I.pos.xyz+rotM(I.rot.xyz)*(anch(v,cloneS(I,ii))*c.sp.w*I.rot.w);
+  let wp=I.pos.xyz+rotM(I.rot.xyz)*(anch(v,cloneS(I,ii),I.rot.w)*c.sp.w*I.rot.w);
   let q=c.vp*vec4f(wp,1.0);let z=q.w-length(c.cam.xyz);
   let w=select(-max(abs(q.w),0.00001),max(abs(q.w),0.00001),q.w>=0.0);
   let ndc=vec3f(q.xy/w,1.0);
@@ -153,13 +155,18 @@ export const MATERIAL_DEPTH=DEPTH_WGSL+`
 }
 `;
 export function patchScene(patch){
+  patch('G3UF=1264','G3UF=1268');
+  patch('fl:vec4f,rs3:vec4f};','fl:vec4f,rs3:vec4f,gcolor:vec4f};');
+  patch('return mix(vec3f(0.42,0.43,0.46),palAvg()*0.8,c.fl.x);','return mix(pow(c.gcolor.rgb,vec3f(2.2)),palAvg()*0.8,c.fl.x);');
   patch('st.g3n=n;st.g3req=req;', 'if(window.__agScene.groundOnly)n=0;st.g3n=n;st.g3req=req;');
-  patch('var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=', 'bnd=window.__agScene.rigidBounds(bnd);var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=');
+  patch('var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=', 'bnd=window.__agScene.rigidBounds(bnd);window.__agScene.boundsRadius=bnd;var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=');
   patch('st.ibuf=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC})',
     'st.ibuf=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST})');
   patch('if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=', 'window.__agScene.rigid(st,enc,m,n,dev);\n    if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=');
   patch('var fy=-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;', 'var fy=window.__agScene.groundConfig?window.__agScene.groundConfig.height:-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;if(window.__agScene.groundConfig){flA=window.__agScene.groundConfig.enabled&&window.__agScene.groundConfig.visible?0.35:0;}');
   patch("set(1252,K('pG3Bounce',40)/100,shSz,fy,bnd*2.4);", "set(1252,K('pG3Bounce',40)/100,shSz,fy,window.__agScene.groundConfig?window.__agScene.groundConfig.size/2:bnd*2.4);");
+  patch("set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,0,flA);","set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,window.__agScene.groundConfig?.shape==='circle'?1:0,flA);var gc=g3Hex(window.__agScene.groundConfig?.color||'#aeb0b3');set(1264,gc[0],gc[1],gc[2],1);");
+  patch("let r=length(fi.wp.xz)/c.gi.w;let a=c.fl.w*","let r=select(max(abs(fi.wp.x),abs(fi.wp.z)),length(fi.wp.xz),c.fl.z>0.5)/c.gi.w;let a=c.fl.w*");
   patch("binding:1,visibility:V,buffer:{type:'read-only-storage'}","binding:1,visibility:V|F,buffer:{type:'read-only-storage'}");
   patch("binding:1,visibility:V,buffer:{type:'read-only-storage'}","binding:1,visibility:V|F,buffer:{type:'read-only-storage'}");
   patch('usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});G.dev.queue.writeBuffer(buf,0,arr);','usage:GPUBufferUsage.VERTEX|GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});G.dev.queue.writeBuffer(buf,0,arr);');
@@ -225,7 +232,7 @@ export function installScene(w){
     depthStencilAttachment:{view:targets.z.createView(),depthLoadOp:'clear',depthStoreOp:'discard',depthClearValue:1}});
   const api=w.__agScene={
     depth:depthOut,opaque:opaqueOut,source,sourceValid:false,sourceSerial:0,sourceEpoch:0,valid:false,
-    start(on,emit=false,flow=null,collide=false){enabled=on;wantSource=emit;wantCollision=collide;sourceFlow=flow;api.valid=false;api.sourceValid=false;layer=null;placement=null;polyVertices=[];surfaceVerts=[];surfaceFaces=[];api.surfaceMesh=null;api.matrix=null;},
+    start(on,emit=false,flow=null,collide=false){enabled=on;wantSource=emit;wantCollision=collide;sourceFlow=flow;api.valid=false;api.sourceValid=false;api.boundsRadius=0;if(!collide){api.nativeCollider=null;api.collisionError=null;}layer=null;placement=null;polyVertices=[];surfaceVerts=[];surfaceFaces=[];api.surfaceMesh=null;api.matrix=null;},
     layerPlacement(ctx,sz,off,drawW,drawH,zoom,params,rotate,cover){
       if(!(enabled||wantSource||wantCollision))return;
       const {width,height}=w.frameCv,dpr=sz.dpr,c=ctx.canvas;
@@ -263,6 +270,21 @@ export function installScene(w){
     native(st,enc,mesh,n,P){
       if(!enabled&&!wantSource)return;
       api.matrix=Array.from(st.cu.slice(0,16));api.distance=st.g3dist;
+      if(wantCollision&&(api.colliderArray!==mesh.arr||api.colliderCount!==n)){
+        api.colliderArray=mesh.arr;api.colliderCount=n;api.collisionError=null;api.nativeCollider=null;
+      }
+      if(wantCollision&&n>0&&!api.colliderPending){
+        const buffer=dev.createBuffer({size:n*48,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ}),u=st.cu.slice(),arr=mesh.arr;
+        enc.copyBufferToBuffer(st.ibuf,0,buffer,0,n*48);api.colliderPending=buffer;
+        queueMicrotask(async()=>{
+          const map=api.mapper();
+          try{
+            await buffer.mapAsync(GPUMapMode.READ);
+            if(api.colliderPending===buffer&&api.colliderArray===arr&&api.colliderCount===n&&map)api.nativeCollider=instanceCollider(arr,new Float32Array(buffer.getMappedRange()),u,map,api.nativeCollider?.faces);
+          }catch(error){if(api.colliderPending===buffer&&api.colliderArray===arr&&api.colliderCount===n)api.collisionError=error.message;}
+          finally{buffer.destroy();if(api.colliderPending===buffer)api.colliderPending=null;}
+        });
+      }
       drawSource(st,enc,mesh,n,P);if(!enabled)return;
       ensure(st);
       for(let i=0;i<2;i++){
@@ -273,18 +295,41 @@ export function installScene(w){
       api.valid=true;
     },
     stretchModel(model){
-      const s=w.__agCam?.stretch;
-      if(!s||s.every(v=>v===1))return api.rigidModel(model);
-      const key=s.join(',')+':'+(w.__agG3MeshVer||0);
+      const s=w.__agCam?.stretch||[1,1,1],pose=w.__agObjectTransform,scale=w.__agCam?.scale||1,
+        rigid=api.rigidConfig?.props.rigidBody;
+      if(s.every(v=>v===1)&&(!pose||rigid))return api.rigidModel(model);
+      const key=JSON.stringify([s,rigid?null:pose,scale,w.__agG3MeshVer||0]);
       if(modelStretch?.model!==model||modelStretch.key!==key){
-        const verts=model.verts.map(v=>v.map((x,i)=>x*s[i]));
-        const normals=model.normals.map(v=>{const n=v.map((x,i)=>x/s[i]),len=Math.hypot(...n)||1;return n.map(x=>x/len);});
+        const world=v=>[v[0],-v[1],v[2]],local=v=>[v[0],-v[1],v[2]],
+          rotation=!rigid&&pose?.rotation||[0,0,0],position=!rigid&&pose?.position||[0,0,0];
+        const verts=model.verts.map(v=>local(rotatePoint(world(v.map((x,i)=>x*s[i]*scale)),rotation).map((x,i)=>(x+position[i])/scale)));
+        const normals=model.normals.map(v=>{const n=local(rotatePoint(world(v.map((x,i)=>x/s[i])),rotation)),len=Math.hypot(...n)||1;return n.map(x=>x/len);});
         modelStretch={model,key,scaled:{...model,verts,normals}};
       }
       return api.rigidModel(modelStretch.scaled);
     },
+    objectView(view,angles){
+      const pose=w.__agObjectTransform;if(!pose)return;
+      transformView(view,pose.position,angles||pose.rotation,!!angles);
+      const sound=w.__agObjectSound;
+      if(!angles&&sound){
+        transformView(view,sound.localOffset,sound.rotation);
+        for(let c=0;c<3;c++)for(let r=0;r<4;r++)view[c*4+r]*=sound.scale[c];
+      }
+    },
+    soundPoint(x,y,z,persp){
+      const s=w.__agObjectSound;if(!s)return [x,y,z];
+      const v=[x/persp,-y/persp,z/persp],p=s.offset.map((t,i)=>t+s.matrix[i*3]*v[0]+s.matrix[i*3+1]*v[1]+s.matrix[i*3+2]*v[2]);
+      return [p[0]*persp,-p[1]*persp,p[2]*persp];
+    },
+    soundNormal(v){
+      const s=w.__agObjectSound;if(!s)return v;
+      const p=[v[0],-v[1],v[2]],q=[0,1,2].map(i=>s.normals[i*3]*p[0]+s.normals[i*3+1]*p[1]+s.normals[i*3+2]*p[2]),length=Math.hypot(...q)||1;
+      return [q[0]/length,-q[1]/length,q[2]/length];
+    },
+    objectOffset(){return Math.hypot(...(w.__agObjectTransform?.position||[0,0,0]))+Math.hypot(...(w.__agObjectSound?.localOffset||[0,0,0]));},
     classicSurface(ctx,vertices,model,wire,persp){
-      if(!(wantSource||wantCollision)||!w.__agCam)return;
+      if(!(wantSource||wantCollision||api.frameRequested)||!w.__agCam)return;
       const faces=wire.map?w._objPolys(model,wire):model.faces;
       const {m,width,height}=placement,w2=2/width,h2=2/height;
       const verts=vertices.map(p=>{
@@ -294,11 +339,13 @@ export function installScene(w){
       api.surfaceMesh={verts,faces,world:true,orientation:m.a*m.d-m.b*m.c<0?-1:1};
     },
     projectedMesh(matrix,distance){
-      if(!(wantSource||wantCollision)||!w.__agSceneCam)return;
+      if(!w.__agSceneCam)return;
       api.matrix=Array.from(matrix.slice(0,16));api.distance=distance;
     },
     colliderMesh(object){
+      if(api.collisionError)throw Error(api.collisionError);
       if(api.surfaceMesh)return api.surfaceMesh;
+      if(api.nativeCollider)return api.nativeCollider;
       const map=api.mapper();if(!map||!object)return null;
       const native=object.prim&&object.shape!=='knot';
       const mesh=native?w.agSim.particleMesh(object.shape,object.detail??4):
@@ -376,7 +423,7 @@ export function installScene(w){
       }
     },
     placement:()=>placement,
-    destroy(){api.disposeRigid();destroyTargets();destroySource();if(polyTargets){polyTargets.z.destroy();polyTargets.buffer?.destroy();polyTargets.canvas.getContext('webgpu').unconfigure();polyTargets=null;}for(const c of [depth,opaque])c.getContext('webgpu')?.unconfigure();api.valid=false;}
+    destroy(){w.__agPalette?.destroy();api.disposeRigid();api.colliderPending?.destroy();api.colliderPending=null;destroyTargets();destroySource();if(polyTargets){polyTargets.z.destroy();polyTargets.buffer?.destroy();polyTargets.canvas.getContext('webgpu').unconfigure();polyTargets=null;}for(const c of [depth,opaque])c.getContext('webgpu')?.unconfigure();api.valid=false;}
   };
   installRigid(w,api);
   return api;

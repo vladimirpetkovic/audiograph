@@ -2,7 +2,7 @@ import {MAX_STOPS} from './graph.js';
 
 const COMMON=`
 struct Params {
-  grid:vec4f, flow:vec4f, camera:vec4f, screen:vec4f, look:vec4f, detail:vec4f, ground:vec4f,
+  grid:vec4f, flow:vec4f, camera:vec4f, screen:vec4f, look:vec4f, detail:vec4f, ground:vec4f, attract:vec4f,
   ramp:array<vec4f,${MAX_STOPS}>
 };
 @group(0) @binding(0) var<uniform> u:Params;
@@ -66,7 +66,7 @@ fn overlaps(p:vec3f,h:f32,i:u32)->bool{
   let c=cell(i);let p=world(vec3f(c));let h=u.grid.y/u.grid.x*1.04;
   var node=0u;walls[i]=0u;
   if(u.detail.y>0.0&&c.y==i32(floor(coords(vec3f(0,u.ground.x,0)).y+.5))&&
-      all(abs(p.xz)<vec2f(u.detail.y+h))){walls[i]=1u;return;}
+      select(all(abs(p.xz)<vec2f(u.detail.y+h)),length(p.xz)<u.detail.y+h,u.ground.y>0.5)){walls[i]=1u;return;}
   while(node<u32(u.grid.w)){
     let lo=mesh[node];let hi=mesh[node+1u];
     if(any(p+h<lo.xyz)||any(p-h>hi.xyz)){node=u32(hi.w);continue;}
@@ -105,7 +105,9 @@ fn bounded(p:vec3i,v:vec3f)->vec3f{
   }
   let curl=sin(w.yzx*vec3f(4.3,4.9,4.6))*cos(t*vec3f(1,.81,.9)+vec3f(0,1.7,3.1))+
     .56*sin(w.zxy*vec3f(8.4,7.8,8.1))*sin(t*vec3f(.6,.7,.8)+vec3f(1.1,2.6,4.2));
-  let a=s.xyz*u.flow.x+vec3f(0.0,-u.flow.z*min(v.w+s.w*dt,1.0),0.0)+curl*(u.flow.w*min(v.w,1.0));
+  let targetDelta=u.attract.xyz-w;
+  let pull=targetDelta*u.attract.w/(1.0+0.5*length(targetDelta))*min(v.w+s.w*dt,1.0);
+  let a=s.xyz*u.flow.x+vec3f(0.0,-u.flow.z*min(v.w+s.w*dt,1.0),0.0)+curl*(u.flow.w*min(v.w,1.0))+pull;
   let velocity=bounded(p,clamp(v.xyz*exp(-dt*0.9)+a*dt,vec3f(-3),vec3f(3)));
   dst[i]=vec4f(velocity,min(5.0,v.w*exp(-u.flow.y*dt)+s.w*u.flow.x*dt));
 }
@@ -209,10 +211,14 @@ function backend(){
     const adapter=await navigator.gpu.requestAdapter();
     if(!adapter)throw Error('No WebGPU adapter for 3D Fluid');
     const device=await adapter.requestDevice();
-    device.addEventListener('uncapturederror',e=>{error=Error('3D Fluid GPU: '+e.error.message);});
+    device.addEventListener('uncapturederror',e=>{error??=Error('3D Fluid GPU: '+e.error.message);});
     device.lost.then(info=>{error=Error('3D Fluid GPU: '+info.message);});
     const compute=device.createShaderModule({label:'3D fluid solver',code:SOLVE});
     const shader=device.createShaderModule({label:'3D fluid volume',code:RENDER});
+    for(const module of [compute,shader]){
+      const info=await module.getCompilationInfo(),errors=info.messages.filter(m=>m.type==='error');
+      if(errors.length)throw Error('3D Fluid shader: '+errors.map(m=>`line ${m.lineNum}: ${m.message}`).join('; '));
+    }
     const passes=await Promise.all(['voxelize','advect','measure','jacobi','project','deposit'].map(entryPoint=>
       device.createComputePipelineAsync({layout:'auto',compute:{module:compute,entryPoint}})));
     const render=await device.createRenderPipelineAsync({layout:'auto',vertex:{module:shader,entryPoint:'vertex'},
@@ -238,7 +244,7 @@ export class Fluid3D{
     this.depth?.destroy();this.density?.destroy();this.deposits?.destroy();
     this.ctx?.unconfigure();this.depthCtx?.unconfigure();this.buffers=null;this.depth=null;this.deposits=null;this.n=0;
   }
-  draw({camera,width,height,quality,dt,time,frame,level,beat,props,palette=[props.fluidColor],gravity=0,
+  draw({camera,width,height,quality,dt,time,frame,level,beat,props,palette=[props.fluidColor],gravity=0,attract=[0,0,0,0],
       source,flat,collisions,ground,occluders=[],renderOnly=false}){
     const g=backend();if(!g)return null;
     const {device,passes,render,sampler}=g,n=8*Math.round(props.fluidResolution/8),total=n**3,half=props.fluidDomain/100;
@@ -248,7 +254,7 @@ export class Fluid3D{
       this.dispose();this.n=n;this.steps=0;this.lastFrame=null;
       this.domain=half;this.device=device;
       const buffer=(size,flags=GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST)=>device.createBuffer({size,usage:flags});
-      this.uniform=buffer((7+MAX_STOPS)*16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST);
+      this.uniform=buffer((8+MAX_STOPS)*16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST);
       const diagnostic=GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC;
       this.field=buffer(total*16,diagnostic);this.temp=buffer(total*16);this.inject=buffer(total*16);
       this.wall=buffer(total*4,diagnostic);this.pa=buffer(total*4);this.pb=buffer(total*4);this.div=buffer(total*4);
@@ -277,7 +283,8 @@ export class Fluid3D{
     const uniform=b(0,this.uniform),wall=b(3,this.wall),enc=device.createCommandEncoder();
     const bind=(i,entries)=>device.createBindGroup({layout:passes[i].getBindGroupLayout(0),entries});
     const advance=!renderOnly&&frame!==this.lastFrame;
-    const wallsChanged=this.collisions!==collisions||this.floor!==floor||this.floorHeight!==floorHeight;
+    const circle=ground?.shape==='circle';
+    const wallsChanged=this.collisions!==collisions||this.floor!==floor||this.floorHeight!==floorHeight||this.floorCircle!==circle;
     const flatLayers=!source&&flat?Math.max(1,Math.ceil(.07*n/(2*half))):0;
     let update=wallsChanged&&!!source;
     if(advance){
@@ -294,6 +301,7 @@ export class Fluid3D{
       }
       this.floor=floor;
       this.floorHeight=floorHeight;
+      this.floorCircle=circle;
       if(this.lastSource!==source||this.lastFlat!==flat){
         const cells=new Map(),scale=n/(2*half);
         const index=(x,y,z)=>{
@@ -352,7 +360,7 @@ export class Fluid3D{
       props.fluidRate/100*(0.45+emission*1.3+Math.min(2,beat)*0.7),props.fluidFade/100,
       gravity/17,swirl/100,camera.yaw,camera.tilt,camera.f/Math.tan(.4),camera.distance,
       camera.panX,camera.panY,width/height,occluders.length,props.fluidOpacity/20,palette.length,this.sourceCells,flatLayers,
-      Math.ceil(n*1.8),floor,source||flat?0:1,time,floorHeight,0,0,0,...rgba]));
+      Math.ceil(n*1.8),floor,source||flat?0:1,time,floorHeight,circle?1:0,0,0,...attract,...rgba]));
     if(advance){
       const bindings=this.groups||=[
         bind(0,[uniform,wall,b(5,this.mesh)]),

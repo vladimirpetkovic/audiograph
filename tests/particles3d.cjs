@@ -145,6 +145,7 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     placement.layers[0].edges.splice(2,2,{from:'e',out:'shape',to:'out',input:'image'});
     placement.layers[0].edges.push({from:'d',out:'value',to:'o',input:'drive'});
     const normalized=await page.evaluate(p=>pro.validate(p),placement);
+    normalized.settings.camera.zoom=55;
     normalized.layers[0].nodes.find(n=>n.id==='e').props.opts.pEmitScale=100;
     await page.evaluate(p=>{pro.importProject(p);pro.select('o');},normalized);
     const modelMenu=inspector.getByRole('combobox',{name:'3D Object'});
@@ -235,6 +236,7 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,se
     await load(clones);
     assert.ok(active(await state()).some(p=>Math.abs(p[2])>.1),'Cloner surfaces emit in 3D');
     const collisionScene=scene(),arena=collisionScene.layers[0];
+    collisionScene.settings.camera={zoom:55};
     arena.nodes=arena.nodes.filter(n=>['d','e','out'].includes(n.id));
     const floor=(id,x,render)=>({id,type:'waveform3d',x:0,y:200,props:{mode:'cube',render,collide:true,size:120,stretchX:45,stretchY:10,x,y:14,opts:{pObjGap:0}}});
     arena.nodes.push(floor('left',-9,'normal'),floor('right',9,'polygons'),

@@ -24,7 +24,14 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'HDR',visib
     {id:'d',type:'value',x:0,y:150,props:{value:0}},{id:'out',type:'output',x:300,y:0,props:{}}],
   edges:[{from:'d',out:'value',to:'o',input:'drive'},{from:'o',out:'shape',to:'out',input:'image'}]}]};
 (async()=>{
-  const {decodeHDR,importEnvironment,validateEnvironment}=await import('../pro/environment.js');
+  const {decodeHDR,decodeEXR,importEnvironment,validateEnvironment}=await import('../pro/environment.js');
+  const exr=require('./exr-fixture.cjs')(),linear=decodeEXR(exr);
+  assert.deepEqual([linear.width,linear.height],[2,2]);
+  assert.deepEqual(Array.from(linear.pixels),[4,2,1,1,.5,.25,.5,.25,.125,2,1,.5],'EXR preserves linear radiance above one and panorama orientation');
+  assert.deepEqual(decodeEXR(require('./exr-fixture.cjs')({zip:true,half:true})),linear,'ZIP-compressed half-float EXR preserves the same linear lighting');
+  assert.throws(()=>decodeEXR(exr.subarray(0,30)),/EXR/);
+  const exrAsset=await importEnvironment({name:'studio.exr',size:exr.length,arrayBuffer:async()=>exr});
+  assert.equal(validateEnvironment(exrAsset),exrAsset);
   const red=hdr([255,0,0,130]),image=decodeHDR(red);
   assert.equal(image.width,32);assert.equal(image.height,16);assert.ok(image.pixels[0]>3.9);
   const old=Buffer.concat([header('+X 2 -Y 1'),Buffer.from([128,0,0,129,0,128,0,129])]);
@@ -48,7 +55,9 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'HDR',visib
     page.on('pageerror',e=>errors.push(e.message));
     await page.goto((process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/pro/`)+'?demo');
     await page.waitForFunction(()=>window.pro);await page.evaluate(scene=>{pro.dissolve(false);pro.importProject(scene);},scene);
-    await page.waitForFunction(()=>pro.engine('o')?.w?.agSim.status()==='ready',null,{timeout:45000});
+    try{await page.waitForFunction(()=>pro.engine('o')?.status==='error'||['ready','error'].includes(pro.engine('o')?.w?.agSim.status()),null,{timeout:45000});
+      assert.equal(await page.evaluate(()=>pro.engine('o')?.w?.agSim.status()),'ready',await page.evaluate(()=>pro.engine('o')?.error||JSON.stringify(pro.stats().errors)));}
+    catch(error){console.error(await page.evaluate(()=>pro.stats()),errors);throw error;}
     await page.waitForFunction(()=>{
       const c=pro.engine('o').canvas,d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
       for(let i=3;i<d.length;i+=64)if(d[i]>20)return true;return false;
@@ -64,10 +73,10 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'HDR',visib
     },stage);
     await set(null);const base=await pixels();
     await page.getByRole('button',{name:'Scene settings'}).click();
-    await page.getByLabel('Import HDR environment').setInputFiles({name:'invalid.hdr',mimeType:'application/octet-stream',buffer:Buffer.from('bad')});
+    await page.getByLabel('Import HDR or EXR environment').setInputFiles({name:'invalid.hdr',mimeType:'application/octet-stream',buffer:Buffer.from('bad')});
     await page.waitForFunction(()=>document.getElementById('status').classList.contains('error'));
-    assert.match(await page.locator('#status').textContent(),/HDR environment:/);
-    await page.getByLabel('Import HDR environment').setInputFiles({name:'red.hdr',mimeType:'application/octet-stream',buffer:red});
+    assert.match(await page.locator('#status').textContent(),/Environment lighting:/);
+    await page.getByLabel('Import HDR or EXR environment').setInputFiles({name:'red.hdr',mimeType:'application/octet-stream',buffer:red});
     await page.waitForFunction(()=>pro.getProject().settings?.environment?.name==='red.hdr');
     await page.waitForTimeout(1000);const lit=await pixels();
     assert.ok(lit[0]>base[0]*1.15,'HDR illuminates native mesh: '+JSON.stringify({base,lit,stats:await page.evaluate(()=>pro.engine('o').stats()),errors}));
