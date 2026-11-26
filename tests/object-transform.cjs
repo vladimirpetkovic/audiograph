@@ -18,6 +18,27 @@ const assert=require('node:assert/strict');
   const screen=projectPoint(legacyPosition(25,10,camera),camera,960,540);
   assert.ok(Math.abs(screen[0]-720)<1e-9);
   assert.ok(Math.abs(screen[1]-324)<1e-9);
+  const {gizmoFromFrame,dragGizmo}=await import('../pro/map3d.js'),
+    transform={x:0,y:0,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,scale:1},
+    gizmo=size=>gizmoFromFrame({R:[1,0,0,0,1,0,0,0,1],S:size,c:[0,0,0],ring:1,
+      toScreen:p=>[480+p[0]*100+p[2]*40,270-p[1]*100-p[2]*20,10+p[2]]},transform),
+    small=gizmo([1,1,1]),large=gizmo([2,10,3]),tiny=gizmo([.01,.01,.01]);
+  assert.ok(Math.hypot(...large.move[0].map((v,i)=>v-large.c[i]))>5*Math.hypot(...small.move[0].map((v,i)=>v-small.c[i])),'Move handles grow with the full object bounds');
+  assert.deepEqual(tiny.move,small.move,'Tiny objects retain usable move handles');
+  for(const G of [small,large]){
+    const moved=dragGizmo(G,transform,{tool:'move',axis:0},G.move[0],[G.move[0][0]+40,G.move[0][1]]);
+    assert.equal(moved.x,.4,'Larger handles must not change translation sensitivity');
+    assert.equal(moved.y,0);assert.equal(moved.z,0);
+  }
+  const perspective=size=>gizmoFromFrame({R:[1,0,0,0,1,0,0,0,1],S:size,c:[0,0,0],ring:1,
+    moveLimits:[36,160],toScreen:p=>projectPoint(p,camera,960,540)},transform),
+    compact=perspective([.1,.1,.1]),expanded=perspective([100,100,100]);
+  for(const G of [compact,expanded]){
+    const lengths=G.move.map(p=>Math.hypot(p[0]-G.c[0],p[1]-G.c[1]));
+    assert.ok(Math.max(...lengths)>=36-1e-9&&Math.max(...lengths)<=160+1e-9,'Screen limits keep tiny and oversized gizmos usable');
+  }
+  const drag=G=>dragGizmo(G,transform,{tool:'move',axis:0},G.move[0],[G.move[0][0]+40,G.move[0][1]]);
+  assert.deepEqual(drag(compact),drag(expanded),'Perspective drag sensitivity is independent of gizmo size');
   const apply=(m,v)=>[0,1,2].map(r=>m[r*3]*v[0]+m[r*3+1]*v[1]+m[r*3+2]*v[2]);
   const pose={position,rotation:angles},neutral=soundTransform(pose,{pG3EfScale:100,pG3EfRX:60,pG3EfX:100},.6,0);
   apply(neutral.matrix,point).map((v,i)=>v+neutral.offset[i]).forEach((v,i)=>assert.ok(Math.abs(v-point[i])<1e-12,'Disconnected/quiet sound preserves the world pose'));

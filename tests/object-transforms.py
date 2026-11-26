@@ -148,8 +148,61 @@ with sync_playwright() as p:
             page.wait_for_timeout(1000)
             disconnected = render_bounds(mode)
             assert all(abs(a-b) < 5 for a, b in zip(neutral["box"], disconnected["box"])), (mode, neutral, disconnected)
+        page.evaluate("""() => {
+          pro.pause(true);
+          pro.importProject({format:'audiograph-pro',version:pro.getProject().version,
+            settings:{ground:{enabled:false},camera:{zoom:12,turn:25,tilt:18,dof:0}},
+            layers:[{id:'clones',name:'Clones',visible:true,opacity:1,blend:'source-over',
+              nodes:[{id:'cube',type:'waveform3d',x:0,y:0,props:{mode:'cube',render:'normal'}},
+                {id:'cloner',type:'cloner',x:200,y:0,props:{countX:1,countY:1,countZ:1,moveY:0}},
+                {id:'out',type:'output',x:400,y:0,props:{}}],
+              edges:[{from:'cube',out:'object',to:'cloner',input:'object'},
+                {from:'cloner',out:'shape',to:'out',input:'image'}]}]});
+          pro.select('cloner');
+        }""")
+        page.wait_for_function("()=>pro.engine('cloner')?.w?.__agScene.boundsRadius>0", timeout=45000)
+        transforms = page.locator('.insp-fold[data-group="Transforms"] .insp-fold-head')
+        if transforms.get_attribute("aria-expanded") != "true":
+            transforms.click()
+        page.locator('[data-property="gizmo"]').get_by_role("button", name="Move", exact=True).click()
+        def move_length():
+            return page.evaluate("""() => {
+              const l=document.querySelector('#mapOverlay .gizmo line');
+              return Math.hypot(l.getAttribute('x2')-l.getAttribute('x1'),l.getAttribute('y2')-l.getAttribute('y1'));
+            }""")
+        single_length = move_length()
+        page.evaluate("()=>{for(const [key,value] of [['countX',9],['countY',5],['countZ',7]])pro.setProperty('cloner',key,value);}")
+        page.wait_for_function("""length=>{
+          const l=document.querySelector('#mapOverlay .gizmo line');
+          return Math.hypot(l.getAttribute('x2')-l.getAttribute('x1'),l.getAttribute('y2')-l.getAttribute('y1'))>length*3;
+        }""", arg=single_length)
+        large_length = move_length()
+        radius = page.evaluate("()=>pro.engine('cloner').w.__agScene.boundsRadius")
+        page.evaluate("()=>pro.setProperty('cloner','scale',150)")
+        page.wait_for_function("radius=>pro.engine('cloner').w.__agScene.boundsRadius>radius*1.4", arg=radius)
+        assert abs(move_length()-large_length) < 1, "Oversized Cloners keep their arrowheads on-screen"
+        camera = page.evaluate("()=>pro.getProject().settings.camera")
+        before = page.evaluate("()=>pro.getProject().layers[0].nodes.find(n=>n.id==='cloner').props")
+        gesture = page.evaluate("""()=>{
+          const r=document.getElementById('preview').getBoundingClientRect(),l=document.querySelector('#mapOverlay .gizmo line'),
+            c=[+l.getAttribute('x1'),+l.getAttribute('y1')],v=[+l.getAttribute('x2')-c[0],+l.getAttribute('y2')-c[1]],
+            length=Math.hypot(...v),start=c.map((x,i)=>x+v[i]*.75),
+            convert=p=>[r.left+p[0]/960*r.width,r.top+p[1]/540*r.height];
+          return [convert(start),convert(start.map((x,i)=>x+v[i]/length*35))];
+        }""")
+        page.mouse.move(*gesture[0])
+        page.mouse.down()
+        page.mouse.move(*gesture[1], steps=6)
+        page.mouse.up()
+        after = page.evaluate("()=>pro.getProject().layers[0].nodes.find(n=>n.id==='cloner').props")
+        assert after["moveX"] > before["moveX"]+.01, (before, after)
+        assert after["moveY"] == before["moveY"] and after["moveZ"] == before["moveZ"]
+        assert page.evaluate("()=>pro.getProject().settings.camera") == camera
+        page.locator("#undo").click()
+        assert page.evaluate("()=>pro.getProject().layers[0].nodes.find(n=>n.id==='cloner').props") == before
+        page.screenshot(path="/tmp/audiograph-cloner-gizmo.png")
         assert not errors, errors
         assert page.evaluate("() => pro.stats().errors") == []
-        print("ok - Matched render poses, aligned XYZ controls, undoable gizmos and explicitly connected sound transforms")
+        print("ok - Matched render poses, adaptive object/Cloner gizmos, undo and connected sound transforms")
     finally:
         browser.close()

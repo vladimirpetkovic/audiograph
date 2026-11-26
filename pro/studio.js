@@ -4244,6 +4244,7 @@ function objectGizmoFrame(){
   const group=rigidWorld.groups.get(n.id);
   if(group?.bodies.length){for(let i=0;i<3;i++)position[i]=group.bodies.reduce((sum,b)=>sum+b.position['xyz'[i]],0)/group.bodies.length;[T.x,T.y,T.z]=position;}
   const F={R:rotationMatrix(rotation),S,c:position,ring:.62*Math.max(...S,.3),
+    moveLimits:[36*WIDTH/(preview.getBoundingClientRect().width||WIDTH),Math.min(WIDTH,HEIGHT)*.3],
     rotationAxes:[rotatePoint([1,0,0],[0,0,rotation[2]]),rotatePoint([0,1,0],[rotation[0],0,rotation[2]]),[0,0,1]],
     toScreen:v=>projectPoint(v,c,WIDTH,HEIGHT)};
   return {n,T,G:map3d.gizmoFromFrame(F,T),axes};

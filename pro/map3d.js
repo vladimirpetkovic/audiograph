@@ -356,7 +356,11 @@ export function gizmo(s,target,W,H,time=0){
 export function gizmoFromFrame(F,T){
   const c=F.toScreen(F.c),E=[[1,0,0],[0,1,0],[0,0,1]],at=(v,k=1)=>F.toScreen(F.c.map((x,i)=>x+v[i]*k));
   const col=a=>[F.R[a],F.R[3+a],F.R[6+a]];
-  const move=E.map(e=>at(e,MOVE_LEN)),scale=[0,1,2].map(a=>at(col(a),F.S[a]/2));
+  const unitMove=E.map(e=>at(e,MOVE_LEN)),pixels=Math.max(...unitMove.map(p=>Math.hypot(p[0]-c[0],p[1]-c[1])));
+  let moveFactor=Math.max(1,...F.S);
+  if(F.moveLimits&&pixels>0)moveFactor=Math.max(F.moveLimits[0]/pixels,Math.min(F.moveLimits[1]/pixels,moveFactor));
+  const moveLength=MOVE_LEN*moveFactor,
+    move=unitMove.map(p=>p.map((v,i)=>c[i]+(v-c[i])*moveFactor)),scale=[0,1,2].map(a=>at(col(a),F.S[a]/2));
   const Rz=boxMatrix({rx:0,ry:0,rz:T.rz}),Ryz=boxMatrix({rx:0,ry:T.ry,rz:T.rz});
   const axes=F.rotationAxes||[apply(Ryz,[1,0,0]),apply(Rz,[0,1,0]),[0,0,1]];
   const rings=axes.map(ax=>{const u=norm(cross(ax,Math.abs(ax[0])<.9?[1,0,0]:[0,1,0])),v=cross(ax,u),pts=[];
@@ -364,7 +368,7 @@ export function gizmoFromFrame(F,T){
     const a=pts[0],b=pts[2],sign=Math.sign((a[0]-c[0])*(b[1]-c[1])-(a[1]-c[1])*(b[0]-c[0]))||1;return {pts,sign};});
   const corners=[];for(let i=0;i<8;i++)corners.push(at(apply(F.R,[(i&1?.5:-.5)*F.S[0],(i&2?.5:-.5)*F.S[1],(i&4?.5:-.5)*F.S[2]])));
   const flat=p=>[p[0],p[1]];
-  return {c:flat(c),front:c[2]>0,move:move.map(flat),scale:scale.map(flat),rings:rings.map(r=>({pts:r.pts.map(flat),sign:r.sign})),corners:corners.map(flat),edges:[[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]]};
+  return {c:flat(c),front:c[2]>0,moveLength,move:move.map(flat),scale:scale.map(flat),rings:rings.map(r=>({pts:r.pts.map(flat),sign:r.sign})),corners:corners.map(flat),edges:[[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]]};
 }
 // Which gizmo handle is under (x,y) output pixels: {tool,axis} or null. axis 3 = uniform scale (the centre square).
 export function gizmoHit(G,tool,x,y,tol=10){
@@ -383,7 +387,7 @@ export function dragGizmo(G,t0,h,p0,p1,lim=[100,.01,16]){
   const t={...t0},d=[p1[0]-p0[0],p1[1]-p0[1]],a=h.axis,K='xyz'[a];
   const along=tip=>{const v=[tip[0]-G.c[0],tip[1]-G.c[1]];return (d[0]*v[0]+d[1]*v[1])/(v[0]*v[0]+v[1]*v[1]||1);};
   const r4=v=>Math.round(v*1e4)/1e4;
-  if(h.tool==='move')t[K]=r4(Math.max(-lim[0],Math.min(lim[0],t0[K]+along(G.move[a])*MOVE_LEN)));
+  if(h.tool==='move')t[K]=r4(Math.max(-lim[0],Math.min(lim[0],t0[K]+along(G.move[a])*(G.moveLength??MOVE_LEN))));
   else if(h.tool==='scale'){if(a===3)t.scale=r4(Math.max(lim[1],Math.min(lim[2],t0.scale*Math.exp((d[0]-d[1])/160))));
     else t['s'+K]=r4(Math.max(lim[1],Math.min(lim[2],t0['s'+K]*Math.max(.02,1+along(G.scale[a])))));}
   else if(h.tool==='rotate'){const ang=p=>Math.atan2(p[1]-G.c[1],p[0]-G.c[0])*180/Math.PI;t['r'+K]=Math.round(wrap(t0['r'+K]+wrap(ang(p1)-ang(p0))*G.rings[a].sign)*10)/10;}
