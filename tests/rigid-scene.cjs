@@ -47,7 +47,11 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
       await page.locator('.insp-fold[data-group="Rigid body"] .insp-fold-head').click();
     assert.ok(await page.locator('[data-property="rigidBody"]').isVisible(),'Cloner exposes its rigid-body toggle');
     await page.evaluate(()=>{pro.setProperty('clones','rigidBody',false);pro.draw();});
-    assert.equal(await page.evaluate(()=>pro.stats().rigid.bodies),1,'Disabling a cloner removes only its instances');
+    assert.equal(await page.evaluate(()=>pro.stats().rigid.bodies),3,'Connected Gravity remains active when the Cloner Rigid body toggle is off');
+    await page.evaluate(()=>{
+      const p=pro.getProject();p.layers[1].nodes.find(n=>n.id==='clones').bypass=true;pro.importProject(p);
+    });
+    await page.waitForFunction(()=>pro.stats().rigid.bodies===1);
     await page.evaluate(scene=>{scene.layers=scene.layers.slice(0,1);scene.layers[0].nodes[0].props.render='waveform';pro.importProject(scene);pro.pause(false);},scene);
     await page.waitForFunction(()=>pro.stats().rigid.bodies===1);
     await page.waitForFunction(()=>pro.stats().rigid.groups[0].positions[0][1]<-.1);
@@ -64,13 +68,13 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
     await page.evaluate(()=>{const scene=pro.getProject();scene.settings.ground.visible=false;pro.importProject(scene);pro.draw();});
     assert.equal(await page.evaluate(()=>!!pro.engine('__ground')),false,'Collision-only ground does not draw a floor');
     await page.evaluate(p=>pro.importProject(p),{
-      format:'audiograph-pro',version:20,settings:{gravity:9.81,ground:{enabled:false,visible:false}},
+      format:'audiograph-pro',version:20,settings:{ground:{enabled:false,visible:false}},
       layers:[{...layer('Effects',[
         node('shape','waveform3d',{mode:'cube',render:'normal',size:60}),
         node('colliders','cloner',{collide:true,rigidBody:false,countX:2,countY:1,countZ:1,spacingX:220,moveY:1,collisionShape:'box',bounce:1,damping:0}),
         node('random','randomEffector',{size:0,scaleX:0,height:0,scaleZ:0,seed:5}),
         node('field','fieldEffector',{strength:0}),
-        node('force','gravity',{rigid:9.81})
+        node('force','gravity',{rigid:0})
       ],'force'),edges:[
         {from:'shape',out:'object',to:'colliders',input:'object'},
         {from:'colliders',out:'shape',to:'random',input:'shape'},
@@ -83,7 +87,7 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
     await page.waitForFunction(()=>pro.stats().rigid.bodies===2);
     const initialBodies=await page.evaluate(()=>pro.stats().rigid.groups[0].positions);
     await page.waitForTimeout(500);
-    assert.deepEqual(await page.evaluate(()=>pro.stats().rigid.groups[0].positions),initialBodies,'Collider-only cloners ignore scene and connected gravity');
+    assert.deepEqual(await page.evaluate(()=>pro.stats().rigid.groups[0].positions),initialBodies,'Zero connected Gravity leaves clones stationary');
     await page.evaluate(()=>pro.setProperty('random','scaleX',100));
     await page.waitForFunction(()=>{
       const group=pro.engine('colliders').w.__agScene.rigidConfig.world.groups.get('colliders');
@@ -93,8 +97,10 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
       const g=pro.engine('colliders').w.__agScene.rigidConfig.world.groups.get('colliders'),[a,b]=g.bodies;
       return Math.abs(a.position.x-b.position.x)>=a.shapes[0].halfExtents.x+b.shapes[0].halfExtents.x-.01;
     });
-    await page.evaluate(()=>pro.setProperty('colliders','rigidBody',true));
+    await page.evaluate(()=>pro.setProperty('force','rigid',9.81));
     await page.waitForFunction(()=>pro.stats().rigid.groups[0].positions.every(p=>p[1]<0));
+    assert.equal(await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.id==='colliders').props.rigidBody),false,'Attached Gravity does not require the Cloner Rigid body toggle');
+    await page.evaluate(()=>pro.setProperty('colliders','rigidBody',true));
     assert.deepEqual(await page.evaluate(()=>pro.stats().rigid.errors),[],'Live effector readbacks have no validation errors');
     await page.evaluate(()=>pro.pause(true));
     const pausedSteps=await page.evaluate(()=>pro.stats().rigid.steps);
@@ -108,7 +114,45 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
     await page.waitForTimeout(250);
     assert.equal(await page.evaluate(()=>pro.engine('colliders').frames),pausedFrames,'Animated effector edits do not cause a paused redraw loop');
     assert.equal(await page.evaluate(()=>pro.stats().rigid.steps),pausedSteps,'Readback refreshes do not advance paused physics');
+    await page.evaluate(()=>{pro.setProperty('colliders','rigidBody',false);pro.setProperty('colliders','collide',false);});
+    assert.equal(await page.evaluate(()=>pro.stats().rigid.bodies),2,'Attached Gravity also activates Cloners without Collider body');
+    await page.evaluate(()=>pro.setProperty('force','rigid',0));
+    const driftY=await page.evaluate(()=>pro.stats().rigid.groups[0].positions[0][1]);
     await page.evaluate(()=>pro.pause(false));
+    await page.waitForFunction(y=>pro.stats().rigid.groups[0]?.positions[0][1]<y-.1,driftY);
+    assert.equal(await page.evaluate(()=>pro.stats().rigid.bodies),2,'Zero Gravity preserves existing Cloner bodies and momentum');
+    await page.evaluate(p=>pro.importProject(p),{
+      format:'audiograph-pro',version:21,settings:{gravity:9.81,ground:{enabled:true,visible:true,height:0,size:20}},
+      layers:[{...layer('Automatic',[
+        node('automatic','cloner',{countX:2,countY:1,countZ:1,moveY:2,rigidBody:false,collide:false}),
+        node('nodeGravity','gravity')
+      ],'automatic'),edges:[
+        {from:'automatic',out:'shape',to:'AutomaticOut',input:'image'}
+      ]},layer('AutomaticObject',[
+        node('automaticObject','waveform3d',{mode:'cube',render:'normal',moveX:3,moveY:2,rigidBody:false,collide:false}),
+        node('objectGravity','gravity')
+      ],'automaticObject')]
+    });
+    assert.equal(await page.evaluate(()=>pro.stats().rigid.bodies),0,'An unattached Gravity node and legacy Scene gravity do not affect a Cloner');
+    assert.equal(await page.evaluate(()=>pro.getProject().settings.gravity),undefined,'Legacy Scene gravity is removed from saved settings');
+    await page.evaluate(()=>{
+      const p=pro.getProject();p.layers[0].edges=[
+        {from:'automatic',out:'shape',to:'nodeGravity',input:'shape'},
+        {from:'nodeGravity',out:'shape',to:'AutomaticOut',input:'image'}
+      ];p.layers[1].edges=[
+        {from:'automaticObject',out:'shape',to:'objectGravity',input:'shape'},
+        {from:'objectGravity',out:'shape',to:'AutomaticObjectOut',input:'image'}
+      ];pro.importProject(p);
+    });
+    await page.waitForFunction(()=>pro.stats().rigid.bodies===3&&pro.stats().rigid.groups.every(g=>g.positions.every(p=>p[1]<1.5)));
+    await page.waitForFunction(()=>pro.stats().rigid.contacts>0);
+    assert.ok(await page.evaluate(()=>pro.stats().rigid.groups.every(g=>g.positions.every(p=>p[1]>0))),'The shared ground catches Gravity-driven Cloners and Objects');
+    assert.equal(await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.id==='automatic').props.rigidBody),false);
+    await page.evaluate(()=>{
+      const p=pro.getProject();p.layers[1].nodes.find(n=>n.id==='automaticObject').props.render='waveform';pro.importProject(p);
+    });
+    await page.waitForFunction(()=>pro.stats().rigid.bodies===3&&pro.stats().rigid.groups.find(g=>g.id==='automaticObject')?.positions[0][1]<1.5);
+    assert.equal(await page.evaluate(()=>pro.getProject().layers[1].nodes.find(n=>n.id==='automaticObject').props.rigidBody),false,'Gravity also works on waveform-rendered Objects without Rigid body');
     for(const [name,count] of [['HUD',3],['Propane',1],['Waterfall',2]]){
       await page.evaluate(name=>pro.loadTemplate(name),name);
       const project=await page.evaluate(()=>pro.getProject());

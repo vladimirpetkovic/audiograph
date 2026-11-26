@@ -1067,11 +1067,11 @@ export const SCENE_CAMERA_PROPS={
 export const SCENE_CAMERA=Object.fromEntries(Object.entries(SCENE_CAMERA_PROPS).map(([k,s])=>[k,clone(s.value)]));
 export const SCENE_GROUND={enabled:true,visible:true,shadows:true,shape:'square',color:'#aeb0b3',height:-1.2,size:20};
 export const SCENE_LIGHTING={shadows:true,ambientOcclusion:false,aoStrength:60,aoRadius:1,depthHaze:false,hazeStrength:60,hazeStart:10,hazeEnd:80,hazeColor:'#aeb0b3'};
-export const SCENE_DEFAULTS={background:'#000000',gravity:0,camera:SCENE_CAMERA,ground:SCENE_GROUND,lighting:SCENE_LIGHTING,environment:null};
+export const SCENE_DEFAULTS={background:'#000000',camera:SCENE_CAMERA,ground:SCENE_GROUND,lighting:SCENE_LIGHTING,environment:null};
 function cleanSceneSettings(s){
   if(s===undefined)s={};
   if(!s||typeof s!=='object'||Array.isArray(s))throw Error('Invalid scene settings');
-  const out={gravity:finite(s.gravity??0,-30,30,'Scene gravity'),camera:{...SCENE_CAMERA}};
+  const out={camera:{...SCENE_CAMERA}};
   if(s.lighting!==undefined&&(!s.lighting||typeof s.lighting!=='object'||Array.isArray(s.lighting)))throw Error('Invalid scene lighting');
   const light={...SCENE_LIGHTING,shadows:s.ground?.shadows??SCENE_LIGHTING.shadows,...s.lighting};
   for(const k of ['shadows','ambientOcclusion','depthHaze'])if(typeof light[k]!=='boolean')throw Error('Invalid scene lighting: '+k);

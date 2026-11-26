@@ -30,6 +30,29 @@ function scaleOf(data,i,u){
     axes[j]*=Math.exp(amount*1.6*(2*random(i,k,Math.round(u[75]))/4294967295-1));
   return axes;
 }
+function instanceMapper(data,i,u,map){
+  const o=i*12,axes=scaleOf(data,i,u),anchor=u[195]*.7;
+  const rotation=new Quaternion().setFromEuler(...data.subarray(o+4,o+7),'ZXY');
+  return (x,y,z)=>{
+    const p=rotation.vmult(new Vec3(x*axes[0],y*axes[1]+anchor*(axes[1]-u[31]),z*axes[2]));
+    const point=map([p.x+data[o],p.y+data[o+1],p.z+data[o+2]]);
+    if(!point.every(Number.isFinite))throw Error('Collider transform is invalid');
+    return point;
+  };
+}
+export function instanceBoxBounds(arr,data,u,map){
+  const bounds=meshBounds(arr),min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<data.length/12;i++){
+    const bound=bounds[Math.round(data[i*12+9])];
+    if(!bound)throw Error('Cloner mesh bounds are missing');
+    const point=instanceMapper(data,i,u,map);
+    for(let corner=0;corner<8;corner++){
+      const p=point(...bound.center.map((v,j)=>v+bound.half[j]*(corner&(1<<j)?1:-1)));
+      for(let j=0;j<3;j++){min[j]=Math.min(min[j],p[j]);max[j]=Math.max(max[j],p[j]);}
+    }
+  }
+  return {min,max};
+}
 export function instanceCollider(arr,data,u,map,previousFaces){
   const groups=[];
   for(let o=0;o<arr.length;o+=48){
@@ -40,15 +63,12 @@ export function instanceCollider(arr,data,u,map,previousFaces){
   if(count>500000)throw Error('Particle collision supports up to 500,000 triangles across the scene');
   const verts=[],faces=previousFaces?.length===count?previousFaces:[];
   for(let i=0;i<data.length/12;i++){
-    const o=i*12,axes=scaleOf(data,i,u),base=u[31],anchor=u[195]*.7;
-    const rotation=new Quaternion().setFromEuler(...data.subarray(o+4,o+7),'ZXY');
+    const o=i*12,point=instanceMapper(data,i,u,map);
     for(const start of groups[Math.round(data[o+9])]||[]){
       const first=verts.length;
       for(let j=0;j<3;j++){
-        const k=start+j*16,p=rotation.vmult(new Vec3(arr[k]*axes[0],arr[k+1]*axes[1]+anchor*(axes[1]-base),arr[k+2]*axes[2]));
-        const point=map([p.x+data[o],p.y+data[o+1],p.z+data[o+2]]);
-        if(!point.every(Number.isFinite))throw Error('Collider transform is invalid');
-        verts.push(point);
+        const k=start+j*16;
+        verts.push(point(arr[k],arr[k+1],arr[k+2]));
       }
       if(faces!==previousFaces)faces.push([first,first+1,first+2]);
     }
@@ -117,6 +137,8 @@ export class RigidWorld{
         const b=g.bodies[i],level=soundAt(g.data,i,g.u),rise=Math.max(0,level-g.levels[i]);
         g.levels[i]=level;g.data[i*12+3]=level;g.data[i*12+7]=g.baseScales[i]*Math.max(.02,1+g.u[35]*level);
         this.updateShape(g,i);
+        const gravity=p.rigidBody||p.gravityBody?(mods._rigidGravity??0):0;
+        b.force.y-=b.mass*gravity;
         if(!p.rigidBody)continue;
         const impulse=mods._soundEffector?(mods._rigidSoundForce??p.soundForce??5):0;
         if(rise>.002)b.applyImpulse(new Vec3(
@@ -126,8 +148,6 @@ export class RigidWorld{
         const torque=rise*b.mass/180;
         if(mods.pG3Spin||mods.pG3EfRX||mods.pG3EfRY||mods.pG3EfRZ)b.applyTorque(new Vec3(
           (mods.pG3EfRX||0)*torque,(mods.pG3Spin||0)/100*b.mass+(mods.pG3EfRY||0)*torque,(mods.pG3EfRZ||0)*torque));
-        const gravity=(mods._rigidGravity??0)+(mods._sceneGravity??0);
-        b.force.y-=b.mass*gravity;
         const wind=mods._rigidWind??0,swirl=mods._rigidSwirl??0;
         const noise=(mods._rigidTurbulence??0)/100;
         const attract=mods._rigidAttract??0,target=mods._attractPoint||[0,0,0];
@@ -208,7 +228,7 @@ export class RigidWorld{
   }
   update(id,u,props,mods){
     const g=this.groups.get(id);if(!g)return;
-    const gravityChanged=g.mods._rigidGravity!==mods._rigidGravity||g.mods._sceneGravity!==mods._sceneGravity;
+    const gravityChanged=g.mods._rigidGravity!==mods._rigidGravity;
     g.u.set(u);g.props=props;g.mods=mods;
     for(const b of g.bodies){
       if(gravityChanged)b.wakeUp();
@@ -272,7 +292,7 @@ export function installRigid(w,scene){
   };
   scene.rigidModel=model=>{
     const c=scene.rigidConfig,scale=w.__agCam?.scale;
-    if(!c?.props.rigidBody||!scale)return model;
+    if(!c||!c.props.rigidBody&&!c.props.gravityBody||!scale)return model;
     c.world.rendered.add(c.id);
     const u=new Float32Array(1264),key=['classic',model.verts.length,scale,c.props.collisionShape].join('|');
     u[31]=scale;u[89]=u[90]=u[91]=1;
@@ -297,7 +317,7 @@ export function installRigid(w,scene){
   };
   scene.rigid=(st,enc,mesh,n,device)=>{
     const c=scene.rigidConfig;
-    if(!c||!c.props.rigidBody&&!c.props.collide){if(upload)release();return;}
+    if(!c||!c.props.rigidBody&&!c.props.collide&&!c.props.gravityBody){if(upload)release();return;}
     c.world.rendered.add(c.id);
     if(dev!==device){release();dev=device;}
     scene.matrix=Array.from(st.cu.slice(0,16));scene.distance=st.g3dist;

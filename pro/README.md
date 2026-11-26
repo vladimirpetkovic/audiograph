@@ -480,14 +480,17 @@ process the finished image.
   objects, cloner instances and layers. Collision bounds can be Auto, Box or
   Sphere; Gravity, Wind, Swirl, Drag, Turbulence and Field effectors add forces.
   **Collider body** makes an Object or Cloner a particle/fluid obstacle without enabling
-  gravity or Forces. Cloner instances also separate and bounce when effectors move,
+  connected Forces. Cloner instances also separate and bounce when effectors move,
   rotate or scale them; their collision shapes follow random XYZ and uniform scaling.
-  **Scene settings → Physics → Scene gravity** defaults to 0 and affects rigid
-  Objects, rigid Cloners, particles and fluid. Connected Gravity nodes add to or
-  subtract from it. Forces still affect 3D Objects and Cloners with **Rigid body**
+  Gravity comes only from an attached **Gravity** node; Scene settings has no gravity.
+  Its **Body gravity** pulls Cloners and 3D Objects downward when positive and upward
+  when negative, even with Rigid body and Collider body off. Setting it to zero or
+  removing the node stops acceleration while preserving existing motion.
+  Forces still affect 3D Objects and Cloners with **Rigid body**
   enabled; Collider body alone does not enable forces. **Attract**
   has a target input for an Object or Cloner; without a target it attracts to the origin.
-  **Ground** is enabled by default; choose Square or Circle, set colour, size and height,
+  New grid Cloners start just above the ground, almost touching it; explicit positions
+  and saved scenes are preserved. **Ground** is enabled by default; choose Square or Circle, set colour, size and height,
   or hide it while keeping collisions. **Global lighting → Shadows** toggles native 3D cast shadows
   scene-wide, including shadow catchers on the shared ground. Ground colour is
   independent of object palettes.

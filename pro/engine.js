@@ -52,7 +52,7 @@ function patch3dLighting(patch){
   patch("view[12]+=(simOpt.vPx||0)*dist*Math.tan(fovY/2)*asp;",
     "window.__agScene.objectView(view,typeof gX==='number'?[gX/dg,gY/dg,gZ/dg]:null);view[12]+=(simOpt.vPx||0)*dist*Math.tan(fovY/2)*asp;");
   patch("var near=Math.max(0.02,dist-bnd*1.6),far=dist+bnd*2.5,fl=",
-    "var extent=bnd+window.__agScene.objectOffset();var near=Math.max(0.02,dist-extent*1.6),far=dist+extent*2.5,fl=");
+    "var extent=Math.max(bnd+window.__agScene.objectOffset(),window.__agScene.groundExtent());var near=Math.max(0.02,dist-extent*1.6),far=dist+extent*2.5,fl=");
   patch("dist+(K('pG3Focus',50)-50)/50*bnd","dist+(K('pG3Focus',50)-50)/50*(window.__agSceneCam?2:bnd)");
   patch("var p=sample(r(),r(),r()).pos,o=i*8,x=p[0],y=-p[1],z=p[2];","var p=sample(r(),r(),r()).pos,o=i*8,_s=window.__agSceneCam?.scale||1,_a=window.__agSceneCam?.stretch||[1,1,1],x=p[0]*_s*_a[0],y=-p[1]*_s*_a[1],z=p[2]*_s*_a[2];");
   // Point clouds take the same lens; a model turned into points is framed like the model drawn as lines or polygons.
@@ -162,7 +162,6 @@ async function engineSource() {
     html=html.replace(/@import\s+url\((['"]?)[^'")]*\1\)\s*;?/g,'');
     // Cloner: shapes "mesh0".."mesh2" are the 3D objects wired into the Cloner node (an OBJ or the knot).
     const patch=(from,to)=>{if(!html.includes(from))throw Error('Audiograph engine patch target missing: '+from.slice(0,100));html=html.replace(from,to);};
-    patch("pgrav:K('pSpGravity',-3)/100*1.6","pgrav:K('pSpGravity',-3)/100*1.6+(window.__agScene.gravity||0)");
     patch("['pSpSpeed','Launch speed',10,200,10,5,", "['pSpSpeed','Launch speed',0,400,10,1,");
     patch("(+document.getElementById('pObjNoise').value||50)/100","+document.getElementById('pObjNoise').value/100");
     patch("(+document.getElementById('pObjElev').value||60)/100","+document.getElementById('pObjElev').value/100");
@@ -200,6 +199,7 @@ async function engineSource() {
       "set(36,K('pG3EfRX',0)*dg*enr,K('pG3EfRY',0)*dg*enr,K('pG3EfRZ',0)*dg*enr,st.g3spin);");
     patch("set(32,mv[0],mv[1],mv[2],0);","set(32,mv[0],mv[1],mv[2],K('pG3EfScale',0)/100*enr);");
     patchScene(patch);
+    patch("G.status='ready';G.msg='';refreshUI();", "G.status='ready';G.msg='';refreshUI();window.__agScene?.onReady?.();");
     patchEnvironment(patch);
     patch("fn anch(p:vec3f,S:vec3f)->vec3f{let a=c.sx.w*0.7;return vec3f(p.x*S.x,(p.y+a)*S.y-a,p.z*S.z);}",
       "fn anch(p:vec3f,S:vec3f,sc:f32)->vec3f{let a=c.sx.w*0.7;return vec3f(p.x*S.x,(p.y+a)*S.y-a/max(0.02,sc),p.z*S.z);}");
@@ -308,8 +308,8 @@ export const SIM_TUNE={simparticles:{pSimAttack:25,pSimRelease:230},
   simfluid:{...PUNCH,pSimEnergy:50},simsand:PUNCH,
   simsmoke:{pSimSens:60,pSimReact:40,pSimBurst:100,pSimBass:115,pSimAttack:25,pSimRelease:220}};
 export class EmitterEngine {
-  constructor(id,onError) {
-    this.id=id;this.onError=onError;this.status='starting';this.disposed=false;this.mode='';this.mediaName='';this.mediaKind='';this.generation=0;
+  constructor(id,onError,onReady) {
+    this.id=id;this.onError=onError;this.onReady=onReady;this.status='starting';this.disposed=false;this.mode='';this.mediaName='';this.mediaKind='';this.generation=0;
     this.baseKey='';this.base=null;this.lastText=null;this.frames=0;
     this.audio={freq:new Uint8Array(BINS),wave:new Float32Array(2048)};
     this.canvas=document.createElement('canvas');this.canvas.width=WIDTH;this.canvas.height=HEIGHT;this.ctx=this.canvas.getContext('2d');
@@ -360,9 +360,9 @@ export class EmitterEngine {
     this.defaults._sim={...w.AG_SIM_DEF_OPT};
     w.stackMode=true;w.activeLayerIdx=0;w.stackLayouts=[{layout:'linear',opacity:100,params:this.defaults}];
     installDof(w);
-    installScene(w);installPalette(w);
+    installScene(w);w.__agScene.onReady=this.onReady;installPalette(w);
     installParticleControls(w);
-    this.status='ready';return true;
+    this.status='ready';this.onReady?.();return true;
   }
   fail(message) {if(this.disposed)return;this.status='error';this.error=message;this.onError(message);}
   resize(){
@@ -496,9 +496,10 @@ export class EmitterEngine {
     }
     if(performanceSettings?.lensEffects===false)job={...job,mods:{...job.mods,pG3Dof:0,pG3Mb:0}};
     w.__agObjectComposite=!!job.sceneObject;
-    w.__agScene.start(!!job.wantDepth,!!job.wantSource,job.surfaceFlowTime==null?null:flowPhase(job.surfaceFlowTime),!!job.wantCollision);
+    w.__agScene.start(!!job.wantDepth,!!job.wantSource,job.surfaceFlowTime==null?null:flowPhase(job.surfaceFlowTime),!!job.wantCollision,!!job.wantBounds);
     w.__agScene.rigidConfig=job.rigid||null;
-    w.__agScene.groundConfig=job.ground||null;w.__agScene.groundOnly=!!job.groundOnly;w.__agScene.gravity=job.sceneGravity??0;
+    w.__agScene.groundConfig=job.ground||null;w.__agScene.groundOnly=!!job.groundOnly;
+    w.__agScene.onGeometry=job.onGeometry||null;
     const root=job.objectTransform,rotation=rotationMatrix(root?.rotation||[0,0,0]),
       origin=rotatePoint(root?.position||[0,0,0],root?.rotation||[0,0,0],true);
     w.__agScene.groundMatrix=new Float32Array([rotation[0],rotation[1],rotation[2],0,rotation[3],rotation[4],rotation[5],0,rotation[6],rotation[7],rotation[8],0,-origin[0],-origin[1],-origin[2],1]);
@@ -639,7 +640,7 @@ export class EmitterEngine {
     const selected=performanceSettings?.simulation;
     const out=volume.draw({camera,width:WIDTH,height:HEIGHT,quality:selected&&selected!=='node'?selected:'med',
       dt:job.dt,time:job.time,frame:job.frame,level:job.audio.drive.fluid,beat:job.audio.drive.beat*p.punch/100,
-      props:p,palette,gravity:(cm._fluidGravity??0)+(job.sceneGravity??0)*17,attract:cm._attractPoint?[...cm._attractPoint,cm._fluidAttract||0]:[0,0,0,0],source,flat:job.flatFluid,collisions:job.collisions,ground:job.ground,
+      props:p,palette,gravity:cm._fluidGravity??0,attract:cm._attractPoint?[...cm._attractPoint,cm._fluidAttract||0]:[0,0,0,0],source,flat:job.flatFluid,collisions:job.collisions,ground:job.ground,
       occluders:job.occluders,renderOnly:job.renderOnly,paused:job.paused});
     if(out){
       this.ctx.resetTransform();this.ctx.clearRect(0,0,WIDTH,HEIGHT);

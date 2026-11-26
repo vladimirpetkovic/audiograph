@@ -43,7 +43,7 @@ const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
 // The simulation a shape-chain node acts on (walks up the shape wires), or null.
 function upstreamSim(g,n){
   const seen=new Set();let cur=n;
-  while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(cur.type==='gpuParticles')return cur.props.mode;if(cur.type==='cloner')return 'simcloner';if(cur.type==='waveform3d'&&cur.props.rigidBody)return 'simrigid';if(isEngine(cur.type))return null;
+  while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(cur.type==='gpuParticles')return cur.props.mode;if(cur.type==='cloner')return 'simcloner';if(cur.type==='waveform3d')return 'simrigid';if(isEngine(cur.type))return null;
     const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}
   return null;
 }
@@ -106,7 +106,16 @@ const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new M
 const shaderErrors=new Map(),SHADER_NODES=new Set(['melt','tunnel','warpTunnel','shader']);
 let plans=new Map(),frame=0,lastTime=0,elapsed=0,renderErrors=[],nodeErrors=new Set(),statusSource='action',liveBefore=null;
 let collisionMeshes=new Map();
+const groundPlacements=new Map();
 const rigidWorld=new RigidWorld();
+function rigidProps(n,mods){
+  if(n.type!=='cloner'&&n.type!=='waveform3d')return null;
+  const p=n.props;
+  // Removing a Gravity node stops acceleration without discarding existing motion.
+  const gravityBody=mods?._rigidGravity!==undefined||rigidWorld.groups.get(n.id)?.props.gravityBody;
+  if(gravityBody)return {...p,gravityBody:true};
+  return p.rigidBody||n.type==='cloner'&&p.collide?p:null;
+}
 const collisionCache={};
 const preview=$('preview'),previewCtx=preview.getContext('2d');
 const graph=()=>state.layers.find(g=>g.id===active)||state.layers[0];
@@ -143,6 +152,7 @@ function reconcile(){
   if(!state.layers.some(g=>g.id===active))active=state.layers[0].id;
   if(!graph().nodes.some(n=>n.id===selected))selected=null;
   for(const id of multi)if(!graph().nodes.some(n=>n.id===id))multi.delete(id);if(multi.size<2)multi.clear();
+  for(const id of groundPlacements.keys())if(!nodeIDs.has(id))groundPlacements.delete(id);
   releaseCameraIfUnused();
 }
 function commit(next,label='Updated graph',before=state){
@@ -158,11 +168,11 @@ function liveCommit(label){
   const before=liveBefore||clone(state);liveBefore=null;
   try{commit(clone(state),label,before);}catch(error){state=before;reconcile();renderUI();message(error.message,true);}
 }
-function restoreSnapshot(snapshot){tm.playing=false;state=validate(snapshot);rigidWorld.reset();pending=null;reconcile();renderUI();if(paused)draw(elapsed);}
+function restoreSnapshot(snapshot){tm.playing=false;groundPlacements.clear();state=validate(snapshot);rigidWorld.reset();pending=null;reconcile();renderUI();if(paused)draw(elapsed);}
 function undo(){if(history.length){future.push(clone(state));restoreSnapshot(history.pop());message('Undone');}}
 function redo(){if(future.length){history.push(clone(state));restoreSnapshot(future.pop());message('Redone');}}
 function importProject(raw,label='Imported project. Reload media files in the Input nodes.'){
-  const clean=validate(raw),notice=legacyCameraNotice(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;sceneInspector=false;collisionMeshes.clear();rigidWorld.reset();sceneMotion.phase=0;sceneMotion.motion=clean.settings.camera.motion;commit(clean,notice?label+' '+notice:label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
+  const clean=validate(raw),notice=legacyCameraNotice(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;sceneInspector=false;collisionMeshes.clear();groundPlacements.clear();rigidWorld.reset();sceneMotion.phase=0;sceneMotion.motion=clean.settings.camera.motion;commit(clean,notice?label+' '+notice:label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
 }
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
 const isChain=type=>{const t=TYPES[type],i=Object.entries(t.inputs).filter(([key])=>key!=='mask').map(([,type])=>type),o=Object.values(t.outputs);if(t.engine||!o.length)return false;
@@ -199,9 +209,10 @@ function addNode(type,x,y,props={}){
       const ground={...SCENE_GROUND,...p.settings?.ground};
       if(ground.enabled&&!Object.hasOwn(props,'moveY')&&n.props.layout==='grid'){
         const radius=o.props.size/100*n.props.scale/100,
-          half=['X','Y','Z'].map(a=>radius*((n.props['count'+a]-1)*n.props['spacing'+a]/100+1.5*n.props['scale'+a]/100)),
+          half=['X','Y','Z'].map(a=>radius*((n.props['count'+a]-1)*n.props['spacing'+a]/100+.7*n.props['scale'+a]/100)),
           rotation=rotationMatrix([n.props.rotX,n.props.rotY,n.props.rotZ]);
-        n.props.moveY=ground.height+half.reduce((sum,v,i)=>sum+Math.abs(rotation[3+i])*v,0)+radius*.15;
+        n.props.moveY=ground.height+half.reduce((sum,v,i)=>sum+Math.abs(rotation[3+i])*v,0)+Math.max(.01,radius*.01);
+        groundPlacements.set(n.id,{y:n.props.moveY,gap:Math.max(.01,radius*.01)});
       }
       const fx=node('soundEffector',n.x+210,n.y);for(const m of g.nodes)if(m!==n&&m.x>n.x+20&&m.y<n.y+120&&m.y>n.y-120)m.x+=210;g.nodes.push(fx);
       const down=g.edges.filter(e=>e.from===n.id&&e.out==='shape');g.edges=g.edges.filter(e=>!down.includes(e));
@@ -1022,7 +1033,7 @@ function glitchInto(canvas,g){
   // Stutter history: the last clean frame, refreshed now and then while glitching so it never goes stale.
   if(g.k<=.003||g.seed%4===0){hc.clearRect(0,0,W,H);hc.drawImage(canvas,0,0);}
 }
-function engineFor(id){if(!engines.has(id))engines.set(id,new EmitterEngine(id,m=>message(m,true,'render')));return engines.get(id);}
+function engineFor(id){if(!engines.has(id))engines.set(id,new EmitterEngine(id,m=>message(m,true,'render'),rigidChanged));return engines.get(id);}
 let rigidRedrawPending=false;
 function rigidChanged(){
   if(!paused||rigidRedrawPending)return;
@@ -1092,12 +1103,30 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
     if(shared){sharedViewLayers.add(g.id);sharedRenderers.add(v.emitter.id);}
     const mods=shared?{...applyShapeNode('camera3d',sceneCamera,v.mods),_sceneYaw:sceneCamera.yaw}:v.mods;
     const view=shared?{...VIEW0,px:sceneCamera.px||0,py:sceneCamera.py||0}:g.view;
+    const placement=groundPlacements.get(v.emitter.id),placementSource=engines.get(v.emitter.id)?.w?.__agScene;
+    if(placement&&placementSource?.nativeBounds){
+      groundPlacements.delete(v.emitter.id);
+      const current=findNode(v.emitter.id),ground=state.settings.ground;
+      if(current?.props.moveY===placement.y&&ground.enabled){
+        const bottom=placementSource.nativeBounds.min[1];
+        if(!Number.isFinite(bottom))throw Error('Cloner has no valid ground-placement geometry');
+        const y=current.props.moveY+ground.height+placement.gap-bottom,range=TYPES.cloner.props.moveY;
+        if(y<range.min-.0001||y>range.max+.0001)message('Cloner is too tall for automatic ground placement. Reduce count, spacing or scale.',true);
+        else{
+          current.props.moveY=Math.max(range.min,Math.min(range.max,y));
+          v.job.objectTransform.position[1]=current.props.moveY;
+          queueMicrotask(()=>{renderUI();rigidChanged();});
+        }
+      }
+    }
     const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+'|'+(v.comp?.o??100)+'|'+!!v.job.sharedScene+'|'+!!v.job.wantSource+'|'+(v.job.surfaceFlowTime!=null);
-    const wantCollision=colliderIds.has(v.emitter.id);
+    const wantCollision=colliderIds.has(v.emitter.id),wantBounds=groundPlacements.has(v.emitter.id);
     if(rendered.has(key)){const poses=sourceSnapshots.get(key);Object.assign(v,poses);if(poses.collider)nextColliders.set(v.emitter.id,poses.collider);return rendered.get(key);}
-    const e=engineFor(v.emitter.id),job={...v.job,mods,hue:v.hue,view,wantCollision,sharedCamera:!!shared,renderOnly:paused,paused,
-      sceneGravity:state.settings?.gravity??0,environment:state.settings?.environment??null,ground:{...sceneGround,...(sceneCamera?{visible:false,shadowOnly:sceneGround.visible&&sceneGround.shadows}:{})},
-      rigid:v.job.rigidProps?{id:v.emitter.id,world:rigidWorld,props:v.job.rigidProps,mods:{...mods,_sceneGravity:state.settings?.gravity??0},audio:v.job.audio,object:v.job.sceneObject,onUpdate:rigidChanged}:null,
+    const physics=rigidProps(v.emitter,mods);
+    const e=engineFor(v.emitter.id),job={...v.job,mods,hue:v.hue,view,wantCollision,wantBounds,sharedCamera:!!shared,renderOnly:paused,paused,
+      environment:state.settings?.environment??null,ground:{...sceneGround,...(sceneCamera?{visible:false,shadowOnly:sceneGround.visible&&sceneGround.shadows}:{})},
+      onGeometry:wantBounds?rigidChanged:null,
+      rigid:physics?{id:v.emitter.id,world:rigidWorld,props:physics,mods,audio:v.job.audio,object:v.job.sceneObject,onUpdate:rigidChanged}:null,
       wantDepth:!!v.job.sceneObject||v.job.mode==='simcloner'&&mods?._sceneYaw!=null||v.job.sharedScene||!!shared&&v.job.mode==='simparticles'},
       out=e.draw(job,performanceSettings);
     if(e.viewMode)layerView.set(g.id,e.viewMode);
@@ -1112,6 +1141,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
     }
     v.meshSurface=job.wantSource?sourceApi.surfaceMesh:null;v.surfaceMapper=job.wantSource?sourceApi.mapper():null;
     const collider=wantCollision?sourceApi.colliderMesh(job.sceneObject):null;
+    if(wantBounds&&sourceApi.boundsError)throw Error('Cloner placement: '+sourceApi.boundsError);
     if(collider)nextColliders.set(v.emitter.id,collider);
     sourceSnapshots.set(key,{gpuSurface:v.gpuSurface,meshSurface:v.meshSurface,surfaceMapper:v.surfaceMapper,collider});
     const {canvas,ctx}=surface(consumer+':r');
@@ -1179,7 +1209,6 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       if(n.type==='cloner')r.shape.job.paletteBy=p.paletteBy;
       if(n.type==='waveform3d'&&p.render==='normal'&&(p.mode!=='model'||p.modelMaterials==='palette'))
         r.shape.job.paletteMapping={mode:p.paletteMap,axis:p.paletteAxis,tiling:p.paletteTiling,offset:p.paletteOffset,rotation:p.paletteRotation,primitive:r.object.prim?r.object.shape:null};
-      if((n.type==='cloner'||n.type==='waveform3d')&&(p.rigidBody||n.type==='cloner'&&p.collide))r.shape.job.rigidProps=p;
       const key=n.type==='gpuParticles'&&SIM_SOURCE[p.mode],eng=key&&engines.get(n.id);
       const source=!emit&&key&&eng?.simSource(r.shape.job,key);
       const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(mesh||!emit&&source!=='image'&&source!=='camera');
@@ -1621,7 +1650,7 @@ function draw(time,dt=1/30){
   const camera=state.settings.camera;
   if(sceneMotion.motion!==camera.motion){sceneMotion.phase=0;sceneMotion.motion=camera.motion;}
   if(!paused)sceneMotion.phase=advanceCamera(sceneMotion.phase,camera,dt,A.bands.bass);
-  const rigidIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0).flatMap(g=>g.nodes.filter(n=>!n.bypass&&(n.props.rigidBody||n.type==='cloner'&&n.props.collide)).map(n=>n.id)));
+  const rigidIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0).flatMap(g=>g.nodes.filter(n=>!n.bypass&&rigidProps(n)).map(n=>n.id)));
   rigidWorld.begin(paused?0:dt,{...SCENE_GROUND,...state.settings?.ground},rigidIds);
   const sceneCamera=cameraPose(camera,sceneMotion.phase);
   sharedViewLayers.clear();
@@ -1629,7 +1658,7 @@ function draw(time,dt=1/30){
   const pictures=[],nextColliders=new Map();
   const ground={...SCENE_GROUND,...state.settings?.ground};
   const colliderIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0)
-    .flatMap(g=>g.nodes.filter(n=>['waveform3d','cloner'].includes(n.type)&&!n.bypass&&(n.props.collide||n.props.rigidBody)).map(n=>n.id)));
+    .flatMap(g=>g.nodes.filter(n=>['waveform3d','cloner'].includes(n.type)&&!n.bypass&&(n.props.collide||rigidProps(n))).map(n=>n.id)));
   let collisions;
   try{if(colliderIds.size||collisionCache.field?.end)collisions=collisionField([...colliderIds].map(id=>collisionMeshes.get(id)).filter(Boolean),collisionCache);}
   catch(error){renderErrors.push(error.message);}
@@ -2633,7 +2662,7 @@ function renderEmitter(root,n){
   if(n.type==='waveform3d'||n.type==='cloner'){
     const physics=fold(root,'Rigid body');
     renderProps(physics,n,simKeys(graph(),n).filter(k=>T.props[k].group==='Rigid body'&&!['collide','soundForce'].includes(k)),true);
-    physics.append(el('p','insp-note','Collider body provides a surface for particles and fluid; on a Cloner it also resolves overlaps caused by effectors without enabling gravity or Forces. Rigid body enables dynamic collisions, sound impulses, Scene gravity and connected Forces. Scene gravity defaults to zero and adds to a connected Gravity force. Attract can target a connected 3D Object or Cloner. Ground belongs to Scene settings.'));
+    physics.append(el('p','insp-note','Collider body provides a surface for particles and fluid; on a Cloner it also resolves overlaps caused by effectors. Attach a Gravity node to make Cloners and 3D Objects fall, even with Rigid body off. Rigid body enables sound impulses and other connected Forces. No Gravity node means no gravity; zero stops acceleration but preserves existing motion. Attract can target a connected 3D Object or Cloner. Ground belongs to Scene settings.'));
   }
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
@@ -3269,8 +3298,6 @@ function renderSceneSettings(root){
     return c;
   };
   renderSceneCamera(group('3D camera'));
-  field(group('Physics'),'Scene gravity',settings.gravity??0,'number',v=>editScene('gravity',v,'Changed scene gravity'));
-  panel.lastChild.append(el('p','insp-note','Scene gravity defaults to 0. Positive values pull rigid 3D objects, rigid Cloners, particles and fluid downward; negative values pull upward. Connected Gravity forces add to it. Forces affect a Cloner only when Rigid body is on; Collider body alone ignores gravity and Forces.'));
   const ground=group('Ground'),groundSettings={...SCENE_GROUND,...settings.ground};
   const groundField=(label,key,value,options,parse=v=>v)=>field(ground,label,value,options,v=>
     editScene('ground',{...SCENE_GROUND,...state.settings?.ground,[key]:parse(v)},`Ground: ${label}`));
@@ -3664,15 +3691,15 @@ $('helpBody').innerHTML=`
 <h3 id="h-layers">Layers</h3>
 <p>Each graph is one layer. <b>+ Layer</b> adds another; layers stack in the preview using each layer's opacity and blend mode (select empty graph space to see the layer settings). Use the tabs above the graph to switch layers and the checkbox to show or hide one. A <b>Layer</b> node brings another layer into this graph, so one layer can be refracted, masked or blended by another.</p>
 <h3 id="h-3d">3D &amp; models</h3>
-<p><b>One scene, one camera.</b> Open <b>Scene settings</b> for the shared 3D camera, Physics and square or circular Ground with a colour picker. <b>Global lighting</b> groups Shadows, screen-space Ambient occlusion, Depth haze and HDR/EXR environment lighting. AO darkens creases and contacts; haze fades distant 3D surfaces toward its colour. Flat overlays stay unchanged. AO and haze are off by default, with no extra GPU passes. Scene gravity and Depth of field default to <b>0</b>. Camera movement includes Static, Orbit, Pendulum, Dolly and Spiral. Press <b>F</b> to frame all visible 3D content, <b>Tab</b> for node search and <b>⌘F / Ctrl+F</b> for fullscreen. New visual nodes connect to Merge automatically; manually edited routing stays yours. 3D objects share depth, while 2D visuals remain composited overlays. Scene settings has its own <b>?</b> for explanations.</p>
+<p><b>One scene, one camera.</b> Open <b>Scene settings</b> for the shared 3D camera and square or circular Ground with a colour picker. <b>Global lighting</b> groups Shadows, screen-space Ambient occlusion, Depth haze and HDR/EXR environment lighting. AO darkens creases and contacts; haze fades distant 3D surfaces toward its colour. Flat overlays stay unchanged. AO and haze are off by default, with no extra GPU passes. Depth of field defaults to <b>0</b>; gravity comes only from attached <b>Gravity</b> nodes. Camera movement includes Static, Orbit, Pendulum, Dolly and Spiral. Press <b>F</b> to frame all visible 3D content, <b>Tab</b> for node search and <b>⌘F / Ctrl+F</b> for fullscreen. New visual nodes connect to Merge automatically; manually edited routing stays yours. 3D objects share depth, while 2D visuals remain composited overlays. Scene settings has its own <b>?</b> for explanations.</p>
 <ul><li><b>3D Object</b> picks a shape; <b>Render</b> chooses Normal (lit solid), Waveform (lines), Polygons (faces; Gap separates them, Edges outlines them) or Point cloud (3D model). All four use the same scale and world pose. <b>Transforms</b> on Objects and Cloners has separate Move, Rotate and Scale XYZ rows, Size and Uniform scale. Choose <b>Gizmo: Move / Rotate / Scale</b> to edit the object directly in the preview; each drag is one undo step. With the gizmo off, drag orbits the shared camera, right-drag pans, scroll zooms and double-click resets.</li>
 <li><b>Sound effector</b> owns the sound controls. Standalone objects stay still unless one is connected; new Cloners include one automatically. A single <b>Response</b> section controls Intensity, Attack, Release, Bass reaction, Beat burst, Dynamics, Spectrum tilt and Sound impulse, without duplicate gain or bass knobs. Its <b>Transforms</b> section has Move XYZ, Rotate XYZ, Scale XYZ, Uniform scale and Grow from base. <b>Spectrum distribution</b> assigns frequency bands across clones by Order, Distance, X, Y, Z or Random; Spread and Delay vary how they respond.</li>
 <li><b>Palette mapping</b>: the Cloner chooses how colours are distributed across its instances. Normal-rendered Objects offer <b>UV</b>, <b>Front</b> or <b>Box</b> projection, with axis, tiling, offset and rotation. Imported models must choose <b>Materials: Palette</b> to use it. Waveform and Polygon colours can react to sound through the connected Sound effector; Point clouds retain their Look colour options.</li>
 <li><b>3D model</b> loads <b>OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers; USD must be flattened, since referenced files are not loaded). Polygons of any size are triangulated. Still models keep up to 500,000 triangles in 3D Object (Normal and Point cloud render them on the GPU; Waveform and Polygons simplify to Max faces) and 1,000,000 in Mapping; animated models are thinned to 40,000 faces, since they are re-posed every frame. Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. If imported materials are unreadable or unsupported (for example, specular/glossiness), the mesh still loads with <b>Palette</b> shading. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
-<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound, Field, Random, Links) and <b>Look</b> nodes (Material, Light) after it. <b>Collider body</b> makes surfaces collide with particles and fluid; Cloner instances also separate and bounce when effectors move, rotate or enlarge them. Collider-only objects and Cloners ignore gravity and Forces. <b>Rigid body</b> adds sound impulses, connected Forces and <b>Scene settings → Physics → Scene gravity</b>. Gravity defaults to <b>0</b>; connected Gravity nodes add to or subtract from the scene value. <b>Attract → target</b> accepts a 3D Object or Cloner; the force pulls toward its world position, including moving rigid targets. An unwired Attract pulls toward the origin; negative strength repels.</li>
+<li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound, Field, Random, Links) and <b>Look</b> nodes (Material, Light) after it. <b>Collider body</b> makes surfaces collide with particles and fluid; Cloner instances also separate and bounce when effectors move, rotate or enlarge them. Attach a <b>Gravity</b> node to make Cloners or 3D Objects fall, even with Rigid body off. Positive <b>Body gravity</b> pulls downward; negative values pull upward. There is no Scene gravity setting. <b>Rigid body</b> adds sound impulses and other connected Forces. <b>Attract → target</b> accepts a 3D Object or Cloner; the force pulls toward its world position, including moving rigid targets. An unwired Attract pulls toward the origin; negative strength repels.</li>
 <li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles, fluid and rigid bodies; choose Square or Circle, adjust its height and size or switch it off. Hidden ground still collides. Set <b>Look → Trails</b> to 0 to draw particles without trails. The shared Scene camera orbits the whole cloud.</li></ul>
-<p>Open Tutorials for <b>3D Cloner &amp; rigid bodies</b>, including Scene settings and Scene gravity, or <b>Particles: Waterfall</b>, which builds the saved Waterfall look from particles, forces, colour and a fluid layer.</p>
+<p>Open Tutorials for <b>3D Cloner &amp; rigid bodies</b>, including Scene settings and attached Gravity nodes, or <b>Particles: Waterfall</b>, which builds the saved Waterfall look from particles, forces, colour and a fluid layer.</p>
 <h3 id="h-sims">Simulations</h3>
 <p>WebGPU emitters (Particles, Fluid, Smoke) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
 <h3 id="h-fx">Post FX</h3>
@@ -4901,14 +4928,18 @@ function tourCloner(stage,type='cloner',property){
   add('tc-object','waveform3d',40,230,{mode:'sphere',render:'normal',size:32,intensity:20});
   add('tc-cloner','cloner',280,230,{countX:5,countY:3,countZ:2,spacingX:170,spacingY:170,spacingZ:170,rigidBody:stage>=3,bounce:.8,friction:.25,damping:.1});
   add('tc-sound','soundEffector',520,30,{soundForce:stage>=6?2:0,scaleX:0,scaleY:0,scaleZ:0});
-  add('tc-material','material',520,230,{roughness:28,metallic:25,rim:35,colorBy:'clone'});
-  add('tc-palette','palette',760,230,{stops:['#080f16','#2a8c9b','#78c6df','#f1bd78','#e9f4f8'].map((c,i)=>({c,auto:false,a:i?1:0}))});
-  add('tc-merge','merge',760,450);add('tc-output','output',1000,450);
+  const shift=stage>=5?440:0;
+  if(stage>=5)add('tc-gravity','gravity',740,30,{rigid:9.81});
+  add('tc-material','material',520+shift,230,{roughness:28,metallic:25,rim:35,colorBy:'clone'});
+  add('tc-palette','palette',760+shift,230,{stops:['#080f16','#2a8c9b','#78c6df','#f1bd78','#e9f4f8'].map((c,i)=>({c,auto:false,a:i?1:0}))});
+  add('tc-merge','merge',760+shift,450);add('tc-output','output',1000+shift,450);
   wire('tc-audio','audio','tc-cloner','audio');wire('tc-object','object','tc-cloner','object');
   wire('tc-cloner','shape','tc-sound','shape');
-  wire('tc-sound','shape','tc-material','shape');wire('tc-material','shape','tc-palette','shape');
+  if(stage>=5){wire('tc-sound','shape','tc-gravity','shape');wire('tc-gravity','shape','tc-material','shape');}
+  else wire('tc-sound','shape','tc-material','shape');
+  wire('tc-material','shape','tc-palette','shape');
   wire('tc-palette','shape','tc-merge','a');wire('tc-merge','image','tc-output','image');
-  importProject({format:'audiograph-pro',version:VERSION,layers:[g],settings:{gravity:stage>=5?9.81:0,camera:{...SCENE_CAMERA,turn:-28,tilt:18,zoom:stage>=6?10:14,motion:stage>=7?'orbit':'static',speed:3},ground:{...SCENE_GROUND,shape:'circle',height:-3,size:14}}},'Tutorial: 3D Cloner');
+  importProject({format:'audiograph-pro',version:VERSION,layers:[g],settings:{camera:{...SCENE_CAMERA,turn:-28,tilt:18,zoom:stage>=6?10:14,motion:stage>=7?'orbit':'static',speed:3},ground:{...SCENE_GROUND,shape:'circle',height:-3,size:14}}},'Tutorial: 3D Cloner');
   tourInspect(type,property);fit();
 }
 function tourWaterfall(stage,type='gpuParticles',property){
@@ -4936,9 +4967,9 @@ const SPLASH_GUIDES={
     {sel:'#previewWrap',ws:'studio',run:()=>tourCloner(0),t:'Tidal marbles',txt:'A cool glass-and-amber array on a circular stage. We will turn these clones into a shared physical scene. This tutorial replaces your scene; Undo brings it back.'},
     {sel:'.inspector',run:()=>tourCloner(1,'waveform3d'),t:'One object, many copies',txt:'A small Sphere is wired from its object output into the Cloner. Change the source shape and every copy changes with it.'},
     {sel:'.knob-grid:has([data-property=countX])',run:()=>tourCloner(2,'cloner','countX'),t:'Build the array',txt:'Count X, Y and Z make 30 instances. Spacing keeps their surfaces apart. The automatic Merge shows the result without extra preview wiring.'},
-    {sel:'.prop-row:has([data-property=rigidBody])',run:()=>tourCloner(3,'cloner','rigidBody'),t:'Give each clone a body',txt:'Rigid body is now on. Every instance can collide with other clones and rigid objects across layers. Nothing falls yet: gravity is not automatic. Collider body alone is for particle and fluid surfaces, without forces.'},
+    {sel:'.prop-row:has([data-property=rigidBody])',run:()=>tourCloner(3,'cloner','rigidBody'),t:'Give each clone a body',txt:'Rigid body is now on. Every instance can collide with other clones and rigid objects across layers and receive connected Forces. Nothing falls yet: there is no Gravity node. Gravity also works with Rigid body off; the toggle enables sound impulses and other Forces.'},
     {sel:'.scene-inspector fieldset:has([aria-label="Ground type"])',run:()=>{tourCloner(4);tourSceneSettings();},t:'The ground belongs to the scene',txt:'Scene settings holds the shared Ground. We chose Circle and lowered it beneath the array. Square is also available; Collision only hides it without removing its physical surface.'},
-    {sel:'.scene-inspector fieldset:has([aria-label="Scene gravity"])',run:()=>{tourCloner(5);tourSceneSettings();},t:'Set Scene gravity',txt:'Scene gravity is now 9.81 in Physics. It pulls the rigid marbles down onto the stage; Bounce controls their rebound. Set it to 0 to let them float. Connected Gravity nodes remain available and add to or subtract from this shared value.'},
+    {sel:'.prop-row:has([data-property=rigid])',run:()=>tourCloner(5,'gravity','rigid'),t:'Attach Gravity',txt:'A Gravity node is connected after the Sound effector. Body gravity is 9.81, pulling the marbles down onto the stage; Bounce controls their rebound. Set Body gravity to 0 to stop acceleration, or use a negative value to pull upward. Gravity only affects the chain it is attached to.'},
     {sel:'.knob-grid:has([data-property=soundForce])',run:()=>tourCloner(6,'soundEffector','soundForce'),t:'Let the music lift them',txt:'Sound impulse is now 2, on the Sound Effector. Hits lift the bodies, and real collisions settle them back onto the circular stage. This node owns the audio response and sound-driven Transforms; a new Cloner comes with it automatically.'},
     {sel:'.scene-inspector fieldset:first-of-type',run:()=>{tourCloner(7);tourSceneSettings();},t:'One moving camera',txt:'Orbit moves around the whole scene, not individual nodes. F frames everything; Tab opens node search; Cmd+F or Ctrl+F toggles fullscreen. Use the Scene ? for camera, physics, ground and Global lighting help.'}],
     done:{label:'Keep exploring'}},

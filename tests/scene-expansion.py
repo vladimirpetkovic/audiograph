@@ -34,7 +34,8 @@ with sync_playwright() as p:
             project = page.evaluate("() => pro.getProject()")
             if guide == "cloner":
                 assert project["settings"]["ground"]["shape"] == "circle"
-                assert project["settings"]["gravity"] == 9.81
+                assert "gravity" not in project["settings"]
+                assert next(n for n in project["layers"][0]["nodes"] if n["type"] == "gravity")["props"]["rigid"] == 9.81
                 assert page.evaluate("() => pro.stats().rigid.bodies") == 30
             else:
                 assert len(project["layers"]) == 2

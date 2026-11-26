@@ -1,4 +1,4 @@
-import {installRigid,instanceCollider} from './rigid.js';
+import {installRigid,instanceCollider,instanceBoxBounds} from './rigid.js';
 import {rotatePoint,transformView} from './object-transform.js';
 
 export const DEPTH_WGSL=`
@@ -165,6 +165,7 @@ export function patchScene(patch){
     'st.ibuf=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST})');
   patch('if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=', 'window.__agScene.rigid(st,enc,m,n,dev);\n    if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=');
   patch('var fy=-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;', 'var fy=window.__agScene.groundConfig?window.__agScene.groundConfig.height:-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;if(window.__agScene.groundConfig){flA=window.__agScene.groundConfig.enabled&&(window.__agScene.groundConfig.visible||window.__agScene.groundConfig.shadowOnly)?0.35:0;}');
+  patch('if(eye[1]<fy+bnd*0.02)flA=0;', 'if(window.__agScene.groundConfig?!window.__agScene.groundVisible(view):eye[1]<fy+bnd*0.02)flA=0;');
   patch("set(1252,K('pG3Bounce',40)/100,shSz,fy,bnd*2.4);", "set(1252,K('pG3Bounce',40)/100,shSz,fy,window.__agScene.groundConfig?window.__agScene.groundConfig.size/2:bnd*2.4);");
   patch("set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,0,flA);","set(1256,window.__agScene.groundConfig?0:K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,window.__agScene.groundConfig?.shape==='circle'?1:0,flA);var gc=g3Hex(window.__agScene.groundConfig?.color||'#aeb0b3');set(1264,gc[0],gc[1],gc[2],window.__agScene.groundConfig?.shadowOnly?2:1);U.set(window.__agScene.groundMatrix||[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],1268);");
   patch("cp:vec4f,@location(2) pp:vec4f};\n@vertex fn vsf","cp:vec4f,@location(2) pp:vec4f,@location(3) ground:vec3f};\n@vertex fn vsf");
@@ -198,7 +199,7 @@ function unproject(x,y,z,c){
 }
 export function installScene(w){
   let dev=null,targets=null,placement=null,enabled=false,wantSource=false,sourceFlow=null,sourceState=null,polyTargets=null,polyVertices=[],surfaceVerts=[],surfaceFaces=[];
-  let modelStretch=null,collisionMesh=null,wantCollision=false,layer=null;
+  let modelStretch=null,collisionMesh=null,wantCollision=false,wantBounds=false,layer=null;
   const canvas=()=>{const c=w.document.createElement('canvas');return c;};
   const depth=canvas(),opaque=canvas(),depthOut=canvas(),opaqueOut=canvas();
   const source=canvas();
@@ -237,9 +238,9 @@ export function installScene(w){
     depthStencilAttachment:{view:targets.z.createView(),depthLoadOp:'clear',depthStoreOp:'discard',depthClearValue:1}});
   const api=w.__agScene={
     depth:depthOut,opaque:opaqueOut,source,sourceValid:false,sourceSerial:0,sourceEpoch:0,valid:false,
-    start(on,emit=false,flow=null,collide=false){enabled=on;wantSource=emit;wantCollision=collide;sourceFlow=flow;api.valid=false;api.sourceValid=false;api.boundsRadius=0;if(!collide){api.nativeCollider=null;api.collisionError=null;}layer=null;placement=null;polyVertices=[];surfaceVerts=[];surfaceFaces=[];api.surfaceMesh=null;api.matrix=null;},
+    start(on,emit=false,flow=null,collide=false,bounds=false){enabled=on;wantSource=emit;wantCollision=collide;wantBounds=bounds;sourceFlow=flow;api.valid=false;api.sourceValid=false;api.boundsRadius=0;if(!collide){api.nativeCollider=null;api.collisionError=null;}if(!bounds){api.nativeBounds=null;api.boundsError=null;}layer=null;placement=null;polyVertices=[];surfaceVerts=[];surfaceFaces=[];api.surfaceMesh=null;api.matrix=null;},
     layerPlacement(ctx,sz,off,drawW,drawH,zoom,params,rotate,cover){
-      if(!(enabled||wantSource||wantCollision))return;
+      if(!(enabled||wantSource||wantCollision||wantBounds))return;
       const {width,height}=w.frameCv,dpr=sz.dpr,c=ctx.canvas;
       let sx=Math.max(0,Math.round((drawW-sz.W)/2*dpr)),sy=Math.max(0,Math.round((drawH-sz.H)/2*dpr));
       let sw=Math.min(off.width-sx,Math.round(sz.W*dpr)),sh=Math.min(off.height-sy,Math.round(sz.H*dpr));
@@ -273,21 +274,25 @@ export function installScene(w){
         vertex:{module:surfaceModule,entryPoint:'surfaceVS'},fragment:{module:surfaceModule,entryPoint:'surfaceFS',targets:[{format:'rgba8unorm'}]}});
     },
     native(st,enc,mesh,n,P){
-      if(!enabled&&!wantSource)return;
+      if(!enabled&&!wantSource&&!wantCollision&&!wantBounds)return;
       api.matrix=Array.from(st.cu.slice(0,16));api.distance=st.g3dist;
-      if(wantCollision&&(api.colliderArray!==mesh.arr||api.colliderCount!==n)){
-        api.colliderArray=mesh.arr;api.colliderCount=n;api.collisionError=null;api.nativeCollider=null;
+      if((wantCollision||wantBounds)&&(api.colliderArray!==mesh.arr||api.colliderCount!==n)){
+        api.colliderArray=mesh.arr;api.colliderCount=n;api.collisionError=null;api.boundsError=null;api.nativeCollider=null;api.nativeBounds=null;
       }
-      if(wantCollision&&n>0&&!api.colliderPending){
-        const buffer=dev.createBuffer({size:n*48,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ}),u=st.cu.slice(),arr=mesh.arr;
+      if((wantCollision||wantBounds)&&n>0&&!api.colliderPending){
+        const buffer=dev.createBuffer({size:n*48,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ}),u=st.cu.slice(),arr=mesh.arr,collision=wantCollision,bounds=wantBounds;
         enc.copyBufferToBuffer(st.ibuf,0,buffer,0,n*48);api.colliderPending=buffer;
         queueMicrotask(async()=>{
           const map=api.mapper();
           try{
             await buffer.mapAsync(GPUMapMode.READ);
-            if(api.colliderPending===buffer&&api.colliderArray===arr&&api.colliderCount===n&&map)api.nativeCollider=instanceCollider(arr,new Float32Array(buffer.getMappedRange()),u,map,api.nativeCollider?.faces);
-          }catch(error){if(api.colliderPending===buffer&&api.colliderArray===arr&&api.colliderCount===n)api.collisionError=error.message;}
-          finally{buffer.destroy();if(api.colliderPending===buffer)api.colliderPending=null;}
+            if(api.colliderPending===buffer&&api.colliderArray===arr&&api.colliderCount===n&&map){
+              const data=new Float32Array(buffer.getMappedRange());
+              if(collision&&wantCollision)api.nativeCollider=instanceCollider(arr,data,u,map,api.nativeCollider?.faces);
+              if(bounds&&wantBounds)api.nativeBounds=instanceBoxBounds(arr,data,u,map);
+            }
+          }catch(error){if(api.colliderPending===buffer&&api.colliderArray===arr&&api.colliderCount===n){if(collision&&wantCollision)api.collisionError=error.message;if(bounds&&wantBounds)api.boundsError=error.message;}}
+          finally{buffer.destroy();if(api.colliderPending===buffer){api.colliderPending=null;api.onGeometry?.();}}
         });
       }
       drawSource(st,enc,mesh,n,P);if(!enabled)return;
@@ -333,6 +338,17 @@ export function installScene(w){
       return [q[0]/length,-q[1]/length,q[2]/length];
     },
     objectOffset(){return Math.hypot(...(w.__agObjectTransform?.position||[0,0,0]))+Math.hypot(...(w.__agObjectSound?.localOffset||[0,0,0]));},
+    groundExtent(){const g=api.groundConfig;return g?.enabled&&(g.visible||g.shadowOnly)?Math.hypot(g.size/Math.SQRT2,g.height):0;},
+    groundVisible(view){
+      // Test the world-ground plane, not the rotated Cloner's local Y axis.
+      const m=api.groundMatrix,g=api.groundConfig;
+      let height=0;
+      for(let i=0;i<3;i++){
+        const eye=-(view[i*4]*view[12]+view[i*4+1]*view[13]+view[i*4+2]*view[14]);
+        height+=(eye-m[12+i]-m[4+i]*g.height)*m[4+i];
+      }
+      return height>.0001;
+    },
     classicSurface(ctx,vertices,model,wire,persp){
       if(!(wantSource||wantCollision||api.frameRequested)||!w.__agCam)return;
       const faces=wire.map?w._objPolys(model,wire):model.faces;
@@ -452,7 +468,8 @@ const COMPOSE=DEPTH_WGSL+`
   if(mode.x==1u){return select(zb,za,decodeSceneDepth(za)<decodeSceneDepth(zb));}
   if(mode.x==2u){let x=textureLoad(oa,xy,0);let y=textureLoad(ob,xy,0);return select(y,x,decodeSceneDepth(x)<decodeSceneDepth(y));}
   let ca=textureLoad(a,xy,0);let cb=textureLoad(b,xy,0);
-  let frontA=za.a>0.5&&zb.a>0.5&&decodeSceneDepth(za)<decodeSceneDepth(zb);
+  // Keep coplanar shadow catchers over the floor despite packed-depth noise.
+  let frontA=za.a>0.5&&zb.a>0.5&&decodeSceneDepth(za)<decodeSceneDepth(zb)-0.0001;
   let f=select(cb,ca,frontA);let back=select(ca,cb,frontA);
   return vec4f(f.rgb*f.a+back.rgb*back.a*(1.0-f.a),f.a+back.a*(1.0-f.a));
 }
