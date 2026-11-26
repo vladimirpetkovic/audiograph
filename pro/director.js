@@ -18,7 +18,7 @@ const RECIPES={
     g.wire(surface,'shape',dust,'emit');
     const accent=g.palette(dust,4,1);
     return g.merge(surface,accent,5,.72);
-  },camera:{zoom:65,tilt:14,dof:15,focus:52,orbit:8,orbitSound:6}},
+  },camera:{zoom:65,tilt:14,dof:15,focus:52,motion:'orbit',speed:8,audio:6}},
   kinetic:{name:'Kinetic Array',webgpu:true,build(g){
     const form=g.add('waveform3d',{mode:g.pick(['ico','cube','pyramid'])},0,1);
     const layout=g.pick(['ring','helix','grid']);
@@ -31,7 +31,7 @@ const RECIPES={
       roughness:48,metallic:25,emission:14},4);
     const lit=g.after(material,'light',{ambient:90,key:135,shadow:25},5);
     return g.palette(lit,6);
-  },camera:{zoom:70,tilt:23,dof:22,focus:55,orbit:10,orbitSound:5}},
+  },camera:{zoom:70,tilt:23,dof:22,focus:55,motion:'orbit',speed:10,audio:5}},
   attractor:{name:'Strange Currents',build(g){
     const field=g.voice('attractor',{system:g.pick(TYPES.attractor.props.system.choices),count:1700,trail:65,hud:false,
       probes:0,morph:g.level(16,48),boost:72,size:95,color:g.colors[2],vibrate:18},1);

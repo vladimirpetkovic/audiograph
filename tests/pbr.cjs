@@ -8,7 +8,7 @@ const server=http.createServer((req,res)=>{
   if(!fs.existsSync(file)){res.writeHead(404);res.end();return;}
   res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.html')?'text/html':'application/octet-stream');res.end(fs.readFileSync(file));
 });
-const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Imported PBR',visible:true,opacity:1,blend:'source-over',
+const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false,visible:false}},layers:[{id:'L',name:'Imported PBR',visible:true,opacity:1,blend:'source-over',
   nodes:[{id:'o',type:'waveform3d',x:0,y:0,props:{mode:'model',render:'normal'}},
     {id:'d',type:'value',x:0,y:180,props:{value:0}},
     {id:'c',type:'camera3d',x:240,y:0,props:{orbit:0,tilt:0,dof:0}},
@@ -86,15 +86,15 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Imported P
     await page.evaluate(()=>pro.setProperty('o','render','points'));
     await page.waitForFunction(()=>pro.engine('o')?.w.agSim.status()==='ready');await page.waitForTimeout(450);
     const cloud=await image();assert.ok(cloud.filled>100&&cloud.bounds.every((v,i)=>Math.abs(v-original.bounds[i])<20),'Model point cloud shares its camera framing: '+JSON.stringify([original.bounds,cloud.bounds]));
-    await page.evaluate(()=>{pro.setProperty('c','dof',100);pro.setProperty('c','focus',0);});
+    await page.evaluate(()=>pro.setSceneCamera({dof:100,focus:0}));
     await page.waitForTimeout(450);assert.ok(changed(cloud,await image())>100,'Model point clouds use the shared depth of field focus plane');
-    await page.evaluate(()=>pro.setProperty('c','dof',0));
-    await page.evaluate(()=>{pro.setProperty('o','render','polygons');pro.setProperty('c','turn',25);pro.setProperty('c','tilt',30);});
+    await page.evaluate(()=>pro.setSceneCamera({dof:0}));
+    await page.evaluate(()=>{pro.setProperty('o','render','polygons');pro.setSceneCamera({turn:25,tilt:30});});
     await page.waitForTimeout(450);const polySharp=await image();
-    await page.evaluate(()=>{pro.setProperty('c','dof',100);pro.setProperty('c','focus',0);});
+    await page.evaluate(()=>pro.setSceneCamera({dof:100,focus:0}));
     await page.waitForTimeout(450);const polyBlur=await image();
     assert.ok(changed(polySharp,polyBlur)>100&&polyBlur.edge<polySharp.edge*.85,'Polygon depth of field covers face interiors and blurs silhouette edges');
-    await page.evaluate(()=>{pro.setProperty('o','render','normal');pro.setProperty('c','turn',0);pro.setProperty('c','tilt',0);pro.setProperty('c','dof',0);});
+    await page.evaluate(()=>{pro.setProperty('o','render','normal');pro.setSceneCamera({turn:0,tilt:0,dof:0});});
     await page.waitForTimeout(450);
     const bad=JSON.parse(fixture.gltf().buffer);bad.meshes[0].primitives[0].attributes.POSITION=999;
     const rollback=await page.evaluate(async text=>{
@@ -121,9 +121,9 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Imported P
     assert.ok(changed(original,await image())<100,'Second UV set samples the same texture correctly');
     await load(fixture.glb({singleSided:true}),'single-sided.glb');
     assert.ok((await image()).filled>1000,'Single-sided materials have correctly oriented normals/winding');
-    await page.evaluate(()=>pro.setProperty('c','turn',180));await page.waitForTimeout(400);
+    await page.evaluate(()=>pro.setSceneCamera({turn:180}));await page.waitForTimeout(400);
     assert.ok((await image()).filled<100,'Single-sided backfaces are culled');
-    await page.evaluate(()=>pro.setProperty('c','turn',0));await page.waitForTimeout(300);
+    await page.evaluate(()=>pro.setSceneCamera({turn:0}));await page.waitForTimeout(300);
     for(const file of [fixture.usdz(),fixture.usdz(binary)]){
       await load(file);const rendered=await image();
       assert.ok(rendered.red>300&&rendered.green>300&&rendered.blue>300,file.name+' renders packaged USD Preview Surface textures');
@@ -168,7 +168,7 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Imported P
     assert.ok(await page.evaluate(()=>pro.pixels())>.01,'Mixed-material Cloner renders');
     await load(fixture.glb({mask:true}),'masked-shadow.glb');await page.waitForTimeout(500);
     assert.deepEqual(await page.evaluate(()=>pro.engine('cl').w.agSim.stats().errors),[],'Alpha-aware PBR shadows render without GPU errors');
-    await page.evaluate(p=>{pro.engine('o').clearMedia();pro.importProject(p);pro.setProperty('c','tilt',0);pro.setProperty('c','dof',30);pro.setProperty('d','value',.85);},scene);
+    await page.evaluate(p=>{pro.engine('o').clearMedia();pro.importProject(p);pro.setSceneCamera({tilt:0,dof:30});pro.setProperty('d','value',.85);},scene);
     const drivenBounds=async rendering=>{
       await page.evaluate(rendering=>pro.setProperty('o','render',rendering),rendering);
       if(rendering==='points')await page.waitForFunction(()=>pro.engine('o')?.w?.agSim.status()==='ready');

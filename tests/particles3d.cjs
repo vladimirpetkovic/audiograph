@@ -12,7 +12,8 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.html')?'text/html':file.endsWith('.css')?'text/css':'application/octet-stream');
   res.end(fs.readFileSync(file));
 });
-const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,layers:[{id:'L',name:'3D particles',visible:true,opacity:1,blend:'source-over',
+// Legacy particle checks isolate their own colliders from the shared Scene ground; the floor checks below enable it explicitly.
+const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,settings:{ground:{enabled:false,visible:false,height:-1.2,size:20}},layers:[{id:'L',name:'3D particles',visible:true,opacity:1,blend:'source-over',
   nodes:[{id:'o',type:'waveform3d',x:0,y:180,props:{mode:shape,render:'normal',stretchZ:180}},
     {id:'d',type:'value',x:0,y:0,props:{value:1}},
     {id:'w',type:'waveform2d',x:0,y:360,props:{mode:'sine'}},
@@ -54,8 +55,8 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     assert.equal(await page.evaluate(()=>pro.engine('e').w.document.getElementById('pSpTrail').max),'1000');
     await emission.getByRole('button',{name:'Ultra',exact:true,includeHidden:true}).waitFor({state:'attached'});
     const floorSection=inspector.locator('[data-group="Floor"]');
-    await floorSection.locator('[data-property="particleFloorSize"]').first().waitFor({state:'attached'});
-    assert.equal(await floorSection.locator('[data-property="particleFloor"]').count(),1);
+    assert.equal(await floorSection.count(),0,'The floor is a Scene setting, not a per-emitter control');
+    assert.equal(await inspector.locator('[data-property="particleFloor"],[data-property="particleFloorSize"]').count(),0);
     assert.equal(await inspector.locator('[data-group="Quality"]').count(),0,'Quality is part of Look');
     assert.equal(await inspector.locator('[data-property="space"],[data-property="particleInitialSpeed"],[data-property="particleTrails"]').count(),0);
     assert.equal(await inspector.getByText('Aurora ribbons',{exact:true}).count(),0);
@@ -84,20 +85,26 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     assert.ok(await page.evaluate(()=>pro.pixels())>.02,'Maximum trails render in 3D');
     await setTrails(0);await trailSegments(0);
     if(process.env.AUDIOGRAPH_PARTICLES3D_SCREENSHOT)await page.locator('#preview').screenshot({path:process.env.AUDIOGRAPH_PARTICLES3D_SCREENSHOT});
-    await page.evaluate(()=>pro.select('c'));
-    assert.ok((await page.locator('#properties').textContent()).includes('Rotate'),'Camera rotation control remains available for particles');
+    assert.equal(await page.evaluate(()=>pro.getProject().layers[0].nodes.some(n=>n.type==='camera3d')),false,'Legacy camera nodes migrate into the scene camera');
+    await page.evaluate(()=>pro.select(null));
+    await page.getByRole('button',{name:'Scene settings'}).click();
+    await inspector.locator('[data-property="sceneCamera:turn"]').first().waitFor({state:'attached'});
+    const sceneSettings=async()=>{
+      if(!await inspector.locator('.scene-inspector').count())await page.getByRole('button',{name:'Scene settings'}).click();
+      await inspector.locator('.scene-inspector').waitFor();
+    };
     // A camera move changes projection, not the simulation positions.
     await page.evaluate(()=>{pro.pause(true);pro.engine('e').w.agSim.expMode(true);});
     await page.waitForTimeout(100);
     const before=await state();
     const pixels=()=>page.evaluate(()=>{const c=pro.engine('e').canvas,x=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return Array.from(x);});
     const image1=await pixels();
-    await page.evaluate(()=>pro.setProperty('c','turn',75));
+    await page.evaluate(()=>pro.setSceneCamera({turn:75}));
     await page.waitForTimeout(300);
     const image2=await pixels(),after=await state();
     assert.ok(after.every((v,i)=>v===before[i]),'Orbit does not move or flatten particles');
     assert.ok(image1.some((v,i)=>v!==image2[i]),'3D camera changes projection: '+JSON.stringify(await page.evaluate(()=>{const e=pro.engine('e');return {cfg:{...e.w.__agParticles3d,source:undefined},stats:e.w.agSim.stats(),pixels:pro.pixels()};})));
-    await page.evaluate(()=>pro.setProperty('c','tilt',78));
+    await page.evaluate(()=>pro.setSceneCamera({tilt:78}));
     await page.locator('#preview').scrollIntoViewIfNeeded();
     const preview=await page.locator('#preview').boundingBox();
     assert.ok(preview,'The preview is visible and can be dragged');
@@ -107,7 +114,7 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     await page.mouse.move(x,y+105,{steps:4});
     await page.mouse.up();
     await page.waitForTimeout(150);
-    const pitch=await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.id==='c').props.tilt);
+    const pitch=await page.evaluate(()=>pro.getProject().settings.camera.tilt);
     assert.equal(pitch,120,'Camera pitch can orbit over the pole');
     assert.ok((await pixels()).some((v,i)=>v!==image2[i]),'The camera projects the cloud from the other side of the pole');
     assert.deepEqual(await state(),before,'Orbiting over the pole preserves the world-space state');
@@ -207,8 +214,7 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
       pro.setProperty('o','animSpeed',0);
       pro.setProperty('o','render','points');
       pro.setProperty('o','x',12);
-      pro.setProperty('c','tilt',18);
-      pro.setProperty('c','zoom',55);
+      pro.setSceneCamera({tilt:18,zoom:55});
       pro.setProperty('e','opts',{pSpSpeed:0,pSpTrail:0});
       pro.setProperty('d','value',0);
       pro.engine('e').w.agSim.reset();
@@ -234,7 +240,6 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     arena.nodes.push(floor('left',-9,'normal'),floor('right',9,'polygons'),
       {id:'floorMix',type:'merge',x:350,y:200,props:{}},{id:'mix',type:'merge',x:540,y:200,props:{}});
     const emitterProps=arena.nodes.find(n=>n.id==='e').props;
-    emitterProps.particleFloor=false;
     emitterProps.look={_sim:{pEmit:'ring'}};
     emitterProps.opts={pSpSpeed:0,pSpGravity:100,pSpTurb:0,pSpSwirl:0,pSpDrag:0,pSpTrail:0,pSimBass:0,pSimSwirlSnd:0,pSpLife:60};
     arena.edges=[arena.edges[0],{from:'left',out:'shape',to:'floorMix',input:'a'},{from:'right',out:'shape',to:'floorMix',input:'b'},
@@ -263,7 +268,8 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     floorLayer.nodes=floorLayer.nodes.filter(n=>['d','e','out'].includes(n.id));
     floorLayer.edges=[floorLayer.edges[0],{from:'e',out:'shape',to:'out',input:'image'}];
     const floorProps=floorLayer.nodes.find(n=>n.id==='e').props;
-    Object.assign(floorProps,{particleFloor:true,particleFloorSize:40,particleDepth:4,look:{_sim:{pEmit:'fountain'}}});
+    Object.assign(floorProps,{particleDepth:4,look:{_sim:{pEmit:'fountain'}}});
+    floorScene.settings.ground={enabled:true,visible:false,height:-1,size:1.6};
     await load(floorScene);
     const floorStats=()=>page.evaluate(async()=>{
       const pts=await pro.engine('e').w.agSim.particleState(),s={bounce:0,below:0,insideBelow:0,outsideBounce:0,nearX:0,nearZ:0};
@@ -281,12 +287,32 @@ const scene=(space='3d',shape='sphere')=>({format:'audiograph-pro',version:10,la
     const small=await waitFloor(s=>s.nearX>5&&s.nearZ>5&&s.below>100);
     assert.ok(small.nearX>5&&small.nearZ>5&&small.below>100&&small.insideBelow===0&&small.outsideBounce===0,
       `The finite floor catches particles equally along X and Z: ${JSON.stringify(small)}`);
-    await page.evaluate(()=>{pro.setProperty('e','particleFloorSize',100);pro.engine('e').w.agSim.reset();});
+    await page.evaluate(()=>pro.select(null));
+    await sceneSettings();
+    await inspector.getByLabel('Ground size',{exact:true}).fill('4');
+    await inspector.getByLabel('Ground size',{exact:true}).dispatchEvent('change');
+    assert.equal(await page.evaluate(()=>pro.getProject().settings.ground.size),4);
+    await page.evaluate(()=>pro.engine('e').w.agSim.reset());
     const large=await waitFloor(s=>s.outsideBounce>100);
     assert.ok(large.outsideBounce>100,'Increasing Floor Size catches particles beyond the previous edges');
-    await page.evaluate(()=>pro.select('e'));
-    await floorSection.locator('button.insp-fold-head').click();
-    await floorSection.locator('[data-property="particleFloor"]').getByRole('button',{name:'Off',exact:true}).click();
+    await sceneSettings();
+    await inspector.getByLabel('Ground height',{exact:true}).fill('-0.6');
+    await inspector.getByLabel('Ground height',{exact:true}).dispatchEvent('change');
+    await page.waitForFunction(()=>pro.engine('e').w.__agParticles3d?.floorHeight===-0.6);
+    await page.evaluate(()=>pro.engine('e').w.agSim.reset());
+    const raised=await (async()=>{
+      const sample=()=>page.evaluate(async()=>{
+        const pts=await pro.engine('e').w.agSim.particleState(),s={bounce:0,below:0};
+        for(let i=0;i<(pts?.length||0);i+=16)if(pts[i+8]>0){if(pts[i+1]<-.68)s.below++;if(pts[i+5]>.08)s.bounce++;}
+        return s;
+      });
+      for(let i=0;i<30;i++){const s=await sample();if(s.bounce>100)return s;await page.waitForTimeout(100);}
+      return sample();
+    })();
+    assert.ok(raised.bounce>100&&raised.below<raised.bounce*.05,'Ground height moves the particle floor: '+JSON.stringify(raised));
+    await sceneSettings();
+    await inspector.getByLabel('Ground enabled',{exact:true}).selectOption('false');
+    assert.equal(await page.evaluate(()=>pro.getProject().settings.ground.enabled),false);
     await page.evaluate(()=>pro.engine('e').w.agSim.reset());
     const off=await waitFloor(s=>s.insideBelow>100);
     assert.ok(off.insideBelow>100&&off.bounce===0,'Disabling Floor lets particles fall straight through');

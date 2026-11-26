@@ -10,7 +10,7 @@ const server=http.createServer((req,res)=>{
 const n=(id,type,props)=>({id,type,props,x:0,y:0});
 const edge=(from,out,to,input)=>({from,out,to,input});
 const layer=(id,nodes,edges)=>({id,name:id,visible:true,opacity:1,blend:'source-over',nodes:[...nodes,n(id+'Out','output',{})],edges});
-const scene={format:'audiograph-pro',version:10,layers:[
+const scene={format:'audiograph-pro',version:10,settings:{ground:{enabled:false}},layers:[
   layer('Mesh',[n('mesh','waveform3d',{mode:'cube',render:'waveform'}),n('camera','camera3d',{turn:35,tilt:40,dof:45})],[
     edge('mesh','shape','camera','shape'),edge('camera','shape','MeshOut','image')]),
   layer('Particles',[n('particles','gpuParticles',{mode:'simparticles',sim:{q:'high'}})],[
@@ -26,7 +26,7 @@ const scene={format:'audiograph-pro',version:10,layers:[
     page.on('pageerror',e=>errors.push(e.message));
     await page.goto((process.env.AUDIOGRAPH_PRO_URL||`http://127.0.0.1:${server.address().port}/pro/`)+'?demo');
     await page.waitForFunction(()=>window.pro);
-    assert.equal((await page.evaluate(()=>pro.getProject())).settings.camera,null,'New scenes use wired cameras by default');
+    assert.equal((await page.evaluate(()=>pro.getProject())).settings.camera.motion,'static','New scenes always have one scene camera');
     await page.evaluate(scene=>{pro.dissolve(false);pro.importProject(scene);},scene);
     await page.waitForFunction(()=>['particles','other'].every(id=>pro.engine(id)?.w?.agSim.stats().live>0));
     await page.evaluate(()=>pro.pause(true));
@@ -44,22 +44,19 @@ const scene={format:'audiograph-pro',version:10,layers:[
     assert.equal(await gear.getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('dialog[open]').count(),0,'Scene settings never opens a dialog');
     assert.equal(await panel.getByRole('heading',{name:'Scene settings'}).evaluate(el=>document.activeElement===el),true);
-    assert.deepEqual(await panel.locator('legend').allTextContents(),['3D camera','Output','Performance','2D composition']);
-    assert.equal(await field('Camera mode').inputValue(),'legacy');
+    assert.deepEqual(await panel.locator('legend').allTextContents(),['3D camera','Ground','Environment lighting','Output','Performance','2D composition']);
+    assert.equal(await field('Camera mode').count(),0,'There is no per-node camera mode');
     const knob=(k,mode='sceneCamera')=>page.locator(`#properties input[data-property="${mode}:${k}"]`);
     const setKnob=(k,value,commit,mode)=>knob(k,mode).evaluate((el,{value,commit})=>{
       el.value=value;el.dispatchEvent(new Event(commit?'change':'input',{bubbles:true}));
     },{value,commit});
-    assert.equal(await knob('dof','wiredCamera').inputValue(),'45');
-    await setKnob('dof',60,false,'wiredCamera');
-    assert.equal(await page.evaluate(()=>pro.engine('mesh').w.__agDofCfg.amt),60,'The gear exposes live wired camera controls');
-    await setKnob('dof',60,true,'wiredCamera');
-    assert.equal((await project()).settings?.camera??null,null);
+    assert.equal(await knob('dof').inputValue(),'45');
+    await setKnob('dof',60,false);
+    assert.equal(await page.evaluate(()=>pro.engine('mesh').w.__agDofCfg.amt),60,'The gear exposes live universal camera controls');
+    await setKnob('dof',60,true);
+    assert.equal((await project()).settings.camera.dof,60);
     await page.evaluate(()=>pro.undo());
-    assert.equal(await knob('dof','wiredCamera').inputValue(),'45');
-    await field('Camera mode').focus();
-    await field('Camera mode').selectOption('shared');
-    assert.equal(await field('Camera mode').evaluate(el=>document.activeElement===el),true);
+    assert.equal(await knob('dof').inputValue(),'45');
     assert.equal(await knob('turn').inputValue(),'35');
     assert.equal(await knob('dof').inputValue(),'45');
     await setKnob('dof',75,false);
@@ -69,15 +66,16 @@ const scene={format:'audiograph-pro',version:10,layers:[
     assert.equal((await project()).settings.camera.dof,45);
     await setKnob('turn',80,false);await setKnob('turn',80,true);
     assert.equal((await project()).settings.camera.turn,80);
-    assert.equal((await project()).layers[0].nodes.find(n=>n.id==='camera').props.turn,35);
+    assert.equal((await project()).layers.flatMap(g=>g.nodes).filter(n=>n.type==='camera3d').length,0,'Legacy camera nodes migrate into Scene settings');
     assert.deepEqual(await flat(),flatBefore,'Shared camera does not move or blur the flat renderer');
     assert.equal(await page.evaluate(()=>pro.engine('particles').w.__agParticles3d.yaw),80*Math.PI/180);
     assert.deepEqual(...await page.evaluate(()=>['mesh','other'].map(id=>pro.engine(id).w.__agScene.camera)));
-    await page.evaluate(()=>pro.select('camera'));
+    await page.evaluate(()=>pro.select('mesh'));
     assert.equal(await panel.isVisible(),false,'Selecting a node returns to the node inspector');
     assert.equal(await gear.getAttribute('aria-pressed'),'false');
-    assert.equal(await knob('turn').inputValue(),'80','A selected camera shows the active shared knobs');
+    assert.equal(await knob('turn').count(),0,'Object inspectors do not expose a private camera');
     await gear.click();
+    assert.equal(await knob('turn').inputValue(),'80');
     await field('Live resolution').selectOption('720');
     assert.equal(await page.locator('#resolution').inputValue(),'720');
     assert.equal(await page.locator('#preview').evaluate(el=>el.height),720);
@@ -116,17 +114,15 @@ const scene={format:'audiograph-pro',version:10,layers:[
     assert.ok(box.x>=0&&box.x+box.width<=390);
     assert.equal(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth),true,'Mobile inspector has no horizontal overflow');
     await panel.getByRole('button',{name:'Done'}).click();
-    await page.evaluate(p=>{p.settings.camera=null;p.layers[2].nodes.push({id:'camera2',type:'camera3d',x:200,y:50,props:{dof:20}});pro.importProject(p);},tuned);
+    const conflict=structuredClone(scene),other=conflict.layers[3];
+    other.nodes.push(n('camera2','camera3d',{dof:20}));
+    other.edges=[edge('other','shape','camera2','shape'),edge('camera2','shape','OtherMeshOut','image')];
+    await page.evaluate(p=>pro.importProject(p),conflict);
+    assert.match(await page.locator('#status').textContent(),/Conflicting legacy cameras/,'Conflicting cameras are reported during import');
     await gear.click();
-    assert.equal(await field('Wired camera').inputValue(),'camera');
-    await field('Wired camera').selectOption('camera2');
-    assert.equal(await knob('dof','wiredCamera').inputValue(),'20');
-    await setKnob('dof',25,false,'wiredCamera');await setKnob('dof',25,true,'wiredCamera');
-    assert.equal((await project()).layers[2].nodes.find(n=>n.id==='camera2').props.dof,25);
-    assert.equal((await project()).layers[0].nodes.find(n=>n.id==='camera').props.dof,45);
-    await field('Camera mode').selectOption('shared');
-    await field('Copy wired camera').selectOption('camera2');
-    assert.equal(await knob('dof').inputValue(),'25');
+    assert.equal(await knob('dof').inputValue(),'45','The connected primary camera is preserved');
+    assert.equal(await field('Wired camera').count(),0);
+    assert.equal(await field('Copy wired camera').count(),0);
     await page.evaluate(p=>{const l=p.layers[2];l.visible=false;p.layers=[l];pro.importProject(p);pro.pause(false);},tuned);
     const frames=await page.evaluate(async()=>{
       const count=pro.stats().frame;await new Promise(r=>setTimeout(r,1200));return pro.stats().frame-count;
@@ -151,8 +147,8 @@ const scene={format:'audiograph-pro',version:10,layers:[
     await page.waitForFunction(()=>pro.engine('mesh')?.w?.__agScene.camera);
     await page.evaluate(()=>pro.pause(true));
     await dragPreview();
-    const angles=async()=> (await project()).layers[0].nodes.filter(n=>n.type==='camera3d').map(n=>n.props.turn);
-    assert.deepEqual(await angles(),[12,19],'Dragging rotates the wired camera, not the first disconnected camera node');
+    const angle=async()=> (await project()).settings.camera.turn;
+    assert.equal(await angle(),19,'Dragging rotates the universal camera chosen from the connected legacy camera');
     await page.evaluate(()=>pro.undo());
     await page.evaluate(()=>{pro.select('mesh');pro.draw();});
     await page.keyboard.press('v');
@@ -164,16 +160,17 @@ const scene={format:'audiograph-pro',version:10,layers:[
     });
     const beforeOrbit=await thumb();
     await dragPreview();
-    assert.deepEqual(await angles(),[12,35],'Solo preview does not edit a downstream camera that is not visible');
-    assert.equal((await project()).layers[0].view.yaw,-16,'Solo preview orbits the layer view');
+    assert.equal(await angle(),19,'Solo 3D previews use the same universal camera');
+    assert.equal((await project()).layers[0].view,undefined,'3D preview does not create a private layer camera');
     assert.ok((await thumb()).filter((v,i)=>Math.abs(v-beforeOrbit[i])>12).length>100,'The solo object visibly rotates');
     await page.keyboard.press('Escape');
-    await page.evaluate(()=>{pro.undo();const p=pro.getProject();p.layers[0].nodes.find(n=>n.id==='camera').bypass=true;pro.importProject(p);});
+    const bypass=structuredClone(scene);bypass.layers=[bypass.layers[0]];bypass.layers[0].nodes.find(n=>n.id==='camera').bypass=true;
+    await page.evaluate(p=>pro.importProject(p),bypass);
     await dragPreview();
-    assert.deepEqual(await angles(),[12,35],'Bypassed cameras do not intercept rotation');
-    assert.equal((await project()).layers[0].view.yaw,-16);
+    assert.equal(await angle(),-16,'Bypassed legacy cameras do not override the universal default');
+    assert.equal((await project()).layers[0].view,undefined);
     assert.equal(await page.evaluate(()=>pro.stats().errors.length),0);
     assert.deepEqual(errors,[]);
-    console.log('ok - Scene settings inspector, live wired and shared cameras, performance, undo, persistence, and mobile');
+    console.log('ok - Universal scene camera, legacy migration, preview navigation, performance, undo, persistence, and mobile');
   }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

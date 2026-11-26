@@ -2,7 +2,7 @@ import {MAX_STOPS} from './graph.js';
 
 const COMMON=`
 struct Params {
-  grid:vec4f, flow:vec4f, camera:vec4f, screen:vec4f, look:vec4f, detail:vec4f,
+  grid:vec4f, flow:vec4f, camera:vec4f, screen:vec4f, look:vec4f, detail:vec4f, ground:vec4f,
   ramp:array<vec4f,${MAX_STOPS}>
 };
 @group(0) @binding(0) var<uniform> u:Params;
@@ -65,7 +65,7 @@ fn overlaps(p:vec3f,h:f32,i:u32)->bool{
   let i=id.x;if(i>=arrayLength(&walls)){return;}
   let c=cell(i);let p=world(vec3f(c));let h=u.grid.y/u.grid.x*1.04;
   var node=0u;walls[i]=0u;
-  if(u.detail.y>0.0&&c.y==i32(floor(coords(vec3f(0,-1,0)).y+.5))&&
+  if(u.detail.y>0.0&&c.y==i32(floor(coords(vec3f(0,u.ground.x,0)).y+.5))&&
       all(abs(p.xz)<vec2f(u.detail.y+h))){walls[i]=1u;return;}
   while(node<u32(u.grid.w)){
     let lo=mesh[node];let hi=mesh[node+1u];
@@ -239,15 +239,16 @@ export class Fluid3D{
     this.ctx?.unconfigure();this.depthCtx?.unconfigure();this.buffers=null;this.depth=null;this.deposits=null;this.n=0;
   }
   draw({camera,width,height,quality,dt,time,frame,level,beat,props,palette=[props.fluidColor],gravity=0,
-      source,flat,collisions,occluders=[],renderOnly=false}){
+      source,flat,collisions,ground,occluders=[],renderOnly=false}){
     const g=backend();if(!g)return null;
     const {device,passes,render,sampler}=g,n=8*Math.round(props.fluidResolution/8),total=n**3,half=props.fluidDomain/100;
-    const floor=props.fluidFloor?props.fluidFloorSize/50:0;
+    const floor=ground?(ground.enabled?ground.size/2:0):props.fluidFloor?props.fluidFloorSize/50:0;
+    const floorHeight=ground?.height??-1;
     if(n!==this.n||this.domain!==half){
       this.dispose();this.n=n;this.steps=0;this.lastFrame=null;
       this.domain=half;this.device=device;
       const buffer=(size,flags=GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST)=>device.createBuffer({size,usage:flags});
-      this.uniform=buffer((6+MAX_STOPS)*16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST);
+      this.uniform=buffer((7+MAX_STOPS)*16,GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST);
       const diagnostic=GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC;
       this.field=buffer(total*16,diagnostic);this.temp=buffer(total*16);this.inject=buffer(total*16);
       this.wall=buffer(total*4,diagnostic);this.pa=buffer(total*4);this.pb=buffer(total*4);this.div=buffer(total*4);
@@ -276,7 +277,7 @@ export class Fluid3D{
     const uniform=b(0,this.uniform),wall=b(3,this.wall),enc=device.createCommandEncoder();
     const bind=(i,entries)=>device.createBindGroup({layout:passes[i].getBindGroupLayout(0),entries});
     const advance=!renderOnly&&frame!==this.lastFrame;
-    const wallsChanged=this.collisions!==collisions||this.floor!==floor;
+    const wallsChanged=this.collisions!==collisions||this.floor!==floor||this.floorHeight!==floorHeight;
     const flatLayers=!source&&flat?Math.max(1,Math.ceil(.07*n/(2*half))):0;
     let update=wallsChanged&&!!source;
     if(advance){
@@ -292,6 +293,7 @@ export class Fluid3D{
         this.collisions=collisions;
       }
       this.floor=floor;
+      this.floorHeight=floorHeight;
       if(this.lastSource!==source||this.lastFlat!==flat){
         const cells=new Map(),scale=n/(2*half);
         const index=(x,y,z)=>{
@@ -350,7 +352,7 @@ export class Fluid3D{
       props.fluidRate/100*(0.45+emission*1.3+Math.min(2,beat)*0.7),props.fluidFade/100,
       gravity/17,swirl/100,camera.yaw,camera.tilt,camera.f/Math.tan(.4),camera.distance,
       camera.panX,camera.panY,width/height,occluders.length,props.fluidOpacity/20,palette.length,this.sourceCells,flatLayers,
-      Math.ceil(n*1.8),floor,source||flat?0:1,time,...rgba]));
+      Math.ceil(n*1.8),floor,source||flat?0:1,time,floorHeight,0,0,0,...rgba]));
     if(advance){
       const bindings=this.groups||=[
         bind(0,[uniform,wall,b(5,this.mesh)]),

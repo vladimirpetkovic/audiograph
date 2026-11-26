@@ -7,8 +7,8 @@ fn bounceScene(start:vec3f,velocity:vec3f,dt:f32)->Collision{
   for(var impact=0u;impact<3u;impact++){
     let delta=v*remaining;
     var best=1.0;var normal=vec3f(0.0);var node=0u;
-    if(controls.floor.x>0.0&&delta.y<0.0&&p.y>=-1.0){
-      let t=(-1.0-p.y)/delta.y;
+    if(controls.floor.x>0.0&&delta.y<0.0&&p.y>=controls.floor.y){
+      let t=(controls.floor.y-p.y)/delta.y;
       if(t<best&&all(abs(p.xz+t*delta.xz)<=vec2f(controls.floor.x))){
         best=t;normal=vec3f(0.0,1.0,0.0);
       }

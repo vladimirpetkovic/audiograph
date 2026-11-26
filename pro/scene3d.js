@@ -1,3 +1,5 @@
+import {installRigid} from './rigid.js';
+
 export const DEPTH_WGSL=`
 fn encodeSceneDepth(z:f32)->vec4f{
   let v=u32(round(clamp(z/512.0+0.5,0.0,0.99999994)*16777215.0));
@@ -14,6 +16,10 @@ const NATIVE_DEPTH=DEPTH_WGSL+`
 }
 @fragment fn sceneOpaque(fi:VOut)->@location(0) vec4f{
   if(c.mt.z<0.995||c.mt2.y==1.0){discard;}return encodeSceneDepth(fi.cp.w-length(c.cam.xyz));
+}
+@fragment fn sceneFloorDepth(fi:FlO)->@location(0) vec4f{
+  let a=c.fl.w*(1.0-smoothstep(0.3,1.0,length(fi.wp.xz)/c.gi.w));
+  if(a<0.004){discard;}return encodeSceneDepth(fi.cp.w-length(c.cam.xyz));
 }
 `;
 const SOURCE_COUNT=2048;
@@ -147,6 +153,13 @@ export const MATERIAL_DEPTH=DEPTH_WGSL+`
 }
 `;
 export function patchScene(patch){
+  patch('st.g3n=n;st.g3req=req;', 'if(window.__agScene.groundOnly)n=0;st.g3n=n;st.g3req=req;');
+  patch('var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=', 'bnd=window.__agScene.rigidBounds(bnd);var ow=st.ow,oh=st.oh,asp=ow/oh,fovY=');
+  patch('st.ibuf=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC})',
+    'st.ibuf=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST})');
+  patch('if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=', 'window.__agScene.rigid(st,enc,m,n,dev);\n    if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=');
+  patch('var fy=-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;', 'var fy=window.__agScene.groundConfig?window.__agScene.groundConfig.height:-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;if(window.__agScene.groundConfig){flA=window.__agScene.groundConfig.enabled&&window.__agScene.groundConfig.visible?0.35:0;}');
+  patch("set(1252,K('pG3Bounce',40)/100,shSz,fy,bnd*2.4);", "set(1252,K('pG3Bounce',40)/100,shSz,fy,window.__agScene.groundConfig?window.__agScene.groundConfig.size/2:bnd*2.4);");
   patch("binding:1,visibility:V,buffer:{type:'read-only-storage'}","binding:1,visibility:V|F,buffer:{type:'read-only-storage'}");
   patch("binding:1,visibility:V,buffer:{type:'read-only-storage'}","binding:1,visibility:V|F,buffer:{type:'read-only-storage'}");
   patch('usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});G.dev.queue.writeBuffer(buf,0,arr);','usage:GPUBufferUsage.VERTEX|GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});G.dev.queue.writeBuffer(buf,0,arr);');
@@ -236,6 +249,9 @@ export function installScene(w){
         vertex:{module,entryPoint:'vs',buffers:[vb]},fragment:{module,entryPoint,targets:[{format:'rgba8unorm'}]},
         primitive:{topology:'triangle-list'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'}});
       P.sceneDepth=await make('sceneDepth');P.sceneOpaque=await make('sceneOpaque');
+      P.sceneFloorDepth=await dev.createRenderPipelineAsync({layout:dev.createPipelineLayout({bindGroupLayouts:[P.g3L.r]}),
+        vertex:{module,entryPoint:'vsf'},fragment:{module,entryPoint:'sceneFloorDepth',targets:[{format:'rgba8unorm'}]},
+        primitive:{topology:'triangle-list'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'}});
       P.surfaceLayout=dev.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.FRAGMENT,buffer:{type:'read-only-storage'}},
         {binding:1,visibility:GPUShaderStage.FRAGMENT,buffer:{type:'read-only-storage'}},{binding:2,visibility:GPUShaderStage.FRAGMENT,buffer:{type:'uniform'}}]});
       const surfaceModule=dev.createShaderModule({label:'Live mesh surface emission',code:shader+NATIVE_SOURCE});
@@ -251,20 +267,21 @@ export function installScene(w){
       ensure(st);
       for(let i=0;i<2;i++){
         const pass=begin(enc,i);
+        if(i===0&&st.cu[1259]>.001){pass.setPipeline(P.sceneFloorDepth);pass.setBindGroup(0,st.g3bgR);pass.draw(6);}
         w.__agPbr.depth(pass,st,mesh,n,P,i===1);pass.end();
       }
       api.valid=true;
     },
     stretchModel(model){
       const s=w.__agCam?.stretch;
-      if(!s||s.every(v=>v===1))return model;
+      if(!s||s.every(v=>v===1))return api.rigidModel(model);
       const key=s.join(',')+':'+(w.__agG3MeshVer||0);
       if(modelStretch?.model!==model||modelStretch.key!==key){
         const verts=model.verts.map(v=>v.map((x,i)=>x*s[i]));
         const normals=model.normals.map(v=>{const n=v.map((x,i)=>x/s[i]),len=Math.hypot(...n)||1;return n.map(x=>x/len);});
         modelStretch={model,key,scaled:{...model,verts,normals}};
       }
-      return modelStretch.scaled;
+      return api.rigidModel(modelStretch.scaled);
     },
     classicSurface(ctx,vertices,model,wire,persp){
       if(!(wantSource||wantCollision)||!w.__agCam)return;
@@ -359,8 +376,9 @@ export function installScene(w){
       }
     },
     placement:()=>placement,
-    destroy(){destroyTargets();destroySource();if(polyTargets){polyTargets.z.destroy();polyTargets.buffer?.destroy();polyTargets.canvas.getContext('webgpu').unconfigure();polyTargets=null;}for(const c of [depth,opaque])c.getContext('webgpu')?.unconfigure();api.valid=false;}
+    destroy(){api.disposeRigid();destroyTargets();destroySource();if(polyTargets){polyTargets.z.destroy();polyTargets.buffer?.destroy();polyTargets.canvas.getContext('webgpu').unconfigure();polyTargets=null;}for(const c of [depth,opaque])c.getContext('webgpu')?.unconfigure();api.valid=false;}
   };
+  installRigid(w,api);
   return api;
 }
 const metadata=new WeakMap();

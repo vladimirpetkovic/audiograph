@@ -4,15 +4,15 @@ import {node} from './graph.js';
 
 const SEEN='agpro.tourSeen';
 // Chain order of the tutorial graph; each step shows the nodes it has reached so far.
-const CHAIN=['A','W','PT','T','P','B','TR','O'];
+const CHAIN=['A','W','PT','T','P','B','TR','M','O'];
 const SPEC={
   A:['audioIn',{}],W:['waveform2d',{mode:'linear',lineShape:'pins',thick:2,outline:true}],PT:['particles',{density:30,energy:1.6,trail:35,size:5}],T:['twist',{amount:30}],
-  P:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],B:['bloom',{bloom:10}],TR:['trails',{trails:70,feedback:30,smooth:100}],O:['output',{}],
+  P:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],B:['bloom',{bloom:10}],TR:['trails',{trails:70,feedback:30,smooth:100}],M:['merge',{}],O:['output',{}],
   L:['oscillator',{rate:.12,depth:.8,offset:.1}],
-  A2:['audioIn',{}],C:['gpuParticles',{mode:'simfluid'}],P2:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],O2:['output',{}]
+  A2:['audioIn',{}],C:['gpuParticles',{mode:'simfluid'}],P2:['palette',{c1:'#0a1028',c2:'#3b5bdb',c3:'#c2255c',c4:'#ffe066'}],M2:['merge',{}],O2:['output',{}]
 };
-const IN={W:'audio',PT:'shape',T:'shape',P:'shape',B:'image',TR:'image',O:'image'};
-const OUT={A:'audio',W:'shape',PT:'shape',T:'shape',P:'shape',B:'image',TR:'image'};
+const IN={W:'audio',PT:'shape',T:'shape',P:'shape',B:'image',TR:'image',M:'a',O:'image'};
+const OUT={A:'audio',W:'shape',PT:'shape',T:'shape',P:'shape',B:'image',TR:'image',M:'image'};
 
 export const STEPS=[
   {t:'Choose your Audio source',sel:['#audioName','#spectrum'],keys:['A','W','O'],lib:'A',ban:'Pick your <b>Audio source</b>',
@@ -24,7 +24,7 @@ export const STEPS=[
   {t:'System audio',sel:'#system',select:'A',ban:'Source: <b>System</b> audio',
     txt:'React to whatever your computer plays: Spotify, a DJ app, a browser tab. In Chrome or Edge pick a screen or tab to share and tick “Share audio”; only its sound is used.'},
   {t:'Nodes and wires',sel:'#graphViewport',keys:['A','W','O'],ban:'Sound flows through <b>Nodes</b>',
-    txt:'Each box is a node that does one thing. Sound flows along the wires from Audio into a Waveform that draws it, then into Output: what you see.'},
+    txt:'Each box is a node that does one thing. Sound flows from Audio into a Waveform, then through Merge into Output. New visual generators join Merge automatically; controls and effects only change what you wire them into.'},
   {t:'Tune it in the Inspector',sel:'.inspector',keys:['A','W','O'],spiral:true,select:'W',ban:'Tune it in the <b>Inspector</b>',
     txt:'Click any node and its knobs appear here. We switched the Waveform to Spiral. Drag a knob to change it, or double-click to type a value.'},
   {t:'Add from the Library',sel:'.library',keys:['A','W','T','O'],spiral:true,select:'T',ban:'Add nodes from the <b>Library</b>',
@@ -55,23 +55,23 @@ STEPS.forEach((s,i)=>{if(!s.keys){const prev=STEPS.slice(0,i).reverse().find(p=>
 // The scene each step shows; steps 1-2 start from a plain straight-line waveform.
 function sceneOf(s,ids){
   const make=(k,props={})=>{const [type,p]=SPEC[k],n=node(type,0,80,{...p,...props});n.id=ids[k];return n;};
-  const keys=CHAIN.filter(k=>s.keys.includes(k)),nodes=keys.map((k,i)=>{const n=make(k,k==='W'?(s.spiral?{mode:'spiral',lineShape:'pins',styleSize:100,styleDensity:100,styleAngle:0,density:350,height:100,thick:4,varyHeight:true,varyThick:false}:{lineShape:'straight',outline:false}):{});n.x=40+i*210;return n;}),edges=[];
-  for(let i=1;i<keys.length;i++)edges.push({from:ids[keys[i-1]],out:OUT[keys[i-1]],to:ids[keys[i]],input:IN[keys[i]]});
+  const keys=CHAIN.filter(k=>k==='M'||s.keys.includes(k)),nodes=keys.map((k,i)=>{const n=make(k,k==='W'?(s.spiral?{mode:'spiral',lineShape:'pins',styleSize:100,styleDensity:100,styleAngle:0,density:350,height:100,thick:4,varyHeight:true,varyThick:false}:{lineShape:'straight',outline:false}):{});n.x=40+i*210;return n;}),edges=[];
+  for(let i=1;i<keys.length;i++)edges.push({from:ids[keys[i-1]],out:OUT[keys[i-1]],to:ids[keys[i]],input:IN[keys[i]],...(keys[i]==='M'&&{auto:true})});
   if(s.lfo){const l=make('L'),t=nodes.find(n=>n.id===ids.T);l.x=t.x;l.y=300;nodes.push(l);edges.push({from:ids.L,out:'value',to:ids.T,input:'amount'});}
   const layers=[{id:ids.G1,name:'Tutorial',visible:true,opacity:1,blend:'source-over',nodes,edges}];
-  if(s.layer2){const k2=['A2','C','P2','O2'],n2=k2.map((k,i)=>{const n=make(k);n.x=40+i*210;return n;});
+  if(s.layer2){const k2=['A2','C','P2','M2','O2'],n2=k2.map((k,i)=>{const n=make(k);n.x=40+i*210;return n;});
     layers.push({id:ids.G2,name:'Fluid',visible:true,opacity:1,blend:'screen',nodes:n2,
-      edges:[{from:ids.A2,out:'audio',to:ids.C,input:'audio'},{from:ids.C,out:'shape',to:ids.P2,input:'shape'},{from:ids.P2,out:'shape',to:ids.O2,input:'image'}]});}
+      edges:[{from:ids.A2,out:'audio',to:ids.C,input:'audio'},{from:ids.C,out:'shape',to:ids.P2,input:'shape'},{from:ids.P2,out:'shape',to:ids.M2,input:'a',auto:true},{from:ids.M2,out:'image',to:ids.O2,input:'image'}]});}
   return layers;
 }
 const newIds=()=>Object.fromEntries([...Object.keys(SPEC),'G1','G2'].map(k=>[k,crypto.randomUUID()]));
-// The scene the studio opens with (and Reset returns to): Audio → Spiral waveform drawn as Pins (the tutorial's) → Palette (Classic, its dark stop see-through) → Output.
+// The studio starts with the tutorial's spiral and palette, feeding the default Merge.
 export function startScene(){
   const ids=newIds(),W=node('waveform2d',0,80,{mode:'spiral',lineShape:'pins',styleSize:100,styleDensity:100,styleAngle:0,density:350,height:100,thick:4,varyHeight:true,varyThick:false,outline:true}),A=node('audioIn',0,80,{}),P=node('palette',0,80,{});
-  P.props.stops=P.props.stops.map((st,i)=>i?st:{...st,a:0});const O=node('output',0,80,{});
-  const nodes=[A,W,P,O];nodes.forEach((n,i)=>{n.x=40+i*210;});
+  P.props.stops=P.props.stops.map((st,i)=>i?st:{...st,a:0});const M=node('merge',0,80,{}),O=node('output',0,80,{});
+  const nodes=[A,W,P,M,O];nodes.forEach((n,i)=>{n.x=40+i*210;});
   return [{id:ids.G1,name:'Scene',visible:true,opacity:1,blend:'source-over',nodes,
-    edges:[{from:A.id,out:'audio',to:W.id,input:'audio'},{from:W.id,out:'shape',to:P.id,input:'shape'},{from:P.id,out:'shape',to:O.id,input:'image'}]}];
+    edges:[{from:A.id,out:'audio',to:W.id,input:'audio'},{from:W.id,out:'shape',to:P.id,input:'shape'},{from:P.id,out:'shape',to:M.id,input:'a',auto:true},{from:M.id,out:'image',to:O.id,input:'image'}]}];
 }
 
 // api: setScene(layers,first), select(id), workspace(w), play(), testTrack(), prepare(), done(), stopAutomation(), zoom()

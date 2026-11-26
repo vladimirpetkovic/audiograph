@@ -341,7 +341,7 @@ export function installParticleControls(w){
       dev.queue.writeBuffer(extra.buffer,0,new Float32Array([
         st.zeroLaunch?1:0,field?.end||0,cfg.response==='motion'?0:1,cfg.response==='sound'||!cfg.response?0:1,
         cfg.shared?SCENE_DISTANCE*(cfg.focal||1)/Math.max(.3,cfg.zoom||1):0,(cfg.dof||0)/100*st.oh*.05,((cfg.focus??50)-50)/50*2,extra.sourceDt||1/60,
-        ...row0,...row1,cfg.floorHalf||0,0,0,0]));
+        ...row0,...row1,cfg.floorHalf||0,cfg.floorHeight??-1,0,0]));
       return extra.group;
     },
     destroy(st){if(st.extra3){st.extra3.buffer.destroy();st.extra3.collision?.destroy();for(const t of [...st.extra3.textures,...st.extra3.sources])t.destroy();st.extra3=null;}}

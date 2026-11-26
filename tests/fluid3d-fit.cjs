@@ -33,7 +33,8 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     await load(scene(nodes,edges));
     await page.locator('#fit').click();
     const fitted=await page.evaluate(()=>pro.getProject().layers[0]);
-    assert.deepEqual(fitted.edges,edges);
+    assert.deepEqual(fitted.edges,edges.filter(e=>e.to!=='cam').map(e=>e.from==='cam'?{...e,from:'fluid'}:e));
+    assert.ok(!fitted.nodes.some(n=>n.type==='camera3d'),'The legacy camera migrates into Scene settings');
     assert.ok(fitted.nodes.find(n=>n.id==='out').x<1300,'Fit compacts an already left-to-right graph');
     await page.waitForFunction(()=>{
       const vp=document.querySelector('#graphViewport').getBoundingClientRect();
@@ -51,12 +52,17 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     assert.equal(await page.locator('#properties [data-property="fluidBand"]').count(),0,'A wired Drive replaces the band picker');
     for(const key of ['fluidResolution','fluidDomain','fluidSpeed','fluidPressure'])await emission.locator(`[data-property="${key}"]`).first().waitFor({state:'attached'});
     assert.equal(await page.locator('#properties [data-property="fluidLift"]').count(),0);
-    await page.locator('#properties [data-group="Floor"] [data-property="fluidFloor"]').first().waitFor({state:'attached'});
+    assert.equal(await page.locator('#properties [data-property="fluidFloor"]').count(),0,'Ground is no longer a per-emitter toggle');
+    await page.getByRole('button',{name:'Scene settings',exact:true}).click();
+    assert.equal(await page.getByLabel('Ground enabled',{exact:true}).inputValue(),'true');
+    await page.locator('.scene-inspector').getByRole('button',{name:'Done',exact:true}).click();
     try{
-      await page.waitForFunction(()=>{const e=pro.engine('fluid'),s=e?.fluid?.stats();return s?.steps>=14&&s.sourceCells>80&&pro.pixels()>.25;},null,{timeout:35000});
+      await page.waitForFunction(()=>{const e=pro.engine('fluid'),s=e?.fluid?.stats();return s?.steps>=14&&s.sourceCells>80&&e.fluid.collisions.end>0&&pro.pixels()>.25;},null,{timeout:35000});
     }catch(e){console.log(await page.evaluate(()=>pro.stats()));throw e;}
-    assert.ok(await page.evaluate(()=>{const f=pro.engine('fluid').fluid;
-      return f.n===32&&f.field.size===32**3*16&&f.collisions.end>0&&f.depth.width>1;}),'XYZ grid uses the shared collider BVH and geometry depth');
+    const grid=await page.evaluate(()=>{const f=pro.engine('fluid').fluid;
+      return {n:f.n,size:f.field.size,colliders:f.collisions.end,depth:f.depth.width};});
+    assert.ok(grid.n===32&&grid.size===32**3*16&&grid.colliders>0&&grid.depth>1,
+      'XYZ grid uses the shared collider BVH and geometry depth: '+JSON.stringify(grid));
     const before=await page.evaluate(()=>pro.engine('fluid').fluid.lastSource);
     assert.ok(Object.values(before).some((z,i)=>i%12===2&&Math.abs(z)>.25),'mesh emission samples extend through Z');
     const flow=await page.evaluate(async()=>{
@@ -93,6 +99,13 @@ const edge=(from,out,to,input)=>({from,out,to,input});
     await page.waitForFunction(previous=>{const end=pro.engine('fluid')?.fluid?.collisions?.end;return end>0&&end<previous;},colliderSize);
     await page.evaluate(()=>pro.setProperty('ball','collide',false));
     await page.waitForFunction(()=>!pro.engine('fluid')?.fluid?.collisions?.end);
+    await page.getByRole('button',{name:'Scene settings',exact:true}).click();
+    await page.getByLabel('Ground height',{exact:true}).fill('-0.5');
+    await page.getByLabel('Ground height',{exact:true}).press('Tab');
+    await page.waitForFunction(()=>pro.engine('fluid').fluid.floorHeight===-.5&&pro.engine('fluid').fluid.floor===10);
+    await page.getByLabel('Ground enabled',{exact:true}).selectOption('false');
+    await page.waitForFunction(()=>pro.engine('fluid').fluid.floor===0);
+    await page.locator('.scene-inspector').getByRole('button',{name:'Done',exact:true}).click();
     const video=await page.evaluate(()=>pro.exportVideo({tone:.25,height:540,fps:24}));
     assert.ok(video.bytes>1000&&video.frames>=5,'3D Fluid renders through offline export');
     await page.evaluate(()=>pro.setProperty('fluid','mode','simfluid'));

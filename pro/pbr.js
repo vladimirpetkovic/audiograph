@@ -69,8 +69,8 @@ function materialShader(source){
   let ao=mix(1.0,clamp(mapValue(fi.uv,4u),0.0,1.0),material.surface.w);`);
   patch('let rough=clamp(c.mt.x,0.05,1.0);let met=c.mt.y;','let rough=clamp(material.surface.x*mapValue(fi.uv,1u),0.05,1.0);let met=clamp(material.surface.y*mapValue(fi.uv,2u),0.0,1.0);');
   patch('let dif=base*(1.0-met)*nl/3.14159265*3.0;','let dif=base*(1.0-met)*(vec3f(1.0)-F)*nl/3.14159265*3.0;');
-  patch('(hemi*c.l2.x+envC(n,1.0)*0.12);','(hemi*c.l2.x+envC(n,1.0)*0.12)*ao;');
-  patch('envC(reflect(-V,n),rough)*Fe*c.env.y;','envC(reflect(-V,n),rough)*Fe*c.env.y*ao;');
+  patch('(hemi*c.l2.x+select(envC(n,1.0)*0.12,importedDiffuse(n),envSettings.x>0.5));','(hemi*c.l2.x+select(envC(n,1.0)*0.12,importedDiffuse(n),envSettings.x>0.5))*ao;');
+  patch('select(envC(reflect(-V,n),rough)*c.env.y,importedSpecular(reflect(-V,n),rough),envSettings.x>0.5)*Fe;','select(envC(reflect(-V,n),rough)*c.env.y,importedSpecular(reflect(-V,n),rough),envSettings.x>0.5)*Fe*ao;');
   patch('var rgb=col;var a=alpha;','var rgb=col+material.emissive.rgb*material.emissive.w*mapColor(fi.uv,5u).rgb;var a=alpha;');
   return source+'\n'+MATERIAL_WGSL+MATERIAL_DEPTH;
 }

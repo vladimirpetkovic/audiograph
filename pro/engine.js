@@ -10,6 +10,7 @@ import {firstFrame} from './media.js';
 import {Fluid3D} from './fluid3d.js';
 import {patchParticles3d,surfaceSource,SCENE_DISTANCE,installParticleControls} from './particles3d.js';
 import {patchPbr,installPbr} from './pbr.js';
+import {patchEnvironment,installEnvironment} from './environment.js';
 import {decodeMaterials,releaseMaterials} from './model-materials.js';
 import {patchScene,installScene,flowPhase} from './scene3d.js';
 // The 3D lighting after the WebGPU Cornell box sample (soft cast shadows, light size, bounce light, floor), smooth
@@ -184,6 +185,7 @@ async function engineSource() {
     patchParticles3d(patch);
     patchPbr(patch);
     patchScene(patch);
+    patchEnvironment(patch);
     patch("var _model=_objActiveModel();","window.__agScene.beforePaint(ctx,W,H);var _model=window.__agScene.stretchModel(_objActiveModel());");
     patch("var edges=_wire.edges.slice();","window.__agScene.classicSurface(ctx,projected,_model,_wire,persp);var edges=_wire.edges.slice();");
     patch("return db-da;","return window.__agCam?da-db:db-da;");
@@ -302,6 +304,7 @@ export class EmitterEngine {
     if(typeof w.getDefaultLayerParams!=='function'||!w.agSim||!w.agDrawDensity||typeof w.liveAnimLoop!=='function')throw Error('Renderer API unavailable in the parent app');
     this.w=w;
     installPbr(w);
+    installEnvironment(w);
     w.addEventListener('error',event=>this.fail(`Emitter engine: ${event.message}`));
     w.alert=message=>{message=String(message);if(/camera/i.test(message)){this.camError=message;this.onError(message);}else this.fail(message);};
     if(w.navigator.mediaDevices)w.navigator.mediaDevices.getUserMedia=async c=>{
@@ -440,6 +443,7 @@ export class EmitterEngine {
     if(this.status==='error')throw Error(this.error);
     this.drawnAt=performance.now();
     if(this.status!=='ready')return null;
+    this.w.__agEnvironment.set(job.environment);
     if(job.templateMorph)return this.drawTemplateMorph(job,performanceSettings);
     if(job.mode==='simfluid3d')return this.drawFluid(job,performanceSettings);
     if(this.fluid){this.fluid.dispose();this.fluid=null;}
@@ -447,6 +451,8 @@ export class EmitterEngine {
     if(performanceSettings?.lensEffects===false)job={...job,mods:{...job.mods,pG3Dof:0,pG3Mb:0}};
     w.__agObjectComposite=!!job.sceneObject;
     w.__agScene.start(!!job.wantDepth,!!job.wantSource,job.surfaceFlowTime==null?null:flowPhase(job.surfaceFlowTime),!!job.wantCollision);
+    w.__agScene.rigidConfig=job.rigid||null;
+    w.__agScene.groundConfig=job.ground||null;w.__agScene.groundOnly=!!job.groundOnly;
     if(job.need&&this.mediaKind!==job.need)throw Error(`${job.label||job.mode}: load ${job.need==='image'?'an image':'a video'} in its properties`);
     const p={...this.base};
     for(const [k,v] of Object.entries(job.opts||{}))if(OPT_ID.test(k))p[k]=v;
@@ -516,7 +522,7 @@ export class EmitterEngine {
         yaw:((v.yaw||0)-(p._dragRotY||0)/dg+camYaw)*dg,
         tilt:((v.pit||0)+(p._dragRotX||0)/dg+(cm.pG3Tilt??18))*dg,
         zoom:(v.zm||1)*(cm.pG3Zoom??(src||job.sharedScene?55:100))/100,focal:(+cm.pG3Focal||28)/28,
-        panX:v.px||0,panY:v.py||0,depth:job.particleDepth??2,spread:(job.particleSpread??15)/100,floorHalf:(job.particleFloorSize??0)/50,
+        panX:v.px||0,panY:v.py||0,depth:job.particleDepth??2,spread:(job.particleSpread??15)/100,floorHalf:job.ground?(job.ground.enabled?job.ground.size/2:0):(job.particleFloorSize??0)/50,floorHeight:job.ground?.height??-1,
         shared:!!src||!!job.emitSurface||!!job.sharedScene||job.sharedCamera,response:job.particleResponse||'sound',
         dof:cm.pG3Dof||0,focus:cm.pG3Focus??50,occluders:job.occluders||[],collisions:job.collisions
       };
@@ -561,7 +567,7 @@ export class EmitterEngine {
     const selected=performanceSettings?.simulation;
     const out=volume.draw({camera,width:WIDTH,height:HEIGHT,quality:selected&&selected!=='node'?selected:'med',
       dt:job.dt,time:job.time,frame:job.frame,level:job.audio.drive.fluid,beat:job.audio.drive.beat*p.punch/100,
-      props:p,palette,gravity:cm._fluidGravity,source,flat:job.flatFluid,collisions:job.collisions,
+      props:p,palette,gravity:cm._fluidGravity,source,flat:job.flatFluid,collisions:job.collisions,ground:job.ground,
       occluders:job.occluders,renderOnly:job.renderOnly});
     if(out){
       this.ctx.resetTransform();this.ctx.clearRect(0,0,WIDTH,HEIGHT);
@@ -722,7 +728,7 @@ export class EmitterEngine {
   dispose() {
     this.disposed=true;this.cancelLoad?.();
     this.fluid?.dispose();
-    releaseMaterials(this.anim);this.w?.__agPbr.destroy();this.w?.__agScene.destroy();
+    releaseMaterials(this.anim);this.w?.__agPbr.destroy();this.w?.__agEnvironment.destroy();this.w?.__agScene.destroy();
     if(this.video){this.video.pause();this.video.removeAttribute('src');}
     if(this.videoURL)URL.revokeObjectURL(this.videoURL);
     if(this.w){try{this.w.stopCam?.();this.w.stopWebcamFeed?.();}catch{}try{this.w.agSim.reset();if(this.w.agSim.status()==='ready')this.w.agSim.loseDevice();}catch{}}

@@ -116,7 +116,7 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
     const round=await pixels('e');
     assert.ok(streak.signature.filter((v,i)=>Math.abs(v-round.signature[i])>8).length>50,'Trails draw visible paths and disappear at zero');
     assert.deepEqual(await state(),frozen,'Occlusion replay and rendering-only changes do not advance particle state');
-    await page.evaluate(()=>{pro.setProperty('cs','dof',100);pro.setProperty('cs','focus',0);});await wait(100);
+    await page.evaluate(()=>pro.setSceneCamera({dof:100,focus:0}));await wait(100);
     const blur=await pixels('e');
     assert.ok(blur.filled>round.filled&&blur.edge<round.edge,'Particle depth of field broadens and softens sprites');
     await page.evaluate(()=>{pro.engine('e').w.agSim.expMode(false);pro.pause(false);pro.setProperty('e','particleResponse','both');pro.setProperty('d','value',1);});await wait(200);
@@ -175,7 +175,7 @@ const scene={format:'audiograph-pro',version:10,layers:[{id:'L',name:'Shared spa
       body.nodes.push({id:'grade',type:'grade',x:300,y:100,props:{hue:45}});
       body.edges.find(e=>e.to==='ob').from='grade';
       body.edges.find(e=>e.to==='ob').out='image';
-      body.edges.push({from:'co',out:'shape',to:'grade',input:'image'});
+      body.edges.push({from:'o',out:'shape',to:'grade',input:'image'});
       pro.importProject(p);
     });await wait(500);
     assert.equal((await pixels('e')).energy,0,'A color-corrected model still occludes particles across project layers');

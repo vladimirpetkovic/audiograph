@@ -10,6 +10,13 @@ uploads or remote services.
 Every **layer** is a graph that ends in an **Output**. Layers stack in the preview,
 each with its own opacity and blend mode (up to four).
 
+New graphs start with **Merge → Output**. New visual generators join Merge
+automatically; modifiers and controls do not. Full Merge nodes grow into another
+Merge without replacing existing inputs. Using a generator as a Cloner or particle
+source removes its automatic preview wire; explicit manual wires are preserved.
+Normal merges render their 3D contributors together by depth, then composite 2D
+overlays. Earlier 2D inputs and Background nodes can sit behind the 3D world.
+
 - **Inputs** (what you bring in):
   - **Audio**: the project's sound. Its inspector has **Load file**, **Mic** and
     **System**; every Audio node hears that one source. Outputs: `audio` (the
@@ -27,11 +34,11 @@ each with its own opacity and blend mode (up to four).
     Cloner wire samples the actual mesh surface, including
     animated poses, and launches along surface normals. **Surface spread** scatters
     launch directions; **Depth** sets the front-to-back spread of Fountain emission.
-    Add a **3D camera** after particles for Rotate, Orbit, Tilt, Zoom and Focal length;
-    dragging the preview also orbits the cloud. Gravity, Drag, Swirl, Attract and
-    Turbulence work in 3D. **Floor** is an invisible square that catches falling
-    3D particles. **Size** sets both sides; switch **Enabled** off to let particles
-    fall through. Flat (2D) emitters keep their frame bounds.
+    Use **Scene settings → 3D camera** for Rotate, Tilt, Zoom and Focal length;
+    dragging the preview moves the same camera for all 3D content. Gravity, Drag,
+    Swirl, Attract and Turbulence work in 3D. **Scene settings → Ground** controls
+    the shared floor, its height and size. Switch **Ground enabled** off to let
+    particles fall through. Flat (2D) emitters keep their frame bounds.
     Without a wire, choose **Image** in **Emission** to upload a picture, or
     **Webcam** and **Start camera** to emit from a live feed. Both sources are
     flat. Uploaded images stay in the current session, not in the project file.
@@ -42,8 +49,8 @@ each with its own opacity and blend mode (up to four).
     or Camera to inject into a flat slice of the volume. Turn on **Collide**
     on any 3D Object to block the flow, including the emitter itself: fluid
     still starts at its surface. Fluid spreads in all directions unless
-    you wire **Gravity** after it. The optional square **Floor** blocks the flow
-    at ground level. **Container size** sets the size of the cube;
+    you wire **Gravity** after it. The scene's square **Ground** blocks the flow
+    at its configured height. **Container size** sets the size of the cube;
     **Resolution** sets the simulation detail (24–128 voxels per side, default 128). Lower
     Resolution to lighten the simulation, or lower Scene **Simulation quality**
     to render the preview at a lower pixel resolution. Wire a **Palette** after
@@ -65,8 +72,8 @@ each with its own opacity and blend mode (up to four).
     or inherit its movement. Samples stay attached to the same face/barycentric
     location as the mesh animates. Normal/Cloner emission samples current GPU
     instances, including sound/random effectors; Polygons uses the actual
-    displaced/shrunk faces. A Camera/Material/Palette **shape → emit** branch keeps
-    mesh emission and its camera instead of flattening it into a picture.
+    displaced/shrunk faces. A Material/Palette **shape → emit** branch keeps
+    mesh emission instead of flattening it into a picture.
     Turn on **Emission → Surface flow** to move particles along the connected
     surface without launching.
     Flow follows animation and does not cross gaps between disconnected faces.
@@ -97,20 +104,19 @@ each with its own opacity and blend mode (up to four).
     cannot be read, the object still loads with Palette shading and the inspector
     explains why. Textures are mipmapped and capped at 4096 px.
     Lights, shadows, camera, depth of field and motion blur still apply.
-- **3D camera → Depth of field / Focus** works on every 3D Object render, the
+- **Scene settings → 3D camera → Depth of field / Focus** works on every 3D Object render, the
   Waveform (line) render included, and on 3D particles. Normal/Polygons/model
   point clouds and particles use a shared world-space focus plane: 50 is the
   scene origin, 0 nearer and 100 farther.
-- **Shared 3D depth**: Normal/Polygons objects and 3D particles with matching
-  cameras intersect in depth, in Merge and across project layers. Front particles
+- **Shared 3D depth**: Normal/Polygons objects and 3D particles use the universal
+  scene camera and intersect in depth, in Merge and across project layers. Front particles
   remain visible and particles behind opaque surfaces disappear; imported alpha
   masks leave holes and blended materials do not become solid blockers. Normal
   compositing orders colour by depth, independently of Merge input order. Other
   blend modes keep their chosen 2D blend while retaining particle occlusion.
-  Use one Camera's shape branch for both the object and its emitter, or matching
-  camera settings. Stylized wire/point renders are not solid occluders; general
+  Stylized wire/point renders are not solid occluders; general
   image effects flatten their result rather than carrying stale 3D depth.
-- **3D camera → Lens → Focal length** (14–200 mm, full-frame; 28 mm is the classic
+- **Scene settings → 3D camera → Lens → Focal length** (14–200 mm, full-frame; 28 mm is the classic
   view). The subject stays framed, so short lenses exaggerate depth and long lenses
   flatten it. In the Cloner it sets the real field of view; classic 3D modes scale
   their Perspective by the same ratio.
@@ -201,20 +207,23 @@ each with its own opacity and blend mode (up to four).
   solid, lit object with size, detail and stretch), **Waveform** (audio-reactive
   lines), **Polygons** (filled faces in palette colours: each face hears its own
   band, brightens and moves out along its normal; Elevation, Noise, Gap and Edges
-  shape it; animated models play) or, for a Model, **Point cloud** (framed like the other renders). A **3D Model** always comes with a
-  **3D camera** wired after it: the camera holds the view (**Rotate**, Orbit, Orbit with sound, Tilt, Zoom, Focal length),
-  so the model's own Perspective / Tilt / Rotate (and point-cloud Orbit / Tilt / Zoom) step aside; dragging the preview
-  rotates and tilts the camera, the wheel zooms it, double-click resets it. A model's colours come from the Palette:
+  shape it; animated models play) or, for a Model, **Point cloud** (framed like the other renders).
+  Every model uses the camera in **Scene settings**. Dragging the preview rotates
+  and tilts that camera, the wheel zooms it, and double-click resets it. Object
+  transforms remain on the object node. A model's colours come from the Palette:
   loud lines / faces take the top of the ramp (Sound › Sensitivity, Contrast); a point cloud uses Look › Colour. Every 3D Object has an `object` output:
   **Cloner** (layout, counts, spacing, steps, **Scale** (uniform and X / Y / Z, on top of the object's own size and stretch), rotation, variety) takes up to three and
   clones whatever is wired, imported Models included. **Effectors** (Sound, Field, Random, Links with width, glow and sound pulse) and **Look** (Material,
-  Light, Camera). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
-  coloured bounce light and an optional floor that catches the shadows. Chain effectors and look nodes after the Cloner. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
+  Light). **Light** adds soft cast shadows, a light size for softer penumbras and highlights,
+  and coloured bounce light. Ground and HDR lighting belong to Scene settings. Chain effectors and look nodes after the Cloner. Older Primitive, 3D Object and Waveform 3D nodes open as 3D Objects. Older cloner projects split
   into these nodes automatically.
-- **Viewport camera**: drag in the preview to orbit a 3D layer (right- or Shift-drag pans), or to move a 2D
+- **Viewport camera**: drag in the preview to orbit the whole 3D scene (right- or Shift-drag pans), or to move a 2D
   layer; the wheel, a trackpad pinch (Chrome, Edge, Safari) or a two-finger touch pinch zooms, and a double-click resets.
-  Classic 3D renders (Waveform, Polygons) zoom natively, so lines stay sharp. It applies to the active layer and is saved with it.
-  Nothing rotates by default: Cloner Spin and 3D camera Orbit / Orbit with sound start at 0 (presets set their own).
+  Classic 3D renders (Waveform, Polygons) zoom natively, so lines stay sharp. The
+  3D view is saved in Scene settings, not on individual layers. Camera movement
+  starts **Static**; choose **Orbit**, **Pendulum**, **Dolly** or **Spiral**, with
+  speed, range, height and audio influence where applicable. All paths loop;
+  pause freezes movement and **Restart movement** resets its phase.
 - **Emitters**: **Simple emitters** includes **Simple particles**;
   **WebGPU emitters** includes Particles, Fluid, 3D Fluid and Smoke. The original simulations use their own
   band envelopes and onset detector. Lower **Bass reaction** or **Audio contrast**
@@ -443,8 +452,17 @@ process the finished image.
   look, keeps the audio playing, and leaves an editable graph. Undo restores the previous scene.
   The **Scene settings** gear next to Reset opens the inspector with live camera knobs, output
   and export defaults, performance settings, and the canvas background.
-  **Wired cameras** are the default; choose which wired camera to edit, or switch to
-  **Shared scene camera** to use one camera across all 3D layers.
+  There is always one universal camera; camera nodes are no longer in the library.
+  Older camera nodes migrate into Scene settings and their shape wires reconnect.
+  Conflicting cameras produce an import notice identifying the chosen camera.
+  Legacy node-based camera automation bindings need reassignment.
+  Enable **Rigid body** on 3D Objects and Cloners for shared collisions across
+  objects, cloner instances and layers. Collision bounds can be Auto, Box or
+  Sphere; Gravity, Wind, Swirl, Drag, Turbulence and Field effectors add forces.
+  **Ground** is enabled by default and can be visible or collision-only.
+  Import a Radiance **.hdr** environment in Scene settings to light native solid meshes
+  and imported PBR materials. Intensity and rotation adjust its illumination; the HDR
+  is embedded in the saved scene. It does not replace the canvas background.
   Opaque models occlude particles viewed through the same camera;
   transparent surfaces and cutouts still let particles show through.
   **Performance** can cap live FPS, override WebGPU simulation quality, or skip 3D lens effects

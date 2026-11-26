@@ -186,6 +186,10 @@ export function chips(opts) {
   const root = el('div', 'chips');
   if (opts.property) root.dataset.property = opts.property;
   const items = (opts.options || []).map((o) => (Array.isArray(o) ? { value: o[0], label: o[1] } : o));
+  if(items.length>2){
+    root.classList.add('option-grid');
+    root.style.setProperty('--option-columns',Math.min(4,items.length));
+  }
   let current = opts.value;
   const buttons = items.map((o) => {
     const b = el('button', 'mbtn');

@@ -6,6 +6,8 @@ import {cleanMapping} from './mapping.js';
 import {SHADER_EXAMPLES,SHADER_DEFAULT,parseKnobs,knobDefault} from './shaderfx.js';
 import {TEMPLATE_NAMES} from './morph.js';
 import {wander} from './wander.js';
+import {validateEnvironment} from './environment.js';
+import {CAMERA_MOTIONS} from './camera.js';
 import {withMaterials} from './model-materials.js';
 export const MODES = {
   waveform2d: [['linear','Linear'],['circle','Circle'],['concentric','Concentric'],['spiral','Spiral'],['phyllotaxis','Phyllotaxis'],['fractal','Fractal'],['growth','Growth'],['sacred','Sacred'],['water','Water'],['graph','Graph'],['lissajous','Harmonic'],['scatter','Scatter'],['sine','Sine'],['custom','Math']],
@@ -120,6 +122,16 @@ export const COMP_KEYS=Object.keys(COMP_PROPS);
 const ENGINE=(category,label,description,props,outputs={},group)=>({category,group,label,description,engine:true,inputs:{audio:'audio',drive:'number',mask:'visual'},outputs:{shape:'shape',...outputs},
   props:{...props,...GEO_PROPS,drive:n('Drive',.7,0,2,.01,{noPort:true}),intensity:G('Sound',n('Intensity',category==='waveforms'?85:100,0,200,5)),punch:G('Sound',n('Bass punch',category==='waveforms'?65:60,0,100,1)),release:G('Sound',n('Bass release',category==='waveforms'?150:220,60,800,10)),dynamics:G('Sound',n('Dynamics',50,0,100,1)),
     opts:dict('Options',120,'number'),chips:dict('Choices',60,'string'),look:{kind:'look',label:'Template look',value:{}},...MASK_PROPS,...COMP_PROPS}});
+const RIGID_PROPS={
+  rigidBody:G('Rigid body',bool('Rigid body',false)),
+  collisionShape:G('Rigid body',pick('Collision shape','auto',['auto','box','sphere'],{labels:[['auto','Auto bounds'],['box','Box'],['sphere','Sphere']]})),
+  mass:G('Rigid body',n('Mass',1,.05,100,.05)),
+  bounce:G('Rigid body',n('Bounce',.65,0,1,.05)),
+  friction:G('Rigid body',n('Friction',.4,0,1,.05)),
+  damping:G('Rigid body',n('Damping',.08,0,1,.01)),
+  bodyGravity:G('Rigid body',n('Gravity',9.81,-30,30,.1)),
+  soundForce:G('Rigid body',n('Sound impulse',5,0,30,.5))
+};
 const MEDIA=(label,description,cam)=>({category:'inputs',group:'Media',label,description,inputs:{audio:'audio',mask:'visual'},
   outputs:{image:'image',palette:'colors',brightness:'number',...(label==='Image'?{}:{motion:'number'})},
   props:{fit:pick('Fit','cover',['cover','contain'],{labels:[['cover','Fill'],['contain','Fit']]}),
@@ -266,7 +278,7 @@ export const TYPES = {
   waveform2d:ENGINE('waveforms','Waveform 2D','Flat audio-reactive line patterns.',{mode:pick('Waveform','circle',MODES.waveform2d.map(m=>m[0]),{labels:MODES.waveform2d}),...STYLE_PROPS},{},'2D'),
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads OBJ, FBX, USD, GLB or glTF; GLB/USD materials render as imported PBR in Normal. Animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('3D Object','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
-    render:pick('Rendering','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),collide:bool('Collide',false),...PRIM_PROPS,...STYLE_PROPS,
+    render:pick('Rendering','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),collide:bool('Collide',false),...RIGID_PROPS,...PRIM_PROPS,...STYLE_PROPS,
     modelMaterials:pick('Materials','imported',['imported','palette'],{labels:[['imported','Imported PBR'],['palette','Palette']]}),
     words:text('Text','SOUND'),font3d:pick('Font','Impact',TEXT_FONTS),depth:n('Depth',30,5,150,5,{noPort:true}),
     animSpeed:n('Animation speed',1,0,4,.05),clip:n('Clip',1,1,32,1,{noPort:true})},{object:'object3d'},'Objects'),
@@ -295,8 +307,8 @@ export const TYPES = {
     fluidFloorSize:n('Size',100,10,800,5,{unit:'%',noPort:true,sims:['simfluid3d']}),
     emitColors:pick('Emit colors','source',['source','palette'],{labels:[['source','Picture'],['palette','Palette']]})},{},'WebGPU emitters')),
   // 3D: the Cloner copies objects into an array; effectors, material, light and camera are nodes after it.
-  cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it.',{
-    layout:pick('Layout','grid',CLONER_LAYOUTS.map(c=>c[0]),{labels:CLONER_LAYOUTS,sim:'g3Mode'}),
+  cloner:{...ENGINE('3d','Cloner','Copies 3D objects into an array that reacts to the sound. Wire up to three objects into it. Enable Rigid body to make instances bounce off each other and other rigid objects. Ground is in Scene settings.',{
+    layout:pick('Layout','grid',CLONER_LAYOUTS.map(c=>c[0]),{labels:CLONER_LAYOUTS,sim:'g3Mode'}),...RIGID_PROPS,
     countX:G('Count',n('Count X',5,1,60,1,{key:'pG3Nx'})),countY:G('Count',n('Count Y',5,1,60,1,{key:'pG3Ny'})),countZ:G('Count',n('Count Z',5,1,60,1,{key:'pG3Nz'})),
     spacingX:G('Spacing',n('Spacing X',150,20,1000,5,{key:'pG3SpX'})),spacingY:G('Spacing',n('Spacing Y',150,0,1000,5,{key:'pG3SpY'})),spacingZ:G('Spacing',n('Spacing Z',150,0,1000,5,{key:'pG3SpZ'})),
     twist:G('Steps',n('Twist',0,-45,45,1,{key:'pG3StRotY'})),endScale:G('Steps',n('End scale',100,10,300,5,{key:'pG3StScale'})),cloneSpin:G('Steps',n('Spin',0,-100,100,5,{key:'pG3Spin'})),
@@ -326,7 +338,7 @@ export const TYPES = {
     colorBy:G('Colour',C3P('Palette by','height',[['clone','Clone'],['face','Polygon'],['height','Height'],['sound','Sound']],'g3CBy')),
     surface:G('Colour',C3P('Surface','palette',[['palette','Palette'],['custom','Picked']],'g3CSrc')),surfaceColor:G('Colour',{...color('Picked surface','#4aa3ff'),key:'pG3Col'}),
     edges:G('Colour',C3P('Edges','custom',[['palette','Palette'],['custom','Picked']],'g3ESrc')),edgeColor:G('Colour',{...color('Picked edges','#ffffff'),key:'pG3EdgeCol'})}),
-  light:C3D('Look','Light','Key and ambient light, soft cast shadows, bounce light and an optional floor.',{
+  light:C3D('Look','Light','Key and ambient light, soft cast shadows and bounce light. Ground and imported HDR environment lighting are controlled in Scene settings.',{
     key:C3('Key light',100,0,200,'pG3Light',5),ambient:C3('Ambient',35,0,150,'pG3Amb',5),angle:C3('Angle',-42,-180,180,'pG3LitAz'),height:C3('Height',45,-20,89,'pG3LitEl'),
     shadow:G('Shadows',C3('Cast shadows',60,0,100,'pG3Shadow',5)),size:G('Shadows',C3('Light size',35,0,100,'pG3LitSize',5)),
     ao:G('Shadows',C3('Occlusion',50,0,100,'pG3Ao',5)),aoRadius:G('Shadows',C3('Radius',60,10,300,'pG3AoRad',5)),bounce:G('Shadows',C3('Bounce light',40,0,100,'pG3Bounce',5)),
@@ -356,16 +368,16 @@ export const TYPES = {
     displace:n('Displace',40,0,100,1),colors:pick('Camera colors','on',['on','off'],{labels:[['on','On'],['off','Off']]}),
     dir:pick('Direction','radial',['radial','vertical','horizontal'],{labels:[['radial','Radial'],['vertical','Vertical'],['horizontal','Horiz.']]}),smooth:n('Smoothing',5,1,20,1)}},
   turbulence:{category:'deformers',group:'Noise',label:'Turbulence',description:'Noise that churns WebGPU Particles and Smoke.',...SHAPE_IO,props:{
-    amount:F('Turbulence',46,0,100,'pSpTurb',['simparticles']),scale:F('Noise scale',66,10,100,'pSpTurbScale',['simparticles']),smoke:F('Smoke turbulence',30,0,100,'pSmTurb',['simsmoke'])}},
+    amount:F('Turbulence',46,0,100,'pSpTurb',['simparticles']),scale:F('Noise scale',66,10,100,'pSpTurbScale',['simparticles']),smoke:F('Smoke turbulence',30,0,100,'pSmTurb',['simsmoke']),rigid:F('Body turbulence',30,0,100,'_rigidTurbulence',['simrigid','simcloner'])}},
   spin:{category:'forces',label:'Spin',description:'Keep the shape turning, right (clockwise) or left. Speed sets how fast its animation runs.',...SHAPE_IO,props:{
     spin:n('Spin',1,0,5,.1,{key:'_spin'}),dir:pick('Direction','right',['right','left'],{labels:[['right','Spin right ↻'],['left','Spin left ↺']]}),speed:n('Speed',1,.1,5,.1,{key:'_speed'})}},
   // Forces: WebGPU simulation physics, one idea per node. Each knob lists the simulations it moves; defaults match the simulation.
-  gravity:FORCE('Gravity','Pull down (or up). Smoke rises by buoyancy.',{gravity:F('Gravity',-3,-100,100,'pSpGravity',['simparticles']),fluidGravity:F('Gravity',50,-100,100,'_fluidGravity',['simfluid3d']),sand:F('Sand gravity',100,0,100,'pSaGravity',['simsand']),buoyancy:F('Buoyancy',100,0,200,'pSmBuoy',['simsmoke'])}),
-  drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand'])}),
+  gravity:FORCE('Gravity','Pull down (or up). Smoke rises by buoyancy.',{gravity:F('Gravity',-3,-100,100,'pSpGravity',['simparticles']),fluidGravity:F('Gravity',50,-100,100,'_fluidGravity',['simfluid3d']),sand:F('Sand gravity',100,0,100,'pSaGravity',['simsand']),buoyancy:F('Buoyancy',100,0,200,'pSmBuoy',['simsmoke']),rigid:{...F('Body gravity',9.81,-30,30,'_rigidGravity',['simrigid','simcloner']),step:.1}}),
+  drag:FORCE('Drag','Slow things down: air drag, viscosity, friction, damping.',{drag:F('Drag',100,0,100,'pSpDrag',['simparticles']),viscosity:F('Viscosity',15,0,100,'pSfVisc',['simfluid']),friction:F('Friction',35,0,100,'pSaFriction',['simsand']),rigid:{...F('Body drag',.1,0,1,'_rigidDrag',['simrigid','simcloner']),step:.01}}),
   swirl:FORCE('Swirl','Rotate the flow and spin the emitters.',{swirl:F('Swirl',43,-100,100,'pSpSwirl',['simparticles']),fluidSwirl:F('Fluid swirl',40,-100,100,'pSfSwirl',['simfluid']),
-    spin:F('Emitter spin',0,-100,100,'pSpSpin',['simparticles']),fluidSpin:F('Jet spin',0,-100,100,'pSfSpin',['simfluid']),smokeSpin:F('Burner spin',0,-100,100,'pSmSpin',['simsmoke'])}),
+    spin:F('Emitter spin',0,-100,100,'pSpSpin',['simparticles']),fluidSpin:F('Jet spin',0,-100,100,'pSfSpin',['simfluid']),smokeSpin:F('Burner spin',0,-100,100,'pSmSpin',['simsmoke']),rigid:F('Body swirl',1,-10,10,'_rigidSwirl',['simrigid','simcloner'])}),
   attract:FORCE('Attract','Pull toward the centre or the magnets (negative pushes away).',{pull:F('Centre pull',0,-100,100,'pSpAttract',['simparticles'])}),
-  wind:FORCE('Wind','Blow sideways.',{smoke:F('Wind',0,-100,100,'pSmWind',['simsmoke']),sand:F('Sand wind',0,-100,100,'pSaWind',['simsand'])}),
+  wind:FORCE('Wind','Blow sideways.',{smoke:F('Wind',0,-100,100,'pSmWind',['simsmoke']),sand:F('Sand wind',0,-100,100,'pSaWind',['simsand']),rigid:F('Body wind',2,-30,30,'_rigidWind',['simrigid','simcloner'])}),
   vorticity:FORCE('Vorticity','Curl the flow into eddies.',{fluid:F('Fluid vorticity',45,0,100,'pSfVort',['simfluid']),smoke:F('Smoke vorticity',55,0,100,'pSmVort',['simsmoke'])}),
   // Color
   palette:{category:'color',label:'Palette',description:'Recolor anything: a shape or any image (a Merge, Post FX…). Normal replaces the colors before it; the other blend modes mix with them. Wire a Live data palette into “colors” to let the data pick them.',inputs:{shape:'visual',colors:'colors'},outputs:{shape:'shape'},props:{
@@ -489,7 +501,7 @@ export const TYPES = {
   // Composite
   background:{category:'composite',label:'Background',description:'A solid or gradient fill.',inputs:{},outputs:{image:'image'},props:{fill:pick('Fill','radial',['flat','vertical','radial']),c1:color('Color A','#0f0f12'),c2:color('Color B','#1c3d30')}},
   blend:{category:'composite',label:'Blend',description:'Combine two images.',inputs:{a:'image',b:'image'},outputs:{image:'image'},primary:['a','b'],props:{mode:pick('Blend mode','screen',['screen','source-over','multiply','difference','lighter','overlay']),mix:n('Mix',.5,0,1,.01)}},
-  merge:{category:'composite',label:'Merge',description:'Stack up to four images (A at the bottom), each with its own opacity.',inputs:{a:'image',b:'image',c:'image',d:'image'},outputs:{image:'image'},primary:['a','b','c','d'],props:{
+  merge:{category:'composite',label:'Merge',description:'Combine up to four inputs. 3D contributors share scene depth; 2D inputs remain backgrounds or overlays. Each input has its own opacity.',inputs:{a:'image',b:'image',c:'image',d:'image'},outputs:{image:'image'},primary:['a','b','c','d'],props:{
     mode:pick('Blend mode','source-over',['source-over','screen','lighter','multiply','difference','overlay'],{labels:[['source-over','Normal'],['screen','Screen'],['lighter','Add'],['multiply','Multiply'],['difference','Difference'],['overlay','Overlay']]}),
     a:n('Opacity A',1,0,1,.01),b:n('Opacity B',1,0,1,.01),c:n('Opacity C',1,0,1,.01),d:n('Opacity D',1,0,1,.01)}},
   mask:{category:'composite',label:'Mask',description:'Show the image only where the mask image is drawn (or only where it is not).',inputs:{image:'image',mask:'image'},outputs:{image:'image'},primary:['image','mask'],props:{invert:bool('Invert'),feather:n('Feather',0,0,40,1)}},
@@ -508,6 +520,7 @@ export const EQ_KEYS=['eq32','eq64','eq125','eq250','eq500','eq1k','eq2k','eq4k'
 export const EQ_HZ=[32,64,125,250,500,1000,2000,4000,8000,16000];
 
 // Every numeric property (unless noPort) can be driven by a number wire on an input port of the same name.
+TYPES.camera3d.retired=true;
 export function inputsOf(type){
   const t=TYPES[type],inputs={...t.inputs};
   for(const [k,s] of Object.entries(t.props))if(s.kind==='number'&&!s.noPort&&!inputs[k])inputs[k]='number';
@@ -591,16 +604,58 @@ export function node(type,x=40,y=50,props={}) {
   return {id:uid(),type,x,y,props:type==='palette'?legacyPalette(p):p};
 }
 export function layer(index=1) {
-  const sound=node('audioIn',40,70),emitter=index===1?node('gpuParticles',250,70):node('waveform2d',250,70),pal=node('palette',460,70),fx=node('bloom',670,70,{bloom:20}),output=node('output',880,70);
-  return {id:uid(),name:`Layer ${index}`,visible:true,opacity:1,blend:'screen',nodes:[sound,emitter,pal,fx,output],edges:[
+  const sound=node('audioIn',40,70),emitter=index===1?node('gpuParticles',250,70):node('waveform2d',250,70),pal=node('palette',460,70),merge=node('merge',670,70),output=node('output',880,70);
+  return {id:uid(),name:`Layer ${index}`,visible:true,opacity:1,blend:'source-over',nodes:[sound,emitter,pal,merge,output],edges:[
     {from:sound.id,out:'audio',to:emitter.id,input:'audio'},
     {from:emitter.id,out:'shape',to:pal.id,input:'shape'},
-    {from:pal.id,out:'shape',to:fx.id,input:'image'},
-    {from:fx.id,out:'image',to:output.id,input:'image'}
+    {from:pal.id,out:'shape',to:merge.id,input:'a',auto:true},
+    {from:merge.id,out:'image',to:output.id,input:'image'}
   ]};
 }
-export const VERSION=16;
-export function project() { return {format:'audiograph-pro',version:VERSION,layers:[layer()]}; }
+export const VERSION=17;
+export function project() { return {format:'audiograph-pro',version:VERSION,settings:clone(SCENE_DEFAULTS),layers:[layer()]}; }
+export function routeVisual(g,source,out){
+  const output=g.nodes.find(n=>n.type==='output');if(!output)return;
+  const reachable=new Set([source.id]);
+  for(let size=-1;size!==reachable.size;){size=reachable.size;for(const e of g.edges)if(reachable.has(e.from))reachable.add(e.to);}
+  if(reachable.has(output.id))return;
+  const edge=g.edges.find(e=>e.to===output.id&&e.input==='image'),root=g.nodes.find(n=>n.id===edge?.from);
+  const background=source.type==='background'&&edge&&!(root?.type==='merge'&&!g.edges.some(e=>e.to===root.id));
+  let merge=!background&&root?.type==='merge'?root:null;
+  let slot=merge&&['a','b','c','d'].find(k=>(merge.props[k]??1)>0&&!g.edges.some(e=>e.to===merge.id&&e.input===k));
+  if(!slot){
+    merge=node('merge',output.x,output.y);
+    output.x+=210;g.nodes.push(merge);
+    if(edge){g.edges=g.edges.filter(e=>e!==edge);g.edges.push({...edge,to:merge.id,input:background?'b':'a'});}
+    g.edges.push({from:merge.id,out:'image',to:output.id,input:'image'});
+    slot=edge&&!background?'b':'a';
+  }
+  g.edges.push({from:source.id,out,to:merge.id,input:slot,auto:true});
+}
+function legacyCameras(raw){
+  return (raw.layers||[]).flatMap(g=>(g.nodes||[]).filter(n=>n.type==='camera3d'&&!n.bypass).map(n=>{
+    const queue=[{id:n.id,distance:0}],seen=new Set([n.id]),outputs=new Set((g.nodes||[]).filter(n=>n.type==='output').map(n=>n.id));
+    for(let i=0;i<queue.length;i++){
+      const item=queue[i];if(outputs.has(item.id))return {n,g,distance:item.distance};
+      for(const e of g.edges||[])if(e.from===item.id&&!seen.has(e.to)){seen.add(e.to);queue.push({id:e.to,distance:item.distance+1});}
+    }
+    return {n,g,distance:Infinity};
+  }));
+}
+function primaryCamera(cameras){
+  return cameras.filter(({g,distance})=>g.visible&&g.opacity>0&&Number.isFinite(distance)).sort((a,b)=>a.distance-b.distance)[0]||
+    cameras.find(({distance})=>Number.isFinite(distance));
+}
+export function legacyCameraNotice(raw){
+  if(raw.settings?.camera)return '';
+  const cameras=legacyCameras(raw),primary=primaryCamera(cameras);
+  if(!primary)return '';
+  const signature=n=>JSON.stringify(Object.keys(TYPES.camera3d.props).map(k=>n.props?.[k]??TYPES.camera3d.props[k].value));
+  const conflict=cameras.some(({n})=>signature(n)!==signature(primary.n));
+  const bindings=cameras.some(({n,g})=>n.auto?.length||Object.keys(n.midi||{}).length||g.edges?.some(e=>e.to===n.id&&e.input!=='shape'));
+  return [conflict?`Conflicting legacy cameras: using the camera from ${primary.g.name} in Scene settings.`:'',
+    bindings?'Legacy camera automation bindings need reassignment; use scene camera movement and audio influence.':''].filter(Boolean).join(' ');
+}
 export const LIMITS={layers:4,nodes:60,edges:160,emitters:8};
 export const LAYER_BLENDS=['source-over','screen','lighter','multiply','difference','overlay'];
 function finite(value,min,max,label) {
@@ -703,7 +758,7 @@ const V2_MODE={...Object.fromEntries(Object.entries(MODES).flatMap(([type,list])
   simboids:{type:'gpuParticles',props:{mode:'simparticles'}},simferro:{type:'gpuParticles',props:{mode:'simfluid'}},
   text:{type:'text',props:{}},object:{type:'object',props:{render:'mesh'}},simsplat:{type:'splat',props:{}},simcloner:{type:'gpuParticles',props:{mode:'simcloner'}}};
 function migrate(raw){
-  if(raw.version===VERSION)return raw;
+  if(raw.version===VERSION&&Array.isArray(raw.layers)&&!raw.layers.some(g=>Array.isArray(g?.nodes)&&g.nodes.some(n=>n?.type==='camera3d')))return raw;
   const out=clone(raw);
   for(const g of out.layers||[]){
     const nodes=Array.isArray(g?.nodes)?g.nodes:[],edges=Array.isArray(g?.edges)?g.edges:[],emitters=new Set(nodes.filter(n=>n?.type==='emitter').map(n=>n.id));
@@ -754,6 +809,13 @@ function migrate(raw){
     for(const g of out.layers||[])for(const nd of g?.nodes||[]){
       if(nd?.type==='gpuParticles'&&nd.props?.mode==='simfluid3d')nd.props={...oldFluid,...nd.props};
     }
+  }
+  const primary=primaryCamera(legacyCameras(out));
+  if(!out.settings?.camera&&primary)out.settings={...out.settings,camera:{...defaults('camera3d'),...primary.n.props}};
+  for(const g of out.layers||[])for(const camera of (g.nodes||[]).filter(n=>n.type==='camera3d')){
+    const source=g.edges?.find(e=>e.to===camera.id&&e.input==='shape');
+    g.edges=(g.edges||[]).filter(e=>e.to!==camera.id).flatMap(e=>e.from!==camera.id?[e]:source?[{...e,from:source.from,out:source.out}]:[]);
+    g.nodes=g.nodes.filter(n=>n!==camera);
   }
   out.version=VERSION;return out;
 }
@@ -919,12 +981,34 @@ export const VIDEO_QUALITIES=['standard','high','max'];
 export const LIVE_FRAME_RATES=[15,24,30];
 export const SIM_QUALITIES=[['node','Use node settings'],['low','Low'],['med','Medium'],['high','High'],['ultra','Ultra']];
 export const SCENE_PERFORMANCE={fps:30,simulation:'node',lensEffects:true};
-export const SCENE_CAMERA={...defaults('camera3d'),zoom:55};
-export const SCENE_DEFAULTS={background:'#000000',camera:null};
+export const SCENE_CAMERA_PROPS={
+  ...Object.fromEntries(['turn','tilt','zoom','focal','dof','focus','blur'].map(k=>[k,TYPES.camera3d.props[k]])),
+  motion:pick('Movement','static',CAMERA_MOTIONS.map(([id])=>id),{labels:CAMERA_MOTIONS}),
+  speed:n('Speed',20,-100,100,1),range:n('Range',35,0,100,1),height:n('Height',25,0,100,1),audio:n('Audio influence',0,0,100,1),
+  px:n('Pan X',0,-4,4,.01),py:n('Pan Y',0,-4,4,.01)
+};
+export const SCENE_CAMERA={...Object.fromEntries(Object.entries(SCENE_CAMERA_PROPS).map(([k,s])=>[k,clone(s.value)])),zoom:55};
+export const SCENE_GROUND={enabled:true,visible:true,height:-1.2,size:20};
+export const SCENE_DEFAULTS={background:'#000000',camera:SCENE_CAMERA,ground:SCENE_GROUND,environment:null};
 function cleanSceneSettings(s){
-  if(s===undefined)return null;
+  if(s===undefined)s={};
   if(!s||typeof s!=='object'||Array.isArray(s))throw Error('Invalid scene settings');
-  const out={};
+  const out={camera:{...SCENE_CAMERA}};
+  if(s.ground!==undefined){
+    const g={...SCENE_GROUND,...s.ground};
+    if(!s.ground||typeof s.ground!=='object'||Array.isArray(s.ground)||typeof g.enabled!=='boolean'||typeof g.visible!=='boolean')throw Error('Invalid scene ground');
+    out.ground={enabled:g.enabled,visible:g.visible,height:finite(g.height,-100,100,'Ground height'),size:finite(g.size,.2,200,'Ground size')};
+  }
+  if(s.environment!==undefined){
+    const e=s.environment;
+    if(e===null)out.environment=null;
+    else{
+      if(!e||typeof e!=='object'||typeof e.name!=='string'||e.name.length>255||typeof e.data!=='string'||e.data.length>96*1024*1024||
+        !/^data:[a-zA-Z0-9.+/-]*;base64,[A-Za-z0-9+/]+={0,2}$/.test(e.data))throw Error('Invalid HDR environment');
+      out.environment={name:e.name,data:e.data,intensity:finite(e.intensity??1,0,20,'Environment intensity'),rotation:finite(e.rotation??0,-180,180,'Environment rotation')};
+      validateEnvironment(out.environment);
+    }
+  }
   if(s.resolution!==undefined){
     if(!OUTPUT_SIZES.includes(s.resolution))throw Error('Unsupported output resolution');
     out.resolution=s.resolution;
@@ -943,11 +1027,12 @@ function cleanSceneSettings(s){
     out.performance={fps,simulation,lensEffects};
   }
   if(s.camera!==undefined){
-    if(s.camera===null)out.camera=null;
-    else{
+    if(s.camera!==null){
       if(!s.camera||typeof s.camera!=='object'||Array.isArray(s.camera))throw Error('Invalid scene camera');
-      out.camera=Object.fromEntries(Object.entries(TYPES.camera3d.props).map(([k,spec])=>[k,cleanProp(spec,s.camera[k]??SCENE_CAMERA[k],spec.label)]));
-      for(const k of ['px','py'])if(s.camera[k]!==undefined)out.camera[k]=finite(s.camera[k],-4,4,'Camera pan');
+      const camera={...s.camera};
+      if(camera.motion===undefined&&(camera.orbit!==undefined||camera.orbitSound!==undefined))
+        Object.assign(camera,{motion:camera.orbit||camera.orbitSound?'orbit':'static',speed:camera.orbit??0,audio:camera.orbitSound??0});
+      out.camera=Object.fromEntries(Object.entries(SCENE_CAMERA_PROPS).map(([k,spec])=>[k,cleanProp(spec,camera[k]??SCENE_CAMERA[k],spec.label)]));
     }
   }
   return out;
@@ -982,7 +1067,8 @@ export function validate(input) {
       return out;
     });
     if(clean.nodes.filter(nd=>nd.type==='output').length>1)throw Error('Only one Output is allowed per layer');
-    clean.edges=g.edges.map(e=>{if(!e)throw Error('Invalid connection');return {from:id(e.from),to:id(e.to),out:id(e.out),input:id(e.input)};});
+    clean.edges=g.edges.map(e=>{if(!e)throw Error('Invalid connection');return {from:id(e.from),to:id(e.to),out:id(e.out),input:id(e.input),
+      ...(e.auto===true&&['a','b','c','d'].includes(e.input)&&clean.nodes.some(n=>n.id===e.to&&n.type==='merge')&&{auto:true})};});
     order(clean);return clean;
   });
   if(emitters>LIMITS.emitters)throw Error(`Limit: ${LIMITS.emitters} renderer nodes per project (each is an isolated GPU engine)`);

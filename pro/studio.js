@@ -1,5 +1,8 @@
 import * as sensors from './sensors.js';import * as lights from './lights.js';
-import {OUTPUT_SIZES,VIDEO_QUALITIES,LIVE_FRAME_RATES,SIM_QUALITIES,SCENE_PERFORMANCE,SCENE_CAMERA,SCENE_DEFAULTS} from './graph.js';
+import {OUTPUT_SIZES,VIDEO_QUALITIES,LIVE_FRAME_RATES,SIM_QUALITIES,SCENE_PERFORMANCE,SCENE_CAMERA,SCENE_CAMERA_PROPS,SCENE_DEFAULTS,SCENE_GROUND,routeVisual,legacyCameraNotice} from './graph.js';
+import {CAMERA_MOTIONS,cameraPose,advanceCamera} from './camera.js';
+import {RigidWorld} from './rigid.js';
+import {importEnvironment} from './environment.js';
 import {directScene,SCENE_RECIPES,SCENE_PALETTES} from './director.js';
 import {renderVideo,exportSupported} from './export.js';
 import {liveData,liveStatus} from './livedata.js';
@@ -9,7 +12,7 @@ import {EmitterEngine,WIDTH,HEIGHT,BINS,setCameraProvider,setRenderResolution} f
 import {prepareFluid3D} from './fluid3d.js';
 import {sceneOf,setScene,composeScene,occludeScene,pruneScenes} from './scene3d.js';
 import {collisionField} from './colliders.js';
-import * as ui from './ui.js?v=line-style-grid';
+import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
 import {shaderInto,checkShader,dropShaderState,releaseShaders,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,WARP_TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
@@ -38,7 +41,7 @@ const catOf=type=>CATEGORIES.find(c=>c.id===TYPES[type].category);
 // The simulation a shape-chain node acts on (walks up the shape wires), or null.
 function upstreamSim(g,n){
   const seen=new Set();let cur=n;
-  while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(cur.type==='gpuParticles')return cur.props.mode;if(cur.type==='cloner')return 'simcloner';if(isEngine(cur.type))return null;
+  while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(cur.type==='gpuParticles')return cur.props.mode;if(cur.type==='cloner')return 'simcloner';if(cur.type==='waveform3d'&&cur.props.rigidBody)return 'simrigid';if(isEngine(cur.type))return null;
     const e=g.edges.find(e=>e.to===cur.id&&e.input==='shape');cur=e&&g.nodes.find(m=>m.id===e.from);}
   return null;
 }
@@ -77,13 +80,13 @@ function cloneObjects(objs,p,shape){
 // Physics nodes (Forces, Turbulence) only show the knobs for the simulation they are wired after.
 const SIM_PROPS=type=>Object.values(TYPES[type].props).some(s=>s.sims);
 function simKeys(g,n){
-  const t=TYPES[n.type],keys=Object.keys(t.props);
+  const t=TYPES[n.type],keys=Object.keys(t.props).filter(k=>
+    !(t.props[k].group==='Rigid body'&&k!=='rigidBody'&&!n.props.rigidBody)&&
+    !(n.type==='light'&&['floor','floorHeight'].includes(k)));
   if(n.type==='gpuParticles'){
     return keys.filter(k=>(!t.props[k].sims||t.props[k].sims.includes(n.props.mode))&&
       (!k.startsWith('particle')||n.props.mode==='simparticles'));
   }
-  if(n.type==='camera3d'&&upstreamSim(g,n)==='simparticles')return keys.filter(k=>k!=='blur');
-  if(n.type==='camera3d'&&upstreamSim(g,n)==='simfluid3d')return keys.filter(k=>!['dof','focus','blur'].includes(k));
   if(n.type==='liveData')return keys.filter(k=>k!=='place'||['ocean','weather'].includes(n.props.source));
   if(!SIM_PROPS(n.type))return keys;
   const mode=upstreamSim(g,n);if(!mode)return keys;
@@ -91,7 +94,7 @@ function simKeys(g,n){
 }
 // The studio opens with the scene the First Mile tutorial builds.
 let state=validate({format:'audiograph-pro',version:VERSION,layers:startScene(),settings:SCENE_DEFAULTS}),active=state.layers[0].id,selected=null,pending=null,paused=false,pageHidden=false;
-let sceneInspector=false,sceneWiredCamera=null;
+let sceneInspector=false;
 // Several nodes selected (marquee or Shift-click): `multi` holds them and `selected` is null.
 let multi=new Set();
 // The UI is drawn with CSS zoom: pointer and rect values are screen pixels, CSS lengths are divided by it.
@@ -101,6 +104,7 @@ const lastValues=new Map(),history=[],future=[],engines=new Map(),surfaces=new M
 const shaderErrors=new Map(),SHADER_NODES=new Set(['melt','tunnel','warpTunnel','shader']);
 let plans=new Map(),frame=0,lastTime=0,elapsed=0,renderErrors=[],nodeErrors=new Set(),statusSource='action',liveBefore=null;
 let collisionMeshes=new Map();
+const rigidWorld=new RigidWorld();
 const collisionCache={};
 const preview=$('preview'),previewCtx=preview.getContext('2d');
 const graph=()=>state.layers.find(g=>g.id===active)||state.layers[0];
@@ -112,6 +116,7 @@ function attempt(fn){try{return fn();}catch(error){message(error.message,true);r
 function reconcile(){
   syncSceneResolution();
   const emitterIDs=new Set(state.layers.flatMap(g=>g.nodes.filter(n=>isEngine(n.type)).map(n=>n.id)));
+  if(state.layers.some(g=>g.visible&&g.nodes.some(n=>['waveform3d','cloner'].includes(n.type)&&!n.bypass)))emitterIDs.add('__ground');
   const anyFx=state.layers.some(g=>g.nodes.some(n=>TYPES[n.type].fx));
   const liveSlots=state.layers.some(g=>g.id.startsWith('ap-L'));
   for(const [id,engine] of engines)if(id==='__fx'?(!liveSlots&&(!anyFx||emitterIDs.size>0)):!emitterIDs.has(id)){engine.dispose();engines.delete(id);}
@@ -149,32 +154,22 @@ function liveCommit(label){
   const before=liveBefore||clone(state);liveBefore=null;
   try{commit(clone(state),label,before);}catch(error){state=before;reconcile();renderUI();message(error.message,true);}
 }
-function restoreSnapshot(snapshot){tm.playing=false;state=validate(snapshot);pending=null;reconcile();renderUI();if(paused)draw(elapsed);}
+function restoreSnapshot(snapshot){tm.playing=false;state=validate(snapshot);rigidWorld.reset();pending=null;reconcile();renderUI();if(paused)draw(elapsed);}
 function undo(){if(history.length){future.push(clone(state));restoreSnapshot(history.pop());message('Undone');}}
 function redo(){if(future.length){history.push(clone(state));restoreSnapshot(future.pop());message('Redone');}}
 function importProject(raw,label='Imported project. Reload media files in the Input nodes.'){
-  const clean=validate(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;sceneInspector=false;sceneWiredCamera=null;collisionMeshes.clear();commit(clean,label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
+  const clean=validate(raw),notice=legacyCameraNotice(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;sceneInspector=false;collisionMeshes.clear();rigidWorld.reset();sceneMotion.phase=0;sceneMotion.motion=clean.settings.camera.motion;commit(clean,notice?label+' '+notice:label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
 }
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
-const isChain=type=>{const t=TYPES[type],i=Object.values(t.inputs),o=Object.values(t.outputs);if(!o.length)return false;
+const isChain=type=>{const t=TYPES[type],i=Object.entries(t.inputs).filter(([key])=>key!=='mask').map(([,type])=>type),o=Object.values(t.outputs);if(t.engine||!o.length)return false;
   if(i.includes('audio')&&o.every(x=>x==='audio'))return true;if(i.includes('any'))return true;return (i.includes('shape')||i.includes('image')||i.includes('visual'))&&o.every(x=>x==='shape'||x==='image');};
-// A 3D Model always comes with a 3D camera right after it: the camera holds the view (rotate, orbit, tilt, zoom, lens).
-function attachCamera(g,n){
-  if(state.settings?.camera||n.type!=='waveform3d'||n.props.mode!=='model'||modelCamera(g,n))return;
-  if(g.edges.some(e=>e.from===n.id&&e.out==='object'))return;
-  const c=node('camera3d',n.x+210,n.y,{});
-  for(const m of g.nodes)if(m.x>n.x+20&&Math.abs(m.y-n.y)<120)m.x+=210;
-  g.nodes.push(c);
-  for(const e of g.edges)if(e.from===n.id&&e.out==='shape')e.from=c.id;
-  g.edges.push({from:n.id,out:'shape',to:c.id,input:'shape'});
-}
-// The 3D camera downstream of a node along its shape wires (none when the chain has no camera).
-function modelCamera(g,n){const seen=new Set();let cur=n;while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(cur.type==='camera3d')return cur;const e=g.edges.find(e=>e.from===cur.id&&e.out==='shape');cur=e&&g.nodes.find(m=>m.id===e.to);}return null;}
+const isGenerator=type=>!isChain(type)&&Object.values(TYPES[type].outputs).some(t=>t==='shape'||t==='image');
 // Adding a modifier while a node is selected splices it into that node's chain.
 function addNode(type,x,y,props={}){
+  if(type==='camera3d')throw Error('The universal 3D camera is in Scene settings');
   let made=null;
   const ok=edit((p,g)=>{
-    const sel=g.nodes.find(n=>n.id===selected),n=node(type,0,0,props);made=n;
+    const sel=g.nodes.find(n=>n.id===selected),n=node(type,0,0,props);made=n;let visual=n;
     if(x===undefined){
       if(sel&&isChain(type)&&Object.keys(TYPES[sel.type].outputs).length){
         const out=Object.keys(TYPES[sel.type].outputs)[0],inPort=Object.keys(TYPES[type].inputs)[0],outPort=Object.keys(TYPES[type].outputs)[0];
@@ -199,10 +194,10 @@ function addNode(type,x,y,props={}){
     if(type==='cloner'){const o=node('waveform3d',n.x-210,n.y+40,{mode:'cube',render:'normal'});g.nodes.push(o);g.edges.push({from:o.id,out:'object',to:n.id,input:'object'});
       const fx=node('soundEffector',n.x+210,n.y);for(const m of g.nodes)if(m!==n&&m.x>n.x+20&&m.y<n.y+120&&m.y>n.y-120)m.x+=210;g.nodes.push(fx);
       const down=g.edges.filter(e=>e.from===n.id&&e.out==='shape');g.edges=g.edges.filter(e=>!down.includes(e));
-      g.edges.push({from:n.id,out:'shape',to:fx.id,input:'shape'},...down.map(e=>({...e,from:fx.id})));}
+      g.edges.push({from:n.id,out:'shape',to:fx.id,input:'shape'},...down.map(e=>({...e,from:fx.id})));visual=fx;}
     const cl=TYPES[type].outputs.object&&sel?.type==='cloner'&&sel,slot=cl&&['object','object2','object3'].find(k=>!g.edges.some(e=>e.to===cl.id&&e.input===k));
     if(slot){n.x=cl.x-210;n.y=cl.y+40+130*['object','object2','object3'].indexOf(slot);g.edges.push({from:n.id,out:'object',to:cl.id,input:slot});}
-    attachCamera(g,n);
+    if(!slot&&isGenerator(type))routeVisual(g,visual,TYPES[visual.type].outputs.shape?'shape':'image');
   },`Added ${TYPES[type].label}`);
   if(ok&&made){selected=made.id;multi.clear();renderUI();return made.id;}
 }
@@ -214,7 +209,7 @@ function addLayer(){
 function detachEdges(g,id){
   const n=g.nodes.find(n=>n.id===id),inE=g.edges.find(e=>e.to===id&&['shape','image','audio'].includes(e.input)),outE=g.edges.filter(e=>e.from===id);
   g.edges=g.edges.filter(e=>e.from!==id&&e.to!==id);
-  if(n&&inE&&isChain(n.type))for(const e of outE){const src=g.nodes.find(m=>m.id===inE.from),dst=g.nodes.find(m=>m.id===e.to);if(src&&dst&&compatible(TYPES[src.type].outputs[inE.out],inputsOf(dst.type)[e.input]))g.edges.push({from:inE.from,out:inE.out,to:e.to,input:e.input});}
+  if(n&&inE&&isChain(n.type))for(const e of outE){const src=g.nodes.find(m=>m.id===inE.from),dst=g.nodes.find(m=>m.id===e.to);if(src&&dst&&compatible(TYPES[src.type].outputs[inE.out],inputsOf(dst.type)[e.input]))g.edges.push({...e,from:inE.from,out:inE.out});}
 }
 function removeSelected(){
   if(multi.size){const ids=new Set(multi);multi.clear();return edit((p,g)=>{g.edges=g.edges.filter(e=>!ids.has(e.from)&&!ids.has(e.to));g.nodes=g.nodes.filter(n=>!ids.has(n.id));},`Deleted ${ids.size} nodes`);}
@@ -251,11 +246,23 @@ function pasteNodes(c,gx,gy,label='Pasted'){
     const hasOut=g.nodes.some(m=>m.type==='output');
     for(const n of c.nodes){if(!Object.hasOwn(TYPES,n.type)||n.type==='output'&&hasOut)continue;const m=node(n.type,n.x+dx,n.y+dy,clone(n.props));if(n.auto)m.auto=[...n.auto];ids.set(n.id,m.id);g.nodes.push(m);}
     for(const e of c.edges)if(ids.has(e.from)&&ids.has(e.to))g.edges.push({...e,from:ids.get(e.from),to:ids.get(e.to)});
+    const made=new Set(ids.values()),visual=n=>Object.keys(TYPES[n.type].outputs).find(k=>['shape','image'].includes(resolveOut(g,n,k)));
+    for(const source of g.nodes.filter(n=>made.has(n.id)&&isGenerator(n.type))){
+      const queue=[source],seen=new Set();
+      for(let i=0;i<queue.length;i++){
+        const n=queue[i];if(seen.has(n.id))continue;seen.add(n.id);
+        const out=visual(n);if(!out)continue;
+        const edges=g.edges.filter(e=>e.from===n.id),uses=edges.some(e=>['emit','mask','object','object2','object3'].includes(e.input));
+        const next=edges.filter(e=>e.out===out&&!['emit','mask','object','object2','object3'].includes(e.input))
+          .map(e=>g.nodes.find(n=>n.id===e.to)).filter(n=>n&&visual(n));
+        if(next.length)queue.push(...next);else if(!uses)routeVisual(g,n,out);
+      }
+    }
   },`${label} ${c.nodes.length} node${c.nodes.length>1?'s':''}`);
   if(ok&&!ids.size)return null;
   if(!ok)return null;
   if(gx===undefined&&clip===c)clip={nodes:c.nodes.map(n=>({...n,x:n.x+40,y:n.y+40})),edges:c.edges};
-  const made=[...ids.values()];multi=new Set(made.length>1?made:[]);selected=made.length===1?made[0]:null;renderUI();return made;
+  const made=[...ids.values()].filter(id=>findNode(id));multi=new Set(made.length>1?made:[]);selected=made.length===1?made[0]:null;renderUI();return made;
 }
 const CUSTOM_KEY='agpro.custom';
 function customNodes(){try{const a=JSON.parse(localStorage.getItem(CUSTOM_KEY)||'[]');return Array.isArray(a)?a.filter(c=>c&&typeof c.name==='string'&&Array.isArray(c.nodes)):[];}catch{return [];}}
@@ -285,9 +292,19 @@ function connection(from,out,to,input){
   let spliced=false;
   const ok=edit((p,g)=>{
     connect(g,from,out,to,input);
-    const tn=g.nodes.find(n=>n.id===to);if(!tn||!isChain(tn.type)||g.edges.some(e=>e.from===to))return;
+    const tn=g.nodes.find(n=>n.id===to);
+    if(tn&&(input==='emit'||['object','object2','object3'].includes(input))){
+      const sources=new Set([from]);
+      for(const id of sources)for(const e of g.edges)if(e.from===id&&!e.auto&&e.input!=='mask'){
+        const target=g.nodes.find(n=>n.id===e.to),spec=target&&TYPES[target.type];
+        if(spec&&isChain(target.type)&&['shape','image'].includes(TYPES[g.nodes.find(n=>n.id===id).type].outputs[e.out])&&
+          Object.entries(spec.inputs).filter(([k,t])=>k!=='mask'&&['shape','image','visual'].includes(t)).length===1)sources.add(e.to);
+      }
+      g.edges=g.edges.filter(e=>!(sources.has(e.from)&&e.auto));
+    }
+    if(!tn||!isChain(tn.type)||g.edges.some(e=>e.from===to))return;
     const down=g.edges.filter(e=>e.from===from&&e.out===out&&e.to!==to);
-    if(!down.length||!down.every(e=>g.nodes.find(m=>m.id===e.to)?.type==='output')||Object.values(TYPES[tn.type].outputs).includes('audio'))return;
+    if(!down.length||!down.every(e=>g.nodes.find(m=>m.id===e.to)?.type==='output'||e.auto&&g.nodes.find(m=>m.id===e.to)?.type==='merge')||Object.values(TYPES[tn.type].outputs).includes('audio'))return;
     const outs=Object.entries(TYPES[tn.type].outputs),before=g.edges;
     const moved=down.map(e=>{const t=inputsOf(g.nodes.find(m=>m.id===e.to).type)[e.input],o=outs.find(([,ty])=>compatible(ty,t));return o&&{...e,from:to,out:o[0]};});
     if(moved.some(m=>!m))return;
@@ -544,16 +561,33 @@ function surface(id){
 function colorScene(src,canvas,paint,opaque=true){
   paint();
   const meta=sceneOf(src);
-  if(meta)setScene(canvas,{...meta,...(!opaque&&{opaque:null,
+  const {composition,...base}=meta||{};
+  if(meta)setScene(canvas,{...base,...(!opaque&&{opaque:null,
     roots:meta.roots.map(r=>r.kind==='geometry'?{...r,opaque:null}:r)}),
     refresh:()=>{meta.refresh?.();paint();}});
   return canvas;
 }
-function compositeInputs(id,canvas,ctx,inputs,mode,blendOf){
-  const images=inputs.filter(({img,alpha})=>img&&alpha>0);
+function compositeInputs(id,canvas,ctx,inputs,mode,blendOf,occlusion=true){
+  let images=inputs.filter(({img,alpha})=>img&&alpha>0);
   if(!images.length)return;
+  if(mode==='source-over'){
+    const expanded=[];
+    for(const item of images){
+      const composition=item.alpha===1&&(!blendOf?.get(item.img)||blendOf.get(item.img)==='source-over')&&sceneOf(item.img)?.composition;
+      expanded.push(...(composition||[item]));
+      if(expanded.length>LIMITS.edges*LIMITS.layers)throw Error('Too many shared scene contributors');
+    }
+    images=expanded;
+  }
   const spatial=images.some(({img})=>sceneOf(img));
-  if(spatial){
+  if(spatial&&mode==='source-over'){
+    const foreground=images.findIndex(({img})=>sceneOf(img)?.roots.some(r=>r.id!=='__ground'));
+    const first=foreground<0?images.findIndex(({img})=>sceneOf(img)):foreground;
+    images=images.map((item,i)=>sceneOf(item.img)?item:{...item,role:item.background?'background':item.role||(i<first?'background':'overlay')});
+    images=[...images.filter(i=>!sceneOf(i.img)&&i.role==='background'),
+      ...images.filter(i=>sceneOf(i.img)),...images.filter(i=>!sceneOf(i.img)&&i.role==='overlay')];
+  }
+  if(spatial&&occlusion){
     const excluded=new Set(images.filter(({alpha})=>alpha<1)
       .flatMap(({img})=>sceneOf(img)?.roots.filter(r=>r.kind==='geometry')||[]));
     occludeScene(images.map(({img})=>img),excluded);
@@ -590,6 +624,8 @@ function compositeInputs(id,canvas,ctx,inputs,mode,blendOf){
     }
     ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
   });
+  if(spatial&&mode==='source-over'&&images.every(({img})=>!blendOf?.get(img)||blendOf.get(img)==='source-over')&&sceneOf(canvas))
+    setScene(canvas,{...sceneOf(canvas),composition:images});
 }
 // Text (Inputs): plain letters (font, weight, colour), scaled by the sound with Bounce. A picture, not an emitter.
 function plainText(id,p,sig){
@@ -1002,7 +1038,10 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
     const key=v.emitter.id+'|'+JSON.stringify(v.mods)+'|'+v.hue+'|'+(v.amp??1)+(v.mask?'|'+v.mask.key:'')+'|'+(v.comp?.o??100)+'|'+!!v.job.sharedScene+'|'+!!v.job.wantSource+'|'+(v.job.surfaceFlowTime!=null);
     const wantCollision=colliderIds.has(v.emitter.id);
     if(rendered.has(key)){const poses=sourceSnapshots.get(key);Object.assign(v,poses);if(poses.collider)nextColliders.set(v.emitter.id,poses.collider);return rendered.get(key);}
-    const e=engineFor(v.emitter.id),job={...v.job,mods,hue:v.hue,view,wantCollision,sharedCamera:!!shared,wantDepth:!!v.job.sceneObject||v.job.mode==='simcloner'&&mods?._sceneYaw!=null||v.job.sharedScene||!!shared&&v.job.mode==='simparticles'},
+    const e=engineFor(v.emitter.id),job={...v.job,mods,hue:v.hue,view,wantCollision,sharedCamera:!!shared,
+      environment:state.settings?.environment??null,ground:{...SCENE_GROUND,...state.settings?.ground,...(sceneCamera?{visible:false}:{})},
+      rigid:v.job.rigidProps?{id:v.emitter.id,world:rigidWorld,props:v.job.rigidProps,mods,audio:v.job.audio,object:v.job.sceneObject}:null,
+      wantDepth:!!v.job.sceneObject||v.job.mode==='simcloner'&&mods?._sceneYaw!=null||v.job.sharedScene||!!shared&&v.job.mode==='simparticles'},
       out=e.draw(job,performanceSettings);
     if(e.viewMode)layerView.set(g.id,e.viewMode);
     if(e.viewZoom&&e.viewZoom!==1)layerZoom.set(g.id,e.viewZoom);
@@ -1075,6 +1114,7 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
       if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf(p,e?.mediaKind==='object'&&e.w?.objModelData);r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);Object.assign(r.shape.mods,{pG3Zoom:55,pG3ScX:0,pG3ScY:0,pG3ScZ:0});}}
       if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
+      if((n.type==='cloner'||n.type==='waveform3d')&&p.rigidBody)r.shape.job.rigidProps=p;
       const key=n.type==='gpuParticles'&&SIM_SOURCE[p.mode],eng=key&&engines.get(n.id);
       const source=!emit&&key&&eng?.simSource(r.shape.job,key);
       const particles3d=n.type==='gpuParticles'&&p.mode==='simparticles'&&(mesh||!emit&&source!=='image'&&source!=='camera');
@@ -1240,7 +1280,8 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       case 'merge':{const {canvas,ctx}=surface(n.id),images=[];
         for(const k of ['a','b','c','d']){const v=input(n,k);if(v===undefined)continue;
           if(v?.job?.mode==='simparticles'&&v.mods?._sim?.pSpace==='3d')v.job.sharedScene=true;
-          const img=asImage(v,n.id+k);if(img)images.push({img,alpha:p[k]});}
+          const img=asImage(v,n.id+k),source=g.nodes.find(m=>m.id===byInput.get(n.id+':'+k)?.from);
+          if(img)images.push({img,alpha:p[k],background:source?.type==='background'});}
         if(!images.length){nodeErrors.add(n.id);throw Error(`${g.name}: connect an image to Merge`);}
         compositeInputs(n.id,canvas,ctx,images,p.mode,blendOf);r.image=canvas;break;}
       case 'mask':{const src=asImage(need(n,'image','an image'),n.id+'i'),m=asImage(need(n,'mask','a mask image'),n.id+'m'),{canvas,ctx}=surface(n.id);
@@ -1255,7 +1296,8 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
         r.image=canvas;break;}
       case 'layerIn':{const target=state.layers[p.layer-1];if(!target){nodeErrors.add(n.id);throw Error(`${g.name}: there is no layer ${p.layer}`);}
         if(target.id===g.id){nodeErrors.add(n.id);throw Error(`${g.name}: a Layer node cannot show its own layer`);}
-        r.image=layerImages.get(target.id)||surface(n.id).canvas;break;}
+        const {canvas,ctx}=surface(n.id),source=layerImages.get(target.id);if(source)ctx.drawImage(source,0,0);
+        r.image=canvas;break;}
       case 'cutter':{const src=asImage(need(n,'image','an image'),n.id),sig=input(n,'audio')??projectSignal(),st=nstate(n.id+':cut',cutter.createState),{canvas,ctx}=surface(n.id);
         lastValues.set(n.id,cutter.render(ctx,src,st,p,sig,time,dt,WIDTH,HEIGHT));r.image=canvas;break;}
       case 'glitch':case 'strobe':{const src=asImage(need(n,'image','an image'),n.id),sig=input(n,'audio')??projectSignal(),st=nstate(n.id+':hit',()=>({beat:sig.beat,v:0,seed:1,last:-1,count:0,flash:-9,armed:true,step:-1}));
@@ -1364,15 +1406,9 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
         }else if(t.outputs.shape){
           const s=need(n,'shape','a shape');
           if(s===blank())r.shape=s;else if(s instanceof HTMLCanvasElement)throw Error(`${g.name}: ${t.label} needs a shape from an Emitter, not an image`);
-          const mods=n.type==='camera3d'&&sceneCamera?s.mods:applyShapeNode(n.type,p,s.mods);let hue=s.hue;
+          const mods=applyShapeNode(n.type,p,s.mods);let hue=s.hue;
           if(n.type==='hue')hue+=p.hue+p.cycle*time;
           r.shape={...s,mods,hue:((hue%360)+360)%360};
-          if(n.type==='camera3d'&&!sceneCamera){
-            const camera=nstate(n.id+':camera',()=>({yaw:0,time})),dt=Math.max(0,Math.min(.1,time-camera.time)),f=s.job.audio?.freq;
-            const level=f?.length?f.slice(0,64).reduce((a,b)=>a+b,0)/64/255:0;
-            camera.yaw=(camera.yaw+dt*((p.orbit||0)/100*69+(p.orbitSound||0)/100*level*90))%360;camera.time=time;
-            r.shape.mods._sceneYaw=camera.yaw;
-          }
         }
     }
     if(n.type==='templateMorph'){r.image=asImage(r.shape,n.id);delete r.shape;}
@@ -1466,12 +1502,25 @@ function dissolveDraw(dt){
 const layerView=new Map(),layerZoom=new Map(),layerBlend=new Map();
 const sharedViewLayers=new Set();
 function drawLayer(out,g,image){
-  const v=g.view,zm=v?v.zm/(layerZoom.get(g.id)||1):1;if(!v||layerView.get(g.id)==='sim'||(zm===1&&!v.px&&!v.py)){out.drawImage(image,0,0);return;}
+  const v=g.view,zm=v?v.zm/(layerZoom.get(g.id)||1):1;if(!v||sharedViewLayers.has(g.id)||layerView.get(g.id)==='sim'||(zm===1&&!v.px&&!v.py)){out.drawImage(image,0,0);return;}
   out.setTransform(zm,0,0,zm,WIDTH/2*(1-zm)+v.px*WIDTH/2,HEIGHT/2*(1-zm)-v.py*HEIGHT/2);out.drawImage(image,0,0);out.setTransform(1,0,0,1,0,0);
 }
 // Blackout (a MIDI action): the whole output fades to black and back.
 const blackout={on:false,level:0};
-const sceneMotion={yaw:0};
+const sceneMotion={phase:0,motion:'static'};
+function drawSceneGround(camera,ground){
+  const e=engineFor('__ground'),mods={...GRAY,...applyShapeNode('camera3d',camera,{}),_sceneYaw:camera.yaw??0,
+    pG3Nx:1,pG3Ny:1,pG3Nz:1,pG3Size:60,pG3ScX:0,pG3ScY:0,pG3ScZ:0,pG3Ao:0,pG3Shadow:0},
+    view={...VIEW0,px:camera.px||0,py:camera.py||0};
+  const raw=e.draw({mode:'simcloner',label:'Scene ground',mods,view,ground,groundOnly:true,wantDepth:true,sharedCamera:true,
+    environment:state.settings?.environment??null,audio:{freq:A.freq,wave:A.wave,rate:A.rate,drive:{bass:0,beat:0}}},state.settings?.performance);
+  if(!raw)return null;
+  const {canvas,ctx}=surface('__ground:r');ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.drawImage(raw,0,0,WIDTH,HEIGHT);
+  const depth=surface('__ground:depth').canvas;depth.getContext('2d').drawImage(e.w.__agScene.depth,0,0,WIDTH,HEIGHT);
+  const signature=JSON.stringify([camera.turn+(camera.yaw||0),camera.tilt,camera.zoom,camera.focal,camera.orbit,camera.orbitSound,view]);
+  setScene(canvas,{camera:signature,depth,opaque:null,roots:[{id:'__ground',camera:signature,kind:'geometry',depth,opaque:null,occlusion:''}]});
+  return canvas;
+}
 function draw(time,dt=1/30){
   if(pageHidden&&!exporting)return;
   drawSeq++;
@@ -1481,12 +1530,15 @@ function draw(time,dt=1/30){
   const mapped=mapActive(),out=mapped?programCtx:previewCtx;previewImg=null;
   const previewLayer=previewId?state.layers.find(g=>g.nodes.some(n=>n.id===previewId)):null;if(previewId&&!previewLayer)setPreview(null);
   out.globalAlpha=1;out.filter='none';out.globalCompositeOperation='source-over';out.fillStyle=state.settings?.background??SCENE_DEFAULTS.background;out.fillRect(0,0,WIDTH,HEIGHT);
-  const camera=state.settings?.camera;
-  if(!camera||!camera.orbit&&!camera.orbitSound)sceneMotion.yaw=0;
-  else if(!paused)sceneMotion.yaw=(sceneMotion.yaw+dt*(camera.orbit*.69+camera.orbitSound*A.bands.bass*.9))%360;
-  const sceneCamera=camera&&{...camera,yaw:sceneMotion.yaw};
+  const camera=state.settings.camera;
+  if(sceneMotion.motion!==camera.motion){sceneMotion.phase=0;sceneMotion.motion=camera.motion;}
+  if(!paused)sceneMotion.phase=advanceCamera(sceneMotion.phase,camera,dt,A.bands.bass);
+  const rigidIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0).flatMap(g=>g.nodes.filter(n=>!n.bypass&&n.props.rigidBody).map(n=>n.id)));
+  rigidWorld.begin(paused?0:dt,{...SCENE_GROUND,...state.settings?.ground},rigidIds);
+  const sceneCamera=cameraPose(camera,sceneMotion.phase);
   sharedViewLayers.clear();
   const pictures=[],nextColliders=new Map();
+  const ground={...SCENE_GROUND,...state.settings?.ground};
   const colliderIds=new Set(state.layers.filter(g=>g.visible&&g.opacity>0)
     .flatMap(g=>g.nodes.filter(n=>n.type==='waveform3d'&&!n.bypass&&n.props.collide).map(n=>n.id)));
   let collisions;
@@ -1498,18 +1550,34 @@ function draw(time,dt=1/30){
     try{const image=execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera);if(image){if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);pictures.push({g,image,shown,forMap});}}
     catch(error){renderErrors.push(error.message);}
   }
+  if(sceneCamera&&ground.enabled&&ground.visible&&sharedViewLayers.size){
+    try{
+      const image=drawSceneGround(sceneCamera,ground);
+      if(image)pictures.unshift({g:{id:'__ground',opacity:1,blend:'source-over'},image,shown:true,forMap:false});
+    }catch(error){renderErrors.push('Ground: '+error.message);}
+  }else if(engines.has('__ground')){engines.get('__ground').dispose();engines.delete('__ground');}
   collisionMeshes=nextColliders;
+  rigidWorld.end();
+  renderErrors.push(...rigidWorld.errors.values());
   try{
     const shown=pictures.filter(p=>p.shown),excluded=new Set(shown.filter(({g})=>g.opacity<1).flatMap(({image})=>sceneOf(image)?.roots.filter(r=>r.kind==='geometry')||[]));
     occludeScene(shown.map(p=>p.image),excluded);
     for(const {g,image,forMap} of pictures)if(layerReaders.has(g.id)||forMap)keepLayer(g.id,image);
-    let pending=null,index=0;
-    const flush=()=>{if(pending){out.globalAlpha=pending.g.opacity;out.globalCompositeOperation=pending.blend;drawLayer(out,pending.g,pending.image);pending=null;}};
+    let inputs=[],index=0;
+    const flush=()=>{
+      if(!inputs.length)return;
+      const id='__stage:scene'+index++,s=surface(id);
+      compositeInputs(id,s.canvas,s.ctx,inputs,'source-over',undefined,false);
+      out.globalAlpha=1;out.globalCompositeOperation='source-over';out.drawImage(s.canvas,0,0);inputs=[];
+    };
     for(const {g,image} of shown){
-      const blend=g.blend==='source-over'&&layerBlend.get(g.id)||g.blend,normal=g.opacity===1&&blend==='source-over'&&sceneOf(image);
-      if(normal&&pending?.normal){const c=surface('__stage:scene'+index).canvas;
-        if(composeScene('__stage:scene'+index++,pending.image,image,c)){pending={g,image:c,blend,normal};continue;}}
-      flush();pending={g,image,blend,normal};
+      const blend=g.blend==='source-over'&&layerBlend.get(g.id)||g.blend,normal=g.opacity===1&&blend==='source-over';
+      if(normal){
+        let img=image;
+        if(g.view&&!sharedViewLayers.has(g.id)){const s=surface('__stage:view:'+g.id);drawLayer(s.ctx,g,image);img=s.canvas;}
+        inputs.push({img,alpha:1,background:plans.get(g.id)?.some(n=>n.type==='background')});continue;
+      }
+      flush();out.globalAlpha=g.opacity;out.globalCompositeOperation=blend;drawLayer(out,g,image);
     }
     flush();
   }catch(error){renderErrors.push(error.message);}
@@ -1873,7 +1941,7 @@ function replaceNode(type,props,oldId){
   const ok=edit((p,g)=>{
     const old=g.nodes.find(m=>m.id===oldId);if(!old)return false;
     const n=node(type,old.x,old.y,clone(props||{}));made=n;g.nodes[g.nodes.indexOf(old)]=n;
-    rewireTo(g,old.id,n);attachCamera(g,n);
+    rewireTo(g,old.id,n);
   },`Replaced with ${label}`);
   if(ok!==false&&made){selected=made.id;renderUI();}
 }
@@ -1881,18 +1949,19 @@ function replaceNode(type,props,oldId){
 function replaceWithExisting(g,mover,oldId){
   const old=g.nodes.find(m=>m.id===oldId);if(!old)return false;
   g.edges=g.edges.filter(e=>e.from!==mover.id&&e.to!==mover.id);rewireTo(g,oldId,mover);
-  mover.x=old.x;mover.y=old.y;g.nodes.splice(g.nodes.indexOf(old),1);attachCamera(g,mover);return true;
+  mover.x=old.x;mover.y=old.y;g.nodes.splice(g.nodes.indexOf(old),1);return true;
 }
 let dropNode=null;
 const dropOnto=el=>{if(dropNode===el)return;dropNode?.classList.remove('replace-target');dropNode=el;el?.classList.add('replace-target');};
 const nodeAt=(x,y,skip)=>{for(const e of document.elementsFromPoint(x,y)){const b=e.closest('#graphViewport .node[data-id]');if(b&&b!==skip)return b;}return null;};
 function placeNode(it,gx,gy,wire){
   if(it.custom)return insertCustom(it.custom,gx-84,gy-20);
+  if(!wire)return addNode(it.type,Math.round(gx-84),Math.round(gy-20),clone(it.props));
   let made=null;
   const ok=edit((p,g)=>{
     const n=node(it.type,Math.round(gx-84),Math.round(gy-20),clone(it.props));made=n;g.nodes.push(n);
     if(wire)spliceInto(g,n,wire);
-    attachCamera(g,n);
+    if(isGenerator(it.type))routeVisual(g,n,TYPES[it.type].outputs.shape?'shape':'image');
   },`Added ${it.label}`);
   if(ok&&made){selected=made.id;renderUI();}
 }
@@ -2067,7 +2136,7 @@ const OPT_GROUPS=[['Setup',/preset|^emitter$|bound|source|model|^type|mode|shape
   ['Look',/trail|bloom|exposure|glow|colou?r|opacity|contrast|saturat|hue|fade|bright|light|shad|edge|thick|point/i],['Quality',/quality|precision|budget|simulation|time ?scale|step|resolution|iteration|detail/i]];
 const optGroup=label=>(OPT_GROUPS.find(([,re])=>re.test(label||''))||['Form'])[0];
 function setProp(n,key,value,label){return edit((p,g)=>{g.nodes.find(x=>x.id===n.id).props[key]=value;},`${TYPES[n.type].label}: ${label}`);}
-const CAM_VIEW_KNOBS=new Set(['pObjPersp','pObjTilt','pObjRotate','pGsOrbit','pGsTilt','pGsZoom']);
+const CAM_VIEW_KNOBS=new Set(['pObjPersp','pObjTilt','pObjRotate','pGsOrbit','pGsTilt','pGsZoom','pG3Yaw','pG3Tilt','pG3Zoom','pG3Focal','pG3Orbit','pG3OrbitSnd']);
 function autoOpts(n,key,s){
   if(s&&(s.kind!=='number'||s.noPort))return {};
   return {auto:!!n.auto?.includes(key),onAuto:on=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id),a=new Set(x.auto||[]);on?a.add(key):a.delete(key);if(a.size)x.auto=[...a];else delete x.auto;},`${s?.label||'Knob'}: auto ${on?'on':'off'}`)};
@@ -2078,8 +2147,6 @@ function focalKnob(s,value,def,property,onInput,onChange){
 }
 function propControl(n,key,s,connected){
   const set=v=>setProp(n,key,v,s.label);
-  if(n.type==='camera3d'&&key==='focal')return focalKnob(s,n.props[key],s.value,key,
-    v=>live(()=>{findNode(n.id).props[key]=v;}),()=>liveCommit('3D camera: Focal length'));
   if(s.kind==='number')return ui.knob({label:s.label,min:s.min,max:s.max,step:s.step,value:n.props[key],def:s.value,property:key,modulated:connected,...autoOpts(n,key,s),
     onInput:v=>live(st=>{const x=findNode(n.id);if(x)x.props[key]=v;}),onChange:()=>liveCommit(`${TYPES[n.type].label}: ${s.label}`)});
   if(s.kind==='select')return ui.chips({options:s.labels||s.choices.map(c=>[c,c]),value:n.props[key],property:key,onChange:set});
@@ -2146,13 +2213,7 @@ function renderProperties(){
   const t=TYPES[n.type],cat=catOf(n.type),head=el('div','insp-head'),h=el('h3');
   h.style.color=cat.color;h.append(document.createTextNode(nodeTitle(n)));
   head.append(h,el('div','insp-desc',t.description));root.append(head);
-  const sharedCamera=n.type==='camera3d'&&state.settings?.camera;
-  if(sharedCamera){
-    const s=section(root,'Shared 3D camera');
-    s.append(el('p','insp-note','One camera for all 3D layers. Wired camera nodes are inactive in this mode.'));
-    renderSceneCamera(s,null,fold);
-  }
-  else if(n.type==='templateMorph'){
+  if(n.type==='templateMorph'){
     for(const key of ['from','to']){const sel=el('select');sel.dataset.property=key;for(const name of TEMPLATE_NAMES)sel.append(new Option(name,name));sel.value=n.props[key];
       sel.onchange=()=>{tm.playing=false;edit((p,g)=>{g.nodes.find(m=>m.id===n.id).props[key]=sel.value;},'Morph template');};root.append(ui.field(TYPES[n.type].props[key].label,sel));}
     const knobs=el('div','knob-grid');knobs.append(ui.knob({label:'Morph',min:0,max:100,step:1,value:n.props.mix,def:0,unit:'%',property:'mix',
@@ -2179,8 +2240,8 @@ function renderProperties(){
   const actions=section(root).appendChild(el('div','insp-actions'));
   const dup=el('button','btn','Duplicate');dup.id='duplicateNode';dup.onclick=duplicateSelected;
   const rst=el('button','btn','Reset');rst.id='resetNode';
-  rst.title=sharedCamera?'Reset the shared 3D camera':'Return every setting of this node to its default (keeps its type, wires and loaded media)';
-  rst.onclick=()=>sharedCamera?editScene('camera',SCENE_CAMERA,'Reset shared 3D camera'):resetNode(n.id);
+  rst.title='Return every setting of this node to its default (keeps its type, wires and loaded media)';
+  rst.onclick=()=>resetNode(n.id);
   const del=el('button','btn danger','Delete');del.id='deleteNode';del.onclick=removeSelected;actions.append(dup,rst,del);
   updateHint();
   syncFolds();tipify();
@@ -2424,9 +2485,12 @@ function renderEmitter(root,n){
     sel.value=n.props.mode;sel.onchange=()=>edit((p,g)=>{const x=g.nodes.find(x=>x.id===n.id);setMode(g,x,sel.value);},`${T.label}: ${emitterNames[sel.value]}`);
     s.append(ui.field(T.props.mode.label,sel));
   }
+  if(['waveform3d','cloner','splat'].includes(n.type)||n.type==='gpuParticles'&&['simparticles','simfluid3d'].includes(n.props.mode)){
+    const camera=el('button','mbtn','Scene camera');camera.type='button';camera.dataset.property='sceneCameraOpen';
+    camera.onclick=()=>{if(!sceneInspector)$('sceneSettings').click();};s.append(camera);
+  }
   if(n.type==='gpuParticles'&&n.props.mode==='simfluid3d'){
     renderProps(fold(root,'Emission'),n,['fluidResolution','fluidDomain','fluidRate','fluidSpeed','fluidSwirl','fluidFade','fluidPressure'],true);
-    renderProps(fold(root,'Floor'),n,['fluidFloor',...(n.props.fluidFloor?['fluidFloorSize']:[])],true);
     const look=fold(root,'Look');
     renderProps(look,n,['fluidColor','fluidOpacity'],true);
     look.append(el('p','insp-note','Wire a Palette after 3D Fluid to color the flow by density.'));
@@ -2443,6 +2507,11 @@ function renderEmitter(root,n){
   }
   if(T.props.render)s.append(ui.field(T.props.render.label,ui.chips({options:T.props.render.labels.filter(l=>!(n.type==='waveform3d'&&l[0]==='points'&&n.props.mode!=='model')),value:n.props.render,property:'render',onChange:v=>edit((p,g)=>{setMode(g,g.nodes.find(x=>x.id===n.id),v,'render');},`${T.label}: ${v}`)})));
   if(n.type==='waveform3d')s.append(propControl(n,'collide',T.props.collide));
+  if(n.type==='waveform3d'||n.type==='cloner'){
+    const physics=fold(root,'Rigid body');
+    renderProps(physics,n,simKeys(graph(),n).filter(k=>T.props[k].group==='Rigid body'),true);
+    physics.append(el('p','insp-note','Enable to collide with other rigid objects and every rigid cloner instance across layers. Auto uses a sphere for spheres and box bounds for other objects. Gravity, Wind, Swirl, Drag and Turbulence nodes add forces. Ground is controlled in Scene settings.'));
+  }
   if(n.type==='text')s.append(propControl(n,'text',T.props.text));
   // Objects come from wired 3D Object nodes; Variety only shows on projects that already changed or wired it.
   if(n.type==='cloner')renderProps(root,n,CLONER_KEYS.filter(k=>k!=='variety'||n.props.variety!==TYPES.cloner.props.variety.value||graph().edges.some(e=>e.to===n.id&&e.input===k)));
@@ -2481,12 +2550,10 @@ function renderEmitter(root,n){
   // Waveforms expose both line Sensitivity and overall Intensity. Only classic 3D modes use tilt / rotate.
   const sim=SIM_NODES.includes(n.type)||n.type==='waveform3d'&&n.props.render==='normal',classic3d=n.type==='waveform3d'||n.type==='waveform2d'&&n.props.mode==='fractal';
   const used=k=>wiredOf(k)||n.auto?.includes(k)||n.props[k]!==undefined&&n.props[k]!==T.props[k].value;
-  // A model with its 3D camera: the camera owns the view, so the object's own view knobs step aside.
-  const camModel=n.type==='waveform3d'&&n.props.mode==='model'&&!!modelCamera(graph(),n);
   const geo={};let lineSens=false;
   for(const k of [...Object.keys(GEO_PROPS),...Object.keys(STYLE_PROPS)])if(T.props[k]){
     const gr=T.props[k].group;if(gr==='Lines'&&sim||n.type==='waveform3d'&&n.props.render!=='waveform'&&['Lines','Line style','Outline'].includes(gr))continue;
-    if((k==='tilt'||k==='turn')&&(!classic3d||camModel)&&!used(k))continue;
+    if((k==='tilt'||k==='turn')&&!classic3d&&!used(k))continue;
     if(k==='sensitivity'){lineSens=true;continue;}
     if(k==='contrast'||k==='fade')continue;
     (geo[gr==='Lines'&&T.props.lineShape?'Line style':gr]||=[]).push(k);
@@ -2524,7 +2591,7 @@ function renderEmitter(root,n){
     if(emissionWire&&!spatial&&n.props.emitColors==='source')controls=controls.filter(c=>!/setSimOpt\('pColor'/.test(c.onclick||''));
     if(spatial)controls=controls.filter(c=>c.type!=='chips'||!/setSimOpt\('pBounds'/.test(c.onclick));
     if(hasFlow)controls=controls.filter(c=>!['pSpSpeed','pEmitScale'].includes(c.id));
-    if(camModel)controls=controls.filter(c=>c.type!=='range'||!CAM_VIEW_KNOBS.has(c.id));
+    if(n.type==='waveform3d'||n.type==='splat'||spatial)controls=controls.filter(c=>c.type!=='range'||!CAM_VIEW_KNOBS.has(c.id));
     // The cloner's shapes, layout, presets and every pG3 knob are Pro nodes and properties now.
     if(clonerLike)controls=controls.filter(c=>c.type==='range'?!c.id.startsWith('pG3')&&(optGroup(c.label)!=='Look'||n.props.opts?.[c.id]!==undefined&&n.props.opts[c.id]!==c.def):!/\('g3|simApplyPreset/.test(c.onclick));
     // Leftover knobs share one "Form" section; sound, look and quality always keep their own.
@@ -2569,7 +2636,7 @@ function renderEmitter(root,n){
       }
       if(gr==='Emission'){
         if(spatial)renderProps(box,n,['particleDepth',...(mesh?[...(!hasFlow?['particleSpread','particleResponse']:[]),'particleSurfaceFlow']:[])],true);
-        if(spatial)renderProps(fold(opts,'Floor'),n,['particleFloor',...(n.props.particleFloor?['particleFloorSize']:[])],true);
+        if(spatial)box.append(el('p','insp-note','Ground is controlled in Scene settings, together with its height, size and visibility.'));
         if(emissionWire&&n.props.mode==='simfluid'&&meshEmitter(graph(),emissionWire))box.append(el('p','insp-note','Fluid emits from the object’s rendered silhouette in 2D. It does not collide with the mesh.'));
       }
       if(gr==='Look'&&emissionWire&&!(particleMode&&mesh))renderProps(box,n,['emitColors'],true);
@@ -2996,19 +3063,35 @@ function changeResolution(height){
 function editScene(key,value,label){
   return edit(s=>{s.settings={...s.settings,[key]:value};},label);
 }
-function renderSceneCamera(root,node,group=section){
-  const camera=node?.props??state.settings.camera;
-  for(const [title,keys] of [['Lens',['focal','focus','dof','blur']],['View',['turn','tilt','zoom','orbit','orbitSound']]]){
+function renderSceneCamera(root){
+  const camera=state.settings.camera;
+  root.append(el('p','insp-note','One camera for every 3D object, cloner, 3D particle system and fluid. Preview navigation moves this camera; object transforms stay on their nodes.'));
+  const motion=section(root,'Movement');
+  motion.append(ui.chips({options:CAMERA_MOTIONS,value:camera.motion,property:'sceneCamera:motion',
+    onChange:v=>editScene('camera',{...state.settings.camera,motion:v},'Camera movement: '+v)}));
+  const animation=camera.motion==='static'?[]:['speed',...(['pendulum','dolly','spiral'].includes(camera.motion)?['range']:[]),...(camera.motion==='spiral'?['height']:[]),'audio'];
+  for(const [title,keys] of [['View',['turn','tilt','zoom','px','py']],['Lens',['focal','focus','dof','blur']],['Animation',animation]]){
+    if(!keys.length)continue;
     const grid=el('div','knob-grid');
     for(const k of keys){
-      const spec=TYPES.camera3d.props[k],property=(node?'wiredCamera:':'sceneCamera:')+k,def=node?spec.value:SCENE_CAMERA[k];
-      const set=v=>live(st=>{(node?findNode(node.id).props:st.settings.camera)[k]=v;}),commit=()=>liveCommit(`3D camera: ${spec.label}`);
+      const spec=SCENE_CAMERA_PROPS[k],property='sceneCamera:'+k,def=SCENE_CAMERA[k];
+      const set=v=>live(st=>{st.settings.camera[k]=v;}),commit=()=>liveCommit(`3D camera: ${spec.label}`);
       grid.append(k==='focal'?focalKnob(spec,camera[k],def,property,set,commit):
         ui.knob({label:spec.label,min:spec.min,max:spec.max,step:spec.step,value:camera[k],def,property,
-          unit:k==='turn'||k==='tilt'?'°':'%',onInput:set,onChange:commit}));
+          unit:k==='turn'||k==='tilt'?'°':k==='px'||k==='py'?'':'%',onInput:set,onChange:commit}));
     }
-    group(root,title).append(grid);
+    section(root,title).append(grid);
   }
+  const actions=el('div','insp-actions');
+  const reset=el('button','btn','Reset camera');reset.type='button';
+  reset.onclick=()=>{sceneMotion.phase=0;editScene('camera',{...SCENE_CAMERA},'Reset scene camera');};
+  actions.append(reset);
+  if(camera.motion!=='static'){
+    const restart=el('button','btn','Restart movement');restart.type='button';
+    restart.onclick=()=>{sceneMotion.phase=0;draw(elapsed,0);message('Camera movement restarted');};
+    actions.append(restart);
+  }
+  root.append(actions);
 }
 function setSceneResolution(height){
   if(recorder||recordStarting||exporting)throw Error('Stop recording or exporting before changing resolution');
@@ -3031,7 +3114,7 @@ function renderSceneSettings(root){
     c.setAttribute('aria-label',label);
     if(Array.isArray(options)){
       for(const [id,text] of options){const o=el('option','',text);o.value=id;c.append(o);}
-    }else c.type='color';
+    }else{c.type=options==='number'?'number':'color';if(c.type==='number')c.step='any';}
     c.value=value;
     let current=value;
     c.onchange=()=>{
@@ -3046,24 +3129,40 @@ function renderSceneSettings(root){
     const row=el('label','prop-row');row.append(el('span','prop-label',label),c);box.append(row);
     return c;
   };
-  const camera=group('3D camera'),wired=state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='camera3d'&&!n.bypass).map(n=>({n,g})));
-  const cameras=wired.map(({g,n},i)=>[n.id,`${g.name} · ${n.name||`Camera ${i+1}`}`]);
-  field(camera,'Camera mode',settings.camera?'shared':'legacy',[['legacy','Wired cameras'],['shared','Shared scene camera']],v=>
-    editScene('camera',v==='shared'?{...(wired.length===1?wired[0].n.props:SCENE_CAMERA)}:null,'Changed scene camera mode'));
-  if(settings.camera){
-    if(wired.length>1)field(camera,'Copy wired camera','',[['','Choose a camera'],...cameras],id=>{
-      const source=wired.find(({n})=>n.id===id);
-      return !!source&&editScene('camera',{...source.n.props},'Copied wired camera settings');
-    });
-    renderSceneCamera(camera,null);
-  }else{
-    const source=wired.find(({n})=>n.id===sceneWiredCamera)||wired.find(({g})=>g.id===active)||wired[0];
-    if(source){
-      if(wired.length>1)field(camera,'Wired camera',source.n.id,cameras,id=>{
-        sceneWiredCamera=id;renderProperties();return true;
-      });
-      renderSceneCamera(camera,source.n);
-    }else camera.append(el('p','insp-note','Add a 3D Camera node to edit a wired camera, or choose Shared scene camera to use one camera for all 3D layers.'));
+  renderSceneCamera(group('3D camera'));
+  const ground=group('Ground'),groundSettings={...SCENE_GROUND,...settings.ground};
+  const groundField=(label,key,value,options,parse=v=>v)=>field(ground,label,value,options,v=>
+    editScene('ground',{...SCENE_GROUND,...state.settings?.ground,[key]:parse(v)},`Ground: ${label}`));
+  groundField('Ground enabled','enabled',String(groundSettings.enabled),[['true','On'],['false','Off']],v=>v==='true');
+  groundField('Show ground','visible',String(groundSettings.visible),[['true','Visible'],['false','Collision only']],v=>v==='true');
+  groundField('Ground height','height',groundSettings.height,'number');
+  groundField('Ground size','size',groundSettings.size,'number');
+  ground.append(el('p','insp-note','One shared ground for the scene. Rigid bodies collide with it when enabled, even when it is hidden.'));
+  const restart=el('button','btn','Restart rigid bodies');restart.type='button';
+  restart.onclick=()=>{rigidWorld.reset();if(paused)draw(elapsed);message('Rigid bodies restarted');};
+  ground.append(restart);
+  const lighting=group('Environment lighting'),environment=settings.environment;
+  lighting.append(el('p','insp-note',environment?.name||'Import a Radiance HDR panorama to illuminate and reflect in 3D surfaces.'));
+  const hdr=el('input');hdr.type='file';hdr.accept='.hdr';hdr.setAttribute('aria-label','Import HDR environment');
+  hdr.onchange=async()=>{
+    const file=hdr.files[0];if(!file)return;
+    const before=state;hdr.disabled=true;message('Loading HDR environment...');
+    try{
+      const next=await importEnvironment(file);
+      if(state!==before)throw Error('The scene changed while loading. Import the HDR again.');
+      editScene('environment',next,'Imported HDR environment: '+file.name);
+    }catch(error){message('HDR environment: '+error.message,true);}
+    finally{hdr.disabled=false;hdr.value='';}
+  };
+  lighting.append(hdr);
+  if(environment){
+    for(const [label,key] of [['Environment intensity','intensity'],['Environment rotation','rotation']]){
+      field(lighting,label,environment[key],'number',v=>
+        editScene('environment',{...state.settings.environment,[key]:v},`HDR: ${label}`));
+    }
+    const remove=el('button','btn','Remove HDR');remove.type='button';
+    remove.onclick=()=>editScene('environment',null,'Removed HDR environment');lighting.append(remove);
+    lighting.append(el('p','insp-note','The HDR is embedded in saved scenes. Intensity controls light strength; rotation turns the panorama in degrees.'));
   }
   const output=group('Output'),sizes=OUTPUT_SIZES.map(h=>[h,h===2160?'4K':`${h}p`]),video={...exportPrefs,...settings.video};
   field(output,'Live resolution',settings.resolution??preferredResolution,sizes,setSceneResolution);
@@ -3094,7 +3193,6 @@ function closeSceneInspector(){
 }
 $('sceneSettings').onclick=()=>{
   if(sceneInspector){closeSceneInspector();return;}
-  sceneWiredCamera=graph().nodes.find(n=>n.id===selected&&n.type==='camera3d'&&!n.bypass)?.id??null;
   sceneInspector=true;selected=null;multi.clear();pending=null;
   if(layout.hidden.inspector)togglePane('inspector');
   renderUI();
@@ -3158,22 +3256,10 @@ const viewOff=()=>!!pinNode()||!!pinDrag||mapActive();
 let viewDrag=null,wheelTimer=0;
 const viewLayer=()=>state.layers.find(g=>previewId&&g.nodes.some(n=>n.id===previewId))||graph();
 function viewCam(g){
-  if(state.settings?.camera)return sharedViewLayers.has(g.id)?{id:null,props:state.settings.camera}:null;
-  const nodes=new Map(g.nodes.map(n=>[n.id,n]));
-  const targets=nodes.has(previewId)?[previewId]:g.nodes.filter(n=>n.type==='output').map(n=>n.id);
-  const seen=new Set(targets),cameras=[];
-  // Follow the picture, not camera nodes on unused branches or beyond the solo preview.
-  for(let i=0;i<targets.length;i++){
-    const n=nodes.get(targets[i]),inputs=inputsOf(n.type);
-    const sources=g.edges.filter(e=>e.to===n.id&&e.input!=='mask'&&
-      (VISUAL.has(inputs[e.input])||inputs[e.input]==='any'&&VISUAL.has(resolveOut(g,nodes.get(e.from),e.out))));
-    if(n.type==='camera3d'&&!n.bypass&&sources.some(e=>e.input==='shape'))cameras.push(n);
-    for(const e of sources)if(!seen.has(e.from)){seen.add(e.from);targets.push(e.from);}
-  }
-  const sel=nodes.get(selected),preferred=sceneInspector?sceneWiredCamera:sel&&modelCamera(g,sel)?.id;
-  return cameras.find(n=>n.id===preferred)||cameras[0]||null;
+  const spatial=previewId?sharedViewLayers.has(g.id):sharedViewLayers.size>0;
+  return spatial?{id:null,props:state.settings.camera}:null;
 }
-function setCam(id,fn){live(st=>{const p=id===null?st.settings?.camera:findNode(id)?.props;if(p)fn(p);});}
+function setCam(id,fn){live(st=>{fn(st.settings.camera);});}
 function setView(id,fn){live(st=>{const g=st.layers.find(l=>l.id===id);if(!g)return;const v={...VIEW0,...g.view};fn(v);const c=cleanView(v);if(c)g.view=c;else delete g.view;});}
 preview.addEventListener('pointerdown',ev=>{
   if(viewOff()||ev.defaultPrevented)return;
@@ -3221,7 +3307,7 @@ const dropTouch=ev=>{touches.delete(ev.pointerId);if(touches.size<2)pinch=null;}
 preview.addEventListener('pointerup',dropTouch,true);preview.addEventListener('pointercancel',dropTouch,true);
 preview.addEventListener('dblclick',()=>{if(viewOff())return;const g=viewLayer(),cam=viewCam(g),T=TYPES.camera3d.props;if(!cam&&!g.view)return;
   if(cam?.id===null){setCam(null,c=>{for(const k of ['turn','tilt','zoom'])c[k]=SCENE_CAMERA[k];c.px=c.py=0;});liveCommit('Reset scene view');return;}
-  if(cam)setCam(cam.id,c=>{c.turn=T.turn.value;c.tilt=T.tilt.value;c.zoom=T.zoom.value;});setView(g.id,v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
+  setView(g.id,v=>Object.assign(v,VIEW0));liveCommit('Reset view');});
 
 // Output window for a projector / second display. Each window's canvas is painted straight from the preview (a GPU copy,
 // no video stream in between, so no added lag or dropped frames). With Projectors set to 2–4 there is one window per
@@ -3390,7 +3476,7 @@ $('helpBody').innerHTML=`
 <li><b>3D model</b> loads <b>OBJ, FBX, USD (.usda, .usdc, .usdz), GLB or glTF</b> (glTF must be a single file: export .glb or embed buffers; USD must be flattened, since referenced files are not loaded). Polygons of any size are triangulated. Still models keep up to 500,000 triangles in 3D Object (Normal and Point cloud render them on the GPU; Waveform and Polygons simplify to Max faces) and 1,000,000 in Mapping; animated models are thinned to 40,000 faces, since they are re-posed every frame. Animated models play automatically: skinned characters (e.g. Mixamo, downloaded as FBX “With Skin”), node and morph animation. <b>Animation speed</b> sets the tempo (0 freezes), <b>Clip</b> picks one of several takes. The status line after loading says whether the file contains animation.</li>
 <li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. If imported materials are unreadable or unsupported (for example, specular/glossiness), the mesh still loads with <b>Palette</b> shading. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
 <li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound pushes clones with the music, Field, Random, Links draws lines between them) and <b>Look</b> nodes (Material, Light, 3D camera with lens Focal length, 14 mm wide to 200 mm telephoto, and Depth of field) after it. Turn on <b>Collide</b> on a 3D Object to bounce free 3D particles off its surface.</li>
-<li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Floor</b> catches falling 3D particles on an invisible square; adjust <b>Size</b> or switch it off. Set <b>Look → Trails</b> to 0 to draw particles without trails. Add a <b>3D camera</b> to orbit the cloud.</li></ul>
+<li>WebGPU particles move in 3D by default and stay in 2D when fed a waveform or other flat source. Wire a 3D Object or Cloner into <b>emit</b> to emit from the mesh itself. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles and rigid bodies; adjust its height and size or switch it off. Set <b>Look → Trails</b> to 0 to draw particles without trails. Add a <b>3D camera</b> to orbit the cloud.</li></ul>
 <h3 id="h-sims">Simulations</h3>
 <p>WebGPU emitters (Particles, Fluid, Smoke) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
 <h3 id="h-fx">Post FX</h3>
@@ -4501,7 +4587,8 @@ window.pro={
   getProject:()=>clone(state),layout:()=>({...layout,hidden:{...layout.hidden}}),validate,importProject,addNode,addLayer,connect:connection,undo,redo,loadTemplate,templates:Object.keys(TEMPLATES).filter(n=>!RETIRED.has(n)),
   select:id=>{selected=id;multi.clear();renderUI();},selectNodes:ids=>setSelection(ids),selection:()=>selIds(),copy:()=>copySel(),paste:(x,y)=>pasteNodes(clip,x,y),saveCustom:n=>saveCustom(n),customNodes:()=>customNodes(),removeCustom:n=>removeCustom(n),selectLayer:id=>{if(!state.layers.some(g=>g.id===id))throw Error('Missing layer');active=id;selected=null;renderUI();},
   setProperty:(id,key,value)=>edit((p,g)=>{const n=g.nodes.find(n=>n.id===id);if(!n)throw Error('Missing node');if(isEngine(n.type)&&(key==='mode'||key==='render'))setMode(g,n,value,key);else n.props[key]=value;},'Updated node property'),
-  stats:()=>({frame,paused,active,blends:Object.fromEntries(state.layers.map(g=>[g.id,g.blend==="source-over"&&layerBlend.get(g.id)||g.blend])),mapRes:mapLoad.res,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
+  setSceneCamera:value=>editScene('camera',{...state.settings.camera,...value},'Updated scene camera'),
+  stats:()=>({frame,paused,active,rigid:rigidWorld.stats(),blends:Object.fromEntries(state.layers.map(g=>[g.id,g.blend==="source-over"&&layerBlend.get(g.id)||g.blend])),mapRes:mapLoad.res,selected,errors:[...renderErrors],bands:{...A.bands},beat:A.beat,live:A.live,audio:{state:audio.context?.state||null,monitor:audio.monitor?.gain.value??null,input:audio.source?"file":audio.live?.kind||null},engines:Object.fromEntries([...engines].map(([id,e])=>[id,e.stats()]))}),
   mapMode:on=>{setMapMode(on);return mapMode;},workspace:w=>{if(w)setWorkspace(w);return workspace;},
   dissolve:on=>{dissolveOn=!!on;if(!on)fade=null;return dissolveOn;},autopilot:{examples:autopilot.EXAMPLES,write:o=>autopilot.write(o),parse:t=>autopilot.parse(t),read:t=>{const w=apWin();return w?vibeText(readVibe(w,t)):null;},create:t=>apCreate(t),
     change:(k,dur)=>apChange(k||'phrase',dur,ap.changes,true),scene:(id,k='groove')=>{gen.force=id;return apChange(k,1,'everything',true,true);},scenes:()=>AP_SCENES.map(x=>x.id),start:()=>apStart(),stop:()=>apStop(),
@@ -4512,6 +4599,7 @@ window.pro={
     const r=await exportVideo({height:HEIGHT,fps:30,quality:'standard',...cfg});return {bytes:r.blob?.size||0,frames:r.frames,width:r.width,height:r.height,head:r.blob?[...new Uint8Array(await r.blob.slice(0,12).arrayBuffer())]:null};},
   midi:{inject:b=>sensors.injectMidi(b),learn:on=>setMidiLearn(on),actions:()=>({...midiActions}),blackout:()=>blackout.on},
   share:{link:()=>shareLink(),open:link=>openShared(new URL(link).hash.replace(/^#scene=/,''))},
+  camera:()=>({phase:sceneMotion.phase,pose:cameraPose(state.settings.camera,sceneMotion.phase)}),
   draw:()=>draw(elapsed),engine:id=>engines.get(id),value:id=>lastValues.get(id),outputs:id=>lastOuts.get(id),emitPoints:id=>nodeState.get(id+':emit')?.asset?.points,view:()=>({...view}),pixels:()=>{const d=previewCtx.getImageData(0,0,WIDTH,HEIGHT).data;let s=0;for(let i=0;i<d.length;i+=16)s+=d[i]+d[i+1]+d[i+2];return s/(d.length/16)/3;}
 };
 attempt(()=>{const h=+localStorage.getItem('agpro.resolution');if(OUTPUT_SIZES.includes(h))preferredResolution=h;});
