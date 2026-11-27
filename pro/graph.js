@@ -476,6 +476,16 @@ export const TYPES = {
   bloom:FX('Bloom','Glow around bright areas.',{bloom:n('Bloom',60,0,100,1,{key:'pfxBloom'}),edge:n('Edge glow',0,0,100,1,{key:'pfxEdgeGlow'})}),
   grade:{...FX('Color correct','Brightness, contrast, saturation, hue.',{brightness:n('Brightness',0,-100,100,1,{key:'pfxBrightness'}),contrast:n('Contrast',10,-100,100,1,{key:'pfxContrast'}),
     saturation:n('Saturation',20,-100,200,1,{key:'pfxSaturation'}),hue:n('Hue',0,-180,180,1,{key:'pfxHue'}),invert:n('Invert',0,0,100,1,{key:'pfxInvert'})}),category:'color'},
+  colorAdjust:{category:'postfx',label:'Color adjust',description:'Full colour adjustment: exposure, brightness, contrast, saturation, vibrance, hue, white balance, shadows and highlights, and Levels (input black/white, gamma, output black/white).',...FX_IO,props:{
+    exposure:G('Basic',n('Exposure',0,-5,5,.05,{unit:'stops'})),brightness:G('Basic',n('Brightness',0,-100,100,1)),contrast:G('Basic',n('Contrast',0,-100,100,1)),
+    saturation:G('Basic',n('Saturation',0,-100,200,1)),vibrance:G('Basic',n('Vibrance',0,-100,100,1)),hue:G('Basic',n('Hue',0,-180,180,1,{unit:'°'})),
+    temperature:G('White balance',n('Temperature',0,-100,100,1)),tint:G('White balance',n('Tint',0,-100,100,1)),
+    shadows:G('Tone',n('Shadows',0,-100,100,1)),highlights:G('Tone',n('Highlights',0,-100,100,1)),invert:G('Tone',n('Invert',0,0,100,1,{unit:'%'})),
+    inBlack:G('Levels',n('Input black',0,0,254,1)),inWhite:G('Levels',n('Input white',255,1,255,1)),gamma:G('Levels',n('Gamma',1,.1,10,.01)),
+    outBlack:G('Levels',n('Output black',0,0,255,1)),outWhite:G('Levels',n('Output white',255,0,255,1)),
+    mix:n('Mix',100,0,100,1,{unit:'%'})}},
+  lut:{category:'postfx',label:'LUT',description:'Applies a colour look-up table from a .cube file (3D or 1D, as exported by Resolve, Premiere, Photoshop and most LUT packs). The LUT is saved in the project.',...FX_IO,props:{
+    amount:n('Amount',100,0,100,1,{unit:'%'}),lutName:{...text('LUT name','',255),hidden:true},lutData:{...text('LUT data','',2200000),hidden:true}}},
   blur:FX('Blur','Directional, radial and focal blur.',{x:n('Blur X',20,0,100,1,{key:'pfxBlurX'}),y:n('Blur Y',0,0,100,1,{key:'pfxBlurY'}),radial:n('Radial',0,0,100,1,{key:'pfxBlurRadial'}),focal:n('Focal area',0,0,100,1,{key:'pfxFocal'})}),
   lens:FX('Lens','Chromatic aberration, vignette, sharpen, scanlines.',{chroma:n('Chromatic',30,0,100,1,{key:'pfxChroma'}),vignette:n('Vignette',40,0,100,1,{key:'pfxVignette'}),sharpen:n('Sharpen',0,0,100,1,{key:'pfxSharpen'}),grain:n('Grain',0,0,100,1,{key:'pfxGrain'}),scanlines:n('Scanlines',0,0,100,1,{key:'pfxScanlines'})}),
   kaleido:FX('Kaleido','Kaleidoscope and reflection.',{kaleido:n('Kaleido',50,0,100,1,{key:'pfxKaleido'}),reflect:n('Reflect',0,0,100,1,{key:'pfxReflect'})}),
@@ -1073,8 +1083,8 @@ export const SCENE_CAMERA_PROPS={
   px:n('Pan X',0,-4,4,.01),py:n('Pan Y',0,-4,4,.01)
 };
 export const SCENE_CAMERA=Object.fromEntries(Object.entries(SCENE_CAMERA_PROPS).map(([k,s])=>[k,clone(s.value)]));
-export const SCENE_GROUND={enabled:true,visible:true,shadows:true,shape:'square',color:'#000000',height:-1.2,size:20};
-export const SCENE_LIGHTING={shadows:true,ambientOcclusion:false,aoStrength:60,aoRadius:1,depthHaze:false,hazeStrength:60,hazeStart:10,hazeEnd:80,hazeColor:'#aeb0b3'};
+export const SCENE_GROUND={enabled:true,visible:true,shadows:true,shape:'square',color:'#000000',height:-1.2,size:20,restart:30};
+export const SCENE_LIGHTING={shadows:true,ambientOcclusion:false,aoStrength:60,aoRadius:1,depthHaze:false,hazeStrength:60,hazeStart:3,hazeEnd:20,hazeColor:'#aeb0b3'};
 export const SCENE_DEFAULTS={background:'#000000',camera:SCENE_CAMERA,ground:SCENE_GROUND,lighting:SCENE_LIGHTING,environment:null};
 function cleanSceneSettings(s){
   if(s===undefined)s={};
@@ -1082,6 +1092,8 @@ function cleanSceneSettings(s){
   const out={camera:{...SCENE_CAMERA}};
   if(s.lighting!==undefined&&(!s.lighting||typeof s.lighting!=='object'||Array.isArray(s.lighting)))throw Error('Invalid scene lighting');
   const light={...SCENE_LIGHTING,shadows:s.ground?.shadows??SCENE_LIGHTING.shadows,...s.lighting};
+  // The first haze range (10–80) was beyond typical scene depth, so untouched projects move to the current range.
+  if(light.hazeStart===10&&light.hazeEnd===80)Object.assign(light,{hazeStart:SCENE_LIGHTING.hazeStart,hazeEnd:SCENE_LIGHTING.hazeEnd});
   for(const k of ['shadows','ambientOcclusion','depthHaze'])if(typeof light[k]!=='boolean')throw Error('Invalid scene lighting: '+k);
   out.lighting={shadows:light.shadows,ambientOcclusion:light.ambientOcclusion,depthHaze:light.depthHaze,
     aoStrength:finite(light.aoStrength,0,100,'AO strength'),aoRadius:finite(light.aoRadius,.05,10,'AO radius'),
@@ -1092,7 +1104,7 @@ function cleanSceneSettings(s){
     const g={...SCENE_GROUND,...s.ground};
     if(!s.ground||typeof s.ground!=='object'||Array.isArray(s.ground)||typeof g.enabled!=='boolean'||typeof g.visible!=='boolean'||typeof g.shadows!=='boolean')throw Error('Invalid scene ground');
     if(!['square','circle'].includes(g.shape))throw Error('Invalid ground shape');
-    out.ground={enabled:g.enabled,visible:g.visible,shadows:g.shadows,shape:g.shape,color:cleanProp(color('Ground colour',SCENE_GROUND.color),g.color,'Ground colour'),height:finite(g.height,-100,100,'Ground height'),size:finite(g.size,.2,200,'Ground size')};
+    out.ground={enabled:g.enabled,visible:g.visible,shadows:g.shadows,shape:g.shape,color:cleanProp(color('Ground colour',SCENE_GROUND.color),g.color,'Ground colour'),height:finite(g.height,-100,100,'Ground height'),size:finite(g.size,.2,200,'Ground size'),restart:finite(g.restart,0,120,'Rigid body restart')};
   }
   if(s.environment!==undefined){
     const e=s.environment;

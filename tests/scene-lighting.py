@@ -110,12 +110,14 @@ with sync_playwright() as p:
         page.wait_for_timeout(300)
         counts = page.evaluate("""() => {
             const c=document.querySelector('#preview'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
-            let fog=0,red=0;for(let i=0;i<d.length;i+=4){
+            let fog=0,red=0,far=0;for(let i=0;i<d.length;i+=4){
                 if(d[i]>120&&d[i]<136&&d[i+1]>120&&d[i+1]<136&&d[i+2]>120&&d[i+2]<136)fog++;
                 if(d[i]===255&&d[i+1]===0&&d[i+2]===0)red++;
-            }return {fog,red};
+                if(d[i]<5&&d[i+1]>250&&d[i+2]>250)far++;
+            }return {fog,red,far};
         }""")
-        assert counts["fog"] > 100 and counts["red"] > 100, counts
+        # Empty space is the far distance, so full-strength haze covers the flat background behind the scene.
+        assert counts["far"] > 1000 and counts["red"] == 0, counts
         assert page.evaluate(magenta) == flat_pixels
         page.evaluate("""p => {
             const mesh=p.layers[1],text=p.layers[2].nodes.find(n=>n.type==='plainText');

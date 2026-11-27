@@ -165,6 +165,7 @@ export function patchScene(patch){
     'st.ibuf=dev.createBuffer({size:st.cap*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST})');
   patch('if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=', 'window.__agScene.rigid(st,enc,m,n,dev);\n    if(nlk>0&&st.g3bgE&&n<=G3NET){var ce=');
   patch('var fy=-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;', 'var fy=window.__agScene.groundConfig?window.__agScene.groundConfig.height:-hy*1.02+K(\'pG3FloorY\',0)/100*bnd;if(window.__agScene.groundConfig){flA=window.__agScene.groundConfig.enabled&&(window.__agScene.groundConfig.visible||window.__agScene.groundConfig.shadowOnly)?0.35:0;}');
+  patch('st.g3dist=dist;','st.g3dist=dist;window.__agScene.distance=dist;');
   patch('if(eye[1]<fy+bnd*0.02)flA=0;', 'if(window.__agScene.groundConfig?!window.__agScene.groundVisible(view):eye[1]<fy+bnd*0.02)flA=0;');
   patch("set(1252,K('pG3Bounce',40)/100,shSz,fy,bnd*2.4);", "set(1252,K('pG3Bounce',40)/100,shSz,fy,window.__agScene.groundConfig?window.__agScene.groundConfig.size/2:bnd*2.4);");
   patch("set(1256,K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,0,flA);","set(1256,window.__agScene.groundConfig?0:K('pG3FloorTint',30)/100,K('pG3LinkPulse',100)/100,window.__agScene.groundConfig?.shape==='circle'?1:0,flA);var gc=g3Hex(window.__agScene.groundConfig?.color||'#aeb0b3');set(1264,gc[0],gc[1],gc[2],window.__agScene.groundConfig?.shadowOnly?2:1);U.set(window.__agScene.groundMatrix||[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],1268);");
@@ -509,7 +510,7 @@ export function composeScene(id,a,b,canvas,sortColor=true){
   if(!sa||!sb||!sa.camera||sa.camera!==sb.camera){
     if(sa||sb){
       const single=sa&&!sb?sa:sb&&!sa?sb:null;
-      setScene(canvas,{camera:single?.camera||null,depth:single?.depth||null,opaque:single?.opaque||null,roots:[...(sa?.roots||[]),...(sb?.roots||[])],
+      setScene(canvas,{camera:single?.camera||null,distance:single?.distance,depth:single?.depth||null,opaque:single?.opaque||null,roots:[...(sa?.roots||[]),...(sb?.roots||[])],
         refresh:()=>{sa?.refresh?.();sb?.refresh?.();if(sortColor){const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(a,0,0);ctx.drawImage(b,0,0);}}});
     }
     return false;
@@ -533,7 +534,7 @@ export function composeScene(id,a,b,canvas,sortColor=true){
   for(let i=0;i<3;i++){const pass=encoder.beginRenderPass({colorAttachments:[{view:s.canvases[i].getContext('webgpu').getCurrentTexture().createView(),loadOp:'clear',storeOp:'store',clearValue:{r:0,g:0,b:0,a:0}}]});pass.setPipeline(pipeline);pass.setBindGroup(0,s.groups[i]);pass.draw(3);pass.end();}
   device.queue.submit([encoder.finish()]);
   if(sortColor){const ctx=canvas.getContext('2d');ctx.clearRect(0,0,w,h);ctx.drawImage(s.canvases[0],0,0);}
-  setScene(canvas,{camera:sa.camera,depth:s.canvases[1],opaque:s.canvases[2],roots:[...sa.roots,...sb.roots],
+  setScene(canvas,{camera:sa.camera,distance:sa.distance??sb.distance,depth:s.canvases[1],opaque:s.canvases[2],roots:[...sa.roots,...sb.roots],
     refresh:()=>{sa.refresh?.();sb.refresh?.();composeScene(id,a,b,canvas,sortColor);}});return true;
 }
 export function occludeScene(images,nonOpaque=new Set()){

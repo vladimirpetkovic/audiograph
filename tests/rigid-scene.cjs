@@ -171,6 +171,16 @@ const scene={format:'audiograph-pro',version:16,settings:{ground:{enabled:true,v
     await page.waitForFunction(()=>pro.stats().rigid.bodies===3&&pro.stats().rigid.groups.every(g=>g.positions.every(p=>p[1]<1.5)));
     await page.waitForFunction(()=>pro.stats().rigid.contacts>0);
     assert.ok(await page.evaluate(()=>pro.stats().rigid.groups.every(g=>g.positions.every(p=>p[1]>0))),'The shared ground catches Gravity-driven Cloners and Objects');
+    assert.equal(await page.evaluate(()=>pro.getProject().settings.ground.restart),30,'Rigid bodies restart every 30 seconds by default');
+    await page.evaluate(()=>{const p=pro.getProject();p.settings.ground.restart=1;pro.importProject(p);});
+    await page.waitForFunction(()=>pro.stats().rigid.time>=.6);
+    await page.waitForFunction(()=>pro.stats().rigid.time<.4,null,{timeout:8000});
+    await page.evaluate(()=>{const p=pro.getProject();p.settings.ground.restart=0;pro.importProject(p);});
+    await page.waitForFunction(()=>pro.stats().rigid.time>=1.5,null,{timeout:20000});
+    await page.evaluate(()=>{const p=pro.getProject();p.settings.ground.restart=121;try{pro.importProject(p);}catch(e){window.__restartError=e.message;}});
+    assert.match(await page.evaluate(()=>window.__restartError||pro.stats().errors.join(' ')),/restart/i,'Restart time is limited to 0–120 seconds');
+    await page.evaluate(()=>{const p=pro.getProject();p.settings.ground.restart=30;pro.importProject(p);});
+    await page.waitForFunction(()=>pro.stats().rigid.bodies===3&&pro.stats().rigid.groups.every(g=>g.positions.every(p=>p[1]<1.5)));
     assert.equal(await page.evaluate(()=>pro.getProject().layers[0].nodes.find(n=>n.id==='automatic').props.rigidBody),false);
     await page.evaluate(()=>{
       const p=pro.getProject();p.layers[1].nodes.find(n=>n.id==='automaticObject').props.render='waveform';pro.importProject(p);

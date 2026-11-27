@@ -303,6 +303,13 @@ overlays. Earlier 2D inputs and Background nodes can sit behind the 3D world.
   its mode, wires and loaded media (Undo brings the settings back).
 - **Post FX**: Bloom, Blur, Lens, Kaleido, Trails, Fracture. These
   run the original GPU per-layer shaders.
+  **Color adjust** (WebGL2, `color-grade.js`) is the full grading node: Exposure, Brightness,
+  Contrast, Saturation, Vibrance, Hue, White balance (Temperature, Tint), Shadows/Highlights,
+  Invert, Levels (input black/white, gamma, output black/white) and Mix. The older **Color
+  correct** node in Color stays for existing projects.
+  **LUT** applies a `.cube` look-up table (3D, or 1D curves) with an Amount slider. The file is
+  parsed in the browser and stored in the node, so saved projects and shares keep the look.
+  Both keep 3D depth, so a graded scene still joins the shared Z-depth, haze and lighting.
   **Liquid glass** (WebGL2, `glass.js`) floats merging metaballs of glass over the
   picture: each refracts and flips what is behind it, with chromatic fringes, a
   bright rim and highlight. Its knobs are split into Blobs, Glass, Tint (tint, amount,
@@ -496,8 +503,9 @@ process the finished image.
   independent of object palettes.
   **Global lighting → Ambient occlusion** adds depth-aware contact and crease shading
   across the shared scene, with Strength and a world-space Radius. It runs at half
-  resolution with depth-aware smoothing. **Depth haze** blends distant 3D surfaces
-  toward a colour, with Strength, Start and End camera distances. Both are off by
+  resolution with depth-aware smoothing. **Depth haze** is Z-depth fog: 3D pixels blend
+  toward a colour by camera distance (Strength, Start and End; defaults 3–20), and
+  empty space takes full haze as the far distance. Both are off by
   default, allocate no resources while unused, and leave flat overlays unchanged.
   Import a Radiance **.hdr** or OpenEXR **.exr** environment under Global lighting to light
   native solid meshes and imported PBR materials. Intensity and rotation adjust its

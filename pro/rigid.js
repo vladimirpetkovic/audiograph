@@ -292,7 +292,7 @@ export class RigidWorld{
     for(const id of this.groups.keys())if(!this.rendered.has(id))this.remove(id);
   }
   stats(){
-    return {bodies:[...this.groups.values()].reduce((n,g)=>n+g.bodies.length,0),steps:this.steps,
+    return {bodies:[...this.groups.values()].reduce((n,g)=>n+g.bodies.length,0),steps:this.steps,time:this.world.time,
       groups:[...this.groups].map(([id,g])=>({id,count:g.bodies.length,positions:g.bodies.map(b=>b.position.toArray()),velocities:g.bodies.map(b=>b.velocity.toArray())})),
       contacts:this.world.contacts.length,ground:!!this.floor.world,errors:[...this.errors.values()]};
   }

@@ -52,7 +52,13 @@ const SHADE=DEPTH_WGSL+UNIFORM+VERTEX+`
 @fragment fn fs(@builtin(position) p:vec4f)->@location(0) vec4f{
   let xy=vec2i(p.xy);let color=textureLoad(image,xy,0);
   let encoded=textureLoad(depth,xy,0);
-  if(encoded.a<0.5||color.a<0.001){return vec4f(color.rgb*color.a,color.a);}
+  // Haze is fog between the camera and each pixel's Z-depth. Empty pixels look into the far distance;
+  // colour without depth (glows, flat marks) stays in front of that distance.
+  let far=select(0.0,light.haze.z,light.haze.w>0.5);
+  if(encoded.a<0.5||color.a<0.001){
+    let a=color.a+(1.0-color.a)*far;
+    return vec4f(color.rgb*color.a+light.color.rgb*far*(1.0-color.a),a);
+  }
   let z=decodeSceneDepth(encoded);var ao=1.0;
   if(light.ao.y>0.5){
     let size=vec2i(textureDimensions(occlusion));
@@ -71,7 +77,9 @@ const SHADE=DEPTH_WGSL+UNIFORM+VERTEX+`
   }
   let distance=max(0.0,z+light.lens.z);
   let fog=select(0.0,smoothstep(light.haze.x,light.haze.y,distance)*light.haze.z,light.haze.w>0.5);
-  return vec4f(mix(color.rgb*ao,light.color.rgb,fog)*color.a,color.a);
+  // A see-through pixel shows its own fogged colour over the fully fogged distance behind it.
+  let near=mix(color.rgb*ao,light.color.rgb,fog)*color.a;
+  return vec4f(near+light.color.rgb*far*(1.0-color.a),color.a+(1.0-color.a)*far);
 }
 `;
 let gpu=null,error=null,promise=null;
@@ -134,7 +142,7 @@ export function shadeScene(id,image,settings,onReady,aoDepth){
   const [,,zoom,focal]=JSON.parse(meta.camera),f=Number(focal)/28;
   const hex=settings.hazeColor.slice(1),rgb=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16)/255);
   device.queue.writeBuffer(s.uniform,0,new Float32Array([
-    w/h,f/Math.tan(.4),SCENE_DISTANCE*f/(Number(zoom)/100),settings.aoRadius,
+    w/h,f/Math.tan(.4),Number.isFinite(meta.distance)?meta.distance:SCENE_DISTANCE*f/(Number(zoom)/100),settings.aoRadius,
     settings.aoStrength/100,ao?1:0,w,h,
     settings.hazeStart,settings.hazeEnd,settings.hazeStrength/100,haze?1:0,
     ...rgb,1

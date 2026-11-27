@@ -247,6 +247,7 @@ export class Fluid3D{
   draw({camera,width,height,quality,dt,time,frame,level,beat,props,palette=[props.fluidColor],gravity=0,attract=[0,0,0,0],
       source,flat,collisions,ground,occluders=[],renderOnly=false,paused=false}){
     const g=backend();if(!g)return null;
+    this.distance=camera.distance;
     const {device,passes,render,sampler}=g,n=8*Math.round(props.fluidResolution/8),total=n**3,half=props.fluidDomain/100;
     const floor=ground?(ground.enabled?ground.size/2:0):props.fluidFloor?props.fluidFloorSize/50:0;
     const floorHeight=ground?.height??-1;
