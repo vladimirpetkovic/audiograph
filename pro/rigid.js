@@ -1,6 +1,6 @@
 import {World,Body,Box,Sphere,Cylinder,Vec3,Quaternion,Material,ContactMaterial,SAPBroadphase} from './vendor/cannon-es.js';
 
-const STEP=1/120;
+const STEP=1/120,SOFT_SLOP=.01,SOFT_STIFFNESS=1e5,SOFT_RELAXATION=45,SOFT_SPEED=.25;
 const V=(a)=>new Vec3(...a);
 const euler=q=>{
   const {x,y,z,w}=q;
@@ -97,11 +97,31 @@ export class RigidWorld{
     this.floor=new Body({mass:0,shape:new Box(new Vec3(10,.05,10))});
     this.floor.material=new Material({friction:.5,restitution:.6});
     this.world.addBody(this.floor);
+    this.softPairs=new Set();
+    const narrowphase=this.world.narrowphase,getContacts=narrowphase.getContacts.bind(narrowphase);
+    narrowphase.getContacts=(...args)=>{getContacts(...args);this.softenOverlaps(args[3]);};
+  }
+  // Overlap that a one-step impact cannot explain came from placement or growth; resolve it with a soft spring.
+  softenOverlaps(contacts){
+    const next=new Set(),touching=new Set(),gap=new Vec3();
+    for(const c of contacts){
+      c.maxForce=1e6;
+      const key=Math.min(c.bi.id,c.bj.id)+':'+Math.max(c.bi.id,c.bj.id);
+      gap.copy(c.bj.position);gap.vadd(c.rj,gap);gap.vsub(c.bi.position,gap);gap.vsub(c.ri,gap);
+      const depth=-c.ni.dot(gap),approach=Math.max(0,c.bi.velocity.dot(c.ni)-c.bj.velocity.dot(c.ni));
+      touching.add(key);
+      const fresh=!this.touchingPairs?.has(key)&&depth>SOFT_SLOP*2+approach*STEP*2;
+      if(!(depth>SOFT_SLOP&&(this.softPairs.has(key)||fresh)))continue;
+      next.add(key);c.setSpookParams(SOFT_STIFFNESS,SOFT_RELAXATION,STEP);
+      const reduced=c.bi.invMass+c.bj.invMass;
+      c.maxForce=reduced>0?SOFT_SPEED/STEP/reduced:c.maxForce;
+    }
+    this.softPairs=next;this.touchingPairs=touching;
   }
   reset(){
     this.epoch++;
     for(const id of [...this.groups.keys()])this.remove(id);
-    this.errors.clear();this.world.time=0;this.world.accumulator=0;this.steps=0;
+    this.errors.clear();this.softPairs.clear();this.touchingPairs=null;this.world.time=0;this.world.accumulator=0;this.steps=0;
   }
   remove(id){
     const group=this.groups.get(id);

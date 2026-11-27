@@ -61,6 +61,20 @@ const assert=require('node:assert/strict');
   advance(w,['clones'],.6);
   assert.ok(w.groups.get('clones').bodies[0].velocity.x<0,'Instances inside one cloner collide');
   w.reset();
+  for(const shape of ['sphere','cube']){
+    w.register('overlap',shape,data([-.1,0,0],[.1,0,0]),u,bounds,[shape],{...props,bounce:.6,friction:.3},{});
+    let peak=0;
+    for(let i=0;i<240;i++){w.begin(1/120,ground,new Set(['overlap']));for(const b of w.groups.get('overlap').bodies)peak=Math.max(peak,b.velocity.length());}
+    const [left,right]=w.groups.get('overlap').bodies;
+    assert.ok(left.position.distanceTo(right.position)>1,`Overlapping ${shape} bodies separate`);
+    assert.ok(peak<1.5,`Overlapping ${shape} bodies separate gently instead of exploding (${peak.toFixed(2)} units/s)`);
+    w.reset();
+  }
+  w.register('impact','fast',data([-2,0,0],[2,0,0]),u,bounds,['sphere'],props,{});
+  w.groups.get('impact').bodies[0].velocity.x=20;w.groups.get('impact').bodies[1].velocity.x=-20;
+  advance(w,['impact'],.4);
+  assert.ok(w.groups.get('impact').bodies[0].velocity.x<-15,'Fast impacts keep their full bounce');
+  w.reset();
   const fall={...props,bounce:.85};
   w.register('float','zero-gravity',data([0,1,0]),u,bounds,['sphere'],props,{});
   advance(w,['float'],.5);
