@@ -95,6 +95,8 @@ body.resizing{user-select:none}body.resizing iframe,body.resizing canvas{pointer
 .panel.collapsed .panel-arrow{transform:rotate(-90deg)}
 .panel.collapsed .panel-body{display:none}
 .panel-body{padding:8px 2px 10px}
+.library .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:4px}
+.library .chips>.library-node{justify-content:center;text-align:center;white-space:normal;overflow-wrap:break-word}
 .library-node{cursor:grab}
 .library-node:active{cursor:grabbing}
 .library-node.hidden{display:none}

@@ -27,7 +27,7 @@ export const CATEGORIES = [
   {id:'emitters',label:'Emitters',color:'#71c3f4',hint:'Particles: classic and native WebGPU simulations'},
   {id:'3d',label:'3D',color:'#7199f4',hint:'3D waveforms, and the Cloner with its objects, effectors, material, light and camera'},
   {id:'forces',label:'Forces',color:'#7271f4',hint:'Spin any shape; push and steer WebGPU simulations: gravity, drag, swirl, wind…'},
-  {id:'deformers',label:'Deformers',color:'#9b71f4',hint:'Bend, mirror and repeat the shape, add noise, or cut the picture into pieces'},
+  {id:'deformers',label:'Deformers',color:'#9b71f4',hint:'Bend, mirror and repeat the shape, or add noise'},
   {id:'color',label:'Color',color:'#c471f4',hint:'Palettes and hue'},
   {id:'postfx',label:'Post FX',color:'#ed71f4',hint:'Image effects (GPU shaders)'},
   {id:'controls',label:'Controls',color:'#f471d1',hint:'Numbers that move knobs'},
@@ -423,7 +423,7 @@ export const TYPES = {
     perlin:n('Perlin',40,0,100,1,{key:'pNoisePerlin'}),curl:n('Curl',0,0,100,1,{key:'pNoiseCurl'}),brownian:n('Brownian',0,0,100,1,{key:'pNoiseBrownian'}),vortex:n('Vortex',0,0,100,1,{key:'pNoiseVortex'}),
     scale:n('Scale',30,1,100,1,{key:'pNoiseScale'}),speed:n('Speed',20,1,100,1,{key:'pNoiseSpeed'})}},
   // Cutter: cuts any picture (an emitter's shape, a layer, video, image) into geometric pieces and plays them like a puzzle with the sound (cutter.js).
-  cutter:{category:'deformers',label:'Cutter',description:'Cuts the picture into pieces (golden ratio, random shards, grid, columns, rows, Mondrian, triangles) and plays them like a puzzle with the sound: hits shuffle what the pieces show, pop, nudge and flip them, and colour them (hues, two colours, black & white, invert, chromatic aberration). Presets set it all in one click. Works on anything: shapes, layers, video, images.',
+  cutter:{category:'postfx',label:'Cutter',description:'Cuts the picture into pieces (golden ratio, random shards, grid, columns, rows, Mondrian, triangles) and plays them like a puzzle with the sound: hits shuffle what the pieces show, pop, nudge and flip them, and colour them (hues, two colours, black & white, invert, chromatic aberration). Presets set it all in one click. Works on anything: shapes, layers, video, images.',
     inputs:{image:'image',audio:'audio'},outputs:{image:'image'},props:{
     pattern:pick('Cut','golden',['golden','random','grid','columns','rows','mondrian','triangles'],{labels:[['golden','Golden ratio'],['random','Random shards'],['grid','Grid'],['columns','Columns'],['rows','Rows'],['mondrian','Mondrian'],['triangles','Triangles']]}),
     pieces:n('Pieces',7,2,64,1),seed:n('Seed',1,0,999,1),
