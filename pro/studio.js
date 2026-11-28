@@ -1255,8 +1255,8 @@ function execute(g,time,dt,collisions,colliderIds,nextColliders,sceneCamera){
       }
       r.shape={emitter:n,comp:{o:p.compOpacity??100,b:p.compBlend??'source-over'},mods:{...geoMods(p),...(spec.mode==='simfluid3d'||p.look?._colorMode||p.look?._toneStops?{}:MEDIA_KIND[n.type]==='image'||MEDIA_KIND[n.type]==='video'?GRAY_MEDIA:GRAY)},hue:0,job:{...spec,label:nodeTitle(n),opts,chips:p.chips,look:p.look,response:{intensity:p.intensity,punch:p.punch,release:p.release,dynamics:p.dynamics},text:p.text,audio:{freq,wave,rate:A.rate,song:driven?null:sig.song||null,drive:{bass:lvl,beat:driven?lvl:sig.pulse}}}};
       if(n.type==='templateMorph'){r.shape.mods={};r.shape.job.templateMorph={from:p.from,to:p.to,mix:p.mix};}
-      if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf({...p,size:p.size*p.scale/100},e?.mediaKind==='object'&&e.w?.objModelData);r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);Object.assign(r.shape.mods,{pG3Zoom:55,pG3ScX:0,pG3ScY:0,pG3ScZ:0});}}
-      if(n.type==='cloner')cloneObjects(['object','object2','object3'].map(k=>input(n,k)).filter(Boolean),p,r.shape);
+      if(n.type==='waveform3d'){const e=engines.get(n.id);if(e?.anim&&p.mode==='model')e.animate(time,p.animSpeed,p.clip-1);r.object=objectOf({...p,size:p.size*p.scale/100},e?.mediaKind==='object'&&e.w?.objModelData);r.object.faceted=p.shading==='flat';r.shape.job.faceted=r.object.faceted;r.shape.object=r.object;r.shape.job.sceneObject=r.object;if(p.render==='normal'){cloneObjects([r.object],SINGLE,r.shape);Object.assign(r.shape.mods,{pG3Zoom:55,pG3ScX:0,pG3ScY:0,pG3ScZ:0});}}
+      if(n.type==='cloner'){const objs=['object','object2','object3'].map(k=>input(n,k)).filter(Boolean);r.shape.job.faceted=objs.some(o=>o.faceted);cloneObjects(objs,p,r.shape);}
       if(n.type==='waveform3d'||n.type==='cloner'){
         const rotation=n.type==='cloner'?[p.rotX,p.rotY,p.rotZ]:[p.tilt,p.turn,-p.rotation];
         r.shape.job.objectTransform={position:['X','Y','Z'].map(a=>p['move'+a]||0),rotation};
@@ -2856,6 +2856,7 @@ function renderEmitter(root,n){
   }
   if(n.type==='waveform3d'&&n.props.mode==='text3d')renderProps(root,n,['words','font3d','depth']);
   if(n.type==='waveform3d'&&objectOf(n.props).prim&&n.props.mode!=='knot')renderProps(root,n,['detail']);
+  if(n.type==='waveform3d'&&(n.props.render==='normal'||graph().edges.some(e=>e.from===n.id&&e.out==='object'&&findNode(e.to)?.type==='cloner')))renderProps(root,n,['shading']);
   if(n.type==='waveform3d'&&n.props.mode==='model'&&n.props.render==='normal')renderProps(root,n,['modelMaterials']);
   const kind=mediaKind(n);
   if(kind){

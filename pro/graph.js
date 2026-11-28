@@ -281,6 +281,7 @@ export const TYPES = {
   // 3D Object: every form and primitive (and your OBJ as Model), drawn Normal (solid, lit) or as a Waveform (audio-reactive lines).
   waveform3d:ENGINE('3d','3D Object','A 3D form drawn solid (Normal), as audio-reactive lines (Waveform) or as Polygons (faces that light up and move with the sound). Model loads OBJ, FBX, USD, GLB or glTF; GLB/USD materials render as imported PBR in Normal. Animated FBX / GLB / glTF models play (Animation speed can follow the sound). Its “object” output feeds a Cloner or WebGPU particles’ emit.',{mode:pick('3D Object','sphere',MODES.waveform3d.map(m=>m[0]),{labels:MODES.waveform3d}),
     render:pick('Rendering','waveform',OBJECT_RENDERS.map(r=>r[0]),{labels:OBJECT_RENDERS}),...RIGID_PROPS,...POSITION_PROPS,...PRIM_PROPS,...STYLE_PROPS,
+    shading:pick('Normals','smooth',['smooth','flat'],{labels:[['smooth','Smooth'],['flat','Faceted']]}),
     modelMaterials:pick('Materials','imported',['imported','palette'],{labels:[['imported','Imported PBR'],['palette','Palette']]}),
     paletteMap:G('Palette mapping',pick('Mapping','default',['default','uv','front','box'],{labels:[['default','Default'],['uv','UV map'],['front','Front projection'],['box','Box']]})),
     paletteAxis:G('Palette mapping',pick('Gradient axis','u',['u','v'],{labels:[['u','Horizontal'],['v','Vertical']]})),

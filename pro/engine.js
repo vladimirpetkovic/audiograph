@@ -526,6 +526,8 @@ export class EmitterEngine {
     }
     if(job.mods?._sim)p._sim={...this.base._sim,...job.mods._sim};
     w.__agPaletteSettings=job.paletteMapping||null;
+    // Faceted on a 3D Object wins over a downstream Material left on Smooth.
+    if(job.faceted)p._sim={...p._sim,g3Shade:'flat'};
     if(job.paletteBy&&job.paletteBy!=='inherit')p._sim={...p._sim,g3CBy:job.paletteBy};
     if(job.paletteMapping&&job.paletteMapping.mode!=='default')p._sim={...p._sim,g3CBy:'mapped'};
     if(mode.startsWith('sim')&&performanceSettings?.simulation&&performanceSettings.simulation!=='node'){
