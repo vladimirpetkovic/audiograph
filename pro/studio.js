@@ -3842,7 +3842,7 @@ $('helpBody').innerHTML=`
 <li><b>Textured PBR models</b>: set <b>Render: Normal → Materials: Imported PBR</b> to keep GLB/glTF or USD base colour, metallic/roughness, normals, occlusion, emission and transparency. Materials and UVs follow animation and Cloners; Lights and Camera still work. Embed PNG/JPEG/WebP/AVIF textures in GLB/glTF; for USD, export <b>UsdPreviewSurface</b> materials with <b>primvars:st</b> and package images in <b>USDZ</b>. If imported materials are unreadable or unsupported (for example, specular/glossiness), the mesh still loads with <b>Palette</b> shading. Textures are mipmapped and capped at 4096 px. Waveform, Polygons and Point cloud keep their existing colours.</li>
 <li><b>Cloner</b> repeats up to three wired objects; add <b>Effectors</b> (Sound, Field, Random, Links) and <b>Look</b> nodes (Material, Light) after it. <b>Collider body</b> provides a passive surface for particles and fluid only. It never causes object or instance collisions. <b>Rigid body</b> enables those collisions, sound impulses and other connected Forces. Attach a <b>Gravity</b> node to make Cloners or 3D Objects fall toward the ground, even with Rigid body off. Positive gravity pulls downward; negative values pull upward. There is no Scene gravity setting. <b>Attract → target</b> accepts a 3D Object or Cloner; the force pulls toward its world position, including moving rigid targets. An unwired Attract pulls toward the origin; negative strength repels.</li>
 <li>WebGPU particles have a <b>Dimensions: 2D / 3D</b> control. <b>2D</b> uses the original flat simulation and view controls; wired objects emit from their rendered silhouette, and particles ignore the scene camera, ground and 3D colliders. <b>3D</b> uses the shared world. Wire a 3D Object or Cloner into <b>emit</b> to emit from its mesh, or use a flat source. <b>Transforms</b> provides Move, Rotate and Scale XYZ controls and an adaptive preview gizmo for the 3D cloud, including while paused. Under <b>Emission</b>, turn on <b>Surface flow</b> to move over the mesh without lifting off, or set <b>Launch speed</b> to 0 and choose what releases particles. <b>Scene settings → Ground</b> catches falling 3D particles, fluid and rigid bodies; choose Square or Circle, adjust its height and size or switch it off. New ground is black. Hidden ground still collides. Set <b>Look → Trails</b> to 0 to draw particles without trails. The shared Scene camera orbits the whole cloud.</li></ul>
-<p>Open Tutorials for <b>3D Cloner &amp; rigid bodies</b>, including Scene settings and attached Gravity nodes, or <b>Particles: Waterfall</b>, which builds the saved Waterfall look from particles, forces, colour and a fluid layer.</p>
+<p>Open Tutorials for <b>3D Cloner &amp; rigid bodies</b>, including Scene settings and attached Gravity nodes, or <b>Particles: Waterfall</b>, which builds the saved Waterfall look from particles, colour and a fluid layer.</p>
 <h3 id="h-sims">Simulations</h3>
 <p>WebGPU emitters (Particles, Fluid, Smoke) run on the graphics card and need a WebGPU browser (current Chrome or Edge). Add <b>Forces</b> after them to shape the motion; each force shows only the knobs the simulation uses. Emit from a shape, image, video, text or 3D Object via the <b>emit</b> input. If the preview stays empty, check the node message: the browser may not offer WebGPU.</p>
 <p>Every Force, including Spin and Turbulence, has <b>Intensity</b>: 0% bypasses it, 100% preserves its normal strength, and up to 1000% amplifies it. Strength ranges extend ten times further without changing saved defaults. Body drag remains a valid damping fraction even when amplified; Noise scale and animation Speed are independent of Intensity.</p>
@@ -5094,18 +5094,13 @@ function tourWaterfall(stage,type='gpuParticles',property){
   p.layers[1].visible=true;
   const g=p.layers[0],byType=type=>g.nodes.find(n=>n.type===type);
   const audio=byType('audioIn'),particles=byType('gpuParticles'),out=byType('output');
-  particles.props.opts.pSpGravity=0;
-  const chain=[particles,...['gravity','turbulence','palette','hue'].slice(0,Math.min(stage,4)).map(byType)];
+  const chain=[particles,...(stage>=1?[byType('palette')]:[])];
   const merge=node('merge',760,450);merge.id='tutorial-waterfall-merge';
-  const bloom=byType('bloom');
-  g.nodes=[audio,...chain,merge,...(stage>=5?[bloom]:[]),out];g.edges=[];
-  const positions=[[40,230],[280,230],[520,230],[760,230],[1000,230]];
-  chain.forEach((n,i)=>{[n.x,n.y]=positions[i];if(i)g.edges.push({from:chain[i-1].id,out:'shape',to:n.id,input:'shape'});});
-  audio.x=40;audio.y=30;out.x=1000;out.y=450;bloom.x=520;bloom.y=450;
-  g.edges.push({from:audio.id,out:'audio',to:particles.id,input:'audio'},{from:chain.at(-1).id,out:'shape',to:merge.id,input:'a'});
-  if(stage>=5)g.edges.push({from:merge.id,out:'image',to:bloom.id,input:'image'});
-  g.edges.push({from:stage>=5?bloom.id:merge.id,out:'image',to:out.id,input:'image'});
-  if(stage<6)p.layers=[g];
+  g.nodes=[audio,...chain,merge,out];g.edges=[];
+  chain.forEach((n,i)=>{[n.x,n.y]=[280+240*i,230];if(i)g.edges.push({from:chain[i-1].id,out:'shape',to:n.id,input:'shape'});});
+  audio.x=40;audio.y=30;out.x=1000;out.y=450;
+  g.edges.push({from:audio.id,out:'audio',to:particles.id,input:'audio'},{from:chain.at(-1).id,out:'shape',to:merge.id,input:'a'},{from:merge.id,out:'image',to:out.id,input:'image'});
+  if(stage<2)p.layers=[g];
   importProject(p,'Tutorial: Waterfall');tourInspect(type,property);fit();
 }
 const SPLASH_GUIDES={
@@ -5121,13 +5116,9 @@ const SPLASH_GUIDES={
     done:{label:'Keep exploring'}},
   waterfall:{title:'Particles: Waterfall',demo:true,steps:[
     {sel:'.inspector',ws:'studio',run:()=>tourWaterfall(0),t:'Start with particles',txt:'We are rebuilding the saved Waterfall scene, one part at a time. The audio source drives emission, while life, amount, size and trails shape the stream. This replaces your scene; Undo brings it back.'},
-    {sel:'.inspector',run:()=>tourWaterfall(1,'gravity'),t:'Make the water fall',txt:'Add Gravity after the particle system. Particles have no gravity by default; this explicit force makes the stream descend.'},
-    {sel:'.inspector',run:()=>tourWaterfall(2,'turbulence'),t:'Break up the stream',txt:'Waterfall uses Turbulence: Amount 46 and Scale 66. It curls the falling particles into soft eddies rather than a rigid column.'},
-    {sel:'.inspector',run:()=>tourWaterfall(3,'palette'),t:'Colour the current',txt:'The original Rose ramp moves from transparent plum through rose and peach to green. Transparent quiet particles keep the bright stream crisp against black.'},
-    {sel:'.inspector',run:()=>tourWaterfall(4,'hue'),t:'Shift the palette',txt:'Waterfall adds a 60-degree Hue shift after its Palette. This is a colour treatment, not a change to the physical simulation.'},
-    {sel:'.inspector',run:()=>tourWaterfall(5,'bloom'),t:'Catch the highlights',txt:'Bloom 17 with Edge 6 gives the smallest particles a restrained glow. It is an image effect, after the particle shape has reached Merge.'},
-    {sel:'#layers',run:()=>tourWaterfall(6),t:'Add the fluid undertow',txt:'The original second layer is now restored: a blue, teal and gold fluid simulation with its own Palette and Bloom, composited in Screen mode. Together they recreate Waterfall.'},
-    {sel:'.scene-inspector',run:()=>{tourWaterfall(6);tourSceneSettings();},t:'Frame the whole waterfall',txt:'Both layers share the Scene camera. Adjust its view here, press F to frame live particles, or choose Orbit for a moving view. Ground and HDR/EXR illumination are also scene-wide.'}],
+    {sel:'.inspector',run:()=>tourWaterfall(1,'palette'),t:'Colour the current',txt:'The original Rose ramp moves from transparent plum through rose and peach to green. Transparent quiet particles keep the bright stream crisp against black.'},
+    {sel:'#layers',run:()=>tourWaterfall(2),t:'Add the fluid undertow',txt:'The original second layer is now restored: a blue, teal and gold fluid simulation with its own Palette and Bloom, composited in Screen mode. Together they recreate Waterfall.'},
+    {sel:'.scene-inspector',run:()=>{tourWaterfall(2);tourSceneSettings();},t:'Frame the whole waterfall',txt:'Both layers share the Scene camera. Adjust its view here, press F to frame live particles, or choose Orbit for a moving view. Ground and HDR/EXR illumination are also scene-wide.'}],
     done:{label:'Keep exploring'}},
   visualize:{title:'Visualize',steps:[
     {sel:'#previewWrap',ws:'studio',t:'The preview',txt:'This is what your audience sees, live with the music. Drag to orbit 3D, right-drag to pan, scroll or pinch to zoom, double-click to reset the view.'},
