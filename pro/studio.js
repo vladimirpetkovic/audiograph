@@ -4899,11 +4899,11 @@ function apTick(dt){
 // (louder response, quiet tones shown) and eases a blinding stack back. New looks start from their own values.
 // Taste: a frame that clips to white (lines piling up into a blown-out centre) or reads colourless (thin pale lines on black)
 // gets the stack's palettes swapped for deeper gradients of the same hues, at most every 6 s.
-let apExpT=0,apDim=0,apTasteT=0,apExpCv=null;
+let apExpT=0,apDim=0,apTasteT=0,apExpCv=null,apThin=0,apBoosts=0;
 function apExposure(dt){
   if(!ap.live||ap.hold||ap.changes!=='everything'||!apIsSlots()){apExpT=0;apDim=0;return;}
   if((apExpT+=dt)<1)return;apExpT=0;apTasteT++;
-  const ks=apActive();if(apTrans||apWant||!ks.length||!frame){apDim=0;return;}
+  const ks=apActive();if(apTrans||apWant||!ks.length||!frame){apDim=0;apThin=0;if(apTrans)apBoosts=0;return;}
   // Meter a small copy (a full-size readback stalls the GPU).
   const mc=apExpCv||(apExpCv=Object.assign(document.createElement('canvas'),{width:160,height:90})),mcx=mc.getContext('2d',{willReadFrequently:true});
   mcx.clearRect(0,0,160,90);mcx.drawImage(preview,0,0,160,90);
@@ -4911,6 +4911,15 @@ function apExposure(dt){
   for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);s+=r+g+b;if(mn>230)clip++;if(mx>40){lit++;ch+=mx-mn;}}
   const n=d.length/4,lv=s/n/3,hot=clip/n>.05,pale=lit>n*.03&&ch/lit<30;
   if((hot||pale)&&apTasteT>=6){apTasteT=0;apEnrich(ks);}
+  // Sparse: a few faint strokes on black. Thicken and fill the lines in; if it still reads empty, move on to a new look.
+  const sparse=lit<n*.06&&lv<10&&pilot.section!=='waiting';apThin=sparse?apThin+1:0;
+  if(apThin>=2){apThin=0;
+    if(apBoosts<2){apBoosts++;for(const k of ks){const g=apLayer(k),r=apNode(k,'r'),pl=apNode(k,'p');if(!g||!r||autopilot.isImageVisual(r.type)||isSim(r.props.mode)||r.type==='cloner')continue;
+      if(typeof r.props.thick==='number')apTween(g,r,'thick',Math.min(8,Math.round(Math.max(r.props.thick*1.7,2.5)*4)/4),1.2);
+      if(typeof r.props.density==='number')apTween(g,r,'density',Math.min(800,Math.round(r.props.density*1.35/10)*10),1.2);
+      if(pl&&pl.props.fade<1)apTween(g,pl,'fade',1,1.2);
+      if(typeof r.props.sensitivity==='number')apTween(g,r,'sensitivity',Math.min(200,r.props.sensitivity+30),1.2);}}
+    else{apBoosts=0;apChange(apKind(),2,'everything',true,true);return;}}
   // Badly blown out (a white sim filling the frame): ease the layers back, 10% a second, never below 55%.
   if(lv>100||clip/n>.25)for(const k of ks){const g=apLayer(k);if(g&&g.opacity>.55)g.opacity=Math.max(.55,Math.round(g.opacity*90)/100);}
   apDim=lv<1.5?Math.max(0,apDim)+1:lv>45||hot?Math.min(0,apDim)-1:0;

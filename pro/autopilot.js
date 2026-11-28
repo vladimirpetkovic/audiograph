@@ -363,7 +363,7 @@ export function build(it,{seed=Date.now(),energy:forced=null,match=85}={}){
   const particles=particleBrief(it.raw);
   if(!it.layers&&visuals.length===1&&visuals[0].mode==='simparticles'&&!visuals[0].camera&&!particles.mesh&&!particles.flat&&r()<.6){const m=pick(r,['phyllotaxis','circle']);visuals.push({mode:m,type:typeOf(m),colors:null});}
   const want=clamp(it.layers||visuals.length,1,3);visuals=visuals.slice(0,want);
-  while(visuals.length<want){const m=pick(r,['scatter','concentric','spiral','circle']);if(!visuals.some(v=>v.mode===m))visuals.push({mode:m,type:typeOf(m),colors:null});}
+  while(visuals.length<want){const m=pick(r,['phyllotaxis','concentric','spiral','circle']);if(!visuals.some(v=>v.mode===m))visuals.push({mode:m,type:typeOf(m),colors:null});}
   const base=it.colors||moodPalette(r,E,it.dark);
   const layers=visuals.map((v,i)=>layerFor(it,v,i,{r,E,base,explore,count:visuals.length}));
   return layers;
@@ -390,7 +390,7 @@ function layerFor(it,v,i,{r,E,base,explore,count}){
     set('scale',it.scale??(i?110+r()*40:undefined));
     if(it.symmetry&&!['terrain','linear'].includes(v.mode))mo.symmetry=it.symmetry;
     else if(!i&&explore>.25&&E>75&&r()<.35&&!['terrain','linear','sine'].includes(v.mode))mo.symmetry=pick(r,['r4','r6','xy']);
-    if(it.lineShape&&T.lineShape)set('lineShape',it.lineShape);else if(i&&T.lineShape)set('lineShape',pick(r,['straight','tapered','dotted','pins']));
+    if(it.lineShape&&T.lineShape)set('lineShape',it.lineShape);else if(i&&T.lineShape)set('lineShape',pick(r,['straight','rounded']));
     if(it.outline&&T.outline)set('outline',true);
     // 3D forms already have a camera tilt; only flat layouts lean back for a "perspective" look.
     if(it.tilt!=null&&!/^(sphere|tetrahedron|dna|knot|cube|torus|ico|pyramid|frame|cone|cylinder|terrain|model|text3d)$/.test(v.mode))set('tilt',Math.min(it.tilt,20));

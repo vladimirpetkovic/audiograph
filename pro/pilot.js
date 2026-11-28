@@ -150,44 +150,54 @@ export function vibeText(v){
 // post FX that suit them, a colour harmony and an energy range (0 calm … 100 drop). A scene holds for a section;
 // phrases inside it vary one layer at a time, so the picture evolves instead of jumping.
 export const SCENES=[
-  {id:'halo',label:'Halo',E:[0,65],base:['concentric','circle'],accent:['phyllotaxis','circle'],shapes:['rounded','tapered','dotted'],harmony:'analogous',fx:{pfxBloom:45,pfxEdgeGlow:12,pfxVignette:30}},
-  {id:'orbit',label:'Orbit',E:[30,100],base:['sphere','torus','knot'],accent:['circle','phyllotaxis'],shapes:['straight','pins','tapered'],harmony:'complement',fx:{pfxBloom:38,pfxVignette:40,pfxChroma:12}},
-  {id:'mandala',label:'Mandala',E:[25,90],base:['spiral','phyllotaxis','concentric'],accent:['circle'],shapes:['needles','diamonds','tapered'],harmony:'triad',fx:{pfxKaleido:45,pfxBloom:35,pfxVignette:20}},
-  {id:'liquid',label:'Liquid',E:[0,70],sim:true,base:['simfluid'],accent:['circle','concentric'],shapes:['straight','tapered'],harmony:'analogous',fx:{pfxBloom:22,pfxVignette:35}},
-  {id:'helix',label:'Helix lab',E:[35,85],base:['dna'],accent:['graph','scatter'],shapes:['pins','dotted','straight'],harmony:'split',fx:{pfxChroma:22,pfxScanlines:12,pfxVignette:35,pfxBloom:25}},
+  {id:'halo',label:'Halo',E:[0,65],base:['concentric','circle'],accent:['phyllotaxis','circle'],shapes:['rounded'],harmony:'analogous',fx:{pfxBloom:45,pfxEdgeGlow:12,pfxVignette:30}},
+  {id:'orbit',label:'Orbit',E:[30,100],base:['sphere','torus','knot'],accent:['circle','phyllotaxis'],shapes:['straight'],harmony:'complement',fx:{pfxBloom:38,pfxVignette:40,pfxChroma:12}},
+  {id:'mandala',label:'Mandala',E:[25,90],base:['spiral','phyllotaxis','concentric'],accent:['circle'],shapes:['diamonds'],harmony:'triad',fx:{pfxKaleido:45,pfxBloom:35,pfxVignette:20}},
+  {id:'liquid',label:'Liquid',E:[0,70],sim:true,base:['simfluid'],accent:['circle','concentric'],shapes:['straight'],harmony:'analogous',fx:{pfxBloom:22,pfxVignette:35}},
+  {id:'helix',label:'Helix lab',E:[35,85],base:['dna'],accent:null,shapes:['straight'],harmony:'split',fx:{pfxChroma:22,pfxScanlines:12,pfxVignette:35,pfxBloom:25}},
   {id:'shatter',label:'Shatter',E:[70,100],base:['concentric','sphere'],accent:['spiral'],shapes:['rounded','caps','straight'],harmony:'complement',fx:{pfxBloom:40,pfxFracture:true,pfxFracMode:'flow',pfxFracCells:36,pfxFracDisp:45,pfxFracBass:110}},
-  {id:'tunnel',label:'Tunnel',E:[45,95],base:['spiral','concentric'],accent:null,shapes:['tapered','needles','straight'],harmony:'analogous',fx:{pfxTrails:55,pfxFeedback:35,pfxBloom:30}},
-  {id:'stars',label:'Constellation',E:[0,55],base:['graph','scatter'],accent:['phyllotaxis'],shapes:['dotted','circles','pins'],harmony:'mono',fx:{pfxBloom:55,pfxEdgeGlow:20,pfxVignette:30}},
-  {id:'embers',label:'Embers',E:[55,100],sim:true,base:['simparticles'],accent:['phyllotaxis','circle'],shapes:['straight','dotted'],harmony:'complement',fx:{pfxVignette:25}},
+  {id:'tunnel',label:'Tunnel',E:[45,95],base:['spiral','concentric'],accent:null,shapes:['straight'],harmony:'analogous',fx:{pfxTrails:55,pfxFeedback:35,pfxBloom:30}},
+  {id:'embers',label:'Embers',E:[55,100],sim:true,base:['simparticles'],accent:['phyllotaxis','circle'],shapes:['straight'],harmony:'complement',fx:{pfxVignette:25}},
   {id:'surface',label:'Surface currents',E:[10,75],sim:true,base:['simparticles'],accent:null,shapes:['straight'],harmony:'analogous',fx:{pfxVignette:22}},
   {id:'chaos',label:'Phase portrait',E:[0,75],base:['attractor','epicycles','polarPlot'],accent:null,shapes:['straight'],harmony:'split'},
   {id:'signal',label:'Signal lab',E:[30,100],base:['oscilloscope','radar','cellular','techLines'],accent:null,shapes:['straight'],harmony:'mono'},
-  {id:'mirror',label:'Mirror garden',E:[15,75],base:['phyllotaxis','spiral','sacred'],accent:['circle'],shapes:['tapered','rounded'],harmony:'analogous',fx:{pfxReflect:40,pfxBloom:30,pfxVignette:25}},
-  {id:'tide',label:'Tide',E:[0,60],base:['water','sine'],accent:['scatter','phyllotaxis'],shapes:['straight','rounded','dotted'],harmony:'analogous',fx:{pfxBloom:30,pfxVignette:40,pfxBlurRadial:28,pfxFocal:60}},
-  {id:'harmono',label:'Harmonograph',E:[20,80],base:['lissajous'],accent:['circle','phyllotaxis'],shapes:['tapered','needles','straight'],harmony:'triad',fx:{pfxBloom:35,pfxTrails:40,pfxVignette:30}},
-  {id:'skyline',label:'Skyline',E:[50,100],base:['linear','graph'],accent:['scatter','sine'],shapes:['caps','pins','straight'],harmony:'split',fx:{pfxBloom:40,pfxReflect:35,pfxVignette:30}},
-  {id:'crystal',label:'Crystal',E:[35,95],base:['ico','pyramid','frame','cone','cylinder'],accent:['circle','concentric','scatter'],shapes:['straight','pins'],harmony:'complement',fx:{pfxBloom:40,pfxEdgeGlow:18,pfxVignette:35}},
-  {id:'array',label:'Array',E:[20,95],sim:true,base:['simcloner'],accent:['circle','concentric','phyllotaxis','scatter'],shapes:['straight','dotted'],harmony:'triad',fx:{pfxVignette:30}},
-  {id:'garden',label:'Garden',E:[0,60],base:['growth','fractal'],accent:['phyllotaxis','scatter'],shapes:['tapered','rounded'],harmony:'analogous',fx:{pfxBloom:35,pfxVignette:35}},
-  {id:'land',label:'Landscape',E:[20,80],base:['terrain'],accent:['concentric','scatter'],shapes:['straight','dotted'],harmony:'mono',fx:{pfxBloom:34,pfxChroma:12,pfxVignette:60,pfxBlurRadial:35,pfxFocal:60,pfxTrails:40}},
-  {id:'prism',label:'Prism',E:[60,100],base:['cube','knot','tetrahedron'],accent:['concentric','circle'],shapes:['straight','caps','pins'],harmony:'triad',fx:{pfxBloom:48,pfxEdgeGlow:22,pfxChroma:22,pfxVignette:30}}
+  {id:'mirror',label:'Mirror garden',E:[15,75],base:['phyllotaxis','spiral','sacred'],accent:['circle'],shapes:['rounded'],harmony:'analogous',fx:{pfxReflect:40,pfxBloom:30,pfxVignette:25}},
+  {id:'harmono',label:'Harmonograph',E:[20,80],base:['lissajous'],accent:['circle','phyllotaxis'],shapes:['straight'],harmony:'triad',fx:{pfxBloom:35,pfxTrails:40,pfxVignette:30}},
+  {id:'skyline',label:'Skyline',E:[50,100],base:['linear'],accent:['sine'],shapes:['caps','straight'],harmony:'split',fx:{pfxBloom:40,pfxReflect:35,pfxVignette:30}},
+  {id:'crystal',label:'Crystal',E:[35,95],base:['ico','pyramid','frame','cone','cylinder'],accent:['circle','concentric'],shapes:['straight'],harmony:'complement',fx:{pfxBloom:40,pfxEdgeGlow:18,pfxVignette:35}},
+  {id:'array',label:'Array',E:[20,95],sim:true,base:['simcloner'],accent:['circle','concentric','phyllotaxis'],shapes:['straight'],harmony:'triad',fx:{pfxVignette:30}},
+  {id:'garden',label:'Garden',E:[0,60],base:['growth','fractal'],accent:['phyllotaxis'],shapes:['rounded'],harmony:'analogous',fx:{pfxBloom:35,pfxVignette:35}},
+  {id:'land',label:'Landscape',E:[20,80],base:['terrain'],accent:['concentric'],shapes:['straight'],harmony:'mono',fx:{pfxBloom:34,pfxChroma:12,pfxVignette:60,pfxBlurRadial:35,pfxFocal:60,pfxTrails:40}},
+  {id:'prism',label:'Prism',E:[60,100],base:['cube','knot','tetrahedron'],accent:['concentric','circle'],shapes:['straight','caps'],harmony:'triad',fx:{pfxBloom:48,pfxEdgeGlow:22,pfxChroma:22,pfxVignette:30}}
 ];
 const SCENE_BY=Object.fromEntries(SCENES.map(x=>[x.id,x]));
 // Colour harmonies: [dark, mid, bright, highlight], the hue always travelling (even Mono drifts ~50° along the ramp) and the
 // highlight kept coloured, so stacks read as gradients rather than one colour fading to white.
 function harmony(hx,kind,h,E){
-  const sat=E>75?78:E<30?62:70,L=[10,42,60,74];
+  const sat=E>75?78:E<30?62:70,L=[14,50,64,76];
   const hues={analogous:[h-25,h,h+22,h+45],complement:[h,h,h+180,h+165],triad:[h,h+120,h+240,h+120],split:[h,h+150,h+210,h+30],mono:[h-22,h,h+14,h+32]}[kind]||[h-20,h,h+35,h+70];
   return hues.map((x,i)=>hx(((x%360)+360)%360,sat+(i===3?10:i===0?8:0),L[i]));
 }
 
+// Palettes from the hand-made presets (Eternity, Neon Pond, Doppler, Fractal, HUD…): one runs through a whole composition,
+// turned around the wheel as a piece so its stops keep their relationships.
+export const CURATED=[['#001020','#1c7ed6','#38d9a9','#fab005'],['#1a0a2e','#6b2fa0','#e0457b','#f7d26a'],['#1a1a2e','#e94560','#f5a623','#6ee7b7'],
+  ['#0a1028','#3b5bdb','#7325c1','#ff2929'],['#03071e','#9d0208','#e85d04','#ffba08'],['#020b1a','#0b6e4f','#21d19f','#c792ea'],['#120458','#ff2bd6','#7a04eb','#00e5ff'],['#0d0d0d','#424242','#9e9e9e','#fafafa']];
+const turn=(c,d)=>{const [h,sa,l]=toHsl(c);return sa<.12?c:toHex(h+d,sa,l);};
+
+const LINEAR=/^(circle|concentric|spiral|phyllotaxis|sacred|linear|sine|harmonic|lissajous)$/;
 // ---------- looks ----------
 // A layer: {layout (Pro renderer mode), params (full original layer parameters), opacity, spin (signed), speed}.
 export class Generator{
   constructor(){this.hue=Math.random()*360;this.dir=Math.random()<.5?-1:1;this.recent=[];this.layoutCursor=0;this.shapeCursor=0;this.slot=0;this.match=85;this.vb=null;this.layers='auto';this.section='groove';
-    this.scene=null;this.sceneHist=[];this.phrases=0;this.role='base';}
+    this.scene=null;this.sceneHist=[];this.phrases=0;this.role='base';this.pal=Math.floor(Math.random()*CURATED.length);this.palHist=[];this.palTurn=0;}
   // A scene that suits the energy (closest to the middle of its range most likely), not one of the last few.
+  // A new composition gets its own curated palette (not one of the last three), turned a little.
+  newPalette(){const free=CURATED.map((_,i)=>i).filter(i=>!this.palHist.includes(i));this.pal=any(free.length?free:CURATED.map((_,i)=>i));
+    this.palHist.push(this.pal);if(this.palHist.length>3)this.palHist.shift();this.palTurn=(Math.random()-.5)*50;}
+  colorsNow(){return CURATED[this.pal].map(c=>turn(c,this.palTurn));}
   pickScene(w,kind){
+    this.newPalette();
     const E=this.energy(kind),sim=this.simOK(w),fits=x=>(sim||!x.sim)&&E>=x.E[0]&&E<=x.E[1];
     const forced=SCENE_BY[this.force];this.force=null;
     if(forced&&(sim||!forced.sim)){this.scene=forced;this.phrases=0;this.sceneHist.push(forced.id);if(this.sceneHist.length>4)this.sceneHist.shift();return forced;}
@@ -218,14 +228,14 @@ export class Generator{
     let E=this.energy(kind);if(v&&v.energy!=null)E=Math.round(E*.5+v.energy*.5);
     const j=x=>clamp(x+(r()-.5)*20*(1-m/100),0,100);
     // Hue moves a little each phrase and further at a new section; only drops jump across the wheel.
-    if(!companion)this.hue+=kind==='drop'?100+r()*50:kind==='phrase'?10+r()*12:kind==='calm'?-30:kind==='build'?35:20;
+    if(!companion){this.hue+=kind==='drop'?100+r()*50:kind==='phrase'?10+r()*12:kind==='calm'?-30:kind==='build'?35:20;if(kind==='phrase')this.palTurn+=(r()<.5?-1:1)*(12+r()*14);}
     const hue=this.hue,sat=E>70?80:E<30?45:62,hx=w._hslHex,sc=this.scene;
-    const s={layout:'circle',shape:'straight',colors:sc?harmony(hx,sc.harmony,hue,E):[hx(hue-20,sat,14),hx(hue,sat,45),hx(hue+35,sat+5,62),hx(hue+70,sat+10,E>70?66:76)],background:'#000000',energy:E,
+    const s={layout:'circle',shape:'straight',colors:sc?this.colorsNow():[hx(hue-20,sat,14),hx(hue,sat,45),hx(hue+35,sat+5,62),hx(hue+70,sat+10,E>70?66:76)],background:'#000000',energy:E,
       density:35+r()*30+(E>70?10:0),thickness:12+r()*16+(E>70?6:0),spin:(E>60?30:15)*(r()<.5?-1:1),warp:E<30?15+r()*20:r()*15,glow:20+r()*20,trails:E<40?25+r()*25:r()*10,
       symmetry:'none',particles:false,growth:any(['vine','coral']),pulse:false};
-    const calmL=['spiral','phyllotaxis','concentric','sphere','growth','sacred','graph','fractal','water','lissajous','attractor','polarPlot','epicycles'],
-      hotL=['circle','concentric','spiral','tetrahedron','sphere','dna','scatter','sacred','lissajous','graph','linear','oscilloscope','radar','cellular','techLines'];
-    const shapes=['straight','rounded','tapered','pins','caps','circles','needles','diamonds','dotted'];
+    const calmL=['spiral','phyllotaxis','concentric','sphere','growth','sacred','fractal','lissajous','attractor','polarPlot','epicycles'],
+      hotL=['circle','concentric','spiral','tetrahedron','sphere','dna','sacred','lissajous','linear','oscilloscope','radar','cellular','techLines'];
+    const shapes=['straight','rounded','caps','circles','diamonds'];
     s.layout=!companion&&v?.primary?v.primary:this.pick(v?.layouts,E>60?hotL:calmL,'layout');
     if(!v?.layouts.length&&sc){
       const pool=this.role==='accent'&&sc.accent?sc.accent:sc.base;s.layout=any(pool);if(gpu(s.layout)&&!this.simOK(w))s.layout=any(sc.accent||['circle']);
@@ -310,9 +320,9 @@ export class Generator{
     if(kind==='drop')return r<.3?3:2;if(kind==='calm')return r<.35?1:2;
     return 2;
   }
-  paletteFor(s,i){if(!i||s.colors.length<3)return s.colors.slice();const c=s.colors.slice(1);for(let n=i%c.length;n>0;n--)c.push(c.shift());return [s.colors[0],...c];}
+  paletteFor(s,i){return s.colors.slice();}
   finish(l,s,i){
-    l.spin=+(s.spinAmt*(i?.7:1)).toFixed(2)*(i===1?-this.dir:this.dir);
+    l.spin=+(s.spinAmt*(i?.6:1)).toFixed(2)*this.dir;
     l.speed=clamp(+((l.params._speed||1)*(this.vb&&this.vb.tempo!==1?this.vb.tempo:1)).toFixed(1),.1,5);
     if(isSim(l.layout))l.spin=0;
     // The original frames most layouts small in the middle; Pro's larger canvas wants them to fill it.
@@ -321,7 +331,16 @@ export class Generator{
     // Calmer reactions: the original's high-energy looks spike to full height on every hit, which reads as chaos.
     const p=l.params,hot=this.section==='drop';
     if(!isSim(l.layout)){p._sensitivity=Math.min(p._sensitivity,hot?125:105);p._amplify=Math.min(p._amplify,hot?1.6:1.3);p._height=Math.min(p._height,hot?130:105);
-      p._speed=Math.min(p._speed,hot?1.8:1.3);p._zoomLoud=false;p._particlesOn=false;}
+      p._speed=Math.min(p._speed,hot?1.8:1.3);p._zoomLoud=false;p._particlesOn=false;
+      // A floor on weight and count: hairlines scattered over black read as an empty frame.
+      p._thick=Math.max(+p._thick||1,i?1.8:2.5+Math.random()*3);p._lines=Math.max(+p._lines||350,i?260:340);if(!i)p._height=Math.max(+p._height||80,hot?150:130);
+      // The hand-made presets bind their strokes with an outline and draw them heavy (Doppler, Cell, Eternity, Globe):
+      // the bars become one drawn shape instead of loose dashes.
+      if(LINEAR.test(l.layout)){const r=Math.random();
+        if(!i){const T=r<.35?['pins','solid',2,5+Math.random()*3]:r<.6?['pins','dashed',1.5,2.5+Math.random()*1.5]:r<.85?['rounded','connected',2.5,3+Math.random()*2]:['circles','solid',2,4+Math.random()*3];
+          Object.assign(p,{_lineShape:T[0],_showOutline:true,_outlineStyle:T[1],_outlineWeight:T[2],_outlineOpacity:70,_thick:+T[3].toFixed(1),_styleSize:120+Math.round(Math.random()*60),_lines:Math.min(p._lines,380)});
+          p._height=Math.max(p._height,150+Math.round(Math.random()*40));}
+        else Object.assign(p,{_lineShape:r<.5?'rounded':'pins',_showOutline:true,_outlineStyle:'connected',_outlineWeight:1.5,_outlineOpacity:55,_thick:Math.max(p._thick,2.2),_lines:Math.min(p._lines,180),_height:Math.min(p._height,60)});}}
     const fx=this.scene?.fx;
     if(fx){const o={...(p._postFx||{}),enabled:true};
       for(const [k,v] of Object.entries(fx)){if(isSim(l.layout)&&(k==='pfxTrails'||k==='pfxFeedback'))continue;
@@ -338,9 +357,9 @@ export class Generator{
     for(let k=0;k<8;k++){c=this.spec(w,kind,true);if(!used.includes(c.layout)&&(i===0||c.layout!=='growth')&&!(gpu(c.layout)&&used.some(gpu)))break;}
     if(gpu(c.layout)&&used.some(gpu)){for(let k=0;k<8&&gpu(c.layout);k++)c=this.spec(w,kind,true);if(gpu(c.layout))c.layout='circle';}
     c.colors=this.paletteFor(s,i);c.trails=s.trails;
-    if(i>0){const fine=['straight','tapered','needles','dotted','pins'];
-      if(!(this.match>=90&&this.vb?.shapes.length)&&!fine.includes(c.shape))c.shape=any(fine);
-      c.density*=.45;c.thickness*=.4;c.glow*=.5;c.particles=false;c.symmetry='none';}
+    if(i>0){const clean=['straight','rounded'];
+      if(!(this.match>=90&&this.vb?.shapes.length)&&!clean.includes(c.shape))c.shape=any(clean);
+      c.density*=.7;c.thickness*=.75;c.glow*=.6;c.particles=false;c.symmetry='none';}
     c.spinAmt=s.spinAmt;this.role='base';
     return this.finish(this.toLayer(w,c),s,i);
   }
