@@ -3262,7 +3262,7 @@ async function unpackScene(code){
 }
 async function shareLink(){return location.origin+location.pathname+'#scene='+await packScene(validate(state));}
 async function openShared(code){
-  if(!code){const m=/^#scene=([A-Za-z0-9_-]+)$/.exec(location.hash);if(!m)return false;code=m[1];history.replaceState(null,'',location.pathname+location.search);}
+  if(!code){const m=/^#scene=([A-Za-z0-9_-]+)$/.exec(location.hash);if(!m)return false;code=m[1];window.history.replaceState(null,'',location.pathname+location.search);}
   try{importProject(await unpackScene(code),'Opened a shared scene');message('Opened a shared scene · load your own sound and pictures. Undo (⌘Z) brings your scene back.');return true;}
   catch(error){message('Shared link: '+(error instanceof SyntaxError?'the link is damaged':error.message),true);return false;}
 }
