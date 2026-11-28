@@ -1144,6 +1144,17 @@ function cleanSceneSettings(s){
   }
   return out;
 }
+// Loaded files, by slot: {main|emit: {key, name}}; the key finds the file in this browser's media store or a bundle.
+const MEDIA_SLOTS=['main','emit'];
+export function cleanMedia(m){
+  if(m===undefined||m===null)return null;
+  if(typeof m!=='object'||Array.isArray(m))throw Error('Invalid media');
+  const out={};
+  for(const slot of MEDIA_SLOTS){const v=m[slot];if(v===undefined)continue;
+    if(!v||typeof v!=='object'||!/^[0-9a-f]{32}$/.test(v.key)||typeof v.name!=='string'||v.name.length>255)throw Error('Invalid media');
+    out[slot]={key:v.key,name:v.name};}
+  return Object.keys(out).length?out:null;
+}
 export function validate(input) {
   if(!input||input.format!=='audiograph-pro'||!(Number.isInteger(input.version)&&input.version>=1&&input.version<=VERSION))throw Error('Expected an Audiograph Pro project');
   const raw=migrate(input);
@@ -1171,6 +1182,7 @@ export function validate(input) {
       }
       if(nd.bypass===true&&nd.type!=='output')out.bypass=true;
       const midi=cleanMidi(nd.midi,k=>midiKnob(nd.type,k));if(midi)out.midi=midi;
+      const media=cleanMedia(nd.media);if(media)out.media=media;
       return out;
     });
     if(clean.nodes.filter(nd=>nd.type==='output').length>1)throw Error('Only one Output is allowed per layer');

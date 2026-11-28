@@ -41,7 +41,7 @@ overlays. Earlier 2D inputs and Background nodes can sit behind the 3D world.
     particles fall through. Flat (2D) emitters keep their frame bounds.
     Without a wire, choose **Image** in **Emission** to upload a picture, or
     **Webcam** and **Start camera** to emit from a live feed. Both sources are
-    flat. Uploaded images stay in the current session, not in the project file.
+    flat. Uploaded images are kept with the project (see Save).
     **Fluid** is a 2D simulation: a connected 3D object supplies its rendered
     silhouette, not a volume or a collision surface.
     Choose **3D Fluid** for a volumetric flow instead. Connect a **3D Object**
@@ -445,6 +445,11 @@ process the finished image.
   F frames the 3D scene, Cmd+F toggles fullscreen, Tab or Shift+A opens node search.
 - **Templates**: **User templates** (Save → Save as template, kept in the browser) and the **Audiograph presets** (the originals plus saved scenes in `scenes.js`: **Cloned**, **Doppler**, **Cell**, **Eternity**, **Firepit**, **Fractal** and **Globe**; a saved scene replaces the original preset of the same name, and Sacred circle, Spiral planes and Organica are retired from the menu and the Template morph list but still load in old projects). The **×** next to a user template deletes it (after a confirm). All presets sit on plain black (no Background node).
 - **Save**: Save scene writes an .ag file wherever you choose (⌘S); Save as template (⇧⌘S) adds a User template.
+- **Media files** (images, videos, 3D models, splats, emitter images, mapping models) are kept in this
+  browser's storage by content (`media-store.js`, IndexedDB), and the project records each one by key, so
+  undo, templates and reopened scenes bring them back. A scene that uses files saves as an .ag bundle (a zip of
+  `scene.ag` plus the files) that opens with everything on any computer. Share links don't carry files; a
+  missing file shows a Relink button. Files no scene has used for 30 days are cleared.
 - **Tips stay hidden**: node descriptions and help notes sit behind the **?** in
   the inspector header (and the graph toolbar); click it to show them. The choice is
   remembered.

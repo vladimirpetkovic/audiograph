@@ -16,6 +16,7 @@ import {collisionField} from './colliders.js';
 import * as ui from './ui.js';
 import {needsWarp,warpInto} from './warp.js';
 import {glassInto} from './glass.js';
+import {putAsset,getAsset,pruneAssets,zip,unzip,isZip} from './media-store.js';
 import {colorAdjustInto,lutInto,parseCube,encodeLut} from './color-grade.js';
 import {shaderInto,checkShader,dropShaderState,releaseShaders,parseKnobs,knobDefault,knobValues,MELT,TUNNEL,WARP_TUNNEL,SHADER_EXAMPLES} from './shaderfx.js';
 import {cleanView,spinProps,WATER_HEIGHT,midiKnob,COMP_KEYS,MODE_GROUPS} from './graph.js';
@@ -175,7 +176,7 @@ function liveCommit(label){
 function restoreSnapshot(snapshot){tm.playing=false;groundPlacements.clear();state=validate(snapshot);rigidWorld.reset();pending=null;reconcile();renderUI();if(paused)draw(elapsed);}
 function undo(){if(history.length){future.push(clone(state));restoreSnapshot(history.pop());message('Undone');}}
 function redo(){if(future.length){history.push(clone(state));restoreSnapshot(future.pop());message('Redone');}}
-function importProject(raw,label='Imported project. Reload media files in the Input nodes.'){
+function importProject(raw,label='Imported project'){
   const clean=validate(raw),notice=legacyCameraNotice(raw);if(!clean.mapping&&state.mapping)clean.mapping=clone(state.mapping);tm.playing=false;sceneInspector=false;collisionMeshes.clear();groundPlacements.clear();rigidWorld.reset();sceneMotion.phase=0;sceneMotion.motion=clean.settings.camera.motion;commit(clean,notice?label+' '+notice:label);active=state.layers[0].id;selected=null;renderUI();fit();return clone(state);
 }
 // Chain nodes pass a shape/image (or an audio signal, e.g. Audio EQ) through: they splice into wires and heal when removed.
@@ -1839,12 +1840,63 @@ function camMapFrame(){if(!camMapOn())return null;const C=camMap;
   const x=C.cv.getContext('2d',{willReadFrequently:true});x.drawImage(v,0,0,w,h);const d=x.getImageData(0,0,w,h),p=d.data;
   for(let i=0;i<w*h;i++){const l=(p[i*4]*.3+p[i*4+1]*.59+p[i*4+2]*.11)/255,m=Math.min(1,Math.abs(l-C.prev[i])*6);C.prev[i]=l;C.acc[i]=Math.max(C.acc[i]*.86,m);const b=C.acc[i]*255;p[i*4]=p[i*4+1]=p[i*4+2]=b;p[i*4+3]=255;}
   C.out.getContext('2d').putImageData(d,0,0);C.stamp++;return {canvas:C.out,stamp:C.stamp};}
-// Image / Video / Camera nodes: one picture source each (files are not saved in projects).
+// Image / Video / Camera nodes: one picture source each.
 const mediaEls=new Map();
 function mediaOf(n){
   let m=mediaEls.get(n.id);
   if(!m){m=new Media(n.type);mediaEls.set(n.id,m);if(n.type==='camera')camProvider().then(st=>{if(mediaEls.get(n.id)===m)m.stream(st);}).catch(e=>message(e.message,true,'render'));}
   return m;
+}
+// Loaded files persist: each is kept in this browser's media store by content hash, and the node records {key,name} per slot.
+// syncMedia (every frame) loads whatever the project asks for, so reloads, undo, opened scenes and bundles all bring files back.
+const mediaMissing=new Map();
+function mediaTargets(n){
+  const out=[],e=isEngine(n.type)&&engines.get(n.id),kind=mediaKind(n);
+  if(n.type==='image'||n.type==='video'){const m=mediaOf(n);out.push(['main',m,f=>m.load(f),()=>m.clear(),n.type]);}
+  else if(e&&kind&&!e.disposed)out.push(['main',e,async f=>{await e.media(f,kind);},()=>e.clearMedia(),kind]);
+  if(e&&!e.disposed&&n.props.mode&&SIM_SOURCE[n.props.mode]){
+    const s=nstate(n.id+':emitImage',()=>({asset:null}));
+    out.push(['emit',s,async f=>{await e.ready;const b=await createImageBitmap(f);try{s.asset=e.w.agEmitterImageAsset(b,b.width,b.height,f.name,false);}finally{b.close();}},()=>{s.asset=null;},'emit']);
+  }
+  return out;
+}
+function syncMedia(){
+  for(const g of state.layers)for(const n of g.nodes){
+    if(!n.media&&!mediaEls.has(n.id)&&!engines.has(n.id))continue;
+    for(const [slot,t,load,clear,kind] of mediaTargets(n)){
+      const want=n.media?.[slot]?.key||'',have=t.assetKey||'',tag=n.id+':'+slot;
+      if(have===want||t.assetBusy)continue;
+      if(!want){clear();t.assetKey='';mediaChanged(n);continue;}
+      if(mediaMissing.get(tag)===want+kind)continue;
+      t.assetBusy=true;
+      getAsset(want).then(async f=>{
+        if(!f){mediaMissing.set(tag,want+kind);mediaChanged(n);return;}
+        await load(f);t.assetKey=want;mediaMissing.delete(tag);mediaChanged(n);
+      }).catch(e=>{mediaMissing.set(tag,want+kind);message(`${n.media?.[slot]?.name||'Media'}: ${e.message}`,true);}).finally(()=>{t.assetBusy=false;});
+    }
+  }
+}
+const mapLoading=new Set();
+function syncMapModels(){
+  for(const t of state.mapping?.surfaces||[]){
+    if(!t.asset||map3d.hasModel(t)||mapLoading.has(t.asset)||mediaMissing.get('map:'+t.asset))continue;
+    mapLoading.add(t.asset);
+    getAsset(t.asset).then(async f=>{if(!f){mediaMissing.set('map:'+t.asset,'1');return;}await map3d.loadModel(f);if(mapMode)renderMapPanel();})
+      .catch(e=>{mediaMissing.set('map:'+t.asset,'1');message(`${t.model}: ${e.message}`,true);}).finally(()=>mapLoading.delete(t.asset));
+  }
+}
+function mediaChanged(n){if(selected===n.id)renderProperties();updateSummaries();if(paused)draw(elapsed);}
+const missingMedia=(n,slot)=>{const m=n.media?.[slot];return m&&mediaMissing.get(n.id+':'+slot)?.startsWith(m.key)?m.name:'';};
+// After a file loads by hand: store it, remember it in the node (one undo step), and mark the target as already holding it.
+async function keepMedia(n,slot,file,target,label){
+  let key='';
+  try{key=await putAsset(file);}catch(e){message(`Loaded ${file.name}, but this browser could not keep it: ${e.message}`,true);return;}
+  if(target)target.assetKey=key;mediaMissing.delete(n.id+':'+slot);
+  edit((p,g)=>{const x=p.layers.flatMap(l=>l.nodes).find(x=>x.id===n.id);if(x)x.media={...x.media,[slot]:{key,name:file.name.slice(0,255)}};},label||'Loaded '+file.name);
+}
+function forgetMedia(n,slot,target,label){
+  if(target)target.assetKey='';
+  edit((p,g)=>{const x=p.layers.flatMap(l=>l.nodes).find(x=>x.id===n.id);if(x?.media){const m={...x.media};delete m[slot];x.media=Object.keys(m).length?m:undefined;}},label);
 }
 function releaseCameraIfUnused(){
   for(const [id,c] of emitterCameras){
@@ -1876,7 +1928,7 @@ let nextDrawAt=0,lastFrameCap;
 function frameCap(){return state.settings?.performance?.fps??SCENE_PERFORMANCE.fps;}
 function loop(now,fromOutput){
   if(!fromOutput)mainRaf=performance.now();
-  mapTick(now);
+  mapTick(now);syncMedia();syncMapModels();
   if(frame%60===59)releaseCameraIfUnused();
   const fps=frameCap(),period=1000/fps;
   if(!lastTime||fps!==lastFrameCap){nextDrawAt=lastTime?Math.max(lastTime+period,now):now;lastFrameCap=fps;}
@@ -2679,14 +2731,15 @@ function renderMediaPicker(root,n){
   }
   const m=mediaOf(n),f=el('input');f.type='file';f.id='emitterMedia';f.hidden=true;
   f.accept=n.type==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':'video/*';
-  f.onchange=async()=>{try{if(!f.files[0])return;await m.load(f.files[0]);message('Loaded '+m.name);renderProperties();updateSummaries();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
+  f.onchange=async()=>{try{const file=f.files[0];if(!file)return;await m.load(file);message('Loaded '+m.name);renderProperties();updateSummaries();if(paused)draw(elapsed);await keepMedia(n,'main',file,m);}catch(e){message(e.message,true);}};
+  const lost=missingMedia(n,'main');
   if(m.name){
-    const item=el('div','media-item');item.title=m.name+' · not saved in projects';
+    const item=el('div','media-item');item.title=m.name;
     if(m.thumb){const img=el('img');img.src=m.thumb;img.alt=m.name;item.append(img);}else item.append(el('span','media-name',m.name));
     const x=el('button','media-x','×');x.type='button';x.title='Remove';x.setAttribute('aria-label','Remove '+m.name);x.dataset.property='mediaRemove';
-    x.onclick=()=>{const name=m.name;m.clear();message('Removed '+name);renderProperties();updateSummaries();if(paused)draw(elapsed);};
+    x.onclick=()=>{const name=m.name;m.clear();forgetMedia(n,'main',m,'Removed '+name);if(paused)draw(elapsed);};
     item.append(x);box.append(item);
-  }else{const b=el('button','mbtn media-choose',`Choose ${n.type}`);b.type='button';b.onclick=()=>f.click();box.append(b);}
+  }else{const b=el('button','mbtn media-choose',lost?`Relink ${lost}`:`Choose ${n.type}`);b.type='button';b.onclick=()=>f.click();box.append(b);}
   box.append(f);
 }
 function renderSimulationMedia(box,n,e,source){
@@ -2708,10 +2761,10 @@ function renderSimulationMedia(box,n,e,source){
           if(nodeState.get(id)!==s||s.request!==request||e.disposed)return;
           asset=e.w.agEmitterImageAsset(bitmap,bitmap.width,bitmap.height,file.name,false);
         }finally{bitmap.close();}
-        s.asset=asset;message('Loaded '+asset.name);refresh();
+        s.asset=asset;message('Loaded '+asset.name);refresh();await keepMedia(n,'emit',file,s);
       }catch(error){if(nodeState.get(id)===s&&s.request===request)message('Could not load emitter image: '+error.message,true);}
     };
-    box.append(el('p','insp-note',s.asset?`${s.asset.name} · Reload this image when reopening the project.`:'Brighter pixels emit more. Black and transparent pixels emit nothing.'));
+    box.append(el('p','insp-note',s.asset?s.asset.name:missingMedia(n,'emit')?`Relink ${missingMedia(n,'emit')}`:'Brighter pixels emit more. Black and transparent pixels emit nothing.'));
   }else{
     const cam=emitterCameras.get(n.id);
     const b=button(cam?.pending?'Starting camera…':cam?'Stop camera':'Start camera');
@@ -2797,17 +2850,17 @@ function renderEmitter(root,n){
   const kind=mediaKind(n);
   if(kind){
     const f=el('input');f.type='file';f.id='emitterMedia';f.accept=kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/avif':kind==='video'?'video/*':kind==='splat'?'.ply,.splat':'.obj,.fbx,.usd,.usda,.usdc,.usdz,.glb,.gltf';
-    f.onchange=async()=>{try{if(!f.files[0])return;const e=engineFor(n.id),res=await e.media(f.files[0],kind);if(kind==='splat')useSplatFile(n,e,res);const nc=kind==='object'?e.anim?.clips?.length||0:-1;message('Loaded '+e.mediaName+(res?.materialWarning?' · using Palette shading':nc>0?` · playing ${nc>1?nc+' animation clips (pick one with Clip)':'its animation'}`:nc===0?' · no animation in this file (export FBX or GLB with the animation included, e.g. Mixamo “With Skin”)':''));renderUI();if(paused)draw(elapsed);}catch(e){message(e.message,true);}};
+    f.onchange=async()=>{try{const file=f.files[0];if(!file)return;const e=engineFor(n.id),res=await e.media(file,kind);if(kind==='splat')useSplatFile(n,e,res);const nc=kind==='object'?e.anim?.clips?.length||0:-1;const note='Loaded '+e.mediaName+(res?.materialWarning?' · using Palette shading':nc>0?` · playing ${nc>1?nc+' animation clips (pick one with Clip)':'its animation'}`:nc===0?' · no animation in this file (export FBX or GLB with the animation included, e.g. Mixamo “With Skin”)':'');message(note);renderUI();if(paused)draw(elapsed);await keepMedia(n,'main',file,e,note);}catch(e){message(e.message,true);}};
     // One button; once loaded, a thumbnail (or the file name) with × to remove it.
     const eng=engines.get(n.id),name=eng?.mediaName,box=el('div','media-pick');f.hidden=true;
     if(name){
-      const item=el('div','media-item');item.title=name+' · not saved in projects';
+      const item=el('div','media-item');item.title=name;
       if(eng.mediaThumb){const img=el('img');img.src=eng.mediaThumb;img.alt=name;item.append(img);}else item.append(el('span','media-name',name));
       const x=el('button','media-x','×');x.type='button';x.title='Remove';x.setAttribute('aria-label','Remove '+name);x.dataset.property='mediaRemove';
-      x.onclick=()=>{eng.clearMedia();if(kind==='splat')edit((p,g)=>{const y=g.nodes.find(y=>y.id===n.id);for(const [k,v] of Object.entries(y.props.chips||{}))if(v==='Loaded file')delete y.props.chips[k];},'Gaussian Splat: removed file');message('Removed '+name);renderUI();if(paused)draw(elapsed);};
+      x.onclick=()=>{eng.clearMedia();forgetMedia(n,'main',eng,'Removed '+name);if(kind==='splat')edit((p,g)=>{const y=g.nodes.find(y=>y.id===n.id);for(const [k,v] of Object.entries(y.props.chips||{}))if(v==='Loaded file')delete y.props.chips[k];},'Gaussian Splat: removed file');message('Removed '+name);renderUI();if(paused)draw(elapsed);};
       item.append(x);box.append(item);
     }else{
-      const b=el('button','mbtn media-choose',`Choose ${kind==='object'?'model':kind==='splat'?'splat':kind}`);b.type='button';b.onclick=()=>f.click();box.append(b);
+      const lost=missingMedia(n,'main'),b=el('button','mbtn media-choose',lost?`Relink ${lost}`:`Choose ${kind==='object'?'model':kind==='splat'?'splat':kind}`);b.type='button';b.onclick=()=>f.click();box.append(b);
     }
     box.append(f);s.append(box);
     if(kind==='object'&&eng?.materialWarning)s.append(el('p','insp-note','Geometry loaded with Palette shading. Imported materials skipped: '+eng.materialWarning));
@@ -3762,20 +3815,39 @@ $('reset').onclick=()=>attempt(()=>{
   const audioProps=state.layers.flatMap(g=>g.nodes.filter(n=>n.type==='audioIn').map(n=>n.props)),layers=startScene();
   let i=0;for(const g of layers)for(const n of g.nodes)if(n.type==='audioIn'&&audioProps.length)n.props=clone(audioProps[Math.min(i++,audioProps.length-1)]);
   importProject({format:'audiograph-pro',version:VERSION,layers,settings:SCENE_DEFAULTS},'Reset to the starting scene');message('Reset to the starting scene. Undo (⌘Z) brings your scene back.');});
-// Scenes save as .ag files (the project JSON); every save asks where.
+// Scenes save as .ag files: the project JSON, or (when it uses loaded files) a zip bundle of scene.ag plus media/<key>.
+const projectAssets=p=>new Set([...p.layers.flatMap(g=>g.nodes.flatMap(n=>Object.values(n.media||{}).map(m=>m.key))),...(p.mapping?.surfaces||[]).map(t=>t.asset).filter(Boolean)]);
+async function sceneBundle(text,keys){
+  const enc=new TextEncoder(),entries=[{name:'scene.ag',data:enc.encode(text)}],index={};
+  for(const key of keys){const f=await getAsset(key);if(!f)continue;index[key]={name:f.name,type:f.type};entries.push({name:'media/'+key,data:new Uint8Array(await f.arrayBuffer())});}
+  entries.splice(1,0,{name:'media.json',data:enc.encode(JSON.stringify(index))});
+  return {blob:zip(entries),count:Object.keys(index).length};
+}
 async function saveScene(){
-  try{const text=JSON.stringify(validate(state),null,2),name=(state.layers[0]?.name||'scene').replace(/[^\w -]+/g,'').trim()||'scene';
+  try{const clean=validate(state),text=JSON.stringify(clean,null,2),name=(state.layers[0]?.name||'scene').replace(/[^\w -]+/g,'').trim()||'scene';
     try{localStorage.setItem('audiograph-pro-v2',text);}catch{}message('Saved in this browser');
+    const keys=projectAssets(clean),bundle=keys.size?await sceneBundle(text,keys):null,data=bundle?.count?bundle.blob:new Blob([text],{type:'application/json'});
+    const done=file=>message(`Saved ${file}${bundle?.count?` with ${bundle.count} media file${bundle.count>1?'s':''}`:''}`);
     if(window.showSaveFilePicker){
-      const h=await showSaveFilePicker({suggestedName:name+'.ag',startIn:'desktop',types:[{description:'Audiograph scene',accept:{'application/json':['.ag']}}]});
-      const w=await h.createWritable();await w.write(text);await w.close();message(`Saved ${h.name}`);return;}
-    const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=el('a');a.href=url;a.download=name+'.ag';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message(`Saved ${name}.ag`);
+      const h=await showSaveFilePicker({suggestedName:name+'.ag',startIn:'desktop',types:[{description:'Audiograph scene',accept:{[bundle?.count?'application/zip':'application/json']:['.ag']}}]});
+      const w=await h.createWritable();await w.write(data);await w.close();done(h.name);return;}
+    const url=URL.createObjectURL(data),a=el('a');a.href=url;a.download=name+'.ag';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);done(name+'.ag');
   }catch(error){if(error.name!=='AbortError')message('Save: '+error.message,true);}
 }
 async function openScene(file){
-  try{if(!file)return;if(file.size>1024*1024)throw Error('Scene file limit is 1 MB');importProject(JSON.parse(await file.text()),`Opened ${file.name}`);}
-  catch(error){message('Open: '+(error instanceof SyntaxError?'not an Audiograph scene':error.message),true);}
+  try{if(!file)return;
+    if(file.size>2*1024**3)throw Error('Scene file limit is 2 GB');
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    if(!isZip(bytes)){if(bytes.length>1024*1024)throw Error('Scene file limit is 1 MB');importProject(JSON.parse(new TextDecoder().decode(bytes)),`Opened ${file.name}`);return;}
+    const files=await unzip(bytes),scene=files.get('scene.ag');if(!scene)throw Error('not an Audiograph scene');
+    const index=JSON.parse(new TextDecoder().decode(files.get('media.json')||new Uint8Array([123,125])));let n=0;
+    for(const [path,data] of files)if(path.startsWith('media/')){const key=path.slice(6),info=index[key]||{};await putAsset(new File([data],info.name||key,{type:info.type||''}));n++;}
+    mediaMissing.clear();
+    importProject(JSON.parse(new TextDecoder().decode(scene)),`Opened ${file.name}${n?` with ${n} media file${n>1?'s':''}`:''}`);
+  }catch(error){message('Open: '+(error instanceof SyntaxError?'not an Audiograph scene':error.message),true);}
 }
+// Stored files nothing has used for 30 days are dropped (the open scene and user templates keep theirs).
+setTimeout(()=>{try{const keep=projectAssets(state);for(const t of Object.values(userTemplates()))try{for(const k of projectAssets(validate(t)))keep.add(k);}catch{}pruneAssets(keep).catch(()=>{});}catch{}},15000);
 $('save').onchange=()=>{const v=$('save').value;$('save').value='';({scene:saveScene,template:saveTemplate,remove:removeTemplate})[v]?.();};
 $('import').onchange=async()=>{await openScene($('import').files[0]);$('import').value='';};
 addEventListener('dragover',e=>{if([...e.dataTransfer.items].some(i=>i.kind==='file'))e.preventDefault();});
@@ -3869,7 +3941,7 @@ $('helpBody').innerHTML=`
 <h3 id="h-auto">Autopilot</h3>
 <p>Turn Autopilot on and it follows the music like the original's Automation: at each section (breakdown, groove, build-up, drop), or every few seconds, it slowly crossfades to a new variation. <b>Changes</b>: Colours or Mood restyle your own layers; Everything runs its own stack of 1–3 layers that share a palette. Describing a look (“slow dreamy blue and gold spirals”, “liquid glass metaballs over neon”) is optional and steers it; <b>Prompt match</b> sets how closely. Empty, it is art-directed by <b>scenes</b> (Halo, Orbit, Mandala, Liquid, Helix lab, Prism…): a base and a lighter accent with matching post FX and a colour harmony, held through a section and varied gently, with smooth, capped motion. New looks fade in over the old ones one layer at a time, so the picture never freezes. Turn <b>Write</b> on and it writes its own descriptions. <b>Switch on</b>: Song (sections, or every few seconds), or Bass, Beat, Highs or Loudness, switching on each hit (a jump above the recent level; bigger <b>Level</b> = only bigger hits), at most once per <b>Gap</b> seconds. Next changes now; Hold keeps the current look. <b>Template Morph</b> blends smoothly between your templates instead.</p>
 <h3 id="h-files">Saving &amp; output</h3>
-<ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Reset</b> starts over from the starting scene (Undo brings your scene back). Media files (songs, videos, models) are not stored: reload them in their nodes.</li>
+<ul><li><b>Save → Save scene</b> (⌘S) writes an <b>.ag</b> file wherever you choose and keeps a copy in this browser. Loaded images, videos and models are kept too: in this browser automatically, and inside the .ag file so it opens complete anywhere. <b>Save as template</b> (⇧⌘S) adds the scene to <b>Templates → User templates</b> (kept in this browser). <b>Open</b> (⌘O) or drop an .ag file to load it. <b>Reset</b> starts over from the starting scene (Undo brings your scene back). Media files (songs, videos, models) are not stored: reload them in their nodes.</li>
 <li>Record (●) captures the preview live with its audio; <b>Export</b> (↓) renders the song frame by frame to an MP4 at up to 4K / 60 fps, with no dropped frames. The camera button saves a PNG. The layer <b>Resolution</b> sets the render size.</li>
 <li><b>MIDI</b>: click it, click a knob, switch or action, then move a control on your controller to map it. Alt-click unmaps; Esc leaves. <b>Share</b> copies a link that holds the whole scene.</li>
 <li><b>Output</b> → second display: Detach opens the picture in its own window for a projector or screen.</li>
@@ -4072,9 +4144,9 @@ function addMapLayout(k){
 function addMap3d(props){mapEdit(x=>{const id=newSurfaceId(x);x.surfaces.push(Object.assign(map3d.surface3d(id,props.name),props.primitive?{primitive:props.primitive}:{}));x.on=true;mapSel=id;mapPt=-1;},'Added 3D object: '+props.name);}
 function loadMapModel(){
   const f=el('input');f.type='file';f.accept='.obj,.fbx,.usd,.usda,.usdc,.usdz,.glb,.gltf';
-  f.onchange=async()=>{const file=f.files[0];if(!file)return;try{const md=await map3d.loadModel(file);
+  f.onchange=async()=>{const file=f.files[0];if(!file)return;try{const md=await map3d.loadModel(file),asset=await putAsset(file).catch(()=>'');
     mapEdit(x=>{const id=newSurfaceId(x),t=map3d.surface3d(id,file.name.replace(/\.[^.]+$/,'').slice(0,40)||'Model');
-      Object.assign(t,{model:md.model,modelKey:md.modelKey,scale:1,upAxis:'Y'});t.camera.target=md.target;t.camera.distance=md.distance;x.surfaces.push(t);x.on=true;mapSel=id;mapPt=-1;},'Loaded mapping model');
+      Object.assign(t,{model:md.model,modelKey:md.modelKey,asset,scale:1,upAxis:'Y'});t.camera.target=md.target;t.camera.distance=md.distance;x.surfaces.push(t);x.on=true;mapSel=id;mapPt=-1;},'Loaded mapping model');
   }catch(e){message(e.message,true);}};f.click();
 }
 // One Mapping section is open at a time.
@@ -4277,7 +4349,7 @@ function renderMap3d(root,ss,info,s,upd,liveSurf){
   const obj=sub(ss,'Object');
   // The object is chosen with + 3D object; a loaded model keeps its up axis, and a model missing after reload can be relinked.
   if(s.model)select(obj,'Object up','upAxis',[['Y','Y-up'],['Z','Z-up (OBJ)']]);
-  if(s.model&&!map3d.hasModel(s))file('Relink model · '+s.model,'.obj,.fbx,.usd,.usda,.usdc,.usdz,.glb,.gltf','mapRelinkModel',async f=>{const m=await map3d.loadModel(f);upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');},obj);
+  if(s.model&&!map3d.hasModel(s))file('Relink model · '+s.model,'.obj,.fbx,.usd,.usda,.usdc,.usdz,.glb,.gltf','mapRelinkModel',async f=>{const m=await map3d.loadModel(f),asset=await putAsset(f).catch(()=>'');upd(t=>{t.model=m.model;t.modelKey=m.modelKey;t.asset=asset;t.scale=1;t.upAxis='Y';t.camera.target=m.target;t.camera.distance=m.distance;},'Loaded mapping model');},obj);
   obj.append(ui.field('Wireframe',ui.toggle({value:s.wire,labels:['On','Off'],property:'surf3dWire',onChange:v=>upd(t=>{t.wire=v;},'Mapping wireframe')})));
   const ok=el('div','knob-grid');obj.append(ok);
   ok.append(ui.knob({label:'Opacity',min:0,max:100,step:1,def:100,value:s.opacity*100,unit:'%',property:'surfOpacity',onInput:v=>liveSurf(t=>{t.opacity=v/100;}),onChange:()=>liveCommit('Surface opacity')}));
