@@ -429,12 +429,22 @@ function stopLive(){
 }
 // Play shows Pause while something runs: the audio file if one is loaded, else the visuals.
 function syncPlay(){const on=audio.buffer&&!audio.live?!!audio.source:!paused;$('play').classList.toggle('on',on);$('play').setAttribute('aria-label',on?'Pause':'Play');}
+// Mastered songs run far hotter than the looks are tuned for and pin the spectrum at full scale: what the visuals hear
+// of a loud file is brought down to a reference loudness (the sound you hear is unchanged).
+const LOUD_REF=.18,trims=new WeakMap();
+function trimDb(buf){
+  if(!buf)return 0;let v=trims.get(buf);if(v!==undefined)return v;
+  let sum=0,n=0;const step=Math.max(1,Math.floor(buf.length/400000));
+  for(let c=0;c<buf.numberOfChannels;c++){const d=buf.getChannelData(c);for(let i=0;i<d.length;i+=step){sum+=d[i]*d[i];n++;}}
+  v=Math.min(10,Math.max(0,20*Math.log10(Math.sqrt(sum/Math.max(1,n))/LOUD_REF)));trims.set(buf,v);return v;
+}
+function hearAt(db){audio.trim=db;if(audio.analyser){audio.analyser.minDecibels=-100+db;audio.analyser.maxDecibels=-30+db;}}
 function setPaused(v){paused=v;lastTime=0;syncPlay();}
 async function play(){
   if(!audio.buffer)throw Error('Load an audio file first (or use Mic / System)');
   if(audio.source){stopAudio(true);message('Paused audio');return;}
   stopLive();unlockAudio();audio.monitor.gain.value=1;
-  const source=audio.context.createBufferSource();source.buffer=audio.buffer;source.loop=!!audio.loop;source.connect(audio.analyser);audio.source=source;
+  const source=audio.context.createBufferSource();source.buffer=audio.buffer;source.loop=!!audio.loop;source.connect(audio.analyser);audio.source=source;hearAt(trimDb(audio.buffer));
   const offset=audio.offset%audio.buffer.duration;audio.startedAt=audio.context.currentTime;audio.offset=offset;
   source.onended=()=>{if(audio.source===source){audio.source=null;audio.offset=0;syncPlay();}};
   source.start(0,offset);syncPlay();message('Playing '+audio.name);updateAudioUI();
@@ -447,7 +457,7 @@ async function startLive(kind,getStream){
   const stream=await getStream(),tracks=stream.getAudioTracks();
   stream.getVideoTracks().forEach(t=>{t.stop();stream.removeTrack(t);});
   if(!tracks.length){stream.getTracks().forEach(t=>t.stop());throw Error(kind==='system'?'no audio was shared · tick “Share system audio” (or share a tab with its audio)':'no microphone found');}
-  const node=audio.context.createMediaStreamSource(stream);node.connect(audio.analyser);audio.monitor.gain.value=0;
+  const node=audio.context.createMediaStreamSource(stream);node.connect(audio.analyser);hearAt(0);audio.monitor.gain.value=0;
   audio.live={kind,stream,node};setPaused(false);updateAudioUI();
   tracks[0].addEventListener('ended',()=>{if(audio.live?.stream===stream){stopLive();message(kind==='mic'?'Microphone disconnected':'System audio sharing ended');}});
   await ensureRunning();
@@ -499,8 +509,8 @@ function demoSpectrum(t){
 }
 function readAudio(t){
   A.live=!!(audio.analyser&&(audio.source||audio.live));
-  if(exporting?.sound){const x=exporting.sound;A.live=true;A.rate=x.rate;A.freq.set(x.freq);A.wave.set(x.wave);}
-  else if(A.live){A.rate=audio.context.sampleRate;audio.analyser.getByteFrequencyData(A.freq);audio.analyser.getFloatTimeDomainData(A.wave);}
+  if(exporting?.sound){const x=exporting.sound;A.live=true;A.rate=x.rate;A.freq.set(x.freq);A.wave.set(x.wave);if(exporting.trim){const g=10**(-exporting.trim/20);for(let i=0;i<A.wave.length;i++)A.wave[i]*=g;}}
+  else if(A.live){A.rate=audio.context.sampleRate;audio.analyser.getByteFrequencyData(A.freq);audio.analyser.getFloatTimeDomainData(A.wave);if(audio.trim){const g=10**(-audio.trim/20);for(let i=0;i<A.wave.length;i++)A.wave[i]*=g;}}
   else if(DEMO_BEAT){A.rate=48000;demoSpectrum(t);}
   else{A.rate=48000;A.freq.fill(0);A.wave.fill(0);}
   A.bands=bandsOf(A.freq);
@@ -3305,7 +3315,7 @@ async function exportVideo(cfg,{file=null,onProgress=()=>{}}={}){
   const snd=cfg.sound||await exportSound(),dur=snd.buffer.duration,start=Math.max(0,Math.min(dur-.1,+cfg.start||0)),length=Math.max(.1,Math.min(dur-start,+cfg.length||dur-start));
   const prevH=HEIGHT,wasPaused=paused,wasPlaying=!!audio.source,vt0=elapsed,ac=new AbortController();
   if(wasPlaying)stopAudio(true);
-  exporting={sound:null,song:null,abort:()=>ac.abort()};$('resolution').disabled=true;
+  exporting={sound:null,song:null,trim:trimDb(snd.buffer),abort:()=>ac.abort()};$('resolution').disabled=true;
   let frames=0;
   try{
     if(cfg.height!==HEIGHT)changeResolution(cfg.height);
@@ -3315,7 +3325,7 @@ async function exportVideo(cfg,{file=null,onProgress=()=>{}}={}){
     if(state.layers.some(g=>g.visible&&g.nodes.some(n=>!n.bypass&&n.props.mode==='simfluid3d')))await prepareFluid3D();
     const bitrate=Math.round(WIDTH*HEIGHT*cfg.fps*(EXPORT_BPP[cfg.quality]||EXPORT_BPP.high));
     const blob=await renderVideo({buffer:snd.buffer,start,length,fps:cfg.fps,bitrate,canvas:preview,file,signal:ac.signal,
-      analyser:{fftSize:BINS*2,smoothing:.5,minDb:-100,maxDb:-30},onProgress,
+      analyser:{fftSize:BINS*2,smoothing:.5,minDb:-100+exporting.trim,maxDb:-30+exporting.trim},onProgress,
       drawFrame:async(i,t,dt,sound)=>{vclock=c0+t*1000;await seekVideos(t);exporting.sound=sound;exporting.song={buffer:snd.buffer,time:start+t};draw(vt0+t,dt);frames=i+1;}});
     return {blob,frames,width:WIDTH,height:HEIGHT,name:snd.name.replace(/\.[^.]+$/,'').replace(/[^\w -]+/g,'').trim()||'audiograph'};
   }finally{
