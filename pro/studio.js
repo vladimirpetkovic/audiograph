@@ -2464,7 +2464,7 @@ function renderSoundEffector(root,n){
   choices.style.setProperty('--option-columns',3);distribution.append(choices);
   renderProps(distribution,n,['spread','delay'],true);
   distribution.append(el('p','insp-note','Chooses which frequency band drives each clone: Order maps bass to the first clone and treble to the last; Distance maps outward from the centre; X, Y and Z map along an axis; Random assigns bands randomly. Spread blends that layout with random bands. Delay staggers the response along the array.'));
-  renderProps(fold(root,'Response'),n,['intensity','attack','release','bass','burst','dynamics','spectrumTilt','soundForce'],true);
+  renderProps(fold(root,'Response'),n,['intensity','smooth','attack','release','bass','burst','dynamics','spectrumTilt','soundForce'],true);
   const transforms=fold(root,'Transforms');
   for(const [title,keys] of [['Move',['moveX','moveY','moveZ']],['Rotate',['rotateX','rotateY','rotateZ']],['Scale',['scaleX','scaleY','scaleZ','uniformScale','grow']]])
     renderProps(section(transforms,title),n,keys,true);

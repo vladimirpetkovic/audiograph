@@ -3533,6 +3533,7 @@ AG_SIM_UI.simcloner=[
   ['pG3Anchor','Grow from base',0,100,0,5,'%','Scaling stays fixed at the bottom of each clone, so bars grow upwards from the floor like an equalizer or a skyline.'],
   ['pG3Indep','Spread',0,100,35,5,'%','0: neighbouring clones react alike (see Listen by). 100: every clone listens to its own random part of the spectrum.'],
   ['pG3Delay','Delay',0,100,0,5,'%','Like the Cinema 4D Delay effector: later clones react a moment after earlier ones, so the sound travels through the array as a wave.'],
+  ['pG3Smooth','Smooth',0,100,35,5,'%','Calms the sound response: clones glide between levels and neighbours move together instead of flickering. 0 is the raw, twitchy response.'],
   ['pG3FieldAmt','Field strength',0,200,0,5,'%','How strongly the animated field lifts and scales the clones. It swells with the sound. Pick a field type above.'],
   ['pG3FieldSize','Field size',20,400,100,5,'%','Scale of the field pattern: wavelength of waves and ripples, grain of the noise.'],
   ['pG3FieldSpd','Field speed',0,300,50,5,'%','How fast the field pattern moves.'],
@@ -3582,7 +3583,7 @@ var AG_G3_GROUPS=[
   ['Objects',['o:g3Shape','pG3Mix','pG3Size','pG3Detail','pG3ObjX','pG3ObjY','pG3ObjZ']],
   ['Cloner layout',['o:g3Mode','pG3Nx','pG3Ny','pG3Nz','pG3SpX','pG3SpY','pG3SpZ','pG3StRotY','pG3StScale','pG3Spin']],
   ['Rotate cloner (3D)',['pG3GrX','pG3GrY','pG3GrZ']],
-  ['Effector \u00b7 Sound',['o:g3Map','pG3EfX','pG3EfY','pG3EfZ','pG3ScX','pG3ScY','pG3ScZ','pG3EfRot','pG3Anchor','pG3Indep','pG3Delay']],
+  ['Effector \u00b7 Sound',['o:g3Map','pG3EfX','pG3EfY','pG3EfZ','pG3ScX','pG3ScY','pG3ScZ','pG3EfRot','pG3Anchor','pG3Indep','pG3Delay','pG3Smooth']],
   ['Effector \u00b7 Field',['o:g3Field','pG3FieldAmt','pG3FieldSize','pG3FieldSpd']],
   ['Effector \u00b7 Random',['pG3Seed','pG3RndScale','pG3RndH','pG3RndCol','pG3RndRot','pG3RndPosX','pG3RndPosY','pG3RndPosZ']],
   ['Links',['pG3Links','pG3LinkDist','pG3LinkW','pG3LinkA','pG3LinkPulse']],
@@ -4698,7 +4699,14 @@ var agSim=(function(){
     set(28,sx,sy,sz,rad);
     set(32,mv[0],mv[1],mv[2],0);
     var efr=K('pG3EfRot',0)*dg*enr;set(36,efr*0.5,efr,0,st.g3spin);
-    set(44,0,st.level,st.kick,st.bands[1]*K('pSimBass',100)/100*0.22*enr);
+    // Smooth: a second, gentler follower (two cascaded stages) plus a little blur across neighbouring bins, for the effector only.
+    var smA=K('pG3Smooth',35)/100,sv=st.g3sv||(st.g3sv=new Float32Array(134)),sdt=Math.max(0,Math.min(0.1,st.time-(st.g3stt==null?st.time:st.g3stt)));st.g3stt=st.time;
+    var stau=smA*smA*0.5,sk=stau>0.001?1-Math.exp(-sdt/(stau*0.5)):1,sb=smA*0.5,sraw=st.g3sraw||(st.g3sraw=new Float32Array(67));
+    for(i=0;i<64;i++){var sl=st.spec[Math.max(0,i-1)],sr=st.spec[Math.min(63,i+1)];sraw[i]=st.spec[i]*(1-sb)+(sl+sr)*0.5*sb}
+    sraw[64]=st.level;sraw[65]=st.kick;sraw[66]=st.bands[1];
+    if(!st.g3sinit){for(i=0;i<67;i++){sv[i]=sv[67+i]=sraw[i]}st.g3sinit=1}
+    for(i=0;i<67;i++){sv[67+i]+=(sraw[i]-sv[67+i])*sk;sv[i]+=(sv[67+i]-sv[i])*sk}
+    set(44,0,sv[64],sv[65],sv[66]*K('pSimBass',100)/100*0.22*enr);
     var alpha=K('pG3Alpha',100)/100,style={solid:0,wire:1,edges:2}[simOpt.g3Style]||0;
     set(48,K('pG3Rough',35)/100,K('pG3Metal',20)/100,alpha,K('pG3Emit',0)/100*1.4);
     set(52,K('pG3Line',15)/10*oh/1080,style,{clone:0,face:1,height:2,sound:3}[simOpt.g3CBy]||0,simOpt.g3Shade==='flat'?0:1);
@@ -4720,9 +4728,9 @@ var agSim=(function(){
     set(204,K('pG3Amb',35)/100,K('pG3Fill',25)/100,0,0);
     if(!st.g3hist){st.g3hist=new Float32Array(1024);st.g3ht=-9}
     if(st.time-st.g3ht>1/24||st.time<st.g3ht){st.g3hist.copyWithin(64,0,960);st.g3ht=st.time}
-    for(i=0;i<64;i++)st.g3hist[i]=st.spec[i];
+    for(i=0;i<64;i++)st.g3hist[i]=sv[i];
     U.set(st.g3hist,208);
-    for(i=0;i<64;i++)U[96+i]=st.spec[i];
+    for(i=0;i<64;i++)U[96+i]=sv[i];
     var nlk=Math.min(8,Math.round(K('pG3Links',0)));set(40,asp,0,0,0);set(188,nlk,K('pG3LinkDist',150)/100*sx,K('pG3LinkW',1.2)*2/oh*(oh/1080+0.5)/1.5,K('pG3LinkA',80)/100*1.6);
     var aoS=K('pG3Ao',40)/100,aoR=rad*K('pG3AoRad',60)/60,mbA=K('pG3Mb',0)/100*1.2;
     var vpNow=U.slice(0,16),fresh=st.g3ln!==n||st.g3lsh!==shape+'|'+D;

@@ -335,7 +335,7 @@ export const TYPES = {
     sensitivity:G('Response',C3('Sensitivity',100,0,200,'pSimSens',5)),attack:G('Response',C3('Attack',40,5,400,'pSimAttack',5)),
     release:G('Response',C3('Release',350,50,2000,'pSimRelease',10)),bass:G('Response',C3('Bass reaction',100,0,300,'pSimBass',5)),
     energy:G('Response',C3('Energy',100,0,200,'pSimEnergy',5)),burst:G('Response',C3('Beat burst',100,0,200,'pSimBurst',5)),
-    spectrumTilt:G('Response',C3('Spectrum tilt',0,-100,100,'pSimTilt',5)),
+    spectrumTilt:G('Response',C3('Spectrum tilt',0,-100,100,'pSimTilt',5)),smooth:G('Response',C3('Smooth',35,0,100,'pG3Smooth',5)),
     soundForce:G('Response',C3('Sound impulse',5,0,30,'_rigidSoundForce',.5)),
     intensity:G('Response',C3('Intensity',100,0,200,'_soundIntensity',5)),punch:G('Response',C3('Bass punch',60,0,100,'_soundPunch')),
     responseRelease:G('Response',C3('Bass release',220,60,800,'_soundRelease',10)),dynamics:G('Response',C3('Dynamics',50,0,100,'_soundDynamics')),
