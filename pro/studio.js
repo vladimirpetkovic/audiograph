@@ -1890,7 +1890,7 @@ function loop(now,fromOutput){
 }
 
 // ---------- library ----------
-const SETUP_COLOR='#f4d871';
+const SETUP_COLOR='#71f4a8';
 function renderLibrary(){
   const root=$('library');root.replaceChildren();
   {const {root:pr,body}=ui.panel({id:'layers',title:'Layers',color:SETUP_COLOR,count:LAYER_SETUPS.length}),box=el('div','chips');
@@ -2028,7 +2028,6 @@ function renderGraph(){
     head.addEventListener('pointerdown',e=>{if(!pending)startMove(e,n,box);});
     $('nodes').append(box);
   }
-  if(!g.nodes.length){const empty=el('div','graph-empty','Empty layer. Add a waveform, emitter or 3D object from the library, or pick a setup under Layers.');$('nodes').append(empty);}
   applyView();requestAnimationFrame(renderWires);
 }
 const portEl=(id,port,dir)=>$('nodes').querySelector(`.port[data-node="${id}"][data-port="${port}"][data-direction="${dir}"]`);

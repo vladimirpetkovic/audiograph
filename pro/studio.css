@@ -157,7 +157,6 @@ body.tour-loading,body.tour-loading *{cursor:progress!important}
 .node.replace-target{outline:2px dashed #fff;outline-offset:4px;box-shadow:0 0 0 1px #fff,0 0 22px #fff6}
 .wire.wedge{stroke:#fff;stroke-opacity:1;stroke-width:5;stroke-dasharray:10 6;filter:drop-shadow(0 0 6px #fff8)}
 .wire-ghost{fill:none;stroke:#fff;stroke-opacity:.6;stroke-width:2;stroke-dasharray:6 5;pointer-events:none}
-.graph-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;pointer-events:none;color:var(--tx3);font-size:.65rem;line-height:1.7;z-index:0}
 
 /* nodes */
 .node{--cat:var(--accent2);position:absolute;width:168px;background:#141418;border:1px solid #2c2c33;border-radius:7px;box-shadow:inset 0 2px 0 var(--cat),0 6px 18px #0006;z-index:2;user-select:none}

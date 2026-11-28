@@ -27,7 +27,6 @@ const describe=()=>pro.getProject().layers.map(g=>{
 
     await page.locator('#addLayer').click();
     assert.deepEqual((await info())[1].types,[],'A new layer starts empty');
-    assert.ok(await page.locator('.graph-empty').isVisible(),'The empty layer explains how to start');
     for(const [type,props,expect] of [['waveform2d',{mode:'circle'},['audioIn','merge','output','waveform2d']],['gpuParticles',{mode:'simparticles'},['audioIn','gpuParticles','merge','output']],
       ['cloner',{},['audioIn','cloner','merge','output','soundEffector','waveform3d']]]){
       await page.evaluate(()=>{pro.addLayer();});
