@@ -9063,8 +9063,9 @@ var _rmsCache=[],_rmsBuf=null,_rtPeak=0.06;
 function getDynamics(){var e=document.getElementById('pDynamics');return e?+e.value:0}
 function setDynamics(v,quiet){v=Math.max(0,Math.min(100,+v||0));var e=document.getElementById('pDynamics');if(e)e.value=v;var l=document.getElementById('vDynamics');if(l)l.textContent=v+'%';try{localStorage.setItem('audiograph_dyn',String(v))}catch(ex){}_rmsCache=[];if(!quiet&&typeof renderDensity==='function'&&audioBuffer)renderDensity()}
 // Mastered tracks have flat loudness, so window-normalised RMS sits around 0.6-0.9 and the bars look clipped.
-// Expand around a fraction of the median so quiet passages drop and peaks still reach 1.
-function _dynExpand(v,d){if(!d||v.length<3)return v;var srt=v.slice().sort(function(a,b){return a-b}),lo=(d/100)*0.8*srt[srt.length>>1];if(lo<=0||lo>=1)return v;return v.map(function(x){return x<=lo?0:(x-lo)/(1-lo)})}
+// Expand around a fraction of the median so quiet passages drop and peaks still reach 1; a compressed master (whose quietest
+// tenth still sits high) is also expanded from that quiet end, so its lines spread out instead of standing as a flat block.
+function _dynExpand(v,d){if(!d||v.length<3)return v;var srt=v.slice().sort(function(a,b){return a-b}),med=srt[srt.length>>1],lo=Math.min(Math.max((d/100)*0.8*med,(d/50)*0.95*srt[Math.floor(srt.length*0.1)]),0.95*med);if(lo<=0||lo>=1)return v;return v.map(function(x){return x<=lo?0:(x-lo)/(1-lo)})}
 function getRangeRMS(sT,eT){if(!audioBuffer)return[];if(_rmsBuf!==audioBuffer){_rmsBuf=audioBuffer;_rmsCache=[]}var nb=+document.getElementById('pLines').value,dy=getDynamics();
   for(var i=0;i<_rmsCache.length;i++){var c=_rmsCache[i];if(c.s===sT&&c.e===eT&&c.n===nb&&c.d===dy)return c.v.slice()}
   var v=_dynExpand(_getRangeRMSRaw(sT,eT),dy);_rmsCache.unshift({s:sT,e:eT,n:nb,d:dy,v:v.slice()});if(_rmsCache.length>12)_rmsCache.length=12;return v}

@@ -155,7 +155,7 @@ function installDof(w){
 }
 let sourcePromise;
 async function engineSource() {
-  if(!sourcePromise)sourcePromise=fetch(new URL('../index.html?v=draw-performance',location.href)).then(async r=>{
+  if(!sourcePromise)sourcePromise=fetch(new URL('../index.html?v=dyn-expand',location.href)).then(async r=>{
     if(!r.ok)throw Error(`Cannot load Audiograph engine: HTTP ${r.status}`);
     let html=await r.text();
     if(!html.includes('function getDefaultLayerParams'))throw Error('The parent page is not an Audiograph engine');
